@@ -14,6 +14,7 @@ const AppUserListQuerySchema = z.object({
   sortDir: z.enum(["asc", "desc"]).default("desc"),
   status: z.enum(["active", "disabled"]).optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
+  audience: z.enum(["buyer", "seller"]).optional(),
   search: z.string().min(1).max(120).optional(),
 });
 
@@ -120,6 +121,14 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
   if (input.userType) {
     params.push(input.userType);
     where.push(`u.user_type = $${params.length}`);
+  } else if (input.audience === "buyer") {
+    params.push("buyer");
+    params.push("both");
+    where.push(`u.user_type IN ($${params.length - 1}, $${params.length})`);
+  } else if (input.audience === "seller") {
+    params.push("seller");
+    params.push("both");
+    where.push(`u.user_type IN ($${params.length - 1}, $${params.length})`);
   }
 
   if (input.search) {

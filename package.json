@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "dist/src/server.js",
   "scripts": {
-    "dev": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "dev:all": "concurrently -k -n api,admin -c cyan,magenta \"npm run dev\" \"npm run admin:dev\"",
+    "dev:all:mobile": "concurrently --raw -k \"npm run dev\" \"npm run assistant:dev\"",
+    "dev:all:web-assistant": "concurrently --raw -k \"npm run dev\" \"npm run assistant:web\"",
+    "all": "concurrently --raw -k \"npm run dev\" \"npm run assistant:web\" \"npm run admin:dev\"",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "db:test": "tsx scripts/test-db.ts",
@@ -26,7 +30,11 @@
     "test:smoke-docs": "tsx scripts/smoke-docs.ts",
     "test:smoke-admin-users": "tsx scripts/smoke-admin-user-management.ts",
     "admin:dev": "npm --prefix admin-panel run dev",
-    "admin:build": "npm --prefix admin-panel run build"
+    "admin:build": "npm --prefix admin-panel run build",
+    "assistant:dev": "npm --prefix buyer-assistant run start",
+    "assistant:web": "npm --prefix buyer-assistant run web",
+    "assistant:ios": "npm --prefix buyer-assistant run ios",
+    "assistant:android": "npm --prefix buyer-assistant run android"
   },
   "keywords": [],
   "author": "",
@@ -46,6 +54,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.3.0",
     "@types/pg": "^8.16.0",
+    "concurrently": "^9.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",

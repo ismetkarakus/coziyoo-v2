@@ -24,6 +24,9 @@ const EnvSchema = z.object({
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   DOCS_ENABLED: boolFromEnv.optional(),
+  OLLAMA_BASE_URL: z.string().url().default("http://localhost:11434"),
+  OLLAMA_MODEL: z.string().min(1).default("gpt-oss:20b"),
+  OLLAMA_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

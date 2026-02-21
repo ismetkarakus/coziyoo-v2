@@ -40,6 +40,14 @@ const PreferencesSchema = z.object({
   columnOrder: z.array(z.string().min(1)).optional(),
 });
 
+const RecordsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.string().min(1).optional(),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+  search: z.string().min(1).max(120).optional(),
+});
+
 export const adminMetadataRouter = Router();
 
 adminMetadataRouter.get("/metadata/entities", requireAuth("admin"), async (_req, res) => {
@@ -102,6 +110,82 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/fields", requireAuth("admin"
         isPrimaryKey: primarySet.has(f.column_name),
       })),
       rawRecordFallback: rows.rows[0]?.raw_record ?? null,
+    },
+  });
+});
+
+adminMetadataRouter.get("/metadata/tables/:tableKey/records", requireAuth("admin"), async (req, res) => {
+  const keyParsed = TableKeySchema.safeParse(req.params.tableKey);
+  if (!keyParsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid tableKey" } });
+  }
+
+  const queryParsed = RecordsQuerySchema.safeParse(req.query);
+  if (!queryParsed.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: queryParsed.error.flatten() } });
+  }
+
+  const tableKey = keyParsed.data;
+  const tableName = TABLE_MAP[tableKey];
+  const { page, pageSize, sortDir, search } = queryParsed.data;
+  const offset = (page - 1) * pageSize;
+
+  const fieldsResult = await pool.query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1
+     ORDER BY ordinal_position ASC`,
+    [tableName]
+  );
+  const columns = fieldsResult.rows.map((row) => row.column_name);
+  if (columns.length === 0) {
+    return res.status(404).json({ error: { code: "TABLE_NOT_FOUND", message: "No fields found for table" } });
+  }
+
+  const defaultSort = columns.includes("created_at") ? "created_at" : columns[0];
+  const sortByInput = queryParsed.data.sortBy ?? defaultSort;
+  if (!columns.includes(sortByInput)) {
+    return res.status(400).json({
+      error: { code: "SORT_FIELD_INVALID", message: `sortBy must be one of: ${columns.join(", ")}` },
+    });
+  }
+
+  const sortBy = quoteIdent(sortByInput);
+  const whereSql = search ? "WHERE row_to_json(t)::text ILIKE $1" : "";
+  const countParams = search ? [`%${search}%`] : [];
+  const countResult = await pool.query<{ count: string }>(
+    `SELECT count(*)::text AS count
+     FROM (SELECT * FROM public.${tableName}) t
+     ${whereSql}`,
+    countParams
+  );
+
+  const listParams = search ? [`%${search}%`, pageSize, offset] : [pageSize, offset];
+  const limitIndex = search ? 2 : 1;
+  const offsetIndex = search ? 3 : 2;
+  const listResult = await pool.query(
+    `SELECT *
+     FROM (SELECT * FROM public.${tableName}) t
+     ${whereSql}
+     ORDER BY ${sortBy} ${sortDir === "asc" ? "ASC" : "DESC"}
+     LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+    listParams
+  );
+
+  const total = Number(countResult.rows[0].count);
+  return res.json({
+    data: {
+      tableKey,
+      tableName,
+      rows: listResult.rows,
+      columns,
+    },
+    pagination: {
+      mode: "offset",
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
     },
   });
 });
@@ -182,3 +266,6 @@ adminMetadataRouter.put("/table-preferences/:tableKey", requireAuth("admin"), as
   });
 });
 
+function quoteIdent(input: string): string {
+  return `"${input.replace(/"/g, "\"\"")}"`;
+}

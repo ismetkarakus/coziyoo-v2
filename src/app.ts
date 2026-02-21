@@ -20,6 +20,8 @@ import { adminMetadataRouter } from "./routes/admin-metadata.js";
 import { docsRouter } from "./routes/docs.js";
 import { adminDashboardRouter } from "./routes/admin-dashboard.js";
 import { adminUserManagementRouter } from "./routes/admin-users.js";
+import { adminAuditRouter } from "./routes/admin-audit.js";
+import { buyerAssistantRouter } from "./routes/buyer-assistant.js";
 
 export const app = express();
 
@@ -62,4 +64,6 @@ app.use("/v1/admin", adminDeliveryProofRouter);
 app.use("/v1/admin", adminMetadataRouter);
 app.use("/v1/admin", adminDashboardRouter);
 app.use("/v1/admin", adminUserManagementRouter);
+app.use("/v1/admin", adminAuditRouter);
 app.use("/v1/docs", docsRouter);
+app.use("/v1/buyer-assistant", buyerAssistantRouter);
