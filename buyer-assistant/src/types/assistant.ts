@@ -21,6 +21,7 @@ export type BuyerAssistantResponse = {
 
 export type BuyerAssistantRequest = {
   message: string;
+  model?: string;
   context?: {
     lat?: number;
     lng?: number;
@@ -29,4 +30,22 @@ export type BuyerAssistantRequest = {
   client?: {
     channel: "voice" | "text";
   };
+};
+
+export type FoodsTestItem = {
+  id: string;
+  name: string;
+  category: string | null;
+  price: number;
+  rating: number;
+  reviewCount: number;
+  favoriteCount: number;
+  stock: number;
+  countryCode: string | null;
+  summary: string | null;
+};
+
+export type AssistantModelsResponse = {
+  models: string[];
+  defaultModel: string;
 };

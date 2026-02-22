@@ -33,8 +33,12 @@
     "admin:build": "npm --prefix admin-panel run build",
     "assistant:dev": "npm --prefix buyer-assistant run start",
     "assistant:web": "npm --prefix buyer-assistant run web",
+    "assistant:web:clear": "npm --prefix buyer-assistant exec expo start --web --clear",
     "assistant:ios": "npm --prefix buyer-assistant run ios",
     "assistant:android": "npm --prefix buyer-assistant run android"
+    ,
+    "assistant:ios:devbuild": "cd buyer-assistant && npx expo run:ios",
+    "assistant:android:devbuild": "cd buyer-assistant && npx expo run:android"
   },
   "keywords": [],
   "author": "",

@@ -14,6 +14,7 @@ const boolFromEnv = z
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
   APP_JWT_SECRET: z.string().min(32),
@@ -25,7 +26,7 @@ const EnvSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   DOCS_ENABLED: boolFromEnv.optional(),
   OLLAMA_BASE_URL: z.string().url().default("http://localhost:11434"),
-  OLLAMA_MODEL: z.string().min(1).default("gpt-oss:20b"),
+  OLLAMA_MODEL: z.string().min(1).default("ministral-3:8b"),
   OLLAMA_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
 });
 

@@ -25,6 +25,26 @@ import { buyerAssistantRouter } from "./routes/buyer-assistant.js";
 
 export const app = express();
 
+const allowedCorsOrigins = new Set(["http://localhost:8081", "http://localhost:5173", "http://localhost:19006"]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && allowedCorsOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    res.setHeader("Access-Control-Max-Age", "600");
+  }
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
+  return next();
+});
+
 app.use(requestContext);
 
 app.use(
