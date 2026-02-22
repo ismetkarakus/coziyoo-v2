@@ -7,7 +7,7 @@
     "dev:all": "concurrently -k -n api,admin -c cyan,magenta \"npm run dev\" \"npm run admin:dev\"",
     "dev:all:mobile": "concurrently --raw -k \"npm run dev\" \"npm run assistant:dev\"",
     "dev:all:web-assistant": "concurrently --raw -k \"npm run dev\" \"npm run assistant:web\"",
-    "all": "concurrently --raw -k \"npm run dev\" \"npm run assistant:web\" \"npm run admin:dev\"",
+    "all": "concurrently --raw -k \"npm run dev\" \"npm run admin:dev\"",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "db:test": "tsx scripts/test-db.ts",
