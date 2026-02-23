@@ -585,6 +585,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [drawerMode, setDrawerMode] = useState<"create" | "edit" | null>(null);
   const [editingRow, setEditingRow] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [filters, setFilters] = useState({
     page: 1,
@@ -686,7 +687,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     if (response.status !== 200) {
       setError(dict.users.preferencesFailed);
+      return;
     }
+    setIsColumnsModalOpen(false);
   }
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
@@ -849,6 +852,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
           />
           <button className="ghost" type="button" onClick={() => loadRows()}>{dict.actions.search}</button>
+          <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
+            {dict.users.visibleColumns}
+          </button>
           <button className="primary" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
             {dict.actions.create}
           </button>
@@ -929,31 +935,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </select>
           </label>
         </div>
-      </section>
-
-      <section className="panel columns-panel">
-        <div className="panel-header">
-          <h2>{dict.users.visibleColumns}</h2>
-          <span className="panel-meta">{tableKey}</span>
-        </div>
-        <div className="checkbox-grid">
-          {fields.map((field) => (
-            <label key={field}>
-              <input
-                type="checkbox"
-                checked={tableColumns.includes(field)}
-                onChange={(event) => {
-                  setVisibleColumns((prev) => {
-                    if (event.target.checked) return [...new Set([...prev, field])];
-                    return prev.filter((item) => item !== field);
-                  });
-                }}
-              />
-              {field}
-            </label>
-          ))}
-        </div>
-        <button className="primary" type="button" onClick={savePreferences}>{dict.users.savePreferences}</button>
       </section>
 
       {error ? <div className="alert">{error}</div> : null}
@@ -1148,6 +1129,38 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
           {formError ? <div className="alert">{formError}</div> : null}
         </aside>
+      </div>
+
+      <div className={`drawer-overlay ${isColumnsModalOpen ? "is-open" : ""}`} onClick={() => setIsColumnsModalOpen(false)}>
+        <section className={`settings-modal ${isColumnsModalOpen ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
+          <div className="form-drawer-header">
+            <h2>{dict.users.visibleColumns}</h2>
+            <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(false)}>
+              Close
+            </button>
+          </div>
+          <p className="panel-meta">{tableKey}</p>
+          <div className="checkbox-grid">
+            {fields.map((field) => (
+              <label key={field}>
+                <input
+                  type="checkbox"
+                  checked={tableColumns.includes(field)}
+                  onChange={(event) => {
+                    setVisibleColumns((prev) => {
+                      if (event.target.checked) return [...new Set([...prev, field])];
+                      return prev.filter((item) => item !== field);
+                    });
+                  }}
+                />
+                {field}
+              </label>
+            ))}
+          </div>
+          <button className="primary" type="button" onClick={savePreferences}>
+            {dict.users.savePreferences}
+          </button>
+        </section>
       </div>
     </div>
   );
