@@ -409,6 +409,9 @@ function Shell({
             <Link className={`nav-link ${location.pathname.startsWith("/app/audit") ? "is-active" : ""}`} to="/app/audit">
               {dict.menu.audit}
             </Link>
+            <Link className={`nav-link ${location.pathname.startsWith("/app/livekit") ? "is-active" : ""}`} to="/app/livekit">
+              {dict.menu.livekit}
+            </Link>
             <Link className={`nav-link ${location.pathname.startsWith("/app/entities") ? "is-active" : ""}`} to="/app/entities">
               {dict.menu.dataExplorer}
             </Link>
@@ -434,6 +437,7 @@ function Shell({
         {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
+        {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
         {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
@@ -1618,6 +1622,253 @@ function AuditPage({ language }: { language: Language }) {
             </button>
           </div>
         </div>
+      </section>
+    </div>
+  );
+}
+
+type LiveKitTokenResponse = {
+  data?: {
+    roomName: string;
+    participantIdentity: string;
+    wsUrl: string;
+    token: string;
+    preview: {
+      iat: string | null;
+      exp: string | null;
+      claims: Record<string, unknown>;
+    } | null;
+  };
+} & ApiError;
+
+function LiveKitPage({ language }: { language: Language }) {
+  const dict = DICTIONARIES[language];
+  const [status, setStatus] = useState<{
+    configured: boolean;
+    wsUrl: string | null;
+    aiServerUrl: string | null;
+    aiServerJoinPath: string;
+    hasApiKey: boolean;
+    hasApiSecret: boolean;
+    hasAiSharedSecret: boolean;
+    defaultTtlSeconds: number;
+    agentIdentityDefault: string;
+  } | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<LiveKitTokenResponse["data"] | null>(null);
+  const [history, setHistory] = useState<Array<{ kind: "user" | "agent" | "dispatch-agent"; at: string; room: string; identity: string }>>([]);
+
+  const [roomName, setRoomName] = useState("coziyoo-room");
+  const [participantIdentity, setParticipantIdentity] = useState("");
+  const [participantName, setParticipantName] = useState("");
+  const [metadata, setMetadata] = useState("");
+  const [ttlSeconds, setTtlSeconds] = useState("3600");
+  const [canPublish, setCanPublish] = useState(true);
+  const [canSubscribe, setCanSubscribe] = useState(true);
+  const [canPublishData, setCanPublishData] = useState(true);
+
+  async function loadStatus() {
+    setStatusError(null);
+    const response = await request("/v1/admin/livekit/status");
+    const body = await parseJson<{ data?: LiveKitPageStatus } & ApiError>(response);
+    if (response.status !== 200 || !body.data) {
+      setStatusError(body.error?.message ?? dict.livekit.statusLoadFailed);
+      return;
+    }
+    setStatus(body.data);
+  }
+
+  type LiveKitPageStatus = {
+    configured: boolean;
+    wsUrl: string | null;
+    aiServerUrl: string | null;
+    aiServerJoinPath: string;
+    hasApiKey: boolean;
+    hasApiSecret: boolean;
+    hasAiSharedSecret: boolean;
+    defaultTtlSeconds: number;
+    agentIdentityDefault: string;
+  };
+
+  useEffect(() => {
+    loadStatus().catch(() => setStatusError(dict.livekit.statusRequestFailed));
+  }, [dict.livekit.statusRequestFailed]);
+
+  async function createToken(kind: "user" | "agent" | "dispatch-agent") {
+    if (!roomName.trim()) {
+      setFormError(dict.livekit.roomRequired);
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+
+    const endpoint =
+      kind === "user"
+        ? "/v1/admin/livekit/token/user"
+        : kind === "agent"
+          ? "/v1/admin/livekit/token/agent"
+          : "/v1/admin/livekit/dispatch/agent";
+    const payload: Record<string, unknown> = {
+      roomName: roomName.trim(),
+      ...(participantIdentity.trim() ? { participantIdentity: participantIdentity.trim() } : {}),
+      ...(participantName.trim() ? { participantName: participantName.trim() } : {}),
+      ...(metadata.trim() ? { metadata: metadata.trim() } : {}),
+      ...(ttlSeconds.trim() ? { ttlSeconds: Number(ttlSeconds) } : {}),
+    };
+
+    if (kind === "user") {
+      payload.canPublish = canPublish;
+      payload.canSubscribe = canSubscribe;
+      payload.canPublishData = canPublishData;
+    }
+
+    try {
+      const response = await request(endpoint, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const body = await parseJson<LiveKitTokenResponse>(response);
+      if (response.status !== 201 || !body.data) {
+        setFormError(body.error?.message ?? dict.livekit.tokenCreateFailed);
+        return;
+      }
+
+      setResult(body.data);
+      setHistory((prev) => [
+        { kind, at: new Date().toISOString(), room: body.data!.roomName, identity: body.data!.participantIdentity },
+        ...prev.slice(0, 9),
+      ]);
+    } catch {
+      setFormError(dict.livekit.tokenRequestFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyToken() {
+    if (!result?.token) return;
+    await navigator.clipboard.writeText(result.token);
+  }
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.livekit.eyebrow}</p>
+          <h1>{dict.livekit.title}</h1>
+          <p className="subtext">{dict.livekit.subtitle}</p>
+        </div>
+        <div className="topbar-actions">
+          <button className="ghost" type="button" onClick={() => loadStatus()}>{dict.actions.refresh}</button>
+        </div>
+      </header>
+
+      {statusError ? <div className="alert">{statusError}</div> : null}
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.statusTitle}</h2>
+        </div>
+        <div className="table">
+          <div className="table-row table-row-kpi"><span>{dict.livekit.configured}</span><span>{status?.configured ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.wsUrl}</span><span>{status?.wsUrl ?? "-"}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.aiServerUrl}</span><span>{status?.aiServerUrl ?? "-"}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.aiServerJoinPath}</span><span>{status?.aiServerJoinPath ?? "-"}</span></div>
+          <div className="table-row table-row-kpi"><span>LIVEKIT_API_KEY</span><span>{status?.hasApiKey ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>LIVEKIT_API_SECRET</span><span>{status?.hasApiSecret ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>AI_SERVER_SHARED_SECRET</span><span>{status?.hasAiSharedSecret ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.defaultTtl}</span><span>{String(status?.defaultTtlSeconds ?? "-")}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.defaultAgentIdentity}</span><span>{status?.agentIdentityDefault ?? "-"}</span></div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.tokenBuilder}</h2>
+        </div>
+        <div className="form-grid">
+          <label>
+            {dict.livekit.roomName}
+            <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
+          </label>
+          <label>
+            {dict.livekit.participantIdentity}
+            <input value={participantIdentity} onChange={(event) => setParticipantIdentity(event.target.value)} />
+          </label>
+          <label>
+            {dict.livekit.participantName}
+            <input value={participantName} onChange={(event) => setParticipantName(event.target.value)} />
+          </label>
+          <label>
+            {dict.livekit.ttlSeconds}
+            <input value={ttlSeconds} onChange={(event) => setTtlSeconds(event.target.value)} />
+          </label>
+        </div>
+        <label>
+          {dict.livekit.metadata}
+          <textarea rows={3} value={metadata} onChange={(event) => setMetadata(event.target.value)} />
+        </label>
+        <div className="checkbox-grid">
+          <label>
+            <input type="checkbox" checked={canPublish} onChange={(event) => setCanPublish(event.target.checked)} />
+            canPublish
+          </label>
+          <label>
+            <input type="checkbox" checked={canSubscribe} onChange={(event) => setCanSubscribe(event.target.checked)} />
+            canSubscribe
+          </label>
+          <label>
+            <input type="checkbox" checked={canPublishData} onChange={(event) => setCanPublishData(event.target.checked)} />
+            canPublishData
+          </label>
+        </div>
+        {formError ? <div className="alert">{formError}</div> : null}
+        <div className="topbar-actions">
+          <button className="primary" type="button" disabled={saving} onClick={() => createToken("user")}>
+            {dict.livekit.createUserToken}
+          </button>
+          <button className="ghost" type="button" disabled={saving} onClick={() => createToken("agent")}>
+            {dict.livekit.createAgentToken}
+          </button>
+          <button className="ghost" type="button" disabled={saving} onClick={() => createToken("dispatch-agent")}>
+            {dict.livekit.dispatchAgentToken}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.lastResult}</h2>
+          <button className="ghost" type="button" onClick={() => copyToken()} disabled={!result?.token}>
+            {dict.livekit.copyToken}
+          </button>
+        </div>
+        <pre className="json-box">{result ? JSON.stringify(result, null, 2) : dict.livekit.noResult}</pre>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.history}</h2>
+        </div>
+        {history.length === 0 ? (
+          <p className="panel-meta">{dict.livekit.noHistory}</p>
+        ) : (
+          <div className="table">
+            <div className="table-row table-head table-row-kpi">
+              <span>{dict.livekit.tokenType}</span>
+              <span>{dict.livekit.historyDetail}</span>
+            </div>
+            {history.map((item, index) => (
+              <div className="table-row table-row-kpi" key={`${item.at}-${index}`}>
+                <span>{item.kind}</span>
+                <span>{`${item.at} | room=${item.room} | identity=${item.identity}`}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -22,6 +22,8 @@ import { adminDashboardRouter } from "./routes/admin-dashboard.js";
 import { adminUserManagementRouter } from "./routes/admin-users.js";
 import { adminAuditRouter } from "./routes/admin-audit.js";
 import { env } from "./config/env.js";
+import { liveKitRouter } from "./routes/livekit.js";
+import { adminLiveKitRouter } from "./routes/admin-livekit.js";
 
 export const app = express();
 
@@ -238,4 +240,6 @@ app.use("/v1/admin", adminMetadataRouter);
 app.use("/v1/admin", adminDashboardRouter);
 app.use("/v1/admin", adminUserManagementRouter);
 app.use("/v1/admin", adminAuditRouter);
+app.use("/v1/admin/livekit", adminLiveKitRouter);
 app.use("/v1/docs", docsRouter);
+app.use("/v1/livekit", liveKitRouter);

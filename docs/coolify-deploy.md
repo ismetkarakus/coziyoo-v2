@@ -20,6 +20,21 @@
 - `PAYMENT_WEBHOOK_SECRET=...` (min 16 chars)
 - `CORS_ALLOWED_ORIGINS=https://admin.example.com`
 
+LiveKit integration (external server on Coolify):
+
+- `LIVEKIT_URL=wss://livekit.example.com` (your deployed LiveKit websocket URL)
+- `LIVEKIT_API_KEY=...`
+- `LIVEKIT_API_SECRET=...`
+- `AI_SERVER_SHARED_SECRET=...` (min 16 chars, used by AI server to request agent token)
+- `AI_SERVER_URL=https://ai.example.com` (optional, required if admin panel will dispatch token directly to AI server)
+
+Optional:
+
+- `LIVEKIT_TOKEN_TTL_SECONDS=3600`
+- `LIVEKIT_AGENT_IDENTITY=coziyoo-ai-agent`
+- `AI_SERVER_LIVEKIT_JOIN_PATH=/livekit/agent-session`
+- `AI_SERVER_TIMEOUT_MS=10000`
+
 Database can be configured in either format:
 
 1. Single URL:
@@ -49,6 +64,24 @@ Optional DB SSL behavior:
 
 ### Required environment variables
 - `VITE_API_BASE_URL=https://api.example.com`
+
+## 5) LiveKit token endpoints
+
+These endpoints do not run LiveKit; they mint tokens for your existing LiveKit server:
+
+- `POST /v1/livekit/token`
+  - Auth: App bearer token (`Authorization: Bearer ...`)
+  - Use from mobile/web app to join room as user
+- `POST /v1/livekit/agent-token`
+  - Auth: `x-ai-server-secret: <AI_SERVER_SHARED_SECRET>`
+  - Use from AI server to join room as agent
+
+Admin-only LiveKit control endpoints:
+
+- `GET /v1/admin/livekit/status`
+- `POST /v1/admin/livekit/token/user`
+- `POST /v1/admin/livekit/token/agent`
+- `POST /v1/admin/livekit/dispatch/agent` (mints token and forwards it to `AI_SERVER_URL + AI_SERVER_LIVEKIT_JOIN_PATH`)
 
 ## 3) Database migrations
 
