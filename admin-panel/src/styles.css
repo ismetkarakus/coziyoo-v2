@@ -596,6 +596,43 @@ textarea:focus {
   gap: 8px;
 }
 
+.livekit-chat-log {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card-bg);
+}
+
+.livekit-chat-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  display: grid;
+  gap: 6px;
+}
+
+.livekit-chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.livekit-chat-form input {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--color-input-border);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  padding: 10px 12px;
+}
+
 .login-wrap {
   min-height: 100vh;
   display: grid;
@@ -867,6 +904,10 @@ textarea:focus {
   }
 
   .livekit-remote-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .livekit-chat-form {
     grid-template-columns: 1fr;
   }
 }

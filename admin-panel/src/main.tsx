@@ -1,5 +1,5 @@
 import "./styles.css";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BrowserRouter,
@@ -10,6 +10,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { z } from "zod";
+import { Room, RoomEvent, Track } from "livekit-client";
 import en from "./i18n/en.json";
 import tr from "./i18n/tr.json";
 
@@ -412,6 +413,9 @@ function Shell({
             <Link className={`nav-link ${location.pathname.startsWith("/app/livekit") ? "is-active" : ""}`} to="/app/livekit">
               {dict.menu.livekit}
             </Link>
+            <Link className={`nav-link ${location.pathname === "/app/livekit-demo" ? "is-active" : ""}`} to="/app/livekit-demo">
+              {dict.menu.livekitDemo}
+            </Link>
             <Link className={`nav-link ${location.pathname.startsWith("/app/entities") ? "is-active" : ""}`} to="/app/entities">
               {dict.menu.dataExplorer}
             </Link>
@@ -438,6 +442,7 @@ function Shell({
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
+        {location.pathname === "/app/livekit-demo" ? <LiveKitDemoPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
         {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
@@ -1869,6 +1874,334 @@ function LiveKitPage({ language }: { language: Language }) {
             ))}
           </div>
         )}
+      </section>
+    </div>
+  );
+}
+
+function normalizeLiveKitWsUrl(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("wss://") || trimmed.startsWith("ws://")) return trimmed;
+  if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length).replace(/\/+$/, "")}`;
+  if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length).replace(/\/+$/, "")}`;
+  return trimmed;
+}
+
+function LiveKitDemoPage({ language }: { language: Language }) {
+  const dict = DICTIONARIES[language];
+  const roomRef = useRef<Room | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteMediaRef = useRef<HTMLDivElement | null>(null);
+  const [roomName, setRoomName] = useState("coziyoo-room");
+  const [participantIdentity, setParticipantIdentity] = useState("");
+  const [participantName, setParticipantName] = useState("");
+  const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<LiveKitTokenResponse["data"] | null>(null);
+  const [remoteCount, setRemoteCount] = useState(0);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatMessages, setChatMessages] = useState<Array<{ at: string; from: string; text: string }>>([]);
+
+  function clearRemoteMedia() {
+    const holder = remoteMediaRef.current;
+    if (!holder) return;
+    holder.innerHTML = "";
+    setRemoteCount(0);
+  }
+
+  function detachLocalVideo() {
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+  }
+
+  async function disconnectRoom() {
+    const room = roomRef.current;
+    if (!room) return;
+
+    room.disconnect();
+    roomRef.current = null;
+    detachLocalVideo();
+    clearRemoteMedia();
+    setConnected(false);
+    setChatMessages([]);
+  }
+
+  useEffect(() => {
+    return () => {
+      disconnectRoom().catch(() => undefined);
+    };
+  }, []);
+
+  async function connectRoom() {
+    if (!roomName.trim()) {
+      setError(dict.livekit.roomRequired);
+      return;
+    }
+
+    setError(null);
+    setConnecting(true);
+
+    try {
+      if (roomRef.current) {
+        await disconnectRoom();
+      }
+
+      const response = await request("/v1/admin/livekit/token/user", {
+        method: "POST",
+        body: JSON.stringify({
+          roomName: roomName.trim(),
+          ...(participantIdentity.trim() ? { participantIdentity: participantIdentity.trim() } : {}),
+          ...(participantName.trim() ? { participantName: participantName.trim() } : {}),
+          canPublish: true,
+          canSubscribe: true,
+          canPublishData: true,
+        }),
+      });
+
+      const body = await parseJson<LiveKitTokenResponse>(response);
+      if (response.status !== 201 || !body.data) {
+        setError(body.error?.message ?? dict.livekit.tokenCreateFailed);
+        return;
+      }
+      setLastResult(body.data);
+
+      const room = new Room();
+      roomRef.current = room;
+
+      room.on(RoomEvent.ParticipantConnected, () => {
+        setRemoteCount(room.remoteParticipants.size);
+      });
+      room.on(RoomEvent.ParticipantDisconnected, () => {
+        setRemoteCount(room.remoteParticipants.size);
+      });
+
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        const holder = remoteMediaRef.current;
+        if (!holder) return;
+        const key = `${participant.sid}:${publication.trackSid}`;
+
+        const card = document.createElement("article");
+        card.className = "livekit-remote-card";
+        card.dataset.trackKey = key;
+
+        const label = document.createElement("p");
+        label.className = "panel-meta";
+        label.textContent = `${participant.identity} (${track.kind})`;
+        card.appendChild(label);
+
+        if (track.kind === Track.Kind.Video) {
+          const video = document.createElement("video");
+          video.autoplay = true;
+          video.playsInline = true;
+          video.className = "livekit-video";
+          track.attach(video);
+          card.appendChild(video);
+        } else if (track.kind === Track.Kind.Audio) {
+          const audio = document.createElement("audio");
+          audio.autoplay = true;
+          track.attach(audio);
+          card.appendChild(audio);
+        }
+
+        holder.appendChild(card);
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+        const holder = remoteMediaRef.current;
+        if (!holder) return;
+        const key = `${participant.sid}:${publication.trackSid}`;
+        const card = holder.querySelector(`[data-track-key="${key}"]`);
+        if (card) card.remove();
+        track.detach();
+      });
+
+      room.on(RoomEvent.Disconnected, () => {
+        setConnected(false);
+      });
+      room.on(RoomEvent.DataReceived, (payload, participant) => {
+        try {
+          const raw = new TextDecoder().decode(payload);
+          const parsed = JSON.parse(raw) as { text?: string; ts?: string };
+          const text = String(parsed.text ?? "").trim();
+          if (!text) return;
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              at: parsed.ts ?? new Date().toISOString(),
+              from: participant?.identity ?? "unknown",
+              text,
+            },
+          ]);
+        } catch {
+          const fallback = new TextDecoder().decode(payload);
+          if (!fallback.trim()) return;
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              at: new Date().toISOString(),
+              from: participant?.identity ?? "unknown",
+              text: fallback,
+            },
+          ]);
+        }
+      });
+
+      const wsUrl = normalizeLiveKitWsUrl(body.data.wsUrl);
+      await room.connect(wsUrl, body.data.token);
+
+      setConnected(true);
+      setRemoteCount(room.remoteParticipants.size);
+
+      await room.localParticipant.setCameraEnabled(cameraEnabled);
+      await room.localParticipant.setMicrophoneEnabled(micEnabled);
+
+      const localVideoPublication = [...room.localParticipant.videoTrackPublications.values()].find((pub) => Boolean(pub.track));
+      if (localVideoPublication?.track && localVideoRef.current) {
+        localVideoPublication.track.attach(localVideoRef.current);
+      }
+
+      chatInputRef.current?.focus();
+    } catch (connectError) {
+      setError(connectError instanceof Error ? connectError.message : dict.livekit.demoConnectFailed);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function sendChatMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const room = roomRef.current;
+    if (!room || !connected) return;
+
+    const text = chatMessage.trim();
+    if (!text) return;
+
+    const payload = {
+      text,
+      ts: new Date().toISOString(),
+    };
+    const encoded = new TextEncoder().encode(JSON.stringify(payload));
+    await room.localParticipant.publishData(encoded, { reliable: true });
+
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        at: payload.ts,
+        from: room.localParticipant.identity,
+        text,
+      },
+    ]);
+    setChatMessage("");
+    chatInputRef.current?.focus();
+  }
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.livekit.demoEyebrow}</p>
+          <h1>{dict.livekit.demoTitle}</h1>
+          <p className="subtext">{dict.livekit.demoSubtitle}</p>
+        </div>
+        <div className="topbar-actions">
+          <span className="panel-meta">{connected ? dict.livekit.connected : dict.livekit.notConnected}</span>
+          <span className="panel-meta">{`${dict.livekit.remoteParticipants}: ${remoteCount}`}</span>
+        </div>
+      </header>
+
+      <section className="panel">
+        <div className="form-grid">
+          <label>
+            {dict.livekit.roomName}
+            <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
+          </label>
+          <label>
+            {dict.livekit.participantIdentity}
+            <input value={participantIdentity} onChange={(event) => setParticipantIdentity(event.target.value)} />
+          </label>
+          <label>
+            {dict.livekit.participantName}
+            <input value={participantName} onChange={(event) => setParticipantName(event.target.value)} />
+          </label>
+        </div>
+
+        <div className="checkbox-grid">
+          <label>
+            <input type="checkbox" checked={cameraEnabled} onChange={(event) => setCameraEnabled(event.target.checked)} />
+            {dict.livekit.camera}
+          </label>
+          <label>
+            <input type="checkbox" checked={micEnabled} onChange={(event) => setMicEnabled(event.target.checked)} />
+            {dict.livekit.microphone}
+          </label>
+        </div>
+
+        {error ? <div className="alert">{error}</div> : null}
+        <div className="topbar-actions">
+          <button className="primary" type="button" onClick={() => connectRoom()} disabled={connecting || connected}>
+            {connecting ? dict.livekit.connecting : dict.livekit.connectDemo}
+          </button>
+          <button className="ghost" type="button" onClick={() => disconnectRoom()} disabled={!connected && !connecting}>
+            {dict.livekit.disconnectDemo}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.localPreview}</h2>
+        </div>
+        <video ref={localVideoRef} className="livekit-video" autoPlay playsInline muted />
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.remoteParticipants}</h2>
+        </div>
+        <div ref={remoteMediaRef} className="livekit-remote-grid" />
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.chatTitle}</h2>
+          <span className="panel-meta">{connected ? dict.livekit.chatConnected : dict.livekit.chatDisconnected}</span>
+        </div>
+        <div className="livekit-chat-log">
+          {chatMessages.length === 0 ? (
+            <p className="panel-meta">{dict.livekit.chatEmpty}</p>
+          ) : (
+            chatMessages.map((message, index) => (
+              <article key={`${message.at}-${index}`} className="livekit-chat-item">
+                <p className="panel-meta">{`${message.from} • ${message.at}`}</p>
+                <p>{message.text}</p>
+              </article>
+            ))
+          )}
+        </div>
+        <form className="livekit-chat-form" onSubmit={sendChatMessage}>
+          <input
+            ref={chatInputRef}
+            value={chatMessage}
+            onChange={(e) => setChatMessage(e.target.value)}
+            placeholder={dict.livekit.chatPlaceholder}
+            disabled={!connected}
+          />
+          <button className="primary" type="submit" disabled={!connected || !chatMessage.trim()}>
+            {dict.livekit.chatSend}
+          </button>
+        </form>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.livekit.lastResult}</h2>
+        </div>
+        <pre className="json-box">{lastResult ? JSON.stringify(lastResult, null, 2) : dict.livekit.noResult}</pre>
       </section>
     </div>
   );
