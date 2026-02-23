@@ -976,8 +976,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     ))}
                     <td className="cell-actions">
                       <button
-                        className="ghost"
+                        className="ghost icon-btn"
                         type="button"
+                        title={dict.actions.detail}
+                        aria-label={dict.actions.detail}
                         onClick={() =>
                           navigate(
                             kind === "app"
@@ -986,27 +988,38 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 ? `/app/buyers/${row.id}`
                                 : kind === "sellers"
                                   ? `/app/sellers/${row.id}`
-                                  : `/app/admins/${row.id}`
+                              : `/app/admins/${row.id}`
                           )
                         }
                       >
-                        {dict.actions.detail}
+                        <span aria-hidden="true">👁</span>
+                        <span className="sr-only">{dict.actions.detail}</span>
                       </button>
                       {isSuperAdmin ? (
                         <>
-                          <button className="ghost" type="button" onClick={() => openEditDrawer(row)}>
-                            Edit
+                          <button
+                            className="ghost icon-btn"
+                            type="button"
+                            title="Edit"
+                            aria-label="Edit"
+                            onClick={() => openEditDrawer(row)}
+                          >
+                            <span aria-hidden="true">✏️</span>
+                            <span className="sr-only">Edit</span>
                           </button>
                           <button
-                            className="ghost"
+                            className="ghost icon-btn"
                             type="button"
+                            title={dict.actions.toggleStatus}
+                            aria-label={dict.actions.toggleStatus}
                             onClick={() =>
                               patchUser(row.id, "status", {
                                 status: row.is_active || row.status === "active" ? "disabled" : "active",
                               })
                             }
                           >
-                            {dict.actions.toggleStatus}
+                            <span aria-hidden="true">⏻</span>
+                            <span className="sr-only">{dict.actions.toggleStatus}</span>
                           </button>
                         </>
                       ) : (
