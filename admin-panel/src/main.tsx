@@ -586,6 +586,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [editingRow, setEditingRow] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [filters, setFilters] = useState({
     page: 1,
@@ -654,7 +656,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       pageSize: String(filters.pageSize),
       sortBy: filters.sortBy,
       sortDir: filters.sortDir,
-      ...(filters.search ? { search: filters.search } : {}),
+      ...(searchTerm ? { search: searchTerm } : {}),
       ...(filters.status !== "all" ? { status: filters.status } : {}),
       ...(audience ? { audience } : {}),
       ...(isAppScoped && filters.roleFilter !== "all" ? { userType: filters.roleFilter } : {}),
@@ -677,7 +679,24 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   useEffect(() => {
     loadRows().catch(() => setError(dict.users.requestFailed));
-  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.status, filters.roleFilter, audience]);
+  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.status, filters.roleFilter, audience, searchTerm]);
+
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (trimmed.length === 0) {
+      setSearchTerm("");
+      setFilters((prev) => ({ ...prev, page: 1 }));
+      return;
+    }
+    if (trimmed.length < 3) return;
+
+    const timer = window.setTimeout(() => {
+      setSearchTerm(trimmed);
+      setFilters((prev) => ({ ...prev, page: 1 }));
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   async function savePreferences() {
     const response = await request(`/v1/admin/table-preferences/${tableKey}`, {
@@ -841,17 +860,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     <div className="app">
       <header className="topbar">
         <div>
-          <p className="eyebrow">{eyebrow}</p>
           <h1>{pageTitle}</h1>
-          <p className="subtext">{dict.users.subtitle}</p>
         </div>
         <div className="topbar-actions">
           <input
             placeholder={dict.users.searchPlaceholder}
-            value={filters.search}
-            onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
           />
-          <button className="ghost" type="button" onClick={() => loadRows()}>{dict.actions.search}</button>
           <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
             {dict.users.visibleColumns}
           </button>
@@ -860,6 +876,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </button>
         </div>
       </header>
+
+      {error ? <div className="alert">{error}</div> : null}
 
       <section className="panel">
         <div className="filter-grid">
@@ -935,11 +953,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </select>
           </label>
         </div>
-      </section>
-
-      {error ? <div className="alert">{error}</div> : null}
-
-      <section className="panel">
         <div className="table-wrap">
           <table>
             <thead>
@@ -994,26 +1007,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             }
                           >
                             {dict.actions.toggleStatus}
-                          </button>
-                          <button
-                            className="ghost"
-                            type="button"
-                            onClick={() =>
-                              patchUser(row.id, "role", {
-                                role:
-                                  isAppScoped
-                                    ? row.role === "buyer"
-                                      ? "seller"
-                                      : row.role === "seller"
-                                        ? "both"
-                                        : "buyer"
-                                    : row.role === "admin"
-                                      ? "super_admin"
-                                      : "admin",
-                              })
-                            }
-                          >
-                            {dict.actions.rotateRole}
                           </button>
                         </>
                       ) : (
