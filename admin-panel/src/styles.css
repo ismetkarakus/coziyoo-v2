@@ -78,6 +78,7 @@ body,
 
 body {
   background: radial-gradient(circle at top, var(--color-bg-gradient-1) 0%, var(--color-bg-gradient-2) 55%, var(--color-bg-gradient-3) 100%);
+  overflow-x: hidden;
 }
 
 h1,
@@ -150,6 +151,10 @@ a {
 .nav {
   display: flex;
   gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nav-link {
@@ -158,6 +163,8 @@ a {
   color: var(--color-link);
   background: var(--color-card-bg);
   font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .nav-link:hover {
@@ -565,6 +572,30 @@ textarea:focus {
   border: 1px solid var(--color-border);
 }
 
+.livekit-video {
+  width: 100%;
+  max-width: 720px;
+  border-radius: 14px;
+  background: #0f172a;
+  min-height: 240px;
+  border: 1px solid var(--color-border);
+}
+
+.livekit-remote-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.livekit-remote-card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
 .login-wrap {
   min-height: 100vh;
   display: grid;
@@ -715,23 +746,36 @@ textarea:focus {
 
   .navbar-left {
     width: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
   }
 
   .navbar-actions {
     width: 100%;
-    justify-content: flex-end;
+    justify-content: flex-start;
     flex-wrap: wrap;
   }
 }
 
 @media (max-width: 960px) {
   .shell {
-    padding: 16px;
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .navbar {
+    padding: 14px;
+    border-radius: 14px;
   }
 
   .topbar {
     flex-direction: column;
+    gap: 14px;
+  }
+
+  .topbar-actions {
+    width: 100%;
   }
 
   .content-grid {
@@ -748,7 +792,81 @@ textarea:focus {
     min-width: 0;
   }
 
+  .panel {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .form-grid,
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
   table {
     min-width: 720px;
+  }
+
+  .livekit-video {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.55rem;
+  }
+
+  .navbar-email {
+    width: 100%;
+    word-break: break-all;
+  }
+
+  .navbar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .navbar-actions .navbar-email {
+    grid-column: 1 / -1;
+  }
+
+  .navbar-actions .health-chip,
+  .navbar-actions .role-chip {
+    justify-content: center;
+  }
+
+  button {
+    padding: 9px 12px;
+  }
+
+  .table-row,
+  .table-row-kpi {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .pager {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form-drawer {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .settings-modal {
+    width: 96vw;
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .livekit-video {
+    min-height: 170px;
+  }
+
+  .livekit-remote-grid {
+    grid-template-columns: 1fr;
   }
 }
