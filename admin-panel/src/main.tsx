@@ -582,6 +582,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [drawerMode, setDrawerMode] = useState<"create" | "edit" | null>(null);
+  const [editingRow, setEditingRow] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [filters, setFilters] = useState({
     page: 1,
@@ -606,6 +609,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
   const eyebrow =
     kind === "app" ? dict.users.eyebrowApp : kind === "buyers" ? dict.users.eyebrowBuyers : kind === "sellers" ? dict.users.eyebrowSellers : dict.users.eyebrowAdmins;
+  const isDrawerOpen = drawerMode !== null;
+  const createTitle =
+    isAppScoped
+      ? kind === "buyers"
+        ? dict.users.createBuyer
+        : kind === "sellers"
+          ? dict.users.createSeller
+          : dict.users.createAppUser
+      : dict.users.createAdmin;
 
   useEffect(() => {
     setFilters((prev) => ({
@@ -680,62 +692,70 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setSaving(true);
     const formData = new FormData(event.currentTarget);
 
-    if (isAppScoped) {
-      const payload = {
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-        displayName: String(formData.get("displayName") ?? ""),
-        userType:
-          kind === "buyers"
-            ? "buyer"
-            : kind === "sellers"
-              ? "seller"
-              : (String(formData.get("userType") ?? "buyer") as "buyer" | "seller" | "both"),
-      };
-      const parsed = AppUserFormSchema.safeParse(payload);
-      if (!parsed.success) {
-        setFormError(parsed.error.issues[0]?.message ?? dict.users.validationFailed);
-        return;
+    try {
+      if (isAppScoped) {
+        const payload = {
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+          displayName: String(formData.get("displayName") ?? ""),
+          userType:
+            kind === "buyers"
+              ? "buyer"
+              : kind === "sellers"
+                ? "seller"
+                : (String(formData.get("userType") ?? "buyer") as "buyer" | "seller" | "both"),
+        };
+        const parsed = AppUserFormSchema.safeParse(payload);
+        if (!parsed.success) {
+          setFormError(parsed.error.issues[0]?.message ?? dict.users.validationFailed);
+          return;
+        }
+
+        const create = await request(endpoint, {
+          method: "POST",
+          body: JSON.stringify(parsed.data),
+        });
+
+        if (create.status !== 201) {
+          const body = await parseJson<ApiError>(create);
+          setFormError(body.error?.message ?? dict.users.createFailed);
+          return;
+        }
+      } else {
+        const payload = {
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+          role: String(formData.get("role") ?? "admin") as "admin" | "super_admin",
+        };
+        const parsed = AdminUserFormSchema.safeParse(payload);
+        if (!parsed.success) {
+          setFormError(parsed.error.issues[0]?.message ?? dict.users.validationFailed);
+          return;
+        }
+
+        const create = await request(endpoint, {
+          method: "POST",
+          body: JSON.stringify(parsed.data),
+        });
+
+        if (create.status !== 201) {
+          const body = await parseJson<ApiError>(create);
+          setFormError(body.error?.message ?? dict.users.createFailed);
+          return;
+        }
       }
 
-      const create = await request(endpoint, {
-        method: "POST",
-        body: JSON.stringify(parsed.data),
-      });
-
-      if (create.status !== 201) {
-        const body = await parseJson<ApiError>(create);
-        setFormError(body.error?.message ?? dict.users.createFailed);
-        return;
-      }
-    } else {
-      const payload = {
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-        role: String(formData.get("role") ?? "admin") as "admin" | "super_admin",
-      };
-      const parsed = AdminUserFormSchema.safeParse(payload);
-      if (!parsed.success) {
-        setFormError(parsed.error.issues[0]?.message ?? dict.users.validationFailed);
-        return;
-      }
-
-      const create = await request(endpoint, {
-        method: "POST",
-        body: JSON.stringify(parsed.data),
-      });
-
-      if (create.status !== 201) {
-        const body = await parseJson<ApiError>(create);
-        setFormError(body.error?.message ?? dict.users.createFailed);
-        return;
-      }
+      await loadRows();
+      setDrawerMode(null);
+      setEditingRow(null);
+      setFormError(null);
+      (event.currentTarget as HTMLFormElement).reset();
+    } finally {
+      setSaving(false);
     }
-
-    (event.currentTarget as HTMLFormElement).reset();
-    await loadRows();
   }
 
   async function patchUser(rowId: string, path: string, payload: unknown) {
@@ -751,6 +771,62 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
 
     await loadRows();
+  }
+
+  function openCreateDrawer() {
+    setFormError(null);
+    setEditingRow(null);
+    setDrawerMode("create");
+  }
+
+  function openEditDrawer(row: any) {
+    setFormError(null);
+    setEditingRow(row);
+    setDrawerMode("edit");
+  }
+
+  function closeDrawer() {
+    if (saving) return;
+    setDrawerMode(null);
+    setEditingRow(null);
+    setFormError(null);
+  }
+
+  async function updateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingRow) return;
+    setFormError(null);
+    setSaving(true);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const payload: Record<string, string> = {
+        email: String(formData.get("email") ?? "").trim(),
+      };
+      const password = String(formData.get("password") ?? "").trim();
+      if (password) payload.password = password;
+
+      if (!payload.email) {
+        setFormError(dict.users.validationFailed);
+        return;
+      }
+
+      const update = await request(`${endpoint}/${editingRow.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+
+      if (update.status !== 200) {
+        const body = await parseJson<ApiError>(update);
+        setFormError(body.error?.message ?? dict.users.updateFailed);
+        return;
+      }
+
+      await loadRows();
+      closeDrawer();
+    } finally {
+      setSaving(false);
+    }
   }
 
   const tableColumns = useMemo(() => {
@@ -773,6 +849,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
           />
           <button className="ghost" type="button" onClick={() => loadRows()}>{dict.actions.search}</button>
+          <button className="primary" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
+            {dict.actions.create}
+          </button>
         </div>
       </header>
 
@@ -921,6 +1000,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       </button>
                       {isSuperAdmin ? (
                         <>
+                          <button className="ghost" type="button" onClick={() => openEditDrawer(row)}>
+                            Edit
+                          </button>
                           <button
                             className="ghost"
                             type="button"
@@ -995,58 +1077,78 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
-          <h2>
-            {isAppScoped
-              ? kind === "buyers"
-                ? dict.users.createBuyer
-                : kind === "sellers"
-                  ? dict.users.createSeller
-                  : dict.users.createAppUser
-              : dict.users.createAdmin}
-          </h2>
-        </div>
-        {!isSuperAdmin ? <p className="panel-meta">{dict.users.onlySuperAdmin}</p> : null}
-        <form className="form-grid" onSubmit={createUser}>
-          <label>
-            {dict.auth.email}
-            <input name="email" disabled={!isSuperAdmin} />
-          </label>
-          <label>
-            {dict.auth.password}
-            <input name="password" type="password" disabled={!isSuperAdmin} />
-          </label>
-          {isAppScoped ? (
-            <>
+      <div className={`drawer-overlay ${isDrawerOpen ? "is-open" : ""}`} onClick={closeDrawer}>
+        <aside className={`form-drawer ${isDrawerOpen ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
+          <div className="form-drawer-header">
+            <h2>{drawerMode === "edit" ? "Edit User" : createTitle}</h2>
+            <button className="ghost" type="button" onClick={closeDrawer} disabled={saving}>
+              Close
+            </button>
+          </div>
+
+          {!isSuperAdmin ? <p className="panel-meta">{dict.users.onlySuperAdmin}</p> : null}
+
+          {drawerMode === "create" ? (
+            <form className="drawer-form" onSubmit={createUser}>
               <label>
-                {dict.users.displayName}
-                <input name="displayName" disabled={!isSuperAdmin} />
+                {dict.auth.email}
+                <input name="email" disabled={!isSuperAdmin || saving} />
               </label>
-              {kind === "app" ? (
+              <label>
+                {dict.auth.password}
+                <input name="password" type="password" disabled={!isSuperAdmin || saving} />
+              </label>
+              {isAppScoped ? (
+                <>
+                  <label>
+                    {dict.users.displayName}
+                    <input name="displayName" disabled={!isSuperAdmin || saving} />
+                  </label>
+                  {kind === "app" ? (
+                    <label>
+                      {dict.users.userType}
+                      <select name="userType" disabled={!isSuperAdmin || saving}>
+                        <option value="buyer">{dict.users.userTypeBuyer}</option>
+                        <option value="seller">{dict.users.userTypeSeller}</option>
+                        <option value="both">{dict.users.userTypeBoth}</option>
+                      </select>
+                    </label>
+                  ) : null}
+                </>
+              ) : (
                 <label>
-                  {dict.users.userType}
-                  <select name="userType" disabled={!isSuperAdmin}>
-                    <option value="buyer">{dict.users.userTypeBuyer}</option>
-                    <option value="seller">{dict.users.userTypeSeller}</option>
-                    <option value="both">{dict.users.userTypeBoth}</option>
+                  {dict.users.role}
+                  <select name="role" disabled={!isSuperAdmin || saving}>
+                    <option value="admin">{dict.users.roleAdmin}</option>
+                    <option value="super_admin">{dict.users.roleSuperAdmin}</option>
                   </select>
                 </label>
-              ) : null}
-            </>
-          ) : (
-            <label>
-              {dict.users.role}
-              <select name="role" disabled={!isSuperAdmin}>
-                <option value="admin">{dict.users.roleAdmin}</option>
-                <option value="super_admin">{dict.users.roleSuperAdmin}</option>
-              </select>
-            </label>
-          )}
-          <button className="primary" type="submit" disabled={!isSuperAdmin}>{dict.actions.create}</button>
-        </form>
-        {formError ? <div className="alert">{formError}</div> : null}
-      </section>
+              )}
+              <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
+                {saving ? "Saving..." : dict.actions.create}
+              </button>
+            </form>
+          ) : null}
+
+          {drawerMode === "edit" && editingRow ? (
+            <form className="drawer-form" onSubmit={updateUser}>
+              <label>
+                {dict.auth.email}
+                <input name="email" defaultValue={String(editingRow.email ?? "")} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.detail.passwordOptional}
+                <input name="password" type="password" disabled={!isSuperAdmin || saving} />
+              </label>
+              <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
+                {saving ? "Saving..." : dict.actions.save}
+              </button>
+            </form>
+          ) : null}
+
+          {formError ? <div className="alert">{formError}</div> : null}
+        </aside>
+      </div>
     </div>
   );
 }

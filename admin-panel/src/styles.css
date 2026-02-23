@@ -22,6 +22,8 @@
   --color-error-bg: #ffe9e3;
   --color-error-border: #f2b8a8;
   --color-info-bg: #eaf8f0;
+  --color-accent: #1f7aff;
+  --color-accent-soft: #e8f1ff;
 
   color-scheme: light;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -48,6 +50,8 @@
   --color-error-bg: #3d2622;
   --color-error-border: #704a40;
   --color-info-bg: #1f3d2d;
+  --color-accent: #6aa9ff;
+  --color-accent-soft: #2a3650;
 
   color-scheme: dark;
 }
@@ -262,25 +266,33 @@ h1 {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 button {
   border: none;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .primary {
-  background: var(--color-text);
-  color: var(--color-white);
+  background: linear-gradient(135deg, var(--color-accent), #4b93ff);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(31, 122, 255, 0.28);
 }
 
 .ghost {
   background: var(--color-white);
   border: 1px solid var(--color-border);
   color: var(--color-link);
+}
+
+.primary:hover,
+.ghost:hover {
+  transform: translateY(-1px);
 }
 
 .ghost:disabled,
@@ -326,6 +338,7 @@ button {
   border-radius: 20px;
   padding: 20px;
   box-shadow: 0 12px 30px var(--color-shadow);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -472,18 +485,20 @@ label {
 input,
 select,
 textarea {
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--color-border);
   padding: 10px 12px;
   background: var(--color-white);
   color: var(--color-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid var(--color-subtle-bg);
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 24%, transparent);
 }
 
 .json-box {
@@ -561,6 +576,55 @@ textarea:focus {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 22, 0.42);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s ease;
+  z-index: 40;
+}
+
+.drawer-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.form-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(96vw, 480px);
+  height: 100%;
+  background: var(--color-white);
+  border-left: 1px solid var(--color-border);
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.22);
+  transform: translateX(102%);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 14px;
+}
+
+.form-drawer.is-open {
+  transform: translateX(0);
+}
+
+.form-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drawer-form {
+  display: grid;
+  gap: 12px;
 }
 
 @media (max-width: 1100px) {
