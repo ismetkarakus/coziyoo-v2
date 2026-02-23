@@ -281,8 +281,8 @@ function Routes({
 
 function LoginScreen({ onLoggedIn, language }: { onLoggedIn: (admin: AdminUser) => void; language: Language }) {
   const dict = DICTIONARIES[language];
-  const [email, setEmail] = useState("admin@coziyoo.local");
-  const [password, setPassword] = useState("Admin12345!");
+  const [email, setEmail] = useState("admin@coziyoo.com");
+  const [password, setPassword] = useState("12345");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
