@@ -1,9 +1,17 @@
+import crypto from "node:crypto";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
-import { isLiveKitConfigured, mintLiveKitToken } from "../services/livekit.js";
+import {
+  buildRoomScopedAgentIdentity,
+  dispatchAgentJoin,
+  ensureLiveKitRoom,
+  isLiveKitConfigured,
+  isParticipantInRoom,
+  mintLiveKitToken,
+} from "../services/livekit.js";
 
 const UserTokenSchema = z.object({
   roomName: z.string().min(1).max(128),
@@ -26,6 +34,14 @@ const AgentTokenSchema = z.object({
 
 const DispatchAgentSchema = AgentTokenSchema.extend({
   payload: z.record(z.string(), z.unknown()).optional(),
+});
+
+const StartSessionSchema = z.object({
+  roomName: z.string().min(1).max(128).optional(),
+  participantIdentity: z.string().min(3).max(128).optional(),
+  participantName: z.string().min(1).max(128).optional(),
+  metadata: z.string().max(2_000).optional(),
+  ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
 });
 
 function tokenPreview(token: string) {
@@ -194,38 +210,15 @@ adminLiveKitRouter.post("/dispatch/agent", async (req, res) => {
     },
   });
 
-  const endpoint = new URL(env.AI_SERVER_LIVEKIT_JOIN_PATH, env.AI_SERVER_URL).toString();
-  const headers = new Headers({ "content-type": "application/json" });
-  if (env.AI_SERVER_SHARED_SECRET) {
-    headers.set("x-ai-server-secret", env.AI_SERVER_SHARED_SECRET);
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.AI_SERVER_TIMEOUT_MS);
-
   try {
-    const downstream = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        roomName: input.roomName,
-        participantIdentity: identity,
-        participantName: input.participantName ?? env.LIVEKIT_AGENT_IDENTITY,
-        wsUrl: env.LIVEKIT_URL,
-        token,
-        metadata,
-        ...(input.payload ? { payload: input.payload } : {}),
-      }),
-      signal: controller.signal,
+    const dispatch = await dispatchAgentJoin({
+      roomName: input.roomName,
+      participantIdentity: identity,
+      participantName: input.participantName ?? env.LIVEKIT_AGENT_IDENTITY,
+      token,
+      metadata,
+      payload: input.payload,
     });
-    clearTimeout(timeout);
-
-    let body: unknown = null;
-    try {
-      body = await downstream.json();
-    } catch {
-      body = await downstream.text();
-    }
 
     return res.status(201).json({
       data: {
@@ -234,20 +227,124 @@ adminLiveKitRouter.post("/dispatch/agent", async (req, res) => {
         wsUrl: env.LIVEKIT_URL,
         token,
         preview: tokenPreview(token),
-        dispatch: {
-          endpoint,
-          ok: downstream.ok,
-          status: downstream.status,
-          body,
-        },
+        dispatch,
       },
     });
   } catch (error) {
-    clearTimeout(timeout);
     return res.status(502).json({
       error: {
         code: "AI_SERVER_DISPATCH_FAILED",
         message: error instanceof Error ? error.message : "Dispatch failed",
+      },
+    });
+  }
+});
+
+adminLiveKitRouter.post("/session/start", async (req, res) => {
+  if (!isLiveKitConfigured()) {
+    return res.status(503).json({
+      error: {
+        code: "LIVEKIT_NOT_CONFIGURED",
+        message: "Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in API environment.",
+      },
+    });
+  }
+
+  if (!env.AI_SERVER_URL) {
+    return res.status(503).json({
+      error: {
+        code: "AI_SERVER_URL_MISSING",
+        message: "Set AI_SERVER_URL to auto-join agent.",
+      },
+    });
+  }
+
+  const parsed = StartSessionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
+  const userIdentity = input.participantIdentity ?? `admin-preview-user-${Date.now()}`;
+  const userMetadata = input.metadata ?? JSON.stringify({ source: "admin-panel", kind: "session-start-user" });
+  const agentIdentity = buildRoomScopedAgentIdentity(roomName);
+  const agentName = env.LIVEKIT_AGENT_IDENTITY;
+  const agentMetadata = JSON.stringify({ source: "admin-panel", kind: "session-start-agent", roomName });
+
+  try {
+    await ensureLiveKitRoom(roomName);
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "LIVEKIT_ROOM_CREATE_FAILED",
+        message: error instanceof Error ? error.message : "Room create failed",
+      },
+    });
+  }
+
+  const userToken = await mintLiveKitToken({
+    identity: userIdentity,
+    name: input.participantName,
+    metadata: userMetadata,
+    ttlSeconds: input.ttlSeconds,
+    grant: {
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    },
+  });
+
+  const agentToken = await mintLiveKitToken({
+    identity: agentIdentity,
+    name: agentName,
+    metadata: agentMetadata,
+    ttlSeconds: input.ttlSeconds,
+    grant: {
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    },
+  });
+
+  try {
+    const alreadyRunning = await isParticipantInRoom(roomName, agentIdentity);
+    const dispatch = alreadyRunning
+      ? null
+      : await dispatchAgentJoin({
+          roomName,
+          participantIdentity: agentIdentity,
+          participantName: agentName,
+          token: agentToken,
+          metadata: agentMetadata,
+        });
+
+    return res.status(201).json({
+      data: {
+        roomName,
+        wsUrl: env.LIVEKIT_URL,
+        user: {
+          participantIdentity: userIdentity,
+          token: userToken,
+        },
+        agent: {
+          participantIdentity: agentIdentity,
+          dispatched: alreadyRunning ? false : (dispatch?.ok ?? false),
+          alreadyRunning,
+          dispatch,
+          preview: tokenPreview(agentToken),
+        },
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "AI_SERVER_DISPATCH_FAILED",
+        message: error instanceof Error ? error.message : "Agent dispatch failed",
       },
     });
   }

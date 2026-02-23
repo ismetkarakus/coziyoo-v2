@@ -1646,6 +1646,32 @@ type LiveKitTokenResponse = {
   };
 } & ApiError;
 
+type LiveKitSessionStartResponse = {
+  data?: {
+    roomName: string;
+    wsUrl: string;
+    user: {
+      participantIdentity: string;
+      token: string;
+    };
+    agent: {
+      participantIdentity: string;
+      dispatched: boolean;
+      dispatch: {
+        endpoint: string;
+        ok: boolean;
+        status: number;
+        body: unknown;
+      } | null;
+      preview?: {
+        iat: string | null;
+        exp: string | null;
+        claims: Record<string, unknown>;
+      } | null;
+    };
+  };
+} & ApiError;
+
 function LiveKitPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [status, setStatus] = useState<{
@@ -1901,7 +1927,7 @@ function LiveKitDemoPage({ language }: { language: Language }) {
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<LiveKitTokenResponse["data"] | null>(null);
+  const [lastResult, setLastResult] = useState<LiveKitSessionStartResponse["data"] | null>(null);
   const [remoteCount, setRemoteCount] = useState(0);
   const [chatMessage, setChatMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<Array<{ at: string; from: string; text: string }>>([]);
@@ -1951,19 +1977,16 @@ function LiveKitDemoPage({ language }: { language: Language }) {
         await disconnectRoom();
       }
 
-      const response = await request("/v1/admin/livekit/token/user", {
+      const response = await request("/v1/admin/livekit/session/start", {
         method: "POST",
         body: JSON.stringify({
           roomName: roomName.trim(),
           ...(participantIdentity.trim() ? { participantIdentity: participantIdentity.trim() } : {}),
           ...(participantName.trim() ? { participantName: participantName.trim() } : {}),
-          canPublish: true,
-          canSubscribe: true,
-          canPublishData: true,
         }),
       });
 
-      const body = await parseJson<LiveKitTokenResponse>(response);
+      const body = await parseJson<LiveKitSessionStartResponse>(response);
       if (response.status !== 201 || !body.data) {
         setError(body.error?.message ?? dict.livekit.tokenCreateFailed);
         return;
@@ -2052,7 +2075,7 @@ function LiveKitDemoPage({ language }: { language: Language }) {
       });
 
       const wsUrl = normalizeLiveKitWsUrl(body.data.wsUrl);
-      await room.connect(wsUrl, body.data.token);
+      await room.connect(wsUrl, body.data.user.token);
 
       setConnected(true);
       setRemoteCount(room.remoteParticipants.size);

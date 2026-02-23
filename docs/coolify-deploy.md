@@ -82,6 +82,11 @@ Admin-only LiveKit control endpoints:
 - `POST /v1/admin/livekit/token/user`
 - `POST /v1/admin/livekit/token/agent`
 - `POST /v1/admin/livekit/dispatch/agent` (mints token and forwards it to `AI_SERVER_URL + AI_SERVER_LIVEKIT_JOIN_PATH`)
+- `POST /v1/admin/livekit/session/start` (creates room + user token + agent token + dispatches agent)
+
+App endpoint:
+
+- `POST /v1/livekit/session/start` (auth required, creates room + user token + agent token + dispatches agent)
 
 ## 3) Database migrations
 
