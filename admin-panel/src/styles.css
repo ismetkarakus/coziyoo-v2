@@ -486,27 +486,45 @@ th {
 
 label {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   color: var(--color-secondary-text);
-  font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
 }
 
-input:not([type="checkbox"]):not([type="radio"]),
-select,
-textarea {
+label:has(> input:not([type="checkbox"]):not([type="radio"])),
+label:has(> select),
+label:has(> textarea) {
   border-radius: 12px;
   border: 1px solid var(--color-input-border);
-  padding: 12px 14px;
   background: var(--color-input-bg);
-  color: var(--color-text);
+  padding: 6px 14px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-  min-height: 46px;
 }
 
-input:not([type="checkbox"]):not([type="radio"])::placeholder,
-textarea::placeholder {
+label:has(> input:not([type="checkbox"]):not([type="radio"])):focus-within,
+label:has(> select):focus-within,
+label:has(> textarea):focus-within {
+  border-color: var(--color-input-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+label > input:not([type="checkbox"]):not([type="radio"]),
+label > select,
+label > textarea {
+  border-radius: 12px;
+  border: 0;
+  padding: 4px 0 0;
+  background: transparent;
+  color: var(--color-text);
+  min-height: 30px;
+  box-shadow: none;
+  outline: none;
+}
+
+label > input:not([type="checkbox"]):not([type="radio"])::placeholder,
+label > textarea::placeholder {
   color: var(--color-input-placeholder);
 }
 
@@ -514,8 +532,6 @@ input:not([type="checkbox"]):not([type="radio"]):focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--color-input-border-strong);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 .json-box {
