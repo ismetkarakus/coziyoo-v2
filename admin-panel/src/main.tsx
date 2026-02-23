@@ -47,6 +47,20 @@ const DICTIONARIES: Record<Language, Dictionary> = {
   tr,
 };
 
+function restoreRedirectPathFromQuery() {
+  const url = new URL(window.location.href);
+  const redirectedPath = url.searchParams.get("__redirect");
+  if (!redirectedPath) return;
+
+  url.searchParams.delete("__redirect");
+  const cleanedQuery = url.searchParams.toString();
+  const cleanedPath = decodeURIComponent(redirectedPath);
+  const nextUrl = `${cleanedPath}${cleanedQuery ? `?${cleanedQuery}` : ""}`;
+  window.history.replaceState(null, "", nextUrl);
+}
+
+restoreRedirectPathFromQuery();
+
 const initializeLanguage = (): Language => {
   const stored = localStorage.getItem(LANGUAGE_KEY);
   if (stored === "tr" || stored === "en") return stored;
@@ -401,6 +415,7 @@ function Shell({
           </nav>
         </div>
         <div className="navbar-actions">
+          <ApiHealthBadge />
           <span className="role-chip">{adminRoleLabel(dict, admin.role)}</span>
           <span className="navbar-email">{admin.email}</span>
           <button className="ghost" onClick={onToggleLanguage} type="button">
@@ -427,6 +442,46 @@ function Shell({
       </section>
       <Outlet />
     </main>
+  );
+}
+
+function ApiHealthBadge() {
+  const [status, setStatus] = useState<"checking" | "up" | "down">("checking");
+
+  useEffect(() => {
+    let disposed = false;
+
+    const check = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/v1/health`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (disposed) return;
+        setStatus(response.status === 200 ? "up" : "down");
+      } catch {
+        if (disposed) return;
+        setStatus("down");
+      }
+    };
+
+    check().catch(() => setStatus("down"));
+    const timer = window.setInterval(() => {
+      check().catch(() => setStatus("down"));
+    }, 20000);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const text = status === "up" ? "API up" : status === "down" ? "API down" : "API check";
+  return (
+    <span className={`health-chip is-${status}`} title="API health">
+      <span className="health-dot" />
+      {text}
+    </span>
   );
 }
 

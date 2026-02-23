@@ -178,6 +178,35 @@ a {
   font-size: 12px;
 }
 
+.health-chip {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card-bg);
+  color: var(--color-link);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f59e0b;
+}
+
+.health-chip.is-up .health-dot {
+  background: #16a34a;
+}
+
+.health-chip.is-down .health-dot {
+  background: #dc2626;
+}
+
 .theme-toggle {
   background: none;
   border: none;
