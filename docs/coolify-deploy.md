@@ -7,7 +7,7 @@
 - Base directory: repository root
 - Install command: `npm ci`
 - Build command: `npm run build`
-- Start command: `npm run start`
+- Start command: `npm run start:migrate`
 - Health check path: `/v1/health`
 
 ### Required environment variables
@@ -50,7 +50,21 @@ Optional DB SSL behavior:
 ### Required environment variables
 - `VITE_API_BASE_URL=https://api.example.com`
 
-## 3) First-time DB initialization
+## 3) Database migrations
+
+Automatic migration on every API restart/deploy:
+
+- `npm run start:migrate` runs `npm run db:migrate` before starting API.
+- Migration files are in `src/db/migrations/*.sql`.
+- Applied migrations are tracked in `schema_migrations`.
+
+If you attach API to an existing database that already has tables but no migration history, set this once:
+
+- `DB_MIGRATE_BASELINE=0001_initial_schema`
+
+Then remove it after first successful deploy.
+
+## 4) First-time DB initialization (optional alternative)
 
 Run once against a fresh database:
 
