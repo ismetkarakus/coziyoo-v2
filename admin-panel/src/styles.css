@@ -24,6 +24,10 @@
   --color-info-bg: #eaf8f0;
   --color-accent: #1f7aff;
   --color-accent-soft: #e8f1ff;
+  --color-input-bg: #fdfcf9;
+  --color-input-border: #cfc5b8;
+  --color-input-border-strong: #b9ad9c;
+  --color-input-placeholder: #9e8f7f;
 
   color-scheme: light;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -52,6 +56,10 @@
   --color-info-bg: #1f3d2d;
   --color-accent: #6aa9ff;
   --color-accent-soft: #2a3650;
+  --color-input-bg: #1f1f1f;
+  --color-input-border: #4a4a4a;
+  --color-input-border-strong: #656565;
+  --color-input-placeholder: #8f8f8f;
 
   color-scheme: dark;
 }
@@ -478,27 +486,36 @@ th {
 
 label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   color: var(--color-secondary-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-input,
+input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   border-radius: 12px;
-  border: 1px solid var(--color-border);
-  padding: 10px 12px;
-  background: var(--color-white);
+  border: 1px solid var(--color-input-border);
+  padding: 12px 14px;
+  background: var(--color-input-bg);
   color: var(--color-text);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  min-height: 46px;
 }
 
-input:focus,
+input:not([type="checkbox"]):not([type="radio"])::placeholder,
+textarea::placeholder {
+  color: var(--color-input-placeholder);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 24%, transparent);
+  border-color: var(--color-input-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 .json-box {
