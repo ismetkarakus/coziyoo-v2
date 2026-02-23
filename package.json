@@ -4,12 +4,9 @@
   "main": "dist/src/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "dev:all": "concurrently -k -n api,admin -c cyan,magenta \"npm run dev\" \"npm run admin:dev\"",
-    "dev:all:mobile": "concurrently --raw -k \"npm run dev\" \"npm run assistant:dev\"",
-    "dev:all:web-assistant": "concurrently --raw -k \"npm run dev\" \"npm run assistant:web\"",
-    "all": "concurrently --raw -k \"npm run dev\" \"npm run admin:dev\"",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
+    "db:init:empty": "tsx scripts/init-empty-db.ts",
     "db:test": "tsx scripts/test-db.ts",
     "db:reset-init": "tsx scripts/reset-and-init-db.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
@@ -30,15 +27,7 @@
     "test:smoke-docs": "tsx scripts/smoke-docs.ts",
     "test:smoke-admin-users": "tsx scripts/smoke-admin-user-management.ts",
     "admin:dev": "npm --prefix admin-panel run dev",
-    "admin:build": "npm --prefix admin-panel run build",
-    "assistant:dev": "npm --prefix buyer-assistant run start",
-    "assistant:web": "npm --prefix buyer-assistant run web",
-    "assistant:web:clear": "npm --prefix buyer-assistant exec expo start --web --clear",
-    "assistant:ios": "npm --prefix buyer-assistant run ios",
-    "assistant:android": "npm --prefix buyer-assistant run android"
-    ,
-    "assistant:ios:devbuild": "cd buyer-assistant && npx expo run:ios",
-    "assistant:android:devbuild": "cd buyer-assistant && npx expo run:android"
+    "admin:build": "npm --prefix admin-panel run build"
   },
   "keywords": [],
   "author": "",
@@ -58,7 +47,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.3.0",
     "@types/pg": "^8.16.0",
-    "concurrently": "^9.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",

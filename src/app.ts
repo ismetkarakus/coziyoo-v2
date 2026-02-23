@@ -21,18 +21,24 @@ import { docsRouter } from "./routes/docs.js";
 import { adminDashboardRouter } from "./routes/admin-dashboard.js";
 import { adminUserManagementRouter } from "./routes/admin-users.js";
 import { adminAuditRouter } from "./routes/admin-audit.js";
-import { buyerAssistantRouter } from "./routes/buyer-assistant.js";
+import { env } from "./config/env.js";
 
 export const app = express();
 
-const allowedCorsOrigins = new Set(["http://localhost:8081", "http://localhost:5173", "http://localhost:19006"]);
+const corsOrigins = env.CORS_ALLOWED_ORIGINS.split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const allowAnyOrigin = corsOrigins.includes("*");
+const allowedCorsOrigins = new Set(corsOrigins);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (origin && allowedCorsOrigins.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
+  if (origin && (allowAnyOrigin || allowedCorsOrigins.has(origin))) {
+    res.setHeader("Access-Control-Allow-Origin", allowAnyOrigin ? "*" : origin);
+    if (!allowAnyOrigin) {
+      res.setHeader("Vary", "Origin");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
     res.setHeader("Access-Control-Max-Age", "600");
@@ -86,4 +92,3 @@ app.use("/v1/admin", adminDashboardRouter);
 app.use("/v1/admin", adminUserManagementRouter);
 app.use("/v1/admin", adminAuditRouter);
 app.use("/v1/docs", docsRouter);
-app.use("/v1/buyer-assistant", buyerAssistantRouter);
