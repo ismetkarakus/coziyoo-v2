@@ -148,7 +148,7 @@ function readRequestedAgentName(body: Record<string, unknown>): string | undefin
   return trimmed || undefined;
 }
 
-function sanitizeDeviceId(value: string | undefined): string | undefined {
+function sanitizeDeviceId(value: string | null | undefined): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!/^[a-zA-Z0-9_-]{8,128}$/.test(trimmed)) return undefined;
