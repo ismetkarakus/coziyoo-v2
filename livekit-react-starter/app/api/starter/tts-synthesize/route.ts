@@ -15,6 +15,17 @@ export const revalidate = 0;
 
 export async function POST(req: Request) {
   try {
+    if (TTS_BASE_URL.includes('tts.example.com')) {
+      return NextResponse.json(
+        {
+          error: {
+            message: 'TTS_BASE_URL is not configured. Set TTS_BASE_URL in assistant environment.',
+          },
+        },
+        { status: 503 }
+      );
+    }
+
     const body = (await req.json()) as TtsRequest;
     const text = String(body.text ?? '').trim();
     const language = String(body.language ?? TTS_LANGUAGE_DEFAULT).trim() || TTS_LANGUAGE_DEFAULT;
@@ -28,14 +39,18 @@ export async function POST(req: Request) {
     formData.set('language', language);
 
     if (TTS_SPEAKER_WAV_URL) {
-      const speakerRes = await fetch(TTS_SPEAKER_WAV_URL, { cache: 'no-store' });
-      if (speakerRes.ok) {
-        const speakerBuffer = await speakerRes.arrayBuffer();
-        formData.set(
-          'speaker_wav',
-          new Blob([speakerBuffer], { type: 'audio/wav' }),
-          'speaker.wav'
-        );
+      try {
+        const speakerRes = await fetch(TTS_SPEAKER_WAV_URL, { cache: 'no-store' });
+        if (speakerRes.ok) {
+          const speakerBuffer = await speakerRes.arrayBuffer();
+          formData.set(
+            'speaker_wav',
+            new Blob([speakerBuffer], { type: 'audio/wav' }),
+            'speaker.wav'
+          );
+        }
+      } catch {
+        // speaker wav is optional; continue without it
       }
     }
 
@@ -50,15 +65,22 @@ export async function POST(req: Request) {
         signal: controller.signal,
       });
 
-      const audioBuffer = await upstream.arrayBuffer();
+      const responseBuffer = await upstream.arrayBuffer();
       if (!upstream.ok) {
+        const responseText = new TextDecoder().decode(responseBuffer).slice(0, 500);
         return NextResponse.json(
-          { error: { message: `TTS failed with status ${upstream.status}` } },
+          {
+            error: {
+              message: `TTS failed with status ${upstream.status}`,
+              endpoint,
+              response: responseText,
+            },
+          },
           { status: 502 }
         );
       }
 
-      return new NextResponse(audioBuffer, {
+      return new NextResponse(responseBuffer, {
         status: 200,
         headers: {
           'content-type': upstream.headers.get('content-type') ?? 'audio/wav',
