@@ -512,7 +512,13 @@ function DashboardPage({ language }: { language: Language }) {
   if (!data) return <div className="panel">{dict.common.loading}</div>;
   const updatedAt = String(data.updatedAt ?? "2028-02-24T14:30:18.106Z");
   const updatedAtDisplay = updatedAt.replace("T", " ").replace("Z", "").slice(0, 19);
-  const metrics = [
+  const metrics: Array<{
+    key: string;
+    label: string;
+    icon: "users" | "lock" | "orders" | "mail" | "clock";
+    value: string | number;
+    trailingIcon?: "refresh";
+  }> = [
     { key: "totalUsers", label: "Total Users", icon: "users", value: Number(data.totalUsers ?? 2) },
     { key: "activeUsers", label: "Active Users", icon: "users", value: Number(data.activeUsers ?? 1) },
     { key: "disabledUsers", label: "Disabled Users", icon: "lock", value: Number(data.disabledUsers ?? 1) },
