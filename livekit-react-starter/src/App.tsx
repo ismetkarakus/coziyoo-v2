@@ -29,7 +29,8 @@ type AgentChatResponse = {
 
 type ChatItem = { from: string; text: string; ts: string };
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "https://api.coziyoo.com").trim();
+const AUTH_API_BASE = ((import.meta.env.VITE_AUTH_API_BASE_URL as string | undefined) ?? API_BASE).trim();
 
 function normalizeWs(value: string) {
   const trimmed = value.trim();
@@ -40,7 +41,13 @@ function normalizeWs(value: string) {
 }
 
 async function asJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
+  const raw = await response.text();
+  if (!raw) return {} as T;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return { error: { message: raw } } as T;
+  }
 }
 
 export function App() {
@@ -71,7 +78,7 @@ export function App() {
     event.preventDefault();
     setStatus("logging in...");
 
-    const response = await fetch(`${API_BASE}/v1/admin/auth/login`, {
+    const response = await fetch(`${AUTH_API_BASE}/v1/admin/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, password }),

@@ -13,6 +13,7 @@ Standalone React app for end-to-end testing:
 Create `.env` from `.env.example`:
 
 - `VITE_API_BASE_URL=https://api.coziyoo.com`
+- `VITE_AUTH_API_BASE_URL=https://api.coziyoo.com` (optional, login endpoint base)
 
 ## Run
 
