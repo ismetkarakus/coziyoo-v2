@@ -1,0 +1,432 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Room, RoomEvent, Track } from 'livekit-client';
+import type { StarterAgentSettings } from '@/lib/starter-settings';
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const MAX_EVENTS = 500;
+
+export type SessionConnectionState =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected'
+  | 'failed';
+
+export type ChatMessage = {
+  id: string;
+  from: 'user' | 'agent' | 'system';
+  text: string;
+  ts: string;
+};
+
+export type VerboseEvent = {
+  id: string;
+  ts: string;
+  source: 'client' | 'room' | 'participant' | 'track' | 'chat' | 'api' | 'error';
+  eventType: string;
+  summary: string;
+  payload: unknown;
+};
+
+type ConnectionDetails = {
+  serverUrl: string;
+  roomName: string;
+  participantName: string;
+  participantToken: string;
+};
+
+type ControllerInput = {
+  deviceId: string;
+  settings: StarterAgentSettings;
+};
+
+function nextId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+export function useVerboseSessionController({ deviceId, settings }: ControllerInput) {
+  const [connectionState, setConnectionState] = useState<SessionConnectionState>('idle');
+  const [events, setEvents] = useState<VerboseEvent[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [speakerEnabled, setSpeakerEnabled] = useState(true);
+  const [roomName, setRoomName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const roomRef = useRef<Room | null>(null);
+  const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
+  const audioRootRef = useRef<HTMLDivElement | null>(null);
+  const speakerEnabledRef = useRef(true);
+  speakerEnabledRef.current = speakerEnabled;
+
+  const addEvent = useCallback(
+    (event: Omit<VerboseEvent, 'id' | 'ts'>) => {
+      const entry: VerboseEvent = {
+        ...event,
+        id: nextId(),
+        ts: new Date().toISOString(),
+      };
+      setEvents((prev) => {
+        const next = [...prev, entry];
+        if (next.length > MAX_EVENTS) {
+          return next.slice(next.length - MAX_EVENTS);
+        }
+        return next;
+      });
+      setSelectedEventId((current) => current ?? entry.id);
+    },
+    [setEvents, setSelectedEventId]
+  );
+
+  const clearLogs = useCallback(() => {
+    setEvents([]);
+    setSelectedEventId(null);
+  }, []);
+
+  const cleanupRoom = useCallback(() => {
+    const room = roomRef.current;
+    if (!room) return;
+
+    for (const [, element] of audioElementsRef.current) {
+      try {
+        element.remove();
+      } catch {
+        // noop
+      }
+    }
+    audioElementsRef.current.clear();
+    room.removeAllListeners();
+    room.disconnect();
+    roomRef.current = null;
+  }, []);
+
+  const connect = useCallback(async () => {
+    if (!deviceId) return;
+    if (connectionState === 'connecting') return;
+
+    cleanupRoom();
+    setConnectionState('connecting');
+    setError(null);
+    setMessages([]);
+    setRoomName(null);
+    setMicEnabled(true);
+    addEvent({
+      source: 'client',
+      eventType: 'CONNECT_REQUESTED',
+      summary: 'Connect requested by user',
+      payload: { deviceId, settings },
+    });
+
+    try {
+      addEvent({
+        source: 'api',
+        eventType: 'CONNECTION_DETAILS_REQUEST',
+        summary: 'Requesting connection details',
+        payload: { deviceId },
+      });
+      const response = await fetch('/api/connection-details', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({
+          deviceId,
+          room_config: settings.agentName
+            ? {
+                agents: [{ agent_name: settings.agentName }],
+              }
+            : undefined,
+        }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`CONNECTION_DETAILS_FAILED_${response.status}: ${text.slice(0, 250)}`);
+      }
+      const details = (await response.json()) as ConnectionDetails;
+
+      addEvent({
+        source: 'api',
+        eventType: 'CONNECTION_DETAILS_SUCCESS',
+        summary: 'Received connection details',
+        payload: details,
+      });
+
+      const room = new Room();
+      roomRef.current = room;
+      setRoomName(details.roomName);
+
+      room.on(RoomEvent.Connected, () => {
+        setConnectionState('connected');
+        addEvent({
+          source: 'room',
+          eventType: 'ROOM_CONNECTED',
+          summary: `Connected to ${details.roomName}`,
+          payload: {
+            roomName: details.roomName,
+            serverUrl: details.serverUrl,
+          },
+        });
+      });
+
+      room.on(RoomEvent.Disconnected, (reason) => {
+        setConnectionState('disconnected');
+        addEvent({
+          source: 'room',
+          eventType: 'ROOM_DISCONNECTED',
+          summary: 'Room disconnected',
+          payload: { reason },
+        });
+      });
+
+      room.on(RoomEvent.Reconnecting, () => {
+        setConnectionState('reconnecting');
+        addEvent({
+          source: 'room',
+          eventType: 'ROOM_RECONNECTING',
+          summary: 'Room reconnecting',
+          payload: {},
+        });
+      });
+
+      room.on(RoomEvent.Reconnected, () => {
+        setConnectionState('connected');
+        addEvent({
+          source: 'room',
+          eventType: 'ROOM_RECONNECTED',
+          summary: 'Room reconnected',
+          payload: {},
+        });
+      });
+
+      room.on(RoomEvent.ParticipantConnected, (participant) => {
+        addEvent({
+          source: 'participant',
+          eventType: 'PARTICIPANT_CONNECTED',
+          summary: `Participant joined: ${participant.identity}`,
+          payload: participant,
+        });
+      });
+
+      room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+        addEvent({
+          source: 'participant',
+          eventType: 'PARTICIPANT_DISCONNECTED',
+          summary: `Participant left: ${participant.identity}`,
+          payload: participant,
+        });
+      });
+
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if (track.kind !== Track.Kind.Audio) {
+          return;
+        }
+        const key = `${participant.sid}:${publication.trackSid}`;
+        const audioElement = track.attach();
+        audioElement.autoplay = true;
+        audioElement.muted = !speakerEnabledRef.current;
+        audioElement.dataset['lkTrackKey'] = key;
+        audioElement.style.display = 'none';
+        audioRootRef.current?.appendChild(audioElement);
+        audioElementsRef.current.set(key, audioElement);
+        addEvent({
+          source: 'track',
+          eventType: 'TRACK_SUBSCRIBED',
+          summary: `Audio track subscribed: ${participant.identity}`,
+          payload: { participant, publication },
+        });
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+        if (track.kind !== Track.Kind.Audio) {
+          return;
+        }
+        const key = `${participant.sid}:${publication.trackSid}`;
+        const audioElement = audioElementsRef.current.get(key);
+        if (audioElement) {
+          track.detach(audioElement);
+          audioElement.remove();
+          audioElementsRef.current.delete(key);
+        }
+        addEvent({
+          source: 'track',
+          eventType: 'TRACK_UNSUBSCRIBED',
+          summary: `Audio track unsubscribed: ${participant.identity}`,
+          payload: { participant, publication },
+        });
+      });
+
+      room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+        const raw = decoder.decode(payload);
+        let parsed: unknown = raw;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = raw;
+        }
+
+        const fromAgent =
+          participant?.identity?.includes('agent') ||
+          (typeof parsed === 'object' && parsed !== null && (parsed as { from?: unknown }).from === 'agent');
+
+        if (typeof parsed === 'object' && parsed !== null) {
+          const maybeText = (parsed as { text?: unknown }).text;
+          if (typeof maybeText === 'string' && maybeText.trim()) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: nextId(),
+                from: fromAgent ? 'agent' : 'system',
+                text: maybeText.trim(),
+                ts: new Date().toISOString(),
+              },
+            ]);
+          }
+        }
+
+        addEvent({
+          source: 'chat',
+          eventType: 'DATA_RECEIVED',
+          summary: `Data received${topic ? ` (${topic})` : ''}`,
+          payload: { participant, kind, topic, parsed },
+        });
+      });
+
+      await room.connect(details.serverUrl, details.participantToken);
+      await room.localParticipant.setMicrophoneEnabled(true);
+      setMicEnabled(true);
+      if (typeof (room as unknown as { startAudio?: () => Promise<void> }).startAudio === 'function') {
+        await (room as unknown as { startAudio: () => Promise<void> }).startAudio();
+      }
+
+      addEvent({
+        source: 'client',
+        eventType: 'AUDIO_AUTO_STARTED',
+        summary: 'Microphone enabled and audio started',
+        payload: { micEnabled: true },
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Unknown connection error';
+      setConnectionState('failed');
+      setError(message);
+      addEvent({
+        source: 'error',
+        eventType: 'CONNECT_FAILED',
+        summary: message,
+        payload: { message },
+      });
+      cleanupRoom();
+    }
+  }, [addEvent, cleanupRoom, connectionState, deviceId, settings]);
+
+  const disconnect = useCallback(() => {
+    cleanupRoom();
+    setConnectionState('disconnected');
+    addEvent({
+      source: 'client',
+      eventType: 'DISCONNECT_REQUESTED',
+      summary: 'Disconnect requested by user',
+      payload: {},
+    });
+  }, [addEvent, cleanupRoom]);
+
+  const toggleMic = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    const nextEnabled = !micEnabled;
+    await room.localParticipant.setMicrophoneEnabled(nextEnabled);
+    setMicEnabled(nextEnabled);
+    addEvent({
+      source: 'client',
+      eventType: 'MIC_TOGGLED',
+      summary: `Microphone ${nextEnabled ? 'enabled' : 'disabled'}`,
+      payload: { enabled: nextEnabled },
+    });
+  }, [addEvent, micEnabled]);
+
+  const toggleSpeaker = useCallback(() => {
+    const nextEnabled = !speakerEnabledRef.current;
+    setSpeakerEnabled(nextEnabled);
+    for (const [, audioElement] of audioElementsRef.current) {
+      audioElement.muted = !nextEnabled;
+    }
+    addEvent({
+      source: 'client',
+      eventType: 'SPEAKER_TOGGLED',
+      summary: `Speaker ${nextEnabled ? 'enabled' : 'disabled'}`,
+      payload: { enabled: nextEnabled },
+    });
+  }, [addEvent]);
+
+  const sendChat = useCallback(
+    async (text: string) => {
+      const room = roomRef.current;
+      if (!room || !text.trim()) return;
+      const payload = {
+        type: 'chat',
+        from: 'user',
+        text: text.trim(),
+        ts: new Date().toISOString(),
+      };
+      await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), {
+        topic: 'chat',
+        reliable: true,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          from: 'user',
+          text: payload.text,
+          ts: payload.ts,
+        },
+      ]);
+      addEvent({
+        source: 'chat',
+        eventType: 'DATA_SENT',
+        summary: 'Chat message sent',
+        payload,
+      });
+    },
+    [addEvent]
+  );
+
+  useEffect(() => {
+    return () => {
+      cleanupRoom();
+    };
+  }, [cleanupRoom]);
+
+  const selectedEvent = useMemo(
+    () => events.find((item) => item.id === selectedEventId) ?? null,
+    [events, selectedEventId]
+  );
+
+  return {
+    connectionState,
+    roomName,
+    error,
+    micEnabled,
+    speakerEnabled,
+    messages,
+    events,
+    selectedEvent,
+    selectedEventId,
+    audioRootRef,
+    setSelectedEventId,
+    connect,
+    disconnect,
+    toggleMic,
+    toggleSpeaker,
+    clearLogs,
+    sendChat,
+  };
+}

@@ -45,11 +45,17 @@ const EnvSchema = z.object({
   OLLAMA_TIMEOUT_MS: z.coerce.number().int().positive().max(120_000).default(30_000),
   OLLAMA_SYSTEM_PROMPT: z.string().default("You are Coziyoo AI assistant. Be concise and helpful."),
   SPEECH_TO_TEXT_BASE_URL: z.string().url().optional(),
+  STT_BASE_URL: z.string().url().optional(),
   SPEECH_TO_TEXT_TRANSCRIBE_PATH: z.string().default("/v1/audio/transcriptions"),
   SPEECH_TO_TEXT_MODEL: z.string().default("whisper-1"),
   SPEECH_TO_TEXT_API_KEY: z.string().optional(),
   SPEECH_TO_TEXT_TIMEOUT_MS: z.coerce.number().int().positive().max(120_000).default(60_000),
   SPEECH_TO_TEXT_MAX_AUDIO_BYTES: z.coerce.number().int().positive().max(25_000_000).default(8_000_000),
+  TTS_BASE_URL: z.string().url().optional(),
+  TTS_SYNTH_PATH: z.string().default("/tts"),
+  TTS_LANGUAGE_DEFAULT: z.string().min(2).max(16).default("tr"),
+  TTS_TIMEOUT_MS: z.coerce.number().int().positive().max(120_000).default(30_000),
+  TTS_API_KEY: z.string().optional(),
   TOOLS_REGISTRY_URL: z.string().url().default("https://registry.caal.io/index.json"),
   N8N_BASE_URL: z.string().url().optional(),
   N8N_API_KEY: z.string().min(1).optional(),
@@ -91,9 +97,11 @@ function resolveDatabaseUrl(data: z.infer<typeof EnvSchema>): string {
 
 const docsEnabledDefault = parsed.data.NODE_ENV !== "production";
 const databaseUrl = resolveDatabaseUrl(parsed.data);
+const speechToTextBaseUrl = parsed.data.SPEECH_TO_TEXT_BASE_URL ?? parsed.data.STT_BASE_URL;
 
 export const env = {
   ...parsed.data,
   DATABASE_URL: databaseUrl,
+  SPEECH_TO_TEXT_BASE_URL: speechToTextBaseUrl,
   DOCS_ENABLED: parsed.data.DOCS_ENABLED ?? docsEnabledDefault,
 };

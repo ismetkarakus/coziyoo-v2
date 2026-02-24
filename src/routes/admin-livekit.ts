@@ -6,6 +6,7 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { askOllamaChat } from "../services/ollama.js";
 import { transcribeAudio } from "../services/speech-to-text.js";
+import { synthesizeSpeech } from "../services/text-to-speech.js";
 import {
   buildRoomScopedAgentIdentity,
   dispatchAgentJoin,
@@ -58,6 +59,11 @@ const SttSchema = z.object({
   language: z.string().min(2).max(16).optional(),
   prompt: z.string().max(2_000).optional(),
   temperature: z.number().min(0).max(1).optional(),
+});
+
+const TtsSchema = z.object({
+  text: z.string().min(1).max(8_000),
+  language: z.string().min(2).max(16).optional(),
 });
 
 function tokenPreview(token: string) {
@@ -440,6 +446,37 @@ adminLiveKitRouter.post("/stt/transcribe", async (req, res) => {
     return res.status(502).json({
       error: {
         code: "STT_TRANSCRIBE_FAILED",
+        message,
+      },
+    });
+  }
+});
+
+adminLiveKitRouter.post("/tts/synthesize", async (req, res) => {
+  const parsed = TtsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    const result = await synthesizeSpeech(parsed.data);
+    res.setHeader("content-type", result.contentType);
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-tts-provider", env.TTS_BASE_URL ?? "");
+    return res.status(200).send(result.audio);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Text-to-speech failed";
+    if (message.includes("TTS_NOT_CONFIGURED")) {
+      return res.status(503).json({
+        error: {
+          code: "TTS_NOT_CONFIGURED",
+          message: "Set TTS_BASE_URL in API environment.",
+        },
+      });
+    }
+    return res.status(502).json({
+      error: {
+        code: "TTS_SYNTHESIZE_FAILED",
         message,
       },
     });

@@ -5,6 +5,8 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { askOllamaChat } from "../services/ollama.js";
 import { transcribeAudio } from "../services/speech-to-text.js";
+import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
+import { synthesizeSpeech } from "../services/text-to-speech.js";
 import {
   buildRoomScopedAgentIdentity,
   dispatchAgentJoin,
@@ -66,12 +68,33 @@ const StarterToolRunSchema = z.object({
   username: z.string().min(1).max(64).optional(),
 });
 
+const StarterAgentSettingsParamsSchema = z.object({
+  deviceId: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[a-zA-Z0-9_-]+$/),
+});
+
+const StarterAgentSettingsSchema = z.object({
+  agentName: z.string().min(1).max(128),
+  voiceLanguage: z.string().min(2).max(16).regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
+  ttsEnabled: z.boolean(),
+  sttEnabled: z.boolean(),
+  systemPrompt: z.string().max(4_000).optional(),
+});
+
 const SttSchema = z.object({
   audioBase64: z.string().min(4),
   mimeType: z.string().min(3).optional(),
   language: z.string().min(2).max(16).optional(),
   prompt: z.string().max(2_000).optional(),
   temperature: z.number().min(0).max(1).optional(),
+});
+
+const TtsSchema = z.object({
+  text: z.string().min(1).max(8_000),
+  language: z.string().min(2).max(16).optional(),
 });
 
 export const liveKitRouter = Router();
@@ -348,6 +371,37 @@ liveKitRouter.post("/stt/transcribe", requireAuth("app"), async (req, res) => {
   }
 });
 
+liveKitRouter.post("/tts/synthesize", requireAuth("app"), async (req, res) => {
+  const parsed = TtsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    const result = await synthesizeSpeech(parsed.data);
+    res.setHeader("content-type", result.contentType);
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-tts-provider", env.TTS_BASE_URL ?? "");
+    return res.status(200).send(result.audio);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Text-to-speech failed";
+    if (message.includes("TTS_NOT_CONFIGURED")) {
+      return res.status(503).json({
+        error: {
+          code: "TTS_NOT_CONFIGURED",
+          message: "Set TTS_BASE_URL in API environment.",
+        },
+      });
+    }
+    return res.status(502).json({
+      error: {
+        code: "TTS_SYNTHESIZE_FAILED",
+        message,
+      },
+    });
+  }
+});
+
 liveKitRouter.post("/starter/session/start", async (req, res) => {
   const parsed = StarterSessionSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -509,6 +563,96 @@ liveKitRouter.post("/starter/stt/transcribe", async (req, res) => {
     return res.status(502).json({
       error: {
         code: "STT_TRANSCRIBE_FAILED",
+        message,
+      },
+    });
+  }
+});
+
+liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
+  const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  if (!settings) {
+    return res.status(404).json({
+      error: {
+        code: "STARTER_AGENT_SETTINGS_NOT_FOUND",
+        message: "No settings found for this device.",
+      },
+    });
+  }
+
+  return res.status(200).json({
+    data: {
+      agentName: settings.agentName,
+      voiceLanguage: settings.voiceLanguage,
+      ttsEnabled: settings.ttsEnabled,
+      sttEnabled: settings.sttEnabled,
+      systemPrompt: settings.systemPrompt,
+      updatedAt: settings.updatedAt,
+    },
+  });
+});
+
+liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
+  const params = StarterAgentSettingsParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = StarterAgentSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const settings = await upsertStarterAgentSettings({
+    deviceId: params.data.deviceId,
+    agentName: parsed.data.agentName,
+    voiceLanguage: parsed.data.voiceLanguage,
+    ttsEnabled: parsed.data.ttsEnabled,
+    sttEnabled: parsed.data.sttEnabled,
+    systemPrompt: parsed.data.systemPrompt,
+  });
+
+  return res.status(200).json({
+    data: {
+      agentName: settings.agentName,
+      voiceLanguage: settings.voiceLanguage,
+      ttsEnabled: settings.ttsEnabled,
+      sttEnabled: settings.sttEnabled,
+      systemPrompt: settings.systemPrompt,
+      updatedAt: settings.updatedAt,
+    },
+  });
+});
+
+liveKitRouter.post("/starter/tts/synthesize", async (req, res) => {
+  const parsed = TtsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    const result = await synthesizeSpeech(parsed.data);
+    res.setHeader("content-type", result.contentType);
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-tts-provider", env.TTS_BASE_URL ?? "");
+    return res.status(200).send(result.audio);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Text-to-speech failed";
+    if (message.includes("TTS_NOT_CONFIGURED")) {
+      return res.status(503).json({
+        error: {
+          code: "TTS_NOT_CONFIGURED",
+          message: "Set TTS_BASE_URL in API environment.",
+        },
+      });
+    }
+    return res.status(502).json({
+      error: {
+        code: "TTS_SYNTHESIZE_FAILED",
         message,
       },
     });

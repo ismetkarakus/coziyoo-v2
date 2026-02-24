@@ -500,6 +500,17 @@ CREATE TABLE admin_table_preferences (
   UNIQUE (admin_user_id, table_key)
 );
 
+CREATE TABLE starter_agent_settings (
+  device_id TEXT PRIMARY KEY,
+  agent_name TEXT NOT NULL,
+  voice_language TEXT NOT NULL,
+  tts_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  stt_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  system_prompt TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE outbox_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type TEXT NOT NULL,
