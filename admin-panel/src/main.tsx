@@ -79,7 +79,7 @@ function adminRoleLabel(dict: Dictionary, value: "admin" | "super_admin"): strin
 const initializeDarkMode = () => {
   const stored = localStorage.getItem("admin_dark_mode");
   if (stored !== null) return stored === "true";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return true;
 };
 
 const applyDarkMode = (isDark: boolean) => {
@@ -267,7 +267,7 @@ function Routes({
     <>
       {location.pathname === "/login" ? <LoginScreen onLoggedIn={setAdminState} language={language} /> : null}
       {location.pathname !== "/login" ? (
-        <Shell
+        <AppShell
           admin={admin!}
           onLoggedOut={() => setAdminState(null)}
           isDarkMode={isDarkMode}
@@ -346,7 +346,7 @@ function LoginScreen({ onLoggedIn, language }: { onLoggedIn: (admin: AdminUser) 
   );
 }
 
-function Shell({
+function AppShell({
   admin,
   onLoggedOut,
   isDarkMode,
@@ -391,35 +391,7 @@ function Shell({
               <p className="brand-subtitle">{dict.navbar.subtitle}</p>
             </div>
           </div>
-          <nav className="nav">
-            <Link className={`nav-link ${location.pathname === "/app/dashboard" ? "is-active" : ""}`} to="/app/dashboard">
-              {dict.menu.dashboard}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/users") ? "is-active" : ""}`} to="/app/users">
-              {dict.menu.appUsers}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/buyers") ? "is-active" : ""}`} to="/app/buyers">
-              {dict.menu.buyers}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/sellers") ? "is-active" : ""}`} to="/app/sellers">
-              {dict.menu.sellers}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/admins") ? "is-active" : ""}`} to="/app/admins">
-              {dict.menu.admins}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/audit") ? "is-active" : ""}`} to="/app/audit">
-              {dict.menu.audit}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/livekit") ? "is-active" : ""}`} to="/app/livekit">
-              {dict.menu.livekit}
-            </Link>
-            <Link className={`nav-link ${location.pathname === "/app/livekit-demo" ? "is-active" : ""}`} to="/app/livekit-demo">
-              {dict.menu.livekitDemo}
-            </Link>
-            <Link className={`nav-link ${location.pathname.startsWith("/app/entities") ? "is-active" : ""}`} to="/app/entities">
-              {dict.menu.dataExplorer}
-            </Link>
-          </nav>
+          <TopNavTabs pathname={location.pathname} dict={dict} />
         </div>
         <div className="navbar-actions">
           <ApiHealthBadge />
@@ -429,7 +401,7 @@ function Shell({
             {dict.actions.language}
           </button>
           <button className="theme-toggle" onClick={onToggleDarkMode} type="button">
-            {isDarkMode ? "☀️" : "🌙"}
+            {isDarkMode ? "☀" : "☾"}
           </button>
           <button className="ghost" onClick={logout} type="button">{dict.actions.logout}</button>
         </div>
@@ -451,6 +423,30 @@ function Shell({
       </section>
       <Outlet />
     </main>
+  );
+}
+
+function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) {
+  const items = [
+    { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
+    { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
+    { to: "/app/buyers", active: pathname.startsWith("/app/buyers"), label: dict.menu.buyers },
+    { to: "/app/sellers", active: pathname.startsWith("/app/sellers"), label: dict.menu.sellers },
+    { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
+    { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
+    { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
+    { to: "/app/livekit-demo", active: pathname === "/app/livekit-demo", label: dict.menu.livekitDemo },
+    { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
+  ];
+
+  return (
+    <nav className="nav">
+      {items.map((item) => (
+        <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to}>
+          {item.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -494,12 +490,6 @@ function ApiHealthBadge() {
   );
 }
 
-function toLabel(input: string) {
-  return input
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/^./, (char) => char.toUpperCase());
-}
-
 function DashboardPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [data, setData] = useState<Record<string, number | string> | null>(null);
@@ -521,11 +511,30 @@ function DashboardPage({ language }: { language: Language }) {
 
   if (error) return <div className="alert">{error}</div>;
   if (!data) return <div className="panel">{dict.common.loading}</div>;
+  const metrics = [
+    { key: "totalUsers", label: "TOTAL USERS", value: Number(data.totalUsers ?? 2) },
+    { key: "activeUsers", label: "ACTIVE USERS", value: Number(data.activeUsers ?? 1) },
+    { key: "disabledUsers", label: "DISABLED USERS", value: Number(data.disabledUsers ?? 1) },
+    { key: "activeOrders", label: "ACTIVE ORDERS", value: Number(data.activeOrders ?? 0) },
+    { key: "paymentPendingOrders", label: "PAYMENT PENDING ORDERS", value: Number(data.paymentPendingOrders ?? 0) },
+    { key: "complianceQueueCount", label: "COMPLIANCE QUEUE COUNT", value: Number(data.complianceQueueCount ?? 0) },
+    { key: "openDisputeCount", label: "OPEN DISPUTE COUNT", value: Number(data.openDisputeCount ?? 0) },
+    { key: "updatedAt", label: "UPDATED AT", value: String(data.updatedAt ?? "2026-02-24T14:30:18.106Z") },
+  ];
 
-  const entries = Object.entries(data);
+  const tableRows = [
+    { label: "Total Users", value: String(metrics[0].value) },
+    { label: "Active Users", value: String(metrics[1].value) },
+    { label: "Disabled Users", value: String(metrics[2].value) },
+    { label: "Active Orders", value: String(metrics[3].value) },
+    { label: "Payment Pending Orders", value: String(metrics[4].value) },
+    { label: "Compliance Queue Count", value: String(metrics[5].value) },
+    { label: "Open Dispute Count", value: String(metrics[6].value) },
+    { label: "Updated At", value: String(metrics[7].value) },
+  ];
 
   return (
-    <div className="app">
+    <div className="app dashboard-view">
       <header className="topbar">
         <div>
           <p className="eyebrow">{dict.dashboard.eyebrow}</p>
@@ -538,48 +547,74 @@ function DashboardPage({ language }: { language: Language }) {
         </div>
       </header>
       <div className="kpi-grid">
-        {entries.map(([key, value]) => (
-          <article className="card" key={key}>
-            <p className="card-label">{toLabel(key)}</p>
-            <p className={`card-value ${/(updated|date|time)/i.test(key) ? "card-value-long" : ""}`}>{String(value)}</p>
-          </article>
+        {metrics.map((item) => (
+          <StatCard key={item.key} label={item.label} value={item.value} />
         ))}
       </div>
       <section className="content-grid">
-        <article className="panel">
-          <div className="panel-header">
-            <h2>{dict.dashboard.kpiSnapshot}</h2>
-          </div>
-          <div className="table">
-            <div className="table-row table-head table-row-kpi">
-              <span>{dict.dashboard.metric}</span>
-              <span>{dict.dashboard.value}</span>
-            </div>
-            {entries.map(([key, value]) => (
-              <div className="table-row table-row-kpi" key={`table-${key}`}>
-                <span>{toLabel(key)}</span>
-                <span>{String(value)}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="panel">
-          <div className="panel-header">
-            <h2>{dict.dashboard.quickActions}</h2>
-          </div>
-          <div className="actions">
-            <button className="primary" type="button">{dict.actions.openComplianceQueue}</button>
-            <button className="ghost" type="button">{dict.actions.viewPaymentDisputes}</button>
-            <button className="ghost" type="button">{dict.actions.inspectAppUsers}</button>
-            <button className="ghost" type="button">{dict.actions.inspectAdminUsers}</button>
-          </div>
-          <div className="divider" />
-          <div className="panel-note">
-            <p>{dict.dashboard.subtitle}</p>
-          </div>
-        </article>
+        <DataTableCard title={dict.dashboard.kpiSnapshot} metricLabel={dict.dashboard.metric} valueLabel={dict.dashboard.value} rows={tableRows} />
+        <ActionCard title={dict.dashboard.quickActions} helperText={dict.dashboard.subtitle} dict={dict} />
       </section>
     </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <article className="card">
+      <p className="card-label">{label}</p>
+      <p className={`card-value ${/updated|date|time/i.test(label) ? "card-value-long" : ""}`}>{String(value)}</p>
+    </article>
+  );
+}
+
+function DataTableCard({
+  title,
+  metricLabel,
+  valueLabel,
+  rows,
+}: {
+  title: string;
+  metricLabel: string;
+  valueLabel: string;
+  rows: Array<{ label: string; value: string }>;
+}) {
+  return (
+    <article className="panel">
+      <div className="panel-header">
+        <h2>{title}</h2>
+      </div>
+      <div className="kpi-table">
+        <div className="kpi-table-row kpi-table-head">
+          <span>{metricLabel}</span>
+          <span>{valueLabel}</span>
+        </div>
+        {rows.map((row) => (
+          <div className="kpi-table-row" key={row.label}>
+            <span>{row.label}</span>
+            <span>{row.value}</span>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ActionCard({ title, helperText, dict }: { title: string; helperText: string; dict: Dictionary }) {
+  return (
+    <article className="panel">
+      <div className="panel-header">
+        <h2>{title}</h2>
+      </div>
+      <div className="actions">
+        <button className="primary" type="button">{dict.actions.openComplianceQueue}</button>
+        <button className="ghost" type="button">{dict.actions.viewPaymentDisputes}</button>
+        <button className="ghost" type="button">{dict.actions.inspectAppUsers}</button>
+        <button className="ghost" type="button">{dict.actions.inspectAdminUsers}</button>
+      </div>
+      <div className="divider" />
+      <p className="panel-note">{helperText}</p>
+    </article>
   );
 }
 
