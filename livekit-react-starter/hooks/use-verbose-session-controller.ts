@@ -71,6 +71,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
 
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
+  const ttsQueueRef = useRef<Promise<void>>(Promise.resolve());
   const audioRootRef = useRef<HTMLDivElement | null>(null);
   const speakerEnabledRef = useRef(true);
   speakerEnabledRef.current = speakerEnabled;
@@ -115,6 +116,66 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
     room.disconnect();
     roomRef.current = null;
   }, []);
+
+  const enqueueTtsPlayback = useCallback(
+    (text: string) => {
+      if (!settings.ttsEnabled || !text.trim()) {
+        return;
+      }
+
+      ttsQueueRef.current = ttsQueueRef.current
+        .then(async () => {
+          if (!speakerEnabledRef.current) {
+            return;
+          }
+
+          const response = await fetch('/api/starter/tts-synthesize', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              text,
+              language: settings.voiceLanguage || 'tr',
+            }),
+          });
+
+          if (!response.ok) {
+            const raw = await response.text();
+            throw new Error(`TTS_HTTP_${response.status}: ${raw.slice(0, 250)}`);
+          }
+
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          try {
+            const audio = new Audio(url);
+            audio.preload = 'auto';
+            audio.muted = !speakerEnabledRef.current;
+            await audio.play();
+            await new Promise<void>((resolve) => {
+              audio.onended = () => resolve();
+              audio.onerror = () => resolve();
+            });
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+
+          addEvent({
+            source: 'api',
+            eventType: 'TTS_PLAYBACK_OK',
+            summary: 'Agent response played as audio',
+            payload: { textLength: text.length, language: settings.voiceLanguage || 'tr' },
+          });
+        })
+        .catch((error) => {
+          addEvent({
+            source: 'error',
+            eventType: 'TTS_PLAYBACK_FAILED',
+            summary: 'Agent response audio playback failed',
+            payload: { message: error instanceof Error ? error.message : 'Unknown error' },
+          });
+        });
+    },
+    [addEvent, settings.ttsEnabled, settings.voiceLanguage]
+  );
 
   const connect = useCallback(async () => {
     if (!deviceId) return;
@@ -290,15 +351,19 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         if (typeof parsed === 'object' && parsed !== null) {
           const maybeText = (parsed as { text?: unknown }).text;
           if (typeof maybeText === 'string' && maybeText.trim()) {
+            const text = maybeText.trim();
             setMessages((prev) => [
               ...prev,
               {
                 id: nextId(),
                 from: fromAgent ? 'agent' : 'system',
-                text: maybeText.trim(),
+                text,
                 ts: new Date().toISOString(),
               },
             ]);
+            if (fromAgent) {
+              enqueueTtsPlayback(text);
+            }
           }
         }
 
@@ -380,7 +445,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       });
       cleanupRoom();
     }
-  }, [addEvent, cleanupRoom, connectionState, deviceId, settings]);
+  }, [addEvent, cleanupRoom, connectionState, deviceId, enqueueTtsPlayback, settings]);
 
   const disconnect = useCallback(() => {
     cleanupRoom();
