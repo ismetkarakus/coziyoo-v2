@@ -676,9 +676,9 @@ function DataTableCard({
         </div>
 
         <div className="kpi-right">
-          <h3>Job Queue Test</h3>
+          <h3>İş Akışı Testi</h3>
           <div className="line-chart-wrap">
-            <svg className="queue-chart" viewBox="0 0 560 230" aria-label="Kuyruk trend grafiği">
+            <svg className="queue-chart" viewBox="0 0 560 230" aria-label="İş akışı trend grafiği">
               <text x="20" y="28" className="chart-y-label">10</text>
               <text x="24" y="73" className="chart-y-label">8</text>
               <text x="24" y="118" className="chart-y-label">6</text>
@@ -738,17 +738,17 @@ function ActionCard({ title, dict }: { title: string; dict: Dictionary }) {
       </div>
       <div className="queue-state-card">
         <div className="queue-state-header">
-          <h3>Kuyruk Durumu</h3>
+          <h3>İş Durumu</h3>
           <span>2028-02-24 15:30:6</span>
         </div>
         <div className="queue-state-content">
           <div className="queue-state-labels">
-            <p>Yazdırma Kuyruğu</p>
-            <p>İndirme Kuyruğu</p>
-            <p>Mesai / İş Kuyruğu</p>
-            <p>Medys Kuyruğu</p>
+            <p>Yazdırma İşleri</p>
+            <p>İndirme İşleri</p>
+            <p>Mesai / Operasyon İşleri</p>
+            <p>Medya İşleri</p>
           </div>
-          <div className="donut-wrap" aria-label="Kuyruk durumu donut">
+          <div className="donut-wrap" aria-label="İş durumu dağılımı">
             <svg viewBox="0 0 200 200" className="donut-chart">
               <circle cx="100" cy="100" r="64" className="donut-bg" />
               <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-blue" />
