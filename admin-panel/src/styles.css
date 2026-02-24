@@ -398,6 +398,15 @@ button {
   word-break: break-word;
 }
 
+.card-updated .card-value-long {
+  font-size: 1rem;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 2.55fr) minmax(0, 1fr);

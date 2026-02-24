@@ -576,7 +576,7 @@ function StatCard({
   trailingIcon?: "refresh";
 }) {
   return (
-    <article className="card">
+    <article className={`card ${/updated|güncelleme/i.test(label) ? "card-updated" : ""}`}>
       <div className="card-head">
         <p className="card-label">
           <i className={`metric-icon metric-icon-${icon ?? "users"}`} />
