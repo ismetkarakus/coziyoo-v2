@@ -51,6 +51,13 @@ function nextId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
+function resolveGreetingContext(now: Date) {
+  const weekday = now.toLocaleDateString(undefined, { weekday: 'long' });
+  const hour = now.getHours();
+  const timeOfDay = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+  return { weekday, hour, timeOfDay };
+}
+
 export function useVerboseSessionController({ deviceId, settings }: ControllerInput) {
   const [connectionState, setConnectionState] = useState<SessionConnectionState>('idle');
   const [events, setEvents] = useState<VerboseEvent[]>([]);
@@ -313,6 +320,49 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         summary: 'Microphone enabled and audio started',
         payload: { micEnabled: true },
       });
+
+      if (settings.greetingEnabled) {
+        const now = new Date();
+        const greetingContext = resolveGreetingContext(now);
+        const greetingInstruction =
+          settings.greetingInstruction?.trim() ||
+          'Send a short welcome greeting appropriate to weekday and time of day. Do not use fixed canned text.';
+
+        const greetingPayload = {
+          type: 'system_instruction',
+          action: 'send_greeting',
+          instruction: greetingInstruction,
+          context: {
+            ...greetingContext,
+            language: settings.voiceLanguage || 'tr',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          ts: now.toISOString(),
+        };
+
+        try {
+          await room.localParticipant.publishData(encoder.encode(JSON.stringify(greetingPayload)), {
+            topic: 'system',
+            reliable: true,
+          });
+          addEvent({
+            source: 'chat',
+            eventType: 'GREETING_REQUEST_SENT',
+            summary: 'Greeting instruction sent to agent',
+            payload: greetingPayload,
+          });
+        } catch (error) {
+          addEvent({
+            source: 'error',
+            eventType: 'GREETING_REQUEST_FAILED',
+            summary: 'Failed to send greeting instruction',
+            payload: {
+              message: error instanceof Error ? error.message : 'Unknown error',
+              greetingPayload,
+            },
+          });
+        }
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Unknown connection error';
       setConnectionState('failed');

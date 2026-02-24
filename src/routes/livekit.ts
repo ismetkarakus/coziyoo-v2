@@ -77,11 +77,13 @@ const StarterAgentSettingsParamsSchema = z.object({
 });
 
 const StarterAgentSettingsSchema = z.object({
-  agentName: z.string().min(1).max(128),
+  agentName: z.string().max(128),
   voiceLanguage: z.string().min(2).max(16).regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
   ttsEnabled: z.boolean(),
   sttEnabled: z.boolean(),
   systemPrompt: z.string().max(4_000).optional(),
+  greetingEnabled: z.boolean().default(true),
+  greetingInstruction: z.string().max(2_000).optional(),
 });
 
 const SttSchema = z.object({
@@ -592,6 +594,8 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt,
+      greetingEnabled: settings.greetingEnabled,
+      greetingInstruction: settings.greetingInstruction,
       updatedAt: settings.updatedAt,
     },
   });
@@ -614,6 +618,8 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     ttsEnabled: parsed.data.ttsEnabled,
     sttEnabled: parsed.data.sttEnabled,
     systemPrompt: parsed.data.systemPrompt,
+    greetingEnabled: parsed.data.greetingEnabled,
+    greetingInstruction: parsed.data.greetingInstruction,
   });
 
   return res.status(200).json({
@@ -623,6 +629,8 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt,
+      greetingEnabled: settings.greetingEnabled,
+      greetingInstruction: settings.greetingInstruction,
       updatedAt: settings.updatedAt,
     },
   });

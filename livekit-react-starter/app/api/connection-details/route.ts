@@ -67,6 +67,8 @@ export async function POST(req: Request) {
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt ?? '',
+      greetingEnabled: settings.greetingEnabled,
+      greetingInstruction: settings.greetingInstruction ?? '',
     });
 
     const participantToken = await createParticipantToken(

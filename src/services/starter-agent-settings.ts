@@ -7,6 +7,8 @@ export type StarterAgentSettings = {
   ttsEnabled: boolean;
   sttEnabled: boolean;
   systemPrompt: string | null;
+  greetingEnabled: boolean;
+  greetingInstruction: string | null;
   updatedAt: string;
 };
 
@@ -17,6 +19,8 @@ type UpsertStarterAgentSettingsInput = {
   ttsEnabled: boolean;
   sttEnabled: boolean;
   systemPrompt?: string;
+  greetingEnabled: boolean;
+  greetingInstruction?: string;
 };
 
 export async function getStarterAgentSettings(deviceId: string): Promise<StarterAgentSettings | null> {
@@ -27,9 +31,11 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     tts_enabled: boolean;
     stt_enabled: boolean;
     system_prompt: string | null;
+    greeting_enabled: boolean;
+    greeting_instruction: string | null;
     updated_at: string;
   }>(
-    `SELECT device_id, agent_name, voice_language, tts_enabled, stt_enabled, system_prompt, updated_at::text
+    `SELECT device_id, agent_name, voice_language, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text
      FROM starter_agent_settings
      WHERE device_id = $1`,
     [deviceId]
@@ -47,6 +53,8 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     ttsEnabled: row.tts_enabled,
     sttEnabled: row.stt_enabled,
     systemPrompt: row.system_prompt,
+    greetingEnabled: row.greeting_enabled,
+    greetingInstruction: row.greeting_instruction,
     updatedAt: row.updated_at,
   };
 }
@@ -59,10 +67,12 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     tts_enabled: boolean;
     stt_enabled: boolean;
     system_prompt: string | null;
+    greeting_enabled: boolean;
+    greeting_instruction: string | null;
     updated_at: string;
   }>(
-    `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, tts_enabled, stt_enabled, system_prompt, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, now())
+    `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
      ON CONFLICT (device_id)
      DO UPDATE SET
        agent_name = EXCLUDED.agent_name,
@@ -70,8 +80,10 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
        tts_enabled = EXCLUDED.tts_enabled,
        stt_enabled = EXCLUDED.stt_enabled,
        system_prompt = EXCLUDED.system_prompt,
+       greeting_enabled = EXCLUDED.greeting_enabled,
+       greeting_instruction = EXCLUDED.greeting_instruction,
        updated_at = now()
-     RETURNING device_id, agent_name, voice_language, tts_enabled, stt_enabled, system_prompt, updated_at::text`,
+     RETURNING device_id, agent_name, voice_language, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text`,
     [
       input.deviceId,
       input.agentName,
@@ -79,6 +91,8 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
       input.ttsEnabled,
       input.sttEnabled,
       input.systemPrompt ?? null,
+      input.greetingEnabled,
+      input.greetingInstruction ?? null,
     ]
   );
 
@@ -90,6 +104,8 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     ttsEnabled: row.tts_enabled,
     sttEnabled: row.stt_enabled,
     systemPrompt: row.system_prompt,
+    greetingEnabled: row.greeting_enabled,
+    greetingInstruction: row.greeting_instruction,
     updatedAt: row.updated_at,
   };
 }

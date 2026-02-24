@@ -56,6 +56,8 @@ export default function SettingsPage() {
           ttsEnabled: Boolean(form.ttsEnabled),
           sttEnabled: Boolean(form.sttEnabled),
           systemPrompt: form.systemPrompt?.trim() || '',
+          greetingEnabled: Boolean(form.greetingEnabled),
+          greetingInstruction: form.greetingInstruction?.trim() || '',
         }),
       });
 
@@ -138,7 +140,25 @@ export default function SettingsPage() {
               />
               STT Enabled
             </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(form.greetingEnabled)}
+                onChange={(event) => setForm((prev) => ({ ...prev, greetingEnabled: event.target.checked }))}
+              />
+              Auto Greeting on Connect
+            </label>
           </div>
+
+          <label className="block">
+            <span className="mb-1 block text-sm">Greeting Instruction (optional)</span>
+            <textarea
+              value={form.greetingInstruction ?? ''}
+              onChange={(event) => setForm((prev) => ({ ...prev, greetingInstruction: event.target.value }))}
+              className="min-h-20 w-full rounded border bg-transparent px-3 py-2 text-sm"
+              placeholder="How agent should greet based on weekday and time of day."
+            />
+          </label>
         </div>
 
         <div className="mt-5 flex gap-2">

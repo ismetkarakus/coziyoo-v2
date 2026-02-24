@@ -33,9 +33,9 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'LiveKit',
-  pageTitle: 'LiveKit Voice Agent',
-  pageDescription: 'A voice agent built with LiveKit',
+  companyName: 'Coziyoo',
+  pageTitle: 'Coziyoo',
+  pageDescription: 'Coziyoo AI Assistant',
 
   supportsChatInput: true,
   supportsVideoInput: true,
@@ -43,9 +43,9 @@ export const APP_CONFIG_DEFAULTS: AppConfig = {
   isPreConnectBufferEnabled: true,
 
   logo: '/lk-logo.svg',
-  accent: '#002cf2',
+  accent: '#0f766e',
   logoDark: '/lk-logo-dark.svg',
-  accentDark: '#1fd5f9',
+  accentDark: '#14b8a6',
   startButtonText: 'Start call',
 
   // optional: audio visualization configuration

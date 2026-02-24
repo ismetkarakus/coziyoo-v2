@@ -507,6 +507,8 @@ CREATE TABLE starter_agent_settings (
   tts_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   stt_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   system_prompt TEXT,
+  greeting_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  greeting_instruction TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

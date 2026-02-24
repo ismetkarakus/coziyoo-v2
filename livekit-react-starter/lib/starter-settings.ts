@@ -4,6 +4,8 @@ export type StarterAgentSettings = {
   ttsEnabled: boolean;
   sttEnabled: boolean;
   systemPrompt?: string;
+  greetingEnabled: boolean;
+  greetingInstruction?: string;
   updatedAt?: string;
 };
 
@@ -13,6 +15,8 @@ export const STARTER_AGENT_SETTINGS_DEFAULTS: StarterAgentSettings = {
   ttsEnabled: true,
   sttEnabled: true,
   systemPrompt: '',
+  greetingEnabled: true,
+  greetingInstruction: '',
 };
 
 export function normalizeStarterAgentSettings(input: unknown): StarterAgentSettings {
@@ -26,6 +30,8 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   const ttsEnabled = typeof value.ttsEnabled === 'boolean' ? value.ttsEnabled : true;
   const sttEnabled = typeof value.sttEnabled === 'boolean' ? value.sttEnabled : true;
   const systemPrompt = typeof value.systemPrompt === 'string' ? value.systemPrompt : '';
+  const greetingEnabled = typeof value.greetingEnabled === 'boolean' ? value.greetingEnabled : true;
+  const greetingInstruction = typeof value.greetingInstruction === 'string' ? value.greetingInstruction : '';
   const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : undefined;
 
   return {
@@ -34,6 +40,8 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
     ttsEnabled,
     sttEnabled,
     systemPrompt,
+    greetingEnabled,
+    greetingInstruction,
     updatedAt,
   };
 }
