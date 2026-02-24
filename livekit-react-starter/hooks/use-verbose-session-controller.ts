@@ -342,11 +342,26 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           parsed = raw;
         }
 
+        const parsedFrom =
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          typeof (parsed as { from?: unknown }).from === 'string'
+            ? ((parsed as { from: string }).from ?? '').toLowerCase()
+            : '';
+        const parsedType =
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          typeof (parsed as { type?: unknown }).type === 'string'
+            ? ((parsed as { type: string }).type ?? '').toLowerCase()
+            : '';
+        const configuredAgentName = settings.agentName.trim().toLowerCase();
+
         const fromAgent =
-          participant?.identity?.includes('agent') ||
-          (typeof parsed === 'object' &&
-            parsed !== null &&
-            (parsed as { from?: unknown }).from === 'agent');
+          participant?.identity?.toLowerCase().includes('agent') === true ||
+          parsedType === 'agent_message' ||
+          parsedFrom === 'agent' ||
+          (configuredAgentName.length > 0 && parsedFrom === configuredAgentName) ||
+          parsedFrom.includes('agent');
 
         if (typeof parsed === 'object' && parsed !== null) {
           const maybeText = (parsed as { text?: unknown }).text;
