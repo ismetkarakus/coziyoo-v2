@@ -31,7 +31,8 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   const sttEnabled = typeof value.sttEnabled === 'boolean' ? value.sttEnabled : true;
   const systemPrompt = typeof value.systemPrompt === 'string' ? value.systemPrompt : '';
   const greetingEnabled = typeof value.greetingEnabled === 'boolean' ? value.greetingEnabled : true;
-  const greetingInstruction = typeof value.greetingInstruction === 'string' ? value.greetingInstruction : '';
+  const greetingInstruction =
+    typeof value.greetingInstruction === 'string' ? value.greetingInstruction : '';
   const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : undefined;
 
   return {

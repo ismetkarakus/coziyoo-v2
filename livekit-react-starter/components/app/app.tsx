@@ -1,14 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import type { AppConfig } from '@/app-config';
 import { useVerboseSessionController } from '@/hooks/use-verbose-session-controller';
 import { getOrCreateDeviceId } from '@/lib/device-id';
 import {
   STARTER_AGENT_SETTINGS_DEFAULTS,
-  normalizeStarterAgentSettings,
   type StarterAgentSettings,
+  normalizeStarterAgentSettings,
 } from '@/lib/starter-settings';
 import { ThemeToggle } from './theme-toggle';
 
@@ -29,10 +29,13 @@ export function App({ appConfig }: AppProps) {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch(`/api/starter/agent-settings/${encodeURIComponent(deviceId)}`, {
-          method: 'GET',
-          cache: 'no-store',
-        });
+        const response = await fetch(
+          `/api/starter/agent-settings/${encodeURIComponent(deviceId)}`,
+          {
+            method: 'GET',
+            cache: 'no-store',
+          }
+        );
         if (response.ok) {
           const payload = (await response.json()) as SettingsResponse;
           setSettings(normalizeStarterAgentSettings(payload.data));
@@ -99,10 +102,18 @@ export function App({ appConfig }: AppProps) {
           >
             Disconnect
           </button>
-          <button type="button" className="rounded-md border px-3 py-2 text-sm" onClick={controller.toggleMic}>
+          <button
+            type="button"
+            className="rounded-md border px-3 py-2 text-sm"
+            onClick={controller.toggleMic}
+          >
             {controller.micEnabled ? 'Mute Mic' : 'Unmute Mic'}
           </button>
-          <button type="button" className="rounded-md border px-3 py-2 text-sm" onClick={controller.toggleSpeaker}>
+          <button
+            type="button"
+            className="rounded-md border px-3 py-2 text-sm"
+            onClick={controller.toggleSpeaker}
+          >
             {controller.speakerEnabled ? 'Speaker On' : 'Speaker Off'}
           </button>
         </div>
@@ -148,7 +159,11 @@ export function App({ appConfig }: AppProps) {
             placeholder="Type a message..."
             className="flex-1 rounded border bg-transparent px-3 py-2 text-sm"
           />
-          <button type="button" className="rounded-md border px-3 py-2 text-sm" onClick={() => void onSend()}>
+          <button
+            type="button"
+            className="rounded-md border px-3 py-2 text-sm"
+            onClick={() => void onSend()}
+          >
             Send
           </button>
         </div>
@@ -168,7 +183,9 @@ export function App({ appConfig }: AppProps) {
                 type="button"
                 key={item.id}
                 className={`mb-1 w-full rounded border p-2 text-left ${
-                  controller.selectedEventId === item.id ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/30' : ''
+                  controller.selectedEventId === item.id
+                    ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/30'
+                    : ''
                 }`}
                 onClick={() => controller.setSelectedEventId(item.id)}
               >

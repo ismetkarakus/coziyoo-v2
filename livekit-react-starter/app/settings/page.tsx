@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { getOrCreateDeviceId } from '@/lib/device-id';
 import {
   STARTER_AGENT_SETTINGS_DEFAULTS,
-  normalizeStarterAgentSettings,
   type StarterAgentSettings,
+  normalizeStarterAgentSettings,
 } from '@/lib/starter-settings';
 
 type ApiResponse = { data?: StarterAgentSettings; error?: { message?: string } };
@@ -19,10 +19,13 @@ export default function SettingsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch(`/api/starter/agent-settings/${encodeURIComponent(deviceId)}`, {
-          method: 'GET',
-          cache: 'no-store',
-        });
+        const response = await fetch(
+          `/api/starter/agent-settings/${encodeURIComponent(deviceId)}`,
+          {
+            method: 'GET',
+            cache: 'no-store',
+          }
+        );
         if (response.ok) {
           const payload = (await response.json()) as ApiResponse;
           setForm(normalizeStarterAgentSettings(payload.data));
@@ -107,7 +110,9 @@ export default function SettingsPage() {
             <span className="mb-1 block text-sm">Voice Language</span>
             <input
               value={form.voiceLanguage}
-              onChange={(event) => setForm((prev) => ({ ...prev, voiceLanguage: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, voiceLanguage: event.target.value }))
+              }
               className="w-full rounded border bg-transparent px-3 py-2 text-sm"
               placeholder="tr"
             />
@@ -117,7 +122,9 @@ export default function SettingsPage() {
             <span className="mb-1 block text-sm">System Prompt (optional)</span>
             <textarea
               value={form.systemPrompt ?? ''}
-              onChange={(event) => setForm((prev) => ({ ...prev, systemPrompt: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, systemPrompt: event.target.value }))
+              }
               className="min-h-24 w-full rounded border bg-transparent px-3 py-2 text-sm"
               placeholder="Instructions for your agent"
             />
@@ -128,7 +135,9 @@ export default function SettingsPage() {
               <input
                 type="checkbox"
                 checked={Boolean(form.ttsEnabled)}
-                onChange={(event) => setForm((prev) => ({ ...prev, ttsEnabled: event.target.checked }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, ttsEnabled: event.target.checked }))
+                }
               />
               TTS Enabled
             </label>
@@ -136,7 +145,9 @@ export default function SettingsPage() {
               <input
                 type="checkbox"
                 checked={Boolean(form.sttEnabled)}
-                onChange={(event) => setForm((prev) => ({ ...prev, sttEnabled: event.target.checked }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, sttEnabled: event.target.checked }))
+                }
               />
               STT Enabled
             </label>
@@ -144,7 +155,9 @@ export default function SettingsPage() {
               <input
                 type="checkbox"
                 checked={Boolean(form.greetingEnabled)}
-                onChange={(event) => setForm((prev) => ({ ...prev, greetingEnabled: event.target.checked }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, greetingEnabled: event.target.checked }))
+                }
               />
               Auto Greeting on Connect
             </label>
@@ -154,7 +167,9 @@ export default function SettingsPage() {
             <span className="mb-1 block text-sm">Greeting Instruction (optional)</span>
             <textarea
               value={form.greetingInstruction ?? ''}
-              onChange={(event) => setForm((prev) => ({ ...prev, greetingInstruction: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, greetingInstruction: event.target.value }))
+              }
               className="min-h-20 w-full rounded border bg-transparent px-3 py-2 text-sm"
               placeholder="How agent should greet based on weekday and time of day."
             />
@@ -162,7 +177,11 @@ export default function SettingsPage() {
         </div>
 
         <div className="mt-5 flex gap-2">
-          <button type="button" onClick={save} className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white dark:bg-slate-100 dark:text-slate-900">
+          <button
+            type="button"
+            onClick={save}
+            className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white dark:bg-slate-100 dark:text-slate-900"
+          >
             Save
           </button>
           <button type="button" onClick={reset} className="rounded-md border px-3 py-2 text-sm">

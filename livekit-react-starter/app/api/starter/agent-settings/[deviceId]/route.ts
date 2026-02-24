@@ -13,7 +13,10 @@ function validateDeviceId(value: string) {
 
 export async function GET(_req: Request, context: { params: Promise<{ deviceId: string }> }) {
   if (!API_BASE_URL) {
-    return NextResponse.json({ error: { message: 'API_BASE_URL is not configured' } }, { status: 503 });
+    return NextResponse.json(
+      { error: { message: 'API_BASE_URL is not configured' } },
+      { status: 503 }
+    );
   }
   const { deviceId } = await context.params;
   if (!validateDeviceId(deviceId)) {
@@ -38,7 +41,10 @@ export async function GET(_req: Request, context: { params: Promise<{ deviceId: 
 
 export async function PUT(req: Request, context: { params: Promise<{ deviceId: string }> }) {
   if (!API_BASE_URL) {
-    return NextResponse.json({ error: { message: 'API_BASE_URL is not configured' } }, { status: 503 });
+    return NextResponse.json(
+      { error: { message: 'API_BASE_URL is not configured' } },
+      { status: 503 }
+    );
   }
   const { deviceId } = await context.params;
   if (!validateDeviceId(deviceId)) {

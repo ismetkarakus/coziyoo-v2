@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import crypto from 'node:crypto';
 import { AccessToken, type AccessTokenOptions, type VideoGrant } from 'livekit-server-sdk';
+import crypto from 'node:crypto';
 import { RoomConfiguration } from '@livekit/protocol';
 import {
   STARTER_AGENT_SETTINGS_DEFAULTS,
-  normalizeStarterAgentSettings,
   type StarterAgentSettings,
+  normalizeStarterAgentSettings,
 } from '@/lib/starter-settings';
 
 type ConnectionDetails = {
@@ -49,10 +49,15 @@ export async function POST(req: Request) {
     const headerDeviceId = req.headers.get('x-device-id');
     const bodyDeviceId = typeof parsedBody.deviceId === 'string' ? parsedBody.deviceId : undefined;
     const cookieDeviceId = readCookie(req.headers.get('cookie') ?? '', DEVICE_ID_COOKIE);
-    const deviceId = sanitizeDeviceId(headerDeviceId) ?? sanitizeDeviceId(bodyDeviceId) ?? sanitizeDeviceId(cookieDeviceId);
+    const deviceId =
+      sanitizeDeviceId(headerDeviceId) ??
+      sanitizeDeviceId(bodyDeviceId) ??
+      sanitizeDeviceId(cookieDeviceId);
 
     const savedSettings = deviceId ? await fetchStarterAgentSettings(deviceId) : null;
-    const settings = normalizeStarterAgentSettings(savedSettings ?? STARTER_AGENT_SETTINGS_DEFAULTS);
+    const settings = normalizeStarterAgentSettings(
+      savedSettings ?? STARTER_AGENT_SETTINGS_DEFAULTS
+    );
     const requestedAgentName = readRequestedAgentName(parsedBody);
     const agentName = requestedAgentName || settings.agentName || undefined;
 

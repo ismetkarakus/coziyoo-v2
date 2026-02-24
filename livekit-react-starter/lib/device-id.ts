@@ -3,7 +3,8 @@
 const DEVICE_ID_KEY = 'coziyoo_device_id';
 
 export function getOrCreateDeviceId() {
-  const existing = typeof window !== 'undefined' ? window.localStorage.getItem(DEVICE_ID_KEY) : null;
+  const existing =
+    typeof window !== 'undefined' ? window.localStorage.getItem(DEVICE_ID_KEY) : null;
   if (existing && isValidDeviceId(existing)) {
     syncCookie(existing);
     return existing;
