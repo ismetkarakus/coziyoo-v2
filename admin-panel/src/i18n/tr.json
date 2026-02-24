@@ -24,8 +24,8 @@
     "rotateRole": "Rolü Değiştir",
     "applyFilters": "Filtreleri Uygula",
     "exportCsv": "CSV Dışa Aktar",
-    "reviewQueue": "Kuyruğu İncele",
-    "openComplianceQueue": "Uygunluk Kuyruğunu Aç",
+    "reviewQueue": "Bekleyen İşler",
+    "openComplianceQueue": "Bekleyen Uygunluk İşlerini Aç",
     "viewPaymentDisputes": "Ödeme İtirazlarını Gör",
     "inspectAppUsers": "Uygulama Kullanıcılarını İncele",
     "inspectAdminUsers": "Yönetici Kullanıcıları İncele"

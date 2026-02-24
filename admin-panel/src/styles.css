@@ -368,7 +368,7 @@ button {
 .panel {
   background: var(--color-white);
   border-radius: 20px;
-  padding: 20px;
+  padding: 30px 20px 20px;
   box-shadow: 0 12px 30px var(--color-shadow);
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
   display: flex;
@@ -381,6 +381,15 @@ button {
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
+  margin-top: -30px;
+}
+
+.panel-header h2 {
+  display: inline-block;
+  background: var(--color-white);
+  padding: 0 8px;
+  line-height: 1;
+  margin-left: 6px;
 }
 
 .panel-meta {
@@ -847,7 +856,7 @@ textarea:focus {
   }
 
   .panel {
-    padding: 14px;
+    padding: 24px 14px 14px;
     border-radius: 14px;
   }
 
