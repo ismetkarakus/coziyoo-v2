@@ -1,4 +1,4 @@
-import { AccessToken, RoomServiceClient, type VideoGrant } from "livekit-server-sdk";
+import { AccessToken, DataPacket_Kind, RoomServiceClient, type VideoGrant } from "livekit-server-sdk";
 import { env } from "../config/env.js";
 
 function configured() {
@@ -93,6 +93,28 @@ export async function isParticipantInRoom(roomName: string, identity: string) {
   return participants.some((participant) => participant.identity === identity);
 }
 
+export async function sendRoomData(
+  roomName: string,
+  payload: Record<string, unknown>,
+  options?: { topic?: string; destinationIdentities?: string[] }
+) {
+  if (!configured()) {
+    throw new Error("LIVEKIT_NOT_CONFIGURED");
+  }
+
+  const client = new RoomServiceClient(
+    liveKitHttpUrl(),
+    env.LIVEKIT_API_KEY as string,
+    env.LIVEKIT_API_SECRET as string
+  );
+
+  const encoded = new TextEncoder().encode(JSON.stringify(payload));
+  await client.sendData(roomName, encoded, DataPacket_Kind.RELIABLE, {
+    topic: options?.topic ?? "chat",
+    destinationIdentities: options?.destinationIdentities ?? [],
+  });
+}
+
 export type DispatchAgentInput = {
   roomName: string;
   participantIdentity: string;
@@ -132,11 +154,12 @@ export async function dispatchAgentJoin(input: DispatchAgentInput) {
       signal: controller.signal,
     });
 
-    let body: unknown = null;
+    const rawBody = await downstream.text();
+    let body: unknown = rawBody;
     try {
-      body = await downstream.json();
+      body = rawBody.length > 0 ? JSON.parse(rawBody) : null;
     } catch {
-      body = await downstream.text();
+      body = rawBody;
     }
 
     return {

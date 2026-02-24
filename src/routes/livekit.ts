@@ -3,6 +3,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
+import { askOllamaChat } from "../services/ollama.js";
+import { transcribeAudio } from "../services/speech-to-text.js";
 import {
   buildRoomScopedAgentIdentity,
   dispatchAgentJoin,
@@ -10,6 +12,7 @@ import {
   isLiveKitConfigured,
   isParticipantInRoom,
   mintLiveKitToken,
+  sendRoomData,
 } from "../services/livekit.js";
 
 const RoomTokenSchema = z.object({
@@ -38,6 +41,19 @@ const StartSessionSchema = z.object({
   metadata: z.string().max(2_000).optional(),
   ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
   autoDispatchAgent: z.boolean().default(true),
+});
+
+const AgentChatSchema = z.object({
+  roomName: z.string().min(1).max(128),
+  text: z.string().min(1).max(8_000),
+});
+
+const SttSchema = z.object({
+  audioBase64: z.string().min(4),
+  mimeType: z.string().min(3).optional(),
+  language: z.string().min(2).max(16).optional(),
+  prompt: z.string().max(2_000).optional(),
+  temperature: z.number().min(0).max(1).optional(),
 });
 
 export const liveKitRouter = Router();
@@ -239,4 +255,65 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
       },
     },
   });
+});
+
+liveKitRouter.post("/agent/chat", requireAuth("app"), async (req, res) => {
+  const parsed = AgentChatSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const agentIdentity = buildRoomScopedAgentIdentity(input.roomName);
+
+  try {
+    const answer = await askOllamaChat(input.text);
+    const payload = {
+      type: "agent_message",
+      from: agentIdentity,
+      text: answer.text,
+      ts: new Date().toISOString(),
+      model: answer.model,
+    };
+    await sendRoomData(input.roomName, payload, { topic: "chat" });
+
+    return res.status(201).json({
+      data: {
+        roomName: input.roomName,
+        agentIdentity,
+        message: payload,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "AGENT_CHAT_FAILED",
+        message: error instanceof Error ? error.message : "Agent chat failed",
+      },
+    });
+  }
+});
+
+liveKitRouter.post("/stt/transcribe", requireAuth("app"), async (req, res) => {
+  const parsed = SttSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    const result = await transcribeAudio(parsed.data);
+    return res.status(201).json({
+      data: {
+        text: result.text,
+        provider: env.SPEECH_TO_TEXT_BASE_URL,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "STT_TRANSCRIBE_FAILED",
+        message: error instanceof Error ? error.message : "Speech-to-text failed",
+      },
+    });
+  }
 });
