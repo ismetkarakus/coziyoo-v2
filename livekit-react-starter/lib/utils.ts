@@ -97,11 +97,8 @@ export function getStyles(appConfig: AppConfig) {
  */
 export function getSandboxTokenSource(appConfig: AppConfig) {
   return TokenSource.custom(async () => {
-    const endpoint = process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
-    const url = new URL(endpoint, window.location.origin);
+    const url = new URL(process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT!, window.location.origin);
     const sandboxId = appConfig.sandboxId ?? '';
-    const username = window.localStorage.getItem('coziyoo.starter.username') ?? 'guest';
-    const roomName = window.localStorage.getItem('coziyoo.starter.roomName') ?? '';
     const roomConfig = appConfig.agentName
       ? {
           agents: [{ agent_name: appConfig.agentName }],
@@ -117,40 +114,12 @@ export function getSandboxTokenSource(appConfig: AppConfig) {
         },
         body: JSON.stringify({
           room_config: roomConfig,
-          username,
-          roomName,
         }),
       });
-      const payload = (await res.json()) as {
-        serverUrl?: string;
-        roomName?: string;
-        participantName?: string;
-        participantToken?: string;
-        error?: { message?: string };
-      };
-
-      if (!res.ok) {
-        throw new Error(payload?.error?.message ?? `connection-details failed (${res.status})`);
-      }
-
-      if (
-        !payload?.serverUrl ||
-        !payload?.roomName ||
-        !payload?.participantToken ||
-        payload.participantToken.split('.').length !== 3
-      ) {
-        throw new Error('connection-details returned invalid token payload');
-      }
-
-      return {
-        serverUrl: payload.serverUrl,
-        roomName: payload.roomName,
-        participantName: payload.participantName ?? username,
-        participantToken: payload.participantToken,
-      };
+      return await res.json();
     } catch (error) {
       console.error('Error fetching connection details:', error);
-      throw error instanceof Error ? error : new Error('Error fetching connection details!');
+      throw new Error('Error fetching connection details!');
     }
   });
 }

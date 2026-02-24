@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, type HTMLMotionProps, motion } from 'motion/react';
-import { useAgent } from '@livekit/components-react';
+import { type ReceivedMessage, useAgent } from '@livekit/components-react';
 import { AgentChatTranscript } from '@/components/agents-ui/agent-chat-transcript';
 import { cn } from '@/lib/shadcn/utils';
 
@@ -28,16 +28,11 @@ const CONTAINER_MOTION_PROPS = {
   initial: 'hidden',
   animate: 'visible',
   exit: 'hidden',
-} as const;
+};
 
 interface ChatTranscriptProps {
   hidden?: boolean;
-  messages?: Array<{
-    id: string;
-    timestamp: number;
-    message: string;
-    isLocal: boolean;
-  }>;
+  messages?: ReceivedMessage[];
 }
 
 export function ChatTranscript({

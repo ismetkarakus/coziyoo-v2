@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import { SessionView } from '@/components/app/session-view';
 import { WelcomeView } from '@/components/app/welcome-view';
-import { useI18n } from '@/lib/i18n';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(SessionView);
@@ -27,7 +25,7 @@ const VIEW_MOTION_PROPS = {
     duration: 0.5,
     ease: 'linear',
   },
-} as const;
+};
 
 interface ViewControllerProps {
   appConfig: AppConfig;
@@ -35,16 +33,6 @@ interface ViewControllerProps {
 
 export function ViewController({ appConfig }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
-  const { t } = useI18n();
-  const [username, setUsername] = useState('guest');
-  const [roomName, setRoomName] = useState('coziyoo-room');
-
-  useEffect(() => {
-    const storedUsername = window.localStorage.getItem('coziyoo.starter.username');
-    const storedRoomName = window.localStorage.getItem('coziyoo.starter.roomName');
-    if (storedUsername) setUsername(storedUsername);
-    if (storedRoomName) setRoomName(storedRoomName);
-  }, []);
 
   return (
     <AnimatePresence mode="wait">
@@ -53,13 +41,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
         <MotionWelcomeView
           key="welcome"
           {...VIEW_MOTION_PROPS}
-          startButtonText={t('startSession') || appConfig.startButtonText}
-          defaultUsername={username}
-          defaultRoomName={roomName}
-          onSessionInputChange={({ username: nextUsername, roomName: nextRoomName }) => {
-            setUsername(nextUsername);
-            setRoomName(nextRoomName);
-          }}
+          startButtonText={appConfig.startButtonText}
           onStartCall={start}
         />
       )}

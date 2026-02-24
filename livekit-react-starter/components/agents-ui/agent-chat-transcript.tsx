@@ -2,7 +2,7 @@
 
 import { type ComponentProps } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { type AgentState } from '@livekit/components-react';
+import { type AgentState, type ReceivedMessage } from '@livekit/components-react';
 import { AgentChatIndicator } from '@/components/agents-ui/agent-chat-indicator';
 import {
   Conversation,
@@ -23,12 +23,7 @@ export interface AgentChatTranscriptProps extends ComponentProps<'div'> {
    * Array of messages to display in the transcript.
    * @defaultValue []
    */
-  messages?: Array<{
-    id: string;
-    timestamp: number;
-    message: string;
-    isLocal: boolean;
-  }>;
+  messages?: ReceivedMessage[];
   /**
    * Additional CSS class names to apply to the conversation container.
    */
@@ -60,9 +55,9 @@ export function AgentChatTranscript({
     <Conversation className={className} {...props}>
       <ConversationContent>
         {messages.map((receivedMessage) => {
-          const { id, timestamp, message, isLocal } = receivedMessage;
+          const { id, timestamp, from, message } = receivedMessage;
           const locale = navigator?.language ?? 'en-US';
-          const messageOrigin = isLocal ? 'user' : 'assistant';
+          const messageOrigin = from?.isLocal ? 'user' : 'assistant';
           const time = new Date(timestamp);
           const title = time.toLocaleTimeString(locale, { timeStyle: 'full' });
 

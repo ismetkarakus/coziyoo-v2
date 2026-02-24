@@ -1,18 +1,6 @@
 import { NextResponse } from 'next/server';
-
-type StarterResponse = {
-  data?: {
-    roomName: string;
-    wsUrl: string;
-    user: {
-      participantIdentity: string;
-      token: string;
-    };
-  };
-  error?: {
-    message?: string;
-  };
-};
+import { AccessToken, type AccessTokenOptions, type VideoGrant } from 'livekit-server-sdk';
+import { RoomConfiguration } from '@livekit/protocol';
 
 type ConnectionDetails = {
   serverUrl: string;
@@ -21,81 +9,83 @@ type ConnectionDetails = {
   participantToken: string;
 };
 
-const API_BASE_URL =
-  process.env.API_BASE_URL?.trim() ||
-  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
-  'https://api.example.com';
+// NOTE: you are expected to define the following environment variables in `.env.local`:
+const API_KEY = process.env.LIVEKIT_API_KEY;
+const API_SECRET = process.env.LIVEKIT_API_SECRET;
+const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
+// don't cache the results
 export const revalidate = 0;
 
 export async function POST(req: Request) {
   try {
-    if (API_BASE_URL.includes('api.example.com')) {
-      return NextResponse.json(
-        {
-          error: {
-            message:
-              'API_BASE_URL is not configured. Set API_BASE_URL (or NEXT_PUBLIC_API_BASE_URL) in assistant env.',
-          },
-        },
-        { status: 500 }
-      );
+    if (LIVEKIT_URL === undefined) {
+      throw new Error('LIVEKIT_URL is not defined');
+    }
+    if (API_KEY === undefined) {
+      throw new Error('LIVEKIT_API_KEY is not defined');
+    }
+    if (API_SECRET === undefined) {
+      throw new Error('LIVEKIT_API_SECRET is not defined');
     }
 
-    const body = await req.json().catch(() => ({}));
-    const username = String(body?.username ?? 'guest').trim() || 'guest';
-    const roomName = String(body?.roomName ?? '').trim();
+    // Parse agent configuration from request body
+    const body = await req.json();
+    const agentName: string = body?.room_config?.agents?.[0]?.agent_name;
 
-    const upstream = await fetch(`${API_BASE_URL}/v1/livekit/starter/session/start`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        ...(roomName ? { roomName } : {}),
-      }),
-      cache: 'no-store',
-    });
+    // Generate participant token
+    const participantName = 'user';
+    const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
+    const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
 
-    const raw = await upstream.text();
-    let parsed: StarterResponse = {};
-    try {
-      parsed = raw ? (JSON.parse(raw) as StarterResponse) : {};
-    } catch {
-      parsed = {
-        error: {
-          message: raw?.slice(0, 500) || `Unexpected upstream response (${upstream.status})`,
-        },
-      };
-    }
+    const participantToken = await createParticipantToken(
+      { identity: participantIdentity, name: participantName },
+      roomName,
+      agentName
+    );
 
-    if (upstream.status !== 201 || !parsed.data) {
-      throw new Error(
-        parsed.error?.message ??
-          `Failed to start LiveKit starter session (status ${upstream.status})`
-      );
-    }
-
-    const token = String(parsed.data.user?.token ?? '');
-    if (!token || token.split('.').length !== 3) {
-      throw new Error('Starter session response does not include a valid participant token');
-    }
-
-    const details: ConnectionDetails = {
-      serverUrl: parsed.data.wsUrl,
-      roomName: parsed.data.roomName,
-      participantName: username,
-      participantToken: token,
+    // Return connection details
+    const data: ConnectionDetails = {
+      serverUrl: LIVEKIT_URL,
+      roomName,
+      participantToken: participantToken,
+      participantName,
     };
-
-    return NextResponse.json(details, {
-      headers: {
-        'Cache-Control': 'no-store',
-      },
+    const headers = new Headers({
+      'Cache-Control': 'no-store',
     });
+    return NextResponse.json(data, { headers });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to get connection details';
-    return NextResponse.json({ error: { message } }, { status: 500 });
+    if (error instanceof Error) {
+      console.error(error);
+      return new NextResponse(error.message, { status: 500 });
+    }
   }
+}
+
+function createParticipantToken(
+  userInfo: AccessTokenOptions,
+  roomName: string,
+  agentName?: string
+): Promise<string> {
+  const at = new AccessToken(API_KEY, API_SECRET, {
+    ...userInfo,
+    ttl: '15m',
+  });
+  const grant: VideoGrant = {
+    room: roomName,
+    roomJoin: true,
+    canPublish: true,
+    canPublishData: true,
+    canSubscribe: true,
+  };
+  at.addGrant(grant);
+
+  if (agentName) {
+    at.roomConfig = new RoomConfiguration({
+      agents: [{ agentName }],
+    });
+  }
+
+  return at.toJwt();
 }

@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useI18n } from '@/lib/i18n';
 
 function WelcomeImage() {
   return (
@@ -22,65 +20,26 @@ function WelcomeImage() {
 
 interface WelcomeViewProps {
   startButtonText: string;
-  defaultUsername?: string;
-  defaultRoomName?: string;
   onStartCall: () => void;
-  onSessionInputChange?: (params: { username: string; roomName: string }) => void;
 }
 
 export const WelcomeView = ({
   startButtonText,
-  defaultUsername = 'guest',
-  defaultRoomName = 'coziyoo-room',
   onStartCall,
-  onSessionInputChange,
+  ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
-  const { t } = useI18n();
-  const [username, setUsername] = useState(defaultUsername);
-  const [roomName, setRoomName] = useState(defaultRoomName);
-
-  const handleStart = () => {
-    const safeUsername = username.trim() || 'guest';
-    const safeRoomName = roomName.trim() || 'coziyoo-room';
-    window.localStorage.setItem('coziyoo.starter.username', safeUsername);
-    window.localStorage.setItem('coziyoo.starter.roomName', safeRoomName);
-    onSessionInputChange?.({ username: safeUsername, roomName: safeRoomName });
-    onStartCall();
-  };
-
   return (
-    <div>
+    <div ref={ref}>
       <section className="bg-background flex flex-col items-center justify-center text-center">
         <WelcomeImage />
 
         <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          {t('welcomeSubtitle')}
+          Chat live with your voice AI agent
         </p>
-
-        <div className="mt-6 flex w-full max-w-sm flex-col gap-3 text-left">
-          <label className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            {t('username')}
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className="bg-background border-input mt-1 h-10 w-full rounded-full border px-4 text-sm outline-none"
-              placeholder="guest"
-            />
-          </label>
-          <label className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            {t('roomName')}
-            <input
-              value={roomName}
-              onChange={(event) => setRoomName(event.target.value)}
-              className="bg-background border-input mt-1 h-10 w-full rounded-full border px-4 text-sm outline-none"
-              placeholder="coziyoo-room"
-            />
-          </label>
-        </div>
 
         <Button
           size="lg"
-          onClick={handleStart}
+          onClick={onStartCall}
           className="mt-6 w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
         >
           {startButtonText}
@@ -89,15 +48,16 @@ export const WelcomeView = ({
 
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
         <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          {t('setupHelp')}{' '}
+          Need help getting set up? Check out the{' '}
           <a
             target="_blank"
             rel="noopener noreferrer"
             href="https://docs.livekit.io/agents/start/voice-ai/"
             className="underline"
           >
-            {t('quickstart')}
+            Voice AI quickstart
           </a>
+          .
         </p>
       </div>
     </div>
