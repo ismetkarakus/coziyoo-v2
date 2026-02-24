@@ -1205,6 +1205,263 @@ textarea:focus {
   opacity: 1;
 }
 
+.buyer-detail-page h1 {
+  font-size: 3.5rem;
+}
+
+.buyer-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 320px);
+  gap: 16px;
+  align-items: start;
+}
+
+.buyer-main-column,
+.buyer-side-column {
+  display: grid;
+  gap: 16px;
+}
+
+.buyer-profile-card {
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.buyer-avatar-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-card-bg) 56%, transparent);
+  display: grid;
+  place-items: center;
+  position: relative;
+  box-shadow: inset 0 8px 20px rgba(0, 0, 0, 0.14);
+}
+
+.buyer-avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.buyer-avatar-fallback {
+  font-size: 3.3rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.buyer-avatar-indicator {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-subtle-bg) 70%, transparent);
+}
+
+.buyer-profile-email {
+  color: var(--color-secondary-text);
+  margin-top: -4px;
+}
+
+.buyer-status-badge {
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+.buyer-status-badge.is-active {
+  background: color-mix(in srgb, #26c768 26%, transparent);
+}
+
+.buyer-status-badge.is-passive {
+  background: color-mix(in srgb, #d65f5f 24%, transparent);
+}
+
+.buyer-profile-line {
+  width: 100%;
+  text-align: left;
+  color: var(--color-secondary-text);
+}
+
+.buyer-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.buyer-summary-grid article {
+  padding: 16px 18px;
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.buyer-summary-grid article:last-child {
+  border-right: 0;
+}
+
+.buyer-summary-grid p {
+  color: var(--color-tertiary-text);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.buyer-summary-grid h3 {
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+}
+
+.buyer-summary-grid small {
+  color: var(--color-tertiary-text);
+}
+
+.buyer-orders-table table {
+  min-width: 780px;
+}
+
+.buyer-order-no {
+  font-weight: 700;
+}
+
+.buyer-food-list {
+  display: grid;
+  gap: 4px;
+}
+
+.buyer-food-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buyer-food-image-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+}
+
+.buyer-food-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.buyer-payment-badge {
+  border-radius: 10px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.buyer-payment-badge.is-success {
+  background: color-mix(in srgb, #20c997 28%, transparent);
+}
+
+.buyer-payment-badge.is-failed {
+  background: color-mix(in srgb, #ef6a7c 28%, transparent);
+}
+
+.buyer-payment-badge.is-pending {
+  background: color-mix(in srgb, #e9b949 32%, transparent);
+}
+
+.buyer-row-arrow {
+  color: var(--color-tertiary-text);
+  text-align: right;
+  font-size: 1.2rem;
+}
+
+.buyer-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buyer-contact-card {
+  gap: 10px;
+}
+
+.buyer-address-section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+}
+
+.buyer-address-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buyer-address-head h4 {
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+}
+
+.buyer-address-chip {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, #36d8b0 42%, var(--color-border));
+  background: color-mix(in srgb, #36d8b0 24%, transparent);
+}
+
+.buyer-address-section p,
+.buyer-contact-line {
+  color: var(--color-secondary-text);
+  line-height: 1.45;
+}
+
+.buyer-extra-card h3 {
+  margin-bottom: 8px;
+}
+
+.buyer-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.buyer-extra-grid ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-login-list {
+  display: grid;
+  gap: 10px;
+}
+
+.buyer-login-list article {
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--color-card-bg) 46%, transparent);
+}
+
+.buyer-raw-collapse summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
 @media (max-width: 1100px) {
   .navbar {
     flex-direction: column;
@@ -1246,6 +1503,27 @@ textarea:focus {
   }
 
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-summary-grid article {
+    border-right: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  }
+
+  .buyer-summary-grid article:last-child {
+    border-bottom: 0;
+  }
+
+  .buyer-extra-grid {
     grid-template-columns: 1fr;
   }
 

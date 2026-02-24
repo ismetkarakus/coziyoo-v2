@@ -16,6 +16,7 @@ CREATE TABLE users (
   display_name TEXT UNIQUE NOT NULL,
   display_name_normalized TEXT UNIQUE NOT NULL,
   full_name TEXT,
+  profile_image_url TEXT,
   user_type TEXT NOT NULL CHECK (user_type IN ('buyer', 'seller', 'both')),
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   country_code TEXT,
@@ -53,6 +54,22 @@ CREATE TABLE auth_sessions (
 CREATE INDEX idx_auth_sessions_user ON auth_sessions(user_id);
 CREATE INDEX idx_auth_sessions_exp ON auth_sessions(expires_at);
 CREATE INDEX idx_auth_sessions_active ON auth_sessions(user_id) WHERE revoked_at IS NULL;
+
+CREATE TABLE user_login_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES auth_sessions(id) ON DELETE SET NULL,
+  latitude NUMERIC(9,6) NOT NULL,
+  longitude NUMERIC(9,6) NOT NULL,
+  accuracy_m INTEGER,
+  source TEXT NOT NULL DEFAULT 'app',
+  ip TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_user_login_locations_user_created
+  ON user_login_locations(user_id, created_at DESC);
 
 CREATE TABLE admin_auth_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

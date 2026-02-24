@@ -33,6 +33,7 @@ const CreateAppUserSchema = z.object({
   password: z.string().min(8).max(128),
   displayName: z.string().min(3).max(40),
   fullName: z.string().min(1).max(120).optional(),
+  profileImageUrl: z.string().url().max(2048).optional(),
   userType: z.enum(["buyer", "seller", "both"]),
   countryCode: z.string().min(2).max(3).optional(),
   language: z.string().min(2).max(10).optional(),
@@ -44,6 +45,7 @@ const UpdateAppUserSchema = z.object({
   password: z.string().min(8).max(128).optional(),
   displayName: z.string().min(3).max(40).optional(),
   fullName: z.string().min(1).max(120).nullable().optional(),
+  profileImageUrl: z.string().url().max(2048).nullable().optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
   countryCode: z.string().min(2).max(3).nullable().optional(),
   language: z.string().min(2).max(10).nullable().optional(),
@@ -81,6 +83,12 @@ const UuidParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+const BuyerListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(10),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+});
+
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
   createdAt: "u.created_at",
   updatedAt: "u.updated_at",
@@ -102,6 +110,21 @@ type AppUserListQuery = z.infer<typeof AppUserListQuerySchema>;
 type AdminUserListQuery = z.infer<typeof AdminUserListQuerySchema>;
 
 export const adminUserManagementRouter = Router();
+
+async function ensureBuyerUser(userId: string) {
+  const user = await pool.query<{ id: string; user_type: "buyer" | "seller" | "both" }>(
+    "SELECT id, user_type FROM users WHERE id = $1",
+    [userId]
+  );
+  if ((user.rowCount ?? 0) === 0) {
+    return { ok: false as const, status: 404, code: "USER_NOT_FOUND", message: "User not found" };
+  }
+  const row = user.rows[0];
+  if (row.user_type !== "buyer" && row.user_type !== "both") {
+    return { ok: false as const, status: 409, code: "USER_NOT_BUYER", message: "User is not a buyer account" };
+  }
+  return { ok: true as const, user: row };
+}
 
 adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) => {
   const parsed = AppUserListQuerySchema.safeParse(req.query);
@@ -153,6 +176,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.email,
        u.display_name,
        u.full_name,
+       u.profile_image_url,
        u.user_type,
        u.is_active,
        u.country_code,
@@ -173,6 +197,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       email: row.email,
       displayName: row.display_name,
       fullName: row.full_name,
+      profileImageUrl: row.profile_image_url,
       role: row.user_type,
       status: row.is_active ? "active" : "disabled",
       countryCode: row.country_code,
@@ -202,6 +227,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
        email,
        display_name,
        full_name,
+       profile_image_url,
        user_type,
        is_active,
        country_code,
@@ -224,12 +250,456 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       email: row.email,
       displayName: row.display_name,
       fullName: row.full_name,
+      profileImageUrl: row.profile_image_url,
       role: row.user_type,
       status: row.is_active ? "active" : "disabled",
       countryCode: row.country_code,
       language: row.language,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+    },
+  });
+});
+
+adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = BuyerListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM orders WHERE buyer_id = $1",
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    status: string;
+    total_price: string;
+    payment_completed: boolean;
+    created_at: string;
+    updated_at: string;
+    payment_status: string | null;
+    payment_provider: string | null;
+    payment_updated_at: string | null;
+    items_json: unknown;
+  }>(
+    `SELECT
+       o.id,
+       o.status,
+       o.total_price::text,
+       o.payment_completed,
+       o.created_at::text,
+       o.updated_at::text,
+       pa.status AS payment_status,
+       pa.provider AS payment_provider,
+       pa.updated_at::text AS payment_updated_at,
+       COALESCE(items.items_json, '[]'::jsonb) AS items_json
+     FROM orders o
+     LEFT JOIN LATERAL (
+       SELECT jsonb_agg(
+         jsonb_build_object(
+           'orderItemId', oi.id,
+           'foodId', f.id,
+           'name', f.name,
+           'imageUrl', f.image_url,
+           'quantity', oi.quantity,
+           'unitPrice', oi.unit_price,
+           'lineTotal', oi.line_total
+         )
+         ORDER BY oi.created_at ASC
+       ) AS items_json
+       FROM order_items oi
+       JOIN foods f ON f.id = oi.food_id
+       WHERE oi.order_id = o.id
+     ) items ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT status, provider, updated_at
+       FROM payment_attempts
+       WHERE order_id = o.id
+       ORDER BY updated_at DESC NULLS LAST, created_at DESC
+       LIMIT 1
+     ) pa ON TRUE
+     WHERE o.buyer_id = $1
+     ORDER BY o.created_at ${sortDir}, o.id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      orderId: row.id,
+      orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      status: row.status,
+      totalAmount: Number(row.total_price),
+      paymentCompleted: row.payment_completed,
+      paymentStatus: row.payment_status ?? (row.payment_completed ? "succeeded" : "pending"),
+      paymentProvider: row.payment_provider,
+      paymentUpdatedAt: row.payment_updated_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      items: Array.isArray(row.items_json) ? row.items_json : [],
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
+adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = BuyerListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM reviews WHERE buyer_id = $1",
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    order_id: string;
+    food_id: string;
+    food_name: string;
+    food_image_url: string | null;
+    rating: number;
+    comment: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT
+       r.id,
+       r.order_id,
+       r.food_id,
+       f.name AS food_name,
+       f.image_url AS food_image_url,
+       r.rating,
+       r.comment,
+       r.created_at::text,
+       r.updated_at::text
+     FROM reviews r
+     JOIN foods f ON f.id = r.food_id
+     WHERE r.buyer_id = $1
+     ORDER BY r.created_at ${sortDir}, r.id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      orderId: row.order_id,
+      foodId: row.food_id,
+      foodName: row.food_name,
+      foodImageUrl: row.food_image_url,
+      rating: row.rating,
+      comment: row.comment,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
+adminUserManagementRouter.get("/users/:id/buyer-cancellations", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = BuyerListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM orders WHERE buyer_id = $1 AND status = 'cancelled'",
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    total_price: string;
+    created_at: string;
+    cancelled_at: string;
+    cancel_reason: string | null;
+    items_json: unknown;
+  }>(
+    `SELECT
+       o.id,
+       o.total_price::text,
+       o.created_at::text,
+       COALESCE(ce.created_at::text, o.updated_at::text) AS cancelled_at,
+       COALESCE(ce.payload_json ->> 'reason', ce.payload_json ->> 'message') AS cancel_reason,
+       COALESCE(items.items_json, '[]'::jsonb) AS items_json
+     FROM orders o
+     LEFT JOIN LATERAL (
+       SELECT payload_json, created_at
+       FROM order_events
+       WHERE order_id = o.id
+         AND (to_status = 'cancelled' OR event_type ILIKE '%cancel%')
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) ce ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT jsonb_agg(
+         jsonb_build_object(
+           'orderItemId', oi.id,
+           'foodId', f.id,
+           'name', f.name,
+           'imageUrl', f.image_url,
+           'quantity', oi.quantity,
+           'lineTotal', oi.line_total
+         )
+         ORDER BY oi.created_at ASC
+       ) AS items_json
+       FROM order_items oi
+       JOIN foods f ON f.id = oi.food_id
+       WHERE oi.order_id = o.id
+     ) items ON TRUE
+     WHERE o.buyer_id = $1
+       AND o.status = 'cancelled'
+     ORDER BY o.updated_at ${sortDir}, o.id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      orderId: row.id,
+      orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      totalAmount: Number(row.total_price),
+      cancelledAt: row.cancelled_at,
+      reason: row.cancel_reason,
+      items: Array.isArray(row.items_json) ? row.items_json : [],
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
+adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const user = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string;
+    full_name: string | null;
+    profile_image_url: string | null;
+    is_active: boolean;
+    country_code: string | null;
+    language: string | null;
+    created_at: string;
+    updated_at: string;
+    last_login_at: string | null;
+  }>(
+    `SELECT
+       u.id,
+       u.email,
+       u.display_name,
+       u.full_name,
+       u.profile_image_url,
+       u.is_active,
+       u.country_code,
+       u.language,
+       u.created_at::text,
+       u.updated_at::text,
+       (
+         SELECT max(s.last_used_at)::text
+         FROM auth_sessions s
+         WHERE s.user_id = u.id
+       ) AS last_login_at
+     FROM users u
+     WHERE u.id = $1`,
+    [params.data.id]
+  );
+
+  const addresses = await pool.query<{
+    id: string;
+    title: string;
+    address_line: string;
+    is_default: boolean;
+    created_at: string;
+  }>(
+    `SELECT id, title, address_line, is_default, created_at::text
+     FROM user_addresses
+     WHERE user_id = $1
+     ORDER BY is_default DESC, created_at ASC`,
+    [params.data.id]
+  );
+
+  const grouped = { home: null as null | { id: string; title: string; addressLine: string }, office: null as null | { id: string; title: string; addressLine: string }, other: [] as Array<{ id: string; title: string; addressLine: string }> };
+  for (const item of addresses.rows) {
+    const normalized = item.title.toLowerCase().trim();
+    const mapped =
+      normalized.includes("ev") || normalized.includes("home")
+        ? "home"
+        : normalized.includes("ofis") || normalized.includes("office") || normalized.includes("iş")
+          ? "office"
+          : "other";
+    const payload = { id: item.id, title: item.title, addressLine: item.address_line };
+    if (mapped === "home" && !grouped.home) grouped.home = payload;
+    else if (mapped === "office" && !grouped.office) grouped.office = payload;
+    else grouped.other.push(payload);
+  }
+
+  const base = user.rows[0];
+  return res.json({
+    data: {
+      identity: {
+        id: base.id,
+        email: base.email,
+        displayName: base.display_name,
+        fullName: base.full_name,
+        profileImageUrl: base.profile_image_url,
+        status: base.is_active ? "active" : "disabled",
+        createdAt: base.created_at,
+        updatedAt: base.updated_at,
+        lastLoginAt: base.last_login_at,
+      },
+      contact: {
+        phone: null,
+        countryCode: base.country_code,
+        language: base.language,
+      },
+      addresses: grouped,
+    },
+  });
+});
+
+adminUserManagementRouter.get("/users/:id/login-locations", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = BuyerListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM user_login_locations WHERE user_id = $1",
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    session_id: string | null;
+    latitude: string;
+    longitude: string;
+    accuracy_m: number | null;
+    source: string;
+    ip: string | null;
+    user_agent: string | null;
+    created_at: string;
+  }>(
+    `SELECT
+       id,
+       session_id,
+       latitude::text,
+       longitude::text,
+       accuracy_m,
+       source,
+       ip,
+       user_agent,
+       created_at::text
+     FROM user_login_locations
+     WHERE user_id = $1
+     ORDER BY created_at ${sortDir}, id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      sessionId: row.session_id,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      accuracyM: row.accuracy_m,
+      source: row.source,
+      ip: row.ip,
+      userAgent: row.user_agent,
+      createdAt: row.created_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
     },
   });
 });
@@ -248,15 +718,16 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
   try {
     await client.query("BEGIN");
     const created = await client.query(
-      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, user_type, is_active, country_code, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, email, display_name, full_name, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, profile_image_url, user_type, is_active, country_code, language)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [
         input.email.toLowerCase(),
         passwordHash,
         input.displayName,
         displayNameNormalized,
         input.fullName ?? null,
+        input.profileImageUrl ?? null,
         input.userType,
         input.isActive ?? true,
         input.countryCode ?? null,
@@ -285,6 +756,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
         countryCode: row.country_code,
@@ -317,7 +789,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
   try {
     await client.query("BEGIN");
     const existing = await client.query(
-      `SELECT id, email, display_name, full_name, user_type, is_active, country_code, language
+      `SELECT id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language
        FROM users
        WHERE id = $1
        FOR UPDATE`,
@@ -341,12 +813,13 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
          display_name = coalesce($4, display_name),
          display_name_normalized = coalesce($5, display_name_normalized),
          full_name = CASE WHEN $6::boolean THEN $7 ELSE full_name END,
-         user_type = coalesce($8, user_type),
-         country_code = CASE WHEN $9::boolean THEN $10 ELSE country_code END,
-         language = CASE WHEN $11::boolean THEN $12 ELSE language END,
+         profile_image_url = CASE WHEN $8::boolean THEN $9 ELSE profile_image_url END,
+         user_type = coalesce($10, user_type),
+         country_code = CASE WHEN $11::boolean THEN $12 ELSE country_code END,
+         language = CASE WHEN $13::boolean THEN $14 ELSE language END,
          updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [
         params.data.id,
         input.email ? input.email.toLowerCase() : null,
@@ -355,6 +828,8 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         displayNameNormalized,
         Object.hasOwn(input, "fullName"),
         input.fullName ?? null,
+        Object.hasOwn(input, "profileImageUrl"),
+        input.profileImageUrl ?? null,
         input.userType ?? null,
         Object.hasOwn(input, "countryCode"),
         input.countryCode ?? null,
@@ -374,6 +849,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        profileImageUrl: row.profile_image_url,
         userType: row.user_type,
         isActive: row.is_active,
         countryCode: row.country_code,
@@ -388,6 +864,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
         countryCode: row.country_code,
@@ -432,7 +909,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
       `UPDATE users
        SET is_active = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [params.data.id, nextActive]
     );
 
@@ -453,6 +930,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
         countryCode: row.country_code,
@@ -497,7 +975,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
       `UPDATE users
        SET user_type = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [params.data.id, parsed.data.role]
     );
 
@@ -518,6 +996,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
         countryCode: row.country_code,

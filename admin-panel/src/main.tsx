@@ -13,6 +13,22 @@ import { z } from "zod";
 import { Room, RoomEvent, Track } from "livekit-client";
 import en from "./i18n/en.json";
 import tr from "./i18n/tr.json";
+import {
+  BuyerContactAddressCard,
+  BuyerOrdersHistoryTable,
+  BuyerProfileCard,
+  BuyerRawDetailCollapse,
+  BuyerSummaryMetricsCard,
+} from "./components/buyer";
+import type {
+  BuyerCancellationRow,
+  BuyerContactInfo,
+  BuyerDetail,
+  BuyerLoginLocation,
+  BuyerOrderRow,
+  BuyerPagination,
+  BuyerReviewRow,
+} from "./types/buyer";
 
 type AdminUser = {
   id: string;
@@ -2400,13 +2416,201 @@ function LiveKitDemoPage({ language }: { language: Language }) {
   );
 }
 
-function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
-  const dict = DICTIONARIES[language];
-  const location = useLocation();
-  const id = location.pathname.split("/").at(-1) ?? "";
-  const endpoint =
-    kind === "admin" ? `/v1/admin/admin-users/${id}` : `/v1/admin/users/${id}`;
+function BuyerDetailScreen({ id }: { id: string }) {
+  const navigate = useNavigate();
+  const endpoint = `/v1/admin/users/${id}`;
+  const [row, setRow] = useState<BuyerDetail | null>(null);
+  const [contactInfo, setContactInfo] = useState<BuyerContactInfo | null>(null);
+  const [orders, setOrders] = useState<BuyerOrderRow[]>([]);
+  const [ordersPagination, setOrdersPagination] = useState<BuyerPagination | null>(null);
+  const [reviews, setReviews] = useState<BuyerReviewRow[]>([]);
+  const [cancellations, setCancellations] = useState<BuyerCancellationRow[]>([]);
+  const [locations, setLocations] = useState<BuyerLoginLocation[]>([]);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
+  async function loadBuyerDetail() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const [
+        detailResponse,
+        contactResponse,
+        ordersResponse,
+        reviewsResponse,
+        cancellationsResponse,
+        locationsResponse,
+      ] = await Promise.all([
+        request(endpoint),
+        request(`/v1/admin/users/${id}/buyer-contact`),
+        request(`/v1/admin/users/${id}/buyer-orders?page=${ordersPage}&pageSize=5&sortDir=desc`),
+        request(`/v1/admin/users/${id}/buyer-reviews?page=1&pageSize=5&sortDir=desc`),
+        request(`/v1/admin/users/${id}/buyer-cancellations?page=1&pageSize=5&sortDir=desc`),
+        request(`/v1/admin/users/${id}/login-locations?page=1&pageSize=5&sortDir=desc`),
+      ]);
+
+      if (detailResponse.status !== 200) {
+        const body = await parseJson<ApiError>(detailResponse);
+        setMessage(body.error?.message ?? "Alıcı detayı yüklenemedi");
+        return;
+      }
+
+      const detailBody = await parseJson<{ data: BuyerDetail }>(detailResponse);
+      setRow(detailBody.data);
+
+      if (contactResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerContactInfo }>(contactResponse);
+        setContactInfo(body.data);
+      }
+
+      if (ordersResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerOrderRow[]; pagination: BuyerPagination }>(ordersResponse);
+        setOrders(body.data);
+        setOrdersPagination(body.pagination);
+      } else {
+        setOrders([]);
+      }
+
+      if (reviewsResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerReviewRow[] }>(reviewsResponse);
+        setReviews(body.data);
+      } else {
+        setReviews([]);
+      }
+
+      if (cancellationsResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerCancellationRow[] }>(cancellationsResponse);
+        setCancellations(body.data);
+      } else {
+        setCancellations([]);
+      }
+
+      if (locationsResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerLoginLocation[] }>(locationsResponse);
+        setLocations(body.data);
+      } else {
+        setLocations([]);
+      }
+    } catch {
+      setMessage("Alıcı detay isteği başarısız");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBuyerDetail().catch(() => setMessage("Alıcı detay isteği başarısız"));
+  }, [id, ordersPage]);
+
+  if (loading && !row) return <div className="panel">Yükleniyor...</div>;
+  if (!row) return <div className="panel">{message ?? "Kayıt bulunamadı"}</div>;
+
+  return (
+    <div className="app buyer-detail-page">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">ALICILAR &gt; ALICI DETAYI</p>
+          <h1>Alıcı Detayı</h1>
+          <p className="subtext">Bu sayfada alıcıyla ilgili profil bilgilerini ve tüm sipariş geçmişini görebilirsiniz.</p>
+        </div>
+        <div className="topbar-actions">
+          <button className="ghost" type="button" onClick={() => loadBuyerDetail()}>
+            Yenile
+          </button>
+          <button className="primary" type="button" onClick={() => navigate("/app/dashboard")}>
+            Bekleyen İşler
+          </button>
+        </div>
+      </header>
+
+      {message ? <div className="alert">{message}</div> : null}
+
+      <section className="buyer-detail-layout">
+        <BuyerProfileCard detail={row} contactInfo={contactInfo} />
+
+        <div className="buyer-main-column">
+          <BuyerSummaryMetricsCard orders={orders} />
+          <BuyerOrdersHistoryTable
+            orders={orders}
+            pagination={ordersPagination}
+            onPageChange={(nextPage) => setOrdersPage(nextPage)}
+          />
+          <section className="panel buyer-extra-card">
+            <div className="panel-header">
+              <h2>Yorumlar ve İptal Kayıtları</h2>
+            </div>
+            <div className="buyer-extra-grid">
+              <article>
+                <h3>Yorumlar</h3>
+                <ul>
+                  {reviews.length === 0 ? (
+                    <li>Yorum yok.</li>
+                  ) : (
+                    reviews.map((review) => (
+                      <li key={review.id}>
+                        <strong>{review.foodName}</strong> ({review.rating}/5) - {review.comment ?? "Yorum yok"}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
+              <article>
+                <h3>İptaller</h3>
+                <ul>
+                  {cancellations.length === 0 ? (
+                    <li>İptal kaydı yok.</li>
+                  ) : (
+                    cancellations.map((cancellation) => (
+                      <li key={cancellation.orderId}>
+                        <strong>{cancellation.orderNo}</strong> - {cancellation.reason ?? "Sebep belirtilmedi"}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </article>
+            </div>
+          </section>
+          <BuyerRawDetailCollapse raw={row} />
+        </div>
+
+        <div className="buyer-side-column">
+          <BuyerContactAddressCard contactInfo={contactInfo} />
+          <section className="panel buyer-login-card">
+            <div className="panel-header">
+              <h2>Login Konumları</h2>
+            </div>
+            <div className="buyer-login-list">
+              {locations.length === 0 ? (
+                <p className="panel-meta">Konum kaydı yok.</p>
+              ) : (
+                locations.map((location) => (
+                  <article key={location.id}>
+                    <p>{new Date(location.createdAt).toLocaleString("tr-TR")}</p>
+                    <p className="panel-meta">{location.latitude}, {location.longitude} • {location.source}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DefaultUserDetailScreen({
+  kind,
+  isSuperAdmin,
+  dict,
+  id,
+}: {
+  kind: UserKind;
+  isSuperAdmin: boolean;
+  dict: Dictionary;
+  id: string;
+}) {
+  const endpoint = kind === "admin" ? `/v1/admin/admin-users/${id}` : `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -2426,25 +2630,16 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
   async function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isSuperAdmin) return;
-
     const formData = new FormData(event.currentTarget);
-    const payload: Record<string, string> = {
-      email: String(formData.get("email") ?? ""),
-    };
+    const payload: Record<string, string> = { email: String(formData.get("email") ?? "") };
     const password = String(formData.get("password") ?? "").trim();
     if (password) payload.password = password;
-
-    const update = await request(endpoint, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
-
+    const update = await request(endpoint, { method: "PUT", body: JSON.stringify(payload) });
     if (update.status !== 200) {
       const body = await parseJson<ApiError>(update);
       setMessage(body.error?.message ?? dict.detail.updateFailed);
       return;
     }
-
     const updated = await parseJson<{ data: any }>(update);
     setRow(updated.data);
     setMessage(dict.common.saved);
@@ -2455,15 +2650,7 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>
-          {kind === "admin"
-            ? dict.detail.adminUser
-            : kind === "buyers"
-              ? dict.detail.buyer
-              : kind === "sellers"
-                ? dict.detail.seller
-                : dict.detail.appUser}
-        </h2>
+        <h2>{kind === "admin" ? dict.detail.adminUser : kind === "sellers" ? dict.detail.seller : dict.detail.appUser}</h2>
       </div>
       <pre className="json-box">{JSON.stringify(row, null, 2)}</pre>
       <form className="form-grid" onSubmit={onSave}>
@@ -2481,6 +2668,14 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
       {message ? <div className="panel-note">{message}</div> : null}
     </section>
   );
+}
+
+function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
+  const dict = DICTIONARIES[language];
+  const location = useLocation();
+  const id = location.pathname.split("/").at(-1) ?? "";
+  if (kind === "buyers") return <BuyerDetailScreen id={id} />;
+  return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

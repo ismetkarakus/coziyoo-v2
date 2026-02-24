@@ -20,6 +20,12 @@ const RegisterSchema = z.object({
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  location: z.object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    accuracyM: z.number().int().min(0).max(100_000).optional(),
+    source: z.string().trim().min(1).max(50).optional(),
+  }).optional(),
 });
 
 const RefreshSchema = z.object({
@@ -209,6 +215,23 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
     realm: "app",
     role: user.user_type,
   });
+
+  if (input.location) {
+    await pool.query(
+      `INSERT INTO user_login_locations (user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        user.id,
+        sessionInsert.rows[0].id,
+        input.location.latitude,
+        input.location.longitude,
+        input.location.accuracyM ?? null,
+        input.location.source ?? "app",
+        req.ip ?? null,
+        req.headers["user-agent"] ?? null,
+      ]
+    );
+  }
 
   return res.json({
     data: {
