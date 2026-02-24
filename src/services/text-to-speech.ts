@@ -19,6 +19,22 @@ export async function synthesizeSpeech(input: SynthesizeInput): Promise<Synthesi
   const form = new FormData();
   form.set("text", input.text);
   form.set("language", input.language ?? env.TTS_LANGUAGE_DEFAULT);
+  if (env.TTS_SPEAKER_WAV_URL) {
+    try {
+      const speakerResponse = await fetch(env.TTS_SPEAKER_WAV_URL, {
+        method: "GET",
+      });
+      if (!speakerResponse.ok) {
+        throw new Error(`TTS_SPEAKER_WAV_HTTP_${speakerResponse.status}`);
+      }
+      const speakerBuffer = Buffer.from(await speakerResponse.arrayBuffer());
+      form.set("speaker_wav", new Blob([speakerBuffer], { type: "audio/wav" }), "speaker.wav");
+    } catch (error) {
+      throw new Error(
+        `TTS_SPEAKER_WAV_FETCH_FAILED: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
 
   const headers = new Headers();
   if (env.TTS_API_KEY) {

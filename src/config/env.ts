@@ -56,6 +56,7 @@ const EnvSchema = z.object({
   TTS_LANGUAGE_DEFAULT: z.string().min(2).max(16).default("tr"),
   TTS_TIMEOUT_MS: z.coerce.number().int().positive().max(120_000).default(30_000),
   TTS_API_KEY: z.string().optional(),
+  TTS_SPEAKER_WAV_URL: z.string().url().optional(),
   TOOLS_REGISTRY_URL: z.string().url().default("https://registry.caal.io/index.json"),
   N8N_BASE_URL: z.string().url().optional(),
   N8N_API_KEY: z.string().min(1).optional(),
