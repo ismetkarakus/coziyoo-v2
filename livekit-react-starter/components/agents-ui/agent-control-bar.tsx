@@ -25,6 +25,7 @@ import {
   useInputControls,
   usePublishPermissions,
 } from '@/hooks/agents-ui/use-agent-control-bar';
+import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/shadcn/utils';
 
 const LK_TOGGLE_VARIANT_1 = [
@@ -83,6 +84,7 @@ function AgentChatInput({
   onInterrupt,
   className,
 }: AgentChatInputProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -349,7 +351,7 @@ function AgentChatInput({
         type="button"
         disabled={!chatOpen || isSending}
         variant="secondary"
-        title={isRecording ? 'Stop recording' : 'Record and transcribe'}
+        title={isRecording ? t('stopRecording') : t('recordAndTranscribe')}
         onClick={isRecording ? stopRecording : startRecording}
         className="self-end disabled:cursor-not-allowed"
       >
@@ -360,7 +362,7 @@ function AgentChatInput({
         type="button"
         disabled={!chatOpen || isSending}
         variant={isAutoListening ? 'default' : 'secondary'}
-        title={isAutoListening ? 'Stop auto listen' : 'Start auto listen (VAD)'}
+        title={isAutoListening ? t('stopAutoListen') : t('startAutoListen')}
         onClick={toggleAutoListening}
         className="self-end disabled:cursor-not-allowed"
       >
@@ -371,7 +373,7 @@ function AgentChatInput({
         ref={inputRef}
         value={message}
         disabled={!chatOpen || isSending}
-        placeholder="Type something..."
+        placeholder={t('typeSomething')}
         onKeyDown={handleKeyDown}
         onChange={(e) => setMessage(e.target.value)}
         className="field-sizing-content max-h-16 min-h-8 flex-1 resize-none py-2 [scrollbar-width:thin] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -381,7 +383,7 @@ function AgentChatInput({
         type="button"
         disabled={isDisabled}
         variant={isDisabled ? 'secondary' : 'default'}
-        title={isSending ? 'Sending...' : 'Send'}
+        title={isSending ? t('sending') : t('send')}
         onClick={handleButtonClick}
         className="self-end disabled:cursor-not-allowed"
       >
@@ -514,6 +516,7 @@ export function AgentControlBar({
   className,
   ...props
 }: AgentControlBarProps & ComponentProps<'div'>) {
+  const { t } = useI18n();
   const { send } = useChat();
   const publishPermissions = usePublishPermissions();
   const [isChatOpenUncontrolled, setIsChatOpenUncontrolled] = useState(isChatOpen);
@@ -683,8 +686,8 @@ export function AgentControlBar({
                 'bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider'
             )}
           >
-            <span className="hidden md:inline">END CALL</span>
-            <span className="inline md:hidden">END</span>
+            <span className="hidden md:inline">{t('endCall')}</span>
+            <span className="inline md:hidden">{t('end')}</span>
           </AgentDisconnectButton>
         )}
       </div>

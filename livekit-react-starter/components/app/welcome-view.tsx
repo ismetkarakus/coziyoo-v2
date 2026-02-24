@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/lib/i18n';
 
 function WelcomeImage() {
   return (
@@ -33,8 +34,8 @@ export const WelcomeView = ({
   defaultRoomName = 'coziyoo-room',
   onStartCall,
   onSessionInputChange,
-  ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const { t } = useI18n();
   const [username, setUsername] = useState(defaultUsername);
   const [roomName, setRoomName] = useState(defaultRoomName);
 
@@ -48,17 +49,17 @@ export const WelcomeView = ({
   };
 
   return (
-    <div ref={ref}>
+    <div>
       <section className="bg-background flex flex-col items-center justify-center text-center">
         <WelcomeImage />
 
         <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
+          {t('welcomeSubtitle')}
         </p>
 
         <div className="mt-6 flex w-full max-w-sm flex-col gap-3 text-left">
           <label className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Username
+            {t('username')}
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
@@ -67,7 +68,7 @@ export const WelcomeView = ({
             />
           </label>
           <label className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Room Name
+            {t('roomName')}
             <input
               value={roomName}
               onChange={(event) => setRoomName(event.target.value)}
@@ -88,16 +89,15 @@ export const WelcomeView = ({
 
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
         <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
+          {t('setupHelp')}{' '}
           <a
             target="_blank"
             rel="noopener noreferrer"
             href="https://docs.livekit.io/agents/start/voice-ai/"
             className="underline"
           >
-            Voice AI quickstart
+            {t('quickstart')}
           </a>
-          .
         </p>
       </div>
     </div>

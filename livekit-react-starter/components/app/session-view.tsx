@@ -11,6 +11,8 @@ import {
 } from '@/components/agents-ui/agent-control-bar';
 import { ChatTranscript } from '@/components/app/chat-transcript';
 import { TileLayout } from '@/components/app/tile-layout';
+import { ToolsPanel } from '@/components/app/tools-panel';
+import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/shadcn/utils';
 import { Shimmer } from '../ai-elements/shimmer';
 
@@ -92,6 +94,7 @@ export const SessionView = ({
 }: React.ComponentProps<'section'> & SessionViewProps) => {
   const session = useSessionContext();
   const room = useRoomContext();
+  const { t } = useI18n();
   const [messages, setMessages] = useState<
     Array<{
       id: string;
@@ -101,10 +104,18 @@ export const SessionView = ({
     }>
   >([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [username, setUsername] = useState('guest');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const pendingChatRequestRef = useRef<AbortController | null>(null);
   const pendingTtsRequestRef = useRef<AbortController | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const storedUsername = window.localStorage.getItem('coziyoo.starter.username');
+    if (storedUsername?.trim()) {
+      setUsername(storedUsername.trim());
+    }
+  }, []);
 
   const controls: AgentControlBarControls = {
     leave: true,
@@ -292,7 +303,7 @@ export const SessionView = ({
                 {...SHIMMER_MOTION_PROPS}
                 className="pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center text-sm font-semibold"
               >
-                Agent is listening, ask it a question
+                {t('agentListening')}
               </MotionMessage>
             )}
           </AnimatePresence>
@@ -312,6 +323,7 @@ export const SessionView = ({
           />
         </div>
       </MotionBottom>
+      <ToolsPanel roomName={room.name} username={username} />
     </section>
   );
 };

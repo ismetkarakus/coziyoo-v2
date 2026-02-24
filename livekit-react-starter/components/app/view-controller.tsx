@@ -6,6 +6,7 @@ import { useSessionContext } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import { SessionView } from '@/components/app/session-view';
 import { WelcomeView } from '@/components/app/welcome-view';
+import { useI18n } from '@/lib/i18n';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(SessionView);
@@ -34,6 +35,7 @@ interface ViewControllerProps {
 
 export function ViewController({ appConfig }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
+  const { t } = useI18n();
   const [username, setUsername] = useState('guest');
   const [roomName, setRoomName] = useState('coziyoo-room');
 
@@ -51,7 +53,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
         <MotionWelcomeView
           key="welcome"
           {...VIEW_MOTION_PROPS}
-          startButtonText={appConfig.startButtonText}
+          startButtonText={t('startSession') || appConfig.startButtonText}
           defaultUsername={username}
           defaultRoomName={roomName}
           onSessionInputChange={({ username: nextUsername, roomName: nextRoomName }) => {

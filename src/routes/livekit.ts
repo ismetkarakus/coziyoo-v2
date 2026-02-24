@@ -59,6 +59,13 @@ const StarterAgentChatSchema = z.object({
   text: z.string().min(1).max(8_000),
 });
 
+const StarterToolRunSchema = z.object({
+  toolId: z.string().min(1).max(128),
+  input: z.string().max(8_000).optional(),
+  roomName: z.string().min(1).max(128).optional(),
+  username: z.string().min(1).max(64).optional(),
+});
+
 const SttSchema = z.object({
   audioBase64: z.string().min(4),
   mimeType: z.string().min(3).optional(),
@@ -503,6 +510,164 @@ liveKitRouter.post("/starter/stt/transcribe", async (req, res) => {
       error: {
         code: "STT_TRANSCRIBE_FAILED",
         message,
+      },
+    });
+  }
+});
+
+liveKitRouter.get("/starter/tools/status", async (_req, res) => {
+  const configured = Boolean(env.N8N_BASE_URL);
+  if (!configured) {
+    return res.status(200).json({
+      data: {
+        configured: false,
+        reachable: false,
+        baseUrl: null,
+      },
+    });
+  }
+
+  let reachable = false;
+  try {
+    const endpoint = new URL("/healthz", env.N8N_BASE_URL).toString();
+    const headers = new Headers();
+    if (env.N8N_API_KEY) {
+      headers.set("x-n8n-api-key", env.N8N_API_KEY);
+    }
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers,
+    });
+    reachable = response.ok;
+  } catch {
+    reachable = false;
+  }
+
+  return res.status(200).json({
+    data: {
+      configured: true,
+      reachable,
+      baseUrl: env.N8N_BASE_URL,
+    },
+  });
+});
+
+liveKitRouter.get("/starter/tools/registry", async (_req, res) => {
+  try {
+    const response = await fetch(env.TOOLS_REGISTRY_URL, { method: "GET" });
+    const raw = await response.text();
+
+    if (!response.ok) {
+      return res.status(502).json({
+        error: {
+          code: "TOOLS_REGISTRY_FETCH_FAILED",
+          message: `Registry request failed (${response.status})`,
+        },
+      });
+    }
+
+    const payload = raw ? (JSON.parse(raw) as unknown) : null;
+    const tools =
+      payload && typeof payload === "object" && "tools" in payload && Array.isArray((payload as { tools?: unknown }).tools)
+        ? ((payload as { tools: unknown[] }).tools ?? [])
+            .filter((item) => typeof item === "object" && item !== null)
+            .map((item) => {
+              const value = item as Record<string, unknown>;
+              return {
+                id: String(value.id ?? value.name ?? crypto.randomUUID()),
+                name: String(value.name ?? value.id ?? "Tool"),
+                description: typeof value.description === "string" ? value.description : "",
+                webhookPath: typeof value.webhookPath === "string" ? value.webhookPath : null,
+                method: typeof value.method === "string" ? value.method : "POST",
+              };
+            })
+        : [];
+
+    return res.status(200).json({
+      data: {
+        source: env.TOOLS_REGISTRY_URL,
+        tools,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "TOOLS_REGISTRY_FETCH_FAILED",
+        message: error instanceof Error ? error.message : "Failed to fetch tools registry",
+      },
+    });
+  }
+});
+
+liveKitRouter.post("/starter/tools/run", async (req, res) => {
+  const parsed = StarterToolRunSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  if (!env.N8N_BASE_URL) {
+    return res.status(503).json({
+      error: {
+        code: "N8N_NOT_CONFIGURED",
+        message: "Set N8N_BASE_URL in API environment.",
+      },
+    });
+  }
+
+  const input = parsed.data;
+  const webhookPath = `/webhook/coziyoo/${encodeURIComponent(input.toolId)}`;
+  const endpoint = new URL(webhookPath, env.N8N_BASE_URL).toString();
+  const headers = new Headers({ "content-type": "application/json" });
+  if (env.N8N_API_KEY) {
+    headers.set("x-n8n-api-key", env.N8N_API_KEY);
+    headers.set("authorization", `Bearer ${env.N8N_API_KEY}`);
+  }
+
+  try {
+    const upstream = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        toolId: input.toolId,
+        input: input.input ?? "",
+        roomName: input.roomName ?? null,
+        username: input.username ?? null,
+        source: "livekit-react-starter",
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    const raw = await upstream.text();
+    let body: unknown = raw;
+    try {
+      body = raw ? (JSON.parse(raw) as unknown) : null;
+    } catch {
+      body = raw;
+    }
+
+    if (!upstream.ok) {
+      return res.status(502).json({
+        error: {
+          code: "N8N_TOOL_RUN_FAILED",
+          message: `n8n webhook failed (${upstream.status})`,
+          endpoint,
+          response: body,
+        },
+      });
+    }
+
+    return res.status(201).json({
+      data: {
+        endpoint,
+        toolId: input.toolId,
+        result: body,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "N8N_TOOL_RUN_FAILED",
+        message: error instanceof Error ? error.message : "Failed to call n8n",
+        endpoint,
       },
     });
   }
