@@ -24,7 +24,7 @@ type ConnectionDetails = {
 const API_BASE_URL =
   process.env.API_BASE_URL?.trim() ||
   process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
-  'https://api.coziyoo.com';
+  'https://api.example.com';
 
 export const revalidate = 0;
 

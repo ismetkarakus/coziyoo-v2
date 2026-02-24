@@ -39,7 +39,7 @@ Optional:
 - `OLLAMA_CHAT_MODEL=llama3.1`
 - `OLLAMA_TIMEOUT_MS=30000`
 - `OLLAMA_SYSTEM_PROMPT=You are Coziyoo AI assistant. Be concise and helpful.`
-- `SPEECH_TO_TEXT_BASE_URL=https://speech.drascom.uk/`
+- `SPEECH_TO_TEXT_BASE_URL=https://speech.example.com/`
 - `SPEECH_TO_TEXT_TRANSCRIBE_PATH=/v1/audio/transcriptions`
 - `SPEECH_TO_TEXT_MODEL=whisper-1`
 - `SPEECH_TO_TEXT_API_KEY=...` (optional)
@@ -81,13 +81,14 @@ Optional DB SSL behavior:
 - Repository: `ismetkarakus/coziyoo-v2`
 - Branch: `main`
 - Base directory: `livekit-react-starter`
-- Install command: `npm ci`
+- Install command: `pnpm install`
 - Build command: `npm run build`
-- Publish/output directory: `dist`
+- Start command: `pnpm start` (or `pnpm dev` for development)
 
 ### Required environment variables
 
-- `VITE_API_BASE_URL=https://api.example.com`
+- `API_BASE_URL=https://api.example.com`
+- Optional: `NEXT_PUBLIC_API_BASE_URL=https://api.example.com`
 
 ## 5) LiveKit token endpoints
 

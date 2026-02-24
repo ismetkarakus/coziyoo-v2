@@ -4,14 +4,14 @@ Last updated: 2026-02-24
 
 ## 1) LiveKit
 
-- `LIVEKIT_URL`: `https://livekit.coziyoo.com/` (client should use `wss://livekit.coziyoo.com/`)
+- `LIVEKIT_URL`: `https://livekit.example.com/` (client should use `wss://livekit.example.com/`)
 - `LIVEKIT_API_KEY`: set in API/Coolify env (not stored in repo)
 - `LIVEKIT_API_SECRET`: set in API/Coolify env (not stored in repo)
-- `LIVEKIT_AGENT_IDENTITY`: default `coziyoo-ai-agent`
+- `LIVEKIT_AGENT_IDENTITY`: default `assistant-ai-agent`
 
 ## 2) API Server
 
-- Public API base: `https://api.coziyoo.com`
+- Public API base: `https://api.example.com`
 - Starter endpoints (already in backend):
   - `POST /v1/livekit/starter/session/start`
   - `POST /v1/livekit/starter/agent/chat`
@@ -30,13 +30,13 @@ Notes:
 
 ## 4) Ollama (LLM behind API)
 
-- `OLLAMA_BASE_URL`: `https://ollama.drascom.uk`
+- `OLLAMA_BASE_URL`: `https://ollama.example.com`
 - Model in local env: `ministral-3:8b`
 - Timeout in local env: `20000`
 
 ## 5) STT Server (Speaches/Faster-Whisper)
 
-- `SPEECH_TO_TEXT_BASE_URL`: `https://speech.drascom.uk/`
+- `SPEECH_TO_TEXT_BASE_URL`: `https://speech.example.com/`
 - `SPEECH_TO_TEXT_TRANSCRIBE_PATH`: `/v1/audio/transcriptions`
 - Working model used in test: `Systran/faster-whisper-medium`
 - `SPEECH_TO_TEXT_API_KEY`: required (`Authorization: Bearer ...`)

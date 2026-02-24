@@ -30,7 +30,7 @@ const EnvSchema = z.object({
   ADMIN_JWT_SECRET: z.string().min(32),
   PAYMENT_WEBHOOK_SECRET: z.string().min(16),
   PAYMENT_PROVIDER_NAME: z.string().default("mockpay"),
-  PAYMENT_CHECKOUT_BASE_URL: z.string().url().default("https://checkout.coziyoo.local/session"),
+  PAYMENT_CHECKOUT_BASE_URL: z.string().url().default("https://checkout.example.com/session"),
   LIVEKIT_URL: z.string().url().optional(),
   LIVEKIT_API_KEY: z.string().min(3).optional(),
   LIVEKIT_API_SECRET: z.string().min(8).optional(),
