@@ -241,12 +241,15 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
         });
       }
     } catch (error) {
-      return res.status(502).json({
-        error: {
-          code: "AI_SERVER_DISPATCH_FAILED",
-          message: error instanceof Error ? error.message : "Agent dispatch failed",
-        },
-      });
+      const message = error instanceof Error ? error.message : "Agent dispatch failed";
+      dispatch = {
+        endpoint: env.AI_SERVER_URL
+          ? new URL(env.AI_SERVER_LIVEKIT_JOIN_PATH, env.AI_SERVER_URL).toString()
+          : "AI_SERVER_URL_NOT_CONFIGURED",
+        ok: false,
+        status: 0,
+        body: { error: { code: "AI_SERVER_DISPATCH_FAILED", message } },
+      };
     }
   }
 
@@ -406,12 +409,15 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
       });
     }
   } catch (error) {
-    return res.status(502).json({
-      error: {
-        code: "AI_SERVER_DISPATCH_FAILED",
-        message: error instanceof Error ? error.message : "Agent dispatch failed",
-      },
-    });
+    const message = error instanceof Error ? error.message : "Agent dispatch failed";
+    dispatch = {
+      endpoint: env.AI_SERVER_URL
+        ? new URL(env.AI_SERVER_LIVEKIT_JOIN_PATH, env.AI_SERVER_URL).toString()
+        : "AI_SERVER_URL_NOT_CONFIGURED",
+      ok: false,
+      status: 0,
+      body: { error: { code: "AI_SERVER_DISPATCH_FAILED", message } },
+    };
   }
 
   return res.status(201).json({
