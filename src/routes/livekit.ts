@@ -48,6 +48,17 @@ const AgentChatSchema = z.object({
   text: z.string().min(1).max(8_000),
 });
 
+const StarterSessionSchema = z.object({
+  roomName: z.string().min(1).max(128).optional(),
+  username: z.string().min(2).max(64),
+  ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
+});
+
+const StarterAgentChatSchema = z.object({
+  roomName: z.string().min(1).max(128),
+  text: z.string().min(1).max(8_000),
+});
+
 const SttSchema = z.object({
   audioBase64: z.string().min(4),
   mimeType: z.string().min(3).optional(),
@@ -295,6 +306,170 @@ liveKitRouter.post("/agent/chat", requireAuth("app"), async (req, res) => {
 });
 
 liveKitRouter.post("/stt/transcribe", requireAuth("app"), async (req, res) => {
+  const parsed = SttSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    const result = await transcribeAudio(parsed.data);
+    return res.status(201).json({
+      data: {
+        text: result.text,
+        provider: env.SPEECH_TO_TEXT_BASE_URL,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Speech-to-text failed";
+    if (message.includes("STT_AUDIO_TOO_LARGE")) {
+      return res.status(413).json({
+        error: {
+          code: "STT_AUDIO_TOO_LARGE",
+          message: `Audio payload is too large. Max bytes: ${env.SPEECH_TO_TEXT_MAX_AUDIO_BYTES}.`,
+        },
+      });
+    }
+    return res.status(502).json({
+      error: {
+        code: "STT_TRANSCRIBE_FAILED",
+        message,
+      },
+    });
+  }
+});
+
+liveKitRouter.post("/starter/session/start", async (req, res) => {
+  const parsed = StarterSessionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
+  const username = input.username.trim();
+  const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
+  const userMetadata = JSON.stringify({ username, source: "livekit-react-starter" });
+
+  try {
+    await ensureLiveKitRoom(roomName);
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "LIVEKIT_ROOM_CREATE_FAILED",
+        message: error instanceof Error ? error.message : "Room create failed",
+      },
+    });
+  }
+
+  const userToken = await mintLiveKitToken({
+    identity: userIdentity,
+    name: username,
+    metadata: userMetadata,
+    ttlSeconds: input.ttlSeconds,
+    grant: {
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    },
+  });
+
+  const agentIdentity = buildRoomScopedAgentIdentity(roomName);
+  const agentName = env.LIVEKIT_AGENT_IDENTITY;
+  const agentMetadata = JSON.stringify({ kind: "ai-agent", source: "starter-session", roomName });
+  const agentToken = await mintLiveKitToken({
+    identity: agentIdentity,
+    name: agentName,
+    metadata: agentMetadata,
+    ttlSeconds: input.ttlSeconds,
+    grant: {
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    },
+  });
+
+  let dispatch: { endpoint: string; ok: boolean; status: number; body: unknown } | null = null;
+  let alreadyRunning = false;
+  try {
+    alreadyRunning = await isParticipantInRoom(roomName, agentIdentity);
+    if (!alreadyRunning) {
+      dispatch = await dispatchAgentJoin({
+        roomName,
+        participantIdentity: agentIdentity,
+        participantName: agentName,
+        token: agentToken,
+        metadata: agentMetadata,
+      });
+    }
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "AI_SERVER_DISPATCH_FAILED",
+        message: error instanceof Error ? error.message : "Agent dispatch failed",
+      },
+    });
+  }
+
+  return res.status(201).json({
+    data: {
+      roomName,
+      wsUrl: env.LIVEKIT_URL,
+      user: {
+        participantIdentity: userIdentity,
+        token: userToken,
+      },
+      agent: {
+        participantIdentity: agentIdentity,
+        dispatched: alreadyRunning ? false : (dispatch?.ok ?? false),
+        alreadyRunning,
+        dispatch,
+      },
+    },
+  });
+});
+
+liveKitRouter.post("/starter/agent/chat", async (req, res) => {
+  const parsed = StarterAgentChatSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const agentIdentity = buildRoomScopedAgentIdentity(input.roomName);
+
+  try {
+    const answer = await askOllamaChat(input.text);
+    const payload = {
+      type: "agent_message",
+      from: agentIdentity,
+      text: answer.text,
+      ts: new Date().toISOString(),
+      model: answer.model,
+    };
+    await sendRoomData(input.roomName, payload, { topic: "chat" });
+
+    return res.status(201).json({
+      data: {
+        roomName: input.roomName,
+        agentIdentity,
+        message: payload,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "AGENT_CHAT_FAILED",
+        message: error instanceof Error ? error.message : "Agent chat failed",
+      },
+    });
+  }
+});
+
+liveKitRouter.post("/starter/stt/transcribe", async (req, res) => {
   const parsed = SttSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
