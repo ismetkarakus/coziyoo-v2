@@ -348,7 +348,7 @@ button {
 .stats,
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 16px;
 }
 
@@ -356,7 +356,7 @@ button {
   background: var(--color-surface-strong);
   border-radius: 16px;
   padding: 16px 18px;
-  min-height: 134px;
+  min-height: 88px;
   box-shadow: 0 10px 24px var(--color-shadow);
   border: 1px solid var(--color-border);
   display: flex;
@@ -367,22 +367,31 @@ button {
 
 .card-label {
   color: var(--color-muted-text);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+  font-size: 0.9rem;
   line-height: 1.1;
-  font-weight: 600;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 22px;
 }
 
 .card-value {
-  font-size: 2.95rem;
+  font-size: 2.1rem;
   margin-top: auto;
   line-height: 1;
   letter-spacing: -0.03em;
 }
 
 .card-value-long {
-  font-size: 1.55rem;
+  font-size: 2.2rem;
   letter-spacing: -0.01em;
   line-height: 1.15;
   overflow-wrap: anywhere;
@@ -391,7 +400,7 @@ button {
 
 .content-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2.55fr) minmax(0, 1fr);
   gap: 20px;
 }
 
@@ -445,8 +454,24 @@ button {
 .actions .primary,
 .actions .ghost {
   width: 100%;
-  min-height: 46px;
-  font-size: 1.03rem;
+  min-height: 42px;
+  font-size: 0.95rem;
+}
+
+.actions .has-arrow {
+  position: relative;
+  padding-right: 30px;
+}
+
+.actions .has-arrow::after {
+  content: "›";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-tertiary-text);
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .kpi-table {
@@ -459,19 +484,327 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
   font-size: 1rem;
+  background: color-mix(in srgb, var(--color-surface-strong) 45%, transparent);
+  border-radius: 10px;
+  margin-bottom: 6px;
 }
 
 .kpi-table-row:last-child {
-  border-bottom: 0;
+  margin-bottom: 0;
 }
 
 .kpi-table-head {
   font-weight: 600;
   color: var(--color-muted-text);
-  padding-top: 4px;
+  background: transparent;
+  border-radius: 0;
+  padding: 2px 2px 6px;
+  margin-bottom: 4px;
+  border-bottom: 0;
+}
+
+.kpi-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.kpi-left,
+.kpi-right {
+  background: color-mix(in srgb, var(--color-card-bg) 42%, transparent);
+  padding: 14px 16px;
+}
+
+.kpi-right {
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+}
+
+.kpi-right h3,
+.queue-state-header h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+}
+
+.kpi-updated {
+  margin-top: 12px;
+  color: var(--color-secondary-text);
+  font-size: 0.9rem;
+}
+
+.line-chart-wrap {
+  margin-top: 8px;
+}
+
+.sparkline,
+.queue-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-grid-line {
+  stroke: color-mix(in srgb, var(--color-border) 60%, transparent);
+  stroke-width: 1;
+}
+
+.chart-y-label {
+  fill: color-mix(in srgb, var(--color-tertiary-text) 92%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.chart-grid-line-v {
+  stroke-dasharray: 3 6;
+}
+
+.chart-line {
+  fill: none;
+  stroke: #5fa2ff;
+  stroke-width: 2.6;
+}
+
+.chart-point {
+  fill: #6fb2ff;
+}
+
+.chart-x-labels {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  color: var(--color-tertiary-text);
+  font-size: 0.78rem;
+}
+
+.chart-x-labels.spark-x-labels {
+  grid-template-columns: repeat(8, 1fr);
+}
+
+.chart-legend {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--color-secondary-text);
+  font-size: 0.88rem;
+  align-items: center;
+}
+
+.chart-legend.compact {
+  font-size: 0.76rem;
+  gap: 10px;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+
+.dot-blue {
+  background: #4f97ff;
+}
+
+.dot-cyan {
+  background: #39c8cf;
+}
+
+.dot-teal {
+  background: #36d8b0;
+}
+
+.dot-red {
+  background: #ef6a7c;
+}
+
+.queue-list {
+  margin-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  padding-top: 10px;
+  display: grid;
+  gap: 7px;
+}
+
+.queue-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+}
+
+.queue-name {
+  color: var(--color-secondary-text);
+}
+
+.queue-status {
+  color: var(--color-link);
+  font-weight: 500;
+  position: relative;
+  padding-right: 14px;
+}
+
+.queue-status::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-tertiary-text) 78%, transparent);
+  transform: translateY(-50%);
+}
+
+.queue-state-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  border-radius: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--color-card-bg) 52%, transparent);
+  margin-top: 8px;
+}
+
+.queue-state-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.queue-state-header span {
+  color: var(--color-tertiary-text);
+  font-size: 0.78rem;
+}
+
+.queue-state-content {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
+  align-items: center;
+}
+
+.queue-state-labels {
+  display: grid;
+  gap: 8px;
+  color: var(--color-secondary-text);
+  font-size: 0.94rem;
+}
+
+.donut-wrap {
+  width: 140px;
+  height: 140px;
+  position: relative;
+  margin-left: auto;
+}
+
+.donut-chart {
+  width: 140px;
+  height: 140px;
+  transform: rotate(-90deg);
+}
+
+.donut-bg,
+.donut-segment {
+  fill: none;
+  stroke-width: 18;
+}
+
+.donut-bg {
+  stroke: color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+
+.donut-segment {
+  stroke-linecap: butt;
+  stroke-dasharray: 402;
+}
+
+.donut-segment-blue {
+  stroke: #4f97ff;
+  stroke-dashoffset: 58;
+}
+
+.donut-segment-cyan {
+  stroke: #39c8cf;
+  stroke-dashoffset: 190;
+}
+
+.donut-segment-red {
+  stroke: #ef6a7c;
+  stroke-dashoffset: 338;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.queue-foot {
+  margin-top: 8px;
+  color: var(--color-secondary-text);
+  font-size: 0.82rem;
+}
+
+.metric-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+  display: inline-block;
+  position: relative;
+  flex: 0 0 14px;
+}
+
+.metric-icon::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-link) 72%, transparent);
+}
+
+.metric-icon-lock::after {
+  inset: 2px 3px 4px;
+  border-radius: 2px;
+}
+
+.metric-icon-orders::after {
+  inset: 5px 2px;
+  border-radius: 1px;
+}
+
+.metric-icon-mail::after {
+  inset: 3px 2px;
+  border-radius: 2px;
+}
+
+.metric-icon-clock::after {
+  inset: 2px;
+  border-radius: 999px;
+}
+
+.metric-icon-refresh::after {
+  inset: 4px;
+  border-radius: 2px;
+}
+
+.metric-icon-trailing {
+  opacity: 0.72;
 }
 
 .alert,
@@ -907,6 +1240,10 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .kpi-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
   .explorer-layout {
     grid-template-columns: 1fr;
   }
@@ -969,6 +1306,14 @@ textarea:focus {
   .table-row-kpi {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+
+  .queue-state-content {
+    grid-template-columns: 1fr;
+  }
+
+  .donut-wrap {
+    margin: 0 auto;
   }
 
   .pager {

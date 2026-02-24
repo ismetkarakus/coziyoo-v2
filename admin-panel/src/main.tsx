@@ -388,7 +388,6 @@ function AppShell({
             <span className="brand-dot" />
             <div>
               <p className="brand-title">{dict.navbar.title}</p>
-              <p className="brand-subtitle">{dict.navbar.subtitle}</p>
             </div>
           </div>
           <TopNavTabs pathname={location.pathname} dict={dict} />
@@ -511,15 +510,15 @@ function DashboardPage({ language }: { language: Language }) {
 
   if (error) return <div className="alert">{error}</div>;
   if (!data) return <div className="panel">{dict.common.loading}</div>;
+  const updatedAt = String(data.updatedAt ?? "2028-02-24T14:30:18.106Z");
+  const updatedAtDisplay = updatedAt.replace("T", " ").replace("Z", "").slice(0, 19);
   const metrics = [
-    { key: "totalUsers", label: "TOTAL USERS", value: Number(data.totalUsers ?? 2) },
-    { key: "activeUsers", label: "ACTIVE USERS", value: Number(data.activeUsers ?? 1) },
-    { key: "disabledUsers", label: "DISABLED USERS", value: Number(data.disabledUsers ?? 1) },
-    { key: "activeOrders", label: "ACTIVE ORDERS", value: Number(data.activeOrders ?? 0) },
-    { key: "paymentPendingOrders", label: "PAYMENT PENDING ORDERS", value: Number(data.paymentPendingOrders ?? 0) },
-    { key: "complianceQueueCount", label: "COMPLIANCE QUEUE COUNT", value: Number(data.complianceQueueCount ?? 0) },
-    { key: "openDisputeCount", label: "OPEN DISPUTE COUNT", value: Number(data.openDisputeCount ?? 0) },
-    { key: "updatedAt", label: "UPDATED AT", value: String(data.updatedAt ?? "2026-02-24T14:30:18.106Z") },
+    { key: "totalUsers", label: "Total Users", icon: "users", value: Number(data.totalUsers ?? 2) },
+    { key: "activeUsers", label: "Active Users", icon: "users", value: Number(data.activeUsers ?? 1) },
+    { key: "disabledUsers", label: "Disabled Users", icon: "lock", value: Number(data.disabledUsers ?? 1) },
+    { key: "activeOrders", label: "Active Orders", icon: "orders", value: Number(data.activeOrders ?? 0) },
+    { key: "paymentPendingOrders", label: "Pending Payments", icon: "mail", value: Number(data.paymentPendingOrders ?? 0) },
+    { key: "updatedAt", label: "Son Güncelleme", icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
   ];
 
   const tableRows = [
@@ -528,9 +527,9 @@ function DashboardPage({ language }: { language: Language }) {
     { label: "Disabled Users", value: String(metrics[2].value) },
     { label: "Active Orders", value: String(metrics[3].value) },
     { label: "Payment Pending Orders", value: String(metrics[4].value) },
-    { label: "Compliance Queue Count", value: String(metrics[5].value) },
-    { label: "Open Dispute Count", value: String(metrics[6].value) },
-    { label: "Updated At", value: String(metrics[7].value) },
+    { label: "Compliance Queue Count", value: String(data.complianceQueueCount ?? 0) },
+    { label: "Open Dispute Count", value: String(data.openDisputeCount ?? 0) },
+    { label: "Updated At", value: updatedAt },
   ];
 
   return (
@@ -548,22 +547,38 @@ function DashboardPage({ language }: { language: Language }) {
       </header>
       <div className="kpi-grid">
         {metrics.map((item) => (
-          <StatCard key={item.key} label={item.label} value={item.value} />
+          <StatCard key={item.key} label={item.label} value={item.value} icon={item.icon} trailingIcon={item.trailingIcon} />
         ))}
       </div>
       <section className="content-grid">
         <DataTableCard title={dict.dashboard.kpiSnapshot} metricLabel={dict.dashboard.metric} valueLabel={dict.dashboard.value} rows={tableRows} />
-        <ActionCard title={dict.dashboard.quickActions} helperText={dict.dashboard.subtitle} dict={dict} />
+        <ActionCard title={dict.dashboard.quickActions} dict={dict} />
       </section>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  trailingIcon,
+}: {
+  label: string;
+  value: string | number;
+  icon?: "users" | "lock" | "orders" | "mail" | "clock";
+  trailingIcon?: "refresh";
+}) {
   return (
     <article className="card">
-      <p className="card-label">{label}</p>
-      <p className={`card-value ${/updated|date|time/i.test(label) ? "card-value-long" : ""}`}>{String(value)}</p>
+      <div className="card-head">
+        <p className="card-label">
+          <i className={`metric-icon metric-icon-${icon ?? "users"}`} />
+          {label}
+        </p>
+        {trailingIcon ? <i className={`metric-icon metric-icon-${trailingIcon} metric-icon-trailing`} /> : null}
+      </div>
+      <p className={`card-value ${/updated|date|time|güncelleme/i.test(label) ? "card-value-long" : ""}`}>{String(value)}</p>
     </article>
   );
 }
@@ -579,28 +594,115 @@ function DataTableCard({
   valueLabel: string;
   rows: Array<{ label: string; value: string }>;
 }) {
+  const timeline = ["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30"];
+  const sparkTimeline = ["16:30", "19:30", "28:30", "01:30", "04:30", "07:30", "16:30", "13:30"];
+  const trendValues = [6, 4.6, 6, 4.1, 4.2, 6.5];
+  const sparkValues = [5.8, 5.5, 5.3, 5.6, 5.9, 6.1, 6, 5.9, 5.8, 5.7];
+
+  const queueRows = [
+    { name: "foggulana*", status: "14 Görev", color: "dot-blue" },
+    { name: "z'eoz", status: "26 Dosya", color: "dot-cyan" },
+    { name: "vokebiler", status: "36 İşlem", color: "dot-teal" },
+    { name: "b;gs't", status: "24 İçerik", color: "dot-red" },
+  ];
+
   return (
     <article className="panel">
       <div className="panel-header">
         <h2>{title}</h2>
       </div>
-      <div className="kpi-table">
-        <div className="kpi-table-row kpi-table-head">
-          <span>{metricLabel}</span>
-          <span>{valueLabel}</span>
-        </div>
-        {rows.map((row) => (
-          <div className="kpi-table-row" key={row.label}>
-            <span>{row.label}</span>
-            <span>{row.value}</span>
+      <div className="kpi-detail-grid">
+        <div className="kpi-left">
+          <div className="kpi-table">
+            <div className="kpi-table-row kpi-table-head">
+              <span>{metricLabel}</span>
+              <span>{valueLabel}</span>
+            </div>
+            {rows.map((row) => (
+              <div className="kpi-table-row" key={row.label}>
+                <span>{row.label}</span>
+                <span>{row.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
+          <p className="kpi-updated">Son Güncelleme: 2028-02-24 14:30:18</p>
+          <svg className="sparkline" viewBox="0 0 520 66" aria-label="KPI sparkline">
+            <polyline
+              fill="none"
+              stroke="url(#spark-gradient)"
+              strokeWidth="2.5"
+              points={sparkValues.map((v, i) => `${i * 57},${60 - v * 7}`).join(" ")}
+            />
+            <circle cx="513" cy={60 - sparkValues[sparkValues.length - 1] * 7} r="3.5" fill="#4f97ff" />
+            <defs>
+              <linearGradient id="spark-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#88bcff" />
+                <stop offset="100%" stopColor="#3f84ff" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="chart-x-labels spark-x-labels">
+            {sparkTimeline.map((item) => (
+              <span key={`spark-${item}`}>{item}</span>
+            ))}
+          </div>
+          <div className="chart-legend">
+            <span><i className="dot dot-blue" />Bekliyor</span>
+            <span><i className="dot dot-cyan" />İşleniyor</span>
+            <span><i className="dot dot-red" />Hata Verdi</span>
+          </div>
+        </div>
+
+        <div className="kpi-right">
+          <h3>Job Queue Test</h3>
+          <div className="line-chart-wrap">
+            <svg className="queue-chart" viewBox="0 0 560 230" aria-label="Kuyruk trend grafiği">
+              <text x="20" y="28" className="chart-y-label">10</text>
+              <text x="24" y="73" className="chart-y-label">8</text>
+              <text x="24" y="118" className="chart-y-label">6</text>
+              <text x="24" y="163" className="chart-y-label">4</text>
+              <text x="24" y="209" className="chart-y-label">0</text>
+              {[0, 1, 2, 3].map((line) => (
+                <line key={`h-${line}`} x1="48" y1={24 + line * 45} x2="538" y2={24 + line * 45} className="chart-grid-line" />
+              ))}
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <line key={`v-${idx}`} x1={48 + idx * 98} y1="24" x2={48 + idx * 98} y2="206" className="chart-grid-line chart-grid-line-v" />
+              ))}
+              <polyline
+                className="chart-line"
+                points={trendValues.map((v, i) => `${48 + i * 98},${206 - v * 22}`).join(" ")}
+              />
+              {trendValues.map((v, i) => (
+                <circle key={`pt-${i}`} cx={48 + i * 98} cy={206 - v * 22} r="4.5" className="chart-point" />
+              ))}
+            </svg>
+            <div className="chart-x-labels">
+              {timeline.map((item) => (
+                <span key={`trend-${item}`}>{item}</span>
+              ))}
+            </div>
+          </div>
+          <div className="chart-legend">
+            <span><i className="dot dot-blue" />Bekliyor</span>
+            <span><i className="dot dot-cyan" />İşleniyor</span>
+            <span><i className="dot dot-red" />Hata Verdi</span>
+          </div>
+
+          <div className="queue-list">
+            {queueRows.map((item) => (
+              <div className="queue-row" key={item.name}>
+                <span className="queue-name"><i className={`dot ${item.color}`} />{item.name}</span>
+                <span className="queue-status">{item.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </article>
   );
 }
 
-function ActionCard({ title, helperText, dict }: { title: string; helperText: string; dict: Dictionary }) {
+function ActionCard({ title, dict }: { title: string; dict: Dictionary }) {
   return (
     <article className="panel">
       <div className="panel-header">
@@ -608,12 +710,39 @@ function ActionCard({ title, helperText, dict }: { title: string; helperText: st
       </div>
       <div className="actions">
         <button className="primary" type="button">{dict.actions.openComplianceQueue}</button>
-        <button className="ghost" type="button">{dict.actions.viewPaymentDisputes}</button>
-        <button className="ghost" type="button">{dict.actions.inspectAppUsers}</button>
-        <button className="ghost" type="button">{dict.actions.inspectAdminUsers}</button>
+        <button className="ghost has-arrow" type="button">{dict.actions.viewPaymentDisputes}</button>
+        <button className="ghost has-arrow" type="button">{dict.actions.inspectAppUsers}</button>
+        <button className="ghost has-arrow" type="button">{dict.actions.inspectAdminUsers}</button>
       </div>
-      <div className="divider" />
-      <p className="panel-note">{helperText}</p>
+      <div className="queue-state-card">
+        <div className="queue-state-header">
+          <h3>Kuyruk Durumu</h3>
+          <span>2028-02-24 15:30:6</span>
+        </div>
+        <div className="queue-state-content">
+          <div className="queue-state-labels">
+            <p>Yazdırma Kuyruğu</p>
+            <p>İndirme Kuyruğu</p>
+            <p>Mesai / İş Kuyruğu</p>
+            <p>Medys Kuyruğu</p>
+          </div>
+          <div className="donut-wrap" aria-label="Kuyruk durumu donut">
+            <svg viewBox="0 0 200 200" className="donut-chart">
+              <circle cx="100" cy="100" r="64" className="donut-bg" />
+              <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-blue" />
+              <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-cyan" />
+              <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-red" />
+            </svg>
+            <span className="donut-center">24/7</span>
+          </div>
+        </div>
+        <div className="chart-legend compact">
+          <span><i className="dot dot-blue" />Bekliyor</span>
+          <span><i className="dot dot-cyan" />İşleniyor</span>
+          <span><i className="dot dot-red" />Hata Verdi</span>
+        </div>
+        <p className="queue-foot">Son Güncelleme: 2028-02-24 14:00:18</p>
+      </div>
     </article>
   );
 }
