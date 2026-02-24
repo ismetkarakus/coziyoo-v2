@@ -12,11 +12,18 @@ import {
 type ApiResponse = { data?: StarterAgentSettings; error?: { message?: string } };
 
 export default function SettingsPage() {
-  const [deviceId] = useState(() => getOrCreateDeviceId());
+  const [deviceId, setDeviceId] = useState('');
   const [form, setForm] = useState<StarterAgentSettings>(STARTER_AGENT_SETTINGS_DEFAULTS);
   const [status, setStatus] = useState<string>('Loading settings...');
 
   useEffect(() => {
+    setDeviceId(getOrCreateDeviceId());
+  }, []);
+
+  useEffect(() => {
+    if (!deviceId) {
+      return;
+    }
     const load = async () => {
       try {
         const response = await fetch(

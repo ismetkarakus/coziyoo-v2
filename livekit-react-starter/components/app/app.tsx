@@ -19,7 +19,7 @@ interface AppProps {
 }
 
 export function App({ appConfig }: AppProps) {
-  const [deviceId] = useState(() => getOrCreateDeviceId());
+  const [deviceId, setDeviceId] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [settings, setSettings] = useState<StarterAgentSettings>(STARTER_AGENT_SETTINGS_DEFAULTS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -27,6 +27,13 @@ export function App({ appConfig }: AppProps) {
   const controller = useVerboseSessionController({ deviceId, settings });
 
   useEffect(() => {
+    setDeviceId(getOrCreateDeviceId());
+  }, []);
+
+  useEffect(() => {
+    if (!deviceId) {
+      return;
+    }
     const loadSettings = async () => {
       try {
         const response = await fetch(

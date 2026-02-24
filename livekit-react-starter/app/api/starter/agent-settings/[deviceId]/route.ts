@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { STARTER_AGENT_SETTINGS_DEFAULTS } from '@/lib/starter-settings';
 
 const API_BASE_URL =
   process.env.API_BASE_URL?.trim() || process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || '';
@@ -28,6 +29,10 @@ export async function GET(_req: Request, context: { params: Promise<{ deviceId: 
       method: 'GET',
       cache: 'no-store',
     });
+    if (upstream.status === 404) {
+      const headers = new Headers({ 'cache-control': 'no-store' });
+      return NextResponse.json({ data: STARTER_AGENT_SETTINGS_DEFAULTS }, { status: 200, headers });
+    }
     const raw = await upstream.text();
     const headers = new Headers({ 'cache-control': 'no-store' });
     return new NextResponse(raw, { status: upstream.status, headers });
