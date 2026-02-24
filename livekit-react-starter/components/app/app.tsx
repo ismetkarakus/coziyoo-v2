@@ -8,7 +8,6 @@ import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provi
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
-import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
 import { getSandboxTokenSource } from '@/lib/utils';
 
@@ -16,7 +15,6 @@ const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
 function AppSetup() {
   useDebugMode({ enabled: IN_DEVELOPMENT });
-  useAgentErrors();
 
   return null;
 }

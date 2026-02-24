@@ -248,6 +248,7 @@ export const SessionView = ({
             controls={controls}
             isChatOpen={chatOpen}
             isConnected={session.isConnected}
+            saveUserChoices={false}
             onSendMessage={handleSendMessage}
             onInterrupt={handleInterrupt}
             onDisconnect={session.end}
