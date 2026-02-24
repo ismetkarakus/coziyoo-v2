@@ -541,7 +541,7 @@ function DashboardPage({ language }: { language: Language }) {
         {entries.map(([key, value]) => (
           <article className="card" key={key}>
             <p className="card-label">{toLabel(key)}</p>
-            <p className="card-value">{String(value)}</p>
+            <p className={`card-value ${/(updated|date|time)/i.test(key) ? "card-value-long" : ""}`}>{String(value)}</p>
           </article>
         ))}
       </div>

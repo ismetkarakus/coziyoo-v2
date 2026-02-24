@@ -326,8 +326,10 @@ button {
 .card {
   background: var(--color-white);
   border-radius: 20px;
-  padding: 18px;
+  padding: 24px 18px 18px;
   box-shadow: 0 12px 30px var(--color-shadow);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  position: relative;
 }
 
 .card-label {
@@ -335,11 +337,26 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.7rem;
+  position: absolute;
+  top: 0;
+  left: 14px;
+  transform: translateY(-50%);
+  background: var(--color-white);
+  padding: 0 8px;
+  line-height: 1;
 }
 
 .card-value {
   font-size: 1.8rem;
   margin-top: 10px;
+  line-height: 1.2;
+}
+
+.card-value-long {
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .content-grid {
