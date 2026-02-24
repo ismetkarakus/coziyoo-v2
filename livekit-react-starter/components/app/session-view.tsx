@@ -103,6 +103,8 @@ export const SessionView = ({
   const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const pendingChatRequestRef = useRef<AbortController | null>(null);
+  const pendingTtsRequestRef = useRef<AbortController | null>(null);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const controls: AgentControlBarControls = {
     leave: true,
@@ -113,6 +115,53 @@ export const SessionView = ({
   };
 
   useEffect(() => {
+    const speakViaTts = async (text: string) => {
+      if (pendingTtsRequestRef.current) {
+        pendingTtsRequestRef.current.abort();
+        pendingTtsRequestRef.current = null;
+      }
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.pause();
+        ttsAudioRef.current = null;
+      }
+
+      const controller = new AbortController();
+      pendingTtsRequestRef.current = controller;
+      try {
+        const response = await fetch('/api/starter/tts-synthesize', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ text, language: 'tr' }),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const buffer = await response.arrayBuffer();
+        const blob = new Blob([buffer], {
+          type: response.headers.get('content-type') ?? 'audio/wav',
+        });
+        const objectUrl = URL.createObjectURL(blob);
+        const audio = new Audio(objectUrl);
+        ttsAudioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(objectUrl);
+          if (ttsAudioRef.current === audio) {
+            ttsAudioRef.current = null;
+          }
+        };
+        audio.play().catch(() => {
+          URL.revokeObjectURL(objectUrl);
+        });
+      } catch {
+        // ignore tts failures
+      } finally {
+        if (pendingTtsRequestRef.current === controller) {
+          pendingTtsRequestRef.current = null;
+        }
+      }
+    };
+
     const onData = (payload: Uint8Array) => {
       try {
         const decoded = new TextDecoder().decode(payload);
@@ -128,11 +177,7 @@ export const SessionView = ({
             isLocal: false,
           },
         ]);
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(text);
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-        }
+        speakViaTts(text).catch(() => undefined);
       } catch {
         // ignore non-chat payloads
       }
@@ -141,8 +186,13 @@ export const SessionView = ({
     room.on(RoomEvent.DataReceived, onData);
     return () => {
       room.off(RoomEvent.DataReceived, onData);
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      if (pendingTtsRequestRef.current) {
+        pendingTtsRequestRef.current.abort();
+        pendingTtsRequestRef.current = null;
+      }
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.pause();
+        ttsAudioRef.current = null;
       }
     };
   }, [room]);
@@ -201,11 +251,17 @@ export const SessionView = ({
   };
 
   const handleInterrupt = () => {
-    if (!pendingChatRequestRef.current) return;
-    pendingChatRequestRef.current.abort();
-    pendingChatRequestRef.current = null;
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (pendingChatRequestRef.current) {
+      pendingChatRequestRef.current.abort();
+      pendingChatRequestRef.current = null;
+    }
+    if (pendingTtsRequestRef.current) {
+      pendingTtsRequestRef.current.abort();
+      pendingTtsRequestRef.current = null;
+    }
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
     }
   };
 
