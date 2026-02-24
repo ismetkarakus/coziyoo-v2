@@ -21,6 +21,8 @@ interface AppProps {
 export function App({ appConfig }: AppProps) {
   const [deviceId, setDeviceId] = useState('');
   const [chatInput, setChatInput] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechListening, setSpeechListening] = useState(false);
   const [settings, setSettings] = useState<StarterAgentSettings>(STARTER_AGENT_SETTINGS_DEFAULTS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -28,6 +30,15 @@ export function App({ appConfig }: AppProps) {
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
+    const hasSpeechApi =
+      typeof window !== 'undefined' &&
+      Boolean(
+        (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
+          .SpeechRecognition ||
+          (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
+            .webkitSpeechRecognition
+      );
+    setSpeechSupported(hasSpeechApi);
   }, []);
 
   useEffect(() => {
@@ -58,11 +69,86 @@ export function App({ appConfig }: AppProps) {
     void loadSettings();
   }, [deviceId]);
 
-  const onSend = async () => {
-    const value = chatInput.trim();
+  const onSend = async (overrideText?: string) => {
+    const value = (overrideText ?? chatInput).trim();
     if (!value) return;
     setChatInput('');
     await controller.sendChat(value);
+  };
+
+  const onSpeak = () => {
+    if (!speechSupported || speechListening) return;
+    const Ctor =
+      (
+        window as unknown as {
+          SpeechRecognition?: new () => {
+            lang: string;
+            interimResults: boolean;
+            maxAlternatives: number;
+            onresult: ((event: unknown) => void) | null;
+            onerror: ((event: unknown) => void) | null;
+            onend: (() => void) | null;
+            start: () => void;
+          };
+          webkitSpeechRecognition?: new () => {
+            lang: string;
+            interimResults: boolean;
+            maxAlternatives: number;
+            onresult: ((event: unknown) => void) | null;
+            onerror: ((event: unknown) => void) | null;
+            onend: (() => void) | null;
+            start: () => void;
+          };
+        }
+      ).SpeechRecognition ||
+      (
+        window as unknown as {
+          SpeechRecognition?: new () => {
+            lang: string;
+            interimResults: boolean;
+            maxAlternatives: number;
+            onresult: ((event: unknown) => void) | null;
+            onerror: ((event: unknown) => void) | null;
+            onend: (() => void) | null;
+            start: () => void;
+          };
+          webkitSpeechRecognition?: new () => {
+            lang: string;
+            interimResults: boolean;
+            maxAlternatives: number;
+            onresult: ((event: unknown) => void) | null;
+            onerror: ((event: unknown) => void) | null;
+            onend: (() => void) | null;
+            start: () => void;
+          };
+        }
+      ).webkitSpeechRecognition;
+    if (!Ctor) return;
+
+    const recognition = new Ctor();
+    recognition.lang = settings.voiceLanguage || 'tr';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const resultList = (
+        event as {
+          results?: ArrayLike<ArrayLike<{ transcript?: string }>>;
+        }
+      ).results;
+      const transcript = resultList?.[0]?.[0]?.transcript?.trim() ?? '';
+      if (transcript) {
+        void onSend(transcript);
+      }
+    };
+    recognition.onerror = () => {
+      setSpeechListening(false);
+    };
+    recognition.onend = () => {
+      setSpeechListening(false);
+    };
+
+    setSpeechListening(true);
+    recognition.start();
   };
 
   return (
@@ -173,6 +259,16 @@ export function App({ appConfig }: AppProps) {
           >
             Send
           </button>
+          {speechSupported && (
+            <button
+              type="button"
+              className="rounded-md border px-3 py-2 text-sm"
+              onClick={onSpeak}
+              disabled={speechListening}
+            >
+              {speechListening ? 'Listening...' : 'Speak'}
+            </button>
+          )}
         </div>
       </section>
 

@@ -54,7 +54,8 @@ function nextId() {
 function resolveGreetingContext(now: Date) {
   const weekday = now.toLocaleDateString(undefined, { weekday: 'long' });
   const hour = now.getHours();
-  const timeOfDay = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+  const timeOfDay =
+    hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
   return { weekday, hour, timeOfDay };
 }
 
@@ -282,7 +283,9 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
 
         const fromAgent =
           participant?.identity?.includes('agent') ||
-          (typeof parsed === 'object' && parsed !== null && (parsed as { from?: unknown }).from === 'agent');
+          (typeof parsed === 'object' &&
+            parsed !== null &&
+            (parsed as { from?: unknown }).from === 'agent');
 
         if (typeof parsed === 'object' && parsed !== null) {
           const maybeText = (parsed as { text?: unknown }).text;
@@ -310,7 +313,9 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       await room.connect(details.serverUrl, details.participantToken);
       await room.localParticipant.setMicrophoneEnabled(true);
       setMicEnabled(true);
-      if (typeof (room as unknown as { startAudio?: () => Promise<void> }).startAudio === 'function') {
+      if (
+        typeof (room as unknown as { startAudio?: () => Promise<void> }).startAudio === 'function'
+      ) {
         await (room as unknown as { startAudio: () => Promise<void> }).startAudio();
       }
 
@@ -419,7 +424,8 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
   const sendChat = useCallback(
     async (text: string) => {
       const room = roomRef.current;
-      if (!room || !text.trim()) return;
+      const currentRoomName = roomName;
+      if (!room || !currentRoomName || !text.trim()) return;
       const payload = {
         type: 'chat',
         from: 'user',
@@ -445,8 +451,48 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         summary: 'Chat message sent',
         payload,
       });
+
+      try {
+        const response = await fetch('/api/starter/agent-chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            roomName: currentRoomName,
+            text: payload.text,
+          }),
+        });
+        const raw = await response.text();
+        let parsed: unknown = raw;
+        try {
+          parsed = raw ? JSON.parse(raw) : null;
+        } catch {
+          parsed = raw;
+        }
+        if (!response.ok) {
+          addEvent({
+            source: 'error',
+            eventType: 'AGENT_CHAT_REQUEST_FAILED',
+            summary: `Agent chat request failed (${response.status})`,
+            payload: parsed,
+          });
+          return;
+        }
+        addEvent({
+          source: 'api',
+          eventType: 'AGENT_CHAT_REQUEST_OK',
+          summary: 'Starter agent chat request succeeded',
+          payload: parsed,
+        });
+      } catch (error) {
+        addEvent({
+          source: 'error',
+          eventType: 'AGENT_CHAT_REQUEST_ERROR',
+          summary: 'Starter agent chat request errored',
+          payload: { message: error instanceof Error ? error.message : 'Unknown error' },
+        });
+      }
     },
-    [addEvent]
+    [addEvent, roomName]
   );
 
   useEffect(() => {
