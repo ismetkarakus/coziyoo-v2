@@ -54,6 +54,13 @@ export function App() {
   const roomRef = useRef<Room | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<number | null>(null);
+  const autoStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadTimerRef = useRef<number | null>(null);
+  const agentRequestAbortRef = useRef<AbortController | null>(null);
+  const autoListenEnabledRef = useRef(false);
   const [tokens, setTokens] = useState<Tokens | null>(null);
   const [roomName, setRoomName] = useState("coziyoo-room");
   const [email, setEmail] = useState("admin@coziyoo.com");
@@ -65,12 +72,14 @@ export function App() {
   const [chatInput, setChatInput] = useState("");
   const [chat, setChat] = useState<ChatItem[]>([]);
   const [recording, setRecording] = useState(false);
+  const [autoListen, setAutoListen] = useState(false);
 
   const canStart = useMemo(() => Boolean(tokens && roomName.trim() && !connecting && !connected), [tokens, roomName, connecting, connected]);
 
   useEffect(() => {
     return () => {
       roomRef.current?.disconnect();
+      stopAutoListening();
     };
   }, []);
 
@@ -132,7 +141,13 @@ export function App() {
           const parsed = JSON.parse(raw) as { text?: string; ts?: string; from?: string };
           const text = parsed.text;
           if (!text) return;
-          setChat((prev) => [...prev, { from: parsed.from ?? participant?.identity ?? "agent", text, ts: parsed.ts ?? new Date().toISOString() }]);
+          const from = parsed.from ?? participant?.identity ?? "agent";
+          setChat((prev) => [...prev, { from, text, ts: parsed.ts ?? new Date().toISOString() }]);
+          if (from.includes("agent") && "speechSynthesis" in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+          }
         } catch {
           // ignore non-chat payloads
         }
@@ -155,15 +170,47 @@ export function App() {
     const text = chatInput.trim();
     setChat((prev) => [...prev, { from: "you", text, ts: new Date().toISOString() }]);
     setChatInput("");
+    await sendTextToAgent(text);
+  }
 
-    const response = await authorized("/v1/admin/livekit/agent/chat", {
-      method: "POST",
-      body: JSON.stringify({ roomName: session?.roomName ?? roomName, text }),
-    });
+  function cancelAgentOutputForBargeIn() {
+    if (agentRequestAbortRef.current) {
+      agentRequestAbortRef.current.abort();
+      agentRequestAbortRef.current = null;
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
 
-    const body = await asJson<AgentChatResponse>(response);
-    if (response.status !== 201 || !body.data) {
-      setStatus(body.error?.message ?? "agent chat failed");
+  async function sendTextToAgent(text: string) {
+    cancelAgentOutputForBargeIn();
+    const controller = new AbortController();
+    agentRequestAbortRef.current = controller;
+    setStatus("agent thinking...");
+    try {
+      const response = await authorized("/v1/admin/livekit/agent/chat", {
+        method: "POST",
+        body: JSON.stringify({ roomName: session?.roomName ?? roomName, text }),
+        signal: controller.signal,
+      });
+
+      if (agentRequestAbortRef.current === controller) {
+        agentRequestAbortRef.current = null;
+      }
+
+      const body = await asJson<AgentChatResponse>(response);
+      if (response.status !== 201 || !body.data) {
+        setStatus(body.error?.message ?? "agent chat failed");
+        return;
+      }
+      setStatus("agent replied");
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setStatus("agent interrupted");
+        return;
+      }
+      setStatus(error instanceof Error ? error.message : "agent chat failed");
     }
   }
 
@@ -178,6 +225,28 @@ export function App() {
     return btoa(binary);
   }
 
+  async function transcribeBlob(blob: Blob, appendToInput = true) {
+    setStatus("transcribing...");
+    const audioBase64 = await blobToBase64(blob);
+    const response = await authorized("/v1/admin/livekit/stt/transcribe", {
+      method: "POST",
+      body: JSON.stringify({
+        audioBase64,
+        mimeType: "audio/webm",
+      }),
+    });
+    const body = await asJson<{ data?: { text?: string }; error?: { message?: string } }>(response);
+    if (response.status !== 201 || !body.data?.text) {
+      setStatus(body.error?.message ?? "stt failed");
+      return null;
+    }
+    if (appendToInput) {
+      setChatInput(body.data.text);
+    }
+    setStatus("transcribed");
+    return body.data.text;
+  }
+
   async function startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
@@ -190,6 +259,10 @@ export function App() {
     };
     recorder.onstop = async () => {
       setRecording(false);
+      if (recordTimerRef.current) {
+        window.clearTimeout(recordTimerRef.current);
+        recordTimerRef.current = null;
+      }
       const blob = new Blob(mediaChunksRef.current, { type: "audio/webm" });
       mediaChunksRef.current = [];
       stream.getTracks().forEach((track) => track.stop());
@@ -199,35 +272,154 @@ export function App() {
         return;
       }
 
-      setStatus("transcribing...");
-      const audioBase64 = await blobToBase64(blob);
-      const response = await authorized("/v1/admin/livekit/stt/transcribe", {
-        method: "POST",
-        body: JSON.stringify({
-          audioBase64,
-          mimeType: "audio/webm",
-        }),
-      });
-      const body = await asJson<{ data?: { text?: string }; error?: { message?: string } }>(response);
-      if (response.status !== 201 || !body.data?.text) {
-        setStatus(body.error?.message ?? "stt failed");
-        return;
-      }
-      setChatInput(body.data.text);
-      setStatus("transcribed");
+      await transcribeBlob(blob, true);
     };
     recorder.start();
+    recordTimerRef.current = window.setTimeout(() => {
+      stopRecording();
+    }, 12_000);
     setRecording(true);
-    setStatus("recording...");
+    setStatus("recording... max 12s");
   }
 
   function stopRecording() {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
+    if (recordTimerRef.current) {
+      window.clearTimeout(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
     recorder.stop();
   }
 
+  function stopAutoListening() {
+    autoListenEnabledRef.current = false;
+    if (vadTimerRef.current) {
+      window.clearInterval(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    setRecording(false);
+    if (autoStreamRef.current) {
+      autoStreamRef.current.getTracks().forEach((track) => track.stop());
+      autoStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => undefined);
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    setAutoListen(false);
+  }
+
+  async function startAutoListening() {
+    if (!connected) return;
+    if (autoListenEnabledRef.current && mediaRecorderRef.current?.state === "recording") return;
+    autoListenEnabledRef.current = true;
+    setAutoListen(true);
+    setStatus("auto listening...");
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    autoStreamRef.current = stream;
+
+    const context = new AudioContext();
+    audioContextRef.current = context;
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    analyserRef.current = analyser;
+
+    mediaChunksRef.current = [];
+    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    mediaRecorderRef.current = recorder;
+
+    let hasSpeech = false;
+    let lastVoiceTs = Date.now();
+    const startTs = Date.now();
+    const SILENCE_MS = 1100;
+    const MAX_MS = 12_000;
+    const THRESHOLD = 0.018;
+
+    recorder.ondataavailable = (event: BlobEvent) => {
+      if (event.data.size > 0) mediaChunksRef.current.push(event.data);
+    };
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    recorder.start(250);
+    setRecording(true);
+    vadTimerRef.current = window.setInterval(() => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 1) {
+        const v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const now = Date.now();
+      if (rms > THRESHOLD) {
+        hasSpeech = true;
+        lastVoiceTs = now;
+        cancelAgentOutputForBargeIn();
+      }
+
+      if (hasSpeech && now - lastVoiceTs >= SILENCE_MS) {
+        if (vadTimerRef.current) {
+          window.clearInterval(vadTimerRef.current);
+          vadTimerRef.current = null;
+        }
+        recorder.stop();
+        return;
+      }
+
+      if (now - startTs >= MAX_MS) {
+        if (vadTimerRef.current) {
+          window.clearInterval(vadTimerRef.current);
+          vadTimerRef.current = null;
+        }
+        recorder.stop();
+      }
+    }, 120);
+
+    recorder.onstop = async () => {
+      setRecording(false);
+      if (vadTimerRef.current) {
+        window.clearInterval(vadTimerRef.current);
+        vadTimerRef.current = null;
+      }
+      const blob = new Blob(mediaChunksRef.current, { type: "audio/webm" });
+      mediaChunksRef.current = [];
+
+      stream.getTracks().forEach((track) => track.stop());
+      if (audioContextRef.current) {
+        await audioContextRef.current.close().catch(() => undefined);
+        audioContextRef.current = null;
+      }
+      analyserRef.current = null;
+      autoStreamRef.current = null;
+
+      if (!autoListenEnabledRef.current) return;
+      if (blob.size > 0 && hasSpeech) {
+        const text = await transcribeBlob(blob, false);
+        if (text?.trim()) {
+          const userText = text.trim();
+          setChat((prev) => [...prev, { from: "you", text: userText, ts: new Date().toISOString() }]);
+          await sendTextToAgent(userText);
+        }
+      }
+      if (autoListenEnabledRef.current) {
+        startAutoListening().catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : "auto listen restart failed");
+          stopAutoListening();
+        });
+      }
+    };
+  }
+
   function disconnect() {
+    stopAutoListening();
     roomRef.current?.disconnect();
     roomRef.current = null;
     setConnected(false);
@@ -292,6 +484,12 @@ export function App() {
           </button>
           <button type="button" className="ghost" onClick={stopRecording} disabled={!recording}>
             Stop + Transcribe
+          </button>
+          <button type="button" onClick={startAutoListening} disabled={!connected || autoListen}>
+            Auto Listen
+          </button>
+          <button type="button" className="ghost" onClick={stopAutoListening} disabled={!autoListen}>
+            Stop Auto
           </button>
         </div>
       </section>

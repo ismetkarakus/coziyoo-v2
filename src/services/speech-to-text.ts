@@ -30,6 +30,9 @@ export async function transcribeAudio(input: TranscribeInput): Promise<Transcrib
   if (audio.length === 0) {
     throw new Error("STT_EMPTY_AUDIO");
   }
+  if (audio.length > env.SPEECH_TO_TEXT_MAX_AUDIO_BYTES) {
+    throw new Error("STT_AUDIO_TOO_LARGE");
+  }
 
   const endpoint = new URL(env.SPEECH_TO_TEXT_TRANSCRIBE_PATH, env.SPEECH_TO_TEXT_BASE_URL).toString();
   const form = new FormData();

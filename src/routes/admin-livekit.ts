@@ -428,10 +428,19 @@ adminLiveKitRouter.post("/stt/transcribe", async (req, res) => {
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Speech-to-text failed";
+    if (message.includes("STT_AUDIO_TOO_LARGE")) {
+      return res.status(413).json({
+        error: {
+          code: "STT_AUDIO_TOO_LARGE",
+          message: `Audio payload is too large. Max bytes: ${env.SPEECH_TO_TEXT_MAX_AUDIO_BYTES}.`,
+        },
+      });
+    }
     return res.status(502).json({
       error: {
         code: "STT_TRANSCRIBE_FAILED",
-        message: error instanceof Error ? error.message : "Speech-to-text failed",
+        message,
       },
     });
   }

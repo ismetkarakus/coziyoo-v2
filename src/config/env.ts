@@ -49,9 +49,11 @@ const EnvSchema = z.object({
   SPEECH_TO_TEXT_MODEL: z.string().default("whisper-1"),
   SPEECH_TO_TEXT_API_KEY: z.string().optional(),
   SPEECH_TO_TEXT_TIMEOUT_MS: z.coerce.number().int().positive().max(120_000).default(60_000),
+  SPEECH_TO_TEXT_MAX_AUDIO_BYTES: z.coerce.number().int().positive().max(25_000_000).default(8_000_000),
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   DOCS_ENABLED: boolFromEnv.optional(),
+  JSON_BODY_LIMIT: z.string().default("15mb"),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

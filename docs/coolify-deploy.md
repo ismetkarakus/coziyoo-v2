@@ -15,6 +15,7 @@
 - `NODE_ENV=production`
 - `HOST=0.0.0.0`
 - `PORT=3000`
+- `JSON_BODY_LIMIT=15mb`
 - `APP_JWT_SECRET=...` (min 32 chars)
 - `ADMIN_JWT_SECRET=...` (min 32 chars)
 - `PAYMENT_WEBHOOK_SECRET=...` (min 16 chars)
@@ -43,6 +44,7 @@ Optional:
 - `SPEECH_TO_TEXT_MODEL=whisper-1`
 - `SPEECH_TO_TEXT_API_KEY=...` (optional)
 - `SPEECH_TO_TEXT_TIMEOUT_MS=60000`
+- `SPEECH_TO_TEXT_MAX_AUDIO_BYTES=8000000`
 
 Database can be configured in either format:
 

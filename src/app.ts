@@ -57,6 +57,7 @@ app.use(requestContext);
 
 app.use(
   express.json({
+    limit: env.JSON_BODY_LIMIT,
     verify: (req, _res, buf) => {
       (req as { rawBody?: string }).rawBody = buf.toString("utf8");
     },
