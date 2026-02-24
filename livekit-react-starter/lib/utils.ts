@@ -121,10 +121,36 @@ export function getSandboxTokenSource(appConfig: AppConfig) {
           roomName,
         }),
       });
-      return await res.json();
+      const payload = (await res.json()) as {
+        serverUrl?: string;
+        roomName?: string;
+        participantName?: string;
+        participantToken?: string;
+        error?: { message?: string };
+      };
+
+      if (!res.ok) {
+        throw new Error(payload?.error?.message ?? `connection-details failed (${res.status})`);
+      }
+
+      if (
+        !payload?.serverUrl ||
+        !payload?.roomName ||
+        !payload?.participantToken ||
+        payload.participantToken.split('.').length !== 3
+      ) {
+        throw new Error('connection-details returned invalid token payload');
+      }
+
+      return {
+        serverUrl: payload.serverUrl,
+        roomName: payload.roomName,
+        participantName: payload.participantName ?? username,
+        participantToken: payload.participantToken,
+      };
     } catch (error) {
       console.error('Error fetching connection details:', error);
-      throw new Error('Error fetching connection details!');
+      throw error instanceof Error ? error : new Error('Error fetching connection details!');
     }
   });
 }

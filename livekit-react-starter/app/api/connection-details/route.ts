@@ -30,6 +30,18 @@ export const revalidate = 0;
 
 export async function POST(req: Request) {
   try {
+    if (API_BASE_URL.includes('api.example.com')) {
+      return NextResponse.json(
+        {
+          error: {
+            message:
+              'API_BASE_URL is not configured. Set API_BASE_URL (or NEXT_PUBLIC_API_BASE_URL) in assistant env.',
+          },
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const username = String(body?.username ?? 'guest').trim() || 'guest';
     const roomName = String(body?.roomName ?? '').trim();
@@ -47,16 +59,34 @@ export async function POST(req: Request) {
     });
 
     const raw = await upstream.text();
-    const parsed = raw ? (JSON.parse(raw) as StarterResponse) : {};
+    let parsed: StarterResponse = {};
+    try {
+      parsed = raw ? (JSON.parse(raw) as StarterResponse) : {};
+    } catch {
+      parsed = {
+        error: {
+          message: raw?.slice(0, 500) || `Unexpected upstream response (${upstream.status})`,
+        },
+      };
+    }
+
     if (upstream.status !== 201 || !parsed.data) {
-      throw new Error(parsed.error?.message ?? 'Failed to start LiveKit starter session');
+      throw new Error(
+        parsed.error?.message ??
+          `Failed to start LiveKit starter session (status ${upstream.status})`
+      );
+    }
+
+    const token = String(parsed.data.user?.token ?? '');
+    if (!token || token.split('.').length !== 3) {
+      throw new Error('Starter session response does not include a valid participant token');
     }
 
     const details: ConnectionDetails = {
       serverUrl: parsed.data.wsUrl,
       roomName: parsed.data.roomName,
       participantName: username,
-      participantToken: parsed.data.user.token,
+      participantToken: token,
     };
 
     return NextResponse.json(details, {
