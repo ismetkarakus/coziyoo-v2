@@ -221,8 +221,26 @@
     "saveChanges": "Değişiklikleri Kaydet",
     "accountJson": "Hesap Detayı (JSON)",
     "copyJson": "Kopyala",
+    "edit": "Düzenle",
+    "actionSoon": "Yakında",
+    "termsAndConditions": "Şartlar ve Koşullar",
+    "optional": "Opsiyonel",
     "trCompliance": "Türkiye Gıda İşletmesi Uygunluğu",
     "noComplianceData": "Uygunluk verisi bulunamadı",
+    "legalProfileBadge": {
+      "completed": "TAMAMLANDI",
+      "inReview": "İNCELEMEDE",
+      "pending": "BEKLEMEDE",
+      "rejected": "REDDEDİLDİ"
+    },
+    "complianceRows": {
+      "foodBusiness": "Gıda İşletme Belgesi",
+      "taxPlate": "Vergi Levhası",
+      "kvkk": "KVKK Uyumluluğu",
+      "foodSafetyTraining": "Gıda Güvenliği Eğitimi",
+      "phoneVerification": "Telefon Doğrulama",
+      "workplaceInsurance": "İş Yeri Sigortası"
+    },
     "foodRetentionTitle": "Yemek İçerikleri Saklama Bilgisi",
     "foodRetentionHint": "Yemek içerikleri yasal gereklilik gereği 2 yıl saklanır.",
     "totalFoods": "Toplam Yemek",

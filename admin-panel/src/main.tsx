@@ -2849,6 +2849,33 @@ type SellerCompliancePayload = {
   }>;
 };
 
+type ComplianceRowKey =
+  | "foodBusiness"
+  | "taxPlate"
+  | "kvkk"
+  | "foodSafetyTraining"
+  | "phoneVerification"
+  | "workplaceInsurance";
+
+type ComplianceTone = "success" | "warning" | "danger" | "neutral";
+
+type ComplianceRowViewModel = {
+  key: ComplianceRowKey;
+  label: string;
+  statusLabel: string;
+  tone: ComplianceTone;
+  detailText: string;
+  isOptional?: boolean;
+};
+
+type ComplianceSource = {
+  status: string | null;
+  reviewedAt: string | null;
+  uploadedAt: string | null;
+  updatedAt: string | null;
+  phoneValue?: string | null;
+};
+
 function maskEmail(value: string | null | undefined): string {
   const email = String(value ?? "").trim();
   const [local, domain] = email.split("@");
@@ -2903,6 +2930,149 @@ function formatUiDate(value: string | null | undefined, language: Language): str
   const date = Date.parse(value);
   if (Number.isNaN(date)) return "-";
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
+}
+
+function normalizeComplianceToken(value: string | null | undefined): string {
+  const raw = String(value ?? "")
+    .toLowerCase()
+    .replace(/[ç]/g, "c")
+    .replace(/[ğ]/g, "g")
+    .replace(/[ı]/g, "i")
+    .replace(/[ö]/g, "o")
+    .replace(/[ş]/g, "s")
+    .replace(/[ü]/g, "u")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return raw;
+}
+
+function pickComplianceSourceDate(source: ComplianceSource): string | null {
+  return source.reviewedAt || source.uploadedAt || source.updatedAt || null;
+}
+
+function complianceToneFromStatus(status: string | null | undefined): ComplianceTone {
+  const normalized = normalizeComplianceToken(status);
+  if (!normalized) return "warning";
+  if (["verified", "approved", "active", "completed", "tamamlandi"].includes(normalized)) return "success";
+  if (["rejected", "declined", "failed", "expired"].includes(normalized)) return "danger";
+  if (["pending", "submitted", "under_review", "in_progress", "not_started", "unknown"].includes(normalized)) return "warning";
+  return "neutral";
+}
+
+function complianceLabelFromTone(tone: ComplianceTone, dict: Dictionary): string {
+  if (tone === "success") return dict.detail.sellerStatus.verified;
+  if (tone === "danger") return dict.detail.sellerStatus.rejected;
+  return dict.detail.sellerStatus.pending;
+}
+
+function profileBadgeFromStatus(
+  status: SellerComplianceStatus | null | undefined,
+  dict: Dictionary
+): { label: string; tone: ComplianceTone } {
+  if (!status) return { label: dict.detail.legalProfileBadge.pending, tone: "warning" };
+  if (status === "approved") return { label: dict.detail.legalProfileBadge.completed, tone: "success" };
+  if (status === "rejected" || status === "suspended") return { label: dict.detail.legalProfileBadge.rejected, tone: "danger" };
+  if (status === "under_review" || status === "submitted") return { label: dict.detail.legalProfileBadge.inReview, tone: "warning" };
+  return { label: dict.detail.legalProfileBadge.pending, tone: "warning" };
+}
+
+function mapComplianceRows(
+  payload: SellerCompliancePayload | null,
+  dict: Dictionary,
+  language: Language
+): ComplianceRowViewModel[] {
+  const docs = payload?.documents ?? [];
+  const checks = payload?.checks ?? [];
+
+  const docByKey = new Map<ComplianceRowKey, ComplianceSource>();
+  const checkByKey = new Map<ComplianceRowKey, ComplianceSource>();
+
+  const keyMatchers: Array<{ key: ComplianceRowKey; tokens: string[] }> = [
+    { key: "foodBusiness", tokens: ["gida_isletme", "isletme_belgesi", "food_business", "business_license", "food_license"] },
+    { key: "taxPlate", tokens: ["vergi_levhasi", "tax_plate", "tax_document", "tax", "vergi"] },
+    { key: "kvkk", tokens: ["kvkk", "privacy", "kisisel_veri", "gdpr"] },
+    { key: "foodSafetyTraining", tokens: ["gida_guvenligi_egitimi", "food_safety_training", "hygiene_training", "egitim"] },
+    { key: "phoneVerification", tokens: ["telefon", "phone", "sms", "phone_verification", "telefon_dogrulama"] },
+    { key: "workplaceInsurance", tokens: ["is_yeri_sigortasi", "workplace_insurance", "insurance", "sigorta"] },
+  ];
+
+  const resolveKey = (value: string): ComplianceRowKey | null => {
+    for (const item of keyMatchers) {
+      if (item.tokens.some((token) => value.includes(token))) return item.key;
+    }
+    return null;
+  };
+
+  for (const doc of docs) {
+    const normalizedType = normalizeComplianceToken(doc.doc_type);
+    const rowKey = resolveKey(normalizedType);
+    if (!rowKey || docByKey.has(rowKey)) continue;
+    docByKey.set(rowKey, {
+      status: doc.status,
+      reviewedAt: doc.reviewed_at,
+      uploadedAt: doc.uploaded_at,
+      updatedAt: null,
+    });
+  }
+
+  for (const check of checks) {
+    const normalizedCode = normalizeComplianceToken(check.check_code);
+    const rowKey = resolveKey(normalizedCode);
+    if (!rowKey || checkByKey.has(rowKey)) continue;
+    let phoneValue: string | null = null;
+    if (rowKey === "phoneVerification") {
+      const raw = check.value_json;
+      if (typeof raw === "string") phoneValue = raw;
+      else if (raw && typeof raw === "object") {
+        const valueObj = raw as Record<string, unknown>;
+        const candidate = [valueObj.phone, valueObj.telephone, valueObj.number, valueObj.value].find(
+          (entry) => typeof entry === "string" && entry.trim()
+        );
+        phoneValue = (candidate as string | undefined) ?? null;
+      }
+    }
+    checkByKey.set(rowKey, {
+      status: check.status,
+      reviewedAt: null,
+      uploadedAt: null,
+      updatedAt: check.updated_at,
+      phoneValue,
+    });
+  }
+
+  const rowMeta: Array<{ key: ComplianceRowKey; label: string; optional?: boolean }> = [
+    { key: "foodBusiness", label: dict.detail.complianceRows.foodBusiness },
+    { key: "taxPlate", label: dict.detail.complianceRows.taxPlate },
+    { key: "kvkk", label: dict.detail.complianceRows.kvkk },
+    { key: "foodSafetyTraining", label: dict.detail.complianceRows.foodSafetyTraining },
+    { key: "phoneVerification", label: dict.detail.complianceRows.phoneVerification },
+    { key: "workplaceInsurance", label: dict.detail.complianceRows.workplaceInsurance, optional: true },
+  ];
+
+  return rowMeta.map((meta) => {
+    const source = docByKey.get(meta.key) ?? checkByKey.get(meta.key) ?? null;
+    const tone = complianceToneFromStatus(source?.status ?? null);
+    const statusLabel = complianceLabelFromTone(tone, dict);
+    const date = pickComplianceSourceDate(
+      source ?? {
+        status: null,
+        reviewedAt: null,
+        uploadedAt: null,
+        updatedAt: null,
+      }
+    );
+    const dateText = formatUiDate(date, language);
+    const phoneText = meta.key === "phoneVerification" ? maskPhone(source?.phoneValue ?? null) : null;
+    const detailText = phoneText && phoneText !== "-" ? `${statusLabel} • ${phoneText}` : dateText !== "-" ? `${statusLabel} • ${dateText}` : statusLabel;
+    return {
+      key: meta.key,
+      label: meta.label,
+      statusLabel,
+      tone,
+      detailText,
+      isOptional: meta.optional,
+    };
+  });
 }
 
 function renderJsonLine(line: string): ReactNode {
@@ -3040,20 +3210,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
   const roundedStars = Math.max(0, Math.min(5, Math.round(avgRating)));
 
-  const profileStatusMap: Record<SellerComplianceStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
-    not_started: { label: dict.detail.sellerStatus.notStarted, tone: "neutral" },
-    in_progress: { label: dict.detail.sellerStatus.inProgress, tone: "warning" },
-    submitted: { label: dict.detail.sellerStatus.submitted, tone: "warning" },
-    under_review: { label: dict.detail.sellerStatus.underReview, tone: "warning" },
-    approved: { label: dict.detail.sellerStatus.approved, tone: "success" },
-    rejected: { label: dict.detail.sellerStatus.rejected, tone: "danger" },
-    suspended: { label: dict.detail.sellerStatus.suspended, tone: "danger" },
-  };
-  const docStatusMap: Record<SellerComplianceDocumentStatus, { label: string; tone: "success" | "warning" | "danger" }> = {
-    pending: { label: dict.detail.sellerStatus.pending, tone: "warning" },
-    verified: { label: dict.detail.sellerStatus.verified, tone: "success" },
-    rejected: { label: dict.detail.sellerStatus.rejected, tone: "danger" },
-  };
+  const legalRows = mapComplianceRows(compliance, dict, language);
+  const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
 
   const maskedJson = {
     id: row.id,
@@ -3205,33 +3363,41 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       {activeTab === "legal" ? (
         <section className="panel">
-          <article>
-            <div className="panel-header">
-              <h2>{dict.detail.trCompliance}</h2>
-              {compliance ? (
-                <span className={`status-pill is-${profileStatusMap[compliance.profile.status].tone}`}>{profileStatusMap[compliance.profile.status].label}</span>
-              ) : null}
+          <article className="seller-compliance-card">
+            <div className="seller-compliance-header">
+              <div className="seller-compliance-title">
+                <span className="seller-compliance-flag" aria-hidden="true">🇹🇷</span>
+                <h2>{dict.detail.trCompliance}</h2>
+              </div>
+              <span className={`status-pill compliance-status-pill is-${profileBadge.tone}`}>{profileBadge.label}</span>
             </div>
             {compliance?.profile.review_notes ? <div className="panel-note">{compliance.profile.review_notes}</div> : null}
-            {compliance ? (
-              <div className="seller-compliance-list">
-                {compliance.documents.map((doc) => (
-                  <article key={doc.id}>
-                    <div>
-                      <h3>{doc.doc_type}</h3>
-                      {doc.rejection_reason ? <p className="panel-meta">{doc.rejection_reason}</p> : null}
-                    </div>
-                    <div className="seller-doc-meta">
-                      <span className={`status-pill is-${docStatusMap[doc.status].tone}`}>{docStatusMap[doc.status].label}</span>
-                      <a href={doc.file_url} target="_blank" rel="noreferrer">{dict.actions.detail}</a>
-                    </div>
-                  </article>
-                ))}
-                {compliance.documents.length === 0 ? <p className="panel-meta">{dict.common.noRecords}</p> : null}
-              </div>
-            ) : (
-              <p className="panel-meta">{dict.detail.noComplianceData}</p>
-            )}
+            <div className="seller-compliance-list">
+              {legalRows.map((item) => (
+                <article key={item.key} className="seller-compliance-row">
+                  <div className={`compliance-icon is-${item.tone}`} aria-hidden="true" />
+                  <div className="compliance-body">
+                    <h3>{item.label}</h3>
+                    <p className="compliance-meta">
+                      <span className={`status-pill compliance-status-pill is-${item.tone}`}>{item.statusLabel}</span>
+                      <span>{item.detailText}</span>
+                      {item.isOptional ? <span className="status-pill compliance-status-pill is-neutral">{dict.detail.optional}</span> : null}
+                    </p>
+                  </div>
+                  <button
+                    className="ghost compliance-edit-btn"
+                    type="button"
+                    title={dict.detail.actionSoon}
+                    onClick={() => undefined}
+                  >
+                    {dict.detail.edit}
+                  </button>
+                </article>
+              ))}
+            </div>
+            <button className="compliance-footer-link" type="button">
+              {dict.detail.termsAndConditions}
+            </button>
           </article>
         </section>
       ) : null}

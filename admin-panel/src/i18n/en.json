@@ -221,8 +221,26 @@
     "saveChanges": "Save Changes",
     "accountJson": "Account Detail (JSON)",
     "copyJson": "Copy",
+    "edit": "Edit",
+    "actionSoon": "Coming soon",
+    "termsAndConditions": "Terms and Conditions",
+    "optional": "Optional",
     "trCompliance": "Turkey Food Business Compliance",
     "noComplianceData": "No compliance data found",
+    "legalProfileBadge": {
+      "completed": "COMPLETED",
+      "inReview": "IN REVIEW",
+      "pending": "PENDING",
+      "rejected": "REJECTED"
+    },
+    "complianceRows": {
+      "foodBusiness": "Food Business Certificate",
+      "taxPlate": "Tax Certificate",
+      "kvkk": "KVKK Compliance",
+      "foodSafetyTraining": "Food Safety Training",
+      "phoneVerification": "Phone Verification",
+      "workplaceInsurance": "Workplace Insurance"
+    },
     "foodRetentionTitle": "Food Content Retention",
     "foodRetentionHint": "Food contents are retained for 2 years due to legal requirements.",
     "totalFoods": "Total Foods",
