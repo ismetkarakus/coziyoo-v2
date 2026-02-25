@@ -212,6 +212,10 @@
     "retentionPolicy": "Saklama Politikası",
     "retentionYears": "Yıl",
     "retentionUntil": "Silinme Hedefi",
+    "countryCodeLabel": "Ülke Kodu",
+    "languageLabel": "Dil",
+    "updatedAtLabel": "Son Güncelleme",
+    "legalHoldStateLabel": "Legal Hold Durumu",
     "basicAccountEdit": "Temel Hesap Düzenleme",
     "passwordPlaceholder": "Yeni şifre girin",
     "saveChanges": "Değişiklikleri Kaydet",
@@ -230,6 +234,7 @@
       "orders": "Sipariş & Kazanç",
       "wallet": "Cüzdan & İşlemler",
       "identity": "Kimlik & Uygunluk",
+      "retention": "Saklama Politikası",
       "security": "Konum & Güvenlik",
       "raw": "Ham Veri"
     },

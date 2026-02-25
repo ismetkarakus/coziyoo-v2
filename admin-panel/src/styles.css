@@ -1705,6 +1705,7 @@ textarea:focus {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
   align-items: start;
+  padding-top: 14px;
 }
 
 .seller-hero-main {
@@ -1714,16 +1715,17 @@ textarea:focus {
 }
 
 .seller-avatar {
-  width: 84px;
-  height: 84px;
+  width: 92px;
+  height: 92px;
   border-radius: 999px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  background: radial-gradient(65% 65% at 35% 30%, rgba(68, 102, 171, 0.42), rgba(20, 30, 53, 0.86));
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
+  color: #dce7ff;
 }
 
 .seller-avatar img {
@@ -1734,16 +1736,31 @@ textarea:focus {
 
 .seller-hero-text h1 {
   margin: 0;
+  font-size: 3rem;
+  letter-spacing: -0.02em;
 }
 
 .seller-hero-text p {
   margin: 4px 0 0;
+  font-size: 1.55rem;
 }
 
 .seller-hero-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.seller-country-badge {
+  display: inline-flex;
+  margin: 0 6px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #e1606f 55%, var(--color-border));
+  background: color-mix(in srgb, #cf304a 34%, transparent);
+  color: #ffe8eb;
+  font-weight: 700;
+  padding: 2px 7px;
 }
 
 .seller-hero-right {
@@ -1762,6 +1779,7 @@ textarea:focus {
   border-radius: 10px;
   padding: 10px;
   background: color-mix(in srgb, var(--color-card-bg) 65%, transparent);
+  min-width: 170px;
 }
 
 .seller-hero-stats p {
@@ -1772,43 +1790,56 @@ textarea:focus {
 .seller-hero-stats strong {
   display: block;
   margin-top: 4px;
-}
-
-.seller-identity-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.seller-identity-row article {
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-radius: 12px;
-  padding: 12px;
-  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  font-size: 1.7rem;
 }
 
 .seller-tabs-panel {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #18243f 76%, transparent),
+    color-mix(in srgb, #111a2f 86%, transparent)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: 12px 14px;
 }
 
 .seller-tabs {
-  display: inline-flex;
-  gap: 8px;
+  display: flex;
+  gap: 10px;
   min-width: max-content;
 }
 
 .seller-tabs button {
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-card-bg) 75%, transparent);
-  color: var(--color-secondary-text);
-  border-radius: 10px;
-  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  background: color-mix(in srgb, #121c33 84%, transparent);
+  color: color-mix(in srgb, var(--color-text) 86%, #cfd8ec);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.seller-tabs button:hover {
+  border-color: color-mix(in srgb, #5f7ec4 48%, var(--color-border));
+  color: var(--color-text);
 }
 
 .seller-tabs button.is-active {
-  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  border-color: color-mix(in srgb, #5a8eff 62%, var(--color-border));
   color: var(--color-text);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #2f63d9 62%, transparent),
+    color-mix(in srgb, #1f4db6 72%, transparent)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 1px rgba(39, 93, 214, 0.2);
 }
 
 .seller-detail-grid {
@@ -1822,6 +1853,55 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.seller-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.seller-info-grid article {
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--color-card-bg) 62%, transparent);
+}
+
+.seller-info-grid p {
+  margin: 0;
+  color: var(--color-secondary-text);
+}
+
+.seller-info-grid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.seller-json-collapse {
+  margin-top: 10px;
+}
+
+.seller-json-collapse summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.seller-retention-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.retention-chip {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 72%, transparent);
+  color: var(--color-secondary-text);
+  padding: 8px 14px;
+  font-weight: 600;
 }
 
 .seller-compliance-list {
@@ -1980,16 +2060,15 @@ textarea:focus {
     height: 68px;
   }
 
-  .seller-hero-title-row {
-    flex-wrap: wrap;
-  }
-
   .seller-hero-stats {
     grid-template-columns: 1fr;
   }
 
-  .seller-identity-row,
   .seller-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-info-grid {
     grid-template-columns: 1fr;
   }
 

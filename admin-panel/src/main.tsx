@@ -2918,7 +2918,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
   const [foodRows, setFoodRows] = useState<Array<Record<string, unknown>>>([]);
-  const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "security" | "raw">("identity");
+  const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "retention" | "security" | "raw">("identity");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -3002,10 +3002,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
   const initials = initialsFromName(row.displayName, row.email);
   const profileImageUrl = typeof row.profileImageUrl === "string" ? row.profileImageUrl : null;
-  const complianceCta =
-    language === "tr" ? dict.actions.openComplianceQueue.replace("İşlerini Aç", "").trim() : "Compliance";
+  const complianceCta = language === "tr" ? "Compliance'a Git" : "Go to Compliance";
   const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
   const walletAmount = "—";
+  const roleLabel =
+    row.role === "seller"
+      ? dict.users.userTypeSeller
+      : row.role === "buyer"
+        ? dict.users.userTypeBuyer
+        : row.role === "both"
+          ? dict.users.userTypeBoth
+          : String(row.role ?? "-");
 
   const profileStatusMap: Record<SellerComplianceStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
     not_started: { label: dict.detail.sellerStatus.notStarted, tone: "neutral" },
@@ -3034,7 +3041,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     language: row.language,
     updatedAt: row.updatedAt,
     maskedPhone,
-    retentionUntil: profileRetentionUntil,
     legalHoldState: "unknown",
   };
 
@@ -3044,6 +3050,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "orders", label: dict.detail.sellerTabs.orders },
     { key: "wallet", label: dict.detail.sellerTabs.wallet },
     { key: "identity", label: dict.detail.sellerTabs.identity },
+    { key: "retention", label: dict.detail.sellerTabs.retention },
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "raw", label: dict.detail.sellerTabs.raw },
   ] as const;
@@ -3061,7 +3068,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
             </div>
             <p>{`${maskedEmail} • ${dict.detail.userId}: ${row.id}`}</p>
-            <p className="panel-meta">{`${row.role ?? "-"} • ${row.countryCode ?? "-"} • ${formatUiDate(row.createdAt, language)}`}</p>
+            <p className="panel-meta">
+              <span>{roleLabel}</span>
+              <span className="seller-country-badge">{row.countryCode ?? "-"}</span>
+              <span>{`${language === "tr" ? "Kayıt" : "Created"}: ${formatUiDate(row.createdAt, language)}`}</span>
+            </p>
           </div>
         </article>
         <div className="seller-hero-right">
@@ -3087,23 +3098,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       {message ? <div className="alert">{message}</div> : null}
 
-      <section className="panel seller-identity-row">
-        <article>
-          <h2>{row.displayName ?? row.email}</h2>
-          <p className="panel-meta">{`${dict.detail.maskedEmail}: ${maskedEmail}`}</p>
-          <p className="panel-meta">{`${dict.detail.maskedPhone}: ${maskedPhone}`}</p>
-        </article>
-        <article>
-          <p>{dict.detail.legalHold}</p>
-          <strong>{dict.detail.legalHoldUnknown}</strong>
-        </article>
-        <article>
-          <p>{dict.detail.retentionPolicy}</p>
-          <strong>{`${dict.detail.retentionYears}: 2`}</strong>
-          <p className="panel-meta">{`${dict.detail.retentionUntil}: ${formatUiDate(profileRetentionUntil, language)}`}</p>
-        </article>
-      </section>
-
       <section className="panel seller-tabs-panel">
         <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
           {tabs.map((tab) => (
@@ -3127,6 +3121,28 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <div className="panel-header">
               <h2>{dict.detail.basicAccountEdit}</h2>
             </div>
+            <section className="seller-info-grid">
+              <article>
+                <p>{dict.detail.countryCodeLabel}</p>
+                <strong>{row.countryCode ?? "-"}</strong>
+              </article>
+              <article>
+                <p>{dict.detail.languageLabel}</p>
+                <strong>{row.language ?? "-"}</strong>
+              </article>
+              <article>
+                <p>{dict.detail.updatedAtLabel}</p>
+                <strong>{formatUiDate(row.updatedAt, language)}</strong>
+              </article>
+              <article>
+                <p>{dict.detail.maskedPhone}</p>
+                <strong>{maskedPhone}</strong>
+              </article>
+              <article>
+                <p>{dict.detail.legalHoldStateLabel}</p>
+                <strong>{dict.detail.legalHoldUnknown}</strong>
+              </article>
+            </section>
             <form className="form-grid" onSubmit={onSave}>
               <label>
                 {dict.auth.email}
@@ -3143,19 +3159,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </button>
               </div>
             </form>
-            <p className="panel-meta">{`${dict.detail.retentionPolicy}: ${dict.detail.retentionYears} 2 • ${dict.detail.retentionUntil}: ${formatUiDate(profileRetentionUntil, language)}`}</p>
             {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
-            <div className="panel-header">
-              <h2>{dict.detail.accountJson}</h2>
-              <button
-                className="ghost"
-                type="button"
-                onClick={() => navigator.clipboard.writeText(JSON.stringify(maskedJson, null, 2)).catch(() => undefined)}
-              >
-                {dict.detail.copyJson}
-              </button>
-            </div>
-            <pre className="json-box">{JSON.stringify(maskedJson, null, 2)}</pre>
+            <details className="seller-json-collapse">
+              <summary>{dict.detail.accountJson}</summary>
+              <div className="panel-header">
+                <h2>{dict.detail.accountJson}</h2>
+                <button
+                  className="ghost"
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(JSON.stringify(maskedJson, null, 2)).catch(() => undefined)}
+                >
+                  {dict.detail.copyJson}
+                </button>
+              </div>
+              <pre className="json-box">{JSON.stringify(maskedJson, null, 2)}</pre>
+            </details>
           </article>
 
           <article className="panel">
@@ -3165,10 +3183,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <span className={`status-pill is-${profileStatusMap[compliance.profile.status].tone}`}>{profileStatusMap[compliance.profile.status].label}</span>
               ) : null}
             </div>
-            <p className="panel-meta">{`${dict.detail.retentionPolicy}: ${dict.detail.retentionYears} 2 • ${dict.detail.retentionUntil}: ${formatUiDate(
-              complianceRetentionUntil,
-              language
-            )}`}</p>
             {compliance?.profile.review_notes ? <div className="panel-note">{compliance.profile.review_notes}</div> : null}
             {compliance ? (
               <div className="seller-compliance-list">
@@ -3176,7 +3190,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <article key={doc.id}>
                     <div>
                       <h3>{doc.doc_type}</h3>
-                      <p className="panel-meta">{`${dict.detail.retentionUntil}: ${formatUiDate(addTwoYears(doc.reviewed_at ?? doc.uploaded_at), language)}`}</p>
                       {doc.rejection_reason ? <p className="panel-meta">{doc.rejection_reason}</p> : null}
                     </div>
                     <div className="seller-doc-meta">
@@ -3197,15 +3210,63 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       {activeTab === "foods" ? (
         <section className="panel">
           <div className="panel-header">
-            <h2>{dict.detail.foodRetentionTitle}</h2>
+            <h2>{dict.detail.sellerTabs.foods}</h2>
           </div>
-          <p className="panel-meta">{dict.detail.foodRetentionHint}</p>
-          <p className="panel-meta">{`${dict.detail.retentionUntil}: ${formatUiDate(foodRetentionUntil, language)}`}</p>
           <p className="panel-meta">{`${dict.detail.totalFoods}: ${foodRows.length}`}</p>
         </section>
       ) : null}
 
-      {activeTab !== "identity" && activeTab !== "foods" ? (
+      {activeTab === "retention" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.retentionPolicy}</h2>
+          </div>
+          <div className="seller-retention-chips">
+            <span className="retention-chip">{`${dict.detail.retentionYears}: 2`}</span>
+            <span className="retention-chip">{`${dict.detail.retentionUntil} (${dict.detail.sellerTabs.identity}): ${formatUiDate(
+              profileRetentionUntil,
+              language
+            )}`}</span>
+            <span className="retention-chip">{`${dict.detail.retentionUntil} (${dict.detail.trCompliance}): ${formatUiDate(
+              complianceRetentionUntil,
+              language
+            )}`}</span>
+            <span className="retention-chip">{`${dict.detail.retentionUntil} (${dict.detail.sellerTabs.foods}): ${formatUiDate(
+              foodRetentionUntil,
+              language
+            )}`}</span>
+            <span className="retention-chip">{`${dict.detail.legalHold}: ${dict.detail.legalHoldUnknown}`}</span>
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === "security" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.security}</h2>
+          </div>
+          <p className="panel-meta">{dict.detail.sectionPlanned}</p>
+        </section>
+      ) : null}
+
+      {activeTab === "raw" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.raw}</h2>
+          </div>
+          <pre className="json-box">
+            {JSON.stringify(
+              {
+                legalHoldState: "unknown",
+              },
+              null,
+              2
+            )}
+          </pre>
+        </section>
+      ) : null}
+
+      {activeTab !== "identity" && activeTab !== "foods" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>

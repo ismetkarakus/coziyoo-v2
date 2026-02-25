@@ -212,6 +212,10 @@
     "retentionPolicy": "Retention Policy",
     "retentionYears": "Years",
     "retentionUntil": "Deletion Target",
+    "countryCodeLabel": "Country Code",
+    "languageLabel": "Language",
+    "updatedAtLabel": "Updated At",
+    "legalHoldStateLabel": "Legal Hold State",
     "basicAccountEdit": "Basic Account Editing",
     "passwordPlaceholder": "Enter new password",
     "saveChanges": "Save Changes",
@@ -230,6 +234,7 @@
       "orders": "Orders & Earnings",
       "wallet": "Wallet & Transactions",
       "identity": "Identity & Compliance",
+      "retention": "Retention Policy",
       "security": "Location & Security",
       "raw": "Raw Data"
     },
