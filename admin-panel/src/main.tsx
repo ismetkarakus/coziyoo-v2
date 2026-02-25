@@ -2905,6 +2905,14 @@ function formatUiDate(value: string | null | undefined, language: Language): str
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
 }
 
+function initialsFromName(displayName: string | null | undefined, email: string | null | undefined): string {
+  const source = String(displayName || email || "").trim();
+  if (!source) return "U";
+  const pieces = source.split(/\s+/).filter(Boolean);
+  if (pieces.length >= 2) return `${pieces[0][0]}${pieces[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
@@ -2992,6 +3000,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return Date.parse(value) > Date.parse(latest) ? value : latest;
   }, null);
   const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
+  const initials = initialsFromName(row.displayName, row.email);
+  const profileImageUrl = typeof row.profileImageUrl === "string" ? row.profileImageUrl : null;
+  const complianceCta =
+    language === "tr" ? dict.actions.openComplianceQueue.replace("İşlerini Aç", "").trim() : "Compliance";
+  const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
+  const walletAmount = "—";
 
   const profileStatusMap: Record<SellerComplianceStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
     not_started: { label: dict.detail.sellerStatus.notStarted, tone: "neutral" },
@@ -3036,19 +3050,40 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   return (
     <div className="app seller-detail-page">
-      <header className="topbar seller-topbar">
-        <div>
-          <h1>{dict.detail.seller}</h1>
-          <p className="subtext">{dict.detail.sellerSubtitle}</p>
-          <p className="panel-meta">{`${dict.detail.userId}: ${row.id} • ${dict.users.status}: ${accountStatusLabel}`}</p>
+      <section className="panel seller-hero">
+        <article className="seller-hero-main">
+          <div className="seller-avatar">
+            {profileImageUrl ? <img src={profileImageUrl} alt={row.displayName ?? "seller"} /> : <span>{initials}</span>}
+          </div>
+          <div className="seller-hero-text">
+            <div className="seller-hero-title-row">
+              <h1>{row.displayName ?? row.email}</h1>
+              <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
+            </div>
+            <p>{`${maskedEmail} • ${dict.detail.userId}: ${row.id}`}</p>
+            <p className="panel-meta">{`${row.role ?? "-"} • ${row.countryCode ?? "-"} • ${formatUiDate(row.createdAt, language)}`}</p>
+          </div>
+        </article>
+        <div className="seller-hero-right">
+          <div className="topbar-actions">
+            <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
+              {dict.actions.refresh}
+            </button>
+            <button className="primary" type="button">{complianceCta}</button>
+            <button className="ghost" type="button">{auditCta}</button>
+          </div>
+          <div className="seller-hero-stats">
+            <article>
+              <p>{dict.detail.sellerTabs.wallet}</p>
+              <strong>{walletAmount}</strong>
+            </article>
+            <article>
+              <p>{dict.detail.lastAction}</p>
+              <strong>{formatUiDate(row.updatedAt, language)}</strong>
+            </article>
+          </div>
         </div>
-        <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
-            {dict.actions.refresh}
-          </button>
-          <span className="status-pill is-active">{dict.detail.lastAction}: {formatUiDate(row.updatedAt, language)}</span>
-        </div>
-      </header>
+      </section>
 
       {message ? <div className="alert">{message}</div> : null}
 
