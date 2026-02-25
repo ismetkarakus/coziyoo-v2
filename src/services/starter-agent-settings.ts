@@ -140,6 +140,8 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
 }
 
 export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettingsInput): Promise<StarterAgentSettings> {
+  const ttsConfigJson = toJsonbParam(input.ttsConfig ?? null);
+  const ttsServersJson = toJsonbParam(input.ttsServers ?? null);
   const capabilities = await getSchemaCapabilities();
   if (capabilities.hasTtsServersJson && capabilities.hasActiveTtsServerId) {
     const result = await pool.query<{
@@ -159,7 +161,7 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
       updated_at: string;
     }>(
       `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13, now())
        ON CONFLICT (device_id)
        DO UPDATE SET
          agent_name = EXCLUDED.agent_name,
@@ -182,8 +184,8 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
         input.voiceLanguage,
         input.ollamaModel,
         input.ttsEngine ?? DEFAULT_TTS_ENGINE,
-        input.ttsConfig ?? null,
-        input.ttsServers ?? null,
+        ttsConfigJson,
+        ttsServersJson,
         input.activeTtsServerId ?? null,
         input.ttsEnabled,
         input.sttEnabled,
@@ -227,7 +229,7 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     updated_at: string;
   }>(
     `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, now())
      ON CONFLICT (device_id)
      DO UPDATE SET
        agent_name = EXCLUDED.agent_name,
@@ -248,7 +250,7 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
       input.voiceLanguage,
       input.ollamaModel,
       input.ttsEngine ?? DEFAULT_TTS_ENGINE,
-      input.ttsConfig ?? null,
+      ttsConfigJson,
       input.ttsEnabled,
       input.sttEnabled,
       input.systemPrompt ?? null,
@@ -299,6 +301,13 @@ async function getSchemaCapabilities(): Promise<StarterSettingsSchemaCapabilitie
       });
   }
   return schemaCapabilitiesPromise;
+}
+
+function toJsonbParam(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return JSON.stringify(value);
 }
 
 function normalizeTtsServers(input: unknown[] | null): TtsServerEntry[] | null {

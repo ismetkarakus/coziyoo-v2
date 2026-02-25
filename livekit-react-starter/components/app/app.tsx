@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { AppConfig } from '@/app-config';
 import { useVerboseSessionController } from '@/hooks/use-verbose-session-controller';
@@ -27,6 +27,8 @@ export function App({ appConfig }: AppProps) {
   const [shortCommitSha, setShortCommitSha] = useState<string | null>(null);
   const [settings, setSettings] = useState<StarterAgentSettings>(STARTER_AGENT_SETTINGS_DEFAULTS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+  const eventListRef = useRef<HTMLDivElement | null>(null);
 
   const controller = useVerboseSessionController({ deviceId, settings });
 
@@ -90,6 +92,18 @@ export function App({ appConfig }: AppProps) {
     };
     void loadBuildInfo();
   }, []);
+
+  useEffect(() => {
+    const container = chatListRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [controller.messages]);
+
+  useEffect(() => {
+    const container = eventListRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [controller.events]);
 
   const onSend = async (overrideText?: string) => {
     const value = (overrideText ?? chatInput).trim();
@@ -253,7 +267,10 @@ export function App({ appConfig }: AppProps) {
           <h2 className="text-sm font-semibold uppercase">Chat</h2>
           <span className="text-xs text-slate-500">{controller.messages.length} messages</span>
         </div>
-        <div className="mb-3 h-[58vh] overflow-y-auto rounded border bg-white p-3 text-sm dark:bg-slate-950">
+        <div
+          ref={chatListRef}
+          className="mb-3 h-[58vh] overflow-y-auto rounded border bg-white p-3 text-sm dark:bg-slate-950"
+        >
           {controller.messages.length === 0 && <p className="text-slate-500">No messages yet.</p>}
           {controller.messages.map((message) => (
             <div key={message.id} className="mb-2 rounded border p-2">
@@ -306,7 +323,7 @@ export function App({ appConfig }: AppProps) {
           </button>
         </div>
         <div className="grid h-[72vh] grid-rows-[1fr_1fr] gap-2">
-          <div className="overflow-y-auto rounded border bg-white p-2 text-xs dark:bg-slate-950">
+          <div ref={eventListRef} className="overflow-y-auto rounded border bg-white p-2 text-xs dark:bg-slate-950">
             {controller.events.map((item) => (
               <button
                 type="button"
