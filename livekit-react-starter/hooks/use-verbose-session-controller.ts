@@ -135,6 +135,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
             body: JSON.stringify({
               text,
               language: settings.voiceLanguage || 'tr',
+              engine: settings.ttsEngine || 'f5-tts',
             }),
           });
 
@@ -162,7 +163,11 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
             source: 'api',
             eventType: 'TTS_PLAYBACK_OK',
             summary: 'Agent response played as audio',
-            payload: { textLength: text.length, language: settings.voiceLanguage || 'tr' },
+            payload: {
+              textLength: text.length,
+              language: settings.voiceLanguage || 'tr',
+              engine: settings.ttsEngine || 'f5-tts',
+            },
           });
         })
         .catch((error) => {
@@ -174,7 +179,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           });
         });
     },
-    [addEvent, settings.ttsEnabled, settings.voiceLanguage]
+    [addEvent, settings.ttsEnabled, settings.ttsEngine, settings.voiceLanguage]
   );
 
   const connect = useCallback(async () => {

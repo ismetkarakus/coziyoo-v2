@@ -1,6 +1,7 @@
 export type StarterAgentSettings = {
   agentName: string;
   voiceLanguage: string;
+  ttsEngine: 'f5-tts' | 'xtts' | 'chatterbox';
   ttsEnabled: boolean;
   sttEnabled: boolean;
   systemPrompt?: string;
@@ -12,6 +13,7 @@ export type StarterAgentSettings = {
 export const STARTER_AGENT_SETTINGS_DEFAULTS: StarterAgentSettings = {
   agentName: '',
   voiceLanguage: 'tr',
+  ttsEngine: 'f5-tts',
   ttsEnabled: true,
   sttEnabled: true,
   systemPrompt: '',
@@ -27,6 +29,8 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   const value = input as Record<string, unknown>;
   const agentName = typeof value.agentName === 'string' ? value.agentName.trim() : '';
   const voiceLanguage = typeof value.voiceLanguage === 'string' ? value.voiceLanguage.trim() : 'tr';
+  const ttsEngine =
+    value.ttsEngine === 'xtts' || value.ttsEngine === 'chatterbox' ? value.ttsEngine : 'f5-tts';
   const ttsEnabled = typeof value.ttsEnabled === 'boolean' ? value.ttsEnabled : true;
   const sttEnabled = typeof value.sttEnabled === 'boolean' ? value.sttEnabled : true;
   const systemPrompt = typeof value.systemPrompt === 'string' ? value.systemPrompt : '';
@@ -38,6 +42,7 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   return {
     agentName,
     voiceLanguage: voiceLanguage || 'tr',
+    ttsEngine,
     ttsEnabled,
     sttEnabled,
     systemPrompt,

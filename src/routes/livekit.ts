@@ -7,6 +7,7 @@ import { askOllamaChat } from "../services/ollama.js";
 import { transcribeAudio } from "../services/speech-to-text.js";
 import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
 import { synthesizeSpeech } from "../services/text-to-speech.js";
+import { TTS_ENGINES } from "../services/tts-engines.js";
 import {
   buildRoomScopedAgentIdentity,
   dispatchAgentJoin,
@@ -79,6 +80,7 @@ const StarterAgentSettingsParamsSchema = z.object({
 const StarterAgentSettingsSchema = z.object({
   agentName: z.string().max(128),
   voiceLanguage: z.string().min(2).max(16).regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
+  ttsEngine: z.enum(TTS_ENGINES).default("f5-tts"),
   ttsEnabled: z.boolean(),
   sttEnabled: z.boolean(),
   systemPrompt: z.string().max(4_000).optional(),
@@ -97,6 +99,7 @@ const SttSchema = z.object({
 const TtsSchema = z.object({
   text: z.string().min(1).max(8_000),
   language: z.string().min(2).max(16).optional(),
+  engine: z.enum(TTS_ENGINES).optional(),
 });
 
 export const liveKitRouter = Router();
@@ -383,7 +386,8 @@ liveKitRouter.post("/tts/synthesize", requireAuth("app"), async (req, res) => {
     const result = await synthesizeSpeech(parsed.data);
     res.setHeader("content-type", result.contentType);
     res.setHeader("cache-control", "no-store");
-    res.setHeader("x-tts-provider", env.TTS_BASE_URL ?? "");
+    res.setHeader("x-tts-provider", result.provider);
+    res.setHeader("x-tts-engine", result.engine);
     return res.status(200).send(result.audio);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Text-to-speech failed";
@@ -391,7 +395,7 @@ liveKitRouter.post("/tts/synthesize", requireAuth("app"), async (req, res) => {
       return res.status(503).json({
         error: {
           code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL in API environment.",
+          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL in API environment.",
         },
       });
     }
@@ -591,6 +595,7 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
     data: {
       agentName: settings.agentName,
       voiceLanguage: settings.voiceLanguage,
+      ttsEngine: settings.ttsEngine,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt,
@@ -615,6 +620,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     deviceId: params.data.deviceId,
     agentName: parsed.data.agentName,
     voiceLanguage: parsed.data.voiceLanguage,
+    ttsEngine: parsed.data.ttsEngine,
     ttsEnabled: parsed.data.ttsEnabled,
     sttEnabled: parsed.data.sttEnabled,
     systemPrompt: parsed.data.systemPrompt,
@@ -626,6 +632,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     data: {
       agentName: settings.agentName,
       voiceLanguage: settings.voiceLanguage,
+      ttsEngine: settings.ttsEngine,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt,
@@ -646,7 +653,8 @@ liveKitRouter.post("/starter/tts/synthesize", async (req, res) => {
     const result = await synthesizeSpeech(parsed.data);
     res.setHeader("content-type", result.contentType);
     res.setHeader("cache-control", "no-store");
-    res.setHeader("x-tts-provider", env.TTS_BASE_URL ?? "");
+    res.setHeader("x-tts-provider", result.provider);
+    res.setHeader("x-tts-engine", result.engine);
     return res.status(200).send(result.audio);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Text-to-speech failed";
@@ -654,7 +662,7 @@ liveKitRouter.post("/starter/tts/synthesize", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL in API environment.",
+          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL in API environment.",
         },
       });
     }

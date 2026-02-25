@@ -462,7 +462,8 @@ adminLiveKitRouter.post("/tts/synthesize", async (req, res) => {
     const result = await synthesizeSpeech(parsed.data);
     res.setHeader("content-type", result.contentType);
     res.setHeader("cache-control", "no-store");
-    res.setHeader("x-tts-provider", env.TTS_BASE_URL ?? "");
+    res.setHeader("x-tts-provider", result.provider);
+    res.setHeader("x-tts-engine", result.engine);
     return res.status(200).send(result.audio);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Text-to-speech failed";
@@ -470,7 +471,7 @@ adminLiveKitRouter.post("/tts/synthesize", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL in API environment.",
+          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL in API environment.",
         },
       });
     }

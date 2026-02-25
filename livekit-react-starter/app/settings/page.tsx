@@ -63,6 +63,10 @@ export default function SettingsPage() {
         body: JSON.stringify({
           agentName: form.agentName.trim(),
           voiceLanguage: form.voiceLanguage.trim() || 'tr',
+          ttsEngine:
+            form.ttsEngine === 'xtts' || form.ttsEngine === 'chatterbox'
+              ? form.ttsEngine
+              : 'f5-tts',
           ttsEnabled: Boolean(form.ttsEnabled),
           sttEnabled: Boolean(form.sttEnabled),
           systemPrompt: form.systemPrompt?.trim() || '',
@@ -123,6 +127,27 @@ export default function SettingsPage() {
               className="w-full rounded border bg-transparent px-3 py-2 text-sm"
               placeholder="tr"
             />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm">TTS Engine</span>
+            <select
+              value={form.ttsEngine}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  ttsEngine:
+                    event.target.value === 'xtts' || event.target.value === 'chatterbox'
+                      ? event.target.value
+                      : 'f5-tts',
+                }))
+              }
+              className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+            >
+              <option value="f5-tts">F5-TTS</option>
+              <option value="xtts">XTTS</option>
+              <option value="chatterbox">Chatterbox</option>
+            </select>
           </label>
 
           <label className="block">
