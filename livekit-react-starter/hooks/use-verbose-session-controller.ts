@@ -111,10 +111,87 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       }
     }
     audioElementsRef.current.clear();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     room.removeAllListeners();
     room.disconnect();
     roomRef.current = null;
   }, []);
+
+  const requestAgentChat = useCallback(
+    async (currentRoomName: string, text: string, source: 'chat' | 'greeting') => {
+      try {
+        const response = await fetch('/api/starter/agent-chat', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-device-id': deviceId,
+          },
+          body: JSON.stringify({
+            roomName: currentRoomName,
+            text,
+            deviceId,
+          }),
+        });
+        const raw = await response.text();
+        let parsed: unknown = raw;
+        try {
+          parsed = raw ? JSON.parse(raw) : null;
+        } catch {
+          parsed = raw;
+        }
+        if (!response.ok) {
+          addEvent({
+            source: 'error',
+            eventType:
+              source === 'greeting' ? 'GREETING_AGENT_CHAT_REQUEST_FAILED' : 'AGENT_CHAT_REQUEST_FAILED',
+            summary: `${source === 'greeting' ? 'Greeting' : 'Agent chat'} request failed (${response.status})`,
+            payload: parsed,
+          });
+          return;
+        }
+        addEvent({
+          source: 'api',
+          eventType: source === 'greeting' ? 'GREETING_AGENT_CHAT_REQUEST_OK' : 'AGENT_CHAT_REQUEST_OK',
+          summary: `${source === 'greeting' ? 'Greeting' : 'Starter agent chat'} request succeeded`,
+          payload: parsed,
+        });
+      } catch (error) {
+        addEvent({
+          source: 'error',
+          eventType:
+            source === 'greeting' ? 'GREETING_AGENT_CHAT_REQUEST_ERROR' : 'AGENT_CHAT_REQUEST_ERROR',
+          summary: `${source === 'greeting' ? 'Greeting' : 'Starter agent chat'} request errored`,
+          payload: { message: error instanceof Error ? error.message : 'Unknown error' },
+        });
+      }
+    },
+    [addEvent, deviceId]
+  );
+
+  const speakText = useCallback(
+    (text: string) => {
+      if (!settings.ttsEnabled || !speakerEnabledRef.current) return;
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      const utterance = new SpeechSynthesisUtterance(trimmed);
+      utterance.lang = settings.voiceLanguage || 'tr';
+      window.speechSynthesis.speak(utterance);
+      addEvent({
+        source: 'api',
+        eventType: 'BROWSER_TTS_SPOKEN',
+        summary: 'Agent response spoken via browser speech synthesis',
+        payload: {
+          textLength: trimmed.length,
+          language: utterance.lang,
+        },
+      });
+    },
+    [addEvent, settings.ttsEnabled, settings.voiceLanguage]
+  );
 
   const connect = useCallback(async () => {
     if (!deviceId) return;
@@ -315,6 +392,9 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
                 ts: new Date().toISOString(),
               },
             ]);
+            if (fromAgent) {
+              speakText(text);
+            }
           }
         }
 
@@ -372,6 +452,20 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
             summary: 'Greeting instruction sent to agent',
             payload: greetingPayload,
           });
+
+          await requestAgentChat(
+            details.roomName,
+            `${greetingInstruction}
+
+Context:
+- Weekday: ${greetingContext.weekday}
+- Hour: ${greetingContext.hour}
+- Time of day: ${greetingContext.timeOfDay}
+- Language: ${settings.voiceLanguage || 'tr'}
+
+Return only the greeting message text.`,
+            'greeting'
+          );
         } catch (error) {
           addEvent({
             source: 'error',
@@ -396,7 +490,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       });
       cleanupRoom();
     }
-  }, [addEvent, cleanupRoom, connectionState, deviceId, settings]);
+  }, [addEvent, cleanupRoom, connectionState, deviceId, requestAgentChat, settings, speakText]);
 
   const disconnect = useCallback(() => {
     cleanupRoom();
@@ -428,6 +522,9 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
     setSpeakerEnabled(nextEnabled);
     for (const [, audioElement] of audioElementsRef.current) {
       audioElement.muted = !nextEnabled;
+    }
+    if (!nextEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
     addEvent({
       source: 'client',
@@ -474,52 +571,9 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         summary: 'Awaiting assistant-native response over LiveKit',
         payload: { roomName: currentRoomName },
       });
-
-      try {
-        const response = await fetch('/api/starter/agent-chat', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-device-id': deviceId,
-          },
-          body: JSON.stringify({
-            roomName: currentRoomName,
-            text: payload.text,
-            deviceId,
-          }),
-        });
-        const raw = await response.text();
-        let parsed: unknown = raw;
-        try {
-          parsed = raw ? JSON.parse(raw) : null;
-        } catch {
-          parsed = raw;
-        }
-        if (!response.ok) {
-          addEvent({
-            source: 'error',
-            eventType: 'AGENT_CHAT_REQUEST_FAILED',
-            summary: `Agent chat request failed (${response.status})`,
-            payload: parsed,
-          });
-          return;
-        }
-        addEvent({
-          source: 'api',
-          eventType: 'AGENT_CHAT_REQUEST_OK',
-          summary: 'Starter agent chat request succeeded',
-          payload: parsed,
-        });
-      } catch (error) {
-        addEvent({
-          source: 'error',
-          eventType: 'AGENT_CHAT_REQUEST_ERROR',
-          summary: 'Starter agent chat request errored',
-          payload: { message: error instanceof Error ? error.message : 'Unknown error' },
-        });
-      }
+      await requestAgentChat(currentRoomName, payload.text, 'chat');
     },
-    [addEvent, deviceId, roomName]
+    [addEvent, requestAgentChat, roomName]
   );
 
   useEffect(() => {
