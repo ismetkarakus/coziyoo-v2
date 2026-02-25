@@ -1,0 +1,27 @@
+{
+  "stt": {
+    "provider": "openai-compatible",
+    "baseUrl": "https://speech.example.com",
+    "apiKey": "REPLACE_ME",
+    "model": "whisper-1",
+    "timeoutMs": 60000
+  },
+  "tts": {
+    "engine": "chatterbox",
+    "baseUrl": "https://voice.example.com",
+    "path": "/tts",
+    "apiKey": "REPLACE_ME",
+    "chatterbox": {
+      "voiceMode": "predefined",
+      "predefinedVoiceId": "Gianna.wav",
+      "outputFormat": "wav",
+      "splitText": true,
+      "chunkSize": 120
+    }
+  },
+  "llm": {
+    "provider": "ollama",
+    "baseUrl": "https://ollama.example.com",
+    "model": "llama3.1"
+  }
+}

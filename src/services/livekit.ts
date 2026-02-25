@@ -121,6 +121,7 @@ export type DispatchAgentInput = {
   participantName: string;
   token: string;
   metadata: string;
+  voiceMode?: "assistant_native_audio";
   payload?: Record<string, unknown>;
 };
 
@@ -149,6 +150,7 @@ export async function dispatchAgentJoin(input: DispatchAgentInput) {
         wsUrl: env.LIVEKIT_URL,
         token: input.token,
         metadata: input.metadata,
+        voiceMode: input.voiceMode ?? "assistant_native_audio",
         ...(input.payload ? { payload: input.payload } : {}),
       }),
       signal: controller.signal,

@@ -1,6 +1,6 @@
 # LiveKit Integration Connection Details
 
-Last updated: 2026-02-24
+Last updated: 2026-02-25
 
 ## 1) LiveKit
 
@@ -12,10 +12,15 @@ Last updated: 2026-02-24
 ## 2) API Server
 
 - Public API base: `https://api.example.com`
-- Starter endpoints (already in backend):
+- Starter endpoints (active):
   - `POST /v1/livekit/starter/session/start`
   - `POST /v1/livekit/starter/agent/chat`
-  - `POST /v1/livekit/starter/stt/transcribe`
+  - `GET /v1/livekit/starter/agent-settings/:deviceId`
+  - `PUT /v1/livekit/starter/agent-settings/:deviceId`
+
+`POST /v1/livekit/starter/session/start` now requires:
+- `username` (string)
+- `deviceId` (8-128 chars, `^[a-zA-Z0-9_-]+$`)
 
 ## 3) AI Server
 
@@ -27,6 +32,7 @@ Last updated: 2026-02-24
 Notes:
 - API dispatches room-scoped agent join to AI server from `POST /v1/livekit/starter/session/start`.
 - AI server must accept join payload with LiveKit token and connect to the room.
+- Dispatch payload now includes `voiceMode: "assistant_native_audio"` and `payload.deviceId`.
 
 ## 4) Ollama (LLM behind API)
 
@@ -34,18 +40,21 @@ Notes:
 - Model in local env: `ministral-3:8b`
 - Timeout in local env: `20000`
 
-## 5) STT Server (Speaches/Faster-Whisper)
+## 5) Assistant-Native Speech Runtime
 
-- `SPEECH_TO_TEXT_BASE_URL`: `https://speech.example.com/`
-- `SPEECH_TO_TEXT_TRANSCRIBE_PATH`: `/v1/audio/transcriptions`
-- Working model used in test: `Systran/faster-whisper-medium`
-- `SPEECH_TO_TEXT_API_KEY`: required (`Authorization: Bearer ...`)
-- `SPEECH_TO_TEXT_TIMEOUT_MS`: `60000`
+- Runtime STT/TTS endpoints in API were removed:
+  - `/v1/livekit/starter/stt/transcribe`
+  - `/v1/livekit/starter/tts/synthesize`
+  - `/v1/livekit/stt/transcribe`
+  - `/v1/livekit/tts/synthesize`
+  - `/v1/admin/livekit/stt/transcribe`
+  - `/v1/admin/livekit/tts/synthesize`
+- Assistant runtime is the speech execution plane:
+  - incoming user audio from LiveKit
+  - STT + LLM + TTS in assistant
+  - assistant publishes audio track directly to LiveKit room
+- API remains control plane: room/session bootstrap, tokening, dispatch, and settings CRUD.
 
-## 6) TTS
+## 6) Assistant Config
 
-- No dedicated external TTS URL is currently configured in backend env schema.
-- If using Speaches for TTS, endpoint would typically be `/v1/audio/speech` on the same host.
-- Decision required before implementation:
-  - keep browser `speechSynthesis` fallback, or
-  - add backend-managed TTS provider/envs and proxy route.
+- Speech provider settings are expected in assistant runtime `config.json` (global config), not API per-device runtime overrides.

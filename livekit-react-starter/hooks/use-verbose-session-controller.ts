@@ -71,7 +71,6 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
 
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
-  const ttsQueueRef = useRef<Promise<void>>(Promise.resolve());
   const audioRootRef = useRef<HTMLDivElement | null>(null);
   const speakerEnabledRef = useRef(true);
   speakerEnabledRef.current = speakerEnabled;
@@ -116,74 +115,6 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
     room.disconnect();
     roomRef.current = null;
   }, []);
-
-  const enqueueTtsPlayback = useCallback(
-    (text: string) => {
-      if (!settings.ttsEnabled || !text.trim()) {
-        return;
-      }
-
-      ttsQueueRef.current = ttsQueueRef.current
-        .then(async () => {
-          if (!speakerEnabledRef.current) {
-            return;
-          }
-
-          const response = await fetch('/api/starter/tts-synthesize', {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'x-device-id': deviceId,
-            },
-            body: JSON.stringify({
-              text,
-              language: settings.voiceLanguage || 'tr',
-              engine: settings.ttsEngine || 'f5-tts',
-            }),
-          });
-
-          if (!response.ok) {
-            const raw = await response.text();
-            throw new Error(`TTS_HTTP_${response.status}: ${raw.slice(0, 250)}`);
-          }
-
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          try {
-            const audio = new Audio(url);
-            audio.preload = 'auto';
-            audio.muted = !speakerEnabledRef.current;
-            await audio.play();
-            await new Promise<void>((resolve) => {
-              audio.onended = () => resolve();
-              audio.onerror = () => resolve();
-            });
-          } finally {
-            URL.revokeObjectURL(url);
-          }
-
-          addEvent({
-            source: 'api',
-            eventType: 'TTS_PLAYBACK_OK',
-            summary: 'Agent response played as audio',
-            payload: {
-              textLength: text.length,
-              language: settings.voiceLanguage || 'tr',
-              engine: settings.ttsEngine || 'f5-tts',
-            },
-          });
-        })
-        .catch((error) => {
-          addEvent({
-            source: 'error',
-            eventType: 'TTS_PLAYBACK_FAILED',
-            summary: 'Agent response audio playback failed',
-            payload: { message: error instanceof Error ? error.message : 'Unknown error' },
-          });
-        });
-    },
-    [addEvent, deviceId, settings.ttsEnabled, settings.ttsEngine, settings.voiceLanguage]
-  );
 
   const connect = useCallback(async () => {
     if (!deviceId) return;
@@ -384,9 +315,6 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
                 ts: new Date().toISOString(),
               },
             ]);
-            if (fromAgent) {
-              enqueueTtsPlayback(text);
-            }
           }
         }
 
@@ -468,7 +396,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       });
       cleanupRoom();
     }
-  }, [addEvent, cleanupRoom, connectionState, deviceId, enqueueTtsPlayback, settings]);
+  }, [addEvent, cleanupRoom, connectionState, deviceId, settings]);
 
   const disconnect = useCallback(() => {
     cleanupRoom();
@@ -540,51 +468,14 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         payload,
       });
 
-      try {
-        const response = await fetch('/api/starter/agent-chat', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-device-id': deviceId,
-          },
-          body: JSON.stringify({
-            roomName: currentRoomName,
-            text: payload.text,
-            deviceId,
-          }),
-        });
-        const raw = await response.text();
-        let parsed: unknown = raw;
-        try {
-          parsed = raw ? JSON.parse(raw) : null;
-        } catch {
-          parsed = raw;
-        }
-        if (!response.ok) {
-          addEvent({
-            source: 'error',
-            eventType: 'AGENT_CHAT_REQUEST_FAILED',
-            summary: `Agent chat request failed (${response.status})`,
-            payload: parsed,
-          });
-          return;
-        }
-        addEvent({
-          source: 'api',
-          eventType: 'AGENT_CHAT_REQUEST_OK',
-          summary: 'Starter agent chat request succeeded',
-          payload: parsed,
-        });
-      } catch (error) {
-        addEvent({
-          source: 'error',
-          eventType: 'AGENT_CHAT_REQUEST_ERROR',
-          summary: 'Starter agent chat request errored',
-          payload: { message: error instanceof Error ? error.message : 'Unknown error' },
-        });
-      }
+      addEvent({
+        source: 'chat',
+        eventType: 'AGENT_NATIVE_RESPONSE_PENDING',
+        summary: 'Awaiting assistant-native response over LiveKit',
+        payload: { roomName: currentRoomName },
+      });
     },
-    [addEvent, deviceId, roomName]
+    [addEvent, roomName]
   );
 
   useEffect(() => {

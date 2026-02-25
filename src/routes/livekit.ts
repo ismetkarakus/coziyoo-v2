@@ -4,9 +4,7 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
-import { transcribeAudio } from "../services/speech-to-text.js";
 import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
-import { synthesizeSpeech } from "../services/text-to-speech.js";
 import { TTS_ENGINES } from "../services/tts-engines.js";
 import {
   buildRoomScopedAgentIdentity,
@@ -54,6 +52,11 @@ const AgentChatSchema = z.object({
 const StarterSessionSchema = z.object({
   roomName: z.string().min(1).max(128).optional(),
   username: z.string().min(2).max(64),
+  deviceId: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[a-zA-Z0-9_-]+$/),
   ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
 });
 
@@ -88,6 +91,18 @@ const StarterAgentSettingsSchema = z.object({
   voiceLanguage: z.string().min(2).max(16).regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
   ollamaModel: z.string().min(1).max(128).default(env.OLLAMA_CHAT_MODEL),
   ttsEngine: z.enum(TTS_ENGINES).default("f5-tts"),
+  activeTtsServerId: z.string().max(128).optional(),
+  ttsServers: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(128),
+        name: z.string().min(1).max(128),
+        engine: z.enum(TTS_ENGINES),
+        config: z.record(z.string(), z.unknown()).optional(),
+      })
+    )
+    .max(20)
+    .optional(),
   ttsConfig: z
     .object({
       baseUrl: z.string().url().optional(),
@@ -125,20 +140,6 @@ const StarterAgentSettingsSchema = z.object({
   systemPrompt: z.string().max(4_000).optional(),
   greetingEnabled: z.boolean().default(true),
   greetingInstruction: z.string().max(2_000).optional(),
-});
-
-const SttSchema = z.object({
-  audioBase64: z.string().min(4),
-  mimeType: z.string().min(3).optional(),
-  language: z.string().min(2).max(16).optional(),
-  prompt: z.string().max(2_000).optional(),
-  temperature: z.number().min(0).max(1).optional(),
-});
-
-const TtsSchema = z.object({
-  text: z.string().min(1).max(8_000),
-  language: z.string().min(2).max(16).optional(),
-  engine: z.enum(TTS_ENGINES).optional(),
 });
 
 export const liveKitRouter = Router();
@@ -382,71 +383,6 @@ liveKitRouter.post("/agent/chat", requireAuth("app"), async (req, res) => {
   }
 });
 
-liveKitRouter.post("/stt/transcribe", requireAuth("app"), async (req, res) => {
-  const parsed = SttSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-
-  try {
-    const result = await transcribeAudio(parsed.data);
-    return res.status(201).json({
-      data: {
-        text: result.text,
-        provider: env.SPEECH_TO_TEXT_BASE_URL,
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Speech-to-text failed";
-    if (message.includes("STT_AUDIO_TOO_LARGE")) {
-      return res.status(413).json({
-        error: {
-          code: "STT_AUDIO_TOO_LARGE",
-          message: `Audio payload is too large. Max bytes: ${env.SPEECH_TO_TEXT_MAX_AUDIO_BYTES}.`,
-        },
-      });
-    }
-    return res.status(502).json({
-      error: {
-        code: "STT_TRANSCRIBE_FAILED",
-        message,
-      },
-    });
-  }
-});
-
-liveKitRouter.post("/tts/synthesize", requireAuth("app"), async (req, res) => {
-  const parsed = TtsSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-
-  try {
-    const result = await synthesizeSpeech(parsed.data);
-    res.setHeader("content-type", result.contentType);
-    res.setHeader("cache-control", "no-store");
-    res.setHeader("x-tts-provider", result.provider);
-    res.setHeader("x-tts-engine", result.engine);
-    return res.status(200).send(result.audio);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Text-to-speech failed";
-    if (message.includes("TTS_NOT_CONFIGURED")) {
-      return res.status(503).json({
-        error: {
-          code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL/TTS_CHATTERBOX_BASE_URL in API environment.",
-        },
-      });
-    }
-    return res.status(502).json({
-      error: {
-        code: "TTS_SYNTHESIZE_FAILED",
-        message,
-      },
-    });
-  }
-});
-
 liveKitRouter.post("/starter/session/start", async (req, res) => {
   const parsed = StarterSessionSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -457,7 +393,7 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
-  const userMetadata = JSON.stringify({ username, source: "livekit-react-starter" });
+  const userMetadata = JSON.stringify({ username, source: "livekit-react-starter", deviceId: input.deviceId });
 
   try {
     await ensureLiveKitRoom(roomName);
@@ -512,6 +448,10 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
         participantName: agentName,
         token: agentToken,
         metadata: agentMetadata,
+        voiceMode: "assistant_native_audio",
+        payload: {
+          deviceId: input.deviceId,
+        },
       });
     }
   } catch (error) {
@@ -606,39 +546,6 @@ liveKitRouter.get("/starter/ollama/models", async (_req, res) => {
   }
 });
 
-liveKitRouter.post("/starter/stt/transcribe", async (req, res) => {
-  const parsed = SttSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-
-  try {
-    const result = await transcribeAudio(parsed.data);
-    return res.status(201).json({
-      data: {
-        text: result.text,
-        provider: env.SPEECH_TO_TEXT_BASE_URL,
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Speech-to-text failed";
-    if (message.includes("STT_AUDIO_TOO_LARGE")) {
-      return res.status(413).json({
-        error: {
-          code: "STT_AUDIO_TOO_LARGE",
-          message: `Audio payload is too large. Max bytes: ${env.SPEECH_TO_TEXT_MAX_AUDIO_BYTES}.`,
-        },
-      });
-    }
-    return res.status(502).json({
-      error: {
-        code: "STT_TRANSCRIBE_FAILED",
-        message,
-      },
-    });
-  }
-});
-
 liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
   const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
   if (!parsed.success) {
@@ -661,6 +568,8 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
       voiceLanguage: settings.voiceLanguage,
       ollamaModel: settings.ollamaModel,
       ttsEngine: settings.ttsEngine,
+      activeTtsServerId: settings.activeTtsServerId,
+      ttsServers: settings.ttsServers,
       ttsConfig: settings.ttsConfig,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
@@ -688,6 +597,8 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     voiceLanguage: parsed.data.voiceLanguage,
     ollamaModel: parsed.data.ollamaModel,
     ttsEngine: parsed.data.ttsEngine,
+    activeTtsServerId: parsed.data.activeTtsServerId,
+    ttsServers: parsed.data.ttsServers,
     ttsConfig: parsed.data.ttsConfig,
     ttsEnabled: parsed.data.ttsEnabled,
     sttEnabled: parsed.data.sttEnabled,
@@ -702,6 +613,8 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
       voiceLanguage: settings.voiceLanguage,
       ollamaModel: settings.ollamaModel,
       ttsEngine: settings.ttsEngine,
+      activeTtsServerId: settings.activeTtsServerId,
+      ttsServers: settings.ttsServers,
       ttsConfig: settings.ttsConfig,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
@@ -711,44 +624,6 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
       updatedAt: settings.updatedAt,
     },
   });
-});
-
-liveKitRouter.post("/starter/tts/synthesize", async (req, res) => {
-  const parsed = TtsSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-
-  try {
-    const rawDeviceId = String(req.headers["x-device-id"] ?? "").trim();
-    const hasValidDeviceId = /^[a-zA-Z0-9_-]{8,128}$/.test(rawDeviceId);
-    const settings = hasValidDeviceId ? await getStarterAgentSettings(rawDeviceId) : null;
-    const result = await synthesizeSpeech({
-      ...parsed.data,
-      ttsConfig: settings?.ttsConfig ?? undefined,
-    });
-    res.setHeader("content-type", result.contentType);
-    res.setHeader("cache-control", "no-store");
-    res.setHeader("x-tts-provider", result.provider);
-    res.setHeader("x-tts-engine", result.engine);
-    return res.status(200).send(result.audio);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Text-to-speech failed";
-    if (message.includes("TTS_NOT_CONFIGURED")) {
-      return res.status(503).json({
-        error: {
-          code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL/TTS_CHATTERBOX_BASE_URL in API environment.",
-        },
-      });
-    }
-    return res.status(502).json({
-      error: {
-        code: "TTS_SYNTHESIZE_FAILED",
-        message,
-      },
-    });
-  }
 });
 
 liveKitRouter.get("/starter/tools/status", async (_req, res) => {

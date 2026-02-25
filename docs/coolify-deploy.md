@@ -39,12 +39,6 @@ Optional:
 - `OLLAMA_CHAT_MODEL=llama3.1`
 - `OLLAMA_TIMEOUT_MS=30000`
 - `OLLAMA_SYSTEM_PROMPT=You are Coziyoo AI assistant. Be concise and helpful.`
-- `SPEECH_TO_TEXT_BASE_URL=https://speech.example.com/`
-- `SPEECH_TO_TEXT_TRANSCRIBE_PATH=/v1/audio/transcriptions`
-- `SPEECH_TO_TEXT_MODEL=whisper-1`
-- `SPEECH_TO_TEXT_API_KEY=...` (optional)
-- `SPEECH_TO_TEXT_TIMEOUT_MS=60000`
-- `SPEECH_TO_TEXT_MAX_AUDIO_BYTES=8000000`
 
 Database can be configured in either format:
 
@@ -109,13 +103,21 @@ Admin-only LiveKit control endpoints:
 - `POST /v1/admin/livekit/dispatch/agent` (mints token and forwards it to `AI_SERVER_URL + AI_SERVER_LIVEKIT_JOIN_PATH`)
 - `POST /v1/admin/livekit/session/start` (creates room + user token + agent token + dispatches agent)
 - `POST /v1/admin/livekit/agent/chat` (sends text to Ollama `/api/chat`, publishes agent response to room data channel)
-- `POST /v1/admin/livekit/stt/transcribe` (forwards audio to speech-to-text server and returns transcript)
 
 App endpoint:
 
 - `POST /v1/livekit/session/start` (auth required, creates room + user token + agent token + dispatches agent)
 - `POST /v1/livekit/agent/chat` (auth required, sends text to Ollama `/api/chat`, publishes agent response to room data channel)
-- `POST /v1/livekit/stt/transcribe` (auth required, forwards audio to speech-to-text server and returns transcript)
+
+## 6) Assistant Speech Runtime
+
+Speech I/O is handled by the AI server/assistant runtime:
+- user mic audio is consumed from LiveKit
+- assistant executes STT + LLM + TTS
+- assistant publishes audio track directly to LiveKit
+
+API STT/TTS runtime endpoints have been removed from this repo.
+Configure speech providers in assistant runtime `config.json` (global), not in API runtime routes.
 
 ## 3) Database migrations
 
