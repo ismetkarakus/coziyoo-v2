@@ -2939,7 +2939,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
   const [foodRows, setFoodRows] = useState<Array<Record<string, unknown>>>([]);
-  const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "retention" | "security" | "raw">("identity");
+  const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw">("identity");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -3076,6 +3076,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "orders", label: dict.detail.sellerTabs.orders },
     { key: "wallet", label: dict.detail.sellerTabs.wallet },
     { key: "identity", label: dict.detail.sellerTabs.identity },
+    { key: "legal", label: dict.detail.sellerTabs.legal },
     { key: "retention", label: dict.detail.sellerTabs.retention },
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "raw", label: dict.detail.sellerTabs.raw },
@@ -3153,33 +3154,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       </section>
 
       {activeTab === "identity" ? (
-        <section className="seller-detail-grid">
-          <article className="panel">
+        <section className="panel">
+          <article>
             <div className="panel-header">
               <h2>{dict.detail.basicAccountEdit}</h2>
             </div>
-            <section className="seller-info-grid">
-              <article>
-                <p>{dict.detail.countryCodeLabel}</p>
-                <strong>{row.countryCode ?? "-"}</strong>
-              </article>
-              <article>
-                <p>{dict.detail.languageLabel}</p>
-                <strong>{row.language ?? "-"}</strong>
-              </article>
-              <article>
-                <p>{dict.detail.updatedAtLabel}</p>
-                <strong>{formatUiDate(row.updatedAt, language)}</strong>
-              </article>
-              <article>
-                <p>{dict.detail.maskedPhone}</p>
-                <strong>{maskedPhone}</strong>
-              </article>
-              <article>
-                <p>{dict.detail.legalHoldStateLabel}</p>
-                <strong>{dict.detail.legalHoldUnknown}</strong>
-              </article>
-            </section>
             <form className="form-grid" onSubmit={onSave}>
               <label>
                 {dict.auth.email}
@@ -3196,6 +3175,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </button>
               </div>
             </form>
+            <div className="seller-meta-chips">
+              <span className="retention-chip">{`${dict.detail.updatedAtLabel}: ${formatUiDate(row.updatedAt, language)}`}</span>
+              <span className="retention-chip">{`${dict.detail.legalHoldStateLabel}: ${dict.detail.legalHoldUnknown}`}</span>
+            </div>
             {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
             <section className="seller-json-card">
               <div className="seller-json-header">
@@ -3217,8 +3200,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               </ol>
             </section>
           </article>
+        </section>
+      ) : null}
 
-          <article className="panel">
+      {activeTab === "legal" ? (
+        <section className="panel">
+          <article>
             <div className="panel-header">
               <h2>{dict.detail.trCompliance}</h2>
               {compliance ? (
@@ -3308,7 +3295,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "identity" && activeTab !== "foods" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
+      {activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>

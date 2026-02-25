@@ -1897,28 +1897,11 @@ textarea:focus {
   gap: 10px;
 }
 
-.seller-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.seller-info-grid article {
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-radius: 10px;
-  padding: 10px;
-  background: color-mix(in srgb, var(--color-card-bg) 62%, transparent);
-}
-
-.seller-info-grid p {
-  margin: 0;
-  color: var(--color-secondary-text);
-}
-
-.seller-info-grid strong {
-  display: block;
-  margin-top: 4px;
+.seller-meta-chips {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .seller-json-card {
@@ -1926,11 +1909,7 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
   border-radius: 14px;
   overflow: hidden;
-  background: linear-gradient(
-    140deg,
-    color-mix(in srgb, #101932 88%, transparent),
-    color-mix(in srgb, #172748 78%, transparent)
-  );
+  background: color-mix(in srgb, var(--color-card-bg) 66%, transparent);
 }
 
 .seller-json-header {
@@ -1943,7 +1922,7 @@ textarea:focus {
 }
 
 .seller-json-header h2 {
-  font-size: 1.9rem;
+  font-size: 1.45rem;
   letter-spacing: -0.01em;
 }
 
@@ -1956,42 +1935,46 @@ textarea:focus {
   margin: 0;
   padding: 14px 14px 14px 46px;
   list-style: decimal;
-  color: color-mix(in srgb, #8f9cbc 88%, transparent);
-  font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
-  font-size: 2.05rem;
-  line-height: 1.62;
+  color: var(--color-tertiary-text);
+  font-family: inherit;
+  font-size: 1.02rem;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--color-card-bg) 56%, transparent);
 }
 
 .seller-json-lines li {
-  padding-left: 8px;
+  padding-left: 10px;
 }
 
 .seller-json-lines code {
-  color: #f0f3fb;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 1.02rem;
 }
 
 .json-key {
-  color: #90a8ff;
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 .json-sep {
-  color: #d4d9e8;
+  color: var(--color-secondary-text);
 }
 
 .json-value-string {
-  color: #9de39d;
+  color: var(--color-text);
 }
 
 .json-value-number {
-  color: #f1c56a;
+  color: var(--color-text);
 }
 
 .json-value-bool {
-  color: #6dd3d0;
+  color: var(--color-text);
 }
 
 .json-value-null {
-  color: #b1b8c7;
+  color: var(--color-secondary-text);
 }
 
 .seller-retention-chips {
@@ -2174,10 +2157,6 @@ textarea:focus {
   }
 
   .seller-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .seller-info-grid {
     grid-template-columns: 1fr;
   }
 
