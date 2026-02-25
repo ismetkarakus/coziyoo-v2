@@ -789,7 +789,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeQuickStatus, setActiveQuickStatus] = useState<"all" | "active" | "disabled">("all");
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -911,7 +910,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       sortBy: filters.sortBy,
       sortDir: filters.sortDir,
       ...(searchTerm ? { search: searchTerm } : {}),
-      ...(activeQuickStatus !== "all" ? { status: activeQuickStatus } : {}),
       ...(audience ? { audience } : {}),
       ...(isAppScoped && filters.roleFilter !== "all" ? { userType: filters.roleFilter } : {}),
       ...(!isAppScoped && filters.roleFilter !== "all" ? { role: filters.roleFilter } : {}),
@@ -934,7 +932,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   useEffect(() => {
     loadRows().catch(() => setError(dict.users.requestFailed));
-  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm, activeQuickStatus]);
+  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
@@ -1294,38 +1292,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               onChange={(event) => setSearchInput(event.target.value)}
             />
           </div>
-          <div className="quick-filters">
-            <button
-              type="button"
-              className={`chip ${activeQuickStatus === "active" ? "is-active" : ""}`}
-              onClick={() => {
-                setActiveQuickStatus("active");
-                setFilters((prev) => ({ ...prev, page: 1 }));
-              }}
-            >
-              {language === "tr" ? "Aktif" : "Active"} ({activeRows.length})
-            </button>
-            <button
-              type="button"
-              className={`chip ${activeQuickStatus === "disabled" ? "is-active" : ""}`}
-              onClick={() => {
-                setActiveQuickStatus("disabled");
-                setFilters((prev) => ({ ...prev, page: 1 }));
-              }}
-            >
-              ⌁ {language === "tr" ? "Pasif" : "Disabled"} ({passiveRows.length})
-            </button>
-            <button
-              type="button"
-              className={`chip ${last7DaysOnly ? "is-active" : ""}`}
-              onClick={() => {
-                setLast7DaysOnly((prev) => !prev);
-                setFilters((prev) => ({ ...prev, page: 1 }));
-              }}
-            >
-              {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`chip ${last7DaysOnly ? "is-active" : ""}`}
+            onClick={() => {
+              setLast7DaysOnly((prev) => !prev);
+              setFilters((prev) => ({ ...prev, page: 1 }));
+            }}
+          >
+            {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
+          </button>
           <button
             className="ghost users-sort-pill"
             type="button"
@@ -1344,21 +1320,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             {language === "tr" ? "Filtrele" : "Filter"}
           </button>
         </div>
-
-        <section className="users-state-panel">
-          <div className={`panel state-card ${showState === "loading" ? "is-active" : ""}`}>
-            <p>{dict.common.loading}</p>
-          </div>
-          <div className={`panel state-card ${showState === "empty" ? "is-active" : ""}`}>
-            <p>{language === "tr" ? "Hic alıcı bulunamadı" : "No buyers found"}</p>
-          </div>
-          <div className={`panel state-card ${showState === "error" ? "is-active" : ""}`}>
-            <p>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</p>
-            <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-              {language === "tr" ? "Yenikien Done" : "Retry"}
+        <div className="users-inline-states" aria-live="polite">
+          <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span>
+          <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
+          <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span>
+          {showState === "error" ? (
+            <button className="chip is-active" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+              {language === "tr" ? "Yeniden Dene" : "Retry"}
             </button>
-          </div>
-        </section>
+          ) : null}
+        </div>
 
         <div className={`table-wrap users-table-wrap density-${density}`}>
           <table>

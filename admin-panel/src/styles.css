@@ -1705,13 +1705,6 @@ textarea:focus {
   }
 }
 
-.users-state-panel .panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .name-cell {
   display: inline-flex;
   align-items: center;
@@ -1732,20 +1725,11 @@ textarea:focus {
   background: color-mix(in srgb, var(--color-card-bg) 80%, transparent);
 }
 
-.users-state-panel {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.state-card {
-  min-height: 88px;
-  opacity: 0.88;
-}
-
-.state-card.is-active {
-  opacity: 1;
-  border-color: color-mix(in srgb, var(--color-accent) 65%, var(--color-border));
+.users-inline-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 10px;
 }
 
 .density-compact table td,
@@ -1842,10 +1826,6 @@ textarea:focus {
   .users-density-floating {
     right: 12px;
     top: 10px;
-  }
-
-  .users-state-panel {
-    grid-template-columns: 1fr;
   }
 
   .kpi-detail-grid {
