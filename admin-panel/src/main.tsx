@@ -1219,7 +1219,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return String(value ?? "");
   }
 
-  const activeFilterCount = Number(activeQuickStatus !== "all") + Number(filters.roleFilter !== "all") + Number(last7DaysOnly) + Number(Boolean(searchTerm));
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
 
   return (
@@ -1254,20 +1253,28 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </button>
         </div>
         <article>
-          <p>{language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
-          <h2>{pagination?.total ?? rows.length}</h2>
+          <div className="users-kpi-row">
+            <p>{language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
+            <strong className="users-kpi-value">{pagination?.total ?? rows.length}</strong>
+          </div>
         </article>
         <article>
-          <p>{language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
-          <h2>{activeRows.length}</h2>
+          <div className="users-kpi-row">
+            <p>{language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
+            <strong className="users-kpi-value is-active">{activeRows.length}</strong>
+          </div>
         </article>
         <article>
-          <p>{language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
-          <h2>{passiveRows.length}</h2>
+          <div className="users-kpi-row">
+            <p>{language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
+            <strong className="users-kpi-value">{passiveRows.length}</strong>
+          </div>
         </article>
         <article>
-          <p>{language === "tr" ? "Bugün Yeni" : "New Today"}</p>
-          <h2>{newToday}</h2>
+          <div className="users-kpi-row">
+            <p>{language === "tr" ? "Bugün Yeni" : "New Today"}</p>
+            <strong className="users-kpi-value">{newToday}</strong>
+          </div>
         </article>
       </section>
 
@@ -1338,35 +1345,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </button>
         </div>
 
-        <div className="users-filter-advanced">
-          <div className="users-filter-advanced-left">
-            <span className="panel-meta">{language === "tr" ? `Filtreler (${activeFilterCount})` : `Filters (${activeFilterCount})`}</span>
-            <button className="ghost users-mini-btn" type="button">
-              {language === "tr" ? "Filtreler" : "Filters"}
-            </button>
-            <button className="ghost users-mini-btn" type="button">
-              {language === "tr" ? "Orale" : "Sort"}
+        <section className="users-state-panel">
+          <div className={`panel state-card ${showState === "loading" ? "is-active" : ""}`}>
+            <p>{dict.common.loading}</p>
+          </div>
+          <div className={`panel state-card ${showState === "empty" ? "is-active" : ""}`}>
+            <p>{language === "tr" ? "Hic alıcı bulunamadı" : "No buyers found"}</p>
+          </div>
+          <div className={`panel state-card ${showState === "error" ? "is-active" : ""}`}>
+            <p>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</p>
+            <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+              {language === "tr" ? "Yenikien Done" : "Retry"}
             </button>
           </div>
-          <div className="users-filter-advanced-right">
-            <button className="ghost users-mini-btn" type="button">
-              {language === "tr" ? `Filtreler (${activeFilterCount})` : `Filters (${activeFilterCount})`}
-            </button>
-            <button
-              className="ghost users-mini-btn"
-              type="button"
-              onClick={() => {
-                setActiveQuickStatus("all");
-                setLast7DaysOnly(false);
-                setSearchInput("");
-                setSearchTerm("");
-                setFilters((prev) => ({ ...prev, page: 1, roleFilter: "all" }));
-              }}
-            >
-              {language === "tr" ? "Hepsini Te" : "Clear All"}
-            </button>
-          </div>
-        </div>
+        </section>
 
         <div className={`table-wrap users-table-wrap density-${density}`}>
           <table>
@@ -1470,21 +1462,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               {dict.actions.next}
             </button>
           </div>
-        </div>
-      </section>
-
-      <section className="users-state-panel">
-        <div className={`panel state-card ${showState === "loading" ? "is-active" : ""}`}>
-          <p>{dict.common.loading}</p>
-        </div>
-        <div className={`panel state-card ${showState === "empty" ? "is-active" : ""}`}>
-          <p>{language === "tr" ? "Hic alıcı bulunamadı" : "No buyers found"}</p>
-        </div>
-        <div className={`panel state-card ${showState === "error" ? "is-active" : ""}`}>
-          <p>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</p>
-          <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-            {language === "tr" ? "Yenikien Done" : "Retry"}
-          </button>
         </div>
       </section>
 
@@ -1701,14 +1678,23 @@ function EntitiesPage({ language }: { language: Language }) {
           <p className="subtext">{dict.entities.subtitle}</p>
         </div>
         <div className="topbar-actions">
-          <input
-            placeholder={dict.entities.searchPlaceholder}
-            value={search}
-            onChange={(event) => {
-              setPage(1);
-              setSearch(event.target.value);
-            }}
-          />
+          <div className="users-search-wrap users-search-wrap--compact">
+            <span className="users-search-icon" aria-hidden="true">
+              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </span>
+            <input
+              className="users-search-input users-search-input--compact"
+              placeholder={dict.entities.searchPlaceholder}
+              value={search}
+              onChange={(event) => {
+                setPage(1);
+                setSearch(event.target.value);
+              }}
+            />
+          </div>
         </div>
       </header>
 
@@ -1952,9 +1938,22 @@ function AuditPage({ language }: { language: Language }) {
             {dict.audit.entityType}
             <input value={filters.entityType} onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, entityType: event.target.value }))} />
           </label>
-          <label>
+          <label className="audit-search-field">
             {dict.audit.search}
-            <input value={filters.search} onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))} />
+            <div className="users-search-wrap users-search-wrap--compact">
+              <span className="users-search-icon" aria-hidden="true">
+                <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+                  <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+                  <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                className="users-search-input users-search-input--compact"
+                placeholder={dict.audit.search}
+                value={filters.search}
+                onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
+              />
+            </div>
           </label>
           <label>
             {dict.audit.from}
