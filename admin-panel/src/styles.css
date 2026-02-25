@@ -1462,6 +1462,168 @@ textarea:focus {
   margin-bottom: 8px;
 }
 
+.users-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.users-kpi-grid article {
+  border: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+  border-radius: 12px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--color-card-bg) 75%, transparent);
+}
+
+.users-kpi-grid article p {
+  margin: 0;
+  color: var(--color-secondary-text);
+}
+
+.users-kpi-grid article h2 {
+  margin: 8px 0 0;
+  font-size: 2rem;
+}
+
+.users-filter-top,
+.users-filter-advanced {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.quick-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  color: var(--color-secondary-text);
+  padding: 7px 12px;
+}
+
+.chip.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.density-switch {
+  display: inline-flex;
+  gap: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  padding: 4px;
+  background: color-mix(in srgb, var(--color-card-bg) 65%, transparent);
+}
+
+.density-switch button {
+  border: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-secondary-text);
+}
+
+.density-switch button.is-active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-text);
+}
+
+.users-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--color-card-bg) 96%, transparent);
+}
+
+.users-table-wrap tbody td:first-child,
+.users-table-wrap thead th:first-child {
+  position: sticky;
+  left: 0;
+  background: color-mix(in srgb, var(--color-card-bg) 97%, transparent);
+  z-index: 2;
+}
+
+.status-pill {
+  display: inline-flex;
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.status-pill.is-active {
+  color: #9df7d4;
+  border-color: color-mix(in srgb, #3dd598 45%, transparent);
+  background: color-mix(in srgb, #3dd598 20%, transparent);
+}
+
+.status-pill.is-disabled {
+  color: #ffc0ca;
+  border-color: color-mix(in srgb, #ff647c 45%, transparent);
+  background: color-mix(in srgb, #ff647c 20%, transparent);
+}
+
+.inline-copy {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.action-btn {
+  min-width: 84px;
+}
+
+.table-skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(83, 113, 170, 0.2), rgba(83, 113, 170, 0.45), rgba(83, 113, 170, 0.2));
+  animation: shimmer 1.3s ease infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+
+.users-state-panel .panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.density-compact table td,
+.density-compact table th {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.density-comfortable table td,
+.density-comfortable table th {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
 @media (max-width: 1100px) {
   .navbar {
     flex-direction: column;
@@ -1525,6 +1687,20 @@ textarea:focus {
 
   .buyer-extra-grid {
     grid-template-columns: 1fr;
+  }
+
+  .users-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .users-filter-top,
+  .users-filter-advanced {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .density-switch {
+    align-self: flex-end;
   }
 
   .kpi-detail-grid {
@@ -1628,6 +1804,10 @@ textarea:focus {
   }
 
   .livekit-chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .users-kpi-grid {
     grid-template-columns: 1fr;
   }
 }

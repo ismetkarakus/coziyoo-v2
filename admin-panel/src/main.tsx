@@ -770,6 +770,12 @@ function ActionCard({ title, dict }: { title: string; dict: Dictionary }) {
 }
 
 type UserKind = "app" | "buyers" | "sellers" | "admin";
+type ColumnMeta = {
+  name: string;
+  displayable: boolean;
+  sensitivity: "public" | "internal" | "secret";
+};
+type DensityMode = "compact" | "normal" | "comfortable";
 
 function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
   const dict = DICTIONARIES[language];
@@ -783,11 +789,19 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeQuickStatus, setActiveQuickStatus] = useState<"all" | "active" | "disabled">("all");
+  const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ id: string; next: "active" | "disabled" } | null>(null);
+  const [density, setDensity] = useState<DensityMode>(() => {
+    const stored = localStorage.getItem(`coziyoo_users_density_${kind}`) as DensityMode | null;
+    if (stored === "compact" || stored === "normal" || stored === "comfortable") return stored;
+    return "normal";
+  });
   const [filters, setFilters] = useState({
     page: 1,
     pageSize: 20,
-    search: "",
     sortBy: "createdAt",
     sortDir: "desc" as "asc" | "desc",
     status: "all",
@@ -799,14 +813,44 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const endpoint = isAppScoped ? "/v1/admin/users" : "/v1/admin/admin-users";
   const tableKey = isAppScoped ? "users" : "adminUsers";
   const audience = kind === "buyers" ? "buyer" : kind === "sellers" ? "seller" : null;
-
-  const [fields, setFields] = useState<string[]>([]);
+  const [fields, setFields] = useState<ColumnMeta[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+
+  const columnMappings = useMemo(() => {
+    if (isAppScoped) {
+      return {
+        id: "id",
+        email: "email",
+        display_name: "displayName",
+        full_name: "fullName",
+        user_type: "role",
+        is_active: "status",
+        country_code: "countryCode",
+        language: "language",
+        created_at: "createdAt",
+        updated_at: "updatedAt",
+      } as Record<string, string>;
+    }
+
+    return {
+      id: "id",
+      email: "email",
+      role: "role",
+      is_active: "status",
+      created_at: "createdAt",
+      updated_at: "updatedAt",
+      last_login_at: "lastLoginAt",
+    } as Record<string, string>;
+  }, [isAppScoped]);
+
+  const coreColumns = useMemo(() => {
+    return isAppScoped
+      ? ["id", "display_name", "email", "is_active", "country_code", "language", "created_at", "updated_at"]
+      : ["id", "email", "role", "is_active", "created_at", "updated_at", "last_login_at"];
+  }, [isAppScoped]);
 
   const pageTitle =
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
-  const eyebrow =
-    kind === "app" ? dict.users.eyebrowApp : kind === "buyers" ? dict.users.eyebrowBuyers : kind === "sellers" ? dict.users.eyebrowSellers : dict.users.eyebrowAdmins;
   const isDrawerOpen = drawerMode !== null;
   const createTitle =
     isAppScoped
@@ -823,25 +867,40 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       page: 1,
       sortBy: "createdAt",
       roleFilter: "all",
+      status: "all",
     }));
   }, [kind]);
 
   useEffect(() => {
+    localStorage.setItem(`coziyoo_users_density_${kind}`, density);
+  }, [density, kind]);
+
+  useEffect(() => {
     request(`/v1/admin/metadata/tables/${tableKey}/fields`).then(async (response) => {
       if (response.status !== 200) return;
-      const body = await parseJson<{ data: { fields: Array<{ name: string }> } }>(response);
-      const names = body.data.fields.map((f) => f.name);
-      setFields(names);
+      const body = await parseJson<{ data: { fields: Array<{ name: string; displayable?: boolean; sensitivity?: ColumnMeta["sensitivity"] }> } }>(
+        response
+      );
+      const metas = body.data.fields
+        .map((f) => ({
+          name: f.name,
+          displayable: f.displayable !== false && f.sensitivity !== "secret",
+          sensitivity: f.sensitivity ?? "public",
+        }))
+        .filter((f) => f.displayable && columnMappings[f.name]);
+      setFields(metas);
+      const defaultColumns = coreColumns.filter((column) => metas.some((meta) => meta.name === column));
 
       const prefs = await request(`/v1/admin/table-preferences/${tableKey}`);
       if (prefs.status === 200) {
         const prefBody = await parseJson<{ data: { visibleColumns: string[] } }>(prefs);
-        setVisibleColumns(prefBody.data.visibleColumns);
+        const normalized = prefBody.data.visibleColumns.filter((column) => metas.some((meta) => meta.name === column));
+        setVisibleColumns(normalized.length > 0 ? normalized : defaultColumns);
       } else {
-        setVisibleColumns(names);
+        setVisibleColumns(defaultColumns);
       }
     });
-  }, [tableKey]);
+  }, [columnMappings, coreColumns, tableKey]);
 
   async function loadRows() {
     setLoading(true);
@@ -852,7 +911,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       sortBy: filters.sortBy,
       sortDir: filters.sortDir,
       ...(searchTerm ? { search: searchTerm } : {}),
-      ...(filters.status !== "all" ? { status: filters.status } : {}),
+      ...(activeQuickStatus !== "all" ? { status: activeQuickStatus } : {}),
       ...(audience ? { audience } : {}),
       ...(isAppScoped && filters.roleFilter !== "all" ? { userType: filters.roleFilter } : {}),
       ...(!isAppScoped && filters.roleFilter !== "all" ? { role: filters.roleFilter } : {}),
@@ -869,12 +928,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     setRows(body.data);
     if (body.pagination) setPagination({ total: body.pagination.total, totalPages: body.pagination.totalPages });
+    setLastUpdatedAt(new Date().toISOString());
     setLoading(false);
   }
 
   useEffect(() => {
     loadRows().catch(() => setError(dict.users.requestFailed));
-  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.status, filters.roleFilter, audience, searchTerm]);
+  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm, activeQuickStatus]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
@@ -894,9 +954,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }, [searchInput]);
 
   async function savePreferences() {
+    const payload = visibleColumns.length > 0 ? visibleColumns : coreColumns.filter((column) => fields.some((f) => f.name === column));
     const response = await request(`/v1/admin/table-preferences/${tableKey}`, {
       method: "PUT",
-      body: JSON.stringify({ visibleColumns, columnOrder: visibleColumns }),
+      body: JSON.stringify({ visibleColumns: payload, columnOrder: payload }),
     });
 
     if (response.status !== 200) {
@@ -990,6 +1051,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     await loadRows();
   }
 
+  function toggleStatusAction(row: any) {
+    const currentStatus: "active" | "disabled" = row.status === "disabled" || row.is_active === false ? "disabled" : "active";
+    setPendingStatusChange({
+      id: row.id,
+      next: currentStatus === "active" ? "disabled" : "active",
+    });
+  }
+
+  async function confirmStatusChange() {
+    if (!pendingStatusChange) return;
+    await patchUser(pendingStatusChange.id, "status", { status: pendingStatusChange.next });
+    setPendingStatusChange(null);
+  }
+
   function openCreateDrawer() {
     setFormError(null);
     setEditingRow(null);
@@ -1046,35 +1121,194 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
   }
 
+  const availableColumns = useMemo(() => fields.map((f) => f.name), [fields]);
   const tableColumns = useMemo(() => {
-    if (visibleColumns.length === 0) return fields;
-    return visibleColumns;
-  }, [fields, visibleColumns]);
+    const picked = visibleColumns.filter((column) => availableColumns.includes(column));
+    if (picked.length > 0) return picked;
+    return coreColumns.filter((column) => availableColumns.includes(column));
+  }, [availableColumns, coreColumns, visibleColumns]);
+
+  const activeRows = rows.filter((row) => row.status === "active");
+  const passiveRows = rows.filter((row) => row.status === "disabled");
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const newToday = rows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
+  const filteredRows = useMemo(() => {
+    if (!last7DaysOnly) return rows;
+    const now = Date.now();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    return rows.filter((row) => {
+      const created = Date.parse(String(row.createdAt ?? ""));
+      return !Number.isNaN(created) && now - created <= sevenDays;
+    });
+  }, [last7DaysOnly, rows]);
+
+  function resolveColumnLabel(columnName: string): string {
+    const mapped = columnMappings[columnName] ?? columnName;
+    if (mapped === "id") return "ID";
+    if (mapped === "displayName") return language === "tr" ? "Ad Soyad" : "Full Name";
+    if (mapped === "email") return language === "tr" ? "E-Posta" : "Email";
+    if (mapped === "status") return dict.users.status;
+    if (mapped === "role") return dict.users.role;
+    if (mapped === "countryCode") return language === "tr" ? "Ülke" : "Country";
+    if (mapped === "language") return language === "tr" ? "Dil" : "Language";
+    if (mapped === "createdAt") return language === "tr" ? "Kayıt Tarihi" : "Created At";
+    if (mapped === "updatedAt") return language === "tr" ? "Son Güncelleme" : "Updated At";
+    if (mapped === "lastLoginAt") return language === "tr" ? "Son Giriş" : "Last Login";
+    return mapped;
+  }
+
+  function shortId(id: string): string {
+    if (!id) return "-";
+    return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+  }
+
+  function renderCell(row: any, columnName: string) {
+    const mapped = columnMappings[columnName] ?? columnName;
+    const value = row[mapped];
+    if (mapped === "id") {
+      return (
+        <button
+          className="inline-copy"
+          type="button"
+          title={String(value ?? "")}
+          onClick={() => navigator.clipboard.writeText(String(value ?? "")).catch(() => undefined)}
+        >
+          {shortId(String(value ?? ""))}
+        </button>
+      );
+    }
+    if (mapped === "status") {
+      const status = value === "disabled" ? "disabled" : "active";
+      return <span className={`status-pill ${status === "active" ? "is-active" : "is-disabled"}`}>{status === "active" ? "Aktif" : "Pasif"}</span>;
+    }
+    if (mapped === "createdAt" || mapped === "updatedAt" || mapped === "lastLoginAt") {
+      const text = String(value ?? "");
+      return text ? text.slice(0, 10) : "-";
+    }
+    if (mapped === "role") {
+      if (value === "buyer") return dict.users.userTypeBuyer;
+      if (value === "seller") return dict.users.userTypeSeller;
+      if (value === "both") return dict.users.userTypeBoth;
+      if (value === "admin") return dict.users.roleAdmin;
+      if (value === "super_admin") return dict.users.roleSuperAdmin;
+    }
+    return String(value ?? "");
+  }
+
+  const activeFilterCount = Number(activeQuickStatus !== "all") + Number(filters.roleFilter !== "all") + Number(last7DaysOnly) + Number(Boolean(searchTerm));
+  const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
 
   return (
     <div className="app">
       <header className="topbar">
         <div>
           <h1>{pageTitle}</h1>
+          <p className="panel-meta">
+            {fmt(dict.common.paginationSummary, {
+              total: pagination?.total ?? 0,
+              page: filters.page,
+              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
+            })}
+            {lastUpdatedAt ? ` • ${lastUpdatedAt.slice(11, 19)}` : ""}
+          </p>
         </div>
         <div className="topbar-actions">
-          <input
-            placeholder={dict.users.searchPlaceholder}
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-          />
           <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
             {dict.users.visibleColumns}
           </button>
           <button className="primary" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
             {dict.actions.create}
           </button>
+          <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+            {dict.actions.refresh}
+          </button>
         </div>
       </header>
 
-      {error ? <div className="alert">{error}</div> : null}
+      <section className="panel users-kpi-grid">
+        <article>
+          <p>{language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
+          <h2>{pagination?.total ?? rows.length}</h2>
+        </article>
+        <article>
+          <p>{language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
+          <h2>{activeRows.length}</h2>
+        </article>
+        <article>
+          <p>{language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
+          <h2>{passiveRows.length}</h2>
+        </article>
+        <article>
+          <p>{language === "tr" ? "Bugün Yeni" : "New Today"}</p>
+          <h2>{newToday}</h2>
+        </article>
+      </section>
 
       <section className="panel">
+        <div className="users-filter-top">
+          <input placeholder={dict.users.searchPlaceholder} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+          <div className="quick-filters">
+            <button
+              type="button"
+              className={`chip ${activeQuickStatus === "active" ? "is-active" : ""}`}
+              onClick={() => {
+                setActiveQuickStatus("active");
+                setFilters((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
+              {language === "tr" ? "Aktif" : "Active"} ({activeRows.length})
+            </button>
+            <button
+              type="button"
+              className={`chip ${activeQuickStatus === "disabled" ? "is-active" : ""}`}
+              onClick={() => {
+                setActiveQuickStatus("disabled");
+                setFilters((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
+              {language === "tr" ? "Pasif" : "Disabled"} ({passiveRows.length})
+            </button>
+            <button
+              type="button"
+              className={`chip ${last7DaysOnly ? "is-active" : ""}`}
+              onClick={() => {
+                setLast7DaysOnly((prev) => !prev);
+                setFilters((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
+              {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
+            </button>
+          </div>
+          <div className="density-switch" role="group" aria-label="Table density">
+            <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
+              {language === "tr" ? "Kompakt" : "Compact"}
+            </button>
+            <button type="button" className={density === "normal" ? "is-active" : ""} onClick={() => setDensity("normal")}>
+              {language === "tr" ? "Normal" : "Normal"}
+            </button>
+            <button type="button" className={density === "comfortable" ? "is-active" : ""} onClick={() => setDensity("comfortable")}>
+              {language === "tr" ? "Rahat" : "Comfort"}
+            </button>
+          </div>
+        </div>
+
+        <div className="users-filter-advanced">
+          <span className="panel-meta">{language === "tr" ? `Filtreler (${activeFilterCount})` : `Filters (${activeFilterCount})`}</span>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => {
+              setActiveQuickStatus("all");
+              setLast7DaysOnly(false);
+              setSearchInput("");
+              setSearchTerm("");
+              setFilters((prev) => ({ ...prev, page: 1, roleFilter: "all" }));
+            }}
+          >
+            {language === "tr" ? "Filtreleri Temizle" : "Clear Filters"}
+          </button>
+        </div>
+
         <div className="filter-grid">
           <label>
             {dict.users.sortBy}
@@ -1110,14 +1344,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </select>
           </label>
           <label>
-            {dict.users.status}
-            <select value={filters.status} onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, status: event.target.value }))}>
-              <option value="all">{dict.common.all}</option>
-              <option value="active">{dict.common.active}</option>
-              <option value="disabled">{dict.common.disabled}</option>
-            </select>
-          </label>
-          <label>
             {dict.users.roleFilter}
             <select value={filters.roleFilter} onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, roleFilter: event.target.value }))}>
               <option value="all">{dict.common.all}</option>
@@ -1148,30 +1374,37 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </select>
           </label>
         </div>
-        <div className="table-wrap">
+
+        <div className={`table-wrap users-table-wrap density-${density}`}>
           <table>
             <thead>
               <tr>
                 {tableColumns.map((column) => (
-                  <th key={column}>{column}</th>
+                  <th key={column}>{resolveColumnLabel(column)}</th>
                 ))}
                 <th>{dict.users.actions}</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading ? Array.from({ length: 5 }).map((_, index) => (
+                <tr key={`skeleton-${index}`}>
+                  <td colSpan={tableColumns.length + 1} className="table-skeleton">
+                    <span />
+                  </td>
+                </tr>
+              )) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColumns.length + 1}>{dict.common.loading}</td>
+                  <td colSpan={tableColumns.length + 1}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                filteredRows.map((row) => (
                   <tr key={row.id}>
                     {tableColumns.map((column) => (
-                      <td key={`${row.id}-${column}`}>{String(row[column] ?? "")}</td>
+                      <td key={`${row.id}-${column}`}>{renderCell(row, column)}</td>
                     ))}
                     <td className="cell-actions">
                       <button
-                        className="ghost icon-btn"
+                        className="ghost action-btn"
                         type="button"
                         title={dict.actions.detail}
                         aria-label={dict.actions.detail}
@@ -1193,7 +1426,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       {isSuperAdmin ? (
                         <>
                           <button
-                            className="ghost icon-btn"
+                            className="ghost action-btn"
                             type="button"
                             title="Edit"
                             aria-label="Edit"
@@ -1203,22 +1436,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <span className="sr-only">Edit</span>
                           </button>
                           <button
-                            className="ghost icon-btn"
+                            className="ghost action-btn"
                             type="button"
-                            title={dict.actions.toggleStatus}
+                            title={row.status === "disabled" ? (language === "tr" ? "Aktif Yap" : "Activate") : (language === "tr" ? "Pasif Yap" : "Deactivate")}
                             aria-label={dict.actions.toggleStatus}
-                            onClick={() =>
-                              patchUser(row.id, "status", {
-                                status: row.is_active || row.status === "active" ? "disabled" : "active",
-                              })
-                            }
+                            onClick={() => toggleStatusAction(row)}
                           >
-                            <span aria-hidden="true">⏻</span>
+                            <span aria-hidden="true">{row.status === "disabled" ? "Aktif Yap" : "Pasif Yap"}</span>
                             <span className="sr-only">{dict.actions.toggleStatus}</span>
                           </button>
                         </>
                       ) : (
-                        <span className="panel-meta">{dict.common.readOnly}</span>
+                        <button className="ghost action-btn" type="button" disabled title={dict.users.onlySuperAdmin}>
+                          Yetkiniz yok
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -1258,6 +1489,21 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </div>
         </div>
       </section>
+
+      {showState !== "none" ? (
+        <section className="users-state-panel">
+          {showState === "loading" ? <div className="panel">{dict.common.loading}</div> : null}
+          {showState === "empty" ? <div className="panel">{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</div> : null}
+          {showState === "error" ? (
+            <div className="panel">
+              <p>{error}</p>
+              <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+                {language === "tr" ? "Yeniden Dene" : "Retry"}
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className={`drawer-overlay ${isDrawerOpen ? "is-open" : ""}`} onClick={closeDrawer}>
         <aside className={`form-drawer ${isDrawerOpen ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
@@ -1343,24 +1589,43 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <p className="panel-meta">{tableKey}</p>
           <div className="checkbox-grid">
             {fields.map((field) => (
-              <label key={field}>
+              <label key={field.name}>
                 <input
                   type="checkbox"
-                  checked={tableColumns.includes(field)}
+                  checked={tableColumns.includes(field.name)}
                   onChange={(event) => {
                     setVisibleColumns((prev) => {
-                      if (event.target.checked) return [...new Set([...prev, field])];
-                      return prev.filter((item) => item !== field);
+                      if (event.target.checked) return [...new Set([...prev, field.name])];
+                      return prev.filter((item) => item !== field.name);
                     });
                   }}
                 />
-                {field}
+                {resolveColumnLabel(field.name)}
               </label>
             ))}
           </div>
           <button className="primary" type="button" onClick={savePreferences}>
             {dict.users.savePreferences}
           </button>
+        </section>
+      </div>
+
+      <div className={`drawer-overlay ${pendingStatusChange ? "is-open" : ""}`} onClick={() => setPendingStatusChange(null)}>
+        <section className={`settings-modal ${pendingStatusChange ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
+          <div className="form-drawer-header">
+            <h2>{language === "tr" ? "Durum Değişikliğini Onayla" : "Confirm Status Change"}</h2>
+          </div>
+          <p className="panel-meta">
+            {pendingStatusChange?.next === "active" ? (language === "tr" ? "Kullanıcı aktif yapılacak." : "User will be activated.") : (language === "tr" ? "Kullanıcı pasif yapılacak." : "User will be disabled.")}
+          </p>
+          <div className="topbar-actions">
+            <button className="ghost" type="button" onClick={() => setPendingStatusChange(null)}>
+              {language === "tr" ? "Vazgeç" : "Cancel"}
+            </button>
+            <button className="primary" type="button" onClick={() => confirmStatusChange().catch(() => setError(dict.users.updateFailed))}>
+              {language === "tr" ? "Onayla" : "Confirm"}
+            </button>
+          </div>
         </section>
       </div>
     </div>

@@ -34,6 +34,8 @@ const TABLE_MAP = {
 } as const;
 
 const TableKeySchema = z.enum(Object.keys(TABLE_MAP) as [keyof typeof TABLE_MAP, ...(keyof typeof TABLE_MAP)[]]);
+type TableKey = z.infer<typeof TableKeySchema>;
+type ColumnSensitivity = "public" | "internal" | "secret";
 
 const PreferencesSchema = z.object({
   visibleColumns: z.array(z.string().min(1)).min(1),
@@ -50,6 +52,67 @@ const RecordsQuerySchema = z.object({
 
 export const adminMetadataRouter = Router();
 
+const SENSITIVE_COLUMN_EXACT = new Set([
+  "password_hash",
+  "refresh_token_hash",
+  "pin_hash",
+  "checksum",
+  "signature",
+  "signature_valid",
+]);
+
+const SENSITIVE_COLUMN_PATTERN = [
+  /password/i,
+  /token/i,
+  /secret/i,
+  /hash/i,
+  /signature/i,
+  /otp/i,
+  /pin/i,
+];
+
+const INTERNAL_COLUMN_PATTERN = [/ip$/i, /user_agent$/i, /metadata_json$/i, /payload_json$/i];
+
+function resolveSensitivity(columnName: string): ColumnSensitivity {
+  if (SENSITIVE_COLUMN_EXACT.has(columnName)) return "secret";
+  if (SENSITIVE_COLUMN_PATTERN.some((pattern) => pattern.test(columnName))) return "secret";
+  if (INTERNAL_COLUMN_PATTERN.some((pattern) => pattern.test(columnName))) return "internal";
+  return "public";
+}
+
+async function loadColumnDefinitions(tableName: string) {
+  const fields = await pool.query<{
+    column_name: string;
+    data_type: string;
+    is_nullable: string;
+    ordinal_position: number;
+  }>(
+    `SELECT column_name, data_type, is_nullable, ordinal_position
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1
+     ORDER BY ordinal_position ASC`,
+    [tableName]
+  );
+
+  return fields.rows.map((f) => ({
+    name: f.column_name,
+    type: f.data_type,
+    nullable: f.is_nullable === "YES",
+    sensitivity: resolveSensitivity(f.column_name),
+  }));
+}
+
+function normalizeColumns(columns: string[], allowedColumns: string[]) {
+  const allowSet = new Set(allowedColumns);
+  const normalized: string[] = [];
+  for (const column of columns) {
+    if (allowSet.has(column) && !normalized.includes(column)) {
+      normalized.push(column);
+    }
+  }
+  return normalized;
+}
+
 adminMetadataRouter.get("/metadata/entities", requireAuth("admin"), async (_req, res) => {
   const entities = Object.entries(TABLE_MAP).map(([tableKey, tableName]) => ({
     tableKey,
@@ -65,19 +128,7 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/fields", requireAuth("admin"
   }
   const tableKey = parsed.data;
   const tableName = TABLE_MAP[tableKey];
-
-  const fields = await pool.query<{
-    column_name: string;
-    data_type: string;
-    is_nullable: string;
-    ordinal_position: number;
-  }>(
-    `SELECT column_name, data_type, is_nullable, ordinal_position
-     FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = $1
-     ORDER BY ordinal_position ASC`,
-    [tableName]
-  );
+  const fields = await loadColumnDefinitions(tableName);
 
   const pkey = await pool.query<{ column_name: string }>(
     `SELECT a.attname AS column_name
@@ -92,24 +143,32 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/fields", requireAuth("admin"
   );
   const primarySet = new Set(pkey.rows.map((r) => r.column_name));
 
-  const rows = await pool.query(
+  const rows = await pool.query<{ raw_record: Record<string, unknown> | null }>(
     `SELECT row_to_json(t) AS raw_record
      FROM (SELECT * FROM public.${tableName} LIMIT 1) t`
   );
+
+  const rawRecord = rows.rows[0]?.raw_record ?? null;
+  const visibleFieldNames = fields.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const rawRecordFallback = rawRecord
+    ? Object.fromEntries(Object.entries(rawRecord).filter(([key]) => visibleFieldNames.includes(key)))
+    : null;
 
   return res.json({
     data: {
       tableKey,
       tableName,
-      fields: fields.rows.map((f) => ({
-        name: f.column_name,
-        type: f.data_type,
-        nullable: f.is_nullable === "YES",
+      fields: fields.map((f) => ({
+        name: f.name,
+        type: f.type,
+        nullable: f.nullable,
+        sensitivity: f.sensitivity,
+        displayable: f.sensitivity !== "secret",
         sortable: true,
         filterable: true,
-        isPrimaryKey: primarySet.has(f.column_name),
+        isPrimaryKey: primarySet.has(f.name),
       })),
-      rawRecordFallback: rows.rows[0]?.raw_record ?? null,
+      rawRecordFallback,
     },
   });
 });
@@ -130,14 +189,8 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/records", requireAuth("admin
   const { page, pageSize, sortDir, search } = queryParsed.data;
   const offset = (page - 1) * pageSize;
 
-  const fieldsResult = await pool.query<{ column_name: string }>(
-    `SELECT column_name
-     FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = $1
-     ORDER BY ordinal_position ASC`,
-    [tableName]
-  );
-  const columns = fieldsResult.rows.map((row) => row.column_name);
+  const fields = await loadColumnDefinitions(tableName);
+  const columns = fields.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
   if (columns.length === 0) {
     return res.status(404).json({ error: { code: "TABLE_NOT_FOUND", message: "No fields found for table" } });
   }
@@ -163,7 +216,7 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/records", requireAuth("admin
   const listParams = search ? [`%${search}%`, pageSize, offset] : [pageSize, offset];
   const limitIndex = search ? 2 : 1;
   const offsetIndex = search ? 3 : 2;
-  const listResult = await pool.query(
+  const listResult = await pool.query<Record<string, unknown>>(
     `SELECT *
      FROM (SELECT * FROM public.${tableName}) t
      ${whereSql}
@@ -177,7 +230,7 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/records", requireAuth("admin
     data: {
       tableKey,
       tableName,
-      rows: listResult.rows,
+      rows: listResult.rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => columns.includes(key)))),
       columns,
     },
     pagination: {
@@ -208,14 +261,8 @@ adminMetadataRouter.get("/table-preferences/:tableKey", requireAuth("admin"), as
   );
 
   if ((result.rowCount ?? 0) === 0) {
-    const fields = await pool.query<{ column_name: string }>(
-      `SELECT column_name
-       FROM information_schema.columns
-       WHERE table_schema = 'public' AND table_name = $1
-       ORDER BY ordinal_position ASC`,
-      [TABLE_MAP[parsed.data]]
-    );
-    const defaults = fields.rows.map((f) => f.column_name);
+    const columns = await loadColumnDefinitions(TABLE_MAP[parsed.data]);
+    const defaults = columns.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
     return res.json({
       data: {
         tableKey: parsed.data,
@@ -226,11 +273,24 @@ adminMetadataRouter.get("/table-preferences/:tableKey", requireAuth("admin"), as
     });
   }
 
+  const columns = await loadColumnDefinitions(TABLE_MAP[parsed.data]);
+  const allowedColumns = columns.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const persistedVisible = Array.isArray(result.rows[0].visible_columns)
+    ? (result.rows[0].visible_columns as string[])
+    : [];
+  const persistedOrder = Array.isArray(result.rows[0].column_order)
+    ? (result.rows[0].column_order as string[])
+    : persistedVisible;
+  const visibleColumns = normalizeColumns(persistedVisible, allowedColumns);
+  const columnOrder = normalizeColumns(persistedOrder, visibleColumns);
+  const safeVisibleColumns = visibleColumns.length > 0 ? visibleColumns : allowedColumns;
+  const safeColumnOrder = columnOrder.length > 0 ? columnOrder : safeVisibleColumns;
+
   return res.json({
     data: {
       tableKey: parsed.data,
-      visibleColumns: result.rows[0].visible_columns,
-      columnOrder: result.rows[0].column_order ?? result.rows[0].visible_columns,
+      visibleColumns: safeVisibleColumns,
+      columnOrder: safeColumnOrder,
       updatedAt: result.rows[0].updated_at,
       isDefault: false,
     },
@@ -248,19 +308,27 @@ adminMetadataRouter.put("/table-preferences/:tableKey", requireAuth("admin"), as
   }
 
   const input = bodyParsed.data;
+  const tableName = TABLE_MAP[keyParsed.data];
+  const columns = await loadColumnDefinitions(tableName);
+  const allowedColumns = columns.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const visibleColumns = normalizeColumns(input.visibleColumns, allowedColumns);
+  const fallbackColumns = visibleColumns.length > 0 ? visibleColumns : allowedColumns;
+  const columnOrder = normalizeColumns(input.columnOrder ?? fallbackColumns, fallbackColumns);
+  const safeColumnOrder = columnOrder.length > 0 ? columnOrder : fallbackColumns;
+
   await pool.query(
     `INSERT INTO admin_table_preferences (admin_user_id, table_key, visible_columns, column_order, updated_at)
      VALUES ($1, $2, $3, $4, now())
      ON CONFLICT (admin_user_id, table_key)
      DO UPDATE SET visible_columns = EXCLUDED.visible_columns, column_order = EXCLUDED.column_order, updated_at = now()`,
-    [req.auth!.userId, keyParsed.data, JSON.stringify(input.visibleColumns), JSON.stringify(input.columnOrder ?? input.visibleColumns)]
+    [req.auth!.userId, keyParsed.data, JSON.stringify(fallbackColumns), JSON.stringify(safeColumnOrder)]
   );
 
   return res.json({
     data: {
       tableKey: keyParsed.data,
-      visibleColumns: input.visibleColumns,
-      columnOrder: input.columnOrder ?? input.visibleColumns,
+      visibleColumns: fallbackColumns,
+      columnOrder: safeColumnOrder,
       updated: true,
     },
   });
