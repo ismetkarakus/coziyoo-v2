@@ -2816,6 +2816,369 @@ function BuyerDetailScreen({ id }: { id: string }) {
   );
 }
 
+type SellerComplianceStatus = "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected" | "suspended";
+type SellerComplianceDocumentStatus = "pending" | "verified" | "rejected";
+
+type SellerCompliancePayload = {
+  profile: {
+    seller_id: string;
+    country_code: string;
+    status: SellerComplianceStatus;
+    submitted_at: string | null;
+    approved_at: string | null;
+    rejected_at: string | null;
+    review_notes: string | null;
+    updated_at: string;
+  };
+  checks: Array<{
+    id: string;
+    check_code: string;
+    required: boolean;
+    status: string;
+    value_json: unknown;
+    updated_at: string;
+  }>;
+  documents: Array<{
+    id: string;
+    doc_type: string;
+    file_url: string;
+    status: SellerComplianceDocumentStatus;
+    rejection_reason: string | null;
+    uploaded_at: string;
+    reviewed_at: string | null;
+  }>;
+};
+
+function maskEmail(value: string | null | undefined): string {
+  const email = String(value ?? "").trim();
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return email || "-";
+  const head = local.slice(0, Math.min(3, local.length));
+  return `${head}***@${domain}`;
+}
+
+function maskPhone(value: string | null | undefined): string {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (!digits) return "-";
+  if (digits.length < 10) return "***";
+  const base = digits.startsWith("90") ? digits.slice(2) : digits;
+  const normalized = base.padEnd(10, "x").slice(0, 10);
+  return `+90 ${normalized.slice(0, 3)} ${normalized.slice(3, 6)} ${normalized.slice(6, 8)} ${normalized.slice(8, 10)}`.replace(
+    /\d/g,
+    (char, index) => {
+      if (index < 8) return char;
+      return "x";
+    }
+  );
+}
+
+function addTwoYears(value: string | null | undefined): string | null {
+  const date = Date.parse(String(value ?? ""));
+  if (Number.isNaN(date)) return null;
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + 2);
+  return next.toISOString();
+}
+
+function extractPhoneFromChecks(payload: SellerCompliancePayload | null): string | null {
+  if (!payload) return null;
+  for (const check of payload.checks) {
+    const code = check.check_code.toLowerCase();
+    if (!code.includes("phone") && !code.includes("telefon")) continue;
+    const raw = check.value_json;
+    if (typeof raw === "string") return raw;
+    if (raw && typeof raw === "object") {
+      const valueObj = raw as Record<string, unknown>;
+      const candidates = [valueObj.phone, valueObj.telephone, valueObj.value, valueObj.number];
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function formatUiDate(value: string | null | undefined, language: Language): string {
+  if (!value) return "-";
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return "-";
+  return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
+}
+
+function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
+  const endpoint = `/v1/admin/users/${id}`;
+  const [row, setRow] = useState<any | null>(null);
+  const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
+  const [foodRows, setFoodRows] = useState<Array<Record<string, unknown>>>([]);
+  const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "security" | "raw">("identity");
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function loadSellerDetail() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const [detailResponse, complianceResponse, foodsResponse] = await Promise.all([
+        request(endpoint),
+        request(`/v1/admin/compliance/${id}`),
+        request(`/v1/admin/metadata/tables/foods/records?page=1&pageSize=100&sortDir=desc&search=${encodeURIComponent(id)}`),
+      ]);
+
+      if (detailResponse.status !== 200) {
+        const body = await parseJson<ApiError>(detailResponse);
+        setMessage(body.error?.message ?? dict.detail.loadFailed);
+        return;
+      }
+      const detailBody = await parseJson<{ data: any }>(detailResponse);
+      setRow(detailBody.data);
+
+      if (complianceResponse.status === 200) {
+        const complianceBody = await parseJson<{ data: SellerCompliancePayload }>(complianceResponse);
+        setCompliance(complianceBody.data);
+      } else {
+        setCompliance(null);
+      }
+
+      if (foodsResponse.status === 200) {
+        const foodsBody = await parseJson<{ data: { rows: Array<Record<string, unknown>> } }>(foodsResponse);
+        const filtered = foodsBody.data.rows.filter((item) => String(item.seller_id ?? "") === id);
+        setFoodRows(filtered);
+      } else {
+        setFoodRows([]);
+      }
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed));
+  }, [id]);
+
+  async function onSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isSuperAdmin) return;
+    const formData = new FormData(event.currentTarget);
+    const payload: Record<string, string> = { email: String(formData.get("email") ?? "") };
+    const password = String(formData.get("password") ?? "").trim();
+    if (password) payload.password = password;
+    const update = await request(endpoint, { method: "PUT", body: JSON.stringify(payload) });
+    if (update.status !== 200) {
+      const body = await parseJson<ApiError>(update);
+      setMessage(body.error?.message ?? dict.detail.updateFailed);
+      return;
+    }
+    const updated = await parseJson<{ data: any }>(update);
+    setRow(updated.data);
+    setMessage(dict.common.saved);
+  }
+
+  if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
+  if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
+
+  const isActive = row.status === "active";
+  const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
+  const phone = extractPhoneFromChecks(compliance);
+  const maskedEmail = maskEmail(row.email);
+  const maskedPhone = maskPhone(phone);
+  const profileRetentionUntil = addTwoYears(row.updatedAt);
+  const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
+  const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
+    const value = String(item.updated_at ?? "");
+    if (!value) return latest;
+    if (!latest) return value;
+    return Date.parse(value) > Date.parse(latest) ? value : latest;
+  }, null);
+  const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
+
+  const profileStatusMap: Record<SellerComplianceStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
+    not_started: { label: dict.detail.sellerStatus.notStarted, tone: "neutral" },
+    in_progress: { label: dict.detail.sellerStatus.inProgress, tone: "warning" },
+    submitted: { label: dict.detail.sellerStatus.submitted, tone: "warning" },
+    under_review: { label: dict.detail.sellerStatus.underReview, tone: "warning" },
+    approved: { label: dict.detail.sellerStatus.approved, tone: "success" },
+    rejected: { label: dict.detail.sellerStatus.rejected, tone: "danger" },
+    suspended: { label: dict.detail.sellerStatus.suspended, tone: "danger" },
+  };
+  const docStatusMap: Record<SellerComplianceDocumentStatus, { label: string; tone: "success" | "warning" | "danger" }> = {
+    pending: { label: dict.detail.sellerStatus.pending, tone: "warning" },
+    verified: { label: dict.detail.sellerStatus.verified, tone: "success" },
+    rejected: { label: dict.detail.sellerStatus.rejected, tone: "danger" },
+  };
+
+  const maskedJson = {
+    id: row.id,
+    email: maskedEmail,
+    displayName: row.displayName,
+    fullName: row.fullName,
+    role: row.role,
+    status: row.status,
+    displayStatusLabel: accountStatusLabel,
+    countryCode: row.countryCode,
+    language: row.language,
+    updatedAt: row.updatedAt,
+    maskedPhone,
+    retentionUntil: profileRetentionUntil,
+    legalHoldState: "unknown",
+  };
+
+  const tabs = [
+    { key: "general", label: dict.detail.sellerTabs.general },
+    { key: "foods", label: dict.detail.sellerTabs.foods },
+    { key: "orders", label: dict.detail.sellerTabs.orders },
+    { key: "wallet", label: dict.detail.sellerTabs.wallet },
+    { key: "identity", label: dict.detail.sellerTabs.identity },
+    { key: "security", label: dict.detail.sellerTabs.security },
+    { key: "raw", label: dict.detail.sellerTabs.raw },
+  ] as const;
+
+  return (
+    <div className="app seller-detail-page">
+      <header className="topbar seller-topbar">
+        <div>
+          <h1>{dict.detail.seller}</h1>
+          <p className="subtext">{dict.detail.sellerSubtitle}</p>
+          <p className="panel-meta">{`${dict.detail.userId}: ${row.id} • ${dict.users.status}: ${accountStatusLabel}`}</p>
+        </div>
+        <div className="topbar-actions">
+          <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
+            {dict.actions.refresh}
+          </button>
+          <span className="status-pill is-active">{dict.detail.lastAction}: {formatUiDate(row.updatedAt, language)}</span>
+        </div>
+      </header>
+
+      {message ? <div className="alert">{message}</div> : null}
+
+      <section className="panel seller-identity-row">
+        <article>
+          <h2>{row.displayName ?? row.email}</h2>
+          <p className="panel-meta">{`${dict.detail.maskedEmail}: ${maskedEmail}`}</p>
+          <p className="panel-meta">{`${dict.detail.maskedPhone}: ${maskedPhone}`}</p>
+        </article>
+        <article>
+          <p>{dict.detail.legalHold}</p>
+          <strong>{dict.detail.legalHoldUnknown}</strong>
+        </article>
+        <article>
+          <p>{dict.detail.retentionPolicy}</p>
+          <strong>{`${dict.detail.retentionYears}: 2`}</strong>
+          <p className="panel-meta">{`${dict.detail.retentionUntil}: ${formatUiDate(profileRetentionUntil, language)}`}</p>
+        </article>
+      </section>
+
+      <section className="panel seller-tabs-panel">
+        <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              className={activeTab === tab.key ? "is-active" : ""}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {activeTab === "identity" ? (
+        <section className="seller-detail-grid">
+          <article className="panel">
+            <div className="panel-header">
+              <h2>{dict.detail.basicAccountEdit}</h2>
+            </div>
+            <form className="form-grid" onSubmit={onSave}>
+              <label>
+                {dict.auth.email}
+                <input name="email" defaultValue={row.email} disabled={!isSuperAdmin} />
+              </label>
+              <label>
+                {dict.detail.passwordOptional}
+                <input name="password" type="password" disabled={!isSuperAdmin} placeholder={dict.detail.passwordPlaceholder} />
+              </label>
+              <div className="seller-actions-row">
+                <span className="panel-meta">{`${dict.detail.saveChanges}: ${isSuperAdmin ? dict.common.yes : dict.common.no}`}</span>
+                <button className="primary" disabled={!isSuperAdmin} type="submit">
+                  {dict.actions.save}
+                </button>
+              </div>
+            </form>
+            <p className="panel-meta">{`${dict.detail.retentionPolicy}: ${dict.detail.retentionYears} 2 • ${dict.detail.retentionUntil}: ${formatUiDate(profileRetentionUntil, language)}`}</p>
+            {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
+            <div className="panel-header">
+              <h2>{dict.detail.accountJson}</h2>
+              <button
+                className="ghost"
+                type="button"
+                onClick={() => navigator.clipboard.writeText(JSON.stringify(maskedJson, null, 2)).catch(() => undefined)}
+              >
+                {dict.detail.copyJson}
+              </button>
+            </div>
+            <pre className="json-box">{JSON.stringify(maskedJson, null, 2)}</pre>
+          </article>
+
+          <article className="panel">
+            <div className="panel-header">
+              <h2>{dict.detail.trCompliance}</h2>
+              {compliance ? (
+                <span className={`status-pill is-${profileStatusMap[compliance.profile.status].tone}`}>{profileStatusMap[compliance.profile.status].label}</span>
+              ) : null}
+            </div>
+            <p className="panel-meta">{`${dict.detail.retentionPolicy}: ${dict.detail.retentionYears} 2 • ${dict.detail.retentionUntil}: ${formatUiDate(
+              complianceRetentionUntil,
+              language
+            )}`}</p>
+            {compliance?.profile.review_notes ? <div className="panel-note">{compliance.profile.review_notes}</div> : null}
+            {compliance ? (
+              <div className="seller-compliance-list">
+                {compliance.documents.map((doc) => (
+                  <article key={doc.id}>
+                    <div>
+                      <h3>{doc.doc_type}</h3>
+                      <p className="panel-meta">{`${dict.detail.retentionUntil}: ${formatUiDate(addTwoYears(doc.reviewed_at ?? doc.uploaded_at), language)}`}</p>
+                      {doc.rejection_reason ? <p className="panel-meta">{doc.rejection_reason}</p> : null}
+                    </div>
+                    <div className="seller-doc-meta">
+                      <span className={`status-pill is-${docStatusMap[doc.status].tone}`}>{docStatusMap[doc.status].label}</span>
+                      <a href={doc.file_url} target="_blank" rel="noreferrer">{dict.actions.detail}</a>
+                    </div>
+                  </article>
+                ))}
+                {compliance.documents.length === 0 ? <p className="panel-meta">{dict.common.noRecords}</p> : null}
+              </div>
+            ) : (
+              <p className="panel-meta">{dict.detail.noComplianceData}</p>
+            )}
+          </article>
+        </section>
+      ) : null}
+
+      {activeTab === "foods" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.foodRetentionTitle}</h2>
+          </div>
+          <p className="panel-meta">{dict.detail.foodRetentionHint}</p>
+          <p className="panel-meta">{`${dict.detail.retentionUntil}: ${formatUiDate(foodRetentionUntil, language)}`}</p>
+          <p className="panel-meta">{`${dict.detail.totalFoods}: ${foodRows.length}`}</p>
+        </section>
+      ) : null}
+
+      {activeTab !== "identity" && activeTab !== "foods" ? (
+        <section className="panel">
+          <p className="panel-meta">{dict.detail.sectionPlanned}</p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function DefaultUserDetailScreen({
   kind,
   isSuperAdmin,
@@ -2892,6 +3255,7 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
   const location = useLocation();
   const id = location.pathname.split("/").at(-1) ?? "";
   if (kind === "buyers") return <BuyerDetailScreen id={id} />;
+  if (kind === "sellers") return <SellerDetailScreen id={id} isSuperAdmin={isSuperAdmin} dict={dict} language={language} />;
   return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;
 }
 
