@@ -1181,6 +1181,30 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const status = value === "disabled" ? "disabled" : "active";
       return <span className={`status-pill ${status === "active" ? "is-active" : "is-disabled"}`}>{status === "active" ? "Aktif" : "Pasif"}</span>;
     }
+    if (mapped === "displayName") {
+      const text = String(value ?? "");
+      const initials = text
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p: string) => p[0]?.toUpperCase() ?? "")
+        .join("");
+      return (
+        <span className="name-cell">
+          <span className="name-avatar">{initials || "U"}</span>
+          {text}
+        </span>
+      );
+    }
+    if (mapped === "countryCode") {
+      const cc = String(value ?? "").toUpperCase();
+      if (cc === "TR") return "Türkiye";
+      if (cc === "US") return "United States";
+      if (cc === "IT") return "Italy";
+      if (cc === "JP") return "Japan";
+      if (cc === "FR") return "France";
+      return cc || "-";
+    }
     if (mapped === "createdAt" || mapped === "updatedAt" || mapped === "lastLoginAt") {
       const text = String(value ?? "");
       return text ? text.slice(0, 10) : "-";
@@ -1279,6 +1303,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
             </button>
           </div>
+          <button className="primary users-filter-apply" type="button" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}>
+            {language === "tr" ? "Filtrele" : "Filter"}
+          </button>
           <div className="density-switch" role="group" aria-label="Table density">
             <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
               {language === "tr" ? "Kompakt" : "Compact"}
@@ -1293,20 +1320,33 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </div>
 
         <div className="users-filter-advanced">
-          <span className="panel-meta">{language === "tr" ? `Filtreler (${activeFilterCount})` : `Filters (${activeFilterCount})`}</span>
-          <button
-            className="ghost"
-            type="button"
-            onClick={() => {
-              setActiveQuickStatus("all");
-              setLast7DaysOnly(false);
-              setSearchInput("");
-              setSearchTerm("");
-              setFilters((prev) => ({ ...prev, page: 1, roleFilter: "all" }));
-            }}
-          >
-            {language === "tr" ? "Filtreleri Temizle" : "Clear Filters"}
-          </button>
+          <div className="users-filter-advanced-left">
+            <span className="panel-meta">{language === "tr" ? `Filtreler (${activeFilterCount})` : `Filters (${activeFilterCount})`}</span>
+            <button className="ghost users-mini-btn" type="button">
+              {language === "tr" ? "Filtreler" : "Filters"}
+            </button>
+            <button className="ghost users-mini-btn" type="button">
+              {language === "tr" ? "Orale" : "Sort"}
+            </button>
+          </div>
+          <div className="users-filter-advanced-right">
+            <button className="ghost users-mini-btn" type="button">
+              {language === "tr" ? `Filtreler (${activeFilterCount})` : `Filters (${activeFilterCount})`}
+            </button>
+            <button
+              className="ghost users-mini-btn"
+              type="button"
+              onClick={() => {
+                setActiveQuickStatus("all");
+                setLast7DaysOnly(false);
+                setSearchInput("");
+                setSearchTerm("");
+                setFilters((prev) => ({ ...prev, page: 1, roleFilter: "all" }));
+              }}
+            >
+              {language === "tr" ? "Hepsini Te" : "Clear All"}
+            </button>
+          </div>
         </div>
 
         <div className="filter-grid">
@@ -1428,21 +1468,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           <button
                             className="ghost action-btn"
                             type="button"
-                            title="Edit"
-                            aria-label="Edit"
-                            onClick={() => openEditDrawer(row)}
-                          >
-                            <span aria-hidden="true">✏️</span>
-                            <span className="sr-only">Edit</span>
-                          </button>
-                          <button
-                            className="ghost action-btn"
-                            type="button"
-                            title={row.status === "disabled" ? (language === "tr" ? "Aktif Yap" : "Activate") : (language === "tr" ? "Pasif Yap" : "Deactivate")}
+                            title={language === "tr" ? "Pasif Yap" : "Disable"}
                             aria-label={dict.actions.toggleStatus}
                             onClick={() => toggleStatusAction(row)}
                           >
-                            <span aria-hidden="true">{row.status === "disabled" ? "Aktif Yap" : "Pasif Yap"}</span>
+                            <span aria-hidden="true">{language === "tr" ? "Pasif Yap" : "Disable"}</span>
                             <span className="sr-only">{dict.actions.toggleStatus}</span>
                           </button>
                         </>
@@ -1490,20 +1520,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </div>
       </section>
 
-      {showState !== "none" ? (
-        <section className="users-state-panel">
-          {showState === "loading" ? <div className="panel">{dict.common.loading}</div> : null}
-          {showState === "empty" ? <div className="panel">{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</div> : null}
-          {showState === "error" ? (
-            <div className="panel">
-              <p>{error}</p>
-              <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-                {language === "tr" ? "Yeniden Dene" : "Retry"}
-              </button>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+      <section className="users-state-panel">
+        <div className={`panel state-card ${showState === "loading" ? "is-active" : ""}`}>
+          <p>{dict.common.loading}</p>
+        </div>
+        <div className={`panel state-card ${showState === "empty" ? "is-active" : ""}`}>
+          <p>{language === "tr" ? "Hic alıcı bulunamadı" : "No buyers found"}</p>
+        </div>
+        <div className={`panel state-card ${showState === "error" ? "is-active" : ""}`}>
+          <p>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</p>
+          <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+            {language === "tr" ? "Yenikien Done" : "Retry"}
+          </button>
+        </div>
+      </section>
 
       <div className={`drawer-overlay ${isDrawerOpen ? "is-open" : ""}`} onClick={closeDrawer}>
         <aside className={`form-drawer ${isDrawerOpen ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
