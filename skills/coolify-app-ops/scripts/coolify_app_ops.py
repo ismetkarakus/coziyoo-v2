@@ -108,14 +108,13 @@ class CoolifyClient:
         is_build_time: bool,
         is_literal: bool,
     ) -> Any:
-        payload = {
-            "key": key,
-            "value": value,
-            "is_preview": is_preview,
-            "is_build_time": is_build_time,
-            "is_literal": is_literal,
-        }
-        return self._request("POST", f"/api/v1/applications/{app_uuid}/envs", payload=payload)
+        last_error = None
+        for payload in self._env_payload_variants(key, value, is_preview, is_build_time, is_literal):
+            try:
+                return self._request("POST", f"/api/v1/applications/{app_uuid}/envs", payload=payload)
+            except RuntimeError as e:
+                last_error = e
+        raise RuntimeError(str(last_error))
 
     def update_env(
         self,
@@ -127,33 +126,64 @@ class CoolifyClient:
         is_build_time: bool,
         is_literal: bool,
     ) -> Any:
-        payload = {
+        last_error = None
+        payloads = self._env_payload_variants(key, value, is_preview, is_build_time, is_literal)
+        for method in ("PATCH", "PUT"):
+            for payload in payloads:
+                try:
+                    return self._request(
+                        method,
+                        f"/api/v1/applications/{app_uuid}/envs/{env_uuid}",
+                        payload=payload,
+                    )
+                except RuntimeError as e:
+                    last_error = e
+        raise RuntimeError(str(last_error))
+
+    @staticmethod
+    def _env_payload_variants(
+        key: str,
+        value: str,
+        is_preview: bool,
+        is_build_time: bool,
+        is_literal: bool,
+    ) -> List[Dict[str, Any]]:
+        base = {
             "key": key,
             "value": value,
             "is_preview": is_preview,
             "is_build_time": is_build_time,
             "is_literal": is_literal,
         }
-        for method in ("PATCH", "PUT"):
-            try:
-                return self._request(
-                    method,
-                    f"/api/v1/applications/{app_uuid}/envs/{env_uuid}",
-                    payload=payload,
-                )
-            except RuntimeError as e:
-                last_error = e
-        raise RuntimeError(str(last_error))
+        # Coolify API request schema can differ by version.
+        return [
+            base,
+            {k: v for k, v in base.items() if k != "is_build_time"},
+            {k: v for k, v in base.items() if k != "is_literal"},
+            {"key": key, "value": value, "is_preview": is_preview},
+            {"key": key, "value": value},
+        ]
 
     def delete_env(self, app_uuid: str, env_uuid: str) -> Any:
         return self._request("DELETE", f"/api/v1/applications/{app_uuid}/envs/{env_uuid}")
 
     def deploy(self, app_uuid: str) -> Any:
-        # Coolify deploy endpoint behavior can vary by version; try POST then GET.
-        try:
-            return self._request("POST", f"/api/v1/applications/{app_uuid}/deploy")
-        except RuntimeError:
-            return self._request("GET", f"/api/v1/applications/{app_uuid}/deploy")
+        # Coolify deploy endpoint behavior can vary by version.
+        attempts = [
+            ("GET", "/api/v1/deploy", None, {"uuid": app_uuid}),
+            ("POST", "/api/v1/deploy", {"uuid": app_uuid}, None),
+            ("GET", f"/api/v1/applications/{app_uuid}/start", None, None),
+            ("POST", f"/api/v1/applications/{app_uuid}/start", None, None),
+            ("POST", f"/api/v1/applications/{app_uuid}/deploy", None, None),
+            ("GET", f"/api/v1/applications/{app_uuid}/deploy", None, None),
+        ]
+        last_error = None
+        for method, path, payload, query in attempts:
+            try:
+                return self._request(method, path, payload=payload, query=query)
+            except RuntimeError as e:
+                last_error = e
+        raise RuntimeError(str(last_error))
 
     def logs(self, app_uuid: str, lines: Optional[int]) -> Any:
         query = {"lines": lines} if lines is not None else None
@@ -180,8 +210,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--token",
-        default=os.getenv("COOLIFY_TOKEN", ""),
-        help="Coolify API token (or set COOLIFY_TOKEN)",
+        default=os.getenv("COOLIFY_TOKEN", "") or os.getenv("COOLIFY_API_TOKEN", ""),
+        help="Coolify API token (or set COOLIFY_TOKEN / COOLIFY_API_TOKEN)",
     )
     parser.add_argument("--timeout", type=int, default=30, help="HTTP timeout in seconds")
 
@@ -238,11 +268,13 @@ def pick_env_by_key(envs: List[Dict[str, Any]], key: str) -> Optional[Dict[str, 
 
 
 def ensure_client(args: argparse.Namespace) -> CoolifyClient:
-    if not args.base_url:
+    base_url = str(args.base_url).strip().strip("'\"")
+    token = str(args.token).strip().strip("'\"")
+    if not base_url:
         raise RuntimeError("Missing --base-url (or COOLIFY_BASE_URL)")
-    if not args.token:
-        raise RuntimeError("Missing --token (or COOLIFY_TOKEN)")
-    return CoolifyClient(args.base_url, args.token, timeout=args.timeout)
+    if not token:
+        raise RuntimeError("Missing --token (or COOLIFY_TOKEN / COOLIFY_API_TOKEN)")
+    return CoolifyClient(base_url, token, timeout=args.timeout)
 
 
 def print_json(data: Any) -> None:
