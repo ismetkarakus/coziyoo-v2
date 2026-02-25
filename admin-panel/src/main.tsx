@@ -1277,7 +1277,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             <span className="users-search-icon" aria-hidden="true">⌕</span>
             <input
               className="users-search-input"
-              placeholder={dict.users.searchPlaceholder}
+              placeholder={language === "tr" ? "E-posta veya Ad Ara..." : "Search by email or name..."}
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
             />
@@ -1301,7 +1301,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 setFilters((prev) => ({ ...prev, page: 1 }));
               }}
             >
-              {language === "tr" ? "Pasif" : "Disabled"} ({passiveRows.length})
+              ⌁ {language === "tr" ? "Pasif" : "Disabled"} ({passiveRows.length})
             </button>
             <button
               type="button"
@@ -1314,6 +1314,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
             </button>
           </div>
+          <button
+            className="ghost users-sort-pill"
+            type="button"
+            onClick={() =>
+              setFilters((prev) => ({
+                ...prev,
+                sortDir: prev.sortDir === "desc" ? "asc" : "desc",
+                page: 1,
+              }))
+            }
+          >
+            {language === "tr" ? "Sırala: Kayıt Tarihi • " : "Sort: Created Date • "}
+            {filters.sortDir === "desc" ? (language === "tr" ? "Azalan" : "Desc") : language === "tr" ? "Artan" : "Asc"} ▼
+          </button>
           <button className="primary users-filter-apply" type="button" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}>
             {language === "tr" ? "Filtrele" : "Filter"}
           </button>
@@ -1347,72 +1361,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               {language === "tr" ? "Hepsini Te" : "Clear All"}
             </button>
           </div>
-        </div>
-
-        <div className="filter-grid">
-          <label>
-            {dict.users.sortBy}
-            <select value={filters.sortBy} onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, sortBy: event.target.value }))}>
-              {isAppScoped ? (
-                <>
-                  <option value="createdAt">createdAt</option>
-                  <option value="updatedAt">updatedAt</option>
-                  <option value="email">email</option>
-                  <option value="displayName">displayName</option>
-                  <option value="userType">userType</option>
-                  <option value="status">status</option>
-                </>
-              ) : (
-                <>
-                  <option value="createdAt">createdAt</option>
-                  <option value="updatedAt">updatedAt</option>
-                  <option value="email">email</option>
-                  <option value="role">role</option>
-                  <option value="status">status</option>
-                </>
-              )}
-            </select>
-          </label>
-          <label>
-            {dict.users.direction}
-            <select
-              value={filters.sortDir}
-              onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, sortDir: event.target.value as "asc" | "desc" }))}
-            >
-              <option value="desc">{dict.common.desc}</option>
-              <option value="asc">{dict.common.asc}</option>
-            </select>
-          </label>
-          <label>
-            {dict.users.roleFilter}
-            <select value={filters.roleFilter} onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, roleFilter: event.target.value }))}>
-              <option value="all">{dict.common.all}</option>
-              {isAppScoped ? (
-                <>
-                  <option value="buyer">{dict.users.userTypeBuyer}</option>
-                  <option value="seller">{dict.users.userTypeSeller}</option>
-                  <option value="both">{dict.users.userTypeBoth}</option>
-                </>
-              ) : (
-                <>
-                  <option value="admin">{dict.users.roleAdmin}</option>
-                  <option value="super_admin">{dict.users.roleSuperAdmin}</option>
-                </>
-              )}
-            </select>
-          </label>
-          <label>
-            {dict.users.pageSize}
-            <select
-              value={String(filters.pageSize)}
-              onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, pageSize: Number(event.target.value) }))}
-            >
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-          </label>
         </div>
 
         <div className={`table-wrap users-table-wrap density-${density}`}>
@@ -1460,7 +1408,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           )
                         }
                       >
-                        <span aria-hidden="true">👁</span>
+                        <span aria-hidden="true">◉ Detay</span>
                         <span className="sr-only">{dict.actions.detail}</span>
                       </button>
                       {isSuperAdmin ? (
@@ -1472,7 +1420,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             aria-label={dict.actions.toggleStatus}
                             onClick={() => toggleStatusAction(row)}
                           >
-                            <span aria-hidden="true">{language === "tr" ? "Pasif Yap" : "Disable"}</span>
+                            <span aria-hidden="true">◔ {language === "tr" ? "Pasif Yap" : "Disable"}</span>
                             <span className="sr-only">{dict.actions.toggleStatus}</span>
                           </button>
                         </>
