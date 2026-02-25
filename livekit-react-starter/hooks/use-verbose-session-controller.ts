@@ -474,8 +474,52 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         summary: 'Awaiting assistant-native response over LiveKit',
         payload: { roomName: currentRoomName },
       });
+
+      try {
+        const response = await fetch('/api/starter/agent-chat', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-device-id': deviceId,
+          },
+          body: JSON.stringify({
+            roomName: currentRoomName,
+            text: payload.text,
+            deviceId,
+          }),
+        });
+        const raw = await response.text();
+        let parsed: unknown = raw;
+        try {
+          parsed = raw ? JSON.parse(raw) : null;
+        } catch {
+          parsed = raw;
+        }
+        if (!response.ok) {
+          addEvent({
+            source: 'error',
+            eventType: 'AGENT_CHAT_REQUEST_FAILED',
+            summary: `Agent chat request failed (${response.status})`,
+            payload: parsed,
+          });
+          return;
+        }
+        addEvent({
+          source: 'api',
+          eventType: 'AGENT_CHAT_REQUEST_OK',
+          summary: 'Starter agent chat request succeeded',
+          payload: parsed,
+        });
+      } catch (error) {
+        addEvent({
+          source: 'error',
+          eventType: 'AGENT_CHAT_REQUEST_ERROR',
+          summary: 'Starter agent chat request errored',
+          payload: { message: error instanceof Error ? error.message : 'Unknown error' },
+        });
+      }
     },
-    [addEvent, roomName]
+    [addEvent, deviceId, roomName]
   );
 
   useEffect(() => {
