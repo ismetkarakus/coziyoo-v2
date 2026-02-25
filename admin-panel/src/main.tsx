@@ -1227,21 +1227,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <header className="topbar">
         <div>
           <h1>{pageTitle}</h1>
-          <p className="panel-meta">
-            {fmt(dict.common.paginationSummary, {
-              total: pagination?.total ?? 0,
-              page: filters.page,
-              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
-            })}
-            {lastUpdatedAt ? ` • ${lastUpdatedAt.slice(11, 19)}` : ""}
-          </p>
         </div>
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
             {dict.users.visibleColumns}
           </button>
-          <button className="primary" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
-            {dict.actions.create}
+          <button className="ghost" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
+            + {dict.actions.create}
           </button>
           <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
             {dict.actions.refresh}
@@ -1250,6 +1242,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       </header>
 
       <section className="panel users-kpi-grid">
+        <div className="density-switch users-density-floating" role="group" aria-label="Table density">
+          <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
+            {language === "tr" ? "Kompakt" : "Compact"}
+          </button>
+          <button type="button" className={density === "normal" ? "is-active" : ""} onClick={() => setDensity("normal")}>
+            {language === "tr" ? "Normal" : "Normal"}
+          </button>
+          <button type="button" className={density === "comfortable" ? "is-active" : ""} onClick={() => setDensity("comfortable")}>
+            {language === "tr" ? "Rahat" : "Comfort"}
+          </button>
+        </div>
         <article>
           <p>{language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
           <h2>{pagination?.total ?? rows.length}</h2>
@@ -1306,17 +1309,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <button className="primary users-filter-apply" type="button" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}>
             {language === "tr" ? "Filtrele" : "Filter"}
           </button>
-          <div className="density-switch" role="group" aria-label="Table density">
-            <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
-              {language === "tr" ? "Kompakt" : "Compact"}
-            </button>
-            <button type="button" className={density === "normal" ? "is-active" : ""} onClick={() => setDensity("normal")}>
-              {language === "tr" ? "Normal" : "Normal"}
-            </button>
-            <button type="button" className={density === "comfortable" ? "is-active" : ""} onClick={() => setDensity("comfortable")}>
-              {language === "tr" ? "Rahat" : "Comfort"}
-            </button>
-          </div>
         </div>
 
         <div className="users-filter-advanced">
