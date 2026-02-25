@@ -2288,15 +2288,6 @@ textarea:focus {
     align-items: flex-start;
   }
 
-  .seller-compliance-row {
-    grid-template-columns: 24px minmax(0, 1fr);
-  }
-
-  .compliance-edit-btn {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
-
   .buyer-summary-grid {
     grid-template-columns: 1fr;
   }
@@ -2363,6 +2354,17 @@ textarea:focus {
 
   .livekit-video {
     min-height: 200px;
+  }
+}
+
+@media (max-width: 700px) {
+  .seller-compliance-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .compliance-edit-btn {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 }
 

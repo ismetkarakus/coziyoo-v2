@@ -266,7 +266,8 @@
       "rejected": "Reddedildi",
       "suspended": "Askıda",
       "pending": "Beklemede",
-      "verified": "Onaylandı"
+      "verified": "Onaylandı",
+      "validated": "Doğrulandı"
     },
     "passwordOptional": "Şifre (opsiyonel sıfırlama)",
     "readOnly": "admin rolü için salt-okunur mod.",

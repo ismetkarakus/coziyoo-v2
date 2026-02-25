@@ -2866,6 +2866,7 @@ type ComplianceRowViewModel = {
   tone: ComplianceTone;
   detailText: string;
   isOptional?: boolean;
+  sourceType: "document" | "check" | "fallback";
 };
 
 type ComplianceSource = {
@@ -2959,9 +2960,10 @@ function complianceToneFromStatus(status: string | null | undefined): Compliance
   return "neutral";
 }
 
-function complianceLabelFromTone(tone: ComplianceTone, dict: Dictionary): string {
+function complianceLabelFromTone(tone: ComplianceTone, dict: Dictionary, sourceType: "document" | "check" | "fallback"): string {
   if (tone === "success") return dict.detail.sellerStatus.verified;
   if (tone === "danger") return dict.detail.sellerStatus.rejected;
+  if (tone === "warning" && sourceType === "check") return dict.detail.sellerStatus.underReview;
   return dict.detail.sellerStatus.pending;
 }
 
@@ -3050,9 +3052,13 @@ function mapComplianceRows(
   ];
 
   return rowMeta.map((meta) => {
-    const source = docByKey.get(meta.key) ?? checkByKey.get(meta.key) ?? null;
+    const documentSource = docByKey.get(meta.key) ?? null;
+    const checkSource = checkByKey.get(meta.key) ?? null;
+    const source = documentSource ?? checkSource ?? null;
+    const sourceType: "document" | "check" | "fallback" = documentSource ? "document" : checkSource ? "check" : "fallback";
     const tone = complianceToneFromStatus(source?.status ?? null);
-    const statusLabel = complianceLabelFromTone(tone, dict);
+    const statusLabel =
+      tone === "success" && sourceType === "check" ? dict.detail.sellerStatus.validated : complianceLabelFromTone(tone, dict, sourceType);
     const date = pickComplianceSourceDate(
       source ?? {
         status: null,
@@ -3071,6 +3077,7 @@ function mapComplianceRows(
       tone,
       detailText,
       isOptional: meta.optional,
+      sourceType,
     };
   });
 }

@@ -266,7 +266,8 @@
       "rejected": "Rejected",
       "suspended": "Suspended",
       "pending": "Pending",
-      "verified": "Approved"
+      "verified": "Approved",
+      "validated": "Validated"
     },
     "passwordOptional": "Password (optional reset)",
     "readOnly": "read-only mode for admin role.",
