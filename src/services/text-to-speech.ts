@@ -1,10 +1,36 @@
 import { env } from "../config/env.js";
 import { DEFAULT_TTS_ENGINE, type TtsEngine } from "./tts-engines.js";
 
+type TtsRuntimeConfig = {
+  baseUrl?: string;
+  path?: string;
+  f5?: {
+    speakerId?: string;
+    speakerWavPath?: string;
+  };
+  xtts?: {
+    speakerWavUrl?: string;
+  };
+  chatterbox?: {
+    voiceMode?: "predefined" | "clone";
+    predefinedVoiceId?: string;
+    referenceAudioFilename?: string;
+    outputFormat?: "wav" | "opus";
+    splitText?: boolean;
+    chunkSize?: number;
+    temperature?: number;
+    exaggeration?: number;
+    cfgWeight?: number;
+    seed?: number;
+    speedFactor?: number;
+  };
+};
+
 type SynthesizeInput = {
   text: string;
   language?: string;
   engine?: TtsEngine;
+  ttsConfig?: Record<string, unknown>;
 };
 
 type SynthesizeOutput = {
@@ -16,13 +42,14 @@ type SynthesizeOutput = {
 
 export async function synthesizeSpeech(input: SynthesizeInput): Promise<SynthesizeOutput> {
   const engine = input.engine ?? DEFAULT_TTS_ENGINE;
-  const baseUrl = resolveEngineBaseUrl(engine);
+  const runtimeConfig = normalizeRuntimeConfig(input.ttsConfig);
+  const baseUrl = resolveEngineBaseUrl(engine, runtimeConfig);
   if (!baseUrl) {
     throw new Error("TTS_NOT_CONFIGURED");
   }
 
-  const endpoint = new URL(resolveEnginePath(engine), baseUrl).toString();
-  const { body, headers } = await buildEngineRequest(engine, input);
+  const endpoint = new URL(resolveEnginePath(engine, runtimeConfig), baseUrl).toString();
+  const { body, headers } = await buildEngineRequest(engine, input, runtimeConfig);
 
   if (env.TTS_API_KEY) {
     headers.set("authorization", `Bearer ${env.TTS_API_KEY}`);
@@ -59,7 +86,10 @@ export async function synthesizeSpeech(input: SynthesizeInput): Promise<Synthesi
   }
 }
 
-function resolveEngineBaseUrl(engine: TtsEngine): string | undefined {
+function resolveEngineBaseUrl(engine: TtsEngine, runtimeConfig: TtsRuntimeConfig): string | undefined {
+  if (runtimeConfig.baseUrl) {
+    return runtimeConfig.baseUrl;
+  }
   if (engine === "f5-tts") {
     return env.TTS_F5_BASE_URL ?? env.TTS_BASE_URL;
   }
@@ -69,7 +99,10 @@ function resolveEngineBaseUrl(engine: TtsEngine): string | undefined {
   return env.TTS_XTTS_BASE_URL ?? env.TTS_BASE_URL;
 }
 
-function resolveEnginePath(engine: TtsEngine): string {
+function resolveEnginePath(engine: TtsEngine, runtimeConfig: TtsRuntimeConfig): string {
+  if (runtimeConfig.path) {
+    return runtimeConfig.path;
+  }
   if (engine === "f5-tts") {
     return env.TTS_F5_SYNTH_PATH;
   }
@@ -79,17 +112,22 @@ function resolveEnginePath(engine: TtsEngine): string {
   return env.TTS_XTTS_SYNTH_PATH;
 }
 
-async function buildEngineRequest(engine: TtsEngine, input: SynthesizeInput): Promise<{ body: BodyInit; headers: Headers }> {
+async function buildEngineRequest(
+  engine: TtsEngine,
+  input: SynthesizeInput,
+  runtimeConfig: TtsRuntimeConfig
+): Promise<{ body: BodyInit; headers: Headers }> {
   if (engine === "f5-tts") {
     const headers = new Headers();
     headers.set("content-type", "application/json");
     const payload: Record<string, string> = {
       text: input.text,
       "language-id": input.language ?? env.TTS_LANGUAGE_DEFAULT,
-      "speaker-id": env.TTS_SPEAKER_ID,
+      "speaker-id": runtimeConfig.f5?.speakerId ?? env.TTS_SPEAKER_ID,
     };
-    if (env.TTS_SPEAKER_WAV_PATH) {
-      payload["speaker-wav"] = env.TTS_SPEAKER_WAV_PATH;
+    const f5SpeakerWavPath = runtimeConfig.f5?.speakerWavPath ?? env.TTS_SPEAKER_WAV_PATH;
+    if (f5SpeakerWavPath) {
+      payload["speaker-wav"] = f5SpeakerWavPath;
     }
     return {
       body: JSON.stringify(payload),
@@ -103,29 +141,38 @@ async function buildEngineRequest(engine: TtsEngine, input: SynthesizeInput): Pr
 
     const payload: Record<string, string | number | boolean> = {
       text: input.text,
-      voice_mode: env.TTS_CHATTERBOX_VOICE_MODE,
-      output_format: env.TTS_CHATTERBOX_OUTPUT_FORMAT,
-      split_text: env.TTS_CHATTERBOX_SPLIT_TEXT,
-      chunk_size: env.TTS_CHATTERBOX_CHUNK_SIZE,
+      voice_mode: runtimeConfig.chatterbox?.voiceMode ?? env.TTS_CHATTERBOX_VOICE_MODE,
+      output_format: runtimeConfig.chatterbox?.outputFormat ?? env.TTS_CHATTERBOX_OUTPUT_FORMAT,
+      split_text: runtimeConfig.chatterbox?.splitText ?? env.TTS_CHATTERBOX_SPLIT_TEXT,
+      chunk_size: runtimeConfig.chatterbox?.chunkSize ?? env.TTS_CHATTERBOX_CHUNK_SIZE,
     };
 
-    if (env.TTS_CHATTERBOX_VOICE_MODE === "predefined") {
-      if (!env.TTS_CHATTERBOX_PREDEFINED_VOICE_ID) {
+    if (payload.voice_mode === "predefined") {
+      const predefinedVoiceId =
+        runtimeConfig.chatterbox?.predefinedVoiceId ?? env.TTS_CHATTERBOX_PREDEFINED_VOICE_ID;
+      if (!predefinedVoiceId) {
         throw new Error("TTS_CHATTERBOX_PREDEFINED_VOICE_ID_REQUIRED");
       }
-      payload.predefined_voice_id = env.TTS_CHATTERBOX_PREDEFINED_VOICE_ID;
+      payload.predefined_voice_id = predefinedVoiceId;
     } else {
-      if (!env.TTS_CHATTERBOX_REFERENCE_AUDIO_FILENAME) {
+      const referenceAudioFilename =
+        runtimeConfig.chatterbox?.referenceAudioFilename ?? env.TTS_CHATTERBOX_REFERENCE_AUDIO_FILENAME;
+      if (!referenceAudioFilename) {
         throw new Error("TTS_CHATTERBOX_REFERENCE_AUDIO_FILENAME_REQUIRED");
       }
-      payload.reference_audio_filename = env.TTS_CHATTERBOX_REFERENCE_AUDIO_FILENAME;
+      payload.reference_audio_filename = referenceAudioFilename;
     }
 
-    if (env.TTS_CHATTERBOX_TEMPERATURE !== undefined) payload.temperature = env.TTS_CHATTERBOX_TEMPERATURE;
-    if (env.TTS_CHATTERBOX_EXAGGERATION !== undefined) payload.exaggeration = env.TTS_CHATTERBOX_EXAGGERATION;
-    if (env.TTS_CHATTERBOX_CFG_WEIGHT !== undefined) payload.cfg_weight = env.TTS_CHATTERBOX_CFG_WEIGHT;
-    if (env.TTS_CHATTERBOX_SEED !== undefined) payload.seed = env.TTS_CHATTERBOX_SEED;
-    if (env.TTS_CHATTERBOX_SPEED_FACTOR !== undefined) payload.speed_factor = env.TTS_CHATTERBOX_SPEED_FACTOR;
+    const temperature = runtimeConfig.chatterbox?.temperature ?? env.TTS_CHATTERBOX_TEMPERATURE;
+    const exaggeration = runtimeConfig.chatterbox?.exaggeration ?? env.TTS_CHATTERBOX_EXAGGERATION;
+    const cfgWeight = runtimeConfig.chatterbox?.cfgWeight ?? env.TTS_CHATTERBOX_CFG_WEIGHT;
+    const seed = runtimeConfig.chatterbox?.seed ?? env.TTS_CHATTERBOX_SEED;
+    const speedFactor = runtimeConfig.chatterbox?.speedFactor ?? env.TTS_CHATTERBOX_SPEED_FACTOR;
+    if (temperature !== undefined) payload.temperature = temperature;
+    if (exaggeration !== undefined) payload.exaggeration = exaggeration;
+    if (cfgWeight !== undefined) payload.cfg_weight = cfgWeight;
+    if (seed !== undefined) payload.seed = seed;
+    if (speedFactor !== undefined) payload.speed_factor = speedFactor;
     if (input.language) payload.language = input.language;
 
     return {
@@ -138,9 +185,10 @@ async function buildEngineRequest(engine: TtsEngine, input: SynthesizeInput): Pr
   const form = new FormData();
   form.set("text", input.text);
   form.set("language", input.language ?? env.TTS_LANGUAGE_DEFAULT);
-  if (env.TTS_XTTS_SPEAKER_WAV_URL) {
+  const xttsSpeakerWavUrl = runtimeConfig.xtts?.speakerWavUrl ?? env.TTS_XTTS_SPEAKER_WAV_URL;
+  if (xttsSpeakerWavUrl) {
     try {
-      const speakerResponse = await fetch(env.TTS_XTTS_SPEAKER_WAV_URL, {
+      const speakerResponse = await fetch(xttsSpeakerWavUrl, {
         method: "GET",
       });
       if (!speakerResponse.ok) {
@@ -157,5 +205,44 @@ async function buildEngineRequest(engine: TtsEngine, input: SynthesizeInput): Pr
   return {
     body: form,
     headers,
+  };
+}
+
+function normalizeRuntimeConfig(input: Record<string, unknown> | undefined): TtsRuntimeConfig {
+  if (!input || typeof input !== "object") {
+    return {};
+  }
+  const value = input as Record<string, unknown>;
+  const f5 = value.f5 && typeof value.f5 === "object" ? (value.f5 as Record<string, unknown>) : {};
+  const xtts = value.xtts && typeof value.xtts === "object" ? (value.xtts as Record<string, unknown>) : {};
+  const chatterbox =
+    value.chatterbox && typeof value.chatterbox === "object"
+      ? (value.chatterbox as Record<string, unknown>)
+      : {};
+
+  return {
+    baseUrl: typeof value.baseUrl === "string" ? value.baseUrl : undefined,
+    path: typeof value.path === "string" ? value.path : undefined,
+    f5: {
+      speakerId: typeof f5.speakerId === "string" ? f5.speakerId : undefined,
+      speakerWavPath: typeof f5.speakerWavPath === "string" ? f5.speakerWavPath : undefined,
+    },
+    xtts: {
+      speakerWavUrl: typeof xtts.speakerWavUrl === "string" ? xtts.speakerWavUrl : undefined,
+    },
+    chatterbox: {
+      voiceMode: chatterbox.voiceMode === "clone" ? "clone" : chatterbox.voiceMode === "predefined" ? "predefined" : undefined,
+      predefinedVoiceId: typeof chatterbox.predefinedVoiceId === "string" ? chatterbox.predefinedVoiceId : undefined,
+      referenceAudioFilename:
+        typeof chatterbox.referenceAudioFilename === "string" ? chatterbox.referenceAudioFilename : undefined,
+      outputFormat: chatterbox.outputFormat === "opus" ? "opus" : chatterbox.outputFormat === "wav" ? "wav" : undefined,
+      splitText: typeof chatterbox.splitText === "boolean" ? chatterbox.splitText : undefined,
+      chunkSize: typeof chatterbox.chunkSize === "number" ? chatterbox.chunkSize : undefined,
+      temperature: typeof chatterbox.temperature === "number" ? chatterbox.temperature : undefined,
+      exaggeration: typeof chatterbox.exaggeration === "number" ? chatterbox.exaggeration : undefined,
+      cfgWeight: typeof chatterbox.cfgWeight === "number" ? chatterbox.cfgWeight : undefined,
+      seed: typeof chatterbox.seed === "number" ? chatterbox.seed : undefined,
+      speedFactor: typeof chatterbox.speedFactor === "number" ? chatterbox.speedFactor : undefined,
+    },
   };
 }

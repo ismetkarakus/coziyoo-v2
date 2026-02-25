@@ -13,10 +13,14 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.text();
+    const deviceId = req.headers.get('x-device-id') ?? '';
     const endpoint = `${API_BASE_URL.replace(/\/+$/, '')}/v1/livekit/starter/tts/synthesize`;
     const upstream = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(deviceId ? { 'x-device-id': deviceId } : {}),
+      },
       body,
       cache: 'no-store',
     });

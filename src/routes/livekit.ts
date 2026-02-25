@@ -81,6 +81,38 @@ const StarterAgentSettingsSchema = z.object({
   agentName: z.string().max(128),
   voiceLanguage: z.string().min(2).max(16).regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
   ttsEngine: z.enum(TTS_ENGINES).default("f5-tts"),
+  ttsConfig: z
+    .object({
+      baseUrl: z.string().url().optional(),
+      path: z.string().max(256).optional(),
+      f5: z
+        .object({
+          speakerId: z.string().max(128).optional(),
+          speakerWavPath: z.string().max(1_024).optional(),
+        })
+        .optional(),
+      xtts: z
+        .object({
+          speakerWavUrl: z.string().url().optional(),
+        })
+        .optional(),
+      chatterbox: z
+        .object({
+          voiceMode: z.enum(["predefined", "clone"]).optional(),
+          predefinedVoiceId: z.string().max(256).optional(),
+          referenceAudioFilename: z.string().max(256).optional(),
+          outputFormat: z.enum(["wav", "opus"]).optional(),
+          splitText: z.boolean().optional(),
+          chunkSize: z.number().int().min(50).max(500).optional(),
+          temperature: z.number().min(0.1).max(1.5).optional(),
+          exaggeration: z.number().optional(),
+          cfgWeight: z.number().optional(),
+          seed: z.number().int().optional(),
+          speedFactor: z.number().positive().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   ttsEnabled: z.boolean(),
   sttEnabled: z.boolean(),
   systemPrompt: z.string().max(4_000).optional(),
@@ -395,7 +427,7 @@ liveKitRouter.post("/tts/synthesize", requireAuth("app"), async (req, res) => {
       return res.status(503).json({
         error: {
           code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL in API environment.",
+          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL/TTS_CHATTERBOX_BASE_URL in API environment.",
         },
       });
     }
@@ -596,6 +628,7 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
       agentName: settings.agentName,
       voiceLanguage: settings.voiceLanguage,
       ttsEngine: settings.ttsEngine,
+      ttsConfig: settings.ttsConfig,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt,
@@ -621,6 +654,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     agentName: parsed.data.agentName,
     voiceLanguage: parsed.data.voiceLanguage,
     ttsEngine: parsed.data.ttsEngine,
+    ttsConfig: parsed.data.ttsConfig,
     ttsEnabled: parsed.data.ttsEnabled,
     sttEnabled: parsed.data.sttEnabled,
     systemPrompt: parsed.data.systemPrompt,
@@ -633,6 +667,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
       agentName: settings.agentName,
       voiceLanguage: settings.voiceLanguage,
       ttsEngine: settings.ttsEngine,
+      ttsConfig: settings.ttsConfig,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,
       systemPrompt: settings.systemPrompt,
@@ -650,7 +685,13 @@ liveKitRouter.post("/starter/tts/synthesize", async (req, res) => {
   }
 
   try {
-    const result = await synthesizeSpeech(parsed.data);
+    const rawDeviceId = String(req.headers["x-device-id"] ?? "").trim();
+    const hasValidDeviceId = /^[a-zA-Z0-9_-]{8,128}$/.test(rawDeviceId);
+    const settings = hasValidDeviceId ? await getStarterAgentSettings(rawDeviceId) : null;
+    const result = await synthesizeSpeech({
+      ...parsed.data,
+      ttsConfig: settings?.ttsConfig ?? undefined,
+    });
     res.setHeader("content-type", result.contentType);
     res.setHeader("cache-control", "no-store");
     res.setHeader("x-tts-provider", result.provider);
@@ -662,7 +703,7 @@ liveKitRouter.post("/starter/tts/synthesize", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL in API environment.",
+          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL/TTS_CHATTERBOX_BASE_URL in API environment.",
         },
       });
     }

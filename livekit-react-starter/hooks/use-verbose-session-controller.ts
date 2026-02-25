@@ -131,7 +131,10 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
 
           const response = await fetch('/api/starter/tts-synthesize', {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: {
+              'content-type': 'application/json',
+              'x-device-id': deviceId,
+            },
             body: JSON.stringify({
               text,
               language: settings.voiceLanguage || 'tr',
@@ -179,7 +182,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           });
         });
     },
-    [addEvent, settings.ttsEnabled, settings.ttsEngine, settings.voiceLanguage]
+    [addEvent, deviceId, settings.ttsEnabled, settings.ttsEngine, settings.voiceLanguage]
   );
 
   const connect = useCallback(async () => {

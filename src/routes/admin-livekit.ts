@@ -471,7 +471,7 @@ adminLiveKitRouter.post("/tts/synthesize", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "TTS_NOT_CONFIGURED",
-          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL in API environment.",
+          message: "Set TTS_BASE_URL or TTS_F5_BASE_URL/TTS_XTTS_BASE_URL/TTS_CHATTERBOX_BASE_URL in API environment.",
         },
       });
     }
