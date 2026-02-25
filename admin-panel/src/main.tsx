@@ -1273,7 +1273,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
       <section className="panel">
         <div className="users-filter-top">
-          <input placeholder={dict.users.searchPlaceholder} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+          <div className="users-search-wrap">
+            <span className="users-search-icon" aria-hidden="true">⌕</span>
+            <input
+              className="users-search-input"
+              placeholder={dict.users.searchPlaceholder}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+            />
+          </div>
           <div className="quick-filters">
             <button
               type="button"
