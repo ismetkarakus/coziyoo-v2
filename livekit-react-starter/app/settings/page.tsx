@@ -6,6 +6,7 @@ import {
   STARTER_AGENT_SETTINGS_DEFAULTS,
   type StarterAgentSettings,
   type TtsServerConfig,
+  type TtsServerItem,
   normalizeStarterAgentSettings,
 } from '@/lib/starter-settings';
 
@@ -22,7 +23,8 @@ export default function SettingsPage() {
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ttsModalOpen, setTtsModalOpen] = useState(false);
   const [ttsModalMode, setTtsModalMode] = useState<'edit' | 'add'>('edit');
-  const [ttsConfigBackup, setTtsConfigBackup] = useState<string>('');
+  const [ttsServersBackup, setTtsServersBackup] = useState<string>('');
+  const [activeServerBackup, setActiveServerBackup] = useState<string>('');
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
@@ -89,7 +91,12 @@ export default function SettingsPage() {
   const save = async () => {
     setStatus('Saving...');
     try {
-      const ttsConfig = sanitizeTtsConfig(form.ttsConfig);
+      const ttsServers = sanitizeTtsServers(form.ttsServers);
+      const activeId = form.activeTtsServerId || ttsServers[0]?.id;
+      const activeConfig =
+        ttsServers.find((server) => server.id === activeId)?.config ?? sanitizeTtsConfig(form.ttsConfig);
+      const activeEngine =
+        ttsServers.find((server) => server.id === activeId)?.engine ?? form.ttsEngine ?? 'f5-tts';
       const response = await fetch(`/api/starter/agent-settings/${encodeURIComponent(deviceId)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -97,13 +104,12 @@ export default function SettingsPage() {
           agentName: form.agentName.trim(),
           voiceLanguage: form.voiceLanguage.trim() || 'tr',
           ollamaModel: form.ollamaModel.trim() || 'llama3.1',
-          ttsEngine:
-            form.ttsEngine === 'xtts' || form.ttsEngine === 'chatterbox'
-              ? form.ttsEngine
-              : 'f5-tts',
+          ttsEngine: activeEngine,
+          ttsServers,
+          activeTtsServerId: activeId,
           ttsEnabled: Boolean(form.ttsEnabled),
           sttEnabled: Boolean(form.sttEnabled),
-          ttsConfig,
+          ttsConfig: activeConfig,
           systemPrompt: form.systemPrompt?.trim() || '',
           greetingEnabled: Boolean(form.greetingEnabled),
           greetingInstruction: form.greetingInstruction?.trim() || '',
@@ -127,19 +133,20 @@ export default function SettingsPage() {
     setStatus('Reset to defaults locally. Press Save to persist.');
   };
 
+  const activeTtsServer = resolveActiveTtsServer(form);
+
   const openTtsModal = () => {
     setTtsModalMode('edit');
-    setTtsConfigBackup(JSON.stringify(form.ttsConfig ?? {}));
+    setTtsServersBackup(JSON.stringify(form.ttsServers ?? []));
+    setActiveServerBackup(form.activeTtsServerId ?? '');
     setTtsModalOpen(true);
   };
 
   const openAddTtsModal = () => {
     setTtsModalMode('add');
-    setTtsConfigBackup(JSON.stringify(form.ttsConfig ?? {}));
-    setForm((prev) => ({
-      ...prev,
-      ttsConfig: createNewTtsConfig(prev.ttsEngine),
-    }));
+    setTtsServersBackup(JSON.stringify(form.ttsServers ?? []));
+    setActiveServerBackup(form.activeTtsServerId ?? '');
+    setForm((prev) => addNewTtsServer(prev));
     setTtsModalOpen(true);
   };
 
@@ -149,10 +156,16 @@ export default function SettingsPage() {
 
   const cancelTtsModal = () => {
     try {
-      const restored = JSON.parse(ttsConfigBackup || '{}') as TtsServerConfig;
-      setForm((prev) => ({ ...prev, ttsConfig: restored }));
+      const restoredServers = JSON.parse(ttsServersBackup || '[]') as TtsServerItem[];
+      setForm((prev) => ({
+        ...prev,
+        ttsServers: restoredServers,
+        activeTtsServerId: activeServerBackup || restoredServers[0]?.id,
+        ttsEngine: resolveEngineForServer(restoredServers, activeServerBackup, prev.ttsEngine),
+        ttsConfig: resolveConfigForServer(restoredServers, activeServerBackup, prev.ttsConfig),
+      }));
     } catch {
-      setForm((prev) => ({ ...prev, ttsConfig: {} }));
+      setForm((prev) => ({ ...prev, ttsServers: prev.ttsServers ?? [] }));
     }
     setTtsModalOpen(false);
   };
@@ -160,6 +173,13 @@ export default function SettingsPage() {
   const updateTtsConfig = (patch: Partial<TtsServerConfig>) => {
     setForm((prev) => ({
       ...prev,
+      ttsServers: updateActiveServer(prev, (server) => ({
+        ...server,
+        config: {
+          ...(server.config ?? {}),
+          ...patch,
+        },
+      })),
       ttsConfig: {
         ...(prev.ttsConfig ?? {}),
         ...patch,
@@ -170,6 +190,16 @@ export default function SettingsPage() {
   const updateF5Config = (patch: NonNullable<TtsServerConfig['f5']>) => {
     setForm((prev) => ({
       ...prev,
+      ttsServers: updateActiveServer(prev, (server) => ({
+        ...server,
+        config: {
+          ...(server.config ?? {}),
+          f5: {
+            ...(server.config?.f5 ?? {}),
+            ...patch,
+          },
+        },
+      })),
       ttsConfig: {
         ...(prev.ttsConfig ?? {}),
         f5: {
@@ -183,6 +213,16 @@ export default function SettingsPage() {
   const updateXttsConfig = (patch: NonNullable<TtsServerConfig['xtts']>) => {
     setForm((prev) => ({
       ...prev,
+      ttsServers: updateActiveServer(prev, (server) => ({
+        ...server,
+        config: {
+          ...(server.config ?? {}),
+          xtts: {
+            ...(server.config?.xtts ?? {}),
+            ...patch,
+          },
+        },
+      })),
       ttsConfig: {
         ...(prev.ttsConfig ?? {}),
         xtts: {
@@ -196,6 +236,16 @@ export default function SettingsPage() {
   const updateChatterboxConfig = (patch: NonNullable<TtsServerConfig['chatterbox']>) => {
     setForm((prev) => ({
       ...prev,
+      ttsServers: updateActiveServer(prev, (server) => ({
+        ...server,
+        config: {
+          ...(server.config ?? {}),
+          chatterbox: {
+            ...(server.config?.chatterbox ?? {}),
+            ...patch,
+          },
+        },
+      })),
       ttsConfig: {
         ...(prev.ttsConfig ?? {}),
         chatterbox: {
@@ -324,16 +374,42 @@ export default function SettingsPage() {
               </div>
             </div>
             <select
-              value={form.ttsEngine}
-              onChange={(event) =>
+              value={form.activeTtsServerId ?? activeTtsServer?.id ?? ''}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                const nextServer = (form.ttsServers ?? []).find((server) => server.id === nextId);
                 setForm((prev) => ({
                   ...prev,
-                  ttsEngine:
-                    event.target.value === 'xtts' || event.target.value === 'chatterbox'
-                      ? event.target.value
-                      : 'f5-tts',
-                }))
-              }
+                  activeTtsServerId: nextId,
+                  ttsEngine: nextServer?.engine ?? prev.ttsEngine,
+                  ttsConfig: nextServer?.config ?? prev.ttsConfig,
+                }));
+              }}
+              className="mb-2 w-full rounded border bg-transparent px-3 py-2 text-sm"
+            >
+              {(form.ttsServers ?? []).map((server) => (
+                <option key={server.id} value={server.id}>
+                  {server.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={activeTtsServer?.engine ?? form.ttsEngine}
+              onChange={(event) => {
+                const nextEngine =
+                  event.target.value === 'xtts' || event.target.value === 'chatterbox'
+                    ? event.target.value
+                    : 'f5-tts';
+                setForm((prev) => ({
+                  ...prev,
+                  ttsEngine: nextEngine,
+                  ttsServers: updateActiveServer(prev, (server) => ({
+                    ...server,
+                    engine: nextEngine,
+                    config: server.config ?? createNewTtsConfig(nextEngine),
+                  })),
+                }));
+              }}
               className="w-full rounded border bg-transparent px-3 py-2 text-sm"
             >
               <option value="f5-tts">F5-TTS</option>
@@ -434,9 +510,27 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               <label className="block">
+                <span className="mb-1 block text-sm">Server Name</span>
+                <input
+                  value={activeTtsServer?.name ?? ''}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      ttsServers: updateActiveServer(prev, (server) => ({
+                        ...server,
+                        name: event.target.value,
+                      })),
+                    }))
+                  }
+                  className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+                  placeholder="My TTS Server"
+                />
+              </label>
+
+              <label className="block">
                 <span className="mb-1 block text-sm">Base URL (optional override)</span>
                 <input
-                  value={form.ttsConfig?.baseUrl ?? ''}
+                  value={activeTtsServer?.config?.baseUrl ?? ''}
                   onChange={(event) => updateTtsConfig({ baseUrl: event.target.value })}
                   className="w-full rounded border bg-transparent px-3 py-2 text-sm"
                   placeholder="https://voice.drascom.uk"
@@ -446,20 +540,20 @@ export default function SettingsPage() {
               <label className="block">
                 <span className="mb-1 block text-sm">Path (optional override)</span>
                 <input
-                  value={form.ttsConfig?.path ?? ''}
+                  value={activeTtsServer?.config?.path ?? ''}
                   onChange={(event) => updateTtsConfig({ path: event.target.value })}
                   className="w-full rounded border bg-transparent px-3 py-2 text-sm"
                   placeholder="/tts or /api/tts"
                 />
               </label>
 
-              {form.ttsEngine === 'f5-tts' && (
+              {(activeTtsServer?.engine ?? form.ttsEngine) === 'f5-tts' && (
                 <div className="space-y-3 rounded border p-3">
                   <p className="text-xs font-semibold uppercase">F5 Settings</p>
                   <label className="block">
                     <span className="mb-1 block text-sm">Speaker ID</span>
                     <input
-                      value={form.ttsConfig?.f5?.speakerId ?? ''}
+                      value={activeTtsServer?.config?.f5?.speakerId ?? ''}
                       onChange={(event) => updateF5Config({ speakerId: event.target.value })}
                       className="w-full rounded border bg-transparent px-3 py-2 text-sm"
                       placeholder="default"
@@ -468,7 +562,7 @@ export default function SettingsPage() {
                   <label className="block">
                     <span className="mb-1 block text-sm">Speaker WAV Path (server path)</span>
                     <input
-                      value={form.ttsConfig?.f5?.speakerWavPath ?? ''}
+                      value={activeTtsServer?.config?.f5?.speakerWavPath ?? ''}
                       onChange={(event) => updateF5Config({ speakerWavPath: event.target.value })}
                       className="w-full rounded border bg-transparent px-3 py-2 text-sm"
                       placeholder="/path/to/voice.wav"
@@ -477,13 +571,13 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {form.ttsEngine === 'xtts' && (
+              {(activeTtsServer?.engine ?? form.ttsEngine) === 'xtts' && (
                 <div className="space-y-3 rounded border p-3">
                   <p className="text-xs font-semibold uppercase">XTTS Settings</p>
                   <label className="block">
                     <span className="mb-1 block text-sm">Speaker WAV URL</span>
                     <input
-                      value={form.ttsConfig?.xtts?.speakerWavUrl ?? ''}
+                      value={activeTtsServer?.config?.xtts?.speakerWavUrl ?? ''}
                       onChange={(event) => updateXttsConfig({ speakerWavUrl: event.target.value })}
                       className="w-full rounded border bg-transparent px-3 py-2 text-sm"
                       placeholder="https://example.com/voice.wav"
@@ -492,14 +586,14 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {form.ttsEngine === 'chatterbox' && (
+              {(activeTtsServer?.engine ?? form.ttsEngine) === 'chatterbox' && (
                 <div className="space-y-3 rounded border p-3">
                   <p className="text-xs font-semibold uppercase">Chatterbox Settings</p>
 
                   <label className="block">
                     <span className="mb-1 block text-sm">Voice Mode</span>
                     <select
-                      value={form.ttsConfig?.chatterbox?.voiceMode ?? 'predefined'}
+                      value={activeTtsServer?.config?.chatterbox?.voiceMode ?? 'predefined'}
                       onChange={(event) =>
                         updateChatterboxConfig({
                           voiceMode: event.target.value === 'clone' ? 'clone' : 'predefined',
@@ -515,7 +609,7 @@ export default function SettingsPage() {
                   <label className="block">
                     <span className="mb-1 block text-sm">Predefined Voice ID</span>
                     <input
-                      value={form.ttsConfig?.chatterbox?.predefinedVoiceId ?? ''}
+                      value={activeTtsServer?.config?.chatterbox?.predefinedVoiceId ?? ''}
                       onChange={(event) =>
                         updateChatterboxConfig({ predefinedVoiceId: event.target.value })
                       }
@@ -527,7 +621,7 @@ export default function SettingsPage() {
                   <label className="block">
                     <span className="mb-1 block text-sm">Reference Audio Filename</span>
                     <input
-                      value={form.ttsConfig?.chatterbox?.referenceAudioFilename ?? ''}
+                      value={activeTtsServer?.config?.chatterbox?.referenceAudioFilename ?? ''}
                       onChange={(event) =>
                         updateChatterboxConfig({ referenceAudioFilename: event.target.value })
                       }
@@ -540,7 +634,7 @@ export default function SettingsPage() {
                     <label className="block">
                       <span className="mb-1 block text-sm">Output Format</span>
                       <select
-                        value={form.ttsConfig?.chatterbox?.outputFormat ?? 'wav'}
+                        value={activeTtsServer?.config?.chatterbox?.outputFormat ?? 'wav'}
                         onChange={(event) =>
                           updateChatterboxConfig({
                             outputFormat: event.target.value === 'opus' ? 'opus' : 'wav',
@@ -555,7 +649,7 @@ export default function SettingsPage() {
                     <label className="inline-flex items-end gap-2 text-sm">
                       <input
                         type="checkbox"
-                        checked={Boolean(form.ttsConfig?.chatterbox?.splitText ?? true)}
+                        checked={Boolean(activeTtsServer?.config?.chatterbox?.splitText ?? true)}
                         onChange={(event) =>
                           updateChatterboxConfig({ splitText: event.target.checked })
                         }
@@ -568,7 +662,7 @@ export default function SettingsPage() {
                     <label className="block">
                       <span className="mb-1 block text-sm">Chunk Size</span>
                       <input
-                        value={form.ttsConfig?.chatterbox?.chunkSize ?? ''}
+                        value={activeTtsServer?.config?.chatterbox?.chunkSize ?? ''}
                         onChange={(event) =>
                           updateChatterboxConfig({
                             chunkSize: parseOptionalNumber(event.target.value),
@@ -581,7 +675,7 @@ export default function SettingsPage() {
                     <label className="block">
                       <span className="mb-1 block text-sm">Temperature</span>
                       <input
-                        value={form.ttsConfig?.chatterbox?.temperature ?? ''}
+                        value={activeTtsServer?.config?.chatterbox?.temperature ?? ''}
                         onChange={(event) =>
                           updateChatterboxConfig({
                             temperature: parseOptionalNumber(event.target.value),
@@ -661,6 +755,86 @@ function sanitizeTtsConfig(input: TtsServerConfig | undefined): TtsServerConfig 
         : {}),
     },
   };
+}
+
+function sanitizeTtsServers(input: TtsServerItem[] | undefined): TtsServerItem[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((server) => server && typeof server === 'object')
+    .map((server, index) => {
+      const id = server.id?.trim() || `tts-server-${index + 1}`;
+      const name = server.name?.trim() || `TTS Server ${index + 1}`;
+      const engine =
+        server.engine === 'xtts' || server.engine === 'chatterbox' ? server.engine : 'f5-tts';
+      return {
+        id,
+        name,
+        engine,
+        config: sanitizeTtsConfig(server.config),
+      };
+    });
+}
+
+function resolveActiveTtsServer(form: StarterAgentSettings): TtsServerItem | undefined {
+  const servers = form.ttsServers ?? [];
+  const byId = servers.find((server) => server.id === form.activeTtsServerId);
+  return byId ?? servers[0];
+}
+
+function updateActiveServer(
+  form: StarterAgentSettings,
+  mapper: (server: TtsServerItem) => TtsServerItem
+): TtsServerItem[] {
+  const servers = [...(form.ttsServers ?? [])];
+  if (servers.length === 0) {
+    return [
+      mapper({
+        id: 'default-f5',
+        name: 'Default F5',
+        engine: 'f5-tts',
+        config: {},
+      }),
+    ];
+  }
+  const activeId = form.activeTtsServerId ?? servers[0].id;
+  return servers.map((server) => (server.id === activeId ? mapper(server) : server));
+}
+
+function addNewTtsServer(form: StarterAgentSettings): StarterAgentSettings {
+  const nextId = `tts-${Date.now().toString(36)}`;
+  const engine = form.ttsEngine || 'f5-tts';
+  const nextServer: TtsServerItem = {
+    id: nextId,
+    name: `Server ${(form.ttsServers?.length ?? 0) + 1}`,
+    engine,
+    config: createNewTtsConfig(engine),
+  };
+  const nextServers = [...(form.ttsServers ?? []), nextServer];
+  return {
+    ...form,
+    ttsServers: nextServers,
+    activeTtsServerId: nextId,
+    ttsConfig: nextServer.config,
+  };
+}
+
+function resolveEngineForServer(
+  servers: TtsServerItem[],
+  activeId: string,
+  fallback: StarterAgentSettings['ttsEngine']
+): StarterAgentSettings['ttsEngine'] {
+  const found = servers.find((item) => item.id === activeId)?.engine;
+  if (found === 'xtts' || found === 'chatterbox') return found;
+  return found ?? fallback ?? 'f5-tts';
+}
+
+function resolveConfigForServer(
+  servers: TtsServerItem[],
+  activeId: string,
+  fallback: TtsServerConfig | undefined
+): TtsServerConfig {
+  const found = servers.find((item) => item.id === activeId)?.config;
+  return found ?? fallback ?? {};
 }
 
 function createNewTtsConfig(engine: StarterAgentSettings['ttsEngine']): TtsServerConfig {

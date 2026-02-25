@@ -23,12 +23,21 @@ export type TtsServerConfig = {
   };
 };
 
+export type TtsServerItem = {
+  id: string;
+  name: string;
+  engine: 'f5-tts' | 'xtts' | 'chatterbox';
+  config?: TtsServerConfig;
+};
+
 export type StarterAgentSettings = {
   agentName: string;
   voiceLanguage: string;
   ollamaModel: string;
   ttsEngine: 'f5-tts' | 'xtts' | 'chatterbox';
   ttsConfig?: TtsServerConfig;
+  ttsServers?: TtsServerItem[];
+  activeTtsServerId?: string;
   ttsEnabled: boolean;
   sttEnabled: boolean;
   systemPrompt?: string;
@@ -43,6 +52,15 @@ export const STARTER_AGENT_SETTINGS_DEFAULTS: StarterAgentSettings = {
   ollamaModel: 'llama3.1',
   ttsEngine: 'f5-tts',
   ttsConfig: {},
+  ttsServers: [
+    {
+      id: 'default-f5',
+      name: 'Default F5',
+      engine: 'f5-tts',
+      config: {},
+    },
+  ],
+  activeTtsServerId: 'default-f5',
   ttsEnabled: true,
   sttEnabled: true,
   systemPrompt: '',
@@ -62,6 +80,9 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   const ttsEngine =
     value.ttsEngine === 'xtts' || value.ttsEngine === 'chatterbox' ? value.ttsEngine : 'f5-tts';
   const ttsConfig = normalizeTtsConfig(value.ttsConfig);
+  const ttsServers = normalizeTtsServers(value.ttsServers);
+  const activeTtsServerId =
+    typeof value.activeTtsServerId === 'string' ? value.activeTtsServerId : undefined;
   const ttsEnabled = typeof value.ttsEnabled === 'boolean' ? value.ttsEnabled : true;
   const sttEnabled = typeof value.sttEnabled === 'boolean' ? value.sttEnabled : true;
   const systemPrompt = typeof value.systemPrompt === 'string' ? value.systemPrompt : '';
@@ -76,6 +97,18 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
     ollamaModel: ollamaModel || 'llama3.1',
     ttsEngine,
     ttsConfig,
+    ttsServers:
+      ttsServers.length > 0
+        ? ttsServers
+        : [
+            {
+              id: 'default-f5',
+              name: 'Default F5',
+              engine: ttsEngine,
+              config: ttsConfig,
+            },
+          ],
+    activeTtsServerId: activeTtsServerId || ttsServers[0]?.id || 'default-f5',
     ttsEnabled,
     sttEnabled,
     systemPrompt,
@@ -83,6 +116,27 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
     greetingInstruction,
     updatedAt,
   };
+}
+
+function normalizeTtsServers(input: unknown): TtsServerItem[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((item) => typeof item === 'object' && item !== null)
+    .map((item) => {
+      const value = item as Record<string, unknown>;
+      const id = typeof value.id === 'string' ? value.id.trim() : '';
+      const name = typeof value.name === 'string' ? value.name.trim() : '';
+      const engine =
+        value.engine === 'xtts' || value.engine === 'chatterbox' ? value.engine : 'f5-tts';
+      const config = normalizeTtsConfig(value.config);
+      return {
+        id,
+        name: name || 'TTS Server',
+        engine,
+        config,
+      };
+    })
+    .filter((item) => item.id.length > 0);
 }
 
 function normalizeTtsConfig(input: unknown): TtsServerConfig {

@@ -524,6 +524,8 @@ CREATE TABLE starter_agent_settings (
   ollama_model TEXT NOT NULL DEFAULT 'llama3.1',
   tts_engine TEXT NOT NULL DEFAULT 'f5-tts',
   tts_config_json JSONB,
+  tts_servers_json JSONB,
+  active_tts_server_id TEXT,
   tts_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   stt_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   system_prompt TEXT,
