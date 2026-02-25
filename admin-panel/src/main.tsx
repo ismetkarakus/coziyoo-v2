@@ -1,5 +1,5 @@
 import "./styles.css";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BrowserRouter,
@@ -2905,6 +2905,27 @@ function formatUiDate(value: string | null | undefined, language: Language): str
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
 }
 
+function renderJsonLine(line: string): ReactNode {
+  const match = line.match(/^(\s*)"([^"]+)":\s(.+?)(,?)$/);
+  if (!match) return <code>{line}</code>;
+  const [, indent, key, rawValue, comma] = match;
+  const value = rawValue.trim();
+  let valueClass = "json-value-plain";
+  if (value.startsWith("\"")) valueClass = "json-value-string";
+  else if (value === "true" || value === "false") valueClass = "json-value-bool";
+  else if (value === "null") valueClass = "json-value-null";
+  else if (/^-?\d/.test(value)) valueClass = "json-value-number";
+  return (
+    <code>
+      {indent}
+      <span className="json-key">"{key}"</span>
+      <span className="json-sep">: </span>
+      <span className={valueClass}>{value}</span>
+      {comma}
+    </code>
+  );
+}
+
 function initialsFromName(displayName: string | null | undefined, email: string | null | undefined): string {
   const source = String(displayName || email || "").trim();
   if (!source) return "U";
@@ -3013,6 +3034,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         : row.role === "both"
           ? dict.users.userTypeBoth
           : String(row.role ?? "-");
+  const ratingSource = foodRows
+    .map((item) => Number(item.rating ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
+  const roundedStars = Math.max(0, Math.min(5, Math.round(avgRating)));
 
   const profileStatusMap: Record<SellerComplianceStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
     not_started: { label: dict.detail.sellerStatus.notStarted, tone: "neutral" },
@@ -3059,15 +3085,26 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     <div className="app seller-detail-page">
       <section className="panel seller-hero">
         <article className="seller-hero-main">
-          <div className="seller-avatar">
-            {profileImageUrl ? <img src={profileImageUrl} alt={row.displayName ?? "seller"} /> : <span>{initials}</span>}
+          <div className="seller-avatar-col">
+            <div className="seller-avatar">
+              {profileImageUrl ? <img src={profileImageUrl} alt={row.displayName ?? "seller"} /> : <span>{initials}</span>}
+            </div>
+            <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
+              <span className="rating-value">{avgRating.toFixed(1)}</span>
+              <span className="rating-stars" aria-hidden="true">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
+                ))}
+              </span>
+            </div>
           </div>
           <div className="seller-hero-text">
             <div className="seller-hero-title-row">
               <h1>{row.displayName ?? row.email}</h1>
               <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
+              <span className="seller-user-id">{`${dict.detail.userId}: ${row.id}`}</span>
             </div>
-            <p>{`${maskedEmail} • ${dict.detail.userId}: ${row.id}`}</p>
+            <p>{maskedEmail}</p>
             <p className="panel-meta">
               <span>{roleLabel}</span>
               <span className="seller-country-badge">{row.countryCode ?? "-"}</span>
@@ -3160,20 +3197,25 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               </div>
             </form>
             {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
-            <details className="seller-json-collapse">
-              <summary>{dict.detail.accountJson}</summary>
-              <div className="panel-header">
+            <section className="seller-json-card">
+              <div className="seller-json-header">
                 <h2>{dict.detail.accountJson}</h2>
                 <button
-                  className="ghost"
+                  className="ghost seller-json-copy"
                   type="button"
                   onClick={() => navigator.clipboard.writeText(JSON.stringify(maskedJson, null, 2)).catch(() => undefined)}
                 >
                   {dict.detail.copyJson}
                 </button>
               </div>
-              <pre className="json-box">{JSON.stringify(maskedJson, null, 2)}</pre>
-            </details>
+              <ol className="seller-json-lines">
+                {JSON.stringify(maskedJson, null, 2)
+                  .split("\n")
+                  .map((line, index) => (
+                    <li key={`${index}-${line}`}>{renderJsonLine(line)}</li>
+                  ))}
+              </ol>
+            </section>
           </article>
 
           <article className="panel">
