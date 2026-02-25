@@ -543,10 +543,14 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       try {
         const response = await fetch('/api/starter/agent-chat', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            'content-type': 'application/json',
+            'x-device-id': deviceId,
+          },
           body: JSON.stringify({
             roomName: currentRoomName,
             text: payload.text,
+            deviceId,
           }),
         });
         const raw = await response.text();
@@ -580,7 +584,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         });
       }
     },
-    [addEvent, roomName]
+    [addEvent, deviceId, roomName]
   );
 
   useEffect(() => {

@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
-import { askOllamaChat } from "../services/ollama.js";
+import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
 import { transcribeAudio } from "../services/speech-to-text.js";
 import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
 import { synthesizeSpeech } from "../services/text-to-speech.js";
@@ -60,6 +60,12 @@ const StarterSessionSchema = z.object({
 const StarterAgentChatSchema = z.object({
   roomName: z.string().min(1).max(128),
   text: z.string().min(1).max(8_000),
+  deviceId: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional(),
 });
 
 const StarterToolRunSchema = z.object({
@@ -80,6 +86,7 @@ const StarterAgentSettingsParamsSchema = z.object({
 const StarterAgentSettingsSchema = z.object({
   agentName: z.string().max(128),
   voiceLanguage: z.string().min(2).max(16).regex(/^[a-z]{2}(?:-[A-Z]{2})?$/),
+  ollamaModel: z.string().min(1).max(128).default(env.OLLAMA_CHAT_MODEL),
   ttsEngine: z.enum(TTS_ENGINES).default("f5-tts"),
   ttsConfig: z
     .object({
@@ -547,7 +554,11 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
   const agentIdentity = buildRoomScopedAgentIdentity(input.roomName);
 
   try {
-    const answer = await askOllamaChat(input.text);
+    const headerDeviceId = String(req.headers["x-device-id"] ?? "").trim();
+    const candidateDeviceId = input.deviceId?.trim() || headerDeviceId;
+    const validDeviceId = /^[a-zA-Z0-9_-]{8,128}$/.test(candidateDeviceId) ? candidateDeviceId : "";
+    const settings = validDeviceId ? await getStarterAgentSettings(validDeviceId) : null;
+    const answer = await askOllamaChat(input.text, { model: settings?.ollamaModel });
     const payload = {
       type: "agent_message",
       from: agentIdentity,
@@ -569,6 +580,27 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
       error: {
         code: "AGENT_CHAT_FAILED",
         message: error instanceof Error ? error.message : "Agent chat failed",
+      },
+    });
+  }
+});
+
+liveKitRouter.get("/starter/ollama/models", async (_req, res) => {
+  try {
+    const result = await listOllamaModels();
+    return res.status(200).json({
+      data: {
+        baseUrl: env.OLLAMA_BASE_URL,
+        endpoint: result.endpoint,
+        defaultModel: env.OLLAMA_CHAT_MODEL,
+        models: result.models,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "OLLAMA_MODELS_FETCH_FAILED",
+        message: error instanceof Error ? error.message : "Failed to fetch Ollama models",
       },
     });
   }
@@ -627,6 +659,7 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
     data: {
       agentName: settings.agentName,
       voiceLanguage: settings.voiceLanguage,
+      ollamaModel: settings.ollamaModel,
       ttsEngine: settings.ttsEngine,
       ttsConfig: settings.ttsConfig,
       ttsEnabled: settings.ttsEnabled,
@@ -653,6 +686,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     deviceId: params.data.deviceId,
     agentName: parsed.data.agentName,
     voiceLanguage: parsed.data.voiceLanguage,
+    ollamaModel: parsed.data.ollamaModel,
     ttsEngine: parsed.data.ttsEngine,
     ttsConfig: parsed.data.ttsConfig,
     ttsEnabled: parsed.data.ttsEnabled,
@@ -666,6 +700,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     data: {
       agentName: settings.agentName,
       voiceLanguage: settings.voiceLanguage,
+      ollamaModel: settings.ollamaModel,
       ttsEngine: settings.ttsEngine,
       ttsConfig: settings.ttsConfig,
       ttsEnabled: settings.ttsEnabled,

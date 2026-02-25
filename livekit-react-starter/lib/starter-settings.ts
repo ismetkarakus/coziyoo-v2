@@ -26,6 +26,7 @@ export type TtsServerConfig = {
 export type StarterAgentSettings = {
   agentName: string;
   voiceLanguage: string;
+  ollamaModel: string;
   ttsEngine: 'f5-tts' | 'xtts' | 'chatterbox';
   ttsConfig?: TtsServerConfig;
   ttsEnabled: boolean;
@@ -39,6 +40,7 @@ export type StarterAgentSettings = {
 export const STARTER_AGENT_SETTINGS_DEFAULTS: StarterAgentSettings = {
   agentName: '',
   voiceLanguage: 'tr',
+  ollamaModel: 'llama3.1',
   ttsEngine: 'f5-tts',
   ttsConfig: {},
   ttsEnabled: true,
@@ -56,6 +58,7 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   const value = input as Record<string, unknown>;
   const agentName = typeof value.agentName === 'string' ? value.agentName.trim() : '';
   const voiceLanguage = typeof value.voiceLanguage === 'string' ? value.voiceLanguage.trim() : 'tr';
+  const ollamaModel = typeof value.ollamaModel === 'string' ? value.ollamaModel.trim() : 'llama3.1';
   const ttsEngine =
     value.ttsEngine === 'xtts' || value.ttsEngine === 'chatterbox' ? value.ttsEngine : 'f5-tts';
   const ttsConfig = normalizeTtsConfig(value.ttsConfig);
@@ -70,6 +73,7 @@ export function normalizeStarterAgentSettings(input: unknown): StarterAgentSetti
   return {
     agentName,
     voiceLanguage: voiceLanguage || 'tr',
+    ollamaModel: ollamaModel || 'llama3.1',
     ttsEngine,
     ttsConfig,
     ttsEnabled,

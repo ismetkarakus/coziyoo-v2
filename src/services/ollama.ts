@@ -11,10 +11,18 @@ type OllamaChatResponse = {
   };
 };
 
-export async function askOllamaChat(userText: string) {
+type OllamaTagsResponse = {
+  models?: Array<{
+    name?: string;
+    model?: string;
+  }>;
+};
+
+export async function askOllamaChat(userText: string, options?: { model?: string }) {
   const endpoint = new URL("/api/chat", env.OLLAMA_BASE_URL).toString();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OLLAMA_TIMEOUT_MS);
+  const selectedModel = options?.model?.trim() || env.OLLAMA_CHAT_MODEL;
 
   const messages: OllamaMessage[] = [
     { role: "system", content: env.OLLAMA_SYSTEM_PROMPT },
@@ -26,7 +34,7 @@ export async function askOllamaChat(userText: string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: env.OLLAMA_CHAT_MODEL,
+        model: selectedModel,
         stream: false,
         messages,
       }),
@@ -52,8 +60,34 @@ export async function askOllamaChat(userText: string) {
 
     return {
       text: content,
-      model: env.OLLAMA_CHAT_MODEL,
+      model: selectedModel,
       endpoint,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function listOllamaModels() {
+  const endpoint = new URL("/api/tags", env.OLLAMA_BASE_URL).toString();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.OLLAMA_TIMEOUT_MS);
+  try {
+    const response = await fetch(endpoint, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    if (!response.ok) {
+      throw new Error(`OLLAMA_TAGS_HTTP_${response.status}: ${raw.slice(0, 300)}`);
+    }
+    const parsed = raw ? (JSON.parse(raw) as OllamaTagsResponse) : null;
+    const models = (parsed?.models ?? [])
+      .map((item) => (typeof item.name === "string" ? item.name : typeof item.model === "string" ? item.model : ""))
+      .filter((item) => item.length > 0);
+    return {
+      endpoint,
+      models: Array.from(new Set(models)),
     };
   } finally {
     clearTimeout(timeout);

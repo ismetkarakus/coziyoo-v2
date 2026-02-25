@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 const API_BASE_URL =
   process.env.API_BASE_URL?.trim() || process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || '';
 
-export async function POST(req: Request) {
+export async function GET() {
   if (!API_BASE_URL) {
     return NextResponse.json(
       { error: { message: 'API_BASE_URL is not configured' } },
@@ -12,16 +12,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const rawBody = await req.text();
-    const deviceId = req.headers.get('x-device-id') ?? '';
-    const endpoint = `${API_BASE_URL.replace(/\/+$/, '')}/v1/livekit/starter/agent/chat`;
+    const endpoint = `${API_BASE_URL.replace(/\/+$/, '')}/v1/livekit/starter/ollama/models`;
     const upstream = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(deviceId ? { 'x-device-id': deviceId } : {}),
-      },
-      body: rawBody,
+      method: 'GET',
       cache: 'no-store',
     });
     const raw = await upstream.text();
@@ -29,7 +22,7 @@ export async function POST(req: Request) {
     return new NextResponse(raw, { status: upstream.status, headers });
   } catch (error) {
     return NextResponse.json(
-      { error: { message: error instanceof Error ? error.message : 'Agent chat failed' } },
+      { error: { message: error instanceof Error ? error.message : 'Failed to fetch Ollama models' } },
       { status: 502 }
     );
   }

@@ -69,6 +69,7 @@ export async function POST(req: Request) {
       source: 'livekit-react-starter',
       deviceId: deviceId ?? null,
       voiceLanguage: settings.voiceLanguage,
+      ollamaModel: settings.ollamaModel,
       ttsEngine: settings.ttsEngine,
       ttsEnabled: settings.ttsEnabled,
       sttEnabled: settings.sttEnabled,

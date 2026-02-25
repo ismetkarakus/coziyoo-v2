@@ -5,6 +5,7 @@ export type StarterAgentSettings = {
   deviceId: string;
   agentName: string;
   voiceLanguage: string;
+  ollamaModel: string;
   ttsEngine: TtsEngine;
   ttsConfig: Record<string, unknown> | null;
   ttsEnabled: boolean;
@@ -19,6 +20,7 @@ type UpsertStarterAgentSettingsInput = {
   deviceId: string;
   agentName: string;
   voiceLanguage: string;
+  ollamaModel: string;
   ttsEngine: TtsEngine;
   ttsConfig?: Record<string, unknown>;
   ttsEnabled: boolean;
@@ -33,6 +35,7 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     device_id: string;
     agent_name: string;
     voice_language: string;
+    ollama_model: string;
     tts_engine: string;
     tts_config_json: Record<string, unknown> | null;
     tts_enabled: boolean;
@@ -42,7 +45,7 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     greeting_instruction: string | null;
     updated_at: string;
   }>(
-    `SELECT device_id, agent_name, voice_language, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text
+    `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text
      FROM starter_agent_settings
      WHERE device_id = $1`,
     [deviceId]
@@ -57,6 +60,7 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     deviceId: row.device_id,
     agentName: row.agent_name,
     voiceLanguage: row.voice_language,
+    ollamaModel: row.ollama_model,
     ttsEngine: normalizeTtsEngine(row.tts_engine),
     ttsConfig: row.tts_config_json ?? null,
     ttsEnabled: row.tts_enabled,
@@ -73,6 +77,7 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     device_id: string;
     agent_name: string;
     voice_language: string;
+    ollama_model: string;
     tts_engine: string;
     tts_config_json: Record<string, unknown> | null;
     tts_enabled: boolean;
@@ -82,12 +87,13 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     greeting_instruction: string | null;
     updated_at: string;
   }>(
-    `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+    `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
      ON CONFLICT (device_id)
      DO UPDATE SET
        agent_name = EXCLUDED.agent_name,
        voice_language = EXCLUDED.voice_language,
+       ollama_model = EXCLUDED.ollama_model,
        tts_engine = EXCLUDED.tts_engine,
        tts_config_json = EXCLUDED.tts_config_json,
        tts_enabled = EXCLUDED.tts_enabled,
@@ -96,11 +102,12 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
        greeting_enabled = EXCLUDED.greeting_enabled,
        greeting_instruction = EXCLUDED.greeting_instruction,
        updated_at = now()
-     RETURNING device_id, agent_name, voice_language, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text`,
+     RETURNING device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text`,
     [
       input.deviceId,
       input.agentName,
       input.voiceLanguage,
+      input.ollamaModel,
       input.ttsEngine ?? DEFAULT_TTS_ENGINE,
       input.ttsConfig ?? null,
       input.ttsEnabled,
@@ -116,6 +123,7 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     deviceId: row.device_id,
     agentName: row.agent_name,
     voiceLanguage: row.voice_language,
+    ollamaModel: row.ollama_model,
     ttsEngine: normalizeTtsEngine(row.tts_engine),
     ttsConfig: row.tts_config_json ?? null,
     ttsEnabled: row.tts_enabled,
