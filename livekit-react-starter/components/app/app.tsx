@@ -13,6 +13,7 @@ import {
 import { ThemeToggle } from './theme-toggle';
 
 type SettingsResponse = { data?: StarterAgentSettings };
+type BuildInfoResponse = { data?: { commitSha?: string | null; shortCommitSha?: string | null } };
 
 interface AppProps {
   appConfig: AppConfig;
@@ -23,6 +24,7 @@ export function App({ appConfig }: AppProps) {
   const [chatInput, setChatInput] = useState('');
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechListening, setSpeechListening] = useState(false);
+  const [shortCommitSha, setShortCommitSha] = useState<string | null>(null);
   const [settings, setSettings] = useState<StarterAgentSettings>(STARTER_AGENT_SETTINGS_DEFAULTS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -68,6 +70,26 @@ export function App({ appConfig }: AppProps) {
     };
     void loadSettings();
   }, [deviceId]);
+
+  useEffect(() => {
+    const loadBuildInfo = async () => {
+      try {
+        const response = await fetch('/api/build-info', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as BuildInfoResponse;
+        const commit = payload.data?.shortCommitSha?.trim();
+        if (commit) {
+          setShortCommitSha(commit);
+        }
+      } catch {
+        // noop
+      }
+    };
+    void loadBuildInfo();
+  }, []);
 
   const onSend = async (overrideText?: string) => {
     const value = (overrideText ?? chatInput).trim();
@@ -177,6 +199,10 @@ export function App({ appConfig }: AppProps) {
           <div className="flex items-center justify-between">
             <span>Agent</span>
             <span className="font-mono text-xs">{settings.agentName || '(default)'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Commit</span>
+            <span className="font-mono text-xs">{shortCommitSha ?? '-'}</span>
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
