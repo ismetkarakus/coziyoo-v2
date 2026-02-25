@@ -1725,13 +1725,6 @@ textarea:focus {
   background: color-mix(in srgb, var(--color-card-bg) 80%, transparent);
 }
 
-.users-inline-states {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 2px 0 10px;
-}
-
 .density-compact table td,
 .density-compact table th {
   padding-top: 7px;

@@ -1292,16 +1292,26 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               onChange={(event) => setSearchInput(event.target.value)}
             />
           </div>
-          <button
-            type="button"
-            className={`chip ${last7DaysOnly ? "is-active" : ""}`}
-            onClick={() => {
-              setLast7DaysOnly((prev) => !prev);
-              setFilters((prev) => ({ ...prev, page: 1 }));
-            }}
-          >
-            {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
-          </button>
+          <div className="quick-filters">
+            <button
+              type="button"
+              className={`chip ${last7DaysOnly ? "is-active" : ""}`}
+              onClick={() => {
+                setLast7DaysOnly((prev) => !prev);
+                setFilters((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
+              {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
+            </button>
+            <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span>
+            <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
+            <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span>
+            {showState === "error" ? (
+              <button className="chip is-active" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+                {language === "tr" ? "Yeniden Dene" : "Retry"}
+              </button>
+            ) : null}
+          </div>
           <button
             className="ghost users-sort-pill"
             type="button"
@@ -1320,17 +1330,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             {language === "tr" ? "Filtrele" : "Filter"}
           </button>
         </div>
-        <div className="users-inline-states" aria-live="polite">
-          <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span>
-          <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
-          <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span>
-          {showState === "error" ? (
-            <button className="chip is-active" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-              {language === "tr" ? "Yeniden Dene" : "Retry"}
-            </button>
-          ) : null}
-        </div>
-
         <div className={`table-wrap users-table-wrap density-${density}`}>
           <table>
             <thead>
