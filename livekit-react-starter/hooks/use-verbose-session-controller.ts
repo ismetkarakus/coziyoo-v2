@@ -7,6 +7,7 @@ import type { StarterAgentSettings } from '@/lib/starter-settings';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const MAX_EVENTS = 500;
+const AGENT_CHAT_TIMEOUT_MS = 15000;
 
 export type SessionConnectionState =
   | 'idle'
@@ -121,6 +122,15 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
 
   const requestAgentChat = useCallback(
     async (currentRoomName: string, text: string, source: 'chat' | 'greeting') => {
+      addEvent({
+        source: 'api',
+        eventType: source === 'greeting' ? 'GREETING_AGENT_CHAT_REQUEST_STARTED' : 'AGENT_CHAT_REQUEST_STARTED',
+        summary: `${source === 'greeting' ? 'Greeting' : 'Agent chat'} request started`,
+        payload: { roomName: currentRoomName, textLength: text.trim().length },
+      });
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), AGENT_CHAT_TIMEOUT_MS);
       try {
         const response = await fetch('/api/starter/agent-chat', {
           method: 'POST',
@@ -133,6 +143,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
             text,
             deviceId,
           }),
+          signal: controller.signal,
         });
         const raw = await response.text();
         let parsed: unknown = raw;
@@ -158,6 +169,16 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           payload: parsed,
         });
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          addEvent({
+            source: 'error',
+            eventType:
+              source === 'greeting' ? 'GREETING_AGENT_CHAT_REQUEST_TIMEOUT' : 'AGENT_CHAT_REQUEST_TIMEOUT',
+            summary: `${source === 'greeting' ? 'Greeting' : 'Starter agent chat'} request timed out`,
+            payload: { timeoutMs: AGENT_CHAT_TIMEOUT_MS },
+          });
+          return;
+        }
         addEvent({
           source: 'error',
           eventType:
@@ -165,6 +186,8 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           summary: `${source === 'greeting' ? 'Greeting' : 'Starter agent chat'} request errored`,
           payload: { message: error instanceof Error ? error.message : 'Unknown error' },
         });
+      } finally {
+        clearTimeout(timeout);
       }
     },
     [addEvent, deviceId]
