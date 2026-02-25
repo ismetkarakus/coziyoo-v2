@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coolify App Ops"
+  short_description: "Manage Coolify app env vars and deployments."
+  default_prompt: "Manage Coolify applications: list apps, edit environment variables, redeploy, and inspect deploy logs."
