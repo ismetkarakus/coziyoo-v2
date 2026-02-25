@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { getOrCreateDeviceId } from '@/lib/device-id';
 import {
   STARTER_AGENT_SETTINGS_DEFAULTS,
@@ -97,9 +96,15 @@ export default function SettingsPage() {
       <div className="rounded-xl border bg-white/80 p-5 shadow-sm dark:bg-slate-900/80">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold">Agent Settings</h1>
-          <Link href="/" className="text-sm underline">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.assign('/');
+            }}
+            className="text-sm underline"
+          >
             Back to Home
-          </Link>
+          </button>
         </div>
 
         <p className="mb-4 text-xs text-slate-600 dark:text-slate-400">
