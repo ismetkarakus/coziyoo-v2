@@ -92,8 +92,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="mx-auto min-h-svh w-full max-w-3xl bg-gradient-to-b from-slate-100 to-slate-200 p-4 text-slate-900 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
-      <div className="rounded-xl border bg-white/80 p-5 shadow-sm dark:bg-slate-900/80">
+    <main className="mx-auto min-h-svh w-full max-w-3xl bg-gradient-to-b from-slate-100 to-slate-200 p-4 pt-24 text-slate-900 md:pt-28 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
+      <div className="relative z-10 rounded-xl border bg-white/80 p-5 shadow-sm dark:bg-slate-900/80">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold">Agent Settings</h1>
           <button
