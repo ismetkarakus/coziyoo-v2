@@ -552,33 +552,42 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const settings = await getStarterAgentSettings(parsed.data.deviceId);
-  if (!settings) {
-    return res.status(404).json({
+  try {
+    const settings = await getStarterAgentSettings(parsed.data.deviceId);
+    if (!settings) {
+      return res.status(404).json({
+        error: {
+          code: "STARTER_AGENT_SETTINGS_NOT_FOUND",
+          message: "No settings found for this device.",
+        },
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        agentName: settings.agentName,
+        voiceLanguage: settings.voiceLanguage,
+        ollamaModel: settings.ollamaModel,
+        ttsEngine: settings.ttsEngine,
+        activeTtsServerId: settings.activeTtsServerId,
+        ttsServers: settings.ttsServers,
+        ttsConfig: settings.ttsConfig,
+        ttsEnabled: settings.ttsEnabled,
+        sttEnabled: settings.sttEnabled,
+        systemPrompt: settings.systemPrompt,
+        greetingEnabled: settings.greetingEnabled,
+        greetingInstruction: settings.greetingInstruction,
+        updatedAt: settings.updatedAt,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
       error: {
-        code: "STARTER_AGENT_SETTINGS_NOT_FOUND",
-        message: "No settings found for this device.",
+        code: "STARTER_AGENT_SETTINGS_FETCH_FAILED",
+        message: error instanceof Error ? error.message : "Failed to fetch starter agent settings.",
       },
     });
   }
-
-  return res.status(200).json({
-    data: {
-      agentName: settings.agentName,
-      voiceLanguage: settings.voiceLanguage,
-      ollamaModel: settings.ollamaModel,
-      ttsEngine: settings.ttsEngine,
-      activeTtsServerId: settings.activeTtsServerId,
-      ttsServers: settings.ttsServers,
-      ttsConfig: settings.ttsConfig,
-      ttsEnabled: settings.ttsEnabled,
-      sttEnabled: settings.sttEnabled,
-      systemPrompt: settings.systemPrompt,
-      greetingEnabled: settings.greetingEnabled,
-      greetingInstruction: settings.greetingInstruction,
-      updatedAt: settings.updatedAt,
-    },
-  });
 });
 
 liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
@@ -591,39 +600,48 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const settings = await upsertStarterAgentSettings({
-    deviceId: params.data.deviceId,
-    agentName: parsed.data.agentName,
-    voiceLanguage: parsed.data.voiceLanguage,
-    ollamaModel: parsed.data.ollamaModel,
-    ttsEngine: parsed.data.ttsEngine,
-    activeTtsServerId: parsed.data.activeTtsServerId,
-    ttsServers: parsed.data.ttsServers,
-    ttsConfig: parsed.data.ttsConfig,
-    ttsEnabled: parsed.data.ttsEnabled,
-    sttEnabled: parsed.data.sttEnabled,
-    systemPrompt: parsed.data.systemPrompt,
-    greetingEnabled: parsed.data.greetingEnabled,
-    greetingInstruction: parsed.data.greetingInstruction,
-  });
+  try {
+    const settings = await upsertStarterAgentSettings({
+      deviceId: params.data.deviceId,
+      agentName: parsed.data.agentName,
+      voiceLanguage: parsed.data.voiceLanguage,
+      ollamaModel: parsed.data.ollamaModel,
+      ttsEngine: parsed.data.ttsEngine,
+      activeTtsServerId: parsed.data.activeTtsServerId,
+      ttsServers: parsed.data.ttsServers,
+      ttsConfig: parsed.data.ttsConfig,
+      ttsEnabled: parsed.data.ttsEnabled,
+      sttEnabled: parsed.data.sttEnabled,
+      systemPrompt: parsed.data.systemPrompt,
+      greetingEnabled: parsed.data.greetingEnabled,
+      greetingInstruction: parsed.data.greetingInstruction,
+    });
 
-  return res.status(200).json({
-    data: {
-      agentName: settings.agentName,
-      voiceLanguage: settings.voiceLanguage,
-      ollamaModel: settings.ollamaModel,
-      ttsEngine: settings.ttsEngine,
-      activeTtsServerId: settings.activeTtsServerId,
-      ttsServers: settings.ttsServers,
-      ttsConfig: settings.ttsConfig,
-      ttsEnabled: settings.ttsEnabled,
-      sttEnabled: settings.sttEnabled,
-      systemPrompt: settings.systemPrompt,
-      greetingEnabled: settings.greetingEnabled,
-      greetingInstruction: settings.greetingInstruction,
-      updatedAt: settings.updatedAt,
-    },
-  });
+    return res.status(200).json({
+      data: {
+        agentName: settings.agentName,
+        voiceLanguage: settings.voiceLanguage,
+        ollamaModel: settings.ollamaModel,
+        ttsEngine: settings.ttsEngine,
+        activeTtsServerId: settings.activeTtsServerId,
+        ttsServers: settings.ttsServers,
+        ttsConfig: settings.ttsConfig,
+        ttsEnabled: settings.ttsEnabled,
+        sttEnabled: settings.sttEnabled,
+        systemPrompt: settings.systemPrompt,
+        greetingEnabled: settings.greetingEnabled,
+        greetingInstruction: settings.greetingInstruction,
+        updatedAt: settings.updatedAt,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "STARTER_AGENT_SETTINGS_SAVE_FAILED",
+        message: error instanceof Error ? error.message : "Failed to save starter agent settings.",
+      },
+    });
+  }
 });
 
 liveKitRouter.get("/starter/tools/status", async (_req, res) => {

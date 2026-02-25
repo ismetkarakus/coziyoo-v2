@@ -41,16 +41,68 @@ type UpsertStarterAgentSettingsInput = {
   greetingInstruction?: string;
 };
 
+type StarterSettingsSchemaCapabilities = {
+  hasTtsServersJson: boolean;
+  hasActiveTtsServerId: boolean;
+};
+
+let schemaCapabilitiesPromise: Promise<StarterSettingsSchemaCapabilities> | null = null;
+
 export async function getStarterAgentSettings(deviceId: string): Promise<StarterAgentSettings | null> {
-  const result = await pool.query<{
+  const capabilities = await getSchemaCapabilities();
+  if (capabilities.hasTtsServersJson && capabilities.hasActiveTtsServerId) {
+    const result = await pool.query<{
+      device_id: string;
+      agent_name: string;
+      voice_language: string;
+      ollama_model: string;
+      tts_engine: string;
+      tts_config_json: Record<string, unknown> | null;
+      tts_servers_json: unknown[] | null;
+      active_tts_server_id: string | null;
+      tts_enabled: boolean;
+      stt_enabled: boolean;
+      system_prompt: string | null;
+      greeting_enabled: boolean;
+      greeting_instruction: string | null;
+      updated_at: string;
+    }>(
+      `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text
+       FROM starter_agent_settings
+       WHERE device_id = $1`,
+      [deviceId]
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      deviceId: row.device_id,
+      agentName: row.agent_name,
+      voiceLanguage: row.voice_language,
+      ollamaModel: row.ollama_model,
+      ttsEngine: normalizeTtsEngine(row.tts_engine),
+      ttsConfig: row.tts_config_json ?? null,
+      ttsServers: normalizeTtsServers(row.tts_servers_json),
+      activeTtsServerId: row.active_tts_server_id ?? null,
+      ttsEnabled: row.tts_enabled,
+      sttEnabled: row.stt_enabled,
+      systemPrompt: row.system_prompt,
+      greetingEnabled: row.greeting_enabled,
+      greetingInstruction: row.greeting_instruction,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  const legacyResult = await pool.query<{
     device_id: string;
     agent_name: string;
     voice_language: string;
     ollama_model: string;
     tts_engine: string;
     tts_config_json: Record<string, unknown> | null;
-    tts_servers_json: unknown[] | null;
-    active_tts_server_id: string | null;
     tts_enabled: boolean;
     stt_enabled: boolean;
     system_prompt: string | null;
@@ -58,17 +110,17 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     greeting_instruction: string | null;
     updated_at: string;
   }>(
-    `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text
+    `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text
      FROM starter_agent_settings
      WHERE device_id = $1`,
     [deviceId]
   );
 
-  if ((result.rowCount ?? 0) === 0) {
+  if ((legacyResult.rowCount ?? 0) === 0) {
     return null;
   }
 
-  const row = result.rows[0];
+  const row = legacyResult.rows[0];
   return {
     deviceId: row.device_id,
     agentName: row.agent_name,
@@ -76,8 +128,8 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
     ollamaModel: row.ollama_model,
     ttsEngine: normalizeTtsEngine(row.tts_engine),
     ttsConfig: row.tts_config_json ?? null,
-    ttsServers: normalizeTtsServers(row.tts_servers_json),
-    activeTtsServerId: row.active_tts_server_id ?? null,
+    ttsServers: null,
+    activeTtsServerId: null,
     ttsEnabled: row.tts_enabled,
     sttEnabled: row.stt_enabled,
     systemPrompt: row.system_prompt,
@@ -88,15 +140,85 @@ export async function getStarterAgentSettings(deviceId: string): Promise<Starter
 }
 
 export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettingsInput): Promise<StarterAgentSettings> {
-  const result = await pool.query<{
+  const capabilities = await getSchemaCapabilities();
+  if (capabilities.hasTtsServersJson && capabilities.hasActiveTtsServerId) {
+    const result = await pool.query<{
+      device_id: string;
+      agent_name: string;
+      voice_language: string;
+      ollama_model: string;
+      tts_engine: string;
+      tts_config_json: Record<string, unknown> | null;
+      tts_servers_json: unknown[] | null;
+      active_tts_server_id: string | null;
+      tts_enabled: boolean;
+      stt_enabled: boolean;
+      system_prompt: string | null;
+      greeting_enabled: boolean;
+      greeting_instruction: string | null;
+      updated_at: string;
+    }>(
+      `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+       ON CONFLICT (device_id)
+       DO UPDATE SET
+         agent_name = EXCLUDED.agent_name,
+         voice_language = EXCLUDED.voice_language,
+         ollama_model = EXCLUDED.ollama_model,
+         tts_engine = EXCLUDED.tts_engine,
+         tts_config_json = EXCLUDED.tts_config_json,
+         tts_servers_json = EXCLUDED.tts_servers_json,
+         active_tts_server_id = EXCLUDED.active_tts_server_id,
+         tts_enabled = EXCLUDED.tts_enabled,
+         stt_enabled = EXCLUDED.stt_enabled,
+         system_prompt = EXCLUDED.system_prompt,
+         greeting_enabled = EXCLUDED.greeting_enabled,
+         greeting_instruction = EXCLUDED.greeting_instruction,
+         updated_at = now()
+       RETURNING device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text`,
+      [
+        input.deviceId,
+        input.agentName,
+        input.voiceLanguage,
+        input.ollamaModel,
+        input.ttsEngine ?? DEFAULT_TTS_ENGINE,
+        input.ttsConfig ?? null,
+        input.ttsServers ?? null,
+        input.activeTtsServerId ?? null,
+        input.ttsEnabled,
+        input.sttEnabled,
+        input.systemPrompt ?? null,
+        input.greetingEnabled,
+        input.greetingInstruction ?? null,
+      ]
+    );
+
+    const row = result.rows[0];
+    return {
+      deviceId: row.device_id,
+      agentName: row.agent_name,
+      voiceLanguage: row.voice_language,
+      ollamaModel: row.ollama_model,
+      ttsEngine: normalizeTtsEngine(row.tts_engine),
+      ttsConfig: row.tts_config_json ?? null,
+      ttsServers: normalizeTtsServers(row.tts_servers_json),
+      activeTtsServerId: row.active_tts_server_id ?? null,
+      ttsEnabled: row.tts_enabled,
+      sttEnabled: row.stt_enabled,
+      systemPrompt: row.system_prompt,
+      greetingEnabled: row.greeting_enabled,
+      greetingInstruction: row.greeting_instruction,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  const legacyResult = await pool.query<{
     device_id: string;
     agent_name: string;
     voice_language: string;
     ollama_model: string;
     tts_engine: string;
     tts_config_json: Record<string, unknown> | null;
-    tts_servers_json: unknown[] | null;
-    active_tts_server_id: string | null;
     tts_enabled: boolean;
     stt_enabled: boolean;
     system_prompt: string | null;
@@ -104,8 +226,8 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     greeting_instruction: string | null;
     updated_at: string;
   }>(
-    `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now())
+    `INSERT INTO starter_agent_settings (device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
      ON CONFLICT (device_id)
      DO UPDATE SET
        agent_name = EXCLUDED.agent_name,
@@ -113,15 +235,13 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
        ollama_model = EXCLUDED.ollama_model,
        tts_engine = EXCLUDED.tts_engine,
        tts_config_json = EXCLUDED.tts_config_json,
-       tts_servers_json = EXCLUDED.tts_servers_json,
-       active_tts_server_id = EXCLUDED.active_tts_server_id,
        tts_enabled = EXCLUDED.tts_enabled,
        stt_enabled = EXCLUDED.stt_enabled,
        system_prompt = EXCLUDED.system_prompt,
        greeting_enabled = EXCLUDED.greeting_enabled,
        greeting_instruction = EXCLUDED.greeting_instruction,
        updated_at = now()
-     RETURNING device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_servers_json, active_tts_server_id, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text`,
+     RETURNING device_id, agent_name, voice_language, ollama_model, tts_engine, tts_config_json, tts_enabled, stt_enabled, system_prompt, greeting_enabled, greeting_instruction, updated_at::text`,
     [
       input.deviceId,
       input.agentName,
@@ -129,8 +249,6 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
       input.ollamaModel,
       input.ttsEngine ?? DEFAULT_TTS_ENGINE,
       input.ttsConfig ?? null,
-      input.ttsServers ?? null,
-      input.activeTtsServerId ?? null,
       input.ttsEnabled,
       input.sttEnabled,
       input.systemPrompt ?? null,
@@ -139,7 +257,7 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     ]
   );
 
-  const row = result.rows[0];
+  const row = legacyResult.rows[0];
   return {
     deviceId: row.device_id,
     agentName: row.agent_name,
@@ -147,8 +265,8 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     ollamaModel: row.ollama_model,
     ttsEngine: normalizeTtsEngine(row.tts_engine),
     ttsConfig: row.tts_config_json ?? null,
-    ttsServers: normalizeTtsServers(row.tts_servers_json),
-    activeTtsServerId: row.active_tts_server_id ?? null,
+    ttsServers: null,
+    activeTtsServerId: null,
     ttsEnabled: row.tts_enabled,
     sttEnabled: row.stt_enabled,
     systemPrompt: row.system_prompt,
@@ -156,6 +274,31 @@ export async function upsertStarterAgentSettings(input: UpsertStarterAgentSettin
     greetingInstruction: row.greeting_instruction,
     updatedAt: row.updated_at,
   };
+}
+
+async function getSchemaCapabilities(): Promise<StarterSettingsSchemaCapabilities> {
+  if (!schemaCapabilitiesPromise) {
+    schemaCapabilitiesPromise = pool
+      .query<{ column_name: string }>(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_schema = current_schema()
+           AND table_name = 'starter_agent_settings'
+           AND column_name IN ('tts_servers_json', 'active_tts_server_id')`
+      )
+      .then((result) => {
+        const names = new Set(result.rows.map((row) => row.column_name));
+        return {
+          hasTtsServersJson: names.has("tts_servers_json"),
+          hasActiveTtsServerId: names.has("active_tts_server_id"),
+        };
+      })
+      .catch((error) => {
+        schemaCapabilitiesPromise = null;
+        throw error;
+      });
+  }
+  return schemaCapabilitiesPromise;
 }
 
 function normalizeTtsServers(input: unknown[] | null): TtsServerEntry[] | null {
