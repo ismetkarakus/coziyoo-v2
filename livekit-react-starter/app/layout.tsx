@@ -47,7 +47,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   const hdrs = await headers();
   const appConfig = await getAppConfig(hdrs);
   const styles = getStyles(appConfig);
-  const { pageTitle, pageDescription, companyName, logo, logoDark } = appConfig;
+  const { pageTitle, pageDescription } = appConfig;
 
   return (
     <html
@@ -71,22 +71,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           enableSystem
           disableTransitionOnChange
         >
-          <header className="fixed top-0 left-0 z-50 hidden w-full flex-row items-center justify-between p-6 md:flex">
-            <div className="flex items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logo} alt={`${companyName} Logo`} className="block size-6 dark:hidden" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoDark ?? logo}
-                alt={`${companyName} Logo`}
-                className="hidden size-6 dark:block"
-              />
-              <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
-                {companyName}
-              </span>
-            </div>
-          </header>
-
           {children}
           <div className="group fixed bottom-0 left-1/2 z-50 mb-2 -translate-x-1/2">
             <ThemeToggle className="translate-y-20 transition-transform delay-150 duration-300 group-hover:translate-y-0" />
