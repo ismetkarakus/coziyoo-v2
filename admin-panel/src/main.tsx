@@ -3241,6 +3241,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [foodRows, setFoodRows] = useState<Array<{
     id: string;
     name: string;
+    code: string;
+    cardSummary: string | null;
     description: string | null;
     price: number;
     imageUrl: string | null;
@@ -3284,6 +3286,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           data: Array<{
             id: string;
             name: string;
+            code: string;
+            cardSummary: string | null;
             description: string | null;
             price: number;
             imageUrl: string | null;
@@ -3604,12 +3608,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     </div>
                     <div className="seller-food-body">
                       <div className="seller-food-title-row">
-                        <h3>{food.name}</h3>
+                        <div>
+                          <h3>{food.name}</h3>
+                          <p className="seller-food-code">{food.code}</p>
+                        </div>
                         <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
                           {isActiveFood ? dict.common.active : dict.common.disabled}
                         </span>
                       </div>
-                      <p className="seller-food-description">{food.description || "-"}</p>
+                      <p className="seller-food-description">{food.description || food.cardSummary || dict.detail.noFoodDescription}</p>
                       <div className="seller-food-meta">
                         <span>{formatCurrency(food.price, language)}</span>
                         <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>

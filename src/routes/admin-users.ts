@@ -347,6 +347,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
   const rows = await pool.query<{
     id: string;
     name: string;
+    card_summary: string | null;
     description: string | null;
     price: string;
     image_url: string | null;
@@ -357,6 +358,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     `SELECT
        id,
        name,
+       card_summary,
        description,
        price::text,
        image_url,
@@ -375,6 +377,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     data: rows.rows.map((row) => ({
       id: row.id,
       name: row.name,
+      code: `FD-${row.id.slice(0, 8).toUpperCase()}`,
+      cardSummary: row.card_summary,
       description: row.description,
       price: Number(row.price),
       imageUrl: row.image_url,

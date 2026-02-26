@@ -1947,6 +1947,13 @@ textarea:focus {
   line-height: 1.2;
 }
 
+.seller-food-code {
+  margin: 3px 0 0;
+  color: var(--color-secondary-text);
+  font-size: 0.84rem;
+  letter-spacing: 0.03em;
+}
+
 .seller-food-description {
   margin: 0;
   color: var(--color-secondary-text);
