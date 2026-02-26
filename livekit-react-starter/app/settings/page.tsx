@@ -327,14 +327,14 @@ export default function SettingsPage() {
 
           <div className="block">
             <div className="mb-1 flex items-center justify-between">
-              <span className="block text-sm">TTS Engine</span>
+              <span className="block text-sm">TTS Profile</span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={openAddTtsModal}
                   className="inline-flex h-7 w-7 items-center justify-center rounded border text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  title="Add new TTS server"
-                  aria-label="Add new TTS server"
+                  title="Add new TTS profile"
+                  aria-label="Add new TTS profile"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -392,29 +392,6 @@ export default function SettingsPage() {
                   {server.name}
                 </option>
               ))}
-            </select>
-            <select
-              value={activeTtsServer?.engine ?? form.ttsEngine}
-              onChange={(event) => {
-                const nextEngine =
-                  event.target.value === 'xtts' || event.target.value === 'chatterbox'
-                    ? event.target.value
-                    : 'f5-tts';
-                setForm((prev) => ({
-                  ...prev,
-                  ttsEngine: nextEngine,
-                  ttsServers: updateActiveServer(prev, (server) => ({
-                    ...server,
-                    engine: nextEngine,
-                    config: server.config ?? createNewTtsConfig(nextEngine),
-                  })),
-                }));
-              }}
-              className="w-full rounded border bg-transparent px-3 py-2 text-sm"
-            >
-              <option value="f5-tts">F5-TTS</option>
-              <option value="xtts">XTTS</option>
-              <option value="chatterbox">Chatterbox</option>
             </select>
           </div>
 
@@ -497,7 +474,7 @@ export default function SettingsPage() {
           <div className="w-full max-w-xl rounded-xl border bg-white p-4 shadow-xl dark:bg-slate-900">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold">
-                {ttsModalMode === 'add' ? 'Add TTS Server' : 'TTS Server Settings'}
+                {ttsModalMode === 'add' ? 'Add TTS Profile' : 'TTS Profile Settings'}
               </h2>
               <button
                 type="button"
@@ -510,7 +487,7 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               <label className="block">
-                <span className="mb-1 block text-sm">Server Name</span>
+                <span className="mb-1 block text-sm">Profile Name</span>
                 <input
                   value={activeTtsServer?.name ?? ''}
                   onChange={(event) =>
@@ -523,8 +500,36 @@ export default function SettingsPage() {
                     }))
                   }
                   className="w-full rounded border bg-transparent px-3 py-2 text-sm"
-                  placeholder="My TTS Server"
+                  placeholder="My TTS Profile"
                 />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm">TTS Engine</span>
+                <select
+                  value={activeTtsServer?.engine ?? form.ttsEngine}
+                  onChange={(event) => {
+                    const nextEngine =
+                      event.target.value === 'xtts' || event.target.value === 'chatterbox'
+                        ? event.target.value
+                        : 'f5-tts';
+                    setForm((prev) => ({
+                      ...prev,
+                      ttsEngine: nextEngine,
+                      ttsServers: updateActiveServer(prev, (server) => ({
+                        ...server,
+                        engine: nextEngine,
+                        config: createNewTtsConfig(nextEngine),
+                      })),
+                      ttsConfig: createNewTtsConfig(nextEngine),
+                    }));
+                  }}
+                  className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+                >
+                  <option value="f5-tts">F5-TTS</option>
+                  <option value="xtts">XTTS</option>
+                  <option value="chatterbox">Chatterbox</option>
+                </select>
               </label>
 
               <label className="block">
@@ -547,7 +552,10 @@ export default function SettingsPage() {
                 />
               </label>
 
-              {(activeTtsServer?.engine ?? form.ttsEngine) === 'f5-tts' && (
+              <div className="space-y-3 rounded border p-3">
+                <p className="text-xs font-semibold uppercase">TTS Engine Settings</p>
+
+                {(activeTtsServer?.engine ?? form.ttsEngine) === 'f5-tts' && (
                 <div className="space-y-3 rounded border p-3">
                   <p className="text-xs font-semibold uppercase">F5 Settings</p>
                   <label className="block">
@@ -569,9 +577,9 @@ export default function SettingsPage() {
                     />
                   </label>
                 </div>
-              )}
+                )}
 
-              {(activeTtsServer?.engine ?? form.ttsEngine) === 'xtts' && (
+                {(activeTtsServer?.engine ?? form.ttsEngine) === 'xtts' && (
                 <div className="space-y-3 rounded border p-3">
                   <p className="text-xs font-semibold uppercase">XTTS Settings</p>
                   <label className="block">
@@ -584,9 +592,9 @@ export default function SettingsPage() {
                     />
                   </label>
                 </div>
-              )}
+                )}
 
-              {(activeTtsServer?.engine ?? form.ttsEngine) === 'chatterbox' && (
+                {(activeTtsServer?.engine ?? form.ttsEngine) === 'chatterbox' && (
                 <div className="space-y-3 rounded border p-3">
                   <p className="text-xs font-semibold uppercase">Chatterbox Settings</p>
 
@@ -687,7 +695,8 @@ export default function SettingsPage() {
                     </label>
                   </div>
                 </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
@@ -805,7 +814,7 @@ function addNewTtsServer(form: StarterAgentSettings): StarterAgentSettings {
   const engine = form.ttsEngine || 'f5-tts';
   const nextServer: TtsServerItem = {
     id: nextId,
-    name: `Server ${(form.ttsServers?.length ?? 0) + 1}`,
+    name: '',
     engine,
     config: createNewTtsConfig(engine),
   };
