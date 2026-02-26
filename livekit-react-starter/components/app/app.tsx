@@ -220,6 +220,10 @@ export function App({ appConfig }: AppProps) {
             <span>Commit</span>
             <span className="font-mono text-xs">{shortCommitSha ?? '-'}</span>
           </div>
+          <div className="flex items-center justify-between">
+            <span>Last TTS Engine</span>
+            <span className="font-mono text-xs">{controller.lastAgentTtsEngine ?? '-'}</span>
+          </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button

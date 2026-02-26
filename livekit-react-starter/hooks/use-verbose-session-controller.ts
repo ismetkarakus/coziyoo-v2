@@ -69,6 +69,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
   const [speakerEnabled, setSpeakerEnabled] = useState(true);
   const [roomName, setRoomName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastAgentTtsEngine, setLastAgentTtsEngine] = useState<string | null>(null);
 
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
@@ -475,6 +476,22 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
 
         if (typeof parsed === 'object' && parsed !== null) {
           const maybeText = (parsed as { text?: unknown }).text;
+          const maybeTtsEngine = (parsed as { ttsEngine?: unknown }).ttsEngine;
+          const maybeTtsProfileId = (parsed as { ttsProfileId?: unknown }).ttsProfileId;
+          const maybeTtsProfileName = (parsed as { ttsProfileName?: unknown }).ttsProfileName;
+          if (typeof maybeTtsEngine === 'string' && maybeTtsEngine.trim()) {
+            setLastAgentTtsEngine(maybeTtsEngine.trim());
+            addEvent({
+              source: 'api',
+              eventType: 'AGENT_TTS_ENGINE_METADATA',
+              summary: `Agent reports TTS engine: ${maybeTtsEngine.trim()}`,
+              payload: {
+                ttsEngine: maybeTtsEngine,
+                ttsProfileId: typeof maybeTtsProfileId === 'string' ? maybeTtsProfileId : null,
+                ttsProfileName: typeof maybeTtsProfileName === 'string' ? maybeTtsProfileName : null,
+              },
+            });
+          }
           if (typeof maybeText === 'string' && maybeText.trim()) {
             const text = maybeText.trim();
             setMessages((prev) => [
@@ -687,6 +704,7 @@ Return only the greeting message text.`,
     error,
     micEnabled,
     speakerEnabled,
+    lastAgentTtsEngine,
     messages,
     events,
     selectedEvent,

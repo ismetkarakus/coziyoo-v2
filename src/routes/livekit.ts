@@ -498,6 +498,10 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
     const candidateDeviceId = input.deviceId?.trim() || headerDeviceId;
     const validDeviceId = /^[a-zA-Z0-9_-]{8,128}$/.test(candidateDeviceId) ? candidateDeviceId : "";
     const settings = validDeviceId ? await getStarterAgentSettings(validDeviceId) : null;
+    const activeTtsServer =
+      settings?.ttsServers?.find((server) => server.id === settings.activeTtsServerId) ??
+      settings?.ttsServers?.[0] ??
+      null;
     const answer = await askOllamaChat(input.text, { model: settings?.ollamaModel });
     const payload = {
       type: "agent_message",
@@ -505,6 +509,9 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
       text: answer.text,
       ts: new Date().toISOString(),
       model: answer.model,
+      ttsEngine: activeTtsServer?.engine ?? settings?.ttsEngine ?? "f5-tts",
+      ttsProfileId: activeTtsServer?.id ?? settings?.activeTtsServerId ?? null,
+      ttsProfileName: activeTtsServer?.name ?? null,
     };
     await sendRoomData(input.roomName, payload, { topic: "chat" });
 
