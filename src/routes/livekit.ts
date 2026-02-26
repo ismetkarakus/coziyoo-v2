@@ -512,6 +512,8 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
       ttsEngine: activeTtsServer?.engine ?? settings?.ttsEngine ?? "f5-tts",
       ttsProfileId: activeTtsServer?.id ?? settings?.activeTtsServerId ?? null,
       ttsProfileName: activeTtsServer?.name ?? null,
+      audioPublished: false,
+      audioErrorCode: "API_TEXT_ONLY_PATH",
     };
     await sendRoomData(input.roomName, payload, { topic: "chat" });
 

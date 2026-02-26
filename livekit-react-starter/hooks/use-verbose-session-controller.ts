@@ -70,6 +70,21 @@ function isLikelyAgentParticipant(identity: string | undefined, configuredAgentN
   );
 }
 
+function readApiChatAudioStatus(payload: unknown): { audioPublished: boolean; audioErrorCode: string | null } | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const data = (payload as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return null;
+  const message = (data as { message?: unknown }).message;
+  if (!message || typeof message !== 'object') return null;
+  const rawPublished = (message as { audioPublished?: unknown }).audioPublished;
+  const rawCode = (message as { audioErrorCode?: unknown }).audioErrorCode;
+  if (typeof rawPublished !== 'boolean') return null;
+  return {
+    audioPublished: rawPublished,
+    audioErrorCode: typeof rawCode === 'string' ? rawCode : null,
+  };
+}
+
 export function useVerboseSessionController({ deviceId, settings }: ControllerInput) {
   const [connectionState, setConnectionState] = useState<SessionConnectionState>('idle');
   const [events, setEvents] = useState<VerboseEvent[]>([]);
@@ -254,6 +269,19 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           summary: `${source === 'greeting' ? 'Greeting' : 'Starter agent chat'} request succeeded`,
           payload: parsed,
         });
+
+        const audioStatus = readApiChatAudioStatus(parsed);
+        if (audioStatus && !audioStatus.audioPublished) {
+          addEvent({
+            source: 'track',
+            eventType:
+              source === 'greeting' ? 'GREETING_AGENT_AUDIO_UNAVAILABLE' : 'AGENT_AUDIO_UNAVAILABLE',
+            summary: 'API response indicates no server audio was published',
+            payload: {
+              reason: audioStatus.audioErrorCode ?? 'UNKNOWN',
+            },
+          });
+        }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           addEvent({
