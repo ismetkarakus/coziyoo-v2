@@ -3244,6 +3244,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     code: string;
     cardSummary: string | null;
     description: string | null;
+    recipe: string | null;
     price: number;
     imageUrl: string | null;
     status: "active" | "disabled";
@@ -3289,6 +3290,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             code: string;
             cardSummary: string | null;
             description: string | null;
+            recipe: string | null;
             price: number;
             imageUrl: string | null;
             status: "active" | "disabled";
@@ -3616,7 +3618,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           {isActiveFood ? dict.common.active : dict.common.disabled}
                         </span>
                       </div>
-                      <p className="seller-food-description">{food.description || food.cardSummary || dict.detail.noFoodDescription}</p>
+                      <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
                       <div className="seller-food-meta">
                         <span>{formatCurrency(food.price, language)}</span>
                         <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>

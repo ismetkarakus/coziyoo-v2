@@ -349,6 +349,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     name: string;
     card_summary: string | null;
     description: string | null;
+    recipe: string | null;
     price: string;
     image_url: string | null;
     is_active: boolean;
@@ -360,6 +361,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
        name,
        card_summary,
        description,
+       recipe,
        price::text,
        image_url,
        is_active,
@@ -380,6 +382,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       code: `FD-${row.id.slice(0, 8).toUpperCase()}`,
       cardSummary: row.card_summary,
       description: row.description,
+      recipe: row.recipe,
       price: Number(row.price),
       imageUrl: row.image_url,
       status: row.is_active ? "active" : "disabled",
