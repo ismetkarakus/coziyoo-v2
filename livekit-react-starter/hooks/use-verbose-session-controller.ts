@@ -60,6 +60,16 @@ function resolveGreetingContext(now: Date) {
   return { weekday, hour, timeOfDay };
 }
 
+function isLikelyAgentParticipant(identity: string | undefined, configuredAgentName: string) {
+  const normalizedIdentity = (identity ?? '').trim().toLowerCase();
+  const normalizedConfigured = configuredAgentName.trim().toLowerCase();
+  if (!normalizedIdentity) return false;
+  return (
+    normalizedIdentity.includes('agent') ||
+    (normalizedConfigured.length > 0 && normalizedIdentity.includes(normalizedConfigured))
+  );
+}
+
 export function useVerboseSessionController({ deviceId, settings }: ControllerInput) {
   const [connectionState, setConnectionState] = useState<SessionConnectionState>('idle');
   const [events, setEvents] = useState<VerboseEvent[]>([]);
@@ -76,6 +86,8 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
   const audioRootRef = useRef<HTMLDivElement | null>(null);
   const speakerEnabledRef = useRef(true);
   const interruptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const agentAudioTrackCountRef = useRef(0);
+  const lastAgentAudioTrackTsRef = useRef<string | null>(null);
   speakerEnabledRef.current = speakerEnabled;
 
   const addEvent = useCallback(
@@ -114,6 +126,8 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
       }
     }
     audioElementsRef.current.clear();
+    agentAudioTrackCountRef.current = 0;
+    lastAgentAudioTrackTsRef.current = null;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -417,6 +431,17 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
         audioElement.style.display = 'none';
         audioRootRef.current?.appendChild(audioElement);
         audioElementsRef.current.set(key, audioElement);
+        const configuredAgentName = settings.agentName.trim();
+        if (isLikelyAgentParticipant(participant.identity, configuredAgentName)) {
+          agentAudioTrackCountRef.current += 1;
+          lastAgentAudioTrackTsRef.current = new Date().toISOString();
+          addEvent({
+            source: 'track',
+            eventType: 'AGENT_AUDIO_TRACK_AVAILABLE',
+            summary: `Agent audio track available (${agentAudioTrackCountRef.current})`,
+            payload: { participant, publication, trackCount: agentAudioTrackCountRef.current },
+          });
+        }
         addEvent({
           source: 'track',
           eventType: 'TRACK_SUBSCRIBED',
@@ -435,6 +460,16 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
           track.detach(audioElement);
           audioElement.remove();
           audioElementsRef.current.delete(key);
+        }
+        const configuredAgentName = settings.agentName.trim();
+        if (isLikelyAgentParticipant(participant.identity, configuredAgentName)) {
+          agentAudioTrackCountRef.current = Math.max(0, agentAudioTrackCountRef.current - 1);
+          addEvent({
+            source: 'track',
+            eventType: 'AGENT_AUDIO_TRACK_UNAVAILABLE',
+            summary: `Agent audio track unavailable (${agentAudioTrackCountRef.current})`,
+            payload: { participant, publication, trackCount: agentAudioTrackCountRef.current },
+          });
         }
         addEvent({
           source: 'track',
@@ -504,7 +539,28 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
               },
             ]);
             if (fromAgent) {
-              speakText(text);
+              if (agentAudioTrackCountRef.current > 0) {
+                addEvent({
+                  source: 'track',
+                  eventType: 'BROWSER_TTS_SKIPPED',
+                  summary: 'Skipped browser TTS because agent audio track is available',
+                  payload: {
+                    trackCount: agentAudioTrackCountRef.current,
+                    lastAgentAudioTrackTs: lastAgentAudioTrackTsRef.current,
+                  },
+                });
+              } else {
+                addEvent({
+                  source: 'track',
+                  eventType: 'BROWSER_TTS_FALLBACK',
+                  summary: 'Browser TTS fallback used because no agent audio track is available',
+                  payload: {
+                    trackCount: agentAudioTrackCountRef.current,
+                    lastAgentAudioTrackTs: lastAgentAudioTrackTsRef.current,
+                  },
+                });
+                speakText(text);
+              }
             }
           }
         }
