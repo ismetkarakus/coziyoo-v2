@@ -248,6 +248,8 @@
     "foodRetentionHint": "Food contents are retained for 2 years due to legal requirements.",
     "totalFoods": "Total Foods",
     "noFoodDescription": "No description provided",
+    "foodItems": "items",
+    "unknownDate": "Unknown Date",
     "sectionPlanned": "This section will be expanded in the next seller detail iteration.",
     "sellerTabs": {
       "title": "Seller Detail Tabs",
