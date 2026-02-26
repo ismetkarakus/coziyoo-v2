@@ -1897,6 +1897,13 @@ textarea:focus {
   gap: 12px;
 }
 
+.seller-food-filter-chips {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .seller-food-card {
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: 14px;

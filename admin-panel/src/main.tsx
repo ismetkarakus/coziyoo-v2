@@ -3041,6 +3041,16 @@ function formatUiDate(value: string | null | undefined, language: Language): str
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
 }
 
+function foodDateKey(value: string | null | undefined): string | null {
+  const date = Date.parse(String(value ?? ""));
+  if (Number.isNaN(date)) return null;
+  const normalized = new Date(date);
+  const year = normalized.getFullYear();
+  const month = String(normalized.getMonth() + 1).padStart(2, "0");
+  const day = String(normalized.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatCurrency(value: number, language: Language): string {
   const safe = Number.isFinite(value) ? value : 0;
   return new Intl.NumberFormat(language === "tr" ? "tr-TR" : "en-US", {
@@ -3256,6 +3266,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [loading, setLoading] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
+  const [activeFoodDate, setActiveFoodDate] = useState<string>("all");
 
   async function loadSellerDetail() {
     setLoading(true);
@@ -3316,7 +3327,50 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setProfileImageFailed(false);
     setFoodImageErrors({});
+    setActiveFoodDate("all");
   }, [id]);
+
+  const foodDateChips = useMemo(() => {
+    const counts = new Map<string, { count: number; latestTimestamp: number; label: string }>();
+    for (const food of foodRows) {
+      const key = foodDateKey(food.createdAt);
+      if (!key) continue;
+      const timestamp = Date.parse(String(food.createdAt ?? ""));
+      const current = counts.get(key);
+      if (current) {
+        current.count += 1;
+        if (!Number.isNaN(timestamp) && timestamp > current.latestTimestamp) {
+          current.latestTimestamp = timestamp;
+          current.label = formatUiDate(food.createdAt, language);
+        }
+        continue;
+      }
+      counts.set(key, {
+        count: 1,
+        latestTimestamp: Number.isNaN(timestamp) ? 0 : timestamp,
+        label: formatUiDate(food.createdAt, language),
+      });
+    }
+    return Array.from(counts.entries())
+      .map(([key, value]) => ({
+        key,
+        count: value.count,
+        label: value.label,
+        latestTimestamp: value.latestTimestamp,
+      }))
+      .sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+  }, [foodRows, language]);
+
+  useEffect(() => {
+    if (activeFoodDate === "all") return;
+    if (foodDateChips.some((chip) => chip.key === activeFoodDate)) return;
+    setActiveFoodDate("all");
+  }, [activeFoodDate, foodDateChips]);
+
+  const filteredFoodRows = useMemo(() => {
+    if (activeFoodDate === "all") return foodRows;
+    return foodRows.filter((food) => foodDateKey(food.createdAt) === activeFoodDate);
+  }, [activeFoodDate, foodRows]);
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3589,45 +3643,66 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           {foodRows.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
           ) : (
-            <div className="seller-food-grid">
-              {foodRows.map((food) => {
-                const isActiveFood = food.status === "active";
-                const imageUrl = normalizeImageUrl(food.imageUrl);
-                const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
-                return (
-                  <article key={food.id} className="seller-food-card">
-                    <div className="seller-food-image-wrap">
-                      {hasImage ? (
-                        <img
-                          className="seller-food-image"
-                          src={imageUrl ?? ""}
-                          alt={food.name}
-                          onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
-                        />
-                      ) : (
-                        <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
-                      )}
-                    </div>
-                    <div className="seller-food-body">
-                      <div className="seller-food-title-row">
-                        <div>
-                          <h3>{food.name}</h3>
-                          <p className="seller-food-code">{food.code}</p>
+            <>
+              <div className="seller-food-filter-chips">
+                <button type="button" className={`chip ${activeFoodDate === "all" ? "is-active" : ""}`} onClick={() => setActiveFoodDate("all")}>
+                  {`${dict.common.all} (${foodRows.length})`}
+                </button>
+                {foodDateChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className={`chip ${activeFoodDate === chip.key ? "is-active" : ""}`}
+                    onClick={() => setActiveFoodDate(chip.key)}
+                  >
+                    {`${chip.label} (${chip.count})`}
+                  </button>
+                ))}
+              </div>
+              {filteredFoodRows.length === 0 ? (
+                <p className="panel-meta">{dict.common.noRecords}</p>
+              ) : (
+                <div className="seller-food-grid">
+                  {filteredFoodRows.map((food) => {
+                    const isActiveFood = food.status === "active";
+                    const imageUrl = normalizeImageUrl(food.imageUrl);
+                    const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
+                    return (
+                      <article key={food.id} className="seller-food-card">
+                        <div className="seller-food-image-wrap">
+                          {hasImage ? (
+                            <img
+                              className="seller-food-image"
+                              src={imageUrl ?? ""}
+                              alt={food.name}
+                              onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
+                            />
+                          ) : (
+                            <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
+                          )}
                         </div>
-                        <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
-                          {isActiveFood ? dict.common.active : dict.common.disabled}
-                        </span>
-                      </div>
-                      <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
-                      <div className="seller-food-meta">
-                        <span>{formatCurrency(food.price, language)}</span>
-                        <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                        <div className="seller-food-body">
+                          <div className="seller-food-title-row">
+                            <div>
+                              <h3>{food.name}</h3>
+                              <p className="seller-food-code">{food.code}</p>
+                            </div>
+                            <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
+                              {isActiveFood ? dict.common.active : dict.common.disabled}
+                            </span>
+                          </div>
+                          <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
+                          <div className="seller-food-meta">
+                            <span>{formatCurrency(food.price, language)}</span>
+                            <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </section>
       ) : null}
