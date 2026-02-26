@@ -248,9 +248,6 @@
     "foodRetentionHint": "Yemek içerikleri yasal gereklilik gereği 2 yıl saklanır.",
     "totalFoods": "Toplam Yemek",
     "noFoodDescription": "Açıklama girilmemiş",
-    "kuruFasulyeSection": "Kuru Fasulye",
-    "foodsByDate": "Tarihe Göre Yemekler",
-    "foodItems": "yemek",
     "sectionPlanned": "Bu bölüm satıcı detay sayfasının bir sonraki iterasyonunda genişletilecektir.",
     "sellerTabs": {
       "title": "Satıcı Detay Sekmeleri",

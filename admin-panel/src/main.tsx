@@ -3056,18 +3056,6 @@ function normalizeImageUrl(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeSearchText(value: string | null | undefined): string {
-  return String(value ?? "")
-    .toLocaleLowerCase("tr-TR")
-    .replace(/ı/g, "i")
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
-    .trim();
-}
-
 function normalizeComplianceToken(value: string | null | undefined): string {
   const raw = String(value ?? "")
     .toLowerCase()
@@ -3268,7 +3256,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [loading, setLoading] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
-  const [openFoodDate, setOpenFoodDate] = useState<string | null>(null);
 
   async function loadSellerDetail() {
     setLoading(true);
@@ -3329,7 +3316,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setProfileImageFailed(false);
     setFoodImageErrors({});
-    setOpenFoodDate(null);
   }, [id]);
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
@@ -3420,78 +3406,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "raw", label: dict.detail.sellerTabs.raw },
   ] as const;
-
-  const kuruFasulyeFoods = useMemo(
-    () => foodRows.filter((food) => normalizeSearchText(food.name).includes("kuru fasulye")),
-    [foodRows]
-  );
-  const datedFoods = useMemo(
-    () => foodRows.filter((food) => !normalizeSearchText(food.name).includes("kuru fasulye")),
-    [foodRows]
-  );
-  const foodDateGroups = useMemo(() => {
-    const groups = new Map<string, typeof datedFoods>();
-    for (const food of datedFoods) {
-      const sourceDate = Date.parse(food.createdAt) ? food.createdAt : food.updatedAt;
-      const key = String(sourceDate).slice(0, 10);
-      const list = groups.get(key) ?? [];
-      list.push(food);
-      groups.set(key, list);
-    }
-    return Array.from(groups.entries())
-      .sort((a, b) => Date.parse(b[0]) - Date.parse(a[0]))
-      .map(([dateKey, items]) => ({ dateKey, items }));
-  }, [datedFoods]);
-
-  function renderFoodCard(food: {
-    id: string;
-    name: string;
-    code: string;
-    cardSummary: string | null;
-    description: string | null;
-    recipe: string | null;
-    price: number;
-    imageUrl: string | null;
-    status: "active" | "disabled";
-    createdAt: string;
-    updatedAt: string;
-  }) {
-    const isActiveFood = food.status === "active";
-    const imageUrl = normalizeImageUrl(food.imageUrl);
-    const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
-    return (
-      <article key={food.id} className="seller-food-card">
-        <div className="seller-food-image-wrap">
-          {hasImage ? (
-            <img
-              className="seller-food-image"
-              src={imageUrl ?? ""}
-              alt={food.name}
-              onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
-            />
-          ) : (
-            <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
-          )}
-        </div>
-        <div className="seller-food-body">
-          <div className="seller-food-title-row">
-            <div>
-              <h3>{food.name}</h3>
-              <p className="seller-food-code">{food.code}</p>
-            </div>
-            <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
-              {isActiveFood ? dict.common.active : dict.common.disabled}
-            </span>
-          </div>
-          <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
-          <div className="seller-food-meta">
-            <span>{formatCurrency(food.price, language)}</span>
-            <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>
-          </div>
-        </div>
-      </article>
-    );
-  }
 
   return (
     <div className="app seller-detail-page">
@@ -3675,38 +3589,45 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           {foodRows.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
           ) : (
-            <>
-              {kuruFasulyeFoods.length > 0 ? (
-                <section className="seller-food-special-block">
-                  <h3 className="seller-food-section-title">{dict.detail.kuruFasulyeSection}</h3>
-                  <div className="seller-food-grid">
-                    {kuruFasulyeFoods.map((food) => renderFoodCard(food))}
-                  </div>
-                </section>
-              ) : null}
-
-              <section className="seller-food-dates-block">
-                <h3 className="seller-food-section-title">{dict.detail.foodsByDate}</h3>
-                <div className="seller-food-date-list">
-                  {foodDateGroups.map((group) => {
-                    const isOpen = openFoodDate === group.dateKey;
-                    return (
-                      <article key={group.dateKey} className="seller-food-date-group">
-                        <button
-                          type="button"
-                          className={`seller-food-date-btn ${isOpen ? "is-open" : ""}`}
-                          onClick={() => setOpenFoodDate((prev) => (prev === group.dateKey ? null : group.dateKey))}
-                        >
-                          <span>{formatUiDate(group.dateKey, language)}</span>
-                          <span>{`${group.items.length} ${dict.detail.foodItems}`}</span>
-                        </button>
-                        {isOpen ? <div className="seller-food-grid">{group.items.map((food) => renderFoodCard(food))}</div> : null}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            </>
+            <div className="seller-food-grid">
+              {foodRows.map((food) => {
+                const isActiveFood = food.status === "active";
+                const imageUrl = normalizeImageUrl(food.imageUrl);
+                const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
+                return (
+                  <article key={food.id} className="seller-food-card">
+                    <div className="seller-food-image-wrap">
+                      {hasImage ? (
+                        <img
+                          className="seller-food-image"
+                          src={imageUrl ?? ""}
+                          alt={food.name}
+                          onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
+                        />
+                      ) : (
+                        <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
+                      )}
+                    </div>
+                    <div className="seller-food-body">
+                      <div className="seller-food-title-row">
+                        <div>
+                          <h3>{food.name}</h3>
+                          <p className="seller-food-code">{food.code}</p>
+                        </div>
+                        <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
+                          {isActiveFood ? dict.common.active : dict.common.disabled}
+                        </span>
+                      </div>
+                      <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
+                      <div className="seller-food-meta">
+                        <span>{formatCurrency(food.price, language)}</span>
+                        <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
       ) : null}

@@ -1969,51 +1969,6 @@ textarea:focus {
   font-size: 0.95rem;
 }
 
-.seller-food-special-block,
-.seller-food-dates-block {
-  margin-top: 14px;
-}
-
-.seller-food-section-title {
-  margin: 0 0 10px;
-  font-size: 1.02rem;
-  color: var(--color-secondary-text);
-}
-
-.seller-food-date-list {
-  display: grid;
-  gap: 10px;
-}
-
-.seller-food-date-group {
-  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-card-bg) 68%, transparent);
-  padding: 8px;
-}
-
-.seller-food-date-btn {
-  width: 100%;
-  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  border-radius: 10px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, #18243f 76%, transparent),
-    color-mix(in srgb, #111a2f 86%, transparent)
-  );
-  color: var(--color-text);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  font-weight: 700;
-}
-
-.seller-food-date-btn.is-open {
-  border-color: color-mix(in srgb, var(--color-accent) 58%, var(--color-border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
 .seller-actions-row {
   display: flex;
   align-items: center;
