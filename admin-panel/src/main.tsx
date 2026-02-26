@@ -3068,6 +3068,46 @@ function normalizeSearchText(value: string | null | undefined): string {
     .trim();
 }
 
+type SellerFoodItem = {
+  id: string;
+  name: string;
+  code: string;
+  cardSummary: string | null;
+  description: string | null;
+  recipe: string | null;
+  price: number;
+  imageUrl: string | null;
+  status: "active" | "disabled";
+  createdAt: string;
+  updatedAt: string;
+};
+
+function sanitizeSellerFoods(items: unknown): SellerFoodItem[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => {
+      const id = String(item.id ?? "").trim();
+      const name = String(item.name ?? "").trim() || "-";
+      const codeRaw = String(item.code ?? "").trim();
+      const code = codeRaw || (id ? `FD-${id.slice(0, 8).toUpperCase()}` : "FD-UNKNOWN");
+      const priceNumber = Number(item.price ?? 0);
+      return {
+        id: id || code,
+        name,
+        code,
+        cardSummary: typeof item.cardSummary === "string" ? item.cardSummary : null,
+        description: typeof item.description === "string" ? item.description : null,
+        recipe: typeof item.recipe === "string" ? item.recipe : null,
+        price: Number.isFinite(priceNumber) ? priceNumber : 0,
+        imageUrl: normalizeImageUrl(item.imageUrl),
+        status: item.status === "active" ? "active" : "disabled",
+        createdAt: String(item.createdAt ?? ""),
+        updatedAt: String(item.updatedAt ?? ""),
+      };
+    });
+}
+
 function normalizeComplianceToken(value: string | null | undefined): string {
   const raw = String(value ?? "")
     .toLowerCase()
@@ -3250,19 +3290,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
-  const [foodRows, setFoodRows] = useState<Array<{
-    id: string;
-    name: string;
-    code: string;
-    cardSummary: string | null;
-    description: string | null;
-    recipe: string | null;
-    price: number;
-    imageUrl: string | null;
-    status: "active" | "disabled";
-    createdAt: string;
-    updatedAt: string;
-  }>>([]);
+  const [foodRows, setFoodRows] = useState<SellerFoodItem[]>([]);
   const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw">("identity");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -3327,12 +3355,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 }>;
               };
         }>(foodsResponse);
-        const normalizedFoods = Array.isArray(foodsBody.data)
-          ? foodsBody.data
-          : Array.isArray(foodsBody.data?.rows)
-            ? foodsBody.data.rows
-            : [];
-        setFoodRows(normalizedFoods);
+        const normalizedFoods = Array.isArray(foodsBody.data) ? foodsBody.data : Array.isArray(foodsBody.data?.rows) ? foodsBody.data.rows : [];
+        setFoodRows(sanitizeSellerFoods(normalizedFoods));
       } else {
         setFoodRows([]);
       }
