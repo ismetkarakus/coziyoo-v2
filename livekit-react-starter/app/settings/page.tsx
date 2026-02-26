@@ -263,6 +263,12 @@ export default function SettingsPage() {
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
+  const parseOptionalInteger = (value: string) => {
+    const parsed = parseOptionalNumber(value);
+    if (parsed === undefined) return undefined;
+    return Number.isInteger(parsed) ? parsed : Math.trunc(parsed);
+  };
+
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl bg-gradient-to-b from-slate-100 to-slate-200 p-4 pt-24 text-slate-900 md:pt-28 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
       <div className="relative z-10 rounded-xl border bg-white/80 p-5 shadow-sm dark:bg-slate-900/80">
@@ -691,6 +697,64 @@ export default function SettingsPage() {
                         }
                         className="w-full rounded border bg-transparent px-3 py-2 text-sm"
                         placeholder="0.8"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="mb-1 block text-sm">Exaggeration</span>
+                      <input
+                        value={activeTtsServer?.config?.chatterbox?.exaggeration ?? ''}
+                        onChange={(event) =>
+                          updateChatterboxConfig({
+                            exaggeration: parseOptionalNumber(event.target.value),
+                          })
+                        }
+                        className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+                        placeholder="0.5"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm">CFG Weight</span>
+                      <input
+                        value={activeTtsServer?.config?.chatterbox?.cfgWeight ?? ''}
+                        onChange={(event) =>
+                          updateChatterboxConfig({
+                            cfgWeight: parseOptionalNumber(event.target.value),
+                          })
+                        }
+                        className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+                        placeholder="1.0"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="mb-1 block text-sm">Seed</span>
+                      <input
+                        value={activeTtsServer?.config?.chatterbox?.seed ?? ''}
+                        onChange={(event) =>
+                          updateChatterboxConfig({
+                            seed: parseOptionalInteger(event.target.value),
+                          })
+                        }
+                        className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+                        placeholder="42"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm">Speed Factor</span>
+                      <input
+                        value={activeTtsServer?.config?.chatterbox?.speedFactor ?? ''}
+                        onChange={(event) =>
+                          updateChatterboxConfig({
+                            speedFactor: parseOptionalNumber(event.target.value),
+                          })
+                        }
+                        className="w-full rounded border bg-transparent px-3 py-2 text-sm"
+                        placeholder="1.0"
                       />
                     </label>
                   </div>
