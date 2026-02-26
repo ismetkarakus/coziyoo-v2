@@ -20,6 +20,7 @@
 - `ADMIN_JWT_SECRET=...` (min 32 chars)
 - `PAYMENT_WEBHOOK_SECRET=...` (min 16 chars)
 - `CORS_ALLOWED_ORIGINS=https://admin.example.com`
+  - Supports comma-separated wildcard entries for subdomains, e.g. `https://*.example.com`
 
 LiveKit integration (external server on Coolify):
 

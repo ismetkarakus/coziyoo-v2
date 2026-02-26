@@ -31,12 +31,34 @@ const corsOrigins = env.CORS_ALLOWED_ORIGINS.split(",")
   .map((value) => value.trim())
   .filter(Boolean);
 const allowAnyOrigin = corsOrigins.includes("*");
-const allowedCorsOrigins = new Set(corsOrigins);
+const allowedCorsOrigins = new Set(corsOrigins.filter((value) => value !== "*" && !value.includes("*")));
+const wildcardCorsOrigins = corsOrigins.filter((value) => value !== "*" && value.includes("*"));
+
+function wildcardOriginMatches(origin: string, wildcardPattern: string): boolean {
+  try {
+    const originUrl = new URL(origin);
+    const patternUrl = new URL(wildcardPattern.replace("://*.", "://wildcard."));
+    if (!wildcardPattern.includes("://*.")) return false;
+    if (originUrl.protocol !== patternUrl.protocol) return false;
+    if (patternUrl.port && originUrl.port !== patternUrl.port) return false;
+    const suffix = patternUrl.hostname.replace(/^wildcard\./, "");
+    if (!suffix) return false;
+    return originUrl.hostname.endsWith(`.${suffix}`) && originUrl.hostname !== suffix;
+  } catch {
+    return false;
+  }
+}
+
+function isCorsOriginAllowed(origin: string): boolean {
+  if (allowAnyOrigin) return true;
+  if (allowedCorsOrigins.has(origin)) return true;
+  return wildcardCorsOrigins.some((pattern) => wildcardOriginMatches(origin, pattern));
+}
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  if (origin && (allowAnyOrigin || allowedCorsOrigins.has(origin))) {
+  if (origin && isCorsOriginAllowed(origin)) {
     res.setHeader("Access-Control-Allow-Origin", allowAnyOrigin ? "*" : origin);
     if (!allowAnyOrigin) {
       res.setHeader("Vary", "Origin");
