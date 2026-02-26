@@ -1,0 +1,14 @@
+{
+  "name": "coziyoo-assistant-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "livekit-server-sdk": "^2.15.0",
+    "zod": "^4.3.6"
+  }
+}
