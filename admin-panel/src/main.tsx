@@ -824,6 +824,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         email: "email",
         display_name: "displayName",
         full_name: "fullName",
+        total_foods: "totalFoods",
         user_type: "role",
         is_active: "status",
         country_code: "countryCode",
@@ -1126,8 +1127,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const availableColumns = useMemo(() => fields.map((f) => f.name), [fields]);
   const tableColumns = useMemo(() => {
     if (isSellerPage) {
-      const sellerColumns = ["display_name", "email", "id", "status", "language", "created_at", "updated_at"];
-      return sellerColumns.filter((column) => availableColumns.includes(column));
+      return ["display_name", "email", "id", "total_foods", "status", "language", "created_at", "updated_at"];
     }
     const picked = visibleColumns.filter((column) => availableColumns.includes(column));
     if (picked.length > 0) return picked;
@@ -1163,6 +1163,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "displayName") return isSellerPage ? (language === "tr" ? "Satıcı Adı" : "Seller Name") : language === "tr" ? "Ad Soyad" : "Full Name";
     if (mapped === "email") return language === "tr" ? "E-Posta" : "Email";
     if (mapped === "status") return dict.users.status;
+    if (mapped === "totalFoods") return language === "tr" ? "Yemek" : "Foods";
     if (mapped === "role") return dict.users.role;
     if (mapped === "countryCode") return language === "tr" ? "Ülke" : "Country";
     if (mapped === "language") return language === "tr" ? "Dil" : "Language";
@@ -1195,6 +1196,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "status") {
       const status = value === "disabled" ? "disabled" : "active";
       return <span className={`status-pill ${status === "active" ? "is-active" : "is-disabled"}`}>{status === "active" ? "Aktif" : "Pasif"}</span>;
+    }
+    if (mapped === "totalFoods") {
+      const count = Number(value ?? 0);
+      return Number.isFinite(count) ? count : 0;
     }
     if (mapped === "displayName") {
       const text = String(value ?? "");
@@ -3294,6 +3299,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const maskedPhone = maskPhone(phone);
   const profileRetentionUntil = addTwoYears(row.updatedAt);
   const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
+  const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
   const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
     const value = String(item.updated_at ?? "");
     if (!value) return latest;
@@ -3520,7 +3526,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           <div className="panel-header">
             <h2>{dict.detail.sellerTabs.foods}</h2>
           </div>
-          <p className="panel-meta">{`${dict.detail.totalFoods}: ${foodRows.length}`}</p>
+          <p className="panel-meta">{`${dict.detail.totalFoods}: ${totalFoods}`}</p>
         </section>
       ) : null}
 

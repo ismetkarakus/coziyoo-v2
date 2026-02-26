@@ -170,7 +170,20 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
   );
 
   const listParams = [...params, input.pageSize, offset];
-  const list = await pool.query(
+  const list = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string;
+    full_name: string | null;
+    profile_image_url: string | null;
+    user_type: "buyer" | "seller" | "both";
+    is_active: boolean;
+    country_code: string | null;
+    language: string | null;
+    created_at: string;
+    updated_at: string;
+    total_foods: number;
+  }>(
     `SELECT
        u.id,
        u.email,
@@ -182,8 +195,14 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.country_code,
        u.language,
        u.created_at::text,
-       u.updated_at::text
+       u.updated_at::text,
+       COALESCE(food_stats.total_foods, 0)::int AS total_foods
      FROM users u
+     LEFT JOIN LATERAL (
+       SELECT count(*)::int AS total_foods
+       FROM foods f
+       WHERE f.seller_id = u.id
+     ) food_stats ON TRUE
      ${whereSql}
      ORDER BY ${sortField} ${sortDir}, u.id ${sortDir}
      LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
@@ -204,6 +223,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       language: row.language,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      totalFoods: Number(row.total_foods ?? 0),
     })),
     pagination: {
       mode: "offset",
@@ -221,7 +241,20 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
   }
 
-  const user = await pool.query(
+  const user = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string;
+    full_name: string | null;
+    profile_image_url: string | null;
+    user_type: "buyer" | "seller" | "both";
+    is_active: boolean;
+    country_code: string | null;
+    language: string | null;
+    created_at: string;
+    updated_at: string;
+    total_foods: number;
+  }>(
     `SELECT
        id,
        email,
@@ -233,7 +266,12 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
        country_code,
        language,
        created_at::text,
-       updated_at::text
+       updated_at::text,
+       (
+         SELECT count(*)::int
+         FROM foods f
+         WHERE f.seller_id = users.id
+       ) AS total_foods
      FROM users
      WHERE id = $1`,
     [params.data.id]
@@ -257,6 +295,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       language: row.language,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      totalFoods: Number(row.total_foods ?? 0),
     },
   });
 });
