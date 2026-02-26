@@ -3058,7 +3058,7 @@ function normalizeImageUrl(value: unknown): string | null {
 
 function normalizeSearchText(value: string | null | undefined): string {
   return String(value ?? "")
-    .toLocaleLowerCase("tr-TR")
+    .toLowerCase()
     .replace(/ı/g, "i")
     .replace(/ğ/g, "g")
     .replace(/ü/g, "u")
@@ -3430,17 +3430,26 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     [foodRows]
   );
   const foodDateGroups = useMemo(() => {
-    const groups = new Map<string, typeof datedFoods>();
-    for (const food of datedFoods) {
-      const sourceDate = Date.parse(food.createdAt) ? food.createdAt : food.updatedAt;
-      const key = String(sourceDate).slice(0, 10);
-      const list = groups.get(key) ?? [];
-      list.push(food);
-      groups.set(key, list);
+    try {
+      const groups = new Map<string, typeof datedFoods>();
+      for (const food of datedFoods) {
+        const createdKey = String(food.createdAt ?? "").slice(0, 10);
+        const updatedKey = String(food.updatedAt ?? "").slice(0, 10);
+        const key = /^\d{4}-\d{2}-\d{2}$/.test(createdKey)
+          ? createdKey
+          : /^\d{4}-\d{2}-\d{2}$/.test(updatedKey)
+            ? updatedKey
+            : "unknown";
+        const list = groups.get(key) ?? [];
+        list.push(food);
+        groups.set(key, list);
+      }
+      return Array.from(groups.entries())
+        .sort((a, b) => String(b[0]).localeCompare(String(a[0])))
+        .map(([dateKey, items]) => ({ dateKey, items }));
+    } catch {
+      return [];
     }
-    return Array.from(groups.entries())
-      .sort((a, b) => Date.parse(b[0]) - Date.parse(a[0]))
-      .map(([dateKey, items]) => ({ dateKey, items }));
   }, [datedFoods]);
 
   function renderFoodCard(food: {
@@ -3456,6 +3465,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     createdAt: string;
     updatedAt: string;
   }) {
+    const foodName = String(food.name ?? "-");
     const isActiveFood = food.status === "active";
     const imageUrl = normalizeImageUrl(food.imageUrl);
     const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
@@ -3466,17 +3476,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <img
               className="seller-food-image"
               src={imageUrl ?? ""}
-              alt={food.name}
+              alt={foodName}
               onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
             />
           ) : (
-            <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
+            <div className="seller-food-image-placeholder">{foodName.slice(0, 1).toUpperCase()}</div>
           )}
         </div>
         <div className="seller-food-body">
           <div className="seller-food-title-row">
             <div>
-              <h3>{food.name}</h3>
+              <h3>{foodName}</h3>
               <p className="seller-food-code">{food.code}</p>
             </div>
             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
@@ -3697,7 +3707,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           className={`seller-food-date-btn ${isOpen ? "is-open" : ""}`}
                           onClick={() => setOpenFoodDate((prev) => (prev === group.dateKey ? null : group.dateKey))}
                         >
-                          <span>{formatUiDate(group.dateKey, language)}</span>
+                          <span>{group.dateKey === "unknown" ? dict.detail.unknownDate : formatUiDate(group.dateKey, language)}</span>
                           <span>{`${group.items.length} ${dict.detail.foodItems}`}</span>
                         </button>
                         {isOpen ? <div className="seller-food-grid">{group.items.map((food) => renderFoodCard(food))}</div> : null}
