@@ -3503,55 +3503,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     );
   }
 
-  function renderFoodsContent(): ReactNode {
-    try {
-      if (foodRows.length === 0) {
-        return <p className="panel-meta">{dict.common.noRecords}</p>;
-      }
-
-      return (
-        <>
-          {kuruFasulyeFoods.length > 0 ? (
-            <section className="seller-food-special-block">
-              <h3 className="seller-food-section-title">{dict.detail.kuruFasulyeSection}</h3>
-              <div className="seller-food-grid">{kuruFasulyeFoods.map((food) => renderFoodCard(food))}</div>
-            </section>
-          ) : null}
-
-          <section className="seller-food-dates-block">
-            <h3 className="seller-food-section-title">{dict.detail.foodsByDate}</h3>
-            <div className="seller-food-date-list">
-              {(foodDateGroups.length > 0 ? foodDateGroups : [{ dateKey: "unknown", items: datedFoods }]).map((group, index) => {
-                const groupKey = `${group.dateKey}-${index}`;
-                const isOpen = openFoodDate === groupKey;
-                return (
-                  <article key={groupKey} className="seller-food-date-group">
-                    <button
-                      type="button"
-                      className={`seller-food-date-btn ${isOpen ? "is-open" : ""}`}
-                      onClick={() => setOpenFoodDate((prev) => (prev === groupKey ? null : groupKey))}
-                    >
-                      <span>{group.dateKey === "unknown" ? dict.detail.unknownDate : formatUiDate(group.dateKey, language)}</span>
-                      <span>{`${group.items.length} ${dict.detail.foodItems}`}</span>
-                    </button>
-                    {isOpen ? <div className="seller-food-grid">{group.items.map((food) => renderFoodCard(food))}</div> : null}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        </>
-      );
-    } catch {
-      return (
-        <section className="seller-food-dates-block">
-          <h3 className="seller-food-section-title">{dict.detail.foodsByDate}</h3>
-          <div className="seller-food-grid">{foodRows.map((food) => renderFoodCard(food))}</div>
-        </section>
-      );
-    }
-  }
-
   return (
     <div className="app seller-detail-page">
       <section className="panel seller-hero">
@@ -3731,7 +3682,42 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <h2>{dict.detail.sellerTabs.foods}</h2>
           </div>
           <p className="panel-meta">{`${dict.detail.totalFoods}: ${totalFoods}`}</p>
-          {renderFoodsContent()}
+          {foodRows.length === 0 ? (
+            <p className="panel-meta">{dict.common.noRecords}</p>
+          ) : (
+            <>
+              {kuruFasulyeFoods.length > 0 ? (
+                <section className="seller-food-special-block">
+                  <h3 className="seller-food-section-title">{dict.detail.kuruFasulyeSection}</h3>
+                  <div className="seller-food-grid">
+                    {kuruFasulyeFoods.map((food) => renderFoodCard(food))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="seller-food-dates-block">
+                <h3 className="seller-food-section-title">{dict.detail.foodsByDate}</h3>
+                <div className="seller-food-date-list">
+                  {foodDateGroups.map((group) => {
+                    const isOpen = openFoodDate === group.dateKey;
+                    return (
+                      <article key={group.dateKey} className="seller-food-date-group">
+                        <button
+                          type="button"
+                          className={`seller-food-date-btn ${isOpen ? "is-open" : ""}`}
+                          onClick={() => setOpenFoodDate((prev) => (prev === group.dateKey ? null : group.dateKey))}
+                        >
+                          <span>{group.dateKey === "unknown" ? dict.detail.unknownDate : formatUiDate(group.dateKey, language)}</span>
+                          <span>{`${group.items.length} ${dict.detail.foodItems}`}</span>
+                        </button>
+                        {isOpen ? <div className="seller-food-grid">{group.items.map((food) => renderFoodCard(food))}</div> : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
         </section>
       ) : null}
 
