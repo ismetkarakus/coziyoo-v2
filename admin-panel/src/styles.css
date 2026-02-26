@@ -1897,35 +1897,6 @@ textarea:focus {
   gap: 12px;
 }
 
-.seller-food-date-groups {
-  display: grid;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.seller-food-date-group {
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-card-bg) 68%, transparent);
-  overflow: hidden;
-}
-
-.seller-food-date-summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  cursor: pointer;
-  font-weight: 700;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-}
-
-.seller-food-date-summary::-webkit-details-marker {
-  display: none;
-}
-
 .seller-food-card {
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: 14px;
