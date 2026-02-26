@@ -3297,42 +3297,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       if (foodsResponse.status === 200) {
         const foodsBody = await parseJson<{
-          data:
-            | Array<{
-                id: string;
-                name: string;
-                code: string;
-                cardSummary: string | null;
-                description: string | null;
-                recipe: string | null;
-                price: number;
-                imageUrl: string | null;
-                status: "active" | "disabled";
-                createdAt: string;
-                updatedAt: string;
-              }>
-            | {
-                rows?: Array<{
-                  id: string;
-                  name: string;
-                  code: string;
-                  cardSummary: string | null;
-                  description: string | null;
-                  recipe: string | null;
-                  price: number;
-                  imageUrl: string | null;
-                  status: "active" | "disabled";
-                  createdAt: string;
-                  updatedAt: string;
-                }>;
-              };
+          data: Array<{
+            id: string;
+            name: string;
+            code: string;
+            cardSummary: string | null;
+            description: string | null;
+            recipe: string | null;
+            price: number;
+            imageUrl: string | null;
+            status: "active" | "disabled";
+            createdAt: string;
+            updatedAt: string;
+          }>;
         }>(foodsResponse);
-        const normalizedFoods = Array.isArray(foodsBody.data)
-          ? foodsBody.data
-          : Array.isArray(foodsBody.data?.rows)
-            ? foodsBody.data.rows
-            : [];
-        setFoodRows(normalizedFoods);
+        setFoodRows(foodsBody.data);
       } else {
         setFoodRows([]);
       }
@@ -3376,14 +3355,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   const isActive = row.status === "active";
   const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
-  const safeFoodRows = Array.isArray(foodRows) ? foodRows : [];
   const phone = extractPhoneFromChecks(compliance);
   const maskedEmail = maskEmail(row.email);
   const maskedPhone = maskPhone(phone);
   const profileRetentionUntil = addTwoYears(row.updatedAt);
   const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
-  const totalFoods = Number(row.totalFoods ?? safeFoodRows.length ?? 0);
-  const latestFoodUpdatedAt = safeFoodRows.reduce<string | null>((latest, item) => {
+  const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
+  const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
     const value = String(item.updatedAt ?? "");
     if (!value) return latest;
     if (!latest) return value;
@@ -3391,7 +3369,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, null);
   const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
   const initials = initialsFromName(row.displayName, row.email);
-  const fallbackProfileImageFromFoods = safeFoodRows.map((item) => normalizeImageUrl(item.imageUrl)).find(Boolean) ?? null;
+  const fallbackProfileImageFromFoods = foodRows.map((item) => normalizeImageUrl(item.imageUrl)).find(Boolean) ?? null;
   const profileImageUrl =
     !profileImageFailed
       ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
@@ -3407,7 +3385,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         : row.role === "both"
           ? dict.users.userTypeBoth
           : String(row.role ?? "-");
-  const ratingSource = safeFoodRows
+  const ratingSource = foodRows
     .map(() => 4)
     .filter((value) => Number.isFinite(value) && value > 0);
   const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
@@ -3444,12 +3422,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   ] as const;
 
   const kuruFasulyeFoods = useMemo(
-    () => safeFoodRows.filter((food) => normalizeSearchText(food.name).includes("kuru fasulye")),
-    [safeFoodRows]
+    () => foodRows.filter((food) => normalizeSearchText(food.name).includes("kuru fasulye")),
+    [foodRows]
   );
   const datedFoods = useMemo(
-    () => safeFoodRows.filter((food) => !normalizeSearchText(food.name).includes("kuru fasulye")),
-    [safeFoodRows]
+    () => foodRows.filter((food) => !normalizeSearchText(food.name).includes("kuru fasulye")),
+    [foodRows]
   );
   const foodDateGroups = useMemo(() => {
     try {
@@ -3527,7 +3505,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   function renderFoodsContent(): ReactNode {
     try {
-      if (safeFoodRows.length === 0) {
+      if (foodRows.length === 0) {
         return <p className="panel-meta">{dict.common.noRecords}</p>;
       }
 
@@ -3568,7 +3546,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       return (
         <section className="seller-food-dates-block">
           <h3 className="seller-food-section-title">{dict.detail.foodsByDate}</h3>
-          <div className="seller-food-grid">{safeFoodRows.map((food) => renderFoodCard(food))}</div>
+          <div className="seller-food-grid">{foodRows.map((food) => renderFoodCard(food))}</div>
         </section>
       );
     }
