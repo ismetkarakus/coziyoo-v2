@@ -502,6 +502,9 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
       settings?.ttsServers?.find((server) => server.id === settings.activeTtsServerId) ??
       settings?.ttsServers?.[0] ??
       null;
+    const activeTtsConfig = ((activeTtsServer?.config as Record<string, unknown> | undefined) ??
+      (settings?.ttsConfig as Record<string, unknown> | null) ??
+      {}) as Record<string, unknown>;
     const answer = await askOllamaChat(input.text, { model: settings?.ollamaModel });
     const payload = {
       type: "agent_message",
@@ -512,6 +515,22 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
       ttsEngine: activeTtsServer?.engine ?? settings?.ttsEngine ?? "f5-tts",
       ttsProfileId: activeTtsServer?.id ?? settings?.activeTtsServerId ?? null,
       ttsProfileName: activeTtsServer?.name ?? null,
+      ttsConfig: activeTtsConfig,
+      tts: {
+        engine: activeTtsServer?.engine ?? settings?.ttsEngine ?? "f5-tts",
+        profileId: activeTtsServer?.id ?? settings?.activeTtsServerId ?? null,
+        profileName: activeTtsServer?.name ?? null,
+        baseUrl:
+          typeof activeTtsConfig.baseUrl === "string" && activeTtsConfig.baseUrl.trim().length > 0
+            ? activeTtsConfig.baseUrl.trim()
+            : null,
+        path:
+          typeof activeTtsConfig.path === "string" && activeTtsConfig.path.trim().length > 0
+            ? activeTtsConfig.path.trim()
+            : null,
+        language: settings?.voiceLanguage ?? "tr",
+        config: activeTtsConfig,
+      },
       audioPublished: false,
       audioErrorCode: "API_TEXT_ONLY_PATH",
     };

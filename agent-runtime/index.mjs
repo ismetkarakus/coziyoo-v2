@@ -92,10 +92,47 @@ function tonePcm16({ seconds = 0.35, frequency = 330 } = {}) {
   return pcm;
 }
 
+function asNonEmptyString(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : '';
+}
+
+function asObject(value) {
+  return value && typeof value === 'object' ? value : null;
+}
+
+function normalizeEngine(value) {
+  const raw = asNonEmptyString(value).toLowerCase();
+  if (raw === 'xtts' || raw === 'chatterbox' || raw === 'f5-tts') return raw;
+  return 'f5-tts';
+}
+
+function defaultSynthPathForEngine(engine) {
+  if (engine === 'xtts') return '/tts';
+  if (engine === 'chatterbox') return '/tts';
+  return '/api/tts';
+}
+
 function extractTextPayload(obj) {
   if (!obj || typeof obj !== 'object') return null;
   if (obj.type === 'agent_message' && typeof obj.text === 'string' && obj.text.trim()) {
-    return { text: obj.text.trim(), reason: 'agent_message' };
+    const directTtsConfig = asObject(obj.ttsConfig) ?? {};
+    const nestedTts = asObject(obj.tts) ?? {};
+    const nestedTtsConfig = asObject(nestedTts.config) ?? {};
+    return {
+      text: obj.text.trim(),
+      reason: 'agent_message',
+      tts: {
+        engine: normalizeEngine(nestedTts.engine ?? obj.ttsEngine),
+        profileId: asNonEmptyString(nestedTts.profileId ?? obj.ttsProfileId) || null,
+        profileName: asNonEmptyString(nestedTts.profileName ?? obj.ttsProfileName) || null,
+        baseUrl: asNonEmptyString(nestedTts.baseUrl),
+        path: asNonEmptyString(nestedTts.path),
+        language: asNonEmptyString(nestedTts.language),
+        config: Object.keys(nestedTtsConfig).length > 0 ? nestedTtsConfig : directTtsConfig,
+      },
+    };
   }
   if (obj.type === 'system_instruction' && obj.action === 'interrupt') {
     return { interrupt: true };
@@ -103,11 +140,76 @@ function extractTextPayload(obj) {
   return null;
 }
 
-async function synthesizeWavBuffer(text, language) {
-  const baseUrl = process.env.TTS_BASE_URL || '';
-  const synthPath = process.env.TTS_SYNTH_PATH || '/tts';
+function resolveTtsRequestConfig(payloadTts = null) {
+  const payloadConfig = asObject(payloadTts?.config) ?? {};
+  const payloadF5 = asObject(payloadConfig.f5) ?? {};
+  const payloadXtts = asObject(payloadConfig.xtts) ?? {};
+  const payloadChatter = asObject(payloadConfig.chatterbox) ?? {};
+
+  const engine = normalizeEngine(payloadTts?.engine);
+  const baseUrl =
+    asNonEmptyString(payloadTts?.baseUrl) ||
+    asNonEmptyString(payloadConfig.baseUrl) ||
+    asNonEmptyString(process.env.TTS_BASE_URL);
+  const synthPathRaw =
+    asNonEmptyString(payloadTts?.path) ||
+    asNonEmptyString(payloadConfig.path) ||
+    asNonEmptyString(process.env.TTS_SYNTH_PATH) ||
+    defaultSynthPathForEngine(engine);
+  const synthPath = synthPathRaw.startsWith('/') || synthPathRaw.startsWith('http')
+    ? synthPathRaw
+    : `/${synthPathRaw}`;
+  const language =
+    asNonEmptyString(payloadTts?.language) ||
+    asNonEmptyString(process.env.TTS_LANGUAGE_DEFAULT) ||
+    'tr';
+
+  return {
+    engine,
+    profileId: payloadTts?.profileId ?? null,
+    profileName: payloadTts?.profileName ?? null,
+    baseUrl,
+    synthPath,
+    language,
+    speakerId: asNonEmptyString(payloadF5.speakerId) || asNonEmptyString(process.env.TTS_SPEAKER_ID),
+    speakerWavPath:
+      asNonEmptyString(payloadF5.speakerWavPath) || asNonEmptyString(process.env.TTS_SPEAKER_WAV_PATH),
+    speakerWavUrl:
+      asNonEmptyString(payloadXtts.speakerWavUrl) || asNonEmptyString(process.env.TTS_SPEAKER_WAV_URL),
+    voiceMode:
+      asNonEmptyString(payloadChatter.voiceMode) || asNonEmptyString(process.env.TTS_CHATTERBOX_VOICE_MODE),
+    predefinedVoiceId:
+      asNonEmptyString(payloadChatter.predefinedVoiceId) ||
+      asNonEmptyString(process.env.TTS_CHATTERBOX_PREDEFINED_VOICE_ID),
+    referenceAudioFilename:
+      asNonEmptyString(payloadChatter.referenceAudioFilename) ||
+      asNonEmptyString(process.env.TTS_CHATTERBOX_REFERENCE_AUDIO_FILENAME),
+    outputFormat:
+      asNonEmptyString(payloadChatter.outputFormat) ||
+      asNonEmptyString(process.env.TTS_CHATTERBOX_OUTPUT_FORMAT) ||
+      'wav',
+    splitText:
+      typeof payloadChatter.splitText === 'boolean'
+        ? payloadChatter.splitText
+        : process.env.TTS_CHATTERBOX_SPLIT_TEXT === 'true'
+          ? true
+          : process.env.TTS_CHATTERBOX_SPLIT_TEXT === 'false'
+            ? false
+            : undefined,
+    chunkSize: typeof payloadChatter.chunkSize === 'number' ? payloadChatter.chunkSize : undefined,
+    temperature: typeof payloadChatter.temperature === 'number' ? payloadChatter.temperature : undefined,
+    exaggeration: typeof payloadChatter.exaggeration === 'number' ? payloadChatter.exaggeration : undefined,
+    cfgWeight: typeof payloadChatter.cfgWeight === 'number' ? payloadChatter.cfgWeight : undefined,
+    seed: typeof payloadChatter.seed === 'number' ? payloadChatter.seed : undefined,
+    speedFactor: typeof payloadChatter.speedFactor === 'number' ? payloadChatter.speedFactor : undefined,
+  };
+}
+
+async function synthesizeWavBuffer(text, ttsRequest) {
+  const baseUrl = ttsRequest?.baseUrl || '';
+  const synthPath = ttsRequest?.synthPath || '/tts';
   if (!baseUrl) {
-    throw new Error('TTS_BASE_URL_MISSING');
+    throw new Error(`TTS_BASE_URL_MISSING(engine=${ttsRequest?.engine ?? 'unknown'})`);
   }
 
   const endpoint = new URL(synthPath, baseUrl).toString();
@@ -118,12 +220,21 @@ async function synthesizeWavBuffer(text, language) {
 
   const payload = {
     text,
-    language: language || process.env.TTS_LANGUAGE_DEFAULT || 'tr',
-    speaker_id: process.env.TTS_SPEAKER_ID || undefined,
-    speaker_wav_url: process.env.TTS_SPEAKER_WAV_URL || undefined,
-    voice_mode: process.env.TTS_CHATTERBOX_VOICE_MODE || undefined,
-    predefined_voice_id: process.env.TTS_CHATTERBOX_PREDEFINED_VOICE_ID || undefined,
-    output_format: 'wav',
+    language: ttsRequest?.language || process.env.TTS_LANGUAGE_DEFAULT || 'tr',
+    speaker_id: ttsRequest?.speakerId || undefined,
+    speaker_wav: ttsRequest?.speakerWavPath || undefined,
+    speaker_wav_url: ttsRequest?.speakerWavUrl || undefined,
+    voice_mode: ttsRequest?.voiceMode || undefined,
+    predefined_voice_id: ttsRequest?.predefinedVoiceId || undefined,
+    reference_audio_filename: ttsRequest?.referenceAudioFilename || undefined,
+    output_format: ttsRequest?.outputFormat || 'wav',
+    split_text: typeof ttsRequest?.splitText === 'boolean' ? ttsRequest.splitText : undefined,
+    chunk_size: ttsRequest?.chunkSize,
+    temperature: ttsRequest?.temperature,
+    exaggeration: ttsRequest?.exaggeration,
+    cfg_weight: ttsRequest?.cfgWeight,
+    seed: ttsRequest?.seed,
+    speed_factor: ttsRequest?.speedFactor,
   };
 
   const controller = new AbortController();
@@ -244,33 +355,55 @@ class AssistantSession {
 
     this.speakChain = this.speakChain
       .then(async () => {
-        await this.speak(parsed.text, parsed.reason || 'chat');
+        await this.speak(parsed.text, parsed);
       })
       .catch((error) => {
         console.error('[agent-runtime] speak queue error', error);
       });
   }
 
-  async speak(text, reason) {
+  async speak(text, context) {
     this.interrupted = false;
+    const ttsRequest = resolveTtsRequestConfig(context?.tts ?? null);
 
     let pcm;
     try {
-      const wav = await synthesizeWavBuffer(text, process.env.TTS_LANGUAGE_DEFAULT || 'tr');
+      const wav = await synthesizeWavBuffer(text, ttsRequest);
       pcm = decodeWavToPcm16(wav);
       await this.publishStatus('assistant_tts_started', {
-        reason,
+        reason: context?.reason ?? 'chat',
         textLength: text.length,
+        ttsEngine: ttsRequest.engine,
+        ttsBaseUrl: ttsRequest.baseUrl,
+        ttsPath: ttsRequest.synthPath,
+        ttsProfileId: ttsRequest.profileId,
+        ttsProfileName: ttsRequest.profileName,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[agent-runtime] tts synth failed, fallback tone', message);
       pcm = tonePcm16({ seconds: 0.28, frequency: 360 });
-      await this.publishStatus('assistant_tts_fallback_tone', { reason, error: message });
+      await this.publishStatus('assistant_tts_fallback_tone', {
+        reason: context?.reason ?? 'chat',
+        error: message,
+        ttsEngine: ttsRequest.engine,
+        ttsBaseUrl: ttsRequest.baseUrl || null,
+        ttsPath: ttsRequest.synthPath || null,
+        ttsProfileId: ttsRequest.profileId,
+        ttsProfileName: ttsRequest.profileName,
+      });
     }
 
     await this.playPcm(pcm);
-    await this.publishStatus('assistant_tts_finished', { reason, interrupted: this.interrupted });
+    await this.publishStatus('assistant_tts_finished', {
+      reason: context?.reason ?? 'chat',
+      interrupted: this.interrupted,
+      ttsEngine: ttsRequest.engine,
+      ttsBaseUrl: ttsRequest.baseUrl || null,
+      ttsPath: ttsRequest.synthPath || null,
+      ttsProfileId: ttsRequest.profileId,
+      ttsProfileName: ttsRequest.profileName,
+    });
   }
 
   async playPcm(pcm) {
