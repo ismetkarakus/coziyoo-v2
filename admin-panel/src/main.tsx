@@ -3266,7 +3266,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [loading, setLoading] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
-  const [activeFoodDate, setActiveFoodDate] = useState<string>("all");
+  const [activeFoodDate, setActiveFoodDate] = useState<string | null>(null);
 
   async function loadSellerDetail() {
     setLoading(true);
@@ -3327,7 +3327,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setProfileImageFailed(false);
     setFoodImageErrors({});
-    setActiveFoodDate("all");
+    setActiveFoodDate(null);
   }, [id]);
 
   const foodDateChips = useMemo(() => {
@@ -3362,12 +3362,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [foodRows, language]);
 
   useEffect(() => {
-    if (activeFoodDate === "all") return;
+    if (!activeFoodDate || activeFoodDate === "all") return;
     if (foodDateChips.some((chip) => chip.key === activeFoodDate)) return;
-    setActiveFoodDate("all");
+    setActiveFoodDate(null);
   }, [activeFoodDate, foodDateChips]);
 
   const filteredFoodRows = useMemo(() => {
+    if (!activeFoodDate) return [];
     if (activeFoodDate === "all") return foodRows;
     return foodRows.filter((food) => foodDateKey(food.createdAt) === activeFoodDate);
   }, [activeFoodDate, foodRows]);
@@ -3645,7 +3646,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           ) : (
             <>
               <div className="seller-food-filter-chips">
-                <button type="button" className={`chip ${activeFoodDate === "all" ? "is-active" : ""}`} onClick={() => setActiveFoodDate("all")}>
+                <button
+                  type="button"
+                  className={`chip ${activeFoodDate === "all" ? "is-active" : ""}`}
+                  onClick={() => setActiveFoodDate((prev) => (prev === "all" ? null : "all"))}
+                >
                   {`${dict.common.all} (${foodRows.length})`}
                 </button>
                 {foodDateChips.map((chip) => (
@@ -3653,13 +3658,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     key={chip.key}
                     type="button"
                     className={`chip ${activeFoodDate === chip.key ? "is-active" : ""}`}
-                    onClick={() => setActiveFoodDate(chip.key)}
+                    onClick={() => setActiveFoodDate((prev) => (prev === chip.key ? null : chip.key))}
                   >
                     {`${chip.label} (${chip.count})`}
                   </button>
                 ))}
               </div>
-              {filteredFoodRows.length === 0 ? (
+              {!activeFoodDate ? (
+                <p className="panel-meta">{language === "tr" ? "Listeyi açmak için bir tarih veya Tümü chip'ine tıklayın." : "Click a date or All chip to open the list."}</p>
+              ) : filteredFoodRows.length === 0 ? (
                 <p className="panel-meta">{dict.common.noRecords}</p>
               ) : (
                 <div className="seller-food-grid">
