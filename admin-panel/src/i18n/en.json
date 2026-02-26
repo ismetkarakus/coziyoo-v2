@@ -248,6 +248,9 @@
     "foodRetentionHint": "Food contents are retained for 2 years due to legal requirements.",
     "totalFoods": "Total Foods",
     "noFoodDescription": "No description provided",
+    "kuruFasulyeSection": "Kuru Fasulye",
+    "foodsByDate": "Foods By Date",
+    "foodItems": "items",
     "sectionPlanned": "This section will be expanded in the next seller detail iteration.",
     "sellerTabs": {
       "title": "Seller Detail Tabs",
