@@ -1890,6 +1890,78 @@ textarea:focus {
   gap: 16px;
 }
 
+.seller-food-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.seller-food-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  overflow: hidden;
+}
+
+.seller-food-image-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 8;
+  background: color-mix(in srgb, #101b31 80%, var(--color-card-bg));
+}
+
+.seller-food-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.seller-food-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #d5ddf0;
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+.seller-food-body {
+  padding: 10px 12px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.seller-food-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.seller-food-title-row h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.seller-food-description {
+  margin: 0;
+  color: var(--color-secondary-text);
+  line-height: 1.35;
+}
+
+.seller-food-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-secondary-text);
+  font-size: 0.95rem;
+}
+
 .seller-actions-row {
   display: flex;
   align-items: center;
@@ -2280,6 +2352,10 @@ textarea:focus {
   }
 
   .seller-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-food-grid {
     grid-template-columns: 1fr;
   }
 

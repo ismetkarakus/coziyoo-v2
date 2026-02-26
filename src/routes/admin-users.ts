@@ -88,6 +88,11 @@ const BuyerListQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).default(10),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
+const SellerFoodsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(200).default(20),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+});
 
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
   createdAt: "u.created_at",
@@ -122,6 +127,21 @@ async function ensureBuyerUser(userId: string) {
   const row = user.rows[0];
   if (row.user_type !== "buyer" && row.user_type !== "both") {
     return { ok: false as const, status: 409, code: "USER_NOT_BUYER", message: "User is not a buyer account" };
+  }
+  return { ok: true as const, user: row };
+}
+
+async function ensureSellerUser(userId: string) {
+  const user = await pool.query<{ id: string; user_type: "buyer" | "seller" | "both" }>(
+    "SELECT id, user_type FROM users WHERE id = $1",
+    [userId]
+  );
+  if ((user.rowCount ?? 0) === 0) {
+    return { ok: false as const, status: 404, code: "USER_NOT_FOUND", message: "User not found" };
+  }
+  const row = user.rows[0];
+  if (row.user_type !== "seller" && row.user_type !== "both") {
+    return { ok: false as const, status: 409, code: "USER_NOT_SELLER", message: "User is not a seller account" };
   }
   return { ok: true as const, user: row };
 }
@@ -296,6 +316,78 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalFoods: Number(row.total_foods ?? 0),
+    },
+  });
+});
+
+adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = SellerFoodsQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM foods WHERE seller_id = $1",
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    name: string;
+    description: string | null;
+    price: string;
+    image_url: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT
+       id,
+       name,
+       description,
+       price::text,
+       image_url,
+       is_active,
+       created_at::text,
+       updated_at::text
+     FROM foods
+     WHERE seller_id = $1
+     ORDER BY updated_at ${sortDir}, id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      price: Number(row.price),
+      imageUrl: row.image_url,
+      status: row.is_active ? "active" : "disabled",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
     },
   });
 });

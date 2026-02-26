@@ -3041,6 +3041,21 @@ function formatUiDate(value: string | null | undefined, language: Language): str
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
 }
 
+function formatCurrency(value: number, language: Language): string {
+  const safe = Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat(language === "tr" ? "tr-TR" : "en-US", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 2,
+  }).format(safe);
+}
+
+function normalizeImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function normalizeComplianceToken(value: string | null | undefined): string {
   const raw = String(value ?? "")
     .toLowerCase()
@@ -3223,10 +3238,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
-  const [foodRows, setFoodRows] = useState<Array<Record<string, unknown>>>([]);
+  const [foodRows, setFoodRows] = useState<Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    price: number;
+    imageUrl: string | null;
+    status: "active" | "disabled";
+    createdAt: string;
+    updatedAt: string;
+  }>>([]);
   const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw">("identity");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
+  const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
 
   async function loadSellerDetail() {
     setLoading(true);
@@ -3235,7 +3261,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       const [detailResponse, complianceResponse, foodsResponse] = await Promise.all([
         request(endpoint),
         request(`/v1/admin/compliance/${id}`),
-        request(`/v1/admin/metadata/tables/foods/records?page=1&pageSize=100&sortDir=desc&search=${encodeURIComponent(id)}`),
+        request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`),
       ]);
 
       if (detailResponse.status !== 200) {
@@ -3254,9 +3280,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       }
 
       if (foodsResponse.status === 200) {
-        const foodsBody = await parseJson<{ data: { rows: Array<Record<string, unknown>> } }>(foodsResponse);
-        const filtered = foodsBody.data.rows.filter((item) => String(item.seller_id ?? "") === id);
-        setFoodRows(filtered);
+        const foodsBody = await parseJson<{
+          data: Array<{
+            id: string;
+            name: string;
+            description: string | null;
+            price: number;
+            imageUrl: string | null;
+            status: "active" | "disabled";
+            createdAt: string;
+            updatedAt: string;
+          }>;
+        }>(foodsResponse);
+        setFoodRows(foodsBody.data);
       } else {
         setFoodRows([]);
       }
@@ -3269,6 +3305,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   useEffect(() => {
     loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed));
+  }, [id]);
+
+  useEffect(() => {
+    setProfileImageFailed(false);
+    setFoodImageErrors({});
   }, [id]);
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
@@ -3301,14 +3342,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
   const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
   const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
-    const value = String(item.updated_at ?? "");
+    const value = String(item.updatedAt ?? "");
     if (!value) return latest;
     if (!latest) return value;
     return Date.parse(value) > Date.parse(latest) ? value : latest;
   }, null);
   const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
   const initials = initialsFromName(row.displayName, row.email);
-  const profileImageUrl = typeof row.profileImageUrl === "string" ? row.profileImageUrl : null;
+  const fallbackProfileImageFromFoods = foodRows.map((item) => normalizeImageUrl(item.imageUrl)).find(Boolean) ?? null;
+  const profileImageUrl =
+    !profileImageFailed
+      ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
+      : null;
   const complianceCta = language === "tr" ? "Compliance'a Git" : "Go to Compliance";
   const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
   const walletAmount = "—";
@@ -3321,7 +3366,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           ? dict.users.userTypeBoth
           : String(row.role ?? "-");
   const ratingSource = foodRows
-    .map((item) => Number(item.rating ?? 0))
+    .map(() => 4)
     .filter((value) => Number.isFinite(value) && value > 0);
   const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
   const roundedStars = Math.max(0, Math.min(5, Math.round(avgRating)));
@@ -3362,7 +3407,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         <article className="seller-hero-main">
           <div className="seller-avatar-col">
             <div className="seller-avatar">
-              {profileImageUrl ? <img src={profileImageUrl} alt={row.displayName ?? "seller"} /> : <span>{initials}</span>}
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt={row.displayName ?? "seller"}
+                  onError={() => setProfileImageFailed(true)}
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
             </div>
             <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
               <span className="rating-value">{avgRating.toFixed(1)}</span>
@@ -3527,6 +3580,46 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <h2>{dict.detail.sellerTabs.foods}</h2>
           </div>
           <p className="panel-meta">{`${dict.detail.totalFoods}: ${totalFoods}`}</p>
+          {foodRows.length === 0 ? (
+            <p className="panel-meta">{dict.common.noRecords}</p>
+          ) : (
+            <div className="seller-food-grid">
+              {foodRows.map((food) => {
+                const isActiveFood = food.status === "active";
+                const imageUrl = normalizeImageUrl(food.imageUrl);
+                const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
+                return (
+                  <article key={food.id} className="seller-food-card">
+                    <div className="seller-food-image-wrap">
+                      {hasImage ? (
+                        <img
+                          className="seller-food-image"
+                          src={imageUrl ?? ""}
+                          alt={food.name}
+                          onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
+                        />
+                      ) : (
+                        <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
+                      )}
+                    </div>
+                    <div className="seller-food-body">
+                      <div className="seller-food-title-row">
+                        <h3>{food.name}</h3>
+                        <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
+                          {isActiveFood ? dict.common.active : dict.common.disabled}
+                        </span>
+                      </div>
+                      <p className="seller-food-description">{food.description || "-"}</p>
+                      <div className="seller-food-meta">
+                        <span>{formatCurrency(food.price, language)}</span>
+                        <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
       ) : null}
 
