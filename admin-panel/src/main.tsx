@@ -790,6 +790,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
+  const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [pendingStatusChange, setPendingStatusChange] = useState<{ id: string; next: "active" | "disabled" } | null>(null);
@@ -809,6 +810,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const navigate = useNavigate();
 
   const isAppScoped = kind === "app" || kind === "buyers" || kind === "sellers";
+  const isSellerPage = kind === "sellers";
   const endpoint = isAppScoped ? "/v1/admin/users" : "/v1/admin/admin-users";
   const tableKey = isAppScoped ? "users" : "adminUsers";
   const audience = kind === "buyers" ? "buyer" : kind === "sellers" ? "seller" : null;
@@ -850,6 +852,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const pageTitle =
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
+  const pageTitleView = isSellerPage ? (language === "tr" ? "Satıcı Yönetimi (TR)" : "Seller Management (TR)") : pageTitle;
   const isDrawerOpen = drawerMode !== null;
   const createTitle =
     isAppScoped
@@ -864,10 +867,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     setFilters((prev) => ({
       ...prev,
       page: 1,
-      sortBy: "createdAt",
+      sortBy: kind === "sellers" ? "updatedAt" : "createdAt",
       roleFilter: "all",
       status: "all",
     }));
+    setSellerStatusFilter("all");
   }, [kind]);
 
   useEffect(() => {
@@ -1121,29 +1125,42 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const availableColumns = useMemo(() => fields.map((f) => f.name), [fields]);
   const tableColumns = useMemo(() => {
+    if (isSellerPage) {
+      const sellerColumns = ["display_name", "email", "id", "status", "language", "created_at", "updated_at"];
+      return sellerColumns.filter((column) => availableColumns.includes(column));
+    }
     const picked = visibleColumns.filter((column) => availableColumns.includes(column));
     if (picked.length > 0) return picked;
     return coreColumns.filter((column) => availableColumns.includes(column));
-  }, [availableColumns, coreColumns, visibleColumns]);
+  }, [availableColumns, coreColumns, isSellerPage, visibleColumns]);
 
   const activeRows = rows.filter((row) => row.status === "active");
   const passiveRows = rows.filter((row) => row.status === "disabled");
+  const trRows = rows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
   const todayKey = new Date().toISOString().slice(0, 10);
-  const newToday = rows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
+  const newToday = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
   const filteredRows = useMemo(() => {
-    if (!last7DaysOnly) return rows;
+    let scopedRows = rows;
+    if (isSellerPage) {
+      scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
+      if (sellerStatusFilter !== "all") {
+        scopedRows = scopedRows.filter((row) => row.status === sellerStatusFilter);
+      }
+    }
+
+    if (!last7DaysOnly) return scopedRows;
     const now = Date.now();
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    return rows.filter((row) => {
+    return scopedRows.filter((row) => {
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [last7DaysOnly, rows]);
+  }, [isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
     if (mapped === "id") return "ID";
-    if (mapped === "displayName") return language === "tr" ? "Ad Soyad" : "Full Name";
+    if (mapped === "displayName") return isSellerPage ? (language === "tr" ? "Satıcı Adı" : "Seller Name") : language === "tr" ? "Ad Soyad" : "Full Name";
     if (mapped === "email") return language === "tr" ? "E-Posta" : "Email";
     if (mapped === "status") return dict.users.status;
     if (mapped === "role") return dict.users.role;
@@ -1181,6 +1198,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (mapped === "displayName") {
       const text = String(value ?? "");
+      if (kind === "sellers") {
+        return <span>{text}</span>;
+      }
       const initials = text
         .split(" ")
         .filter(Boolean)
@@ -1196,12 +1216,19 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (mapped === "countryCode") {
       const cc = String(value ?? "").toUpperCase();
+      if (isSellerPage) return cc || "TR";
       if (cc === "TR") return "Türkiye";
       if (cc === "US") return "United States";
       if (cc === "IT") return "Italy";
       if (cc === "JP") return "Japan";
       if (cc === "FR") return "France";
       return cc || "-";
+    }
+    if (mapped === "language" && isSellerPage) {
+      const lang = String(value ?? "").trim().toLowerCase();
+      if (lang) return lang.toUpperCase();
+      const cc = String(row.countryCode ?? "").toUpperCase();
+      return cc || "TR";
     }
     if (mapped === "createdAt" || mapped === "updatedAt" || mapped === "lastLoginAt") {
       const text = String(value ?? "");
@@ -1223,54 +1250,60 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     <div className="app">
       <header className="topbar">
         <div>
-          <h1>{pageTitle}</h1>
+          <h1>{pageTitleView}</h1>
         </div>
         <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
-            {dict.users.visibleColumns}
-          </button>
-          <button className="ghost" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
-            + {dict.actions.create}
-          </button>
-          <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-            {dict.actions.refresh}
-          </button>
+          {!isSellerPage ? (
+            <>
+              <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
+                {dict.users.visibleColumns}
+              </button>
+              <button className="ghost" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
+                + {dict.actions.create}
+              </button>
+              <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+                {dict.actions.refresh}
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
 
       <section className="panel users-kpi-grid">
-        <div className="density-switch users-density-floating" role="group" aria-label="Table density">
-          <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
-            {language === "tr" ? "Kompakt" : "Compact"}
-          </button>
-          <button type="button" className={density === "normal" ? "is-active" : ""} onClick={() => setDensity("normal")}>
-            {language === "tr" ? "Normal" : "Normal"}
-          </button>
-          <button type="button" className={density === "comfortable" ? "is-active" : ""} onClick={() => setDensity("comfortable")}>
-            {language === "tr" ? "Rahat" : "Comfort"}
-          </button>
-        </div>
+        {!isSellerPage ? (
+          <div className="density-switch users-density-floating" role="group" aria-label="Table density">
+            <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
+              {language === "tr" ? "Kompakt" : "Compact"}
+            </button>
+            <button type="button" className={density === "normal" ? "is-active" : ""} onClick={() => setDensity("normal")}>
+              {language === "tr" ? "Normal" : "Normal"}
+            </button>
+            <button type="button" className={density === "comfortable" ? "is-active" : ""} onClick={() => setDensity("comfortable")}>
+              {language === "tr" ? "Rahat" : "Comfort"}
+            </button>
+          </div>
+        ) : null}
         <article>
           <div className="users-kpi-row">
-            <p>{language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
-            <strong className="users-kpi-value">{pagination?.total ?? rows.length}</strong>
+            <p>{isSellerPage ? (language === "tr" ? "Toplam TR Satıcı" : "Total TR Sellers") : language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
+            <strong className="users-kpi-value">{isSellerPage ? trRows.length : pagination?.total ?? rows.length}</strong>
           </div>
         </article>
         <article>
           <div className="users-kpi-row">
-            <p>{language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
-            <strong className="users-kpi-value is-active">{activeRows.length}</strong>
+            <p>{isSellerPage ? (language === "tr" ? "Aktif TR Satıcı" : "Active TR Sellers") : language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
+            <strong className="users-kpi-value is-active">{isSellerPage ? trRows.filter((row) => row.status === "active").length : activeRows.length}</strong>
           </div>
         </article>
         <article>
           <div className="users-kpi-row">
-            <p>{language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
-            <strong className="users-kpi-value">{passiveRows.length}</strong>
+            <p>{isSellerPage ? (language === "tr" ? "Pasif TR Satıcı" : "Disabled TR Sellers") : language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
+            <strong className="users-kpi-value">{isSellerPage ? trRows.filter((row) => row.status === "disabled").length : passiveRows.length}</strong>
           </div>
         </article>
         <article>
           <div className="users-kpi-row">
-            <p>{language === "tr" ? "Bugün Yeni" : "New Today"}</p>
+            <p>{isSellerPage ? (language === "tr" ? "Bugün Yeni TR Satıcı" : "New TR Sellers Today") : language === "tr" ? "Bugün Yeni" : "New Today"}</p>
             <strong className="users-kpi-value">{newToday}</strong>
           </div>
         </article>
@@ -1287,12 +1320,41 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </span>
             <input
               className="users-search-input"
-              placeholder={language === "tr" ? "E-posta veya Ad Ara..." : "Search by email or name..."}
+              placeholder={
+                isSellerPage
+                  ? language === "tr"
+                    ? "Satıcı Ara..."
+                    : "Search seller..."
+                  : language === "tr"
+                    ? "E-posta veya Ad Ara..."
+                    : "Search by email or name..."
+              }
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
             />
           </div>
           <div className="quick-filters">
+            {isSellerPage ? (
+              <>
+                <button type="button" className={`chip ${sellerStatusFilter === "all" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("all")}>
+                  {language === "tr" ? "Tüm TR" : "All TR"}
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${sellerStatusFilter === "active" ? "is-active" : ""}`}
+                  onClick={() => setSellerStatusFilter("active")}
+                >
+                  {language === "tr" ? "Aktif" : "Active"}
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${sellerStatusFilter === "disabled" ? "is-active" : ""}`}
+                  onClick={() => setSellerStatusFilter("disabled")}
+                >
+                  {language === "tr" ? "Pasif" : "Disabled"}
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               className={`chip ${last7DaysOnly ? "is-active" : ""}`}
@@ -1303,9 +1365,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             >
               {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
             </button>
-            <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span>
-            <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
-            <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span>
+            {!isSellerPage ? <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span> : null}
+            {!isSellerPage ? (
+              <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
+            ) : null}
+            {!isSellerPage ? <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span> : null}
             {showState === "error" ? (
               <button className="chip is-active" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
                 {language === "tr" ? "Yeniden Dene" : "Retry"}
@@ -1318,17 +1382,26 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             onClick={() =>
               setFilters((prev) => ({
                 ...prev,
+                sortBy: isSellerPage ? "updatedAt" : prev.sortBy,
                 sortDir: prev.sortDir === "desc" ? "asc" : "desc",
                 page: 1,
               }))
             }
           >
-            {language === "tr" ? "Sırala: Kayıt Tarihi • " : "Sort: Created Date • "}
+            {isSellerPage
+              ? language === "tr"
+                ? "Güncelleme: Yeni → Eski "
+                : "Updated: New → Old "
+              : language === "tr"
+                ? "Sırala: Kayıt Tarihi • "
+                : "Sort: Created Date • "}
             {filters.sortDir === "desc" ? (language === "tr" ? "Azalan" : "Desc") : language === "tr" ? "Artan" : "Asc"} ▼
           </button>
-          <button className="primary users-filter-apply" type="button" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}>
-            {language === "tr" ? "Filtrele" : "Filter"}
-          </button>
+          {!isSellerPage ? (
+            <button className="primary users-filter-apply" type="button" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}>
+              {language === "tr" ? "Filtrele" : "Filter"}
+            </button>
+          ) : null}
         </div>
         <div className={`table-wrap users-table-wrap density-${density}`}>
           <table>
@@ -1378,7 +1451,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         <span aria-hidden="true">◉ Detay</span>
                         <span className="sr-only">{dict.actions.detail}</span>
                       </button>
-                      {isSuperAdmin ? (
+                      {isSuperAdmin && !isSellerPage ? (
                         <>
                           <button
                             className="ghost action-btn"
@@ -1391,11 +1464,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <span className="sr-only">{dict.actions.toggleStatus}</span>
                           </button>
                         </>
-                      ) : (
+                      ) : !isSellerPage ? (
                         <button className="ghost action-btn" type="button" disabled title={dict.users.onlySuperAdmin}>
                           Yetkiniz yok
                         </button>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))
