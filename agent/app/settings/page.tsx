@@ -15,6 +15,10 @@ type OllamaModelsResponse = {
   data?: { models?: string[]; defaultModel?: string };
   error?: { message?: string };
 };
+type ChatterboxVoicesResponse = {
+  data?: { voices?: string[] };
+  error?: { message?: string };
+};
 
 export default function SettingsPage() {
   const [deviceId, setDeviceId] = useState('');
@@ -25,6 +29,8 @@ export default function SettingsPage() {
   const [ttsModalMode, setTtsModalMode] = useState<'edit' | 'add'>('edit');
   const [ttsServersBackup, setTtsServersBackup] = useState<string>('');
   const [activeServerBackup, setActiveServerBackup] = useState<string>('');
+  const [chatterboxVoices, setChatterboxVoices] = useState<string[]>([]);
+  const [chatterboxVoicesStatus, setChatterboxVoicesStatus] = useState<string>('');
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
@@ -134,6 +140,67 @@ export default function SettingsPage() {
   };
 
   const activeTtsServer = resolveActiveTtsServer(form);
+
+  useEffect(() => {
+    if (!ttsModalOpen) return;
+    const currentEngine = activeTtsServer?.engine ?? form.ttsEngine;
+    if (currentEngine !== 'chatterbox') return;
+
+    const baseUrl = (activeTtsServer?.config?.baseUrl ?? '').trim();
+    if (!baseUrl) {
+      setChatterboxVoices([]);
+      setChatterboxVoicesStatus('Set Chatterbox Base URL to load voices.');
+      return;
+    }
+
+    let cancelled = false;
+    const loadVoices = async () => {
+      setChatterboxVoicesStatus('Loading voices...');
+      try {
+        const response = await fetch(
+          `/api/starter/chatterbox-voices?baseUrl=${encodeURIComponent(baseUrl)}`,
+          {
+            method: 'GET',
+            cache: 'no-store',
+          }
+        );
+        const payload = (await response.json()) as ChatterboxVoicesResponse;
+        if (!response.ok) {
+          if (!cancelled) {
+            setChatterboxVoices([]);
+            setChatterboxVoicesStatus(
+              payload.error?.message ?? `Voice list failed (${response.status})`
+            );
+          }
+          return;
+        }
+        const list = Array.isArray(payload.data?.voices)
+          ? payload.data?.voices.filter((voice) => typeof voice === 'string' && voice.trim())
+          : [];
+        if (!cancelled) {
+          setChatterboxVoices(Array.from(new Set(list)));
+          setChatterboxVoicesStatus(
+            list.length > 0 ? `${list.length} voice(s) loaded.` : 'No predefined voices found.'
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setChatterboxVoices([]);
+          setChatterboxVoicesStatus(error instanceof Error ? error.message : 'Voice list failed');
+        }
+      }
+    };
+
+    void loadVoices();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTtsServer?.config?.baseUrl,
+    activeTtsServer?.engine,
+    form.ttsEngine,
+    ttsModalOpen,
+  ]);
 
   const openTtsModal = () => {
     setTtsModalMode('edit');
@@ -622,13 +689,30 @@ export default function SettingsPage() {
 
                   <label className="block">
                     <span className="mb-1 block text-sm">Predefined Voice ID</span>
-                    <input
+                    <select
                       value={activeTtsServer?.config?.chatterbox?.predefinedVoiceId ?? ''}
                       onChange={(event) =>
                         updateChatterboxConfig({ predefinedVoiceId: event.target.value })
                       }
                       className="w-full rounded border bg-transparent px-3 py-2 text-sm"
-                      placeholder="Gianna.wav"
+                    >
+                      <option value="">Select a voice...</option>
+                      {chatterboxVoices.map((voice) => (
+                        <option key={voice} value={voice}>
+                          {voice}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                      {chatterboxVoicesStatus || 'Voices are fetched from Chatterbox server.'}
+                    </p>
+                    <input
+                      value={activeTtsServer?.config?.chatterbox?.predefinedVoiceId ?? ''}
+                      onChange={(event) =>
+                        updateChatterboxConfig({ predefinedVoiceId: event.target.value })
+                      }
+                      className="mt-2 w-full rounded border bg-transparent px-3 py-2 text-sm"
+                      placeholder="Or type voice id manually"
                     />
                   </label>
 
