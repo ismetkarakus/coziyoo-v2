@@ -2633,7 +2633,30 @@ function LiveKitDemoPage({ language }: { language: Language }) {
   );
 }
 
-function BuyerDetailScreen({ id }: { id: string }) {
+function openQuickEmail(email: string | null | undefined, dict: Dictionary, setMessage?: (message: string | null) => void) {
+  const normalizedEmail = String(email ?? "").trim();
+  if (!normalizedEmail || !normalizedEmail.includes("@")) return;
+
+  try {
+    window.location.href = `mailto:${encodeURIComponent(normalizedEmail)}`;
+  } catch {
+    navigator.clipboard
+      .writeText(normalizedEmail)
+      .then(() => setMessage?.(`${dict.detail.emailOpenFailed} ${dict.detail.emailCopied}`))
+      .catch(() => setMessage?.(dict.detail.emailOpenFailed));
+    return;
+  }
+
+  window.setTimeout(() => {
+    if (document.visibilityState !== "visible") return;
+    navigator.clipboard
+      .writeText(normalizedEmail)
+      .then(() => setMessage?.(`${dict.detail.emailOpenFailed} ${dict.detail.emailCopied}`))
+      .catch(() => setMessage?.(dict.detail.emailOpenFailed));
+  }, 700);
+}
+
+function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<BuyerDetail | null>(null);
@@ -2734,6 +2757,13 @@ function BuyerDetailScreen({ id }: { id: string }) {
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => loadBuyerDetail()}>
             Yenile
+          </button>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => openQuickEmail(contactInfo?.identity.email ?? row.email, dict, setMessage)}
+          >
+            {dict.detail.quickEmail}
           </button>
           <button className="primary" type="button" onClick={() => navigate("/app/dashboard")}>
             Bekleyen İşler
@@ -3283,6 +3313,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
               {dict.actions.refresh}
             </button>
+            <button className="ghost" type="button" onClick={() => openQuickEmail(row.email, dict, setMessage)}>
+              {dict.detail.quickEmail}
+            </button>
             <button className="primary" type="button">{complianceCta}</button>
             <button className="ghost" type="button">{auditCta}</button>
           </div>
@@ -3552,7 +3585,7 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
   const dict = DICTIONARIES[language];
   const location = useLocation();
   const id = location.pathname.split("/").at(-1) ?? "";
-  if (kind === "buyers") return <BuyerDetailScreen id={id} />;
+  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} />;
   if (kind === "sellers") return <SellerDetailScreen id={id} isSuperAdmin={isSuperAdmin} dict={dict} language={language} />;
   return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;
 }
