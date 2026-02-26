@@ -74,6 +74,7 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
   const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
   const audioRootRef = useRef<HTMLDivElement | null>(null);
   const speakerEnabledRef = useRef(true);
+  const interruptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   speakerEnabledRef.current = speakerEnabled;
 
   const addEvent = useCallback(
@@ -115,10 +116,80 @@ export function useVerboseSessionController({ deviceId, settings }: ControllerIn
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    if (interruptTimeoutRef.current) {
+      clearTimeout(interruptTimeoutRef.current);
+      interruptTimeoutRef.current = null;
+    }
     room.removeAllListeners();
     room.disconnect();
     roomRef.current = null;
   }, []);
+
+  const interruptAgentSpeech = useCallback(async () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Locally cut current remote audio playback immediately.
+    for (const [, audioElement] of audioElementsRef.current) {
+      audioElement.muted = true;
+      try {
+        audioElement.pause();
+      } catch {
+        // noop
+      }
+    }
+    if (interruptTimeoutRef.current) {
+      clearTimeout(interruptTimeoutRef.current);
+    }
+    interruptTimeoutRef.current = setTimeout(() => {
+      for (const [, audioElement] of audioElementsRef.current) {
+        audioElement.muted = !speakerEnabledRef.current;
+        if (speakerEnabledRef.current) {
+          void audioElement.play().catch(() => undefined);
+        }
+      }
+      interruptTimeoutRef.current = null;
+    }, 1200);
+
+    const room = roomRef.current;
+    if (!room) {
+      addEvent({
+        source: 'chat',
+        eventType: 'AGENT_SPEECH_INTERRUPTED_LOCAL',
+        summary: 'Agent speech interrupted locally',
+        payload: { hasRoom: false },
+      });
+      return;
+    }
+
+    const payload = {
+      type: 'system_instruction',
+      action: 'interrupt',
+      reason: 'user_barge_in',
+      ts: new Date().toISOString(),
+    };
+
+    try {
+      await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), {
+        topic: 'system',
+        reliable: true,
+      });
+      addEvent({
+        source: 'chat',
+        eventType: 'AGENT_SPEECH_INTERRUPTED',
+        summary: 'Sent interrupt instruction to agent',
+        payload,
+      });
+    } catch (error) {
+      addEvent({
+        source: 'error',
+        eventType: 'AGENT_SPEECH_INTERRUPT_FAILED',
+        summary: 'Failed to send interrupt instruction to agent',
+        payload: { message: error instanceof Error ? error.message : 'Unknown error' },
+      });
+    }
+  }, [addEvent]);
 
   const requestAgentChat = useCallback(
     async (currentRoomName: string, text: string, source: 'chat' | 'greeting') => {
@@ -626,6 +697,7 @@ Return only the greeting message text.`,
     disconnect,
     toggleMic,
     toggleSpeaker,
+    interruptAgentSpeech,
     clearLogs,
     sendChat,
   };

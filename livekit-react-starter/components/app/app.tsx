@@ -109,11 +109,13 @@ export function App({ appConfig }: AppProps) {
     const value = (overrideText ?? chatInput).trim();
     if (!value) return;
     setChatInput('');
+    await controller.interruptAgentSpeech();
     await controller.sendChat(value);
   };
 
   const onSpeak = () => {
     if (!speechSupported || speechListening) return;
+    void controller.interruptAgentSpeech();
     const Ctor =
       (
         window as unknown as {
