@@ -70,11 +70,11 @@ Optional DB SSL behavior:
 ### Required environment variables
 - `VITE_API_BASE_URL=https://api.example.com`
 
-## 2b) LiveKit React Starter (`livekit-react-starter`)
+## 2b) Agent Frontend (`agent`)
 
 - Repository: `ismetkarakus/coziyoo-v2`
 - Branch: `main`
-- Base directory: `livekit-react-starter`
+- Base directory: `agent`
 - Install command: `pnpm install`
 - Build command: `npm run build`
 - Start command: `pnpm start` (or `pnpm dev` for development)

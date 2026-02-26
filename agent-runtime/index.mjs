@@ -208,7 +208,7 @@ class AssistantSession {
     const msg = {
       type: 'assistant_runtime_status',
       status,
-      runtime: 'assistant-runtime',
+      runtime: 'agent-runtime',
       ts: new Date().toISOString(),
       ...payload,
     };
@@ -247,7 +247,7 @@ class AssistantSession {
         await this.speak(parsed.text, parsed.reason || 'chat');
       })
       .catch((error) => {
-        console.error('[assistant-runtime] speak queue error', error);
+        console.error('[agent-runtime] speak queue error', error);
       });
   }
 
@@ -264,7 +264,7 @@ class AssistantSession {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[assistant-runtime] tts synth failed, fallback tone', message);
+      console.error('[agent-runtime] tts synth failed, fallback tone', message);
       pcm = tonePcm16({ seconds: 0.28, frequency: 360 });
       await this.publishStatus('assistant_tts_fallback_tone', { reason, error: message });
     }
@@ -293,11 +293,11 @@ class AssistantSession {
 }
 
 app.get('/health', (_req, res) => {
-  res.status(200).json({ ok: true, service: 'assistant-runtime' });
+  res.status(200).json({ ok: true, service: 'agent-runtime' });
 });
 
 app.get('/', (_req, res) => {
-  res.status(200).json({ ok: true, service: 'assistant-runtime' });
+  res.status(200).json({ ok: true, service: 'agent-runtime' });
 });
 
 app.post('/livekit/agent-session', async (req, res) => {
@@ -317,12 +317,12 @@ app.post('/livekit/agent-session', async (req, res) => {
 
   try {
     await session.connectAndPublish();
-    console.log('[assistant-runtime] connected and published', JSON.stringify({ roomName: join.roomName, participantIdentity: join.participantIdentity }));
+    console.log('[agent-runtime] connected and published', JSON.stringify({ roomName: join.roomName, participantIdentity: join.participantIdentity }));
     return res.status(202).json({ ok: true, accepted: true, mode: 'livekit_audio_track' });
   } catch (error) {
     sessions.delete(key);
     const message = error instanceof Error ? error.message : String(error);
-    console.error('[assistant-runtime] join failed', message);
+    console.error('[agent-runtime] join failed', message);
     return res.status(500).json({ error: 'ASSISTANT_RUNTIME_FAILED', message });
   }
 });
@@ -330,5 +330,5 @@ app.post('/livekit/agent-session', async (req, res) => {
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || '0.0.0.0';
 app.listen(port, host, () => {
-  console.log(`[assistant-runtime] listening on http://${host}:${port}`);
+  console.log(`[agent-runtime] listening on http://${host}:${port}`);
 });

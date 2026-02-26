@@ -393,7 +393,7 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
-  const userMetadata = JSON.stringify({ username, source: "livekit-react-starter", deviceId: input.deviceId });
+  const userMetadata = JSON.stringify({ username, source: "agent", deviceId: input.deviceId });
 
   try {
     await ensureLiveKitRoom(roomName);
@@ -769,7 +769,7 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
         input: input.input ?? "",
         roomName: input.roomName ?? null,
         username: input.username ?? null,
-        source: "livekit-react-starter",
+        source: "agent",
         timestamp: new Date().toISOString(),
       }),
     });
