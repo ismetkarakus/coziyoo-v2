@@ -1644,14 +1644,27 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
 function InvestigationPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
-  const [searchInput, setSearchInput] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const investigationLastQueryKey = "admin_investigation_last_query";
+  const queryFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return (params.get("q") ?? "").trim();
+  }, [location.search]);
+  const [searchInput, setSearchInput] = useState(() => {
+    if (queryFromUrl.length >= 2) return queryFromUrl;
+    const fromStorage = sessionStorage.getItem(investigationLastQueryKey) ?? "";
+    return fromStorage.trim();
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialSearchHandledRef = useRef<string>("");
   const [rows, setRows] = useState<Array<{
     food: {
       id: string;
       code: string;
       name: string;
+      imageUrl: string | null;
       cardSummary: string | null;
       description: string | null;
       recipe: string | null;
@@ -1660,7 +1673,14 @@ function InvestigationPage({ language }: { language: Language }) {
       createdAt: string;
       updatedAt: string;
     };
-    seller: { id: string; name: string; email: string };
+    seller: {
+      id: string;
+      name: string;
+      email: string;
+      countryCode: string | null;
+      language: string | null;
+      status: "active" | "disabled";
+    };
     incidents: Array<{
       orderId: string;
       orderNo: string;
@@ -1676,13 +1696,15 @@ function InvestigationPage({ language }: { language: Language }) {
     }>;
   }>>([]);
 
-  async function runSearch() {
-    const query = searchInput.trim();
+  async function runSearch(explicitQuery?: string) {
+    const query = String(explicitQuery ?? searchInput).trim();
     if (query.length < 2) {
       setRows([]);
       setError(null);
+      navigate("/app/investigation", { replace: true });
       return;
     }
+    setSearchInput(query);
     setLoading(true);
     setError(null);
     try {
@@ -1695,12 +1717,32 @@ function InvestigationPage({ language }: { language: Language }) {
       }
       const body = await parseJson<{ data: typeof rows }>(response);
       setRows(Array.isArray(body.data) ? body.data : []);
+      sessionStorage.setItem(investigationLastQueryKey, query);
+      navigate(`/app/investigation?q=${encodeURIComponent(query)}`, { replace: true });
     } catch {
       setError(dict.investigation.requestFailed);
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (queryFromUrl && initialSearchHandledRef.current === queryFromUrl) return;
+    if (queryFromUrl.length >= 2) {
+      initialSearchHandledRef.current = queryFromUrl;
+      if (queryFromUrl !== searchInput) setSearchInput(queryFromUrl);
+      runSearch(queryFromUrl).catch(() => setError(dict.investigation.requestFailed));
+      return;
+    }
+    const remembered = (sessionStorage.getItem(investigationLastQueryKey) ?? "").trim();
+    if (remembered && initialSearchHandledRef.current === remembered) return;
+    if (remembered.length >= 2 && rows.length === 0) {
+      initialSearchHandledRef.current = remembered;
+      setSearchInput(remembered);
+      runSearch(remembered).catch(() => setError(dict.investigation.requestFailed));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryFromUrl]);
 
   return (
     <section className="panel">
@@ -1741,9 +1783,18 @@ function InvestigationPage({ language }: { language: Language }) {
         {rows.map((entry) => (
           <article key={entry.food.id} className="panel investigation-card">
             <div className="investigation-card-head">
+              <div className="investigation-food-media">
+                {entry.food.imageUrl ? (
+                  <img src={entry.food.imageUrl} alt={entry.food.name} />
+                ) : (
+                  <div className="investigation-food-placeholder">{entry.food.name.slice(0, 1).toUpperCase()}</div>
+                )}
+              </div>
               <div>
                 <h3>{`${entry.food.name} (${entry.food.code})`}</h3>
-                <p className="panel-meta">{entry.food.description || entry.food.recipe || entry.food.cardSummary || "-"}</p>
+                <p className="panel-meta">{entry.food.cardSummary || "-"}</p>
+                <p className="panel-meta">{entry.food.description || "-"}</p>
+                {entry.food.recipe ? <p className="panel-meta">{`${language === "tr" ? "İçerik" : "Recipe"}: ${entry.food.recipe}`}</p> : null}
               </div>
               <span className={`status-pill ${entry.food.status === "active" ? "is-active" : "is-disabled"}`}>
                 {entry.food.status === "active" ? dict.common.active : dict.common.disabled}
@@ -1752,7 +1803,11 @@ function InvestigationPage({ language }: { language: Language }) {
             <div className="seller-meta-chips">
               <span className="retention-chip">{`${language === "tr" ? "Satıcı" : "Seller"}: ${entry.seller.name}`}</span>
               <span className="retention-chip">{entry.seller.email}</span>
+              <span className="retention-chip">{`${language === "tr" ? "Satıcı Durumu" : "Seller Status"}: ${entry.seller.status === "active" ? dict.common.active : dict.common.disabled}`}</span>
+              <span className="retention-chip">{`${language === "tr" ? "Ülke" : "Country"}: ${entry.seller.countryCode ?? "-"}`}</span>
+              <span className="retention-chip">{`${language === "tr" ? "Dil" : "Language"}: ${entry.seller.language ?? "-"}`}</span>
               <span className="retention-chip">{`${language === "tr" ? "Fiyat" : "Price"}: ${formatCurrency(entry.food.price, language)}`}</span>
+              <span className="retention-chip">{`${language === "tr" ? "Yemek Güncelleme" : "Food Updated"}: ${formatUiDate(entry.food.updatedAt, language)}`}</span>
               <Link className="retention-chip" to={`/app/sellers/${entry.seller.id}`}>{language === "tr" ? "Satıcı Detayı" : "Seller Detail"}</Link>
             </div>
             <h4>{`${dict.investigation.orders}: ${entry.incidents.length}`}</h4>
@@ -1768,6 +1823,7 @@ function InvestigationPage({ language }: { language: Language }) {
                       <th>{language === "tr" ? "Tutar" : "Amount"}</th>
                       <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
                       <th>{language === "tr" ? "Tarih/Saat" : "Date/Time"}</th>
+                      <th>{language === "tr" ? "Ödeme Zamanı" : "Payment Time"}</th>
                       <th>{language === "tr" ? "Bölge" : "Region"}</th>
                     </tr>
                   </thead>
@@ -1792,7 +1848,9 @@ function InvestigationPage({ language }: { language: Language }) {
                         </td>
                         <td>
                           <div>{incident.orderCreatedAt ? new Date(incident.orderCreatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "-"}</div>
+                          <div className="panel-meta">{incident.orderUpdatedAt ? `${language === "tr" ? "Güncelleme" : "Update"}: ${new Date(incident.orderUpdatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}` : "-"}</div>
                         </td>
+                        <td>{incident.payment.updatedAt ? new Date(incident.payment.updatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "-"}</td>
                         <td>{incident.region ?? "-"}</td>
                       </tr>
                     ))}

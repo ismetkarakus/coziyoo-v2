@@ -161,6 +161,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
   const rows = await pool.query<{
     food_id: string;
     food_name: string;
+    food_image_url: string | null;
     card_summary: string | null;
     description: string | null;
     recipe: string | null;
@@ -171,6 +172,9 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
     seller_id: string;
     seller_name: string;
     seller_email: string;
+    seller_country_code: string | null;
+    seller_language: string | null;
+    seller_status: boolean;
     order_id: string | null;
     order_status: string | null;
     order_total_price: string | null;
@@ -191,6 +195,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
     `SELECT
        f.id::text AS food_id,
        f.name AS food_name,
+       f.image_url AS food_image_url,
        f.card_summary,
        f.description,
        f.recipe,
@@ -201,6 +206,9 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
        s.id::text AS seller_id,
        s.display_name AS seller_name,
        s.email AS seller_email,
+       s.country_code AS seller_country_code,
+       s.language AS seller_language,
+       s.is_active AS seller_status,
        o.id::text AS order_id,
        o.status AS order_status,
        o.total_price::text AS order_total_price,
@@ -241,13 +249,14 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
   const grouped = new Map<
     string,
     {
-      food: {
-        id: string;
-        code: string;
-        name: string;
-        cardSummary: string | null;
-        description: string | null;
-        recipe: string | null;
+        food: {
+          id: string;
+          code: string;
+          name: string;
+          imageUrl: string | null;
+          cardSummary: string | null;
+          description: string | null;
+          recipe: string | null;
         price: number;
         status: "active" | "disabled";
         createdAt: string;
@@ -257,6 +266,9 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
         id: string;
         name: string;
         email: string;
+        countryCode: string | null;
+        language: string | null;
+        status: "active" | "disabled";
       };
       incidents: Array<{
         orderId: string;
@@ -283,6 +295,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
           id: foodId,
           code: `FD-${foodId.slice(0, 8).toUpperCase()}`,
           name: row.food_name,
+          imageUrl: row.food_image_url,
           cardSummary: row.card_summary,
           description: row.description,
           recipe: row.recipe,
@@ -295,6 +308,9 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
           id: row.seller_id,
           name: row.seller_name,
           email: row.seller_email,
+          countryCode: row.seller_country_code,
+          language: row.seller_language,
+          status: row.seller_status ? "active" : "disabled",
         },
         incidents: [],
       };
