@@ -806,6 +806,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [searchTerm, setSearchTerm] = useState("");
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
+  const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [pendingStatusChange, setPendingStatusChange] = useState<{ id: string; next: "active" | "disabled" } | null>(null);
@@ -888,6 +889,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       status: "all",
     }));
     setSellerStatusFilter("all");
+    setCustomerIdPreview(null);
   }, [kind]);
 
   useEffect(() => {
@@ -1196,6 +1198,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   function openCustomerIdPreview(rawId: unknown) {
     const fullId = String(rawId ?? "").trim();
     if (!fullId) return;
+    setCustomerIdPreview(fullId);
+    if (isSellerPage) return;
     window.prompt(language === "tr" ? "Müşteri ID" : "Customer ID", fullId);
   }
 
@@ -1205,7 +1209,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "id") {
       if (kind === "sellers") {
         return (
-          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+          <button
+            className="inline-copy"
+            type="button"
+            title={String(value ?? "")}
+            onClick={() => {
+              openCustomerIdPreview(value);
+              navigator.clipboard.writeText(String(value ?? "")).catch(() => undefined);
+            }}
+          >
             {shortId(String(value ?? ""))}
           </button>
         );
@@ -1323,6 +1335,22 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           ) : null}
         </div>
       </header>
+
+      {isSellerPage && customerIdPreview ? (
+        <section className="panel customer-id-preview-panel" role="status" aria-live="polite">
+          <div className="customer-id-preview-eye" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation">
+              <path d="M2 12s3.7-6 10-6 10 6 10 6-3.7 6-10 6-10-6-10-6Z" />
+              <circle cx="12" cy="12" r="3.2" />
+            </svg>
+          </div>
+          <strong>{language === "tr" ? "Customer ID" : "Customer ID"}</strong>
+          <code>{customerIdPreview}</code>
+          <button className="ghost" type="button" onClick={() => setCustomerIdPreview(null)}>
+            {language === "tr" ? "Kapat" : "Close"}
+          </button>
+        </section>
+      ) : null}
 
       <section className="panel users-kpi-grid">
         {!isSellerPage ? (

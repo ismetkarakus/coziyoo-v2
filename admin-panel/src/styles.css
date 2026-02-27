@@ -450,6 +450,39 @@ button {
   font-size: 0.94rem;
 }
 
+.customer-id-preview-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.customer-id-preview-eye {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.customer-id-preview-eye svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #9db9ff;
+  stroke-width: 1.6;
+}
+
+.customer-id-preview-panel code {
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 88%, transparent);
+  padding: 5px 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  flex: 1;
+}
+
 .divider {
   height: 1px;
   background: var(--color-border);
