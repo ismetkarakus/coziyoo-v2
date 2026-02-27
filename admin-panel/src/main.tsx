@@ -172,6 +172,8 @@ function setAdmin(admin: AdminUser | null) {
   sessionStorage.setItem(ADMIN_KEY, JSON.stringify(admin));
 }
 
+let refreshInFlight: Promise<boolean> | null = null;
+
 async function request(path: string, init?: RequestInit, retry = true): Promise<Response> {
   const tokens = getTokens();
   const headers = new Headers(init?.headers ?? {});
@@ -185,13 +187,22 @@ async function request(path: string, init?: RequestInit, retry = true): Promise<
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
 
   if (response.status === 401 && retry && tokens?.refreshToken) {
-    const refreshed = await refreshToken(tokens.refreshToken);
+    const refreshed = await refreshTokenSerialized(tokens.refreshToken);
     if (refreshed) {
       return request(path, init, false);
     }
   }
 
   return response;
+}
+
+async function refreshTokenSerialized(refreshTokenValue: string): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshToken(refreshTokenValue).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
 }
 
 async function refreshToken(refreshTokenValue: string): Promise<boolean> {
