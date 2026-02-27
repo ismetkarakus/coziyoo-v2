@@ -866,6 +866,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       ? ["id", "display_name", "email", "is_active", "country_code", "language", "created_at", "updated_at"]
       : ["id", "email", "role", "is_active", "created_at", "updated_at", "last_login_at"];
   }, [isAppScoped]);
+  const sellerDefaultColumns = useMemo(
+    () => ["display_name", "email", "id", "total_foods", "status", "language", "created_at", "updated_at"],
+    []
+  );
 
   const pageTitle =
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
@@ -910,7 +914,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         }))
         .filter((f) => f.displayable && columnMappings[f.name]);
       setFields(metas);
-      const defaultColumns = coreColumns.filter((column) => metas.some((meta) => meta.name === column));
+      const defaultColumns = (isSellerPage ? sellerDefaultColumns : coreColumns).filter((column) => metas.some((meta) => meta.name === column));
 
       const prefs = await request(`/v1/admin/table-preferences/${tableKey}`);
       if (prefs.status === 200) {
@@ -921,7 +925,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         setVisibleColumns(defaultColumns);
       }
     });
-  }, [columnMappings, coreColumns, tableKey]);
+  }, [columnMappings, coreColumns, isSellerPage, sellerDefaultColumns, tableKey]);
 
   async function loadRows() {
     setLoading(true);
@@ -974,7 +978,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }, [searchInput]);
 
   async function savePreferences() {
-    const payload = visibleColumns.length > 0 ? visibleColumns : coreColumns.filter((column) => fields.some((f) => f.name === column));
+    const defaultColumns = (isSellerPage ? sellerDefaultColumns : coreColumns).filter((column) => fields.some((f) => f.name === column));
+    const payload = visibleColumns.length > 0 ? visibleColumns : defaultColumns;
     const response = await request(`/v1/admin/table-preferences/${tableKey}`, {
       method: "PUT",
       body: JSON.stringify({ visibleColumns: payload, columnOrder: payload }),
@@ -1143,13 +1148,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const availableColumns = useMemo(() => fields.map((f) => f.name), [fields]);
   const tableColumns = useMemo(() => {
-    if (isSellerPage) {
-      return ["display_name", "email", "id", "total_foods", "status", "language", "created_at", "updated_at"];
-    }
     const picked = visibleColumns.filter((column) => availableColumns.includes(column));
+    if (isSellerPage) {
+      if (picked.length > 0) return picked;
+      return sellerDefaultColumns.filter((column) => availableColumns.includes(column));
+    }
     if (picked.length > 0) return picked;
     return coreColumns.filter((column) => availableColumns.includes(column));
-  }, [availableColumns, coreColumns, isSellerPage, visibleColumns]);
+  }, [availableColumns, coreColumns, isSellerPage, sellerDefaultColumns, visibleColumns]);
 
   const activeRows = rows.filter((row) => row.status === "active");
   const passiveRows = rows.filter((row) => row.status === "disabled");
@@ -1333,19 +1339,21 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           ) : null}
         </div>
         <div className="topbar-actions">
-          {!isSellerPage ? (
-            <>
-              <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
-                {dict.users.visibleColumns}
-              </button>
+          <>
+            <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
+              {dict.users.visibleColumns}
+            </button>
+            {!isSellerPage ? (
+              <>
               <button className="ghost" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
                 + {dict.actions.create}
               </button>
               <button className="primary" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
                 {dict.actions.refresh}
               </button>
-            </>
-          ) : null}
+              </>
+            ) : null}
+          </>
         </div>
       </header>
 
