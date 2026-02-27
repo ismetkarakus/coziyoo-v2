@@ -1199,8 +1199,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const fullId = String(rawId ?? "").trim();
     if (!fullId) return;
     setCustomerIdPreview(fullId);
-    if (isSellerPage) return;
-    window.prompt(language === "tr" ? "Müşteri ID" : "Customer ID", fullId);
   }
 
   function renderCell(row: any, columnName: string) {
@@ -1316,8 +1314,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   return (
     <div className="app">
       <header className="topbar">
-        <div>
+        <div className="users-title-wrap">
           <h1>{pageTitleView}</h1>
+          {customerIdPreview ? (
+            <div className="customer-id-preview-inline" role="status" aria-live="polite">
+              <div className="customer-id-preview-eye" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="presentation">
+                  <path d="M2 12s3.7-6 10-6 10 6 10 6-3.7 6-10 6-10-6-10-6Z" />
+                  <circle cx="12" cy="12" r="3.2" />
+                </svg>
+              </div>
+              <strong>{language === "tr" ? "Müşteri ID" : "Customer ID"}</strong>
+              <code>{customerIdPreview}</code>
+              <button className="ghost" type="button" onClick={() => setCustomerIdPreview(null)}>
+                {language === "tr" ? "Kapat" : "Close"}
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="topbar-actions">
           {!isSellerPage ? (
@@ -1335,22 +1348,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           ) : null}
         </div>
       </header>
-
-      {isSellerPage && customerIdPreview ? (
-        <section className="panel customer-id-preview-panel" role="status" aria-live="polite">
-          <div className="customer-id-preview-eye" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="presentation">
-              <path d="M2 12s3.7-6 10-6 10 6 10 6-3.7 6-10 6-10-6-10-6Z" />
-              <circle cx="12" cy="12" r="3.2" />
-            </svg>
-          </div>
-          <strong>{language === "tr" ? "Customer ID" : "Customer ID"}</strong>
-          <code>{customerIdPreview}</code>
-          <button className="ghost" type="button" onClick={() => setCustomerIdPreview(null)}>
-            {language === "tr" ? "Kapat" : "Close"}
-          </button>
-        </section>
-      ) : null}
 
       <section className="panel users-kpi-grid">
         {!isSellerPage ? (
