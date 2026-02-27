@@ -1242,9 +1242,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       return text ? text.slice(0, 10) : "-";
     }
     if (mapped === "role") {
-      if (value === "buyer") return dict.users.userTypeBuyer;
-      if (value === "seller") return dict.users.userTypeSeller;
-      if (value === "both") return dict.users.userTypeBoth;
+      if (value === "buyer") return <span className="user-type-pill is-buyer">{dict.users.userTypeBuyer}</span>;
+      if (value === "seller") return <span className="user-type-pill is-seller">{dict.users.userTypeSeller}</span>;
+      if (value === "both") return <span className="user-type-pill is-both">{dict.users.userTypeBoth}</span>;
       if (value === "admin") return dict.users.roleAdmin;
       if (value === "super_admin") return dict.users.roleSuperAdmin;
     }
