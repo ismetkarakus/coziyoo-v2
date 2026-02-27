@@ -1,4 +1,4 @@
-import type { BuyerOrderRow } from "../../types/buyer";
+import type { BuyerOrderRow, BuyerSummaryMetrics } from "../../types/buyer";
 
 function toRelativeDays(iso: string | null, missingText: string): string {
   if (!iso) return missingText;
@@ -13,30 +13,56 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2 }).format(value);
 }
 
-export function BuyerSummaryMetricsCard({ orders, missingText = "karşılık bulunamadı" }: { orders: BuyerOrderRow[]; missingText?: string }) {
+function trendMeta(current: number, previous: number) {
+  if (current > previous) return { arrow: "▲", className: "is-up" as const };
+  if (current < previous) return { arrow: "▼", className: "is-down" as const };
+  return { arrow: "→", className: "is-flat" as const };
+}
+
+export function BuyerSummaryMetricsCard({
+  orders,
+  summary,
+  missingText = "karşılık bulunamadı",
+}: {
+  orders: BuyerOrderRow[];
+  summary: BuyerSummaryMetrics | null;
+  missingText?: string;
+}) {
   const latest = orders[0] ?? null;
-  const totalSpent = orders.reduce((sum, row) => sum + row.totalAmount, 0);
   const latestOrderNo = latest?.orderNo ?? missingText;
   const latestAt = latest ? toRelativeDays(latest.createdAt, missingText) : missingText;
+  const orderTrend = trendMeta(summary?.monthlyOrderCountCurrent ?? 0, summary?.monthlyOrderCountPrevious ?? 0);
+  const spentTrend = trendMeta(summary?.monthlySpentCurrent ?? 0, summary?.monthlySpentPrevious ?? 0);
 
   return (
     <section className="panel buyer-summary-card">
       <div className="panel-header">
-        <h2>İletişim Bilgisi & Adres</h2>
+        <h2>Alıcı Özet Metrikleri</h2>
       </div>
       <div className="buyer-summary-grid">
         <article>
-          <p>Tarih / Saat</p>
-          <h3>{latest ? new Date(latest.createdAt).toLocaleString("tr-TR") : missingText}</h3>
+          <p>Toplam Şikayet</p>
+          <h3>{summary ? summary.complaintTotal : missingText}</h3>
+          <small>{`Çözülen: ${summary?.complaintResolved ?? 0} • Çözülmeyen: ${summary?.complaintUnresolved ?? 0}`}</small>
         </article>
         <article>
-          <p>Sipariş No</p>
+          <p>Toplam Harcama</p>
+          <h3>{summary ? formatCurrency(summary.totalSpent) : missingText}</h3>
+          <small className={`buyer-trend ${spentTrend.className}`}>
+            {`${spentTrend.arrow} Son 30g: ${formatCurrency(summary?.monthlySpentCurrent ?? 0)} • Önceki 30g: ${formatCurrency(summary?.monthlySpentPrevious ?? 0)}`}
+          </small>
+        </article>
+        <article>
+          <p>Sipariş Sayısı</p>
+          <h3>{summary ? summary.totalOrders : missingText}</h3>
+          <small className={`buyer-trend ${orderTrend.className}`}>
+            {`${orderTrend.arrow} Son 30g: ${summary?.monthlyOrderCountCurrent ?? 0} • Önceki 30g: ${summary?.monthlyOrderCountPrevious ?? 0}`}
+          </small>
+        </article>
+        <article>
+          <p>Son Sipariş No</p>
           <h3>{latestOrderNo}</h3>
-        </article>
-        <article>
-          <p>Son Sipariş</p>
-          <h3>{latestAt}</h3>
-          <small>{formatCurrency(totalSpent)}</small>
+          <small>{latestAt}</small>
         </article>
       </div>
     </section>

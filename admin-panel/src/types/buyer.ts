@@ -100,3 +100,15 @@ export type BuyerPagination = {
   total: number;
   totalPages: number;
 };
+
+export type BuyerSummaryMetrics = {
+  complaintTotal: number;
+  complaintResolved: number;
+  complaintUnresolved: number;
+  totalSpent: number;
+  totalOrders: number;
+  monthlyOrderCountCurrent: number;
+  monthlyOrderCountPrevious: number;
+  monthlySpentCurrent: number;
+  monthlySpentPrevious: number;
+};

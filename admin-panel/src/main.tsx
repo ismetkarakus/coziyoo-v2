@@ -28,6 +28,7 @@ import type {
   BuyerOrderRow,
   BuyerPagination,
   BuyerReviewRow,
+  BuyerSummaryMetrics,
 } from "./types/buyer";
 
 type AdminUser = {
@@ -584,7 +585,12 @@ function TopNavTabs({
       {isManagementOpen ? (
         <div className="nav-submenu">
           {managementItems.map((item) => (
-            <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to}>
+            <Link
+              key={item.to}
+              className={`nav-link ${item.active ? "is-active" : ""}`}
+              to={item.to}
+              onClick={() => setIsManagementOpen(false)}
+            >
               {item.label}
             </Link>
           ))}
@@ -3341,6 +3347,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const [row, setRow] = useState<BuyerDetail | null>(null);
   const [contactInfo, setContactInfo] = useState<BuyerContactInfo | null>(null);
   const [orders, setOrders] = useState<BuyerOrderRow[]>([]);
+  const [summary, setSummary] = useState<BuyerSummaryMetrics | null>(null);
   const [ordersPagination, setOrdersPagination] = useState<BuyerPagination | null>(null);
   const [reviews, setReviews] = useState<BuyerReviewRow[]>([]);
   const [cancellations, setCancellations] = useState<BuyerCancellationRow[]>([]);
@@ -3356,6 +3363,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       const [
         detailResponse,
         contactResponse,
+        summaryResponse,
         ordersResponse,
         reviewsResponse,
         cancellationsResponse,
@@ -3363,6 +3371,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       ] = await Promise.all([
         request(endpoint),
         request(`/v1/admin/users/${id}/buyer-contact`),
+        request(`/v1/admin/users/${id}/buyer-summary`),
         request(`/v1/admin/users/${id}/buyer-orders?page=${ordersPage}&pageSize=5&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-reviews?page=1&pageSize=5&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-cancellations?page=1&pageSize=5&sortDir=desc`),
@@ -3381,6 +3390,13 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       if (contactResponse.status === 200) {
         const body = await parseJson<{ data: BuyerContactInfo }>(contactResponse);
         setContactInfo(body.data);
+      }
+
+      if (summaryResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerSummaryMetrics }>(summaryResponse);
+        setSummary(body.data);
+      } else {
+        setSummary(null);
       }
 
       if (ordersResponse.status === 200) {
@@ -3456,7 +3472,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         <BuyerProfileCard detail={row} contactInfo={contactInfo} />
 
         <div className="buyer-main-column">
-          <BuyerSummaryMetricsCard orders={orders} missingText={dict.common.counterpartNotFound} />
+          <BuyerSummaryMetricsCard orders={orders} summary={summary} missingText={dict.common.counterpartNotFound} />
           <BuyerOrdersHistoryTable
             orders={orders}
             pagination={ordersPagination}

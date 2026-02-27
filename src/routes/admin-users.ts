@@ -875,6 +875,69 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
   });
 });
 
+adminUserManagementRouter.get("/users/:id/buyer-summary", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const orderStats = await pool.query<{
+    total_orders: string;
+    total_spent: string;
+    current_orders: string;
+    previous_orders: string;
+    current_spent: string;
+    previous_spent: string;
+  }>(
+    `SELECT
+       count(*)::text AS total_orders,
+       COALESCE(sum(CASE WHEN payment_completed = TRUE THEN total_price ELSE 0 END), 0)::text AS total_spent,
+       count(*) FILTER (WHERE created_at >= (now() - interval '30 days'))::text AS current_orders,
+       count(*) FILTER (WHERE created_at < (now() - interval '30 days') AND created_at >= (now() - interval '60 days'))::text AS previous_orders,
+       COALESCE(sum(CASE WHEN payment_completed = TRUE AND created_at >= (now() - interval '30 days') THEN total_price ELSE 0 END), 0)::text AS current_spent,
+       COALESCE(sum(CASE WHEN payment_completed = TRUE AND created_at < (now() - interval '30 days') AND created_at >= (now() - interval '60 days') THEN total_price ELSE 0 END), 0)::text AS previous_spent
+     FROM orders
+     WHERE buyer_id = $1`,
+    [params.data.id]
+  );
+
+  const complaintStats = await pool.query<{
+    total_complaints: string;
+    resolved_complaints: string;
+    unresolved_complaints: string;
+  }>(
+    `SELECT
+       count(*)::text AS total_complaints,
+       count(*) FILTER (WHERE status IN ('resolved', 'closed'))::text AS resolved_complaints,
+       count(*) FILTER (WHERE status IN ('open', 'in_review'))::text AS unresolved_complaints
+     FROM complaints
+     WHERE complainant_buyer_id = $1`,
+    [params.data.id]
+  );
+
+  const orderRow = orderStats.rows[0];
+  const complaintRow = complaintStats.rows[0];
+
+  return res.json({
+    data: {
+      complaintTotal: Number(complaintRow?.total_complaints ?? "0"),
+      complaintResolved: Number(complaintRow?.resolved_complaints ?? "0"),
+      complaintUnresolved: Number(complaintRow?.unresolved_complaints ?? "0"),
+      totalSpent: Number(orderRow?.total_spent ?? "0"),
+      totalOrders: Number(orderRow?.total_orders ?? "0"),
+      monthlyOrderCountCurrent: Number(orderRow?.current_orders ?? "0"),
+      monthlyOrderCountPrevious: Number(orderRow?.previous_orders ?? "0"),
+      monthlySpentCurrent: Number(orderRow?.current_spent ?? "0"),
+      monthlySpentPrevious: Number(orderRow?.previous_spent ?? "0"),
+    },
+  });
+});
+
 adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), async (req, res) => {
   const params = UuidParamSchema.safeParse(req.params);
   if (!params.success) {
