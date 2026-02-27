@@ -1785,8 +1785,8 @@ function InvestigationPage({ language }: { language: Language }) {
           <article key={entry.food.id} className="panel investigation-card">
             {(() => {
               const meta = foodMetadataByName(entry.food.name);
-              const imageUrl = normalizeImageUrl(entry.food.imageUrl) ?? meta?.imageUrl ?? null;
-              const ingredients = entry.food.ingredients ?? meta?.ingredients ?? null;
+              const imageUrl = resolveFoodImageUrl(entry.food.name, entry.food.imageUrl, meta?.imageUrl);
+              const ingredients = resolveFoodIngredients(entry.food.ingredients, entry.food.recipe, meta?.ingredients, language);
               return (
             <div className="investigation-card-head">
               <div className="investigation-food-media">
@@ -1801,7 +1801,7 @@ function InvestigationPage({ language }: { language: Language }) {
                 <p className="panel-meta">{entry.food.cardSummary || "-"}</p>
                 <p className="panel-meta">{sanitizeSeedText(entry.food.description) || "-"}</p>
                 <p className="panel-meta">
-                  {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
+                  {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients}`}
                 </p>
               </div>
               <span className={`status-pill ${entry.food.status === "active" ? "is-active" : "is-disabled"}`}>
@@ -3307,6 +3307,9 @@ function sanitizeSeedText(value: string | null | undefined): string | null {
   const cleaned = raw
     .replace(/^LIVE-TR-SEED:\s*/i, "")
     .replace(/^TR-SEED:\s*/i, "")
+    .replace(/canli\s*tr\s*menu/gi, "")
+    .replace(/otomatik\s*eklenen\s*menu/gi, "")
+    .replace(/standart\s*tarif/gi, "")
     .trim();
   return cleaned || null;
 }
@@ -3365,6 +3368,48 @@ function foodMetadataByName(value: string | null | undefined): { ingredients: st
     .replace(/[ü]/g, "u")
     .trim();
   return FOOD_METADATA_BY_NAME[key] ?? null;
+}
+
+function isPlaceholderIngredients(value: string | null | undefined): boolean {
+  const normalized = String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  if (!normalized) return true;
+  return normalized.includes("icerik1") || normalized.includes("icerik2") || normalized.includes("standarttarif");
+}
+
+function resolveFoodIngredients(
+  currentIngredients: string | null | undefined,
+  recipe: string | null | undefined,
+  metadataIngredients: string | null | undefined,
+  language: Language
+): string {
+  if (!isPlaceholderIngredients(currentIngredients) && String(currentIngredients ?? "").trim()) {
+    return String(currentIngredients).trim();
+  }
+  if (!isPlaceholderIngredients(recipe) && String(recipe ?? "").trim()) {
+    return String(recipe).trim();
+  }
+  if (String(metadataIngredients ?? "").trim()) {
+    return String(metadataIngredients).trim();
+  }
+  return language === "tr" ? "Belirtilmemiş" : "Not specified";
+}
+
+function resolveFoodImageUrl(
+  name: string,
+  currentImageUrl: string | null | undefined,
+  metadataImageUrl: string | null | undefined
+): string | null {
+  const current = normalizeImageUrl(currentImageUrl);
+  const meta = normalizeImageUrl(metadataImageUrl);
+  if (!meta) return current;
+  // Known placeholder flows should prefer name-based image metadata.
+  const loweredName = name.toLowerCase();
+  if (loweredName.includes("mercimek") || loweredName.includes("levrek") || loweredName.includes("baklava")) {
+    return meta;
+  }
+  return current ?? meta;
 }
 
 function normalizeComplianceToken(value: string | null | undefined): string {
@@ -3976,9 +4021,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {filteredFoodRows.map((food) => {
                     const isActiveFood = food.status === "active";
                     const meta = foodMetadataByName(food.name);
-                    const imageUrl = normalizeImageUrl(food.imageUrl) ?? meta?.imageUrl ?? null;
+                    const imageUrl = resolveFoodImageUrl(food.name, food.imageUrl, meta?.imageUrl);
                     const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
-                    const ingredients = food.ingredients ?? meta?.ingredients ?? null;
+                    const ingredients = resolveFoodIngredients(food.ingredients, food.recipe, meta?.ingredients, language);
                     return (
                       <article key={food.id} className="seller-food-card">
                         <div className="seller-food-image-wrap">
@@ -4007,7 +4052,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             {sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}
                           </p>
                           <p className="seller-food-ingredients">
-                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
+                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients}`}
                           </p>
                           <div className="seller-food-meta">
                             <span>{formatCurrency(food.price, language)}</span>
