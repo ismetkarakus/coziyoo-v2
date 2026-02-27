@@ -68,34 +68,36 @@ const EVENTS_CTE = `
     UNION ALL
 
     SELECT
-      id::text AS event_id,
+      aa.id::text AS event_id,
       'auth_audit'::text AS source,
-      event_type::text AS event_type,
-      user_id::text AS actor_id,
-      NULL::text AS actor_label,
+      aa.event_type::text AS event_type,
+      aa.user_id::text AS actor_id,
+      u.email::text AS actor_label,
       'user'::text AS entity_type,
-      user_id::text AS entity_id,
-      ip::text AS ip,
-      user_agent::text AS user_agent,
+      aa.user_id::text AS entity_id,
+      aa.ip::text AS ip,
+      aa.user_agent::text AS user_agent,
       NULL::jsonb AS payload_json,
-      created_at
-    FROM auth_audit
+      aa.created_at
+    FROM auth_audit aa
+    LEFT JOIN users u ON u.id = aa.user_id
 
     UNION ALL
 
     SELECT
-      id::text AS event_id,
+      aaa.id::text AS event_id,
       'admin_auth_audit'::text AS source,
-      event_type::text AS event_type,
-      admin_user_id::text AS actor_id,
-      NULL::text AS actor_label,
+      aaa.event_type::text AS event_type,
+      aaa.admin_user_id::text AS actor_id,
+      au.email::text AS actor_label,
       'admin_user'::text AS entity_type,
-      admin_user_id::text AS entity_id,
-      ip::text AS ip,
-      user_agent::text AS user_agent,
+      aaa.admin_user_id::text AS entity_id,
+      aaa.ip::text AS ip,
+      aaa.user_agent::text AS user_agent,
       NULL::jsonb AS payload_json,
-      created_at
-    FROM admin_auth_audit
+      aaa.created_at
+    FROM admin_auth_audit aaa
+    LEFT JOIN admin_users au ON au.id = aaa.admin_user_id
 
     UNION ALL
 
@@ -121,18 +123,33 @@ const EVENTS_CTE = `
     UNION ALL
 
     SELECT
-      id::text AS event_id,
+      oe.id::text AS event_id,
       'order_event'::text AS source,
-      event_type::text AS event_type,
-      actor_user_id::text AS actor_id,
-      NULL::text AS actor_label,
+      oe.event_type::text AS event_type,
+      oe.actor_user_id::text AS actor_id,
+      actor_user.email::text AS actor_label,
       'order'::text AS entity_type,
-      order_id::text AS entity_id,
+      oe.order_id::text AS entity_id,
       NULL::text AS ip,
       NULL::text AS user_agent,
-      jsonb_build_object('fromStatus', from_status, 'toStatus', to_status, 'payload', payload_json) AS payload_json,
-      created_at
-    FROM order_events
+      jsonb_build_object(
+        'fromStatus', oe.from_status,
+        'toStatus', oe.to_status,
+        'payload', oe.payload_json,
+        'buyerEmail', buyer_user.email,
+        'sellerEmail', seller_user.email,
+        'foodIds', (
+          SELECT coalesce(jsonb_agg(DISTINCT oi.food_id::text), '[]'::jsonb)
+          FROM order_items oi
+          WHERE oi.order_id = oe.order_id
+        )
+      ) AS payload_json,
+      oe.created_at
+    FROM order_events oe
+    LEFT JOIN users actor_user ON actor_user.id = oe.actor_user_id
+    LEFT JOIN orders ord ON ord.id = oe.order_id
+    LEFT JOIN users buyer_user ON buyer_user.id = ord.buyer_id
+    LEFT JOIN users seller_user ON seller_user.id = ord.seller_id
 
     UNION ALL
 
@@ -330,7 +347,8 @@ function buildWhere(query: AuditQuery): { sql: string; params: unknown[] } {
     params.push(`%${query.search.toLowerCase()}%`);
     const idx = params.length;
     where.push(
-      `(lower(coalesce(e.actor_label, '')) LIKE $${idx}
+      `(lower(coalesce(e.actor_id, '')) LIKE $${idx}
+        OR lower(coalesce(e.actor_label, '')) LIKE $${idx}
         OR lower(coalesce(e.entity_id, '')) LIKE $${idx}
         OR lower(coalesce(e.event_type, '')) LIKE $${idx}
         OR lower(coalesce(e.source, '')) LIKE $${idx}
