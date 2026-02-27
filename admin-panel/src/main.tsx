@@ -524,6 +524,18 @@ function DashboardPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [data, setData] = useState<Record<string, number | string> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const counterpartNotFound = dict.common.counterpartNotFound;
+
+  const metricValueOrMissing = (value: unknown): number | string => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return counterpartNotFound;
+      const parsed = Number(trimmed);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return counterpartNotFound;
+  };
 
   useEffect(() => {
     request("/v1/admin/dashboard/overview")
@@ -541,8 +553,8 @@ function DashboardPage({ language }: { language: Language }) {
 
   if (error) return <div className="alert">{error}</div>;
   if (!data) return <div className="panel">{dict.common.loading}</div>;
-  const updatedAt = String(data.updatedAt ?? "2028-02-24T14:30:18.106Z");
-  const updatedAtDisplay = updatedAt.replace("T", " ").replace("Z", "").slice(0, 19);
+  const updatedAtRaw = typeof data.updatedAt === "string" ? data.updatedAt : null;
+  const updatedAtDisplay = updatedAtRaw ? updatedAtRaw.replace("T", " ").replace("Z", "").slice(0, 19) : counterpartNotFound;
   const metrics: Array<{
     key: string;
     label: string;
@@ -550,11 +562,11 @@ function DashboardPage({ language }: { language: Language }) {
     value: string | number;
     trailingIcon?: "refresh";
   }> = [
-    { key: "totalUsers", label: "Total Users", icon: "users", value: Number(data.totalUsers ?? 2) },
-    { key: "activeUsers", label: "Active Users", icon: "users", value: Number(data.activeUsers ?? 1) },
-    { key: "disabledUsers", label: "Disabled Users", icon: "lock", value: Number(data.disabledUsers ?? 1) },
-    { key: "activeOrders", label: "Active Orders", icon: "orders", value: Number(data.activeOrders ?? 0) },
-    { key: "paymentPendingOrders", label: "Pending Payments", icon: "mail", value: Number(data.paymentPendingOrders ?? 0) },
+    { key: "totalUsers", label: "Total Users", icon: "users", value: metricValueOrMissing(data.totalUsers) },
+    { key: "activeUsers", label: "Active Users", icon: "users", value: metricValueOrMissing(data.activeUsers) },
+    { key: "disabledUsers", label: "Disabled Users", icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
+    { key: "activeOrders", label: "Active Orders", icon: "orders", value: metricValueOrMissing(data.activeOrders) },
+    { key: "paymentPendingOrders", label: "Pending Payments", icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
     { key: "updatedAt", label: "Son Güncelleme", icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
   ];
 
@@ -564,9 +576,9 @@ function DashboardPage({ language }: { language: Language }) {
     { label: "Disabled Users", value: String(metrics[2].value) },
     { label: "Active Orders", value: String(metrics[3].value) },
     { label: "Payment Pending Orders", value: String(metrics[4].value) },
-    { label: "Compliance Queue Count", value: String(data.complianceQueueCount ?? 0) },
-    { label: "Open Dispute Count", value: String(data.openDisputeCount ?? 0) },
-    { label: "Updated At", value: updatedAt },
+    { label: "Compliance Queue Count", value: String(metricValueOrMissing(data.complianceQueueCount)) },
+    { label: "Open Dispute Count", value: String(metricValueOrMissing(data.openDisputeCount)) },
+    { label: "Updated At", value: updatedAtRaw ?? counterpartNotFound },
   ];
 
   return (
@@ -631,109 +643,22 @@ function DataTableCard({
   valueLabel: string;
   rows: Array<{ label: string; value: string }>;
 }) {
-  const timeline = ["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30"];
-  const sparkTimeline = ["16:30", "19:30", "28:30", "01:30", "04:30", "07:30", "16:30", "13:30"];
-  const trendValues = [6, 4.6, 6, 4.1, 4.2, 6.5];
-  const sparkValues = [5.8, 5.5, 5.3, 5.6, 5.9, 6.1, 6, 5.9, 5.8, 5.7];
-
-  const queueRows = [
-    { name: "foggulana*", status: "14 Görev", color: "dot-blue" },
-    { name: "z'eoz", status: "26 Dosya", color: "dot-cyan" },
-    { name: "vokebiler", status: "36 İşlem", color: "dot-teal" },
-    { name: "b;gs't", status: "24 İçerik", color: "dot-red" },
-  ];
-
   return (
     <article className="panel">
       <div className="panel-header">
         <h2>{title}</h2>
       </div>
-      <div className="kpi-detail-grid">
-        <div className="kpi-left">
-          <div className="kpi-table">
-            <div className="kpi-table-row kpi-table-head">
-              <span>{metricLabel}</span>
-              <span>{valueLabel}</span>
-            </div>
-            {rows.map((row) => (
-              <div className="kpi-table-row" key={row.label}>
-                <span>{row.label}</span>
-                <span>{row.value}</span>
-              </div>
-            ))}
-          </div>
-          <p className="kpi-updated">Son Güncelleme: 2028-02-24 14:30:18</p>
-          <svg className="sparkline" viewBox="0 0 520 66" aria-label="KPI sparkline">
-            <polyline
-              fill="none"
-              stroke="url(#spark-gradient)"
-              strokeWidth="2.5"
-              points={sparkValues.map((v, i) => `${i * 57},${60 - v * 7}`).join(" ")}
-            />
-            <circle cx="513" cy={60 - sparkValues[sparkValues.length - 1] * 7} r="3.5" fill="#4f97ff" />
-            <defs>
-              <linearGradient id="spark-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#88bcff" />
-                <stop offset="100%" stopColor="#3f84ff" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <div className="chart-x-labels spark-x-labels">
-            {sparkTimeline.map((item) => (
-              <span key={`spark-${item}`}>{item}</span>
-            ))}
-          </div>
-          <div className="chart-legend">
-            <span><i className="dot dot-blue" />Bekliyor</span>
-            <span><i className="dot dot-cyan" />İşleniyor</span>
-            <span><i className="dot dot-red" />Hata Verdi</span>
-          </div>
+      <div className="kpi-table">
+        <div className="kpi-table-row kpi-table-head">
+          <span>{metricLabel}</span>
+          <span>{valueLabel}</span>
         </div>
-
-        <div className="kpi-right">
-          <h3>İş Akışı Testi</h3>
-          <div className="line-chart-wrap">
-            <svg className="queue-chart" viewBox="0 0 560 230" aria-label="İş akışı trend grafiği">
-              <text x="20" y="28" className="chart-y-label">10</text>
-              <text x="24" y="73" className="chart-y-label">8</text>
-              <text x="24" y="118" className="chart-y-label">6</text>
-              <text x="24" y="163" className="chart-y-label">4</text>
-              <text x="24" y="209" className="chart-y-label">0</text>
-              {[0, 1, 2, 3].map((line) => (
-                <line key={`h-${line}`} x1="48" y1={24 + line * 45} x2="538" y2={24 + line * 45} className="chart-grid-line" />
-              ))}
-              {[0, 1, 2, 3, 4, 5].map((idx) => (
-                <line key={`v-${idx}`} x1={48 + idx * 98} y1="24" x2={48 + idx * 98} y2="206" className="chart-grid-line chart-grid-line-v" />
-              ))}
-              <polyline
-                className="chart-line"
-                points={trendValues.map((v, i) => `${48 + i * 98},${206 - v * 22}`).join(" ")}
-              />
-              {trendValues.map((v, i) => (
-                <circle key={`pt-${i}`} cx={48 + i * 98} cy={206 - v * 22} r="4.5" className="chart-point" />
-              ))}
-            </svg>
-            <div className="chart-x-labels">
-              {timeline.map((item) => (
-                <span key={`trend-${item}`}>{item}</span>
-              ))}
-            </div>
+        {rows.map((row) => (
+          <div className="kpi-table-row" key={row.label}>
+            <span>{row.label}</span>
+            <span>{row.value}</span>
           </div>
-          <div className="chart-legend">
-            <span><i className="dot dot-blue" />Bekliyor</span>
-            <span><i className="dot dot-cyan" />İşleniyor</span>
-            <span><i className="dot dot-red" />Hata Verdi</span>
-          </div>
-
-          <div className="queue-list">
-            {queueRows.map((item) => (
-              <div className="queue-row" key={item.name}>
-                <span className="queue-name"><i className={`dot ${item.color}`} />{item.name}</span>
-                <span className="queue-status">{item.status}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
     </article>
   );
@@ -750,35 +675,6 @@ function ActionCard({ title, dict }: { title: string; dict: Dictionary }) {
         <button className="ghost has-arrow" type="button">{dict.actions.viewPaymentDisputes}</button>
         <button className="ghost has-arrow" type="button">{dict.actions.inspectAppUsers}</button>
         <button className="ghost has-arrow" type="button">{dict.actions.inspectAdminUsers}</button>
-      </div>
-      <div className="queue-state-card">
-        <div className="queue-state-header">
-          <h3>İş Durumu</h3>
-          <span>2028-02-24 15:30:6</span>
-        </div>
-        <div className="queue-state-content">
-          <div className="queue-state-labels">
-            <p>Yazdırma İşleri</p>
-            <p>İndirme İşleri</p>
-            <p>Mesai / Operasyon İşleri</p>
-            <p>Medya İşleri</p>
-          </div>
-          <div className="donut-wrap" aria-label="İş durumu dağılımı">
-            <svg viewBox="0 0 200 200" className="donut-chart">
-              <circle cx="100" cy="100" r="64" className="donut-bg" />
-              <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-blue" />
-              <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-cyan" />
-              <circle cx="100" cy="100" r="64" className="donut-segment donut-segment-red" />
-            </svg>
-            <span className="donut-center">24/7</span>
-          </div>
-        </div>
-        <div className="chart-legend compact">
-          <span><i className="dot dot-blue" />Bekliyor</span>
-          <span><i className="dot dot-cyan" />İşleniyor</span>
-          <span><i className="dot dot-red" />Hata Verdi</span>
-        </div>
-        <p className="queue-foot">Son Güncelleme: 2028-02-24 14:00:18</p>
       </div>
     </article>
   );
@@ -3230,7 +3126,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         <BuyerProfileCard detail={row} contactInfo={contactInfo} />
 
         <div className="buyer-main-column">
-          <BuyerSummaryMetricsCard orders={orders} />
+          <BuyerSummaryMetricsCard orders={orders} missingText={dict.common.counterpartNotFound} />
           <BuyerOrdersHistoryTable
             orders={orders}
             pagination={ordersPagination}

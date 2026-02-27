@@ -34,6 +34,7 @@
   "common": {
     "loading": "Yükleniyor...",
     "noRecords": "Kayıt bulunamadı",
+    "counterpartNotFound": "karşılık bulunamadı",
     "readOnly": "salt-okunur",
     "all": "tümü",
     "active": "aktif",
