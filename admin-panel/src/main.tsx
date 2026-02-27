@@ -1727,20 +1727,22 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 {tableColumns.map((column) => (
                   <th key={column}>{resolveColumnLabel(column)}</th>
                 ))}
-                {isBuyerPage ? <th>{language === "tr" ? "Şikayet & Trend" : "Complaints & Trend"}</th> : null}
+                {isBuyerPage ? <th>{language === "tr" ? "Şikayet" : "Complaints"}</th> : null}
+                {isBuyerPage ? <th>{language === "tr" ? "Sipariş Trendi" : "Order Trend"}</th> : null}
+                {isBuyerPage ? <th>{language === "tr" ? "Harcama Trendi" : "Spend Trend"}</th> : null}
                 <th>{dict.users.actions}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? Array.from({ length: 5 }).map((_, index) => (
                 <tr key={`skeleton-${index}`}>
-                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 1 : 0)} className="table-skeleton">
+                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 3 : 0)} className="table-skeleton">
                     <span />
                   </td>
                 </tr>
               )) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 1 : 0)}>{dict.common.noRecords}</td>
+                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 3 : 0)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 filteredRows.map((row) => (
@@ -1751,21 +1753,33 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     {isBuyerPage ? (
                       <td>
                         <div className="buyer-table-metrics">
-                          <div>
-                            {language === "tr"
-                              ? `Şikayet: ${Number(row.complaintTotal ?? 0)} (Çözülen ${Number(row.complaintResolved ?? 0)})`
-                              : `Complaints: ${Number(row.complaintTotal ?? 0)} (Resolved ${Number(row.complaintResolved ?? 0)})`}
-                          </div>
-                          <div className={`buyer-trend ${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).className}`}>
-                            {`${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).symbol} ${
-                              language === "tr" ? "Sipariş" : "Orders"
-                            }: ${Number(row.monthlyOrderCountCurrent ?? 0)} / ${Number(row.monthlyOrderCountPrevious ?? 0)}`}
-                          </div>
-                          <div className={`buyer-trend ${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).className}`}>
-                            {`${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${
-                              language === "tr" ? "Harcama" : "Spent"
-                            }: ${formatTry(Number(row.monthlySpentCurrent ?? 0))} / ${formatTry(Number(row.monthlySpentPrevious ?? 0))}`}
-                          </div>
+                          <div>{language === "tr" ? `Toplam: ${Number(row.complaintTotal ?? 0)}` : `Total: ${Number(row.complaintTotal ?? 0)}`}</div>
+                          <div>{language === "tr" ? `Çözülen: ${Number(row.complaintResolved ?? 0)}` : `Resolved: ${Number(row.complaintResolved ?? 0)}`}</div>
+                          <div>{language === "tr" ? `Çözülmeyen: ${Number(row.complaintUnresolved ?? 0)}` : `Unresolved: ${Number(row.complaintUnresolved ?? 0)}`}</div>
+                        </div>
+                      </td>
+                    ) : null}
+                    {isBuyerPage ? (
+                      <td>
+                        <div className={`buyer-trend ${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).className}`}>
+                          {`${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).symbol} ${
+                            language === "tr" ? "Son 30g" : "Last 30d"
+                          }: ${Number(row.monthlyOrderCountCurrent ?? 0)}`}
+                        </div>
+                        <div className="panel-meta">
+                          {`${language === "tr" ? "Önceki 30g" : "Prev 30d"}: ${Number(row.monthlyOrderCountPrevious ?? 0)}`}
+                        </div>
+                      </td>
+                    ) : null}
+                    {isBuyerPage ? (
+                      <td>
+                        <div className={`buyer-trend ${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).className}`}>
+                          {`${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${
+                            language === "tr" ? "Son 30g" : "Last 30d"
+                          }: ${formatTry(Number(row.monthlySpentCurrent ?? 0))}`}
+                        </div>
+                        <div className="panel-meta">
+                          {`${language === "tr" ? "Önceki 30g" : "Prev 30d"}: ${formatTry(Number(row.monthlySpentPrevious ?? 0))}`}
                         </div>
                       </td>
                     ) : null}
