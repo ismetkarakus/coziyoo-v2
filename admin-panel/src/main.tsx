@@ -1298,6 +1298,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const mapped = columnMappings[columnName] ?? columnName;
     const value = row[mapped];
     if (mapped === "id") {
+      if (isBuyerPage) {
+        return (
+          <button className="inline-copy" type="button" title={String(value ?? "")} onClick={() => navigate(`/app/buyers/${row.id}`)}>
+            {shortId(String(value ?? ""))}
+          </button>
+        );
+      }
       if (kind === "sellers") {
         return (
           <button
@@ -1345,6 +1352,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (mapped === "displayName") {
       const text = String(value ?? "");
+      if (isBuyerPage) {
+        return (
+          <button className="inline-copy" type="button" onClick={() => navigate(`/app/buyers/${row.id}`)}>
+            {text}
+          </button>
+        );
+      }
       if (kind === "sellers") {
         return (
           <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
@@ -1368,6 +1382,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "email" && kind === "sellers") {
       return (
         <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+          {String(value ?? "")}
+        </button>
+      );
+    }
+    if (mapped === "email" && isBuyerPage) {
+      return (
+        <button className="inline-copy" type="button" onClick={() => navigate(`/app/buyers/${row.id}`)}>
           {String(value ?? "")}
         </button>
       );
@@ -1784,26 +1805,26 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       </td>
                     ) : null}
                     <td className="cell-actions">
-                      <button
-                        className="ghost action-btn"
-                        type="button"
-                        title={dict.actions.detail}
-                        aria-label={dict.actions.detail}
-                        onClick={() =>
-                          navigate(
-                            kind === "app"
-                              ? `/app/users/${row.id}`
-                              : kind === "buyers"
-                                ? `/app/buyers/${row.id}`
+                      {!isBuyerPage ? (
+                        <button
+                          className="ghost action-btn"
+                          type="button"
+                          title={dict.actions.detail}
+                          aria-label={dict.actions.detail}
+                          onClick={() =>
+                            navigate(
+                              kind === "app"
+                                ? `/app/users/${row.id}`
                                 : kind === "sellers"
-                                  ? `/app/sellers/${row.id}`
-                              : `/app/admins/${row.id}`
-                          )
-                        }
-                      >
-                        <span aria-hidden="true">◉ Detay</span>
-                        <span className="sr-only">{dict.actions.detail}</span>
-                      </button>
+                                    ? `/app/sellers/${row.id}`
+                                  : `/app/admins/${row.id}`
+                            )
+                          }
+                        >
+                          <span aria-hidden="true">◉ Detay</span>
+                          <span className="sr-only">{dict.actions.detail}</span>
+                        </button>
+                      ) : null}
                       {isSuperAdmin && !isSellerPage ? (
                         <>
                           <button
