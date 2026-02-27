@@ -429,17 +429,35 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
 
   if (input.search) {
     params.push(`%${input.search.toLowerCase()}%`);
+    const searchParamIndex = params.length;
     where.push(
-      `(lower(u.email) LIKE $${params.length}
-        OR lower(u.display_name) LIKE $${params.length}
+      `(lower(u.email) LIKE $${searchParamIndex}
+        OR lower(u.display_name) LIKE $${searchParamIndex}
+        OR lower(u.id::text) LIKE $${searchParamIndex}
+        OR lower('cust-' || u.id::text) LIKE $${searchParamIndex}
+        OR lower('cust-' || substring(u.id::text, 1, 8)) LIKE $${searchParamIndex}
         OR EXISTS (
           SELECT 1
-          FROM foods f_search
-          WHERE f_search.seller_id = u.id
+          FROM foods seller_food
+          WHERE seller_food.seller_id = u.id
             AND (
-              lower(f_search.name) LIKE $${params.length}
-              OR lower('FD-' || f_search.id::text) LIKE $${params.length}
-              OR lower('FD-' || substring(f_search.id::text, 1, 8)) LIKE $${params.length}
+              lower(seller_food.name) LIKE $${searchParamIndex}
+              OR lower(seller_food.id::text) LIKE $${searchParamIndex}
+              OR lower('FD-' || seller_food.id::text) LIKE $${searchParamIndex}
+              OR lower('FD-' || substring(seller_food.id::text, 1, 8)) LIKE $${searchParamIndex}
+            )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM orders buyer_orders
+          JOIN order_items buyer_order_items ON buyer_order_items.order_id = buyer_orders.id
+          JOIN foods buyer_food ON buyer_food.id = buyer_order_items.food_id
+          WHERE buyer_orders.buyer_id = u.id
+            AND (
+              lower(buyer_food.name) LIKE $${searchParamIndex}
+              OR lower(buyer_food.id::text) LIKE $${searchParamIndex}
+              OR lower('FD-' || buyer_food.id::text) LIKE $${searchParamIndex}
+              OR lower('FD-' || substring(buyer_food.id::text, 1, 8)) LIKE $${searchParamIndex}
             )
         ))`
     );

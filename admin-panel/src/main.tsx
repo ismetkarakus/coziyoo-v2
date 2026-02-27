@@ -1369,11 +1369,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               placeholder={
                 isSellerPage
                   ? language === "tr"
-                    ? "Satıcı Ara (e-posta, ad, yemek kodu)..."
-                    : "Search seller (email, name, food code)..."
+                    ? "Satıcı Ara (e-posta, müşteri ID, yemek no)..."
+                    : "Search seller (email, customer ID, food no)..."
                   : language === "tr"
-                    ? "E-posta veya Ad Ara..."
-                    : "Search by email or name..."
+                    ? "E-posta, müşteri ID veya yemek no ara..."
+                    : "Search by email, customer ID, or food no..."
               }
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
