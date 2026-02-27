@@ -1665,6 +1665,7 @@ function InvestigationPage({ language }: { language: Language }) {
       code: string;
       name: string;
       imageUrl: string | null;
+      ingredients: string | null;
       cardSummary: string | null;
       description: string | null;
       recipe: string | null;
@@ -1793,8 +1794,10 @@ function InvestigationPage({ language }: { language: Language }) {
               <div>
                 <h3>{`${entry.food.name} (${entry.food.code})`}</h3>
                 <p className="panel-meta">{entry.food.cardSummary || "-"}</p>
-                <p className="panel-meta">{entry.food.description || "-"}</p>
-                {entry.food.recipe ? <p className="panel-meta">{`${language === "tr" ? "İçerik" : "Recipe"}: ${entry.food.recipe}`}</p> : null}
+                <p className="panel-meta">{sanitizeSeedText(entry.food.description) || "-"}</p>
+                <p className="panel-meta">
+                  {`${language === "tr" ? "İçerik" : "Ingredients"}: ${entry.food.ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
+                </p>
               </div>
               <span className={`status-pill ${entry.food.status === "active" ? "is-active" : "is-disabled"}`}>
                 {entry.food.status === "active" ? dict.common.active : dict.common.disabled}
@@ -3291,6 +3294,16 @@ function normalizeImageUrl(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function sanitizeSeedText(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/^LIVE-TR-SEED:\s*/i, "")
+    .replace(/^TR-SEED:\s*/i, "")
+    .trim();
+  return cleaned || null;
+}
+
 function normalizeComplianceToken(value: string | null | undefined): string {
   const raw = String(value ?? "")
     .toLowerCase()
@@ -3925,9 +3938,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               {isActiveFood ? dict.common.active : dict.common.disabled}
                             </span>
                           </div>
-                          <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
+                          <p className="seller-food-description">
+                            {sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}
+                          </p>
                           <p className="seller-food-ingredients">
-                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${food.ingredients || food.recipe || "-"}`}
+                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${food.ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
                           </p>
                           <div className="seller-food-meta">
                             <span>{formatCurrency(food.price, language)}</span>

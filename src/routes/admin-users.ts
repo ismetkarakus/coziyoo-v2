@@ -151,22 +151,42 @@ async function ensureSellerUser(userId: string) {
 }
 
 function ingredientsTextFromJson(value: unknown): string | null {
-  if (!value) return null;
-  if (Array.isArray(value)) {
-    const parts = value.map((item) => String(item ?? "").trim()).filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : null;
-  }
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    if (Array.isArray(record.ingredients)) {
-      const parts = record.ingredients.map((item) => String(item ?? "").trim()).filter(Boolean);
-      if (parts.length > 0) return parts.join(", ");
+  const acc: string[] = [];
+
+  const pushIf = (raw: unknown) => {
+    const text = String(raw ?? "").trim();
+    if (text) acc.push(text);
+  };
+
+  const walk = (input: unknown) => {
+    if (!input) return;
+    if (typeof input === "string" || typeof input === "number" || typeof input === "boolean") {
+      pushIf(input);
+      return;
     }
-    const values = Object.values(record).map((item) => String(item ?? "").trim()).filter(Boolean);
-    return values.length > 0 ? values.join(", ") : null;
-  }
-  if (typeof value === "string") return value.trim() || null;
-  return null;
+    if (Array.isArray(input)) {
+      for (const item of input) walk(item);
+      return;
+    }
+    if (typeof input === "object") {
+      const record = input as Record<string, unknown>;
+      const preferred = [record.name, record.label, record.value, record.ingredient];
+      let picked = false;
+      for (const item of preferred) {
+        if (typeof item === "string" && item.trim()) {
+          pushIf(item);
+          picked = true;
+          break;
+        }
+      }
+      if (picked) return;
+      for (const item of Object.values(record)) walk(item);
+    }
+  };
+
+  walk(value);
+  const unique = Array.from(new Set(acc.map((item) => item.trim()).filter(Boolean)));
+  return unique.length > 0 ? unique.join(", ") : null;
 }
 
 adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), async (req, res) => {
@@ -181,6 +201,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
     food_id: string;
     food_name: string;
     food_image_url: string | null;
+    ingredients_json: unknown;
     card_summary: string | null;
     description: string | null;
     recipe: string | null;
@@ -215,6 +236,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
        f.id::text AS food_id,
        f.name AS food_name,
        f.image_url AS food_image_url,
+       f.ingredients_json,
        f.card_summary,
        f.description,
        f.recipe,
@@ -273,6 +295,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
           code: string;
           name: string;
           imageUrl: string | null;
+          ingredients: string | null;
           cardSummary: string | null;
           description: string | null;
           recipe: string | null;
@@ -315,6 +338,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
           code: `FD-${foodId.slice(0, 8).toUpperCase()}`,
           name: row.food_name,
           imageUrl: row.food_image_url,
+          ingredients: ingredientsTextFromJson(row.ingredients_json),
           cardSummary: row.card_summary,
           description: row.description,
           recipe: row.recipe,
