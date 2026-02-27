@@ -1657,6 +1657,22 @@ textarea:focus {
   gap: 8px;
 }
 
+.buyer-filter-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buyer-filter-controls select {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  color: var(--color-text);
+  padding: 6px 10px;
+}
+
 .users-search-wrap {
   min-width: 320px;
   max-width: 430px;

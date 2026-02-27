@@ -829,6 +829,28 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [searchTerm, setSearchTerm] = useState("");
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
+  const [buyerFilters, setBuyerFilters] = useState<{
+    status: "all" | "active" | "disabled";
+    complaint: "all" | "has_unresolved" | "resolved_only" | "no_complaint";
+    orderTrend: "all" | "up" | "down";
+    spendTrend: "all" | "up" | "down";
+  }>({
+    status: "all",
+    complaint: "all",
+    orderTrend: "all",
+    spendTrend: "all",
+  });
+  const [buyerFilterDraft, setBuyerFilterDraft] = useState<{
+    status: "all" | "active" | "disabled";
+    complaint: "all" | "has_unresolved" | "resolved_only" | "no_complaint";
+    orderTrend: "all" | "up" | "down";
+    spendTrend: "all" | "up" | "down";
+  }>({
+    status: "all",
+    complaint: "all",
+    orderTrend: "all",
+    spendTrend: "all",
+  });
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -917,6 +939,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       status: "all",
     }));
     setSellerStatusFilter("all");
+    setBuyerFilters({
+      status: "all",
+      complaint: "all",
+      orderTrend: "all",
+      spendTrend: "all",
+    });
+    setBuyerFilterDraft({
+      status: "all",
+      complaint: "all",
+      orderTrend: "all",
+      spendTrend: "all",
+    });
     setCustomerIdPreview(null);
   }, [kind]);
 
@@ -1187,11 +1221,40 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const todayKey = new Date().toISOString().slice(0, 10);
   const newToday = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
   const filteredRows = useMemo(() => {
+    const trendDirection = (current: number, previous: number): "up" | "down" | "flat" => {
+      if (current > previous) return "up";
+      if (current < previous) return "down";
+      return "flat";
+    };
+
     let scopedRows = rows;
     if (isSellerPage) {
       scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
       if (sellerStatusFilter !== "all") {
         scopedRows = scopedRows.filter((row) => row.status === sellerStatusFilter);
+      }
+    }
+
+    if (isBuyerPage) {
+      if (buyerFilters.status !== "all") {
+        scopedRows = scopedRows.filter((row) => row.status === buyerFilters.status);
+      }
+      if (buyerFilters.complaint === "has_unresolved") {
+        scopedRows = scopedRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0);
+      } else if (buyerFilters.complaint === "resolved_only") {
+        scopedRows = scopedRows.filter((row) => Number(row.complaintTotal ?? 0) > 0 && Number(row.complaintUnresolved ?? 0) === 0);
+      } else if (buyerFilters.complaint === "no_complaint") {
+        scopedRows = scopedRows.filter((row) => Number(row.complaintTotal ?? 0) === 0);
+      }
+      if (buyerFilters.orderTrend !== "all") {
+        scopedRows = scopedRows.filter(
+          (row) => trendDirection(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)) === buyerFilters.orderTrend
+        );
+      }
+      if (buyerFilters.spendTrend !== "all") {
+        scopedRows = scopedRows.filter(
+          (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === buyerFilters.spendTrend
+        );
       }
     }
 
@@ -1202,7 +1265,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
+  }, [buyerFilters, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -1540,6 +1603,43 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             ) : null}
           </div>
           <div className="quick-filters">
+            {isBuyerPage ? (
+              <div className="buyer-filter-controls">
+                <select
+                  value={buyerFilterDraft.status}
+                  onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, status: event.target.value as typeof prev.status }))}
+                >
+                  <option value="all">{language === "tr" ? "Durum: Tümü" : "Status: All"}</option>
+                  <option value="active">{language === "tr" ? "Durum: Aktif" : "Status: Active"}</option>
+                  <option value="disabled">{language === "tr" ? "Durum: Pasif" : "Status: Disabled"}</option>
+                </select>
+                <select
+                  value={buyerFilterDraft.complaint}
+                  onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, complaint: event.target.value as typeof prev.complaint }))}
+                >
+                  <option value="all">{language === "tr" ? "Şikayet: Tümü" : "Complaints: All"}</option>
+                  <option value="has_unresolved">{language === "tr" ? "Şikayet: Çözülmeyen var" : "Complaints: Has unresolved"}</option>
+                  <option value="resolved_only">{language === "tr" ? "Şikayet: Sadece çözülen" : "Complaints: Resolved only"}</option>
+                  <option value="no_complaint">{language === "tr" ? "Şikayet: Yok" : "Complaints: None"}</option>
+                </select>
+                <select
+                  value={buyerFilterDraft.orderTrend}
+                  onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, orderTrend: event.target.value as typeof prev.orderTrend }))}
+                >
+                  <option value="all">{language === "tr" ? "Sipariş Trendi: Tümü" : "Order Trend: All"}</option>
+                  <option value="up">{language === "tr" ? "Sipariş Trendi: Artan" : "Order Trend: Up"}</option>
+                  <option value="down">{language === "tr" ? "Sipariş Trendi: Azalan" : "Order Trend: Down"}</option>
+                </select>
+                <select
+                  value={buyerFilterDraft.spendTrend}
+                  onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, spendTrend: event.target.value as typeof prev.spendTrend }))}
+                >
+                  <option value="all">{language === "tr" ? "Harcama Trendi: Tümü" : "Spend Trend: All"}</option>
+                  <option value="up">{language === "tr" ? "Harcama Trendi: Artan" : "Spend Trend: Up"}</option>
+                  <option value="down">{language === "tr" ? "Harcama Trendi: Azalan" : "Spend Trend: Down"}</option>
+                </select>
+              </div>
+            ) : null}
             {isSellerPage ? (
               <>
                 <button type="button" className={`chip ${sellerStatusFilter === "all" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("all")}>
@@ -1606,7 +1706,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             {filters.sortDir === "desc" ? (language === "tr" ? "Azalan" : "Desc") : language === "tr" ? "Artan" : "Asc"} ▼
           </button>
           {!isSellerPage ? (
-            <button className="primary users-filter-apply" type="button" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}>
+            <button
+              className="primary users-filter-apply"
+              type="button"
+              onClick={() => {
+                if (isBuyerPage) {
+                  setBuyerFilters(buyerFilterDraft);
+                }
+                setFilters((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
               {language === "tr" ? "Filtrele" : "Filter"}
             </button>
           ) : null}
