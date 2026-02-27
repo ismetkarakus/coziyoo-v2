@@ -2229,7 +2229,20 @@ function AuditPage({ language }: { language: Language }) {
 
   useEffect(() => {
     loadAudit().catch(() => setError(dict.audit.requestFailed));
-  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, dict.audit.requestFailed]);
+  }, [
+    filters.page,
+    filters.pageSize,
+    filters.source,
+    filters.eventType,
+    filters.actorId,
+    filters.entityType,
+    filters.search,
+    filters.from,
+    filters.to,
+    filters.sortBy,
+    filters.sortDir,
+    dict.audit.requestFailed,
+  ]);
 
   async function exportCsv() {
     const query = new URLSearchParams({
