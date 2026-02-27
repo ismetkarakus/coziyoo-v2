@@ -1415,6 +1415,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
             />
+            {searchInput.trim().length > 0 ? (
+              <button
+                className="users-search-clear"
+                type="button"
+                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                onClick={() => setSearchInput("")}
+              >
+                ×
+              </button>
+            ) : null}
           </div>
           <div className="quick-filters">
             {isSellerPage ? (
@@ -1847,6 +1857,19 @@ function InvestigationPage({ language }: { language: Language }) {
               }
             }}
           />
+          {searchInput.trim().length > 0 ? (
+            <button
+              className="users-search-clear"
+              type="button"
+              aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+              onClick={() => {
+                setSearchInput("");
+                runSearch("").catch(() => setError(dict.investigation.requestFailed));
+              }}
+            >
+              ×
+            </button>
+          ) : null}
         </div>
         <button className="primary users-filter-apply" type="button" onClick={() => runSearch().catch(() => setError(dict.investigation.requestFailed))}>
           {dict.actions.search}
@@ -2053,6 +2076,19 @@ function EntitiesPage({ language }: { language: Language }) {
                 setSearch(event.target.value);
               }}
             />
+            {search.trim().length > 0 ? (
+              <button
+                className="users-search-clear"
+                type="button"
+                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                onClick={() => {
+                  setPage(1);
+                  setSearch("");
+                }}
+              >
+                ×
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
@@ -2325,6 +2361,16 @@ function AuditPage({ language }: { language: Language }) {
                 value={filters.search}
                 onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
               />
+              {filters.search.trim().length > 0 ? (
+                <button
+                  className="users-search-clear"
+                  type="button"
+                  aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                  onClick={() => setFilters((prev) => ({ ...prev, page: 1, search: "" }))}
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
           </label>
           <label>
