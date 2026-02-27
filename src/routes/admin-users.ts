@@ -97,6 +97,12 @@ const InvestigationSearchQuerySchema = z.object({
   q: z.string().min(2).max(120),
   limit: z.coerce.number().int().positive().max(100).default(40),
 });
+const InvestigationComplaintsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  status: z.enum(["open", "in_review", "resolved", "closed"]).optional(),
+  search: z.string().min(1).max(120).optional(),
+});
 
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
   createdAt: "u.created_at",
@@ -188,6 +194,86 @@ function ingredientsTextFromJson(value: unknown): string | null {
   const unique = Array.from(new Set(acc.map((item) => item.trim()).filter(Boolean)));
   return unique.length > 0 ? unique.join(", ") : null;
 }
+
+adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin"), async (req, res) => {
+  const parsed = InvestigationComplaintsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { page, pageSize, status, search } = parsed.data;
+  const offset = (page - 1) * pageSize;
+
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    params.push(status);
+    where.push(`c.status = $${params.length}`);
+  }
+  if (search && search.trim()) {
+    params.push(`%${search.trim().toLowerCase()}%`);
+    where.push(`(
+      lower(c.subject) LIKE $${params.length}
+      OR lower(o.id::text) LIKE $${params.length}
+      OR lower(c.complainant_buyer_id::text) LIKE $${params.length}
+    )`);
+  }
+  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+
+  const countResult = await pool.query<{ count: string }>(
+    `SELECT count(*)::text AS count
+     FROM complaints c
+     JOIN orders o ON o.id = c.order_id
+     ${whereSql}`,
+    params
+  );
+
+  params.push(pageSize, offset);
+  const limitParam = `$${params.length - 1}`;
+  const offsetParam = `$${params.length}`;
+  const rows = await pool.query<{
+    id: string;
+    order_id: string;
+    complainant_buyer_id: string;
+    subject: string;
+    created_at: string;
+    status: "open" | "in_review" | "resolved" | "closed";
+  }>(
+    `SELECT
+       c.id::text,
+       c.order_id::text,
+       c.complainant_buyer_id::text,
+       c.subject,
+       c.created_at::text,
+       c.status
+     FROM complaints c
+     JOIN orders o ON o.id = c.order_id
+     ${whereSql}
+     ORDER BY c.created_at DESC
+     LIMIT ${limitParam} OFFSET ${offsetParam}`,
+    params
+  );
+
+  const total = Number(countResult.rows[0]?.count ?? "0");
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      orderNo: `#${row.order_id.slice(0, 8).toUpperCase()}`,
+      complainantBuyerNo: row.complainant_buyer_id,
+      subject: row.subject,
+      createdAt: row.created_at,
+      status: row.status,
+    })),
+    pagination: {
+      total,
+      totalPages,
+      page,
+      pageSize,
+    },
+  });
+});
 
 adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), async (req, res) => {
   const parsed = InvestigationSearchQuerySchema.safeParse(req.query);

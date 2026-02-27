@@ -9,6 +9,7 @@ const TABLE_MAP = {
   foods: "foods",
   categories: "categories",
   orders: "orders",
+  complaints: "complaints",
   orderItems: "order_items",
   orderEvents: "order_events",
   paymentAttempts: "payment_attempts",

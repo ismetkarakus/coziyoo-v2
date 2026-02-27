@@ -1695,247 +1695,200 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
 function InvestigationPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
-  const location = useLocation();
-  const navigate = useNavigate();
-  const investigationLastQueryKey = "admin_investigation_last_query";
-  const queryFromUrl = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return (params.get("q") ?? "").trim();
-  }, [location.search]);
-  const [searchInput, setSearchInput] = useState(() => {
-    if (queryFromUrl.length >= 2) return queryFromUrl;
-    const fromStorage = sessionStorage.getItem(investigationLastQueryKey) ?? "";
-    return fromStorage.trim();
-  });
+  const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const initialSearchHandledRef = useRef<string>("");
-  const [rows, setRows] = useState<Array<{
-    food: {
+  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "in_review" | "resolved" | "closed">("all");
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<
+    Array<{
       id: string;
-      code: string;
-      name: string;
-      imageUrl: string | null;
-      ingredients: string | null;
-      cardSummary: string | null;
-      description: string | null;
-      recipe: string | null;
-      price: number;
-      status: "active" | "disabled";
-      createdAt: string;
-      updatedAt: string;
-    };
-    seller: {
-      id: string;
-      name: string;
-      email: string;
-      countryCode: string | null;
-      language: string | null;
-      status: "active" | "disabled";
-    };
-    incidents: Array<{
-      orderId: string;
       orderNo: string;
-      orderStatus: string;
-      orderTotal: number;
-      orderCreatedAt: string;
-      orderUpdatedAt: string;
-      orderRequestedAt: string | null;
-      region: string | null;
-      buyer: { id: string; name: string | null; email: string | null };
-      item: { quantity: number; unitPrice: number; lineTotal: number };
-      payment: { status: string | null; provider: string | null; updatedAt: string | null };
-    }>;
-  }>>([]);
+      complainantBuyerNo: string;
+      subject: string;
+      createdAt: string;
+      status: "open" | "in_review" | "resolved" | "closed";
+    }>
+  >([]);
+  const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
 
-  async function runSearch(explicitQuery?: string) {
-    const query = String(explicitQuery ?? searchInput).trim();
-    if (query.length < 2) {
-      setRows([]);
-      setError(null);
-      navigate("/app/investigation", { replace: true });
-      return;
+  const statusText = (status: "open" | "in_review" | "resolved" | "closed") => {
+    if (language === "tr") {
+      if (status === "open") return "Açık";
+      if (status === "in_review") return "İnceleniyor";
+      if (status === "resolved") return "Çözüldü";
+      return "Kapandı";
     }
-    setSearchInput(query);
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ q: query, limit: "60" });
-      const response = await request(`/v1/admin/investigations/search?${params.toString()}`);
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
-        setError(body.error?.message ?? dict.investigation.requestFailed);
-        return;
-      }
-      const body = await parseJson<{ data: typeof rows }>(response);
-      setRows(Array.isArray(body.data) ? body.data : []);
-      sessionStorage.setItem(investigationLastQueryKey, query);
-      navigate(`/app/investigation?q=${encodeURIComponent(query)}`, { replace: true });
-    } catch {
-      setError(dict.investigation.requestFailed);
-    } finally {
-      setLoading(false);
-    }
-  }
+    if (status === "open") return "Open";
+    if (status === "in_review") return "In Review";
+    if (status === "resolved") return "Resolved";
+    return "Closed";
+  };
+
+  const statusClass = (status: "open" | "in_review" | "resolved" | "closed") => {
+    if (status === "open") return "is-pending";
+    if (status === "in_review") return "is-approved";
+    if (status === "resolved") return "is-done";
+    return "is-disabled";
+  };
 
   useEffect(() => {
-    if (queryFromUrl && initialSearchHandledRef.current === queryFromUrl) return;
-    if (queryFromUrl.length >= 2) {
-      initialSearchHandledRef.current = queryFromUrl;
-      if (queryFromUrl !== searchInput) setSearchInput(queryFromUrl);
-      runSearch(queryFromUrl).catch(() => setError(dict.investigation.requestFailed));
-      return;
-    }
-    const remembered = (sessionStorage.getItem(investigationLastQueryKey) ?? "").trim();
-    if (remembered && initialSearchHandledRef.current === remembered) return;
-    if (remembered.length >= 2 && rows.length === 0) {
-      initialSearchHandledRef.current = remembered;
-      setSearchInput(remembered);
-      runSearch(remembered).catch(() => setError(dict.investigation.requestFailed));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryFromUrl]);
+    const loadComplaints = async () => {
+      setLoading(true);
+      setError(null);
+      const query = new URLSearchParams({
+        page: String(page),
+        pageSize: "20",
+        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
+      });
+
+      try {
+        const response = await request(`/v1/admin/investigations/complaints?${query.toString()}`);
+        const body = await parseJson<{
+          data?: Array<{
+            id: string;
+            orderNo: string;
+            complainantBuyerNo: string;
+            subject: string;
+            createdAt: string;
+            status: "open" | "in_review" | "resolved" | "closed";
+          }>;
+          pagination?: { total: number; totalPages: number };
+        } & ApiError>(response);
+        if (response.status !== 200 || !body.data || !body.pagination) {
+          setError(body.error?.message ?? dict.investigation.requestFailed);
+          return;
+        }
+        setRows(body.data);
+        setPagination(body.pagination);
+      } catch {
+        setError(dict.investigation.requestFailed);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadComplaints().catch(() => setError(dict.investigation.requestFailed));
+  }, [dict.investigation.requestFailed, page, searchInput, statusFilter]);
 
   return (
-    <section className="panel">
-      <div className="panel-header">
-        <h2>{dict.investigation.title}</h2>
-      </div>
-      <p className="panel-meta">{dict.investigation.subtitle}</p>
-      <div className="users-filter-top">
-        <div className="users-search-wrap">
-          <span className="users-search-icon" aria-hidden="true">
-            <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-              <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-              <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </span>
-          <input
-            className="users-search-input"
-            placeholder={dict.investigation.searchPlaceholder}
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                runSearch().catch(() => setError(dict.investigation.requestFailed));
-              }
-            }}
-          />
-          {searchInput.trim().length > 0 ? (
-            <button
-              className="users-search-clear"
-              type="button"
-              aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-              onClick={() => {
-                setSearchInput("");
-                runSearch("").catch(() => setError(dict.investigation.requestFailed));
-              }}
-            >
-              ×
-            </button>
-          ) : null}
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.menu.investigation}</p>
+          <h1>{dict.investigation.title}</h1>
+          <p className="subtext">{dict.investigation.subtitle}</p>
         </div>
-        <button className="primary users-filter-apply" type="button" onClick={() => runSearch().catch(() => setError(dict.investigation.requestFailed))}>
-          {dict.actions.search}
-        </button>
-      </div>
-      {searchInput.trim().length > 0 && searchInput.trim().length < 2 ? <p className="panel-meta">{dict.investigation.searchHint}</p> : null}
-      {loading ? <p className="panel-meta">{dict.common.loading}</p> : null}
-      {error ? <div className="alert">{error}</div> : null}
-      {!loading && !error && searchInput.trim().length >= 2 && rows.length === 0 ? <p className="panel-meta">{dict.common.noRecords}</p> : null}
-      <div className="investigation-results">
-        {rows.map((entry) => (
-          <article key={entry.food.id} className="panel investigation-card">
-            {(() => {
-              const meta = foodMetadataByName(entry.food.name);
-              const imageUrl = resolveFoodImageUrl(entry.food.name, entry.food.imageUrl, meta?.imageUrl);
-              const ingredients = resolveFoodIngredients(entry.food.ingredients, entry.food.recipe, meta?.ingredients, language);
-              return (
-            <div className="investigation-card-head">
-              <div className="investigation-food-media">
-                {imageUrl ? (
-                  <img src={imageUrl} alt={entry.food.name} />
-                ) : (
-                  <div className="investigation-food-placeholder">{entry.food.name.slice(0, 1).toUpperCase()}</div>
-                )}
-              </div>
-              <div>
-                <h3>{`${entry.food.name} (${entry.food.code})`}</h3>
-                <p className="panel-meta">{entry.food.cardSummary || "-"}</p>
-                <p className="panel-meta">{sanitizeSeedText(entry.food.description) || "-"}</p>
-                <p className="panel-meta">
-                  {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients}`}
-                </p>
-              </div>
-              <span className={`status-pill ${entry.food.status === "active" ? "is-active" : "is-disabled"}`}>
-                {entry.food.status === "active" ? dict.common.active : dict.common.disabled}
-              </span>
-            </div>
-              );
-            })()}
-            <div className="seller-meta-chips">
-              <span className="retention-chip">{`${language === "tr" ? "Satıcı" : "Seller"}: ${entry.seller.name}`}</span>
-              <span className="retention-chip">{entry.seller.email}</span>
-              <span className="retention-chip">{`${language === "tr" ? "Satıcı Durumu" : "Seller Status"}: ${entry.seller.status === "active" ? dict.common.active : dict.common.disabled}`}</span>
-              <span className="retention-chip">{`${language === "tr" ? "Ülke" : "Country"}: ${entry.seller.countryCode ?? "-"}`}</span>
-              <span className="retention-chip">{`${language === "tr" ? "Dil" : "Language"}: ${entry.seller.language ?? "-"}`}</span>
-              <span className="retention-chip">{`${language === "tr" ? "Fiyat" : "Price"}: ${formatCurrency(entry.food.price, language)}`}</span>
-              <span className="retention-chip">{`${language === "tr" ? "Yemek Güncelleme" : "Food Updated"}: ${formatUiDate(entry.food.updatedAt, language)}`}</span>
-              <Link className="retention-chip" to={`/app/sellers/${entry.seller.id}`}>{language === "tr" ? "Satıcı Detayı" : "Seller Detail"}</Link>
-            </div>
-            <h4>{`${dict.investigation.orders}: ${entry.incidents.length}`}</h4>
-            {entry.incidents.length === 0 ? (
-              <p className="panel-meta">{dict.investigation.noOrders}</p>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{language === "tr" ? "Sipariş" : "Order"}</th>
-                      <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                      <th>{language === "tr" ? "Tutar" : "Amount"}</th>
-                      <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
-                      <th>{language === "tr" ? "Tarih/Saat" : "Date/Time"}</th>
-                      <th>{language === "tr" ? "Ödeme Zamanı" : "Payment Time"}</th>
-                      <th>{language === "tr" ? "Bölge" : "Region"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entry.incidents.map((incident) => (
-                      <tr key={incident.orderId}>
-                        <td>
-                          <div>{incident.orderNo}</div>
-                          <div className="panel-meta">{incident.orderStatus}</div>
-                        </td>
-                        <td>
-                          <div>{incident.buyer.name ?? "-"}</div>
-                          <div className="panel-meta">{incident.buyer.email ?? "-"}</div>
-                        </td>
-                        <td>
-                          <div>{formatCurrency(incident.orderTotal, language)}</div>
-                          <div className="panel-meta">{`${incident.item.quantity} x ${formatCurrency(incident.item.unitPrice, language)}`}</div>
-                        </td>
-                        <td>
-                          <div>{incident.payment.status ?? "-"}</div>
-                          <div className="panel-meta">{incident.payment.provider ?? "-"}</div>
-                        </td>
-                        <td>
-                          <div>{incident.orderCreatedAt ? new Date(incident.orderCreatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "-"}</div>
-                          <div className="panel-meta">{incident.orderUpdatedAt ? `${language === "tr" ? "Güncelleme" : "Update"}: ${new Date(incident.orderUpdatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}` : "-"}</div>
-                        </td>
-                        <td>{incident.payment.updatedAt ? new Date(incident.payment.updatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "-"}</td>
-                        <td>{incident.region ?? "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
-    </section>
+        <div className="topbar-actions">
+          <div className="users-search-wrap users-search-wrap--compact">
+            <span className="users-search-icon" aria-hidden="true">
+              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </span>
+            <input
+              className="users-search-input users-search-input--compact"
+              placeholder={language === "tr" ? "Sipariş no / alıcı no / konu ara" : "Search order no / buyer no / subject"}
+              value={searchInput}
+              onChange={(event) => {
+                setPage(1);
+                setSearchInput(event.target.value);
+              }}
+            />
+            {searchInput.trim().length > 0 ? (
+              <button
+                className="users-search-clear"
+                type="button"
+                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                onClick={() => {
+                  setPage(1);
+                  setSearchInput("");
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(event) => {
+              setPage(1);
+              setStatusFilter(event.target.value as typeof statusFilter);
+            }}
+          >
+            <option value="all">{language === "tr" ? "Tüm Durumlar" : "All Statuses"}</option>
+            <option value="open">{statusText("open")}</option>
+            <option value="in_review">{statusText("in_review")}</option>
+            <option value="resolved">{statusText("resolved")}</option>
+            <option value="closed">{statusText("closed")}</option>
+          </select>
+        </div>
+      </header>
+
+      <section className="panel">
+        {error ? <div className="alert">{error}</div> : null}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{language === "tr" ? "Sipariş Numarası" : "Order No"}</th>
+                <th>{language === "tr" ? "Alıcı Numarası" : "Buyer No"}</th>
+                <th>{language === "tr" ? "Konu" : "Subject"}</th>
+                <th>{language === "tr" ? "Oluşturma Tarihi" : "Created At"}</th>
+                <th>{language === "tr" ? "Durum" : "Status"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5}>{dict.common.loading}</td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>{dict.common.noRecords}</td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.orderNo}</td>
+                    <td>{row.complainantBuyerNo}</td>
+                    <td>{row.subject}</td>
+                    <td>{new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
+                    <td>
+                      <span className={`status-pill ${statusClass(row.status)}`}>{statusText(row.status)}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="pager">
+          <span className="panel-meta">
+            {fmt(dict.common.paginationSummary, {
+              total: pagination?.total ?? 0,
+              page,
+              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
+            })}
+          </span>
+          <div className="topbar-actions">
+            <button className="ghost" disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} type="button">
+              {dict.actions.prev}
+            </button>
+            <button
+              className="ghost"
+              disabled={page >= Math.max(pagination?.totalPages ?? 1, 1)}
+              onClick={() => setPage((prev) => prev + 1)}
+              type="button"
+            >
+              {dict.actions.next}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 

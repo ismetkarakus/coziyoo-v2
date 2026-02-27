@@ -116,10 +116,10 @@
   },
   "investigation": {
     "title": "Complaint Review",
-    "subtitle": "Inspect seller, buyer, order, amount and region details in one screen by food code.",
+    "subtitle": "Track complaint records by order and buyer.",
     "searchPlaceholder": "Enter food code (e.g. FD-F0150781)",
     "searchHint": "Type at least 2 characters to search.",
-    "requestFailed": "Complaint review search failed",
+    "requestFailed": "Failed to load complaint records",
     "orders": "Orders",
     "noOrders": "No order record exists for this food yet."
   },

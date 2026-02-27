@@ -116,10 +116,10 @@
   },
   "investigation": {
     "title": "Şikayet İnceleme",
-    "subtitle": "Yemek kodu ile satıcı, alıcı, sipariş, tutar ve bölge bilgisini tek ekranda inceleyin.",
+    "subtitle": "Şikayet kayıtlarını sipariş ve alıcı bazında izleyin.",
     "searchPlaceholder": "Yemek kodu girin (örn: FD-F0150781)",
     "searchHint": "Arama için en az 2 karakter girin.",
-    "requestFailed": "Şikayet inceleme araması başarısız",
+    "requestFailed": "Şikayet kayıtları yüklenemedi",
     "orders": "Siparişler",
     "noOrders": "Bu yemek için henüz sipariş kaydı yok."
   },
