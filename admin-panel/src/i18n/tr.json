@@ -4,6 +4,8 @@
     "appUsers": "Uygulama Kullanıcıları",
     "buyers": "Alıcılar",
     "sellers": "Satıcılar",
+    "orders": "Orderler",
+    "foods": "Yemekler",
     "admins": "Yönetici Kullanıcılar",
     "investigation": "Şikayet İnceleme",
     "audit": "DB Denetim",

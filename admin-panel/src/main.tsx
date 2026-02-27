@@ -450,6 +450,8 @@ function AppShell({
         {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
+        {location.pathname === "/app/foods" ? <RecordsPage language={language} tableKey="foods" /> : null}
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
@@ -471,6 +473,8 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
     { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
     { to: "/app/buyers", active: pathname.startsWith("/app/buyers"), label: dict.menu.buyers },
     { to: "/app/sellers", active: pathname.startsWith("/app/sellers"), label: dict.menu.sellers },
+    { to: "/app/orders", active: pathname.startsWith("/app/orders"), label: dict.menu.orders },
+    { to: "/app/foods", active: pathname.startsWith("/app/foods"), label: dict.menu.foods },
     { to: "/app/investigation", active: pathname.startsWith("/app/investigation"), label: dict.menu.investigation },
   ];
   const managementItems = [
@@ -1909,6 +1913,169 @@ function InvestigationPage({ language }: { language: Language }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function RecordsPage({ language, tableKey }: { language: Language; tableKey: "orders" | "foods" }) {
+  const dict = DICTIONARIES[language];
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
+  const pageSize = 20;
+
+  const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
+  const subtitle =
+    language === "tr"
+      ? tableKey === "orders"
+        ? "Veritabanındaki sipariş kayıtlarını görüntüleyin."
+        : "Veritabanındaki yemek kayıtlarını görüntüleyin."
+      : tableKey === "orders"
+        ? "Browse order records from the database."
+        : "Browse food records from the database.";
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    const query = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      sortDir: "desc",
+      ...(search ? { search } : {}),
+    });
+
+    request(`/v1/admin/metadata/tables/${tableKey}/records?${query.toString()}`)
+      .then(async (response) => {
+        if (response.status !== 200) {
+          const body = await parseJson<ApiError>(response);
+          setError(body.error?.message ?? dict.entities.loadRecordsFailed);
+          setLoading(false);
+          return;
+        }
+
+        const body = await parseJson<{
+          data: {
+            rows: Array<Record<string, unknown>>;
+            columns: string[];
+          };
+          pagination: {
+            total: number;
+            totalPages: number;
+          };
+        }>(response);
+
+        setRows(body.data.rows);
+        setColumns(body.data.columns);
+        setPagination({ total: body.pagination.total, totalPages: body.pagination.totalPages });
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(dict.entities.recordsRequestFailed);
+        setLoading(false);
+      });
+  }, [dict.entities.loadRecordsFailed, dict.entities.recordsRequestFailed, page, pageSize, search, tableKey]);
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.entities.eyebrow}</p>
+          <h1>{pageTitle}</h1>
+          <p className="subtext">{subtitle}</p>
+        </div>
+        <div className="topbar-actions">
+          <div className="users-search-wrap users-search-wrap--compact">
+            <span className="users-search-icon" aria-hidden="true">
+              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </span>
+            <input
+              className="users-search-input users-search-input--compact"
+              placeholder={dict.entities.searchPlaceholder}
+              value={search}
+              onChange={(event) => {
+                setPage(1);
+                setSearch(event.target.value);
+              }}
+            />
+            {search.trim().length > 0 ? (
+              <button
+                className="users-search-clear"
+                type="button"
+                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                onClick={() => {
+                  setPage(1);
+                  setSearch("");
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </header>
+      <section className="panel">
+        {error ? <div className="alert">{error}</div> : null}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th key={column}>{column}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={Math.max(columns.length, 1)}>{dict.common.loading}</td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={Math.max(columns.length, 1)}>{dict.common.noRecords}</td>
+                </tr>
+              ) : (
+                rows.map((row, index) => (
+                  <tr key={`${tableKey}-${index}`}>
+                    {columns.map((column) => (
+                      <td key={`${index}-${column}`}>{renderCell(row[column])}</td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="pager">
+          <span className="panel-meta">
+            {fmt(dict.common.paginationSummary, {
+              total: pagination?.total ?? 0,
+              page,
+              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
+            })}
+          </span>
+          <div className="topbar-actions">
+            <button className="ghost" disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} type="button">
+              {dict.actions.prev}
+            </button>
+            <button
+              className="ghost"
+              disabled={page >= Math.max(pagination?.totalPages ?? 1, 1)}
+              onClick={() => setPage((prev) => prev + 1)}
+              type="button"
+            >
+              {dict.actions.next}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
