@@ -13,6 +13,7 @@
     "db:reset-init": "tsx scripts/reset-and-init-db.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "seed:sellers:tr": "tsx scripts/seed-sellers-tr.ts",
+    "seed:investigation": "tsx scripts/seed-investigation-scenario.ts",
     "outbox:process": "tsx scripts/process-outbox.ts",
     "retention:run": "tsx scripts/run-retention.ts",
     "openapi:validate": "tsx scripts/validate-openapi.ts",
