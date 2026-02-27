@@ -3732,6 +3732,7 @@ function initialsFromName(displayName: string | null | undefined, email: string 
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
@@ -3908,7 +3909,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     !profileImageFailed
       ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
       : null;
-  const complianceCta = language === "tr" ? "Compliance'a Git" : "Go to Compliance";
+  const complianceCta = language === "tr" ? "Uygunluğa Git" : "Go to Compliance";
   const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
   const walletAmount = "—";
   const roleLabel =
@@ -4002,8 +4003,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <button className="ghost" type="button" onClick={() => openQuickEmail(row.email, dict, setMessage)}>
               {dict.detail.quickEmail}
             </button>
-            <button className="primary" type="button">{complianceCta}</button>
-            <button className="ghost" type="button">{auditCta}</button>
+            <button className="primary" type="button" onClick={() => setActiveTab("legal")}>{complianceCta}</button>
+            <button className="ghost" type="button" onClick={() => navigate("/app/audit")}>{auditCta}</button>
           </div>
           <div className="seller-hero-stats">
             <article>
