@@ -456,6 +456,7 @@ function AppShell({
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
+        {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
         {location.pathname === "/app/livekit-demo" ? <LiveKitDemoPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
@@ -491,6 +492,7 @@ function TopNavTabs({
   const managementItems = [
     { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
+    { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
     { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
     { to: "/app/livekit-demo", active: pathname === "/app/livekit-demo", label: dict.menu.livekitDemo },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
@@ -2839,6 +2841,125 @@ type LiveKitTokenResponse = {
     } | null;
   };
 } & ApiError;
+
+type AdminApiTokenResponse = {
+  data?: {
+    label: string;
+    role: "admin" | "super_admin";
+    token: string;
+    createdAt: string;
+    preview: {
+      iat: string | null;
+      exp: string | null;
+      claims: Record<string, unknown>;
+    } | null;
+  };
+} & ApiError;
+
+function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuperAdmin: boolean }) {
+  const dict = DICTIONARIES[language];
+  const [label, setLabel] = useState("");
+  const [role, setRole] = useState<"admin" | "super_admin">("admin");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AdminApiTokenResponse["data"] | null>(null);
+
+  async function createToken() {
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) {
+      setError(dict.apiTokens.tokenCreateFailed);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await request("/v1/admin/api-tokens/admin", {
+        method: "POST",
+        body: JSON.stringify({
+          label: trimmedLabel,
+          role,
+        }),
+      });
+      const body = await parseJson<AdminApiTokenResponse>(response);
+      if (response.status !== 201 || !body.data) {
+        setError(body.error?.message ?? dict.apiTokens.tokenCreateFailed);
+        return;
+      }
+      setResult(body.data);
+    } catch {
+      setError(dict.apiTokens.tokenRequestFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyToken() {
+    if (!result?.token) return;
+    await navigator.clipboard.writeText(result.token);
+  }
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.apiTokens.eyebrow}</p>
+          <h1>{dict.apiTokens.title}</h1>
+          <p className="subtext">{dict.apiTokens.subtitle}</p>
+        </div>
+      </header>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.apiTokens.create}</h2>
+          <span className="panel-meta">{dict.apiTokens.nonExpiring}</span>
+        </div>
+        <div className="form-grid">
+          <label>
+            {dict.apiTokens.label}
+            <input value={label} placeholder={dict.apiTokens.labelPlaceholder} onChange={(event) => setLabel(event.target.value)} />
+          </label>
+          <label>
+            {dict.apiTokens.role}
+            <select value={role} onChange={(event) => setRole(event.target.value as "admin" | "super_admin")}>
+              <option value="admin">{dict.users.roleAdmin}</option>
+              <option value="super_admin" disabled={!isSuperAdmin}>{dict.users.roleSuperAdmin}</option>
+            </select>
+          </label>
+        </div>
+        {error ? <div className="alert">{error}</div> : null}
+        <div className="topbar-actions">
+          <button className="primary" type="button" disabled={saving} onClick={() => createToken()}>
+            {dict.apiTokens.create}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.apiTokens.createdToken}</h2>
+          <button className="ghost" type="button" onClick={() => copyToken()} disabled={!result?.token}>
+            {dict.apiTokens.copyToken}
+          </button>
+        </div>
+        {result ? (
+          <>
+            <label>
+              {dict.apiTokens.createdToken}
+              <div className="token-output-row">
+                <input value={result.token} readOnly />
+                <button className="ghost" type="button" onClick={() => copyToken()}>{dict.apiTokens.copyToken}</button>
+              </div>
+            </label>
+            <pre className="json-box">{JSON.stringify(result, null, 2)}</pre>
+          </>
+        ) : (
+          <p className="panel-meta">{dict.apiTokens.noToken}</p>
+        )}
+      </section>
+    </div>
+  );
+}
 
 type LiveKitSessionStartResponse = {
   data?: {

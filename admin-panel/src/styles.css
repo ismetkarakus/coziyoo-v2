@@ -1157,6 +1157,21 @@ textarea:focus {
   align-items: center;
 }
 
+.token-output-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.token-output-row input {
+  width: 100%;
+  border: 1px solid var(--color-input-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--color-input-bg);
+}
+
 .livekit-chat-form input {
   width: 100%;
   min-height: 42px;

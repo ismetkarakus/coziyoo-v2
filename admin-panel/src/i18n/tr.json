@@ -9,6 +9,7 @@
     "admins": "Yönetici Kullanıcılar",
     "investigation": "Şikayet İnceleme",
     "audit": "DB Denetim",
+    "apiTokens": "API Tokenları",
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
     "dataExplorer": "Veri Gezgini",
@@ -212,6 +213,22 @@
     "statusRequestFailed": "LiveKit durum isteği başarısız",
     "tokenCreateFailed": "Token üretimi başarısız",
     "tokenRequestFailed": "Token isteği başarısız"
+  },
+  "apiTokens": {
+    "eyebrow": "Uzak Erişim",
+    "title": "API Erişim Tokenları",
+    "subtitle": "Uzak kullanıcılar için yönetici API tokenı oluşturun. Burada üretilen tokenların süresi dolmaz.",
+    "label": "Token Etiketi",
+    "labelPlaceholder": "Uzak entegrasyon tokenı",
+    "role": "Token Rolü",
+    "create": "API Token Oluştur",
+    "createdToken": "Oluşturulan Token",
+    "copyToken": "Token Kopyala",
+    "noToken": "Henüz token oluşturulmadı.",
+    "tokenCreated": "Token oluşturuldu",
+    "tokenCreateFailed": "API token üretimi başarısız",
+    "tokenRequestFailed": "API token isteği başarısız",
+    "nonExpiring": "Süresiz token"
   },
   "detail": {
     "adminUser": "Yönetici Kullanıcı Detayı",

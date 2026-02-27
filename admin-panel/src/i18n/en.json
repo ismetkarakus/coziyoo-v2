@@ -9,6 +9,7 @@
     "admins": "Admin Users",
     "investigation": "Complaint Review",
     "audit": "Audit",
+    "apiTokens": "API Tokens",
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
     "dataExplorer": "Data Explorer",
@@ -212,6 +213,22 @@
     "statusRequestFailed": "LiveKit status request failed",
     "tokenCreateFailed": "Token creation failed",
     "tokenRequestFailed": "Token request failed"
+  },
+  "apiTokens": {
+    "eyebrow": "Remote Access",
+    "title": "API Access Tokens",
+    "subtitle": "Create admin API tokens for remote users. Tokens generated here do not expire.",
+    "label": "Token Label",
+    "labelPlaceholder": "Remote integration token",
+    "role": "Token Role",
+    "create": "Create API Token",
+    "createdToken": "Created Token",
+    "copyToken": "Copy Token",
+    "noToken": "No token created yet.",
+    "tokenCreated": "Token created",
+    "tokenCreateFailed": "API token creation failed",
+    "tokenRequestFailed": "API token request failed",
+    "nonExpiring": "Non-expiring token"
   },
   "detail": {
     "adminUser": "Admin User Detail",
