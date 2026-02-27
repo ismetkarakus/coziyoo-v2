@@ -1774,9 +1774,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     {isBuyerPage ? (
                       <td>
                         <div className="buyer-table-metrics">
-                          <div>{language === "tr" ? `Toplam: ${Number(row.complaintTotal ?? 0)}` : `Total: ${Number(row.complaintTotal ?? 0)}`}</div>
-                          <div>{language === "tr" ? `Çözülen: ${Number(row.complaintResolved ?? 0)}` : `Resolved: ${Number(row.complaintResolved ?? 0)}`}</div>
-                          <div>{language === "tr" ? `Çözülmeyen: ${Number(row.complaintUnresolved ?? 0)}` : `Unresolved: ${Number(row.complaintUnresolved ?? 0)}`}</div>
+                          <div>{`${Number(row.complaintResolved ?? 0)}/${Number(row.complaintTotal ?? 0)}`}</div>
                         </div>
                       </td>
                     ) : null}
