@@ -1337,6 +1337,85 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return String(value ?? "");
   }
 
+  function trendArrow(current: number, previous: number): { symbol: string; className: string } {
+    if (current > previous) return { symbol: "▲", className: "is-up" };
+    if (current < previous) return { symbol: "▼", className: "is-down" };
+    return { symbol: "→", className: "is-flat" };
+  }
+
+  function formatTry(value: number): string {
+    return new Intl.NumberFormat(language === "tr" ? "tr-TR" : "en-US", {
+      style: "currency",
+      currency: "TRY",
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  function exportCellValue(row: any, columnName: string): string {
+    const mapped = columnMappings[columnName] ?? columnName;
+    const value = row[mapped];
+    if (mapped === "id") return String(value ?? "");
+    if (mapped === "status") return value === "disabled" ? (language === "tr" ? "Pasif" : "Disabled") : language === "tr" ? "Aktif" : "Active";
+    if (mapped === "countryCode") {
+      const cc = String(value ?? "").toUpperCase();
+      if (cc === "TR") return "Türkiye";
+      if (cc === "US") return "United States";
+      if (cc === "IT") return "Italy";
+      if (cc === "JP") return "Japan";
+      if (cc === "FR") return "France";
+      return cc || "-";
+    }
+    if (mapped === "language" && isSellerPage) {
+      const lang = String(value ?? "").trim().toLowerCase();
+      if (lang) return lang.toUpperCase();
+      const cc = String(row.countryCode ?? "").toUpperCase();
+      return cc || "TR";
+    }
+    if (mapped === "createdAt" || mapped === "updatedAt" || mapped === "lastLoginAt") {
+      const text = String(value ?? "");
+      return text ? text.slice(0, 10) : "-";
+    }
+    if (mapped === "role") {
+      if (value === "buyer") return dict.users.userTypeBuyer;
+      if (value === "seller") return dict.users.userTypeSeller;
+      if (value === "both") return dict.users.userTypeBoth;
+      if (value === "admin") return dict.users.roleAdmin;
+      if (value === "super_admin") return dict.users.roleSuperAdmin;
+    }
+    return String(value ?? "");
+  }
+
+  function downloadBuyersAsExcel() {
+    if (!isBuyerPage) return;
+    const headers = [
+      ...tableColumns.map((column) => resolveColumnLabel(column)),
+      language === "tr" ? "Toplam Şikayet" : "Total Complaints",
+      language === "tr" ? "Çözülen Şikayet" : "Resolved Complaints",
+      language === "tr" ? "Çözülmeyen Şikayet" : "Unresolved Complaints",
+      language === "tr" ? "Sipariş Trendi (30g/önceki 30g)" : "Order Trend (30d/prev 30d)",
+      language === "tr" ? "Harcama Trendi (30g/önceki 30g)" : "Spend Trend (30d/prev 30d)",
+    ];
+
+    const rowsForExport = filteredRows.map((row) => [
+      ...tableColumns.map((column) => exportCellValue(row, column)),
+      String(Number(row.complaintTotal ?? 0)),
+      String(Number(row.complaintResolved ?? 0)),
+      String(Number(row.complaintUnresolved ?? 0)),
+      `${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).symbol} ${Number(row.monthlyOrderCountCurrent ?? 0)} / ${Number(row.monthlyOrderCountPrevious ?? 0)}`,
+      `${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${formatTry(Number(row.monthlySpentCurrent ?? 0))} / ${formatTry(Number(row.monthlySpentPrevious ?? 0))}`,
+    ]);
+
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `buyers-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
 
   return (
@@ -1365,6 +1444,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
               {dict.users.visibleColumns}
             </button>
+            {isBuyerPage ? (
+              <button className="primary" type="button" onClick={downloadBuyersAsExcel}>
+                {dict.actions.exportExcel}
+              </button>
+            ) : null}
             {!isSellerPage && !isBuyerPage ? (
               <>
               <button className="ghost" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
@@ -1532,19 +1616,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 {tableColumns.map((column) => (
                   <th key={column}>{resolveColumnLabel(column)}</th>
                 ))}
+                {isBuyerPage ? <th>{language === "tr" ? "Şikayet & Trend" : "Complaints & Trend"}</th> : null}
                 <th>{dict.users.actions}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? Array.from({ length: 5 }).map((_, index) => (
                 <tr key={`skeleton-${index}`}>
-                  <td colSpan={tableColumns.length + 1} className="table-skeleton">
+                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 1 : 0)} className="table-skeleton">
                     <span />
                   </td>
                 </tr>
               )) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColumns.length + 1}>{dict.common.noRecords}</td>
+                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 1 : 0)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 filteredRows.map((row) => (
@@ -1552,6 +1637,27 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     {tableColumns.map((column) => (
                       <td key={`${row.id}-${column}`}>{renderCell(row, column)}</td>
                     ))}
+                    {isBuyerPage ? (
+                      <td>
+                        <div className="buyer-table-metrics">
+                          <div>
+                            {language === "tr"
+                              ? `Şikayet: ${Number(row.complaintTotal ?? 0)} (Çözülen ${Number(row.complaintResolved ?? 0)})`
+                              : `Complaints: ${Number(row.complaintTotal ?? 0)} (Resolved ${Number(row.complaintResolved ?? 0)})`}
+                          </div>
+                          <div className={`buyer-trend ${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).className}`}>
+                            {`${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).symbol} ${
+                              language === "tr" ? "Sipariş" : "Orders"
+                            }: ${Number(row.monthlyOrderCountCurrent ?? 0)} / ${Number(row.monthlyOrderCountPrevious ?? 0)}`}
+                          </div>
+                          <div className={`buyer-trend ${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).className}`}>
+                            {`${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${
+                              language === "tr" ? "Harcama" : "Spent"
+                            }: ${formatTry(Number(row.monthlySpentCurrent ?? 0))} / ${formatTry(Number(row.monthlySpentPrevious ?? 0))}`}
+                          </div>
+                        </div>
+                      </td>
+                    ) : null}
                     <td className="cell-actions">
                       <button
                         className="ghost action-btn"

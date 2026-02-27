@@ -28,6 +28,7 @@
     "rotateRole": "Rotate Role",
     "applyFilters": "Apply Filters",
     "exportCsv": "Export CSV",
+    "exportExcel": "Export Excel",
     "reviewQueue": "Review Queue",
     "openComplianceQueue": "Open Compliance Queue",
     "viewPaymentDisputes": "View Payment Disputes",

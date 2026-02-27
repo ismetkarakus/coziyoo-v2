@@ -573,6 +573,13 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     created_at: string;
     updated_at: string;
     total_foods: number;
+    complaint_total: number;
+    complaint_resolved: number;
+    complaint_unresolved: number;
+    monthly_order_count_current: number;
+    monthly_order_count_previous: number;
+    monthly_spent_current: string;
+    monthly_spent_previous: string;
   }>(
     `SELECT
        u.id,
@@ -586,13 +593,37 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.language,
        u.created_at::text,
        u.updated_at::text,
-       COALESCE(food_stats.total_foods, 0)::int AS total_foods
+       COALESCE(food_stats.total_foods, 0)::int AS total_foods,
+       COALESCE(complaint_stats.complaint_total, 0)::int AS complaint_total,
+       COALESCE(complaint_stats.complaint_resolved, 0)::int AS complaint_resolved,
+       COALESCE(complaint_stats.complaint_unresolved, 0)::int AS complaint_unresolved,
+       COALESCE(order_stats.monthly_order_count_current, 0)::int AS monthly_order_count_current,
+       COALESCE(order_stats.monthly_order_count_previous, 0)::int AS monthly_order_count_previous,
+       COALESCE(order_stats.monthly_spent_current, 0)::text AS monthly_spent_current,
+       COALESCE(order_stats.monthly_spent_previous, 0)::text AS monthly_spent_previous
      FROM users u
      LEFT JOIN LATERAL (
        SELECT count(*)::int AS total_foods
        FROM foods f
        WHERE f.seller_id = u.id
      ) food_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         count(*)::int AS complaint_total,
+         count(*) FILTER (WHERE c.status IN ('resolved', 'closed'))::int AS complaint_resolved,
+         count(*) FILTER (WHERE c.status IN ('open', 'in_review'))::int AS complaint_unresolved
+       FROM complaints c
+       WHERE c.complainant_buyer_id = u.id
+     ) complaint_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         count(*) FILTER (WHERE o.created_at >= (now() - interval '30 days'))::int AS monthly_order_count_current,
+         count(*) FILTER (WHERE o.created_at < (now() - interval '30 days') AND o.created_at >= (now() - interval '60 days'))::int AS monthly_order_count_previous,
+         COALESCE(sum(CASE WHEN o.payment_completed = TRUE AND o.created_at >= (now() - interval '30 days') THEN o.total_price ELSE 0 END), 0) AS monthly_spent_current,
+         COALESCE(sum(CASE WHEN o.payment_completed = TRUE AND o.created_at < (now() - interval '30 days') AND o.created_at >= (now() - interval '60 days') THEN o.total_price ELSE 0 END), 0) AS monthly_spent_previous
+       FROM orders o
+       WHERE o.buyer_id = u.id
+     ) order_stats ON TRUE
      ${whereSql}
      ORDER BY ${sortField} ${sortDir}, u.id ${sortDir}
      LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
@@ -614,6 +645,13 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalFoods: Number(row.total_foods ?? 0),
+      complaintTotal: Number(row.complaint_total ?? 0),
+      complaintResolved: Number(row.complaint_resolved ?? 0),
+      complaintUnresolved: Number(row.complaint_unresolved ?? 0),
+      monthlyOrderCountCurrent: Number(row.monthly_order_count_current ?? 0),
+      monthlyOrderCountPrevious: Number(row.monthly_order_count_previous ?? 0),
+      monthlySpentCurrent: Number(row.monthly_spent_current ?? 0),
+      monthlySpentPrevious: Number(row.monthly_spent_previous ?? 0),
     })),
     pagination: {
       mode: "offset",

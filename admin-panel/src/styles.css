@@ -116,6 +116,8 @@ a {
 }
 
 .navbar {
+  position: relative;
+  z-index: 1200;
   background: var(--color-surface);
   border-radius: 16px;
   padding: 12px 16px;
@@ -1438,6 +1440,13 @@ textarea:focus {
 
 .buyer-trend.is-flat {
   color: var(--color-tertiary-text);
+}
+
+.buyer-table-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 260px;
 }
 
 .buyer-orders-table table {

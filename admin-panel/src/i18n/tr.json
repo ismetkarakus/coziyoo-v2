@@ -28,6 +28,7 @@
     "rotateRole": "Rolü Değiştir",
     "applyFilters": "Filtreleri Uygula",
     "exportCsv": "CSV Dışa Aktar",
+    "exportExcel": "Excel'e Aktar",
     "reviewQueue": "Bekleyen İşler",
     "openComplianceQueue": "Bekleyen Uygunluk İşlerini Aç",
     "viewPaymentDisputes": "Ödeme İtirazlarını Gör",
