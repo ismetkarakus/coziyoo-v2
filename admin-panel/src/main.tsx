@@ -485,14 +485,14 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
   const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
 
   useEffect(() => {
-    if (isManagementActive) setIsManagementOpen(true);
+    setIsManagementOpen(isManagementActive);
   }, [isManagementActive]);
 
   return (
     <div className="nav-wrap">
       <nav className="nav">
         {items.map((item) => (
-          <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to}>
+          <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to} onClick={() => setIsManagementOpen(false)}>
             {item.label}
           </Link>
         ))}

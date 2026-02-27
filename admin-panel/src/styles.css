@@ -216,11 +216,19 @@ a {
 
 .nav-submenu {
   display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  max-width: 100%;
-  -webkit-overflow-scrolling: touch;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  width: fit-content;
+  min-width: 220px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-strong) 82%, transparent);
+}
+
+.nav-submenu .nav-link {
+  width: 100%;
 }
 
 .navbar-actions {
