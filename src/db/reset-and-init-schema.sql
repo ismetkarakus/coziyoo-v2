@@ -151,7 +151,6 @@ CREATE UNIQUE INDEX uniq_user_default_address ON user_addresses(user_id) WHERE i
 
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_code TEXT UNIQUE,
   buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   status TEXT NOT NULL,
