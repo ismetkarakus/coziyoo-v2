@@ -1783,10 +1783,15 @@ function InvestigationPage({ language }: { language: Language }) {
       <div className="investigation-results">
         {rows.map((entry) => (
           <article key={entry.food.id} className="panel investigation-card">
+            {(() => {
+              const meta = foodMetadataByName(entry.food.name);
+              const imageUrl = normalizeImageUrl(entry.food.imageUrl) ?? meta?.imageUrl ?? null;
+              const ingredients = entry.food.ingredients ?? meta?.ingredients ?? null;
+              return (
             <div className="investigation-card-head">
               <div className="investigation-food-media">
-                {entry.food.imageUrl ? (
-                  <img src={entry.food.imageUrl} alt={entry.food.name} />
+                {imageUrl ? (
+                  <img src={imageUrl} alt={entry.food.name} />
                 ) : (
                   <div className="investigation-food-placeholder">{entry.food.name.slice(0, 1).toUpperCase()}</div>
                 )}
@@ -1796,13 +1801,15 @@ function InvestigationPage({ language }: { language: Language }) {
                 <p className="panel-meta">{entry.food.cardSummary || "-"}</p>
                 <p className="panel-meta">{sanitizeSeedText(entry.food.description) || "-"}</p>
                 <p className="panel-meta">
-                  {`${language === "tr" ? "İçerik" : "Ingredients"}: ${entry.food.ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
+                  {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
                 </p>
               </div>
               <span className={`status-pill ${entry.food.status === "active" ? "is-active" : "is-disabled"}`}>
                 {entry.food.status === "active" ? dict.common.active : dict.common.disabled}
               </span>
             </div>
+              );
+            })()}
             <div className="seller-meta-chips">
               <span className="retention-chip">{`${language === "tr" ? "Satıcı" : "Seller"}: ${entry.seller.name}`}</span>
               <span className="retention-chip">{entry.seller.email}</span>
@@ -3304,6 +3311,62 @@ function sanitizeSeedText(value: string | null | undefined): string | null {
   return cleaned || null;
 }
 
+const FOOD_METADATA_BY_NAME: Record<string, { ingredients: string; imageUrl: string }> = {
+  "izgara tavuk": {
+    ingredients: "tavuk, yogurt, zeytinyagi, sarimsak, pul biber, kimyon, tuz, karabiber",
+    imageUrl: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=900&q=80",
+  },
+  "etli kuru fasulye": {
+    ingredients: "kuru fasulye, dana eti, sogan, domates salcasi, siviyag, tuz, karabiber",
+    imageUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80",
+  },
+  "adana kebap": {
+    ingredients: "kuzu kiyma, kuyruk yagi, pul biber, paprika, tuz, isot, lavas, sogan",
+    imageUrl: "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=900&q=80",
+  },
+  "mercimek corbasi": {
+    ingredients: "kirmizi mercimek, sogan, havuc, patates, tereyagi, un, tuz, kimyon",
+    imageUrl: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80",
+  },
+  "firinda sutlac": {
+    ingredients: "sut, pirinc, toz seker, nisasta, vanilya, tarcin",
+    imageUrl: "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80",
+  },
+  "fistikli baklava": {
+    ingredients: "baklava yufkasi, antep fistigi, tereyagi, toz seker, su, limon",
+    imageUrl: "https://images.unsplash.com/photo-1626803775151-61d756612f97?auto=format&fit=crop&w=900&q=80",
+  },
+  "levrek izgara": {
+    ingredients: "levrek fileto, zeytinyagi, limon, sarimsak, tuz, karabiber, roka",
+    imageUrl: "https://images.unsplash.com/photo-1612874742237-6526221588e3?auto=format&fit=crop&w=900&q=80",
+  },
+  "zeytinyagli yaprak sarma": {
+    ingredients: "asma yapragi, pirinc, sogan, zeytinyagi, kus uzumu, dolmalik fistik, nane, limon",
+    imageUrl: "https://images.unsplash.com/photo-1611584186769-0a53b5f7f350?auto=format&fit=crop&w=900&q=80",
+  },
+  "kasarli sucuklu pide": {
+    ingredients: "un, su, maya, kasar peyniri, sucuk, tereyagi, tuz",
+    imageUrl: "https://images.unsplash.com/photo-1590947132387-155cc02f3212?auto=format&fit=crop&w=900&q=80",
+  },
+  "tavuklu pilav": {
+    ingredients: "pirinc, tavuk gogsu, tereyagi, tavuk suyu, nohut, tuz, karabiber",
+    imageUrl: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80",
+  },
+};
+
+function foodMetadataByName(value: string | null | undefined): { ingredients: string; imageUrl: string } | null {
+  const key = String(value ?? "")
+    .toLowerCase()
+    .replace(/[ç]/g, "c")
+    .replace(/[ğ]/g, "g")
+    .replace(/[ı]/g, "i")
+    .replace(/[ö]/g, "o")
+    .replace(/[ş]/g, "s")
+    .replace(/[ü]/g, "u")
+    .trim();
+  return FOOD_METADATA_BY_NAME[key] ?? null;
+}
+
 function normalizeComplianceToken(value: string | null | undefined): string {
   const raw = String(value ?? "")
     .toLowerCase()
@@ -3912,8 +3975,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <div className="seller-food-grid">
                   {filteredFoodRows.map((food) => {
                     const isActiveFood = food.status === "active";
-                    const imageUrl = normalizeImageUrl(food.imageUrl);
+                    const meta = foodMetadataByName(food.name);
+                    const imageUrl = normalizeImageUrl(food.imageUrl) ?? meta?.imageUrl ?? null;
                     const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
+                    const ingredients = food.ingredients ?? meta?.ingredients ?? null;
                     return (
                       <article key={food.id} className="seller-food-card">
                         <div className="seller-food-image-wrap">
@@ -3942,7 +4007,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             {sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}
                           </p>
                           <p className="seller-food-ingredients">
-                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${food.ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
+                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients || (language === "tr" ? "Belirtilmemiş" : "Not specified")}`}
                           </p>
                           <div className="seller-food-meta">
                             <span>{formatCurrency(food.price, language)}</span>
