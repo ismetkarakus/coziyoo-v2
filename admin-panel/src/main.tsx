@@ -1299,11 +1299,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const value = row[mapped];
     if (mapped === "id") {
       if (isBuyerPage) {
-        return (
-          <button className="inline-copy" type="button" title={String(value ?? "")} onClick={() => navigate(`/app/buyers/${row.id}`)}>
-            {shortId(String(value ?? ""))}
-          </button>
-        );
+        return shortId(String(value ?? ""));
       }
       if (kind === "sellers") {
         return (
@@ -1353,11 +1349,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "displayName") {
       const text = String(value ?? "");
       if (isBuyerPage) {
-        return (
-          <button className="inline-copy" type="button" onClick={() => navigate(`/app/buyers/${row.id}`)}>
-            {text}
-          </button>
-        );
+        return text;
       }
       if (kind === "sellers") {
         return (
@@ -1387,11 +1379,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       );
     }
     if (mapped === "email" && isBuyerPage) {
-      return (
-        <button className="inline-copy" type="button" onClick={() => navigate(`/app/buyers/${row.id}`)}>
-          {String(value ?? "")}
-        </button>
-      );
+      return String(value ?? "");
     }
     if (mapped === "countryCode") {
       const cc = String(value ?? "").toUpperCase();
@@ -1767,7 +1755,28 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 </tr>
               ) : (
                 filteredRows.map((row) => (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className={isBuyerPage ? "is-clickable" : ""}
+                    onClick={
+                      isBuyerPage
+                        ? () => {
+                            navigate(`/app/buyers/${row.id}`);
+                          }
+                        : undefined
+                    }
+                    onKeyDown={
+                      isBuyerPage
+                        ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(`/app/buyers/${row.id}`);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={isBuyerPage ? 0 : undefined}
+                  >
                     {tableColumns.map((column) => (
                       <td key={`${row.id}-${column}`}>{renderCell(row, column)}</td>
                     ))}

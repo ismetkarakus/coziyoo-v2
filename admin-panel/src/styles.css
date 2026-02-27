@@ -1827,6 +1827,22 @@ textarea:focus {
   z-index: 2;
 }
 
+.users-table-wrap tbody tr td {
+  transition: background-color 0.18s ease;
+}
+
+.users-table-wrap tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-card-bg));
+}
+
+.users-table-wrap tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.users-table-wrap tbody tr.is-clickable:focus-visible td {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-card-bg));
+}
+
 .status-pill {
   display: inline-flex;
   border-radius: 8px;
