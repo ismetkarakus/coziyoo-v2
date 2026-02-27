@@ -21,6 +21,33 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+TURKISH_BUYER_PROFILES: list[tuple[str, str]] = [
+    ("mustafa_karaca", "Mustafa Karaca"),
+    ("emre_yildiz", "Emre Yildiz"),
+    ("burak_gunes", "Burak Gunes"),
+    ("can_aksoy", "Can Aksoy"),
+    ("ece_turan", "Ece Turan"),
+    ("deniz_sari", "Deniz Sari"),
+    ("selin_erdem", "Selin Erdem"),
+    ("hakan_ince", "Hakan Ince"),
+    ("merve_ucar", "Merve Ucar"),
+    ("cagla_ozturk", "Cagla Ozturk"),
+]
+
+TURKISH_SELLER_PROFILES: list[tuple[str, str]] = [
+    ("ahmet_yilmaz", "Ahmet Yilmaz"),
+    ("mehmet_demir", "Mehmet Demir"),
+    ("ali_kaya", "Ali Kaya"),
+    ("hasan_celik", "Hasan Celik"),
+    ("murat_aydin", "Murat Aydin"),
+    ("yusuf_sahin", "Yusuf Sahin"),
+    ("zeynep_arslan", "Zeynep Arslan"),
+    ("ayse_koc", "Ayse Koc"),
+    ("elif_kurt", "Elif Kurt"),
+    ("fatma_ozkan", "Fatma Ozkan"),
+]
+
+
 @dataclass
 class UserAccount:
     email: str
@@ -181,7 +208,7 @@ def create_order(
 
 
 def build_items_for_seller(seller_foods: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    food_count = min(len(seller_foods), random.randint(1, 3))
+    food_count = min(len(seller_foods), random.randint(1, 5))
     picked = random.sample(seller_foods, k=food_count)
     items: list[dict[str, Any]] = []
     for food in picked:
@@ -190,12 +217,18 @@ def build_items_for_seller(seller_foods: list[dict[str, Any]]) -> list[dict[str,
     return items
 
 
+def profile_for(index: int, profiles: list[tuple[str, str]]) -> tuple[str, str]:
+    return profiles[index % len(profiles)]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed buyers/sellers/orders via Coziyoo API.")
     parser.add_argument("--base-url", default="https://api.coziyoo.com", help="API base URL")
     parser.add_argument("--buyers", type=int, default=10, help="Buyer users to create")
     parser.add_argument("--sellers", type=int, default=10, help="Seller users to create")
-    parser.add_argument("--orders", type=int, default=100, help="Orders to create")
+    parser.add_argument("--orders", type=int, default=None, help="Total orders to create (legacy mode)")
+    parser.add_argument("--orders-per-food-seller", type=int, default=10, help="Orders to create per existing food seller")
+    parser.add_argument("--food-seller-limit", type=int, default=10, help="Max existing food sellers to target for order creation")
     parser.add_argument("--admin-email", default="admin@coziyoo.com", help="Admin email for metadata API")
     parser.add_argument("--admin-password", default="12345", help="Admin password for metadata API")
     parser.add_argument("--buyer-password", default="Buyer12345!", help="Password used for new buyers")
@@ -216,7 +249,10 @@ def main() -> int:
     seed_id = f"{now_stamp()}-{rand_suffix()}"
     random.seed(seed_id)
     print(f"seed run: {seed_id}")
-    print(f"target: buyers={args.buyers} sellers={args.sellers} orders={args.orders}")
+    print(
+        f"target: buyers={args.buyers} sellers={args.sellers} "
+        f"orders_per_food_seller={args.orders_per_food_seller} food_seller_limit={args.food_seller_limit}"
+    )
 
     admin_token = admin_login(args.base_url, email=args.admin_email, password=args.admin_password)
     foods = fetch_foods(args.base_url, admin_token=admin_token)
@@ -231,14 +267,18 @@ def main() -> int:
     seller_ids = [sid for sid, rows in foods_by_seller.items() if len(rows) > 0]
     if not seller_ids:
         raise RuntimeError("No seller/food pairs available for order creation.")
+    random.shuffle(seller_ids)
+    selected_food_seller_ids = seller_ids[: max(1, min(args.food_seller_limit, len(seller_ids)))]
     print(f"fetched foods: {len(foods)} across sellers: {len(seller_ids)}")
+    print(f"selected food sellers for ordering: {len(selected_food_seller_ids)}")
 
     buyers: list[UserAccount] = []
     sellers: list[UserAccount] = []
 
     for i in range(args.buyers):
-        email = f"api-seed-buyer-{seed_id}-{i + 1}@coziyoo.local"
-        display_name = f"apiseedbuyer{seed_id.replace('-', '')}{i + 1}"
+        handle, _ = profile_for(i, TURKISH_BUYER_PROFILES)
+        email = f"{handle}.{seed_id}.{i + 1}@coziyoo.local"
+        display_name = f"{handle}_{seed_id.replace('-', '')}_{i + 1}"
         account = register_user(
             args.base_url,
             email=email,
@@ -250,8 +290,9 @@ def main() -> int:
         print(f"[buyer {i + 1}/{args.buyers}] {account.email} ({account.user_id})")
 
     for i in range(args.sellers):
-        email = f"api-seed-seller-{seed_id}-{i + 1}@coziyoo.local"
-        display_name = f"apiseedseller{seed_id.replace('-', '')}{i + 1}"
+        handle, _ = profile_for(i, TURKISH_SELLER_PROFILES)
+        email = f"{handle}.{seed_id}.{i + 1}@coziyoo.local"
+        display_name = f"{handle}_{seed_id.replace('-', '')}_{i + 1}"
         account = register_user(
             args.base_url,
             email=email,
@@ -263,28 +304,58 @@ def main() -> int:
         print(f"[seller {i + 1}/{args.sellers}] {account.email} ({account.user_id})")
 
     created_orders: list[str] = []
-    for idx in range(args.orders):
-        buyer = buyers[idx % len(buyers)]
-        chosen_seller_id = random.choice(seller_ids)
-        items = build_items_for_seller(foods_by_seller[chosen_seller_id])
-        idem_key = f"api-seed-order-{seed_id}-{idx + 1}"
-        result = create_order(
-            args.base_url,
-            buyer_token=buyer.access_token,
-            seller_id=chosen_seller_id,
-            items=items,
-            idempotency_key=idem_key,
-        )
-        order_id = result["data"]["orderId"]
-        created_orders.append(order_id)
-        print(f"[order {idx + 1}/{args.orders}] orderId={order_id} buyer={buyer.user_id} seller={chosen_seller_id}")
-        time.sleep(max(0.0, args.order_interval_seconds))
+    if args.orders is not None:
+        total_orders = args.orders
+        for idx in range(total_orders):
+            buyer = buyers[idx % len(buyers)]
+            chosen_seller_id = random.choice(selected_food_seller_ids)
+            items = build_items_for_seller(foods_by_seller[chosen_seller_id])
+            idem_key = f"api-seed-order-{seed_id}-{idx + 1}"
+            result = create_order(
+                args.base_url,
+                buyer_token=buyer.access_token,
+                seller_id=chosen_seller_id,
+                items=items,
+                idempotency_key=idem_key,
+            )
+            order_id = result["data"]["orderId"]
+            created_orders.append(order_id)
+            print(
+                f"[order {idx + 1}/{total_orders}] orderId={order_id} "
+                f"buyer={buyer.user_id} seller={chosen_seller_id}"
+            )
+            time.sleep(max(0.0, args.order_interval_seconds))
+    else:
+        total_orders = len(selected_food_seller_ids) * max(1, args.orders_per_food_seller)
+        order_idx = 0
+        for seller_slot, chosen_seller_id in enumerate(selected_food_seller_ids, start=1):
+            for per_seller_idx in range(args.orders_per_food_seller):
+                buyer = buyers[(seller_slot + per_seller_idx - 1) % len(buyers)]
+                items = build_items_for_seller(foods_by_seller[chosen_seller_id])
+                order_idx += 1
+                idem_key = f"api-seed-order-{seed_id}-{order_idx}"
+                result = create_order(
+                    args.base_url,
+                    buyer_token=buyer.access_token,
+                    seller_id=chosen_seller_id,
+                    items=items,
+                    idempotency_key=idem_key,
+                )
+                order_id = result["data"]["orderId"]
+                created_orders.append(order_id)
+                print(
+                    f"[order {order_idx}/{total_orders}] orderId={order_id} "
+                    f"foodSeller={seller_slot}/{len(selected_food_seller_ids)} "
+                    f"buyer={buyer.user_id} seller={chosen_seller_id} items={len(items)}"
+                )
+                time.sleep(max(0.0, args.order_interval_seconds))
 
     summary = {
         "seedId": seed_id,
         "baseUrl": args.base_url,
         "buyersCreated": [{"email": b.email, "userId": b.user_id} for b in buyers],
         "sellersCreated": [{"email": s.email, "userId": s.user_id} for s in sellers],
+        "foodSellerIdsUsedForOrders": selected_food_seller_ids,
         "ordersCreated": created_orders,
         "counts": {
             "buyers": len(buyers),
