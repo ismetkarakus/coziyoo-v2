@@ -1328,8 +1328,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               placeholder={
                 isSellerPage
                   ? language === "tr"
-                    ? "Satıcı Ara..."
-                    : "Search seller..."
+                    ? "Satıcı Ara (e-posta, ad, yemek kodu)..."
+                    : "Search seller (email, name, food code)..."
                   : language === "tr"
                     ? "E-posta veya Ad Ara..."
                     : "Search by email or name..."

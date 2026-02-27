@@ -176,7 +176,20 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
 
   if (input.search) {
     params.push(`%${input.search.toLowerCase()}%`);
-    where.push(`(lower(u.email) LIKE $${params.length} OR lower(u.display_name) LIKE $${params.length})`);
+    where.push(
+      `(lower(u.email) LIKE $${params.length}
+        OR lower(u.display_name) LIKE $${params.length}
+        OR EXISTS (
+          SELECT 1
+          FROM foods f_search
+          WHERE f_search.seller_id = u.id
+            AND (
+              lower(f_search.name) LIKE $${params.length}
+              OR lower('FD-' || f_search.id::text) LIKE $${params.length}
+              OR lower('FD-' || substring(f_search.id::text, 1, 8)) LIKE $${params.length}
+            )
+        ))`
+    );
   }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
