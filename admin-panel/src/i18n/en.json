@@ -32,7 +32,8 @@
     "openComplianceQueue": "Open Compliance Queue",
     "viewPaymentDisputes": "View Payment Disputes",
     "inspectAppUsers": "Inspect App Users",
-    "inspectAdminUsers": "Inspect Admin Users"
+    "inspectAdminUsers": "Inspect Admin Users",
+    "resetDatabase": "Reset Database"
   },
   "common": {
     "loading": "Loading...",

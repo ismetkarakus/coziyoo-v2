@@ -430,7 +430,7 @@ function AppShell({
               <p className="brand-title">{dict.navbar.title}</p>
             </div>
           </div>
-          <TopNavTabs pathname={location.pathname} dict={dict} />
+          <TopNavTabs pathname={location.pathname} dict={dict} isSuperAdmin={isSuperAdmin} language={language} />
         </div>
         <div className="navbar-actions">
           <ApiHealthBadge />
@@ -468,7 +468,17 @@ function AppShell({
   );
 }
 
-function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) {
+function TopNavTabs({
+  pathname,
+  dict,
+  isSuperAdmin,
+  language,
+}: {
+  pathname: string;
+  dict: Dictionary;
+  isSuperAdmin: boolean;
+  language: Language;
+}) {
   const items = [
     { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
     { to: "/app/buyers", active: pathname.startsWith("/app/buyers"), label: dict.menu.buyers },
@@ -487,6 +497,7 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
   ];
   const isManagementActive = managementItems.some((item) => item.active);
   const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
+  const [isResettingDb, setIsResettingDb] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -515,6 +526,45 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
     };
   }, []);
 
+  async function resetDatabaseFromAdminMenu() {
+    if (!isSuperAdmin || isResettingDb) return;
+
+    const firstConfirm = window.confirm(
+      language === "tr"
+        ? "Bu işlem veritabanındaki tüm kayıtları siler ve şemayı baştan kurar. Devam edilsin mi?"
+        : "This action deletes all records and reinitializes the schema. Continue?"
+    );
+    if (!firstConfirm) return;
+
+    const promptText = window.prompt(
+      language === "tr" ? 'Onaylamak için "RESET DATABASE" yazın:' : 'Type "RESET DATABASE" to confirm:'
+    );
+    if (promptText !== "RESET DATABASE") {
+      window.alert(language === "tr" ? "Doğrulama metni eşleşmedi. İşlem iptal edildi." : "Confirmation text mismatch. Operation cancelled.");
+      return;
+    }
+
+    try {
+      setIsResettingDb(true);
+      const response = await request("/v1/admin/system/reset-database", {
+        method: "POST",
+        body: JSON.stringify({ confirmText: "RESET DATABASE" }),
+      });
+      const body = await parseJson<ApiError & { data?: { message?: string } }>(response);
+      if (response.status !== 200) {
+        window.alert(body.error?.message ?? (language === "tr" ? "Veritabanı sıfırlama başarısız." : "Database reset failed."));
+        return;
+      }
+      window.alert(body.data?.message ?? (language === "tr" ? "Veritabanı sıfırlandı." : "Database reset complete."));
+      window.location.reload();
+    } catch {
+      window.alert(language === "tr" ? "Veritabanı sıfırlama isteği başarısız." : "Database reset request failed.");
+    } finally {
+      setIsResettingDb(false);
+      setIsManagementOpen(false);
+    }
+  }
+
   return (
     <div className="nav-wrap" ref={menuRef}>
       <nav className="nav">
@@ -538,6 +588,11 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
               {item.label}
             </Link>
           ))}
+          {isSuperAdmin ? (
+            <button className="nav-link nav-link-button nav-link-danger" type="button" onClick={() => resetDatabaseFromAdminMenu()}>
+              {isResettingDb ? (language === "tr" ? "Sıfırlanıyor..." : "Resetting...") : dict.actions.resetDatabase}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -787,6 +842,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const isAppScoped = kind === "app" || kind === "buyers" || kind === "sellers";
   const isSellerPage = kind === "sellers";
+  const isBuyerPage = kind === "buyers";
   const endpoint = isAppScoped ? "/v1/admin/users" : "/v1/admin/admin-users";
   const tableKey = isAppScoped ? "users" : "adminUsers";
   const audience = kind === "buyers" ? "buyer" : kind === "sellers" ? "seller" : null;
@@ -1303,7 +1359,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
               {dict.users.visibleColumns}
             </button>
-            {!isSellerPage ? (
+            {!isSellerPage && !isBuyerPage ? (
               <>
               <button className="ghost" type="button" onClick={openCreateDrawer} disabled={!isSuperAdmin}>
                 + {dict.actions.create}
@@ -1318,7 +1374,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       </header>
 
       <section className="panel users-kpi-grid">
-        {!isSellerPage ? (
+        {!isSellerPage && !isBuyerPage ? (
           <div className="density-switch users-density-floating" role="group" aria-label="Table density">
             <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
               {language === "tr" ? "Kompakt" : "Compact"}
@@ -1413,22 +1469,24 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 </button>
               </>
             ) : null}
-            <button
-              type="button"
-              className={`chip ${last7DaysOnly ? "is-active" : ""}`}
-              onClick={() => {
-                setLast7DaysOnly((prev) => !prev);
-                setFilters((prev) => ({ ...prev, page: 1 }));
-              }}
-            >
-              {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
-            </button>
-            {!isSellerPage ? <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span> : null}
-            {!isSellerPage ? (
+            {!isBuyerPage ? (
+              <button
+                type="button"
+                className={`chip ${last7DaysOnly ? "is-active" : ""}`}
+                onClick={() => {
+                  setLast7DaysOnly((prev) => !prev);
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
+              </button>
+            ) : null}
+            {!isSellerPage && !isBuyerPage ? <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span> : null}
+            {!isSellerPage && !isBuyerPage ? (
               <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
             ) : null}
-            {!isSellerPage ? <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span> : null}
-            {showState === "error" ? (
+            {!isSellerPage && !isBuyerPage ? <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span> : null}
+            {showState === "error" && !isBuyerPage ? (
               <button className="chip is-active" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
                 {language === "tr" ? "Yeniden Dene" : "Retry"}
               </button>

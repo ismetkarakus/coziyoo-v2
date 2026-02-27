@@ -32,7 +32,8 @@
     "openComplianceQueue": "Bekleyen Uygunluk İşlerini Aç",
     "viewPaymentDisputes": "Ödeme İtirazlarını Gör",
     "inspectAppUsers": "Uygulama Kullanıcılarını İncele",
-    "inspectAdminUsers": "Yönetici Kullanıcıları İncele"
+    "inspectAdminUsers": "Yönetici Kullanıcıları İncele",
+    "resetDatabase": "Veritabanını Sıfırla"
   },
   "common": {
     "loading": "Yükleniyor...",
