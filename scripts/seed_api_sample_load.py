@@ -196,8 +196,8 @@ def main() -> int:
     parser.add_argument("--buyers", type=int, default=10, help="Buyer users to create")
     parser.add_argument("--sellers", type=int, default=10, help="Seller users to create")
     parser.add_argument("--orders", type=int, default=100, help="Orders to create")
-    parser.add_argument("--admin-email", default="admin@coziyoo.local", help="Admin email for metadata API")
-    parser.add_argument("--admin-password", default="Admin12345!", help="Admin password for metadata API")
+    parser.add_argument("--admin-email", default="admin@coziyoo.com", help="Admin email for metadata API")
+    parser.add_argument("--admin-password", default="12345", help="Admin password for metadata API")
     parser.add_argument("--buyer-password", default="Buyer12345!", help="Password used for new buyers")
     parser.add_argument("--seller-password", default="Seller12345!", help="Password used for new sellers")
     parser.add_argument(
