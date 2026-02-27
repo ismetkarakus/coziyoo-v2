@@ -3480,6 +3480,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     cardSummary: string | null;
     description: string | null;
     recipe: string | null;
+    ingredients: string | null;
     price: number;
     imageUrl: string | null;
     status: "active" | "disabled";
@@ -3527,6 +3528,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             cardSummary: string | null;
             description: string | null;
             recipe: string | null;
+            ingredients: string | null;
             price: number;
             imageUrl: string | null;
             status: "active" | "disabled";
@@ -3924,6 +3926,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             </span>
                           </div>
                           <p className="seller-food-description">{food.description || food.recipe || food.cardSummary || dict.detail.noFoodDescription}</p>
+                          <p className="seller-food-ingredients">
+                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${food.ingredients || food.recipe || "-"}`}
+                          </p>
                           <div className="seller-food-meta">
                             <span>{formatCurrency(food.price, language)}</span>
                             <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>

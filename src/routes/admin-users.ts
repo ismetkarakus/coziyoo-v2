@@ -150,6 +150,25 @@ async function ensureSellerUser(userId: string) {
   return { ok: true as const, user: row };
 }
 
+function ingredientsTextFromJson(value: unknown): string | null {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    const parts = value.map((item) => String(item ?? "").trim()).filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.ingredients)) {
+      const parts = record.ingredients.map((item) => String(item ?? "").trim()).filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+    }
+    const values = Object.values(record).map((item) => String(item ?? "").trim()).filter(Boolean);
+    return values.length > 0 ? values.join(", ") : null;
+  }
+  if (typeof value === "string") return value.trim() || null;
+  return null;
+}
+
 adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), async (req, res) => {
   const parsed = InvestigationSearchQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -573,6 +592,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     card_summary: string | null;
     description: string | null;
     recipe: string | null;
+    ingredients_json: unknown;
     price: string;
     image_url: string | null;
     is_active: boolean;
@@ -585,6 +605,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
        card_summary,
        description,
        recipe,
+       ingredients_json,
        price::text,
        image_url,
        is_active,
@@ -606,6 +627,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       cardSummary: row.card_summary,
       description: row.description,
       recipe: row.recipe,
+      ingredients: ingredientsTextFromJson(row.ingredients_json),
       price: Number(row.price),
       imageUrl: row.image_url,
       status: row.is_active ? "active" : "disabled",
