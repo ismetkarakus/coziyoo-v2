@@ -5,6 +5,7 @@
     "buyers": "Alıcılar",
     "sellers": "Satıcılar",
     "admins": "Yönetici Kullanıcılar",
+    "investigation": "Şikayet İnceleme",
     "audit": "Denetim",
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
@@ -108,6 +109,15 @@
     "userTypeBoth": "Her ikisi",
     "roleAdmin": "Yönetici",
     "roleSuperAdmin": "Süper Yönetici"
+  },
+  "investigation": {
+    "title": "Şikayet İnceleme",
+    "subtitle": "Yemek kodu ile satıcı, alıcı, sipariş, tutar ve bölge bilgisini tek ekranda inceleyin.",
+    "searchPlaceholder": "Yemek kodu girin (örn: FD-F0150781)",
+    "searchHint": "Arama için en az 2 karakter girin.",
+    "requestFailed": "Şikayet inceleme araması başarısız",
+    "orders": "Siparişler",
+    "noOrders": "Bu yemek için henüz sipariş kaydı yok."
   },
   "entities": {
     "eyebrow": "Veritabanı Gezgini",

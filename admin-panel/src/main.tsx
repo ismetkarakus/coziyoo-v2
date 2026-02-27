@@ -427,6 +427,7 @@ function AppShell({
         {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
         {location.pathname === "/app/livekit-demo" ? <LiveKitDemoPage language={language} /> : null}
@@ -448,6 +449,7 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
     { to: "/app/buyers", active: pathname.startsWith("/app/buyers"), label: dict.menu.buyers },
     { to: "/app/sellers", active: pathname.startsWith("/app/sellers"), label: dict.menu.sellers },
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
+    { to: "/app/investigation", active: pathname.startsWith("/app/investigation"), label: dict.menu.investigation },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
     { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
     { to: "/app/livekit-demo", active: pathname === "/app/livekit-demo", label: dict.menu.livekitDemo },
@@ -1637,6 +1639,171 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </section>
       </div>
     </div>
+  );
+}
+
+function InvestigationPage({ language }: { language: Language }) {
+  const dict = DICTIONARIES[language];
+  const [searchInput, setSearchInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<Array<{
+    food: {
+      id: string;
+      code: string;
+      name: string;
+      cardSummary: string | null;
+      description: string | null;
+      recipe: string | null;
+      price: number;
+      status: "active" | "disabled";
+      createdAt: string;
+      updatedAt: string;
+    };
+    seller: { id: string; name: string; email: string };
+    incidents: Array<{
+      orderId: string;
+      orderNo: string;
+      orderStatus: string;
+      orderTotal: number;
+      orderCreatedAt: string;
+      orderUpdatedAt: string;
+      orderRequestedAt: string | null;
+      region: string | null;
+      buyer: { id: string; name: string | null; email: string | null };
+      item: { quantity: number; unitPrice: number; lineTotal: number };
+      payment: { status: string | null; provider: string | null; updatedAt: string | null };
+    }>;
+  }>>([]);
+
+  async function runSearch() {
+    const query = searchInput.trim();
+    if (query.length < 2) {
+      setRows([]);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ q: query, limit: "60" });
+      const response = await request(`/v1/admin/investigations/search?${params.toString()}`);
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      const body = await parseJson<{ data: typeof rows }>(response);
+      setRows(Array.isArray(body.data) ? body.data : []);
+    } catch {
+      setError(dict.investigation.requestFailed);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <h2>{dict.investigation.title}</h2>
+      </div>
+      <p className="panel-meta">{dict.investigation.subtitle}</p>
+      <div className="users-filter-top">
+        <div className="users-search-wrap">
+          <span className="users-search-icon" aria-hidden="true">
+            <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+              <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+              <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </span>
+          <input
+            className="users-search-input"
+            placeholder={dict.investigation.searchPlaceholder}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                runSearch().catch(() => setError(dict.investigation.requestFailed));
+              }
+            }}
+          />
+        </div>
+        <button className="primary users-filter-apply" type="button" onClick={() => runSearch().catch(() => setError(dict.investigation.requestFailed))}>
+          {dict.actions.search}
+        </button>
+      </div>
+      {searchInput.trim().length > 0 && searchInput.trim().length < 2 ? <p className="panel-meta">{dict.investigation.searchHint}</p> : null}
+      {loading ? <p className="panel-meta">{dict.common.loading}</p> : null}
+      {error ? <div className="alert">{error}</div> : null}
+      {!loading && !error && searchInput.trim().length >= 2 && rows.length === 0 ? <p className="panel-meta">{dict.common.noRecords}</p> : null}
+      <div className="investigation-results">
+        {rows.map((entry) => (
+          <article key={entry.food.id} className="panel investigation-card">
+            <div className="investigation-card-head">
+              <div>
+                <h3>{`${entry.food.name} (${entry.food.code})`}</h3>
+                <p className="panel-meta">{entry.food.description || entry.food.recipe || entry.food.cardSummary || "-"}</p>
+              </div>
+              <span className={`status-pill ${entry.food.status === "active" ? "is-active" : "is-disabled"}`}>
+                {entry.food.status === "active" ? dict.common.active : dict.common.disabled}
+              </span>
+            </div>
+            <div className="seller-meta-chips">
+              <span className="retention-chip">{`${language === "tr" ? "Satıcı" : "Seller"}: ${entry.seller.name}`}</span>
+              <span className="retention-chip">{entry.seller.email}</span>
+              <span className="retention-chip">{`${language === "tr" ? "Fiyat" : "Price"}: ${formatCurrency(entry.food.price, language)}`}</span>
+              <Link className="retention-chip" to={`/app/sellers/${entry.seller.id}`}>{language === "tr" ? "Satıcı Detayı" : "Seller Detail"}</Link>
+            </div>
+            <h4>{`${dict.investigation.orders}: ${entry.incidents.length}`}</h4>
+            {entry.incidents.length === 0 ? (
+              <p className="panel-meta">{dict.investigation.noOrders}</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{language === "tr" ? "Sipariş" : "Order"}</th>
+                      <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                      <th>{language === "tr" ? "Tutar" : "Amount"}</th>
+                      <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
+                      <th>{language === "tr" ? "Tarih/Saat" : "Date/Time"}</th>
+                      <th>{language === "tr" ? "Bölge" : "Region"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entry.incidents.map((incident) => (
+                      <tr key={incident.orderId}>
+                        <td>
+                          <div>{incident.orderNo}</div>
+                          <div className="panel-meta">{incident.orderStatus}</div>
+                        </td>
+                        <td>
+                          <div>{incident.buyer.name ?? "-"}</div>
+                          <div className="panel-meta">{incident.buyer.email ?? "-"}</div>
+                        </td>
+                        <td>
+                          <div>{formatCurrency(incident.orderTotal, language)}</div>
+                          <div className="panel-meta">{`${incident.item.quantity} x ${formatCurrency(incident.item.unitPrice, language)}`}</div>
+                        </td>
+                        <td>
+                          <div>{incident.payment.status ?? "-"}</div>
+                          <div className="panel-meta">{incident.payment.provider ?? "-"}</div>
+                        </td>
+                        <td>
+                          <div>{incident.orderCreatedAt ? new Date(incident.orderCreatedAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "-"}</div>
+                        </td>
+                        <td>{incident.region ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -1990,6 +1990,23 @@ textarea:focus {
   gap: 8px;
 }
 
+.investigation-results {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.investigation-card {
+  margin: 0;
+}
+
+.investigation-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .seller-json-card {
   margin-top: 12px;
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);

@@ -93,6 +93,10 @@ const SellerFoodsQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().max(200).default(20),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
+const InvestigationSearchQuerySchema = z.object({
+  q: z.string().min(2).max(120),
+  limit: z.coerce.number().int().positive().max(100).default(40),
+});
 
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
   createdAt: "u.created_at",
@@ -145,6 +149,196 @@ async function ensureSellerUser(userId: string) {
   }
   return { ok: true as const, user: row };
 }
+
+adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), async (req, res) => {
+  const parsed = InvestigationSearchQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const needle = `%${input.q.toLowerCase()}%`;
+  const rows = await pool.query<{
+    food_id: string;
+    food_name: string;
+    card_summary: string | null;
+    description: string | null;
+    recipe: string | null;
+    food_price: string;
+    food_status: boolean;
+    food_created_at: string;
+    food_updated_at: string;
+    seller_id: string;
+    seller_name: string;
+    seller_email: string;
+    order_id: string | null;
+    order_status: string | null;
+    order_total_price: string | null;
+    order_created_at: string | null;
+    order_updated_at: string | null;
+    order_requested_at: string | null;
+    delivery_address_json: unknown;
+    buyer_id: string | null;
+    buyer_name: string | null;
+    buyer_email: string | null;
+    quantity: number | null;
+    unit_price: string | null;
+    line_total: string | null;
+    payment_status: string | null;
+    payment_provider: string | null;
+    payment_updated_at: string | null;
+  }>(
+    `SELECT
+       f.id::text AS food_id,
+       f.name AS food_name,
+       f.card_summary,
+       f.description,
+       f.recipe,
+       f.price::text AS food_price,
+       f.is_active AS food_status,
+       f.created_at::text AS food_created_at,
+       f.updated_at::text AS food_updated_at,
+       s.id::text AS seller_id,
+       s.display_name AS seller_name,
+       s.email AS seller_email,
+       o.id::text AS order_id,
+       o.status AS order_status,
+       o.total_price::text AS order_total_price,
+       o.created_at::text AS order_created_at,
+       o.updated_at::text AS order_updated_at,
+       o.requested_at::text AS order_requested_at,
+       o.delivery_address_json,
+       b.id::text AS buyer_id,
+       b.display_name AS buyer_name,
+       b.email AS buyer_email,
+       oi.quantity,
+       oi.unit_price::text AS unit_price,
+       oi.line_total::text AS line_total,
+       pa.status AS payment_status,
+       pa.provider AS payment_provider,
+       pa.updated_at::text AS payment_updated_at
+     FROM foods f
+     JOIN users s ON s.id = f.seller_id
+     LEFT JOIN order_items oi ON oi.food_id = f.id
+     LEFT JOIN orders o ON o.id = oi.order_id
+     LEFT JOIN users b ON b.id = o.buyer_id
+     LEFT JOIN LATERAL (
+       SELECT status, provider, updated_at
+       FROM payment_attempts
+       WHERE order_id = o.id
+       ORDER BY updated_at DESC NULLS LAST, created_at DESC
+       LIMIT 1
+     ) pa ON TRUE
+     WHERE
+       lower(f.name) LIKE $1
+       OR lower('FD-' || substring(f.id::text, 1, 8)) LIKE $1
+       OR lower('FD-' || f.id::text) LIKE $1
+     ORDER BY o.created_at DESC NULLS LAST, f.updated_at DESC
+     LIMIT $2`,
+    [needle, input.limit]
+  );
+
+  const grouped = new Map<
+    string,
+    {
+      food: {
+        id: string;
+        code: string;
+        name: string;
+        cardSummary: string | null;
+        description: string | null;
+        recipe: string | null;
+        price: number;
+        status: "active" | "disabled";
+        createdAt: string;
+        updatedAt: string;
+      };
+      seller: {
+        id: string;
+        name: string;
+        email: string;
+      };
+      incidents: Array<{
+        orderId: string;
+        orderNo: string;
+        orderStatus: string;
+        orderTotal: number;
+        orderCreatedAt: string;
+        orderUpdatedAt: string;
+        orderRequestedAt: string | null;
+        region: string | null;
+        buyer: { id: string; name: string | null; email: string | null };
+        item: { quantity: number; unitPrice: number; lineTotal: number };
+        payment: { status: string | null; provider: string | null; updatedAt: string | null };
+      }>;
+    }
+  >();
+
+  for (const row of rows.rows) {
+    const foodId = row.food_id;
+    let entry = grouped.get(foodId);
+    if (!entry) {
+      entry = {
+        food: {
+          id: foodId,
+          code: `FD-${foodId.slice(0, 8).toUpperCase()}`,
+          name: row.food_name,
+          cardSummary: row.card_summary,
+          description: row.description,
+          recipe: row.recipe,
+          price: Number(row.food_price),
+          status: row.food_status ? "active" : "disabled",
+          createdAt: row.food_created_at,
+          updatedAt: row.food_updated_at,
+        },
+        seller: {
+          id: row.seller_id,
+          name: row.seller_name,
+          email: row.seller_email,
+        },
+        incidents: [],
+      };
+      grouped.set(foodId, entry);
+    }
+
+    if (!row.order_id) continue;
+    const address = row.delivery_address_json && typeof row.delivery_address_json === "object"
+      ? (row.delivery_address_json as Record<string, unknown>)
+      : null;
+    const regionParts = [address?.district, address?.city, address?.country]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean);
+    entry.incidents.push({
+      orderId: row.order_id,
+      orderNo: `#${row.order_id.slice(0, 8).toUpperCase()}`,
+      orderStatus: row.order_status ?? "-",
+      orderTotal: Number(row.order_total_price ?? 0),
+      orderCreatedAt: row.order_created_at ?? row.order_updated_at ?? "",
+      orderUpdatedAt: row.order_updated_at ?? row.order_created_at ?? "",
+      orderRequestedAt: row.order_requested_at,
+      region: regionParts.length > 0 ? regionParts.join(" / ") : null,
+      buyer: {
+        id: row.buyer_id ?? "",
+        name: row.buyer_name,
+        email: row.buyer_email,
+      },
+      item: {
+        quantity: Number(row.quantity ?? 0),
+        unitPrice: Number(row.unit_price ?? 0),
+        lineTotal: Number(row.line_total ?? 0),
+      },
+      payment: {
+        status: row.payment_status,
+        provider: row.payment_provider,
+        updatedAt: row.payment_updated_at,
+      },
+    });
+  }
+
+  return res.json({
+    data: Array.from(grouped.values()),
+  });
+});
 
 adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) => {
   const parsed = AppUserListQuerySchema.safeParse(req.query);
