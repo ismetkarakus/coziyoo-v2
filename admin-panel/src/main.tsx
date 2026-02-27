@@ -469,25 +469,51 @@ function AppShell({
 function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) {
   const items = [
     { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
-    { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
     { to: "/app/buyers", active: pathname.startsWith("/app/buyers"), label: dict.menu.buyers },
     { to: "/app/sellers", active: pathname.startsWith("/app/sellers"), label: dict.menu.sellers },
-    { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
     { to: "/app/investigation", active: pathname.startsWith("/app/investigation"), label: dict.menu.investigation },
-    { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
+  ];
+  const managementItems = [
+    { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
+    { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
     { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
     { to: "/app/livekit-demo", active: pathname === "/app/livekit-demo", label: dict.menu.livekitDemo },
+    { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
     { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
   ];
+  const isManagementActive = managementItems.some((item) => item.active);
+  const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
+
+  useEffect(() => {
+    if (isManagementActive) setIsManagementOpen(true);
+  }, [isManagementActive]);
 
   return (
-    <nav className="nav">
-      {items.map((item) => (
-        <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to}>
-          {item.label}
-        </Link>
-      ))}
-    </nav>
+    <div className="nav-wrap">
+      <nav className="nav">
+        {items.map((item) => (
+          <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to}>
+            {item.label}
+          </Link>
+        ))}
+        <button
+          className={`nav-link nav-link-button ${isManagementActive ? "is-active" : ""}`}
+          onClick={() => setIsManagementOpen((open) => !open)}
+          type="button"
+        >
+          {dict.menu.management}
+        </button>
+      </nav>
+      {isManagementOpen ? (
+        <div className="nav-submenu">
+          {managementItems.map((item) => (
+            <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

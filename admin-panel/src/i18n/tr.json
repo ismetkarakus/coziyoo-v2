@@ -6,10 +6,11 @@
     "sellers": "Satıcılar",
     "admins": "Yönetici Kullanıcılar",
     "investigation": "Şikayet İnceleme",
-    "audit": "Denetim",
+    "audit": "DB Denetim",
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
-    "dataExplorer": "Veri Gezgini"
+    "dataExplorer": "Veri Gezgini",
+    "management": "Yönetim"
   },
   "actions": {
     "logout": "Çıkış",

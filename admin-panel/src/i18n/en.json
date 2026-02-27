@@ -9,7 +9,8 @@
     "audit": "Audit",
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
-    "dataExplorer": "Data Explorer"
+    "dataExplorer": "Data Explorer",
+    "management": "Management"
   },
   "actions": {
     "logout": "Logout",
