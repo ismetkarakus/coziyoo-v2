@@ -1193,6 +1193,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return id.length > 10 ? `${id.slice(0, 8)}…` : id;
   }
 
+  function openCustomerIdPreview(rawId: unknown) {
+    const fullId = String(rawId ?? "").trim();
+    if (!fullId) return;
+    window.prompt(language === "tr" ? "Müşteri ID" : "Customer ID", fullId);
+  }
+
   function renderCell(row: any, columnName: string) {
     const mapped = columnMappings[columnName] ?? columnName;
     const value = row[mapped];
@@ -1209,7 +1215,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           className="inline-copy"
           type="button"
           title={String(value ?? "")}
-          onClick={() => navigator.clipboard.writeText(String(value ?? "")).catch(() => undefined)}
+          onClick={() => {
+            openCustomerIdPreview(value);
+            navigator.clipboard.writeText(String(value ?? "")).catch(() => undefined);
+          }}
         >
           {shortId(String(value ?? ""))}
         </button>
