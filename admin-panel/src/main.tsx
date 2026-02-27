@@ -58,11 +58,24 @@ const LANGUAGE_KEY = "admin_language";
 
 type Language = "tr" | "en";
 type Dictionary = typeof en;
+type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw";
 
 const DICTIONARIES: Record<Language, Dictionary> = {
   en,
   tr,
 };
+
+function resolveSellerDetailTab(value: string | null | undefined): SellerDetailTab {
+  if (value === "general") return "general";
+  if (value === "foods") return "foods";
+  if (value === "orders") return "orders";
+  if (value === "wallet") return "wallet";
+  if (value === "legal") return "legal";
+  if (value === "retention") return "retention";
+  if (value === "security") return "security";
+  if (value === "raw") return "raw";
+  return "identity";
+}
 
 function restoreRedirectPathFromQuery() {
   const url = new URL(window.location.href);
@@ -1184,6 +1197,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const mapped = columnMappings[columnName] ?? columnName;
     const value = row[mapped];
     if (mapped === "id") {
+      if (kind === "sellers") {
+        return (
+          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+            {shortId(String(value ?? ""))}
+          </button>
+        );
+      }
       return (
         <button
           className="inline-copy"
@@ -1201,12 +1221,24 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (mapped === "totalFoods") {
       const count = Number(value ?? 0);
-      return Number.isFinite(count) ? count : 0;
+      const safeCount = Number.isFinite(count) ? count : 0;
+      if (kind === "sellers") {
+        return (
+          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+            {safeCount}
+          </button>
+        );
+      }
+      return safeCount;
     }
     if (mapped === "displayName") {
       const text = String(value ?? "");
       if (kind === "sellers") {
-        return <span>{text}</span>;
+        return (
+          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+            {text}
+          </button>
+        );
       }
       const initials = text
         .split(" ")
@@ -1219,6 +1251,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <span className="name-avatar">{initials || "U"}</span>
           {text}
         </span>
+      );
+    }
+    if (mapped === "email" && kind === "sellers") {
+      return (
+        <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+          {String(value ?? "")}
+        </button>
       );
     }
     if (mapped === "countryCode") {
@@ -3591,6 +3630,7 @@ function initialsFromName(displayName: string | null | undefined, email: string 
 }
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
+  const location = useLocation();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
@@ -3608,7 +3648,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     createdAt: string;
     updatedAt: string;
   }>>([]);
-  const [activeTab, setActiveTab] = useState<"general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw">("identity");
+  const [activeTab, setActiveTab] = useState<SellerDetailTab>(() => resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
@@ -3677,6 +3717,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setFoodImageErrors({});
     setActiveFoodDate(null);
   }, [id]);
+
+  useEffect(() => {
+    setActiveTab(resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
+  }, [location.search]);
 
   const foodDateChips = useMemo(() => {
     const counts = new Map<string, { count: number; latestTimestamp: number; label: string }>();
