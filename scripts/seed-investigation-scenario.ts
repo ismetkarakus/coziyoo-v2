@@ -218,6 +218,9 @@ async function main() {
   const grilledCategoryId = await ensureCategory("Demo Yemek", "Demo Food");
   const sellerIds: string[] = [];
   const buyerIds: string[] = [];
+  const requestedBuyerCount = Number(process.env.SEED_INVESTIGATION_BUYER_COUNT ?? buyers.length);
+  const buyerCount = Number.isFinite(requestedBuyerCount) ? Math.max(1, Math.min(buyers.length, Math.trunc(requestedBuyerCount))) : buyers.length;
+  const selectedBuyers = buyers.slice(0, buyerCount);
 
   await pool.query("BEGIN");
   try {
@@ -269,7 +272,7 @@ async function main() {
       }
     }
 
-    for (const buyer of buyers) {
+    for (const buyer of selectedBuyers) {
       const buyerId = await upsertUser({
         email: buyer.email,
         displayName: buyer.displayName,
@@ -301,7 +304,7 @@ async function main() {
       const sellerId = sellerIds[sellerIndex];
       const buyerIndex = sellerIndex % buyerIds.length;
       const buyerId = buyerIds[buyerIndex];
-      const buyer = buyers[buyerIndex];
+      const buyer = selectedBuyers[buyerIndex];
 
       const foods = await pool.query<{ id: string; price: string }>(
         "SELECT id, price::text FROM foods WHERE seller_id = $1 ORDER BY created_at DESC LIMIT 2",
