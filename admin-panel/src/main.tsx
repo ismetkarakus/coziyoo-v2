@@ -487,13 +487,36 @@ function TopNavTabs({ pathname, dict }: { pathname: string; dict: Dictionary }) 
   ];
   const isManagementActive = managementItems.some((item) => item.active);
   const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setIsManagementOpen(isManagementActive);
   }, [isManagementActive]);
 
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setIsManagementOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsManagementOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
   return (
-    <div className="nav-wrap">
+    <div className="nav-wrap" ref={menuRef}>
       <nav className="nav">
         {items.map((item) => (
           <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to} onClick={() => setIsManagementOpen(false)}>
@@ -1937,6 +1960,98 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
         ? "Browse order records from the database."
         : "Browse food records from the database.";
 
+  const formatOrderAddress = (input: unknown): string => {
+    if (!input || typeof input !== "object") return dict.common.counterpartNotFound;
+    const address = input as Record<string, unknown>;
+    const city = [address.il, address.city, address.province, address.state]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .find(Boolean);
+    const district = [address.ilce, address.district, address.town]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .find(Boolean);
+    if (city && district) return `${city} / ${district}`;
+    if (city) return city;
+    if (district) return district;
+    return dict.common.counterpartNotFound;
+  };
+
+  const orderStatusMeta = (rawStatus: unknown): { label: string; note: string; toneClass: string } => {
+    const status = String(rawStatus ?? "").trim().toLowerCase();
+    const tr = language === "tr";
+    const map: Record<string, { label: string; note: string; toneClass: string }> = {
+      pending_seller_approval: {
+        label: tr ? "Onay bekliyor" : "Pending approval",
+        note: tr ? "Satıcı onayı bekleniyor" : "Waiting for seller approval",
+        toneClass: "is-pending",
+      },
+      seller_approved: {
+        label: tr ? "Onaylandı" : "Approved",
+        note: tr ? "Satıcı tarafından onaylandı" : "Approved by seller",
+        toneClass: "is-approved",
+      },
+      awaiting_payment: {
+        label: tr ? "Ödeme bekliyor" : "Awaiting payment",
+        note: tr ? "Ödeme adımı bekleniyor" : "Waiting for payment",
+        toneClass: "is-pending",
+      },
+      paid: {
+        label: tr ? "Ödendi" : "Paid",
+        note: tr ? "Ödeme tamamlandı" : "Payment completed",
+        toneClass: "is-paid",
+      },
+      preparing: {
+        label: tr ? "Hazırlanıyor" : "Preparing",
+        note: tr ? "Sipariş hazırlanıyor" : "Order is being prepared",
+        toneClass: "is-pending",
+      },
+      ready: {
+        label: tr ? "Teslime hazır" : "Ready",
+        note: tr ? "Teslimata çıkmayı bekliyor" : "Waiting for delivery pickup",
+        toneClass: "is-approved",
+      },
+      in_delivery: {
+        label: tr ? "Teslimatta" : "In delivery",
+        note: tr ? "Teslimat bekliyor" : "Out for delivery",
+        toneClass: "is-delivery",
+      },
+      delivered: {
+        label: tr ? "Teslim edildi" : "Delivered",
+        note: tr ? "Teslimat tamamlandı" : "Delivery completed",
+        toneClass: "is-done",
+      },
+      completed: {
+        label: tr ? "Tamamlandı" : "Completed",
+        note: tr ? "Sipariş kapanışı yapıldı" : "Order completed",
+        toneClass: "is-done",
+      },
+    };
+    return map[status] ?? {
+      label: status ? status.replace(/_/g, " ") : dict.common.counterpartNotFound,
+      note: tr ? "Durum notu bulunamadı" : "Status note not found",
+      toneClass: "is-pending",
+    };
+  };
+
+  const renderRecordsCell = (column: string, value: unknown): ReactNode => {
+    if (tableKey !== "orders") return renderCell(value);
+
+    if (column === "status") {
+      const meta = orderStatusMeta(value);
+      return (
+        <div className="order-status-cell">
+          <span className={`status-pill order-status-pill ${meta.toneClass}`}>{meta.label}</span>
+          <small className="order-status-note">{meta.note}</small>
+        </div>
+      );
+    }
+
+    if (column === "delivery_address_json") {
+      return formatOrderAddress(value);
+    }
+
+    return renderCell(value);
+  };
+
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -2044,7 +2159,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
                 rows.map((row, index) => (
                   <tr key={`${tableKey}-${index}`}>
                     {columns.map((column) => (
-                      <td key={`${index}-${column}`}>{renderCell(row[column])}</td>
+                      <td key={`${index}-${column}`}>{renderRecordsCell(column, row[column])}</td>
                     ))}
                   </tr>
                 ))

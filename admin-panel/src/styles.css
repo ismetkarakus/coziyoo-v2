@@ -228,7 +228,7 @@ a {
   border-radius: 14px;
   border: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-surface-strong) 82%, transparent);
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .nav-submenu .nav-link {
@@ -1729,7 +1729,7 @@ textarea:focus {
   position: absolute;
   top: 10px;
   right: 14px;
-  z-index: 3;
+  z-index: 1;
 }
 
 .density-switch button {
@@ -1766,6 +1766,48 @@ textarea:focus {
   padding: 3px 10px;
   font-weight: 600;
   border: 1px solid transparent;
+}
+
+.order-status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.order-status-pill.is-pending {
+  color: #ffd98e;
+  border-color: color-mix(in srgb, #e7a73f 40%, transparent);
+  background: color-mix(in srgb, #8a5a12 35%, transparent);
+}
+
+.order-status-pill.is-approved {
+  color: #9dd8ff;
+  border-color: color-mix(in srgb, #3f84ff 45%, transparent);
+  background: color-mix(in srgb, #133a73 32%, transparent);
+}
+
+.order-status-pill.is-paid {
+  color: #b5efcc;
+  border-color: color-mix(in srgb, #2ea665 45%, transparent);
+  background: color-mix(in srgb, #16563a 32%, transparent);
+}
+
+.order-status-pill.is-delivery {
+  color: #d1c4ff;
+  border-color: color-mix(in srgb, #7b67e8 45%, transparent);
+  background: color-mix(in srgb, #3b2f8a 30%, transparent);
+}
+
+.order-status-pill.is-done {
+  color: #c7f7df;
+  border-color: color-mix(in srgb, #20b874 50%, transparent);
+  background: color-mix(in srgb, #145f41 30%, transparent);
+}
+
+.order-status-note {
+  font-size: 0.72rem;
+  color: var(--color-tertiary-text);
 }
 
 .status-pill.is-active {
