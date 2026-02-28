@@ -2014,6 +2014,45 @@ textarea:focus {
   background: color-mix(in srgb, #1e2a45 84%, transparent);
 }
 
+.buyer-v2-row-actions {
+  position: relative;
+}
+
+.buyer-row-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 35;
+  min-width: 170px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: color-mix(in srgb, #0f1628 94%, transparent);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.buyer-row-menu button {
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  padding: 7px 9px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.buyer-row-menu button:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.buyer-row-menu button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .users-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

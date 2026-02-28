@@ -1053,6 +1053,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerFilterMenuOpen, setBuyerFilterMenuOpen] = useState(false);
+  const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -1154,6 +1155,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       spendTrend: "all",
     });
     setBuyerQuickFilter("all");
+    setBuyerActionMenuId(null);
     setCustomerIdPreview(null);
   }, [kind]);
 
@@ -1736,9 +1738,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return (
       <div className="app buyer-v2-page">
         <header className="buyer-v2-head">
-          <p className="buyer-v2-breadcrumb">a / COZIYOO + HİBRİT ALICI YÖNETİMİ</p>
           <h1>Alıcı Yönetimi</h1>
-          <p>Kullanıcıları görüntüleyin, filtreleyin ve yönetin.</p>
         </header>
 
         <section className="buyer-v2-kpis">
@@ -1951,6 +1951,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const spendTrendMeta = trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
                     const unresolved = Number(row.complaintUnresolved ?? 0);
                     const totalComplaints = Number(row.complaintTotal ?? 0);
+                    const phoneRaw = String(row.phone ?? row.phoneNumber ?? row.contactPhone ?? "").trim();
+                    const hasPhone = phoneRaw.length > 0;
+                    const phoneHref = phoneRaw.replace(/\s+/g, "");
                     const initials = String(row.displayName ?? row.email ?? "U")
                       .split(" ")
                       .filter(Boolean)
@@ -2021,8 +2024,59 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             {row.status === "active" ? "Aktif" : "Pasif"}
                           </span>
                         </td>
-                        <td className="cell-actions">
-                          <button className="ghost action-menu-btn" type="button" onClick={(event) => event.stopPropagation()}>⋯</button>
+                        <td className="cell-actions buyer-v2-row-actions">
+                          <button
+                            className="ghost action-menu-btn"
+                            type="button"
+                            aria-haspopup="menu"
+                            aria-expanded={buyerActionMenuId === row.id}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setBuyerActionMenuId((prev) => (prev === row.id ? null : row.id));
+                            }}
+                          >
+                            ⋯
+                          </button>
+                          {buyerActionMenuId === row.id ? (
+                            <div className="buyer-row-menu" role="menu" onClick={(event) => event.stopPropagation()}>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setBuyerActionMenuId(null);
+                                  const email = String(row.email ?? "").trim();
+                                  if (!email) return;
+                                  window.location.href = `mailto:${email}`;
+                                }}
+                              >
+                                Hızlı E-posta
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                disabled={!hasPhone}
+                                onClick={() => {
+                                  setBuyerActionMenuId(null);
+                                  if (!hasPhone) return;
+                                  window.location.href = `sms:${phoneHref}`;
+                                }}
+                              >
+                                SMS
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                disabled={!hasPhone}
+                                onClick={() => {
+                                  setBuyerActionMenuId(null);
+                                  if (!hasPhone) return;
+                                  window.location.href = `tel:${phoneHref}`;
+                                }}
+                              >
+                                Telefon
+                              </button>
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     );
