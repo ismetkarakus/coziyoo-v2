@@ -1051,6 +1051,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     spendTrend: "all",
   });
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
+  const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -1723,6 +1724,249 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }
 
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
+  const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
+
+  useEffect(() => {
+    if (!isBuyerPage) return;
+    setBuyerSelectedIds((prev) => prev.filter((id) => filteredRows.some((row) => row.id === id)));
+  }, [filteredRows, isBuyerPage]);
+
+  if (isBuyerPage) {
+    return (
+      <div className="app buyer-v2-page">
+        <header className="buyer-v2-head">
+          <p className="buyer-v2-breadcrumb">a / COZIYOO + HİBRİT ALICI YÖNETİMİ</p>
+          <h1>Alıcı Yönetimi</h1>
+          <p>Kullanıcıları görüntüleyin, filtreleyin ve yönetin.</p>
+        </header>
+
+        <section className="buyer-v2-kpis">
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon">👥</div>
+            <div>
+              <p>Toplam Alıcı</p>
+              <strong>{new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}</strong>
+              <small>%{activeRatio} Son 30n Aktif Oranı</small>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-good">✓</div>
+            <div>
+              <p>Aktif Oranı</p>
+              <strong>%{activeRatio}</strong>
+              <div className="buyer-v2-kpi-progress"><span style={{ width: `${activeRatio}%` }} /></div>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-warn">⚠</div>
+            <div>
+              <p>Şikayetli Alıcı</p>
+              <strong>{buyersWithOpenComplaints}</strong>
+              <small>{`%${buyersWithOpenComplaints} Son 30 Gün Aktif Oranı`}</small>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-danger">🛡</div>
+            <div>
+              <p>Riskli Alıcı</p>
+              <strong>{riskyBuyersCount}</strong>
+              <small>{`%${riskyBuyersCount} Son 30 Gün`}</small>
+            </div>
+          </article>
+        </section>
+
+        <section className="panel buyer-v2-board">
+          <div className="buyer-v2-toolbar">
+            <div className="users-search-wrap buyer-v2-search">
+              <span className="users-search-icon" aria-hidden="true">
+                <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+                  <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+                  <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                className="users-search-input"
+                placeholder="E-posta, isim veya ID ile ara..."
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+              {searchInput.trim().length > 0 ? (
+                <button className="users-search-clear" type="button" aria-label="Aramayı temizle" onClick={() => setSearchInput("")}>
+                  ×
+                </button>
+              ) : null}
+            </div>
+
+            <div className="buyer-v2-toolbar-actions">
+              <button className="ghost buyer-v2-toolbar-btn" type="button">Filtreler ▾</button>
+              <button className="ghost buyer-v2-toolbar-btn" type="button">
+                <strong>Sırala</strong>&nbsp; Kayıt Tarihi · {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▾
+              </button>
+              <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
+              <button className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel}>Excel'e Aktar</button>
+            </div>
+          </div>
+
+          <div className="buyer-v2-chips">
+            <button type="button" className={`chip ${buyerQuickFilter === "all" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("all"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Tümü</button>
+            <button type="button" className={`chip ${buyerQuickFilter === "risky" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("risky"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Riskli</button>
+            <button type="button" className={`chip ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("open_complaint"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Şikayetli</button>
+            <button type="button" className={`chip ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("down_spend"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Azalan Harcama</button>
+          </div>
+
+          <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal">
+            <table>
+              <thead>
+                <tr>
+                  <th className="buyer-v2-check-col">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleBuyerRowsSelected}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setBuyerSelectedIds(filteredRows.map((row) => row.id));
+                          return;
+                        }
+                        setBuyerSelectedIds([]);
+                      }}
+                    />
+                  </th>
+                  <th>Alıcı</th>
+                  <th>Risk</th>
+                  <th>Şikayet</th>
+                  <th>Sipariş (30 Gün)</th>
+                  <th>Harcama (30 Gün)</th>
+                  <th>Durum</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={`skeleton-buyer-${index}`}>
+                      <td colSpan={8} className="table-skeleton"><span /></td>
+                    </tr>
+                  ))
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8}>{dict.common.noRecords}</td>
+                  </tr>
+                ) : (
+                  filteredRows.map((row) => {
+                    const risk = computeBuyerRisk(row);
+                    const orderTrendMeta = trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0));
+                    const spendTrendMeta = trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
+                    const unresolved = Number(row.complaintUnresolved ?? 0);
+                    const totalComplaints = Number(row.complaintTotal ?? 0);
+                    const initials = String(row.displayName ?? row.email ?? "U")
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((p: string) => p[0]?.toUpperCase() ?? "")
+                      .join("");
+
+                    return (
+                      <tr
+                        key={row.id}
+                        className={`is-clickable buyer-risk-${risk.level}`}
+                        onClick={() => navigate(`/app/buyers/${row.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            navigate(`/app/buyers/${row.id}`);
+                          }
+                        }}
+                        tabIndex={0}
+                      >
+                        <td className="buyer-v2-check-col">
+                          <input
+                            type="checkbox"
+                            checked={buyerSelectedIds.includes(row.id)}
+                            onChange={(event) => {
+                              event.stopPropagation();
+                              setBuyerSelectedIds((prev) =>
+                                event.target.checked ? [...new Set([...prev, row.id])] : prev.filter((id) => id !== row.id)
+                              );
+                            }}
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        </td>
+                        <td>
+                          <div className="buyer-user-cell">
+                            <span className="name-avatar">{initials || "U"}</span>
+                            <div>
+                              <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
+                              <span title={`Son Online: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)}`}>{String(row.email ?? "-")}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`risk-pill is-${risk.level}`}>
+                            {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="buyer-complaint-cell">
+                            <strong>{totalComplaints}</strong>
+                            {unresolved > 0 ? <span className="complaint-open-chip">{`${unresolved} Açık`}</span> : null}
+                          </div>
+                        </td>
+                        <td>
+                          <div className={`buyer-trend ${orderTrendMeta.className}`}>
+                            <strong>{Number(row.monthlyOrderCountCurrent ?? 0)}</strong>
+                            <span>{orderTrendMeta.symbol}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className={`buyer-trend ${spendTrendMeta.className}`}>
+                            <strong>{formatTry(Number(row.monthlySpentCurrent ?? 0))}</strong>
+                            <span>{spendTrendMeta.symbol}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-pill ${row.status === "active" ? "is-active" : "is-neutral"}`}>
+                            {row.status === "active" ? "Aktif" : "Pasif"}
+                          </span>
+                        </td>
+                        <td className="cell-actions">
+                          <button className="ghost action-menu-btn" type="button" onClick={(event) => event.stopPropagation()}>⋯</button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="buyer-v2-footer">
+            <div className="buyer-v2-pager-left">
+              <button className="ghost buyer-v2-page-btn" type="button">‹</button>
+              <button className="ghost buyer-v2-page-btn" type="button">›</button>
+              <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
+              <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+              <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+              <span className="panel-meta">/ 110+ Kullanıcı</span>
+            </div>
+            <div className="buyer-v2-pager-right">
+              <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>‹</button>
+              <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
+              <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+              <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+              <button
+                className="ghost buyer-v2-page-btn"
+                type="button"
+                disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
+                onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+              >
+                ›
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
