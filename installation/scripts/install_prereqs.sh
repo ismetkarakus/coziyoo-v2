@@ -30,7 +30,7 @@ apt_install_with_repair() {
 
   log "apt install still failing. Held packages:"
   run_root apt-mark showhold || true
-  fail "Unable to install required packages. Resolve held/broken apt packages, then rerun."
+  return 1
 }
 
 ensure_node20_linux() {
@@ -53,23 +53,49 @@ ensure_node20_linux() {
 deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main
 EOF
   run_root apt-get -qq update
-  apt_install_with_repair nodejs
+  if ! apt_install_with_repair nodejs; then
+    log "Unable to install Node.js 20 automatically due to apt issues; continuing with current Node.js $(node -v 2>/dev/null || echo 'missing')"
+    return
+  fi
   log "Installed Node.js $(node -v), npm $(npm -v)"
 }
 
 if [[ "${OS}" == "linux" ]]; then
-  run_root apt-get -qq update
-  apt_install_with_repair \
-    git \
-    curl \
-    rsync \
-    nginx \
-    postgresql \
-    postgresql-contrib \
-    python3 \
-    python3-venv \
-    python3-pip \
-    npm
+  REQUIRED_CMDS=(git curl rsync nginx psql python3 npm)
+  MISSING_CMDS=()
+  for cmd in "${REQUIRED_CMDS[@]}"; do
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+      MISSING_CMDS+=("${cmd}")
+    fi
+  done
+
+  if [[ "${#MISSING_CMDS[@]}" -gt 0 ]]; then
+    run_root apt-get -qq update
+    if ! apt_install_with_repair \
+      git \
+      curl \
+      rsync \
+      nginx \
+      postgresql \
+      postgresql-contrib \
+      python3 \
+      python3-venv \
+      python3-pip \
+      npm; then
+      STILL_MISSING=()
+      for cmd in "${REQUIRED_CMDS[@]}"; do
+        if ! command -v "${cmd}" >/dev/null 2>&1; then
+          STILL_MISSING+=("${cmd}")
+        fi
+      done
+      if [[ "${#STILL_MISSING[@]}" -gt 0 ]]; then
+        fail "Unable to install required packages due to apt issues. Missing commands: ${STILL_MISSING[*]}"
+      fi
+      log "apt reported issues but required commands are present; continuing"
+    fi
+  else
+    log "Required system packages already present; skipping apt package installation"
+  fi
 
   ensure_node20_linux
 
