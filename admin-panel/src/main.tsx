@@ -4859,15 +4859,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <strong>{orders.length - failedPayments}</strong>
           <small>Basarisiz odeme: {failedPayments}</small>
         </article>
-        <aside className="buyer-ref-contact-card">
-          <h2>Iletisim & Adres</h2>
-          <p><strong>Ev Adresi</strong></p>
-          <p>{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
-          <p><strong>Cep</strong></p>
-          <p>{phone}</p>
-          <p><strong>Kimlik</strong></p>
-          <p>{contactInfo?.identity.id ?? "-"}</p>
-        </aside>
       </section>
 
       <section className="buyer-ref-content">
@@ -4972,24 +4963,46 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         </div>
 
         <aside className="buyer-ref-right">
-          <section className="panel buyer-ops-side-card">
+          <section className="panel buyer-ops-side-card buyer-ref-contact-card buyer-ref-contact-side">
+            <h2>Iletisim & Adres</h2>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span aria-hidden="true">⌂</span> Ev Adresi</p>
+              <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+            </div>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span aria-hidden="true">✆</span> Cep</p>
+              <p className="buyer-ref-contact-value">{phone}</p>
+              <p className="panel-meta">{locations.length} giris noktasi</p>
+            </div>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span aria-hidden="true">○</span> Kimlik</p>
+              <div className="buyer-ref-contact-id-row">
+                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
+                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>Kopyala</button>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel buyer-ops-side-card buyer-ref-activity-card">
             <div className="panel-header"><h2>Aktivite Logu</h2></div>
             <div className="buyer-ops-activity-mini">
               {activityRows.slice(0, 3).map((item) => (
                 <article key={item.id}>
-                  <p>{toRelative(item.at)}</p>
-                  <p className="panel-meta">{item.action}</p>
+                  <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
+                  <p className="buyer-ref-activity-action">{item.action}</p>
+                  <p className="panel-meta">{item.detail}</p>
                 </article>
               ))}
             </div>
           </section>
-          <section className="panel buyer-ops-side-card">
+
+          <section className="panel buyer-ops-side-card buyer-ref-notes-card">
             <div className="panel-header"><h2>Notlar & Etiketler</h2></div>
             <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
             <div className="buyer-ops-note-form">
               <input value={noteInput} onChange={(event) => setNoteInput(event.target.value)} placeholder="Not Ekle veya Etiketle" />
-              <button className="ghost" type="button" onClick={addNote}>Not Ekle</button>
-              <button className="ghost" type="button" onClick={addTag}>Etiketle</button>
+              <button className="ghost" type="button" onClick={addNote}>Not</button>
+              <button className="ghost" type="button" onClick={addTag}>Etiket</button>
             </div>
             <p className="panel-meta">{noteItems.length} Nor, {tagItems.length} Etikes</p>
           </section>

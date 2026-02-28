@@ -2192,7 +2192,7 @@ textarea:focus {
 .buyer-ref-top {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: minmax(460px, 2.45fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(460px, 2.45fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr);
   gap: 12px;
 }
 
@@ -2264,7 +2264,7 @@ textarea:focus {
 }
 
 .buyer-ref-contact-card h2 {
-  font-size: 2rem;
+  font-size: 1.8rem;
   letter-spacing: -0.02em;
 }
 
@@ -2379,7 +2379,94 @@ textarea:focus {
 }
 
 .buyer-ref-right .buyer-ops-side-card {
-  min-height: 190px;
+  min-height: 0;
+  border-radius: 18px;
+  border-color: color-mix(in srgb, #6e81b8 28%, var(--ops-border-default));
+  background:
+    radial-gradient(120% 120% at 12% 0%, rgba(90, 111, 172, 0.18), rgba(23, 31, 55, 0)),
+    color-mix(in srgb, #10172f 90%, transparent);
+}
+
+.buyer-ref-contact-side {
+  padding: 18px;
+  gap: 12px;
+}
+
+.buyer-ref-contact-side h2 {
+  margin: 0;
+}
+
+.buyer-ref-contact-block {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, #5f73aa 30%, var(--ops-border-default));
+}
+
+.buyer-ref-contact-block:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.buyer-ref-contact-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ops-text-primary);
+  font-weight: 700;
+}
+
+.buyer-ref-contact-value {
+  margin: 0;
+  color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.buyer-ref-contact-id-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.buyer-ref-activity-card .panel-header,
+.buyer-ref-notes-card .panel-header {
+  padding-bottom: 6px;
+}
+
+.buyer-ref-activity-card .panel-header h2,
+.buyer-ref-notes-card .panel-header h2 {
+  margin: 0;
+}
+
+.buyer-ref-activity-top {
+  margin: 0;
+  color: var(--ops-text-secondary);
+}
+
+.buyer-ref-activity-action {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.buyer-ref-activity-card .buyer-ops-activity-mini article {
+  background: color-mix(in srgb, #151f3e 72%, transparent);
+  border-color: color-mix(in srgb, #6e81b8 24%, var(--ops-border-default));
+}
+
+.buyer-ref-notes-card .buyer-ops-tag-list {
+  margin-top: 2px;
+}
+
+.buyer-ref-notes-card .buyer-ops-note-form {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.buyer-ref-notes-card .buyer-ops-note-form .ghost {
+  min-height: 36px;
+  padding-inline: 10px;
 }
 
 .buyer-v2-page {
