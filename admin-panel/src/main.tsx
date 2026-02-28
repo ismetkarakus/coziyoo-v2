@@ -504,6 +504,7 @@ function TopNavTabs({
   const isManagementActive = managementItems.some((item) => item.active);
   const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
   const [isResettingDb, setIsResettingDb] = useState(false);
+  const [isSeedingDemoData, setIsSeedingDemoData] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -571,6 +572,53 @@ function TopNavTabs({
     }
   }
 
+  async function seedDemoDataFromAdminMenu() {
+    if (!isSuperAdmin || isSeedingDemoData) return;
+
+    const firstConfirm = window.confirm(
+      language === "tr"
+        ? "Bu işlem demo alıcı, satıcı, yemek ve sipariş verisi ekler. Devam edilsin mi?"
+        : "This action seeds demo buyer, seller, food, and order data. Continue?"
+    );
+    if (!firstConfirm) return;
+
+    const promptText = window.prompt(
+      language === "tr" ? 'Onaylamak için "SEED DEMO DATA" yazın:' : 'Type "SEED DEMO DATA" to confirm:'
+    );
+    if (promptText !== "SEED DEMO DATA") {
+      window.alert(language === "tr" ? "Doğrulama metni eşleşmedi. İşlem iptal edildi." : "Confirmation text mismatch. Operation cancelled.");
+      return;
+    }
+
+    try {
+      setIsSeedingDemoData(true);
+      const response = await request("/v1/admin/system/seed-demo-data", {
+        method: "POST",
+        body: JSON.stringify({ confirmText: "SEED DEMO DATA" }),
+      });
+      const body = await parseJson<ApiError & { data?: { message?: string; sellerEmail?: string; buyerEmail?: string; defaultPassword?: string } }>(response);
+      if (response.status !== 200) {
+        window.alert(body.error?.message ?? (language === "tr" ? "Demo veri ekleme başarısız." : "Demo data seed failed."));
+        return;
+      }
+
+      const sellerEmail = body.data?.sellerEmail ?? "demo.seller@coziyoo.local";
+      const buyerEmail = body.data?.buyerEmail ?? "demo.buyer@coziyoo.local";
+      const password = body.data?.defaultPassword ?? "Demo12345!";
+      window.alert(
+        language === "tr"
+          ? `Demo veriler eklendi.\nSatici: ${sellerEmail}\nAlici: ${buyerEmail}\nSifre: ${password}`
+          : `Demo data seeded.\nSeller: ${sellerEmail}\nBuyer: ${buyerEmail}\nPassword: ${password}`
+      );
+      window.location.reload();
+    } catch {
+      window.alert(language === "tr" ? "Demo veri isteği başarısız." : "Demo seed request failed.");
+    } finally {
+      setIsSeedingDemoData(false);
+      setIsManagementOpen(false);
+    }
+  }
+
   return (
     <div className="nav-wrap" ref={menuRef}>
       <nav className="nav">
@@ -599,6 +647,11 @@ function TopNavTabs({
               {item.label}
             </Link>
           ))}
+          {isSuperAdmin ? (
+            <button className="nav-link nav-link-button" type="button" onClick={() => seedDemoDataFromAdminMenu()}>
+              {isSeedingDemoData ? (language === "tr" ? "Ekleniyor..." : "Seeding...") : (language === "tr" ? "Demo Veri Ekle" : "Seed Demo Data")}
+            </button>
+          ) : null}
           {isSuperAdmin ? (
             <button className="nav-link nav-link-button nav-link-danger" type="button" onClick={() => resetDatabaseFromAdminMenu()}>
               {isResettingDb ? (language === "tr" ? "Sıfırlanıyor..." : "Resetting...") : dict.actions.resetDatabase}
