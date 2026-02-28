@@ -26,10 +26,32 @@ require_cmd() {
 }
 
 run_root() {
+  local run_user=""
+  if [[ "${1:-}" == "-u" ]]; then
+    run_user="${2:-}"
+    [[ -n "${run_user}" ]] || fail "run_root: missing username after -u"
+    shift 2
+  fi
+  [[ "${#}" -gt 0 ]] || fail "run_root: missing command"
+
   if [[ "${EUID}" -eq 0 ]]; then
-    "$@"
+    if [[ -n "${run_user}" ]]; then
+      if command -v runuser >/dev/null 2>&1; then
+        runuser -u "${run_user}" -- "$@"
+      else
+        local cmd
+        printf -v cmd '%q ' "$@"
+        su -s /bin/bash "${run_user}" -c "${cmd}"
+      fi
+    else
+      "$@"
+    fi
   else
-    sudo "$@"
+    if [[ -n "${run_user}" ]]; then
+      sudo -u "${run_user}" "$@"
+    else
+      sudo "$@"
+    fi
   fi
 }
 
