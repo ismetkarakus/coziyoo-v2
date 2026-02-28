@@ -4536,8 +4536,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const [statusFilter, setStatusFilter] = useState("all_delivered");
   const [dateFilter, setDateFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
-  const [bottomSortFilter, setBottomSortFilter] = useState("recent");
-  const [amountFilter, setAmountFilter] = useState("all");
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const [noteItems, setNoteItems] = useState<string[]>([
@@ -4792,22 +4790,10 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       });
     }
 
-    if (amountFilter === "under500") {
-      next = next.filter((order) => Number(order.totalAmount ?? 0) < 500);
-    } else if (amountFilter === "500_1000") {
-      next = next.filter((order) => Number(order.totalAmount ?? 0) >= 500 && Number(order.totalAmount ?? 0) <= 1000);
-    } else if (amountFilter === "over1000") {
-      next = next.filter((order) => Number(order.totalAmount ?? 0) > 1000);
-    }
-
-    if (bottomSortFilter === "oldest") {
-      next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    } else {
-      next.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
+    next.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return next;
-  }, [orders, statusFilter, dateFilter, orderSearch, bottomSortFilter, amountFilter]);
+  }, [orders, statusFilter, dateFilter, orderSearch]);
 
   function switchBuyerTab(tab: BuyerDetailTab) {
     setActiveTab(tab);
@@ -5112,8 +5098,14 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                 <tbody>
                   {filteredOrders.length === 0 ? (
                     <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
-                  ) : filteredOrders.map((order, index) => {
+                  ) : filteredOrders.map((order) => {
                     const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
+                    const paymentState = paymentBadge(order.paymentStatus);
+                    const statusText = paymentState.cls === "is-pending"
+                      ? "Bekleyen"
+                      : paymentState.cls === "is-failed"
+                        ? "Basarisiz"
+                        : "Tamamlanmis";
                     return (
                       <tr key={order.orderId}>
                         <td><input type="checkbox" aria-label="Satir sec" /></td>
@@ -5121,7 +5113,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                         <td className="buyer-order-no">{order.orderNo}</td>
                         <td>{foods || "-"}</td>
                         <td>{formatCurrency(order.totalAmount)}</td>
-                        <td><span className={`buyer-payment-badge ${index === 2 ? "is-pending" : "is-success"}`}>{index === 2 ? "Iptac aued" : "Teslim Edildi"}</span></td>
+                        <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
                         <td><span className="status-pill is-success">Aktif</span></td>
                       </tr>
                     );
@@ -5144,62 +5136,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             </div>
           </section>
 
-          <section className="panel buyer-ref-bottom-panel">
-            <div className="buyer-ref-filter-row buyer-ref-mini-filter-row">
-              <label className="ghost buyer-ref-mini-filter-btn buyer-ref-select-wrap">
-                <select value={bottomSortFilter} onChange={(event) => setBottomSortFilter(event.target.value)} aria-label="Alt siralama filtresi">
-                  <option value="recent">Son Filtreler</option>
-                  <option value="oldest">En Eski</option>
-                </select>
-                <span className="buyer-ref-filter-trailing" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </label>
-              <label className="ghost buyer-ref-mini-filter-btn buyer-ref-select-wrap">
-                <select value={amountFilter} onChange={(event) => setAmountFilter(event.target.value)} aria-label="Tutar filtresi">
-                  <option value="all">Tutar 1Kuit</option>
-                  <option value="under500">500 TL alti</option>
-                  <option value="500_1000">500-1000 TL</option>
-                  <option value="over1000">1000 TL ustu</option>
-                </select>
-                <span className="buyer-ref-filter-trailing" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </label>
-            </div>
-            <div className="buyer-ops-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th />
-                    <th>Tarih / Saat</th>
-                    <th>Siparis No</th>
-                    <th>Yemek</th>
-                    <th>Tutar</th>
-                    <th>Durum</th>
-                    <th>Star</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.slice(0, 2).map((order) => (
-                    <tr key={`${order.orderId}-mini`}>
-                      <td><input type="checkbox" aria-label="Satir sec" /></td>
-                      <td>{formatDate(order.createdAt)}</td>
-                      <td className="buyer-order-no">{order.orderNo}</td>
-                      <td>{order.items[0]?.name ?? "-"}</td>
-                      <td>{formatCurrency(order.totalAmount)}</td>
-                      <td>Teslim Edildi</td>
-                      <td>☆</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
         </div>
 
         <aside className="buyer-ref-right">
