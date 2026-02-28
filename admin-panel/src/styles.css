@@ -1511,6 +1511,11 @@ textarea:focus {
   font-size: 1.02rem;
 }
 
+.buyer-user-cell .buyer-user-meta {
+  font-size: 0.82rem;
+  color: var(--color-tertiary-text);
+}
+
 .risk-pill {
   display: inline-flex;
   align-items: center;
@@ -2693,6 +2698,16 @@ textarea:focus {
   padding: 0;
   font-size: 1.55rem;
   line-height: 1;
+}
+
+.seller-contact-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.seller-contact-cell span {
+  font-size: 0.8rem;
+  color: var(--color-tertiary-text);
 }
 
 .table-skeleton span {

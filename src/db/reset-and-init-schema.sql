@@ -87,6 +87,23 @@ CREATE INDEX idx_admin_auth_sessions_user ON admin_auth_sessions(admin_user_id);
 CREATE INDEX idx_admin_auth_sessions_exp ON admin_auth_sessions(expires_at);
 CREATE INDEX idx_admin_auth_sessions_active ON admin_auth_sessions(admin_user_id) WHERE revoked_at IS NULL;
 
+CREATE TABLE user_presence_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject_type TEXT NOT NULL CHECK (subject_type IN ('app_user', 'admin_user')),
+  subject_id UUID NOT NULL,
+  session_id UUID,
+  event_type TEXT NOT NULL CHECK (event_type IN ('login', 'refresh', 'logout')),
+  ip TEXT,
+  user_agent TEXT,
+  happened_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_user_presence_subject_happened
+  ON user_presence_events(subject_type, subject_id, happened_at DESC);
+
+CREATE INDEX idx_user_presence_happened
+  ON user_presence_events(happened_at DESC);
+
 CREATE TABLE categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name_tr TEXT NOT NULL,

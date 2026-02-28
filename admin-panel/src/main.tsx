@@ -1600,10 +1600,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       );
     }
     if (mapped === "email" && kind === "sellers") {
+      const onlineText = formatUiDate(String(row.lastOnlineAt ?? ""), language);
       return (
-        <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
-          {String(value ?? "")}
-        </button>
+        <div className="seller-contact-cell">
+          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+            {String(value ?? "")}
+          </button>
+          <span>{`${language === "tr" ? "Son Online" : "Last Online"}: ${onlineText}`}</span>
+        </div>
       );
     }
     if (mapped === "email" && isBuyerPage) {
@@ -2102,6 +2106,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                               <div>
                                 <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
                                 <span>{String(row.email ?? "-")}</span>
+                                <span className="buyer-user-meta">
+                                  {`ID: ${shortId(String(row.id ?? ""))} • ${
+                                    language === "tr" ? "Son Online" : "Last Online"
+                                  }: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)}`}
+                                </span>
                               </div>
                             </div>
                           </td>

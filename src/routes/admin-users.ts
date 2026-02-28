@@ -580,6 +580,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     monthly_order_count_previous: number;
     monthly_spent_current: string;
     monthly_spent_previous: string;
+    last_online_at: string | null;
   }>(
     `SELECT
        u.id,
@@ -600,7 +601,15 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        COALESCE(order_stats.monthly_order_count_current, 0)::int AS monthly_order_count_current,
        COALESCE(order_stats.monthly_order_count_previous, 0)::int AS monthly_order_count_previous,
        COALESCE(order_stats.monthly_spent_current, 0)::text AS monthly_spent_current,
-       COALESCE(order_stats.monthly_spent_previous, 0)::text AS monthly_spent_previous
+       COALESCE(order_stats.monthly_spent_previous, 0)::text AS monthly_spent_previous,
+       COALESCE(
+         presence_stats.last_online_at,
+         (
+           SELECT max(s.last_used_at)::text
+           FROM auth_sessions s
+           WHERE s.user_id = u.id
+         )
+       ) AS last_online_at
      FROM users u
      LEFT JOIN LATERAL (
        SELECT count(*)::int AS total_foods
@@ -624,6 +633,12 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        FROM orders o
        WHERE o.buyer_id = u.id
      ) order_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT max(p.happened_at)::text AS last_online_at
+       FROM user_presence_events p
+       WHERE p.subject_type = 'app_user'
+         AND p.subject_id = u.id
+     ) presence_stats ON TRUE
      ${whereSql}
      ORDER BY ${sortField} ${sortDir}, u.id ${sortDir}
      LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
@@ -652,6 +667,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       monthlyOrderCountPrevious: Number(row.monthly_order_count_previous ?? 0),
       monthlySpentCurrent: Number(row.monthly_spent_current ?? 0),
       monthlySpentPrevious: Number(row.monthly_spent_previous ?? 0),
+      lastOnlineAt: row.last_online_at,
     })),
     pagination: {
       mode: "offset",
@@ -1178,10 +1194,18 @@ adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), 
        u.language,
        u.created_at::text,
        u.updated_at::text,
-       (
-         SELECT max(s.last_used_at)::text
-         FROM auth_sessions s
-         WHERE s.user_id = u.id
+       COALESCE(
+         (
+           SELECT max(p.happened_at)::text
+           FROM user_presence_events p
+           WHERE p.subject_type = 'app_user'
+             AND p.subject_id = u.id
+         ),
+         (
+           SELECT max(s.last_used_at)::text
+           FROM auth_sessions s
+           WHERE s.user_id = u.id
+         )
        ) AS last_login_at
      FROM users u
      WHERE u.id = $1`,
@@ -1661,13 +1685,29 @@ adminUserManagementRouter.get("/admin-users", requireAuth("admin"), async (req, 
   );
 
   const listParams = [...params, input.pageSize, offset];
-  const list = await pool.query(
+  const list = await pool.query<{
+    id: string;
+    email: string;
+    role: "admin" | "super_admin";
+    is_active: boolean;
+    last_login_at: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
     `SELECT
        a.id,
        a.email,
        a.role,
        a.is_active,
-       a.last_login_at::text,
+       COALESCE(
+         (
+           SELECT max(p.happened_at)::text
+           FROM user_presence_events p
+           WHERE p.subject_type = 'admin_user'
+             AND p.subject_id = a.id
+         ),
+         a.last_login_at::text
+       ) AS last_login_at,
        a.created_at::text,
        a.updated_at::text
      FROM admin_users a
@@ -1679,7 +1719,15 @@ adminUserManagementRouter.get("/admin-users", requireAuth("admin"), async (req, 
 
   const totalCount = Number(total.rows[0].count);
   return res.json({
-    data: list.rows,
+    data: list.rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      status: row.is_active ? "active" : "disabled",
+      lastLoginAt: row.last_login_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
     pagination: {
       mode: "offset",
       page: input.page,
@@ -1696,13 +1744,29 @@ adminUserManagementRouter.get("/admin-users/:id", requireAuth("admin"), async (r
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
   }
 
-  const adminUser = await pool.query(
+  const adminUser = await pool.query<{
+    id: string;
+    email: string;
+    role: "admin" | "super_admin";
+    is_active: boolean;
+    last_login_at: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
     `SELECT
        id,
        email,
        role,
        is_active,
-       last_login_at::text,
+       COALESCE(
+         (
+           SELECT max(p.happened_at)::text
+           FROM user_presence_events p
+           WHERE p.subject_type = 'admin_user'
+             AND p.subject_id = admin_users.id
+         ),
+         last_login_at::text
+       ) AS last_login_at,
        created_at::text,
        updated_at::text
      FROM admin_users
@@ -1714,7 +1778,18 @@ adminUserManagementRouter.get("/admin-users/:id", requireAuth("admin"), async (r
     return res.status(404).json({ error: { code: "ADMIN_USER_NOT_FOUND", message: "Admin user not found" } });
   }
 
-  return res.json({ data: adminUser.rows[0] });
+  const row = adminUser.rows[0];
+  return res.json({
+    data: {
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      status: row.is_active ? "active" : "disabled",
+      lastLoginAt: row.last_login_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    },
+  });
 });
 
 adminUserManagementRouter.post("/admin-users", requireAuth("admin"), requireSuperAdmin, async (req, res) => {

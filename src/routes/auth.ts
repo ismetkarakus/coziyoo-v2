@@ -3,6 +3,7 @@ import { z } from "zod";
 import { pool } from "../db/client.js";
 import { abuseProtection } from "../middleware/abuse-protection.js";
 import { requireAuth } from "../middleware/auth.js";
+import { recordPresenceEvent } from "../services/user-presence.js";
 import { refreshTokenExpiresAt, signAccessToken } from "../services/token-service.js";
 import { normalizeDisplayName } from "../utils/normalize.js";
 import { generateRefreshToken, hashPassword, hashRefreshToken, verifyPassword } from "../utils/security.js";
@@ -208,6 +209,14 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
     req.ip,
     req.headers["user-agent"] ?? null,
   ]);
+  await recordPresenceEvent({
+    subjectType: "app_user",
+    subjectId: user.id,
+    sessionId: sessionInsert.rows[0].id,
+    eventType: "login",
+    ip: req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+  });
 
   const accessToken = signAccessToken({
     sub: user.id,
@@ -298,6 +307,17 @@ authRouter.post("/refresh", async (req, res) => {
       req.ip,
       req.headers["user-agent"] ?? null,
     ]);
+    await recordPresenceEvent(
+      {
+        subjectType: "app_user",
+        subjectId: currentSession.user_id,
+        sessionId: nextSession.rows[0].id,
+        eventType: "refresh",
+        ip: req.ip ?? null,
+        userAgent: req.headers["user-agent"] ?? null,
+      },
+      client
+    );
 
     await client.query("COMMIT");
 
@@ -332,17 +352,19 @@ authRouter.post("/logout", requireAuth("app"), async (req, res) => {
   }
 
   let userId = req.auth!.userId;
+  let sessionId = req.auth!.sessionId;
   if (parsed.data.refreshToken) {
     const refreshTokenHash = hashRefreshToken(parsed.data.refreshToken);
-    const result = await pool.query<{ user_id: string }>(
+    const result = await pool.query<{ user_id: string; id: string }>(
       `UPDATE auth_sessions
        SET revoked_at = now()
        WHERE refresh_token_hash = $1 AND revoked_at IS NULL
-       RETURNING user_id`,
+       RETURNING user_id, id`,
       [refreshTokenHash]
     );
     if ((result.rowCount ?? 0) > 0) {
       userId = result.rows[0].user_id;
+      sessionId = result.rows[0].id;
     }
   } else {
     await pool.query("UPDATE auth_sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL", [req.auth!.sessionId]);
@@ -354,6 +376,14 @@ authRouter.post("/logout", requireAuth("app"), async (req, res) => {
     req.ip,
     req.headers["user-agent"] ?? null,
   ]);
+  await recordPresenceEvent({
+    subjectType: "app_user",
+    subjectId: userId,
+    sessionId,
+    eventType: "logout",
+    ip: req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+  });
 
   return res.json({ data: { success: true } });
 });

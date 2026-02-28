@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
+import { recordPresenceEvent } from "../services/user-presence.js";
 import { refreshTokenExpiresAt, signAccessToken } from "../services/token-service.js";
 import { generateRefreshToken, hashRefreshToken, verifyPassword } from "../utils/security.js";
 
@@ -70,6 +71,14 @@ adminAuthRouter.post("/login", async (req, res) => {
     req.ip,
     req.headers["user-agent"] ?? null,
   ]);
+  await recordPresenceEvent({
+    subjectType: "admin_user",
+    subjectId: admin.id,
+    sessionId: sessionInsert.rows[0].id,
+    eventType: "login",
+    ip: req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+  });
 
   const accessToken = signAccessToken({
     sub: admin.id,
@@ -141,6 +150,17 @@ adminAuthRouter.post("/refresh", async (req, res) => {
       "INSERT INTO admin_auth_audit (admin_user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)",
       [currentSession.admin_user_id, "admin_refresh", req.ip, req.headers["user-agent"] ?? null]
     );
+    await recordPresenceEvent(
+      {
+        subjectType: "admin_user",
+        subjectId: currentSession.admin_user_id,
+        sessionId: nextSession.rows[0].id,
+        eventType: "refresh",
+        ip: req.ip ?? null,
+        userAgent: req.headers["user-agent"] ?? null,
+      },
+      client
+    );
 
     await client.query("COMMIT");
 
@@ -175,17 +195,19 @@ adminAuthRouter.post("/logout", requireAuth("admin"), async (req, res) => {
   }
 
   let adminUserId = req.auth!.userId;
+  let sessionId = req.auth!.sessionId;
   if (parsed.data.refreshToken) {
     const refreshTokenHash = hashRefreshToken(parsed.data.refreshToken);
-    const result = await pool.query<{ admin_user_id: string }>(
+    const result = await pool.query<{ admin_user_id: string; id: string }>(
       `UPDATE admin_auth_sessions
        SET revoked_at = now()
        WHERE refresh_token_hash = $1 AND revoked_at IS NULL
-       RETURNING admin_user_id`,
+       RETURNING admin_user_id, id`,
       [refreshTokenHash]
     );
     if ((result.rowCount ?? 0) > 0) {
       adminUserId = result.rows[0].admin_user_id;
+      sessionId = result.rows[0].id;
     }
   } else {
     await pool.query("UPDATE admin_auth_sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL", [
@@ -199,6 +221,14 @@ adminAuthRouter.post("/logout", requireAuth("admin"), async (req, res) => {
     req.ip,
     req.headers["user-agent"] ?? null,
   ]);
+  await recordPresenceEvent({
+    subjectType: "admin_user",
+    subjectId: adminUserId,
+    sessionId,
+    eventType: "logout",
+    ip: req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+  });
   return res.json({ data: { success: true } });
 });
 
@@ -208,7 +238,24 @@ adminAuthRouter.get("/me", requireAuth("admin"), async (req, res) => {
     email: string;
     role: "admin" | "super_admin";
     last_login_at: string | null;
-  }>("SELECT id, email, role, last_login_at FROM admin_users WHERE id = $1 AND is_active = TRUE", [req.auth!.userId]);
+  }>(
+    `SELECT
+       a.id,
+       a.email,
+       a.role,
+       COALESCE(
+         (
+           SELECT max(p.happened_at)::text
+           FROM user_presence_events p
+           WHERE p.subject_type = 'admin_user'
+             AND p.subject_id = a.id
+         ),
+         a.last_login_at::text
+       ) AS last_login_at
+     FROM admin_users a
+     WHERE a.id = $1 AND a.is_active = TRUE`,
+    [req.auth!.userId]
+  );
 
   if ((result.rowCount ?? 0) === 0) {
     return res.status(404).json({ error: { code: "ADMIN_NOT_FOUND", message: "Admin not found" } });
