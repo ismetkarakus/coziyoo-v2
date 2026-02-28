@@ -19,6 +19,7 @@ cp installation/config.env.example installation/config.env
 ```
 
 2. Edit `installation/config.env` for your VPS paths/domains/secrets.
+   `INSTALL_LIVEKIT` supports `ask`, `true`, or `false`.
 
 3. Run first installation:
 
