@@ -21,6 +21,8 @@ cp installation/config.env.example installation/config.env
 
 2. Edit `installation/config.env` for your VPS paths/domains/secrets.
    `INSTALL_LIVEKIT` supports `ask`, `true`, or `false`.
+   Values with spaces must be quoted, for example:
+   `API_START_CMD="node dist/src/server.js"` and `AGENT_START_CMD="python src/agent_http_runner.py"`.
    For this production setup use:
    - `INGRESS_MODE=npm`
    - `INSTALL_NGINX=false`

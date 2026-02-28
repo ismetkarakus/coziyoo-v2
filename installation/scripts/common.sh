@@ -38,7 +38,9 @@ load_config() {
   [[ -f "${cfg}" ]] || fail "Missing config at ${cfg}. Copy installation/config.env.example to installation/config.env first."
 
   # shellcheck disable=SC1090
-  source "${cfg}"
+  if ! source "${cfg}"; then
+    fail "Failed to parse ${cfg}. If a value contains spaces, wrap it in double quotes (example: API_START_CMD=\"node dist/src/server.js\")."
+  fi
 
   REPO_ROOT="${REPO_ROOT:-$(cd "${INSTALL_DIR}/.." && pwd)}"
 }
