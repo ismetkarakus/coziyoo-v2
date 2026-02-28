@@ -14,7 +14,7 @@ fi
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-admin-panel}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
 ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
-ADMIN_PORT="${ADMIN_PORT:-81}"
+ADMIN_PORT="${ADMIN_PORT:-8000}"
 
 [[ -d "${ADMIN_DIR_ABS}" ]] || fail "Admin directory not found: ${ADMIN_DIR_ABS}"
 maybe_git_update "${REPO_ROOT}"
