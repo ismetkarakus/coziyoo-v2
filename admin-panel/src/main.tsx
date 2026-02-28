@@ -1982,14 +1982,24 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const phoneHref = phoneRaw.replace(/\s+/g, "");
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
                     const emailRaw = String(row.email ?? "-");
-                    const compactDisplayName = displayNameRaw.length > 26 ? `${displayNameRaw.slice(0, 26)}…` : displayNameRaw;
-                    const compactEmail = emailRaw.length > 40 ? `${emailRaw.slice(0, 40)}…` : emailRaw;
-                    const initials = String(row.displayName ?? row.email ?? "U")
-                      .split(" ")
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((p: string) => p[0]?.toUpperCase() ?? "")
-                      .join("");
+                    const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
+                    const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
+                    const [emailLocalRaw, emailDomainRaw = ""] = emailRaw.split("@");
+                    const emailSeedSuffix = emailLocalRaw.match(/-(\d+)$/)?.[1] ?? "";
+                    const normalizedEmail =
+                      /^apiseed-buyer-/i.test(emailLocalRaw) && emailSeedSuffix
+                        ? `nbuyer${emailSeedSuffix}@${emailDomainRaw}`
+                        : emailRaw;
+                    const nameParts = normalizedDisplayName
+                      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+                      .split(/\s+/)
+                      .filter(Boolean);
+                    const initials = nameParts.length >= 2
+                      ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
+                      : (nameParts[0] ?? "U")
+                          .replace(/[^\p{L}\p{N}]/gu, "")
+                          .slice(0, 2)
+                          .toUpperCase();
 
                     return (
                       <tr
@@ -2021,8 +2031,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           <div className="buyer-user-cell">
                             <span className="name-avatar">{initials || "U"}</span>
                             <div>
-                              <strong className="buyer-user-name" title={displayNameRaw}>{compactDisplayName}</strong>
-                              <span className="buyer-user-email" title={`Son Online: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)} • ${emailRaw}`}>{compactEmail}</span>
+                              <strong className="buyer-user-name" title={displayNameRaw}>{normalizedDisplayName}</strong>
+                              <span className="buyer-user-email" title={`Son Online: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)} • ${emailRaw}`}>{normalizedEmail}</span>
                             </div>
                           </div>
                         </td>
