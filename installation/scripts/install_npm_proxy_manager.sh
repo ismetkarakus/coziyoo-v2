@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 load_config
 
-if [[ "${INSTALL_NPM:-false}" != "true" ]]; then
-  log "INSTALL_NPM=false, skipping Nginx Proxy Manager install"
+if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
+  log "INGRESS_MODE is not npm, skipping Nginx Proxy Manager install"
   exit 0
 fi
 
@@ -64,4 +64,3 @@ fi
 
 run_root docker ps --filter "name=nginx-proxy-manager" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 log "Nginx Proxy Manager setup finished"
-

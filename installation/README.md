@@ -21,14 +21,14 @@ cp installation/config.env.example installation/config.env
 ```
 
 2. Edit `installation/config.env` for your VPS paths/domains/secrets.
-   `INSTALL_LIVEKIT` and `INSTALL_NPM` support `ask`, `true`, or `false`.
+   `INSTALL_LIVEKIT` supports `ask`, `true`, or `false`.
    Values with spaces must be quoted, for example:
    `API_START_CMD="node dist/src/server.js"` and `AGENT_START_CMD="python src/agent_http_runner.py"`.
    Default deployment path is `/opt/coziyoo`, and API/Agent services run as `root`.
    For this production setup use:
    - `INGRESS_MODE=npm`
    - `INSTALL_NGINX=false`
-   - `INSTALL_NPM=true` (if NPM is not already installed)
+   - `INGRESS_MODE=npm` (auto-installs Nginx Proxy Manager via Docker)
 
 3. Run first installation:
 
