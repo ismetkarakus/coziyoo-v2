@@ -63,7 +63,11 @@ else
   run_on_service api
   run_on_service agent
   run_on_service livekit
-  run_on_service nginx
+  if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
+    run_on_service nginx
+  else
+    log "INGRESS_MODE=npm, skipping nginx service action"
+  fi
   run_on_service postgres
 fi
 

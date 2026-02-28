@@ -6,6 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 load_config
 
+if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
+  log "INGRESS_MODE=npm, skipping Nginx site management"
+  exit 0
+fi
+
 if [[ "${INSTALL_NGINX:-true}" != "true" ]]; then
   log "INSTALL_NGINX=false, skipping"
   exit 0

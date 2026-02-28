@@ -23,6 +23,8 @@ RUN_USER="${AGENT_RUN_USER:-www-data}"
 RUN_GROUP="${AGENT_RUN_GROUP:-www-data}"
 ENV_FILE="${AGENT_ENV_FILE:-${AGENT_DIR_ABS}/.env.local}"
 START_CMD="${AGENT_START_CMD:-python src/agent.py dev}"
+AGENT_HTTP_HOST="${AGENT_HTTP_HOST:-127.0.0.1}"
+AGENT_HTTP_PORT="${AGENT_HTTP_PORT:-8787}"
 
 if [[ "${OS}" == "linux" ]]; then
   UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
@@ -38,6 +40,8 @@ User=${RUN_USER}
 Group=${RUN_GROUP}
 WorkingDirectory=${AGENT_DIR_ABS}
 EnvironmentFile=-${ENV_FILE}
+Environment=AGENT_HTTP_HOST=${AGENT_HTTP_HOST}
+Environment=AGENT_HTTP_PORT=${AGENT_HTTP_PORT}
 ExecStart=/bin/bash -lc 'cd "${AGENT_DIR_ABS}" && source "${AGENT_DIR_ABS}/.venv/bin/activate" && exec ${START_CMD}'
 Restart=always
 RestartSec=5
@@ -67,7 +71,7 @@ else
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>cd "${AGENT_DIR_ABS}" && source "${AGENT_DIR_ABS}/.venv/bin/activate" && [ -f "${ENV_FILE}" ] && set -a && source "${ENV_FILE}" && set +a; exec ${START_CMD}</string>
+    <string>cd "${AGENT_DIR_ABS}" && source "${AGENT_DIR_ABS}/.venv/bin/activate" && export AGENT_HTTP_HOST="${AGENT_HTTP_HOST}" AGENT_HTTP_PORT="${AGENT_HTTP_PORT}"; [ -f "${ENV_FILE}" ] && set -a && source "${ENV_FILE}" && set +a; exec ${START_CMD}</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

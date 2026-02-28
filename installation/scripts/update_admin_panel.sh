@@ -26,7 +26,9 @@ maybe_git_update "${REPO_ROOT}"
 run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -av --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
-if [[ "$(os_type)" == "linux" ]]; then
+if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
+  log "INGRESS_MODE=npm, skipping Nginx reload"
+elif [[ "$(os_type)" == "linux" ]]; then
   run_root nginx -t
   run_root systemctl reload nginx
 else
