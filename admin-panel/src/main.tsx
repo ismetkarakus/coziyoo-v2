@@ -4859,6 +4859,25 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <strong>{orders.length - failedPayments}</strong>
           <small>Basarisiz odeme: {failedPayments}</small>
         </article>
+        <aside className="buyer-ref-contact-card buyer-ref-contact-side">
+          <h2>Iletisim & Adres</h2>
+          <div className="buyer-ref-contact-block">
+            <p className="buyer-ref-contact-label"><span aria-hidden="true">⌂</span> Ev Adresi</p>
+            <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+          </div>
+          <div className="buyer-ref-contact-block">
+            <p className="buyer-ref-contact-label"><span aria-hidden="true">✆</span> Cep</p>
+            <p className="buyer-ref-contact-value">{phone}</p>
+            <p className="panel-meta">{locations.length} giris noktasi</p>
+          </div>
+          <div className="buyer-ref-contact-block">
+            <p className="buyer-ref-contact-label"><span aria-hidden="true">○</span> Kimlik</p>
+            <div className="buyer-ref-contact-id-row">
+              <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
+              <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>Kopyala</button>
+            </div>
+          </div>
+        </aside>
       </section>
 
       <section className="buyer-ref-content">
@@ -4963,26 +4982,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         </div>
 
         <aside className="buyer-ref-right">
-          <section className="panel buyer-ops-side-card buyer-ref-contact-card buyer-ref-contact-side">
-            <h2>Iletisim & Adres</h2>
-            <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span aria-hidden="true">⌂</span> Ev Adresi</p>
-              <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
-            </div>
-            <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span aria-hidden="true">✆</span> Cep</p>
-              <p className="buyer-ref-contact-value">{phone}</p>
-              <p className="panel-meta">{locations.length} giris noktasi</p>
-            </div>
-            <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span aria-hidden="true">○</span> Kimlik</p>
-              <div className="buyer-ref-contact-id-row">
-                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
-                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>Kopyala</button>
-              </div>
-            </div>
-          </section>
-
           <section className="panel buyer-ops-side-card buyer-ref-activity-card">
             <div className="panel-header"><h2>Aktivite Logu</h2></div>
             <div className="buyer-ops-activity-mini">

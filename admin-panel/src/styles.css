@@ -2192,7 +2192,7 @@ textarea:focus {
 .buyer-ref-top {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: minmax(460px, 2.45fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(460px, 2.45fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(240px, 1fr);
   gap: 12px;
 }
 
@@ -2390,6 +2390,11 @@ textarea:focus {
 .buyer-ref-contact-side {
   padding: 18px;
   gap: 12px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, #6e81b8 28%, var(--ops-border-default));
+  background:
+    radial-gradient(120% 120% at 12% 0%, rgba(90, 111, 172, 0.18), rgba(23, 31, 55, 0)),
+    color-mix(in srgb, #10172f 90%, transparent);
 }
 
 .buyer-ref-contact-side h2 {
