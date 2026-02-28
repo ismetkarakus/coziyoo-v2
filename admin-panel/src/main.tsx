@@ -727,8 +727,19 @@ function DashboardPage({ language }: { language: Language }) {
         ))}
       </div>
       <section className="content-grid">
-        <DataTableCard title={dict.dashboard.kpiSnapshot} metricLabel={dict.dashboard.metric} valueLabel={dict.dashboard.value} rows={tableRows} />
-        <ActionCard title={dict.dashboard.quickActions} dict={dict} />
+        <DataTableCard
+          title={dict.dashboard.kpiSnapshot}
+          metricLabel={dict.dashboard.metric}
+          valueLabel={dict.dashboard.value}
+          rows={tableRows}
+          updatedAt={updatedAtDisplay}
+        />
+        <ActionCard
+          title={dict.dashboard.quickActions}
+          dict={dict}
+          updatedAt={updatedAtDisplay}
+          queueSummary={{ waiting: 24, processing: 7, failed: 3 }}
+        />
       </section>
     </div>
   );
@@ -764,34 +775,93 @@ function DataTableCard({
   metricLabel,
   valueLabel,
   rows,
+  updatedAt,
 }: {
   title: string;
   metricLabel: string;
   valueLabel: string;
   rows: Array<{ label: string; value: string }>;
+  updatedAt: string;
 }) {
+  const axisLabels = ["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30"];
+  const queuePoints = [6, 4.5, 6, 5, 4, 4.1, 6.5];
+  const sparkPoints = [6.2, 6.1, 5.8, 6.3, 6.2, 6, 5.9, 5.7];
+  const queueRows = [
+    { name: "Yazdırma", count: 14, tone: "dot-blue" },
+    { name: "İndirme", count: 26, tone: "dot-cyan" },
+    { name: "Mesaj / İş", count: 36, tone: "dot-teal" },
+    { name: "Medya", count: 24, tone: "dot-red" },
+  ];
+
   return (
     <article className="panel">
       <div className="panel-header">
         <h2>{title}</h2>
       </div>
-      <div className="kpi-table">
-        <div className="kpi-table-row kpi-table-head">
-          <span>{metricLabel}</span>
-          <span>{valueLabel}</span>
-        </div>
-        {rows.map((row) => (
-          <div className="kpi-table-row" key={row.label}>
-            <span>{row.label}</span>
-            <span>{row.value}</span>
+      <div className="kpi-detail-grid">
+        <div className="kpi-left">
+          <div className="kpi-table">
+            <div className="kpi-table-row kpi-table-head">
+              <span>{metricLabel}</span>
+              <span>{valueLabel}</span>
+            </div>
+            {rows.map((row) => (
+              <div className="kpi-table-row" key={row.label}>
+                <span>{row.label}</span>
+                <span>{row.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
+          <p className="kpi-updated">Son Güncelleme: {updatedAt}</p>
+        </div>
+        <div className="kpi-right">
+          <h3>Job Queue Test</h3>
+          <LineChart labels={axisLabels} points={queuePoints} max={10} />
+          <div className="chart-legend">
+            <span><i className="dot dot-blue" /> Bekliyor</span>
+            <span><i className="dot dot-teal" /> İşleniyor</span>
+            <span><i className="dot dot-red" /> Hata Verdi</span>
+          </div>
+          <div className="queue-list">
+            {queueRows.map((row) => (
+              <div className="queue-row" key={row.name}>
+                <span className="queue-name"><i className={`dot ${row.tone}`} />{row.name}</span>
+                <span className="queue-status">{row.count} Dosya</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="line-chart-wrap">
+        <SparklineChart labels={["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30", "13:30"]} points={sparkPoints} />
+        <div className="chart-legend compact">
+          <span><i className="dot dot-blue" /> Bekliyor</span>
+          <span><i className="dot dot-cyan" /> İşleniyor</span>
+          <span><i className="dot dot-red" /> Hata Verdi</span>
+        </div>
       </div>
     </article>
   );
 }
 
-function ActionCard({ title, dict }: { title: string; dict: Dictionary }) {
+function ActionCard({
+  title,
+  dict,
+  updatedAt,
+  queueSummary,
+}: {
+  title: string;
+  dict: Dictionary;
+  updatedAt: string;
+  queueSummary: { waiting: number; processing: number; failed: number };
+}) {
+  const total = Math.max(queueSummary.waiting + queueSummary.processing + queueSummary.failed, 1);
+  const radius = 64;
+  const circumference = 2 * Math.PI * radius;
+  const waitingLength = (queueSummary.waiting / total) * circumference;
+  const processingLength = (queueSummary.processing / total) * circumference;
+  const failedLength = (queueSummary.failed / total) * circumference;
+
   return (
     <article className="panel">
       <div className="panel-header">
@@ -803,7 +873,136 @@ function ActionCard({ title, dict }: { title: string; dict: Dictionary }) {
         <button className="ghost has-arrow" type="button">{dict.actions.inspectAppUsers}</button>
         <button className="ghost has-arrow" type="button">{dict.actions.inspectAdminUsers}</button>
       </div>
+      <div className="queue-state-card">
+        <div className="queue-state-header">
+          <h3>Kuyruk Durumu</h3>
+          <span>{updatedAt}</span>
+        </div>
+        <div className="queue-state-content">
+          <div className="queue-state-labels">
+            <p>Yazdırma Kuyruğu</p>
+            <p>İndirme Kuyruğu</p>
+            <p>Mesaj / İş Kuyruğu</p>
+            <p>Medya Kuyruğu</p>
+          </div>
+          <div className="donut-wrap">
+            <svg className="donut-chart" viewBox="0 0 160 160" role="presentation" aria-hidden="true">
+              <circle className="donut-bg" cx="80" cy="80" r={radius} />
+              <circle
+                className="donut-segment donut-segment-blue"
+                cx="80"
+                cy="80"
+                r={radius}
+                strokeDasharray={`${waitingLength} ${circumference}`}
+                strokeDashoffset="0"
+              />
+              <circle
+                className="donut-segment donut-segment-cyan"
+                cx="80"
+                cy="80"
+                r={radius}
+                strokeDasharray={`${processingLength} ${circumference}`}
+                strokeDashoffset={`${-waitingLength}`}
+              />
+              <circle
+                className="donut-segment donut-segment-red"
+                cx="80"
+                cy="80"
+                r={radius}
+                strokeDasharray={`${failedLength} ${circumference}`}
+                strokeDashoffset={`${-(waitingLength + processingLength)}`}
+              />
+            </svg>
+            <div className="donut-center">24/7</div>
+          </div>
+        </div>
+        <div className="chart-legend compact">
+          <span><i className="dot dot-blue" /> Bekliyor</span>
+          <span><i className="dot dot-cyan" /> İşleniyor</span>
+          <span><i className="dot dot-red" /> Hata Verdi</span>
+        </div>
+        <p className="queue-foot">Son Güncelleme: {updatedAt}</p>
+      </div>
     </article>
+  );
+}
+
+function LineChart({ labels, points, max }: { labels: string[]; points: number[]; max: number }) {
+  const width = 640;
+  const height = 260;
+  const paddingX = 34;
+  const paddingTop = 14;
+  const paddingBottom = 36;
+  const innerWidth = width - paddingX * 2;
+  const innerHeight = height - paddingTop - paddingBottom;
+  const safePoints = points.length > 1 ? points : [0, 0];
+  const path = safePoints.map((value, index) => {
+    const x = paddingX + (index / (safePoints.length - 1)) * innerWidth;
+    const y = paddingTop + innerHeight - (Math.max(0, Math.min(max, value)) / max) * innerHeight;
+    return `${index === 0 ? "M" : "L"}${x},${y}`;
+  }).join(" ");
+  const yTicks = [0, 2, 4, 6, 8, 10];
+
+  return (
+    <>
+      <svg className="queue-chart" viewBox={`0 0 ${width} ${height}`} role="presentation" aria-hidden="true">
+        {yTicks.map((tick) => {
+          const y = paddingTop + innerHeight - (tick / max) * innerHeight;
+          return (
+            <g key={tick}>
+              <line className="chart-grid-line" x1={paddingX} x2={width - paddingX} y1={y} y2={y} />
+              <text className="chart-y-label" x={paddingX - 22} y={y + 5}>{tick}</text>
+            </g>
+          );
+        })}
+        <path className="chart-line" d={path} />
+        {safePoints.map((value, index) => {
+          const x = paddingX + (index / (safePoints.length - 1)) * innerWidth;
+          const y = paddingTop + innerHeight - (Math.max(0, Math.min(max, value)) / max) * innerHeight;
+          return <circle key={labels[index] ?? String(index)} className="chart-point" cx={x} cy={y} r={4.5} />;
+        })}
+      </svg>
+      <div className="chart-x-labels">
+        {labels.map((label) => <span key={label}>{label}</span>)}
+      </div>
+    </>
+  );
+}
+
+function SparklineChart({ labels, points }: { labels: string[]; points: number[] }) {
+  const width = 720;
+  const height = 120;
+  const paddingX = 10;
+  const paddingY = 12;
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = Math.max(max - min, 1);
+  const innerWidth = width - paddingX * 2;
+  const innerHeight = height - paddingY * 2;
+  const safePoints = points.length > 1 ? points : [0, 0];
+  const linePath = safePoints.map((value, index) => {
+    const x = paddingX + (index / (safePoints.length - 1)) * innerWidth;
+    const y = paddingY + innerHeight - ((value - min) / range) * innerHeight;
+    return `${index === 0 ? "M" : "L"}${x},${y}`;
+  }).join(" ");
+  const areaPath = `${linePath} L ${width - paddingX},${height - paddingY} L ${paddingX},${height - paddingY} Z`;
+
+  return (
+    <>
+      <svg className="sparkline" viewBox={`0 0 ${width} ${height}`} role="presentation" aria-hidden="true">
+        <defs>
+          <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(96, 157, 255, 0.4)" />
+            <stop offset="100%" stopColor="rgba(96, 157, 255, 0.05)" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#spark-fill)" />
+        <path className="chart-line" d={linePath} />
+      </svg>
+      <div className="chart-x-labels spark-x-labels">
+        {labels.map((label) => <span key={label}>{label}</span>)}
+      </div>
+    </>
   );
 }
 
@@ -851,6 +1050,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     orderTrend: "all",
     spendTrend: "all",
   });
+  const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -951,6 +1151,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       orderTrend: "all",
       spendTrend: "all",
     });
+    setBuyerQuickFilter("all");
     setCustomerIdPreview(null);
   }, [kind]);
 
@@ -1220,13 +1421,31 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const trRows = rows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
   const todayKey = new Date().toISOString().slice(0, 10);
   const newToday = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
+  const trendDirection = (current: number, previous: number): "up" | "down" | "flat" => {
+    if (current > previous) return "up";
+    if (current < previous) return "down";
+    return "flat";
+  };
+  const computeBuyerRisk = (row: any): { level: "low" | "medium" | "high"; score: number } => {
+    const unresolved = Number(row.complaintUnresolved ?? 0);
+    const totalComplaints = Number(row.complaintTotal ?? 0);
+    const orderTrend = trendDirection(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0));
+    const spendTrend = trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
+    let score = 0;
+    score += Math.min(unresolved, 2) * 30;
+    if (totalComplaints >= 2) score += 15;
+    if (orderTrend === "down") score += 12;
+    if (spendTrend === "down") score += 12;
+    if (row.status === "disabled") score += 10;
+    if (score >= 70) return { level: "high", score };
+    if (score >= 35) return { level: "medium", score };
+    return { level: "low", score };
+  };
+  const buyersWithOpenComplaints = rows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0).length;
+  const riskyBuyersCount = rows.filter((row) => computeBuyerRisk(row).level !== "low").length;
+  const totalBuyersCount = pagination?.total ?? rows.length;
+  const activeRatio = totalBuyersCount > 0 ? Math.round((activeRows.length / totalBuyersCount) * 100) : 0;
   const filteredRows = useMemo(() => {
-    const trendDirection = (current: number, previous: number): "up" | "down" | "flat" => {
-      if (current > previous) return "up";
-      if (current < previous) return "down";
-      return "flat";
-    };
-
     let scopedRows = rows;
     if (isSellerPage) {
       scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
@@ -1256,6 +1475,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === buyerFilters.spendTrend
         );
       }
+      if (buyerQuickFilter === "risky") {
+        scopedRows = scopedRows.filter((row) => computeBuyerRisk(row).level !== "low");
+      } else if (buyerQuickFilter === "open_complaint") {
+        scopedRows = scopedRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0);
+      } else if (buyerQuickFilter === "down_spend") {
+        scopedRows = scopedRows.filter(
+          (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === "down"
+        );
+      }
     }
 
     if (!last7DaysOnly) return scopedRows;
@@ -1265,7 +1493,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [buyerFilters, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
+  }, [buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -1412,9 +1640,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }
 
   function trendArrow(current: number, previous: number): { symbol: string; className: string } {
-    if (current > previous) return { symbol: "▲", className: "is-up" };
-    if (current < previous) return { symbol: "▼", className: "is-down" };
-    return { symbol: "→", className: "is-flat" };
+    if (current > previous) return { symbol: "↑", className: "is-up" };
+    if (current < previous) return { symbol: "↓", className: "is-down" };
+    return { symbol: "•", className: "is-flat" };
   }
 
   function formatTry(value: number): string {
@@ -1551,30 +1779,64 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </button>
           </div>
         ) : null}
-        <article>
-          <div className="users-kpi-row">
-            <p>{isSellerPage ? (language === "tr" ? "Toplam TR Satıcı" : "Total TR Sellers") : language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
-            <strong className="users-kpi-value">{isSellerPage ? trRows.length : pagination?.total ?? rows.length}</strong>
-          </div>
-        </article>
-        <article>
-          <div className="users-kpi-row">
-            <p>{isSellerPage ? (language === "tr" ? "Aktif TR Satıcı" : "Active TR Sellers") : language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
-            <strong className="users-kpi-value is-active">{isSellerPage ? trRows.filter((row) => row.status === "active").length : activeRows.length}</strong>
-          </div>
-        </article>
-        <article>
-          <div className="users-kpi-row">
-            <p>{isSellerPage ? (language === "tr" ? "Pasif TR Satıcı" : "Disabled TR Sellers") : language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
-            <strong className="users-kpi-value">{isSellerPage ? trRows.filter((row) => row.status === "disabled").length : passiveRows.length}</strong>
-          </div>
-        </article>
-        <article>
-          <div className="users-kpi-row">
-            <p>{isSellerPage ? (language === "tr" ? "Bugün Yeni TR Satıcı" : "New TR Sellers Today") : language === "tr" ? "Bugün Yeni" : "New Today"}</p>
-            <strong className="users-kpi-value">{newToday}</strong>
-          </div>
-        </article>
+        {isBuyerPage ? (
+          <>
+            <article>
+              <div className="users-kpi-row">
+                <p>{language === "tr" ? "Toplam Alıcı" : "Total Buyers"}</p>
+                <strong className="users-kpi-value">{totalBuyersCount}</strong>
+              </div>
+            </article>
+            <article>
+              <div className="users-kpi-row users-kpi-row-progress">
+                <p>{language === "tr" ? "Aktif Oranı" : "Active Ratio"}</p>
+                <strong className="users-kpi-value is-active">%{activeRatio}</strong>
+              </div>
+              <div className="users-kpi-progress">
+                <span style={{ width: `${activeRatio}%` }} />
+              </div>
+            </article>
+            <article>
+              <div className="users-kpi-row">
+                <p>{language === "tr" ? "Şikayetli Alıcı" : "Buyers with Complaints"}</p>
+                <strong className="users-kpi-value">{buyersWithOpenComplaints}</strong>
+              </div>
+            </article>
+            <article>
+              <div className="users-kpi-row">
+                <p>{language === "tr" ? "Riskli Alıcı" : "Risky Buyers"}</p>
+                <strong className="users-kpi-value">{riskyBuyersCount}</strong>
+              </div>
+            </article>
+          </>
+        ) : (
+          <>
+            <article>
+              <div className="users-kpi-row">
+                <p>{isSellerPage ? (language === "tr" ? "Toplam TR Satıcı" : "Total TR Sellers") : language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
+                <strong className="users-kpi-value">{isSellerPage ? trRows.length : pagination?.total ?? rows.length}</strong>
+              </div>
+            </article>
+            <article>
+              <div className="users-kpi-row">
+                <p>{isSellerPage ? (language === "tr" ? "Aktif TR Satıcı" : "Active TR Sellers") : language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
+                <strong className="users-kpi-value is-active">{isSellerPage ? trRows.filter((row) => row.status === "active").length : activeRows.length}</strong>
+              </div>
+            </article>
+            <article>
+              <div className="users-kpi-row">
+                <p>{isSellerPage ? (language === "tr" ? "Pasif TR Satıcı" : "Disabled TR Sellers") : language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
+                <strong className="users-kpi-value">{isSellerPage ? trRows.filter((row) => row.status === "disabled").length : passiveRows.length}</strong>
+              </div>
+            </article>
+            <article>
+              <div className="users-kpi-row">
+                <p>{isSellerPage ? (language === "tr" ? "Bugün Yeni TR Satıcı" : "New TR Sellers Today") : language === "tr" ? "Bugün Yeni" : "New Today"}</p>
+                <strong className="users-kpi-value">{newToday}</strong>
+              </div>
+            </article>
+          </>
+        )}
       </section>
 
       <section className="panel">
@@ -1647,6 +1909,46 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <option value="up">{language === "tr" ? "Harcama Trendi: Artan" : "Spend Trend: Up"}</option>
                   <option value="down">{language === "tr" ? "Harcama Trendi: Azalan" : "Spend Trend: Down"}</option>
                 </select>
+                <button
+                  type="button"
+                  className={`chip ${buyerQuickFilter === "all" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setBuyerQuickFilter("all");
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  {language === "tr" ? "Tümü" : "All"}
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${buyerQuickFilter === "risky" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setBuyerQuickFilter("risky");
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  {language === "tr" ? "Riskli" : "Risky"}
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setBuyerQuickFilter("open_complaint");
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  {language === "tr" ? "Açık Şikayetli" : "Open Complaints"}
+                </button>
+                <button
+                  type="button"
+                  className={`chip ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`}
+                  onClick={() => {
+                    setBuyerQuickFilter("down_spend");
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  {language === "tr" ? "Azalan Harcama" : "Down Spend"}
+                </button>
               </div>
             ) : null}
             {isSellerPage ? (
@@ -1733,127 +2035,168 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <table>
             <thead>
               <tr>
-                {tableColumns.map((column) => (
-                  <th key={column}>{resolveColumnLabel(column)}</th>
-                ))}
-                {isBuyerPage ? <th>{language === "tr" ? "Şikayet" : "Complaints"}</th> : null}
-                {isBuyerPage ? <th>{language === "tr" ? "Sipariş Trendi" : "Order Trend"}</th> : null}
-                {isBuyerPage ? <th>{language === "tr" ? "Harcama Trendi" : "Spend Trend"}</th> : null}
-                <th>{dict.users.actions}</th>
+                {isBuyerPage ? (
+                  <>
+                    <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                    <th>{language === "tr" ? "Risk" : "Risk"}</th>
+                    <th>{language === "tr" ? "Şikayet" : "Complaints"}</th>
+                    <th>{language === "tr" ? "Sipariş (30 Gün)" : "Orders (30 Days)"}</th>
+                    <th>{language === "tr" ? "Harcama (30 Gün)" : "Spend (30 Days)"}</th>
+                    <th>{language === "tr" ? "Durum" : "Status"}</th>
+                    <th>{dict.users.actions}</th>
+                  </>
+                ) : (
+                  <>
+                    {tableColumns.map((column) => (
+                      <th key={column}>{resolveColumnLabel(column)}</th>
+                    ))}
+                    <th>{dict.users.actions}</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
-              {loading ? Array.from({ length: 5 }).map((_, index) => (
-                <tr key={`skeleton-${index}`}>
-                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 3 : 0)} className="table-skeleton">
-                    <span />
-                  </td>
-                </tr>
-              )) : filteredRows.length === 0 ? (
-                <tr>
-                  <td colSpan={tableColumns.length + 1 + (isBuyerPage ? 3 : 0)}>{dict.common.noRecords}</td>
-                </tr>
-              ) : (
-                filteredRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={isBuyerPage ? "is-clickable" : ""}
-                    onClick={
-                      isBuyerPage
-                        ? () => {
-                            navigate(`/app/buyers/${row.id}`);
-                          }
-                        : undefined
-                    }
-                    onKeyDown={
-                      isBuyerPage
-                        ? (event) => {
+              {(() => {
+                const tableColSpan = isBuyerPage ? 7 : tableColumns.length + 1;
+                return loading ? Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={`skeleton-${index}`}>
+                    <td colSpan={tableColSpan} className="table-skeleton">
+                      <span />
+                    </td>
+                  </tr>
+                )) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={tableColSpan}>{dict.common.noRecords}</td>
+                  </tr>
+                ) : (
+                  filteredRows.map((row) => {
+                    if (isBuyerPage) {
+                      const risk = computeBuyerRisk(row);
+                      const orderTrendMeta = trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0));
+                      const spendTrendMeta = trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
+                      const unresolved = Number(row.complaintUnresolved ?? 0);
+                      const totalComplaints = Number(row.complaintTotal ?? 0);
+                      const initials = String(row.displayName ?? row.email ?? "U")
+                        .split(" ")
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((p: string) => p[0]?.toUpperCase() ?? "")
+                        .join("");
+
+                      return (
+                        <tr
+                          key={row.id}
+                          className={`is-clickable buyer-risk-${risk.level}`}
+                          onClick={() => navigate(`/app/buyers/${row.id}`)}
+                          onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
                               navigate(`/app/buyers/${row.id}`);
                             }
-                          }
-                        : undefined
-                    }
-                    tabIndex={isBuyerPage ? 0 : undefined}
-                  >
-                    {tableColumns.map((column) => (
-                      <td key={`${row.id}-${column}`}>{renderCell(row, column)}</td>
-                    ))}
-                    {isBuyerPage ? (
-                      <td>
-                        <div className="buyer-table-metrics">
-                          <div>{`${Number(row.complaintResolved ?? 0)}/${Number(row.complaintTotal ?? 0)}`}</div>
-                        </div>
-                      </td>
-                    ) : null}
-                    {isBuyerPage ? (
-                      <td>
-                        <div className={`buyer-trend ${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).className}`}>
-                          {`${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).symbol} ${
-                            language === "tr" ? "Son 30g" : "Last 30d"
-                          }: ${Number(row.monthlyOrderCountCurrent ?? 0)}`}
-                        </div>
-                        <div className="panel-meta">
-                          {`${language === "tr" ? "Önceki 30g" : "Prev 30d"}: ${Number(row.monthlyOrderCountPrevious ?? 0)}`}
-                        </div>
-                      </td>
-                    ) : null}
-                    {isBuyerPage ? (
-                      <td>
-                        <div className={`buyer-trend ${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).className}`}>
-                          {`${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${
-                            language === "tr" ? "Son 30g" : "Last 30d"
-                          }: ${formatTry(Number(row.monthlySpentCurrent ?? 0))}`}
-                        </div>
-                        <div className="panel-meta">
-                          {`${language === "tr" ? "Önceki 30g" : "Prev 30d"}: ${formatTry(Number(row.monthlySpentPrevious ?? 0))}`}
-                        </div>
-                      </td>
-                    ) : null}
-                    <td className="cell-actions">
-                      {!isBuyerPage ? (
-                        <button
-                          className="ghost action-btn"
-                          type="button"
-                          title={dict.actions.detail}
-                          aria-label={dict.actions.detail}
-                          onClick={() =>
-                            navigate(
-                              kind === "app"
-                                ? `/app/users/${row.id}`
-                                : kind === "sellers"
-                                    ? `/app/sellers/${row.id}`
-                                  : `/app/admins/${row.id}`
-                            )
-                          }
+                          }}
+                          tabIndex={0}
                         >
-                          <span aria-hidden="true">◉ Detay</span>
-                          <span className="sr-only">{dict.actions.detail}</span>
-                        </button>
-                      ) : null}
-                      {isSuperAdmin && !isSellerPage ? (
-                        <>
-                          <button
-                            className="ghost action-btn"
-                            type="button"
-                            title={language === "tr" ? "Pasif Yap" : "Disable"}
-                            aria-label={dict.actions.toggleStatus}
-                            onClick={() => toggleStatusAction(row)}
-                          >
-                            <span aria-hidden="true">◔ {language === "tr" ? "Pasif Yap" : "Disable"}</span>
-                            <span className="sr-only">{dict.actions.toggleStatus}</span>
-                          </button>
-                        </>
-                      ) : !isSellerPage ? (
-                        <button className="ghost action-btn" type="button" disabled title={dict.users.onlySuperAdmin}>
-                          Yetkiniz yok
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))
-              )}
+                          <td>
+                            <div className="buyer-user-cell">
+                              <span className="name-avatar">{initials || "U"}</span>
+                              <div>
+                                <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
+                                <span>{String(row.email ?? "-")}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`risk-pill is-${risk.level}`}>
+                              {risk.level === "high" ? (language === "tr" ? "Yüksek" : "High") : risk.level === "medium" ? (language === "tr" ? "Orta" : "Medium") : language === "tr" ? "Düşük" : "Low"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="buyer-complaint-cell">
+                              <strong>{totalComplaints}</strong>
+                              {unresolved > 0 ? <span className="complaint-open-chip">{`${unresolved} ${language === "tr" ? "Açık" : "Open"}`}</span> : null}
+                            </div>
+                          </td>
+                          <td>
+                            <div className={`buyer-trend ${orderTrendMeta.className}`}>
+                              <strong>{Number(row.monthlyOrderCountCurrent ?? 0)}</strong>
+                              <span>{orderTrendMeta.symbol}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className={`buyer-trend ${spendTrendMeta.className}`}>
+                              <strong>{formatTry(Number(row.monthlySpentCurrent ?? 0))}</strong>
+                              <span>{spendTrendMeta.symbol}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`status-pill ${row.status === "active" ? "is-active" : "is-neutral"}`}>
+                              {row.status === "active" ? (language === "tr" ? "Aktif" : "Active") : language === "tr" ? "Pasif" : "Passive"}
+                            </span>
+                          </td>
+                          <td className="cell-actions">
+                            <button
+                              className="ghost action-menu-btn"
+                              type="button"
+                              aria-label={language === "tr" ? "Aksiyon menüsü" : "Action menu"}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/app/buyers/${row.id}`);
+                              }}
+                            >
+                              ⋯
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={row.id}>
+                        {tableColumns.map((column) => (
+                          <td key={`${row.id}-${column}`}>{renderCell(row, column)}</td>
+                        ))}
+                        <td className="cell-actions">
+                          {!isBuyerPage ? (
+                            <button
+                              className="ghost action-btn"
+                              type="button"
+                              title={dict.actions.detail}
+                              aria-label={dict.actions.detail}
+                              onClick={() =>
+                                navigate(
+                                  kind === "app"
+                                    ? `/app/users/${row.id}`
+                                    : kind === "sellers"
+                                        ? `/app/sellers/${row.id}`
+                                      : `/app/admins/${row.id}`
+                                )
+                              }
+                            >
+                              <span aria-hidden="true">◉ Detay</span>
+                              <span className="sr-only">{dict.actions.detail}</span>
+                            </button>
+                          ) : null}
+                          {isSuperAdmin && !isSellerPage ? (
+                            <button
+                              className="ghost action-btn"
+                              type="button"
+                              title={language === "tr" ? "Pasif Yap" : "Disable"}
+                              aria-label={dict.actions.toggleStatus}
+                              onClick={() => toggleStatusAction(row)}
+                            >
+                              <span aria-hidden="true">◔ {language === "tr" ? "Pasif Yap" : "Disable"}</span>
+                              <span className="sr-only">{dict.actions.toggleStatus}</span>
+                            </button>
+                          ) : !isSellerPage ? (
+                            <button className="ghost action-btn" type="button" disabled title={dict.users.onlySuperAdmin}>
+                              Yetkiniz yok
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })
+                );
+              })()}
             </tbody>
           </table>
         </div>

@@ -605,6 +605,13 @@ button {
   margin-bottom: 6px;
 }
 
+.kpi-table-row span:last-child {
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
 .kpi-table-row:last-child {
   margin-bottom: 0;
 }
@@ -617,6 +624,12 @@ button {
   padding: 2px 2px 6px;
   margin-bottom: 4px;
   border-bottom: 0;
+}
+
+.kpi-table-head span:last-child {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .kpi-detail-grid {
@@ -653,6 +666,8 @@ button {
 
 .line-chart-wrap {
   margin-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  padding-top: 12px;
 }
 
 .sparkline,
@@ -685,6 +700,8 @@ button {
 
 .chart-point {
   fill: #6fb2ff;
+  stroke: #1e3a72;
+  stroke-width: 1.5;
 }
 
 .chart-x-labels {
@@ -757,11 +774,14 @@ button {
 }
 
 .queue-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--color-secondary-text);
 }
 
 .queue-status {
-  color: var(--color-link);
+  color: var(--color-text);
   font-weight: 500;
   position: relative;
   padding-right: 14px;
@@ -814,6 +834,12 @@ button {
   font-size: 0.94rem;
 }
 
+.queue-state-labels p {
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+}
+
 .donut-wrap {
   width: 140px;
   height: 140px;
@@ -839,22 +865,19 @@ button {
 
 .donut-segment {
   stroke-linecap: butt;
-  stroke-dasharray: 402;
+  stroke-dasharray: 0 402;
 }
 
 .donut-segment-blue {
   stroke: #4f97ff;
-  stroke-dashoffset: 58;
 }
 
 .donut-segment-cyan {
   stroke: #39c8cf;
-  stroke-dashoffset: 190;
 }
 
 .donut-segment-red {
   stroke: #ef6a7c;
-  stroke-dashoffset: 338;
 }
 
 .donut-center {
@@ -1443,6 +1466,9 @@ textarea:focus {
 
 .buyer-trend {
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .buyer-trend.is-up {
@@ -1462,6 +1488,85 @@ textarea:focus {
   flex-direction: column;
   gap: 4px;
   min-width: 260px;
+}
+
+.buyer-user-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.buyer-user-cell div {
+  display: grid;
+  gap: 2px;
+}
+
+.buyer-user-cell strong {
+  font-size: 1.32rem;
+  line-height: 1.1;
+}
+
+.buyer-user-cell span {
+  color: var(--color-secondary-text);
+  font-size: 1.02rem;
+}
+
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 4px 11px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.risk-pill.is-low {
+  color: #8be7c2;
+  border-color: color-mix(in srgb, #3dd598 44%, transparent);
+  background: color-mix(in srgb, #3dd598 20%, transparent);
+}
+
+.risk-pill.is-medium {
+  color: #ffd19a;
+  border-color: color-mix(in srgb, #f3b34a 48%, transparent);
+  background: color-mix(in srgb, #f3b34a 24%, transparent);
+}
+
+.risk-pill.is-high {
+  color: #ffbcc8;
+  border-color: color-mix(in srgb, #ff647c 55%, transparent);
+  background: color-mix(in srgb, #ff647c 26%, transparent);
+}
+
+.buyer-complaint-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.complaint-open-chip {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ff647c 45%, transparent);
+  background: color-mix(in srgb, #ff647c 20%, transparent);
+  color: #ffbcc8;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.users-table-wrap tbody tr.buyer-risk-high td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #ff647c 66%, transparent);
+}
+
+.users-table-wrap tbody tr.buyer-risk-medium td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #f3b34a 62%, transparent);
+}
+
+.users-table-wrap tbody tr.buyer-risk-high:hover td {
+  background: color-mix(in srgb, #5a1d2a 24%, var(--color-card-bg));
 }
 
 .buyer-orders-table table {
@@ -1640,6 +1745,25 @@ textarea:focus {
 
 .users-kpi-value.is-active {
   color: #64e4cb;
+}
+
+.users-kpi-row-progress {
+  margin-bottom: 8px;
+}
+
+.users-kpi-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-card-bg) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  overflow: hidden;
+}
+
+.users-kpi-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #45b8ad, #67d5b5);
 }
 
 .users-filter-top {
@@ -2560,6 +2684,15 @@ textarea:focus {
   border-radius: 10px;
   font-weight: 600;
   padding: 7px 12px;
+}
+
+.action-menu-btn {
+  min-width: 38px;
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 0;
+  font-size: 1.55rem;
+  line-height: 1;
 }
 
 .table-skeleton span {
