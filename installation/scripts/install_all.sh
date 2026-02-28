@@ -19,6 +19,7 @@ fi
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 load_config
+sync_repo_to_root
 
 choose_livekit_install() {
   local mode="${INSTALL_LIVEKIT:-ask}"

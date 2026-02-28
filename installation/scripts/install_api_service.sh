@@ -79,8 +79,8 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
 
 OS="$(os_type)"
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
-RUN_USER="${API_RUN_USER:-${APP_USER:-caziyoo}}"
-RUN_GROUP="${API_RUN_GROUP:-${APP_GROUP:-${RUN_USER}}}"
+RUN_USER="${API_RUN_USER:-root}"
+RUN_GROUP="${API_RUN_GROUP:-root}"
 START_CMD="${API_START_CMD:-node dist/src/server.js}"
 
 if [[ "${OS}" == "linux" ]]; then

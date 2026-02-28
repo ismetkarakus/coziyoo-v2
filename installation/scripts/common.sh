@@ -88,24 +88,21 @@ load_config() {
 
   local detected_repo_root
   detected_repo_root="$(cd "${INSTALL_DIR}/.." && pwd)"
-  REPO_ROOT="${REPO_ROOT:-${detected_repo_root}}"
+  SOURCE_REPO_ROOT="${detected_repo_root}"
+  REPO_ROOT="${REPO_ROOT:-/opt/coziyoo}"
   if [[ "${REPO_ROOT}" != /* ]]; then
     REPO_ROOT="$(cd "${INSTALL_DIR}/${REPO_ROOT}" 2>/dev/null && pwd)" || fail "Invalid REPO_ROOT path '${REPO_ROOT}' in ${cfg}"
   fi
-  if [[ ! -d "${REPO_ROOT}" && -d "${detected_repo_root}" ]]; then
-    log "Configured REPO_ROOT does not exist (${REPO_ROOT}); falling back to ${detected_repo_root}"
-    REPO_ROOT="${detected_repo_root}"
+  if [[ ! -d "${REPO_ROOT}" ]]; then
+    run_root mkdir -p "${REPO_ROOT}"
   fi
 
-  APP_USER="${APP_USER:-caziyoo}"
-  APP_GROUP="${APP_GROUP:-${APP_USER}}"
-  APP_PASSWORD="${APP_PASSWORD:-doktor}"
-  API_RUN_USER="${API_RUN_USER:-${APP_USER}}"
-  API_RUN_GROUP="${API_RUN_GROUP:-${APP_GROUP}}"
-  AGENT_RUN_USER="${AGENT_RUN_USER:-${APP_USER}}"
-  AGENT_RUN_GROUP="${AGENT_RUN_GROUP:-${APP_GROUP}}"
+  API_RUN_USER="${API_RUN_USER:-root}"
+  API_RUN_GROUP="${API_RUN_GROUP:-root}"
+  AGENT_RUN_USER="${AGENT_RUN_USER:-root}"
+  AGENT_RUN_GROUP="${AGENT_RUN_GROUP:-root}"
 
-  export APP_USER APP_GROUP APP_PASSWORD API_RUN_USER API_RUN_GROUP AGENT_RUN_USER AGENT_RUN_GROUP
+  export SOURCE_REPO_ROOT REPO_ROOT API_RUN_USER API_RUN_GROUP AGENT_RUN_USER AGENT_RUN_GROUP
 }
 
 resolve_path() {
@@ -146,6 +143,25 @@ maybe_git_update() {
     git checkout "${branch}"
     git pull --ff-only origin "${branch}"
   )
+}
+
+sync_repo_to_root() {
+  local source="${SOURCE_REPO_ROOT:-$(cd "${INSTALL_DIR}/.." && pwd)}"
+  local target="${REPO_ROOT}"
+
+  [[ -d "${source}" ]] || fail "Source repo directory not found: ${source}"
+  if [[ "${source}" == "${target}" ]]; then
+    return
+  fi
+
+  require_cmd rsync
+  run_root mkdir -p "${target}"
+  log "Syncing repository from ${source} to ${target}"
+  run_root rsync -a --delete \
+    --exclude '.deploy-lock' \
+    --exclude 'node_modules' \
+    --exclude 'agent-python/.venv' \
+    "${source}/" "${target}/"
 }
 
 install_python_project() {
