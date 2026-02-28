@@ -27,7 +27,9 @@ run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -av --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
 if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
-  log "INGRESS_MODE=npm, skipping Nginx reload"
+  ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
+  log "INGRESS_MODE=npm, restarting admin service ${ADMIN_SERVICE_NAME}"
+  service_action restart "${ADMIN_SERVICE_NAME}"
 elif [[ "$(os_type)" == "linux" ]]; then
   run_root nginx -t
   run_root systemctl reload nginx

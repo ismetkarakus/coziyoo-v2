@@ -10,18 +10,20 @@ ACTION="${1:-}"
 SERVICE="${2:-}"
 
 if [[ -z "${ACTION}" ]]; then
-  echo "Usage: $0 <start|stop|restart|status|logs> [api|agent|livekit|nginx|postgres]"
+  echo "Usage: $0 <start|stop|restart|status|logs> [api|agent|admin|livekit|nginx|postgres]"
   exit 1
 fi
 
 api_service="${API_SERVICE_NAME:-coziyoo-api}"
 agent_service="${AGENT_SERVICE_NAME:-coziyoo-agent}"
+admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 livekit_service="${LIVEKIT_SERVICE_NAME:-livekit}"
 
 service_for_name() {
   case "$1" in
     api) echo "${api_service}" ;;
     agent) echo "${agent_service}" ;;
+    admin) echo "${admin_service}" ;;
     livekit) echo "${livekit_service}" ;;
     nginx) echo "nginx" ;;
     postgres)
@@ -62,6 +64,9 @@ if [[ -n "${SERVICE}" ]]; then
 else
   run_on_service api
   run_on_service agent
+  if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
+    run_on_service admin
+  fi
   run_on_service livekit
   if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
     run_on_service nginx
