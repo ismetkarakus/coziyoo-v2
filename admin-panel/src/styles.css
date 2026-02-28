@@ -2491,6 +2491,10 @@ textarea:focus {
   height: 18px;
 }
 
+.buyer-ref-mini-filter-btn select {
+  font-size: 0.92rem;
+}
+
 .buyer-ref-filter-row .ghost {
   min-height: 46px;
   border-radius: 12px;
@@ -2509,6 +2513,45 @@ textarea:focus {
   color: color-mix(in srgb, var(--ops-text-secondary) 94%, white);
   font-size: 0.98rem;
   font-weight: 600;
+}
+
+.buyer-ref-select-wrap {
+  position: relative;
+}
+
+.buyer-ref-select-wrap select {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ops-text-secondary) 94%, white);
+  font-size: 0.98rem;
+  font-weight: 600;
+  appearance: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.buyer-ref-select-wrap .buyer-ref-filter-trailing {
+  pointer-events: none;
+}
+
+.buyer-ref-search-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ops-text-secondary) 94%, white);
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.buyer-ref-search-input::placeholder {
+  color: color-mix(in srgb, var(--ops-text-secondary) 78%, transparent);
 }
 
 .buyer-ref-filter-leading,

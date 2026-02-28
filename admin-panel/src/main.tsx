@@ -53,6 +53,7 @@ const LANGUAGE_KEY = "admin_language";
 type Language = "tr" | "en";
 type Dictionary = typeof en;
 type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw";
+type BuyerDetailTab = "orders" | "payments" | "complaints" | "reviews" | "activity" | "notes";
 
 const DICTIONARIES: Record<Language, Dictionary> = {
   en,
@@ -69,6 +70,15 @@ function resolveSellerDetailTab(value: string | null | undefined): SellerDetailT
   if (value === "security") return "security";
   if (value === "raw") return "raw";
   return "identity";
+}
+
+function resolveBuyerDetailTab(value: string | null | undefined): BuyerDetailTab {
+  if (value === "payments") return "payments";
+  if (value === "complaints") return "complaints";
+  if (value === "reviews") return "reviews";
+  if (value === "activity") return "activity";
+  if (value === "notes") return "notes";
+  return "orders";
 }
 
 function restoreRedirectPathFromQuery() {
@@ -4501,8 +4511,9 @@ function openQuickEmail(email: string | null | undefined, dict: Dictionary, setM
 
 function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const endpoint = `/v1/admin/users/${id}`;
-  const [activeTab, setActiveTab] = useState<"orders" | "payments" | "complaints" | "reviews" | "activity" | "notes">("orders");
+  const [activeTab, setActiveTab] = useState<BuyerDetailTab>(() => resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
   const [row, setRow] = useState<BuyerDetail | null>(null);
   const [contactInfo, setContactInfo] = useState<BuyerContactInfo | null>(null);
   const [orders, setOrders] = useState<BuyerOrderRow[]>([]);
@@ -4516,11 +4527,19 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const [message, setMessage] = useState<string | null>(null);
   const [smsOpen, setSmsOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [quickContactMenuOpen, setQuickContactMenuOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
   const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
   const [emailBody, setEmailBody] = useState("Merhaba,");
   const [noteInput, setNoteInput] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all_delivered");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [orderSearch, setOrderSearch] = useState("");
+  const [bottomSortFilter, setBottomSortFilter] = useState("recent");
+  const [amountFilter, setAmountFilter] = useState("all");
+  const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
+  const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const [noteItems, setNoteItems] = useState<string[]>([
     "Alıcıyla son ödeme konusunda iletişime geçildi.",
     "Siparişlerde teslimat notu: kapı zili bozuk.",
@@ -4671,6 +4690,25 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     loadBuyerDetail().catch(() => setMessage("Alıcı detay isteği başarısız"));
   }, [id, ordersPage]);
 
+  useEffect(() => {
+    setActiveTab(resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
+  }, [location.search]);
+
+  useEffect(() => {
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (quickContactMenuOpen && quickContactWrapRef.current && !quickContactWrapRef.current.contains(target)) {
+        setQuickContactMenuOpen(false);
+      }
+      if (actionMenuOpen && actionMenuWrapRef.current && !actionMenuWrapRef.current.contains(target)) {
+        setActionMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
+  }, [quickContactMenuOpen, actionMenuOpen]);
+
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
@@ -4724,6 +4762,60 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     return [...orderEvents, ...locationEvents].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   }, [orders, locations]);
 
+  const filteredOrders = useMemo(() => {
+    const now = Date.now();
+    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+
+    let next = [...orders];
+
+    if (statusFilter === "all_delivered") {
+      next = next.filter((order) => orderStatusLabel(order.status).toLowerCase().includes("teslim"));
+    } else if (statusFilter === "all_pending") {
+      next = next.filter((order) => paymentBadge(order.paymentStatus).cls === "is-pending");
+    } else if (statusFilter === "all_cancelled") {
+      next = next.filter((order) => orderStatusLabel(order.status).toLowerCase().includes("iptal"));
+    }
+
+    if (dateFilter === "last7") {
+      next = next.filter((order) => new Date(order.createdAt).getTime() >= sevenDaysAgo);
+    } else if (dateFilter === "last30") {
+      next = next.filter((order) => new Date(order.createdAt).getTime() >= thirtyDaysAgo);
+    }
+
+    const search = orderSearch.trim().toLowerCase();
+    if (search) {
+      next = next.filter((order) => {
+        const no = String(order.orderNo ?? "").toLowerCase();
+        const foods = order.items.map((item) => String(item.name ?? "").toLowerCase()).join(" ");
+        return no.includes(search) || foods.includes(search);
+      });
+    }
+
+    if (amountFilter === "under500") {
+      next = next.filter((order) => Number(order.totalAmount ?? 0) < 500);
+    } else if (amountFilter === "500_1000") {
+      next = next.filter((order) => Number(order.totalAmount ?? 0) >= 500 && Number(order.totalAmount ?? 0) <= 1000);
+    } else if (amountFilter === "over1000") {
+      next = next.filter((order) => Number(order.totalAmount ?? 0) > 1000);
+    }
+
+    if (bottomSortFilter === "oldest") {
+      next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } else {
+      next.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    return next;
+  }, [orders, statusFilter, dateFilter, orderSearch, bottomSortFilter, amountFilter]);
+
+  function switchBuyerTab(tab: BuyerDetailTab) {
+    setActiveTab(tab);
+    const params = new URLSearchParams(location.search);
+    params.set("tab", tab);
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  }
+
   async function sendSms() {
     if (!smsMessage.trim()) {
       setMessage("SMS icerigi bos olamaz.");
@@ -4763,6 +4855,33 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       .writeText(row.id)
       .then(() => setMessage("Alici ID kopyalandi."))
       .catch(() => setMessage("Kopyalama basarisiz."));
+  }
+
+  function downloadBuyerOrdersAsExcel() {
+    if (orders.length === 0) {
+      setMessage("Disa aktarilacak siparis bulunamadi.");
+      return;
+    }
+
+    const headers = ["Tarih / Saat", "Siparis No", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
+    const rowsForExport = orders.map((order) => [
+      formatDate(order.createdAt),
+      order.orderNo,
+      order.items.map((item) => `${item.name} x${item.quantity}`).join(", ") || "-",
+      formatCurrency(order.totalAmount),
+      orderStatusLabel(order.status),
+      paymentBadge(order.paymentStatus).text,
+    ]);
+
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `buyer-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   async function addNote() {
@@ -4815,24 +4934,33 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <h1>Alici Detayi</h1>
         </div>
         <div className="buyer-ref-actions">
-          <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>
+          <button className="ghost" type="button" onClick={downloadBuyerOrdersAsExcel}>
             <span className="buyer-ref-action-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M3.8 6.5h16.4v11H3.8z" />
-                <path d="m4.6 7.3 7.4 6.1 7.4-6.1" />
+                <path d="M12 3.5v11.8" />
+                <path d="m7.9 11.8 4.1 4.1 4.1-4.1" />
+                <path d="M4.5 18.5h15" />
               </svg>
             </span>
-            Hizli E-posta
+            Excel'e Dok
           </button>
-          <button className="ghost" type="button" onClick={() => setSmsOpen(true)}>
-            <span className="buyer-ref-action-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M5 7.2h14v9.4H9l-4 3v-3z" />
-                <path d="M9 10.8h6M9 13.5h4.2" />
-              </svg>
-            </span>
-            Hizli SMS
-          </button>
+          <div className="buyer-ops-menu-wrap" ref={quickContactWrapRef}>
+            <button className="ghost" type="button" onClick={() => setQuickContactMenuOpen((prev) => !prev)}>
+              <span className="buyer-ref-action-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M5 7.2h14v9.4H9l-4 3v-3z" />
+                  <path d="M9 10.8h6M9 13.5h4.2" />
+                </svg>
+              </span>
+              Hizli Iletisim
+            </button>
+            {quickContactMenuOpen ? (
+              <div className="buyer-ops-menu">
+                <button type="button" onClick={() => { setEmailOpen(true); setQuickContactMenuOpen(false); }}>Hizli E-posta</button>
+                <button type="button" onClick={() => { setSmsOpen(true); setQuickContactMenuOpen(false); }}>Hizli SMS</button>
+              </div>
+            ) : null}
+          </div>
           <button className="ghost" type="button">
             <span className="buyer-ref-action-icon is-warn" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
@@ -4842,7 +4970,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             </span>
             {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
           </button>
-          <div className="buyer-ops-menu-wrap">
+          <div className="buyer-ops-menu-wrap" ref={actionMenuWrapRef}>
             <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>
               <span className="buyer-ref-action-icon" aria-hidden="true">•••</span>
               Diger
@@ -4901,15 +5029,15 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         <div className="buyer-ref-left">
           <section className="panel buyer-ref-main-panel">
             <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
-              <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => setActiveTab("orders")} type="button">Siparisler</button>
-              <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => setActiveTab("payments")} type="button">Odemeler</button>
-              <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => setActiveTab("complaints")} type="button">Sikayetler</button>
-              <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => setActiveTab("reviews")} type="button">Yorumlar & Puanlar</button>
-              <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => setActiveTab("activity")} type="button">Aktivite Logu</button>
-              <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")} type="button">Notlar & Etiketler</button>
+              <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => switchBuyerTab("orders")} type="button">Siparisler</button>
+              <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => switchBuyerTab("payments")} type="button">Odemeler</button>
+              <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => switchBuyerTab("complaints")} type="button">Sikayetler</button>
+              <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => switchBuyerTab("reviews")} type="button">Yorumlar & Puanlar</button>
+              <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
+              <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
             </div>
             <div className="buyer-ref-filter-row">
-              <button className="ghost buyer-ref-filter-btn" type="button">
+              <label className="ghost buyer-ref-filter-btn buyer-ref-select-wrap">
                 <span className="buyer-ref-filter-leading" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="M3 7h13" />
@@ -4920,14 +5048,19 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                     <circle cx="19" cy="17" r="2" />
                   </svg>
                 </span>
-                <span>Hepsi | Teslim Edildi</span>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Durum filtresi">
+                  <option value="all_delivered">Hepsi | Teslim Edildi</option>
+                  <option value="all_pending">Hepsi | Bekliyor</option>
+                  <option value="all_cancelled">Hepsi | Iptal</option>
+                  <option value="all">Hepsi | Tumu</option>
+                </select>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </span>
-              </button>
-              <button className="ghost buyer-ref-filter-btn" type="button">
+              </label>
+              <label className="ghost buyer-ref-filter-btn buyer-ref-select-wrap">
                 <span className="buyer-ref-filter-leading" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
@@ -4935,27 +5068,32 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                     <path d="M8.2 13h3.4M8.2 16h6.6" />
                   </svg>
                 </span>
-                <span>27.01.2028 - 27.02.2028</span>
+                <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="Tarih filtresi">
+                  <option value="all">27.01.2028 - 27.02.2028</option>
+                  <option value="last7">Son 7 gun</option>
+                  <option value="last30">Son 30 gun</option>
+                </select>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </span>
-              </button>
-              <button className="ghost buyer-ref-search-btn" type="button">
+              </label>
+              <label className="ghost buyer-ref-search-btn">
                 <span className="buyer-ref-filter-leading" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <circle cx="11" cy="11" r="5.5" />
                     <path d="m15.2 15.2 4.3 4.3" />
                   </svg>
                 </span>
-                <span>Siparis No ile era...</span>
-                <span className="buyer-ref-filter-trailing" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </button>
+                <input
+                  className="buyer-ref-search-input"
+                  value={orderSearch}
+                  onChange={(event) => setOrderSearch(event.target.value)}
+                  placeholder="Siparis No veya isim ile ara..."
+                  aria-label="Siparis veya isim ara"
+                />
+              </label>
             </div>
 
             <div className="buyer-ops-table-wrap">
@@ -4972,9 +5110,9 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.length === 0 ? (
+                  {filteredOrders.length === 0 ? (
                     <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
-                  ) : orders.map((order, index) => {
+                  ) : filteredOrders.map((order, index) => {
                     const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
                     return (
                       <tr key={order.orderId}>
@@ -4996,7 +5134,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <div>
                 <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
                 <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
-                <span>Toplam {ordersPagination?.total ?? orders.length} Siparis</span>
+                <span>Toplam {filteredOrders.length} Siparis</span>
               </div>
               <div>
                 <button className="ghost" type="button">1</button>
@@ -5008,22 +5146,30 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
 
           <section className="panel buyer-ref-bottom-panel">
             <div className="buyer-ref-filter-row buyer-ref-mini-filter-row">
-              <button className="ghost buyer-ref-mini-filter-btn" type="button">
-                <span>Son Filtreler</span>
+              <label className="ghost buyer-ref-mini-filter-btn buyer-ref-select-wrap">
+                <select value={bottomSortFilter} onChange={(event) => setBottomSortFilter(event.target.value)} aria-label="Alt siralama filtresi">
+                  <option value="recent">Son Filtreler</option>
+                  <option value="oldest">En Eski</option>
+                </select>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </span>
-              </button>
-              <button className="ghost buyer-ref-mini-filter-btn" type="button">
-                <span>Tutar 1Kuit</span>
+              </label>
+              <label className="ghost buyer-ref-mini-filter-btn buyer-ref-select-wrap">
+                <select value={amountFilter} onChange={(event) => setAmountFilter(event.target.value)} aria-label="Tutar filtresi">
+                  <option value="all">Tutar 1Kuit</option>
+                  <option value="under500">500 TL alti</option>
+                  <option value="500_1000">500-1000 TL</option>
+                  <option value="over1000">1000 TL ustu</option>
+                </select>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </span>
-              </button>
+              </label>
             </div>
             <div className="buyer-ops-table-wrap">
               <table>
@@ -5039,7 +5185,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.slice(0, 2).map((order) => (
+                  {filteredOrders.slice(0, 2).map((order) => (
                     <tr key={`${order.orderId}-mini`}>
                       <td><input type="checkbox" aria-label="Satir sec" /></td>
                       <td>{formatDate(order.createdAt)}</td>
@@ -5108,7 +5254,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                 placeholder="Not Ekle veya Etiketle"
               />
             </div>
-            <p className="panel-meta">{noteItems.length} Nor, {tagItems.length} Etikes</p>
+            <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etikes</p>
           </section>
         </aside>
       </section>
