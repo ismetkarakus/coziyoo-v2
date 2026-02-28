@@ -50,9 +50,20 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF2
 
+  log "Reloading systemd daemon"
   run_root systemctl daemon-reload
+  log "Enabling service ${SERVICE_NAME}"
   run_root systemctl enable "${SERVICE_NAME}"
-  run_root systemctl restart "${SERVICE_NAME}"
+  log "Restarting service ${SERVICE_NAME}"
+  if command -v timeout >/dev/null 2>&1; then
+    if ! run_root timeout 90s systemctl restart "${SERVICE_NAME}"; then
+      run_root systemctl status "${SERVICE_NAME}" --no-pager -l || true
+      run_root journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+      fail "Failed to restart ${SERVICE_NAME} within timeout"
+    fi
+  else
+    run_root systemctl restart "${SERVICE_NAME}"
+  fi
   run_root systemctl status "${SERVICE_NAME}" --no-pager -l
 else
   PLIST_DIR="${HOME}/Library/LaunchAgents"
