@@ -28,16 +28,16 @@ log "Building admin panel in ${ADMIN_DIR_ABS}"
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
 EOF
   if [[ -f package-lock.json ]]; then
-    npm ci
+    npm ci --silent --no-audit --no-fund --loglevel=error
   else
-    npm install
+    npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
 )
 
 log "Publishing admin files to ${PUBLISH_DIR}"
 run_root mkdir -p "${PUBLISH_DIR}"
-run_root rsync -av --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
+run_root rsync -a --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
 if [[ "$(os_type)" == "linux" && "${INGRESS_MODE:-nginx}" == "npm" ]]; then
   LOCAL_CONF_AVAIL="/etc/nginx/sites-available/coziyoo-admin-local.conf"
@@ -64,7 +64,6 @@ EOF2
   run_root systemctl enable nginx
   run_root nginx -t
   run_root systemctl restart nginx
-  run_root systemctl status nginx --no-pager -l
 fi
 
 log "Admin panel setup finished"

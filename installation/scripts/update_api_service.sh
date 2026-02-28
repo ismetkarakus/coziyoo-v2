@@ -15,14 +15,13 @@ maybe_git_update "${REPO_ROOT}"
 (
   cd "${API_DIR_ABS}"
   if [[ -f package-lock.json ]]; then
-    npm ci
+    npm ci --silent --no-audit --no-fund --loglevel=error
   else
-    npm install
+    npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
   npm run db:migrate
 )
 
 service_action restart "${SERVICE_NAME}"
-service_action status "${SERVICE_NAME}"
 log "API updated"

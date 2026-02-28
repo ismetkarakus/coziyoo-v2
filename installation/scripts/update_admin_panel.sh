@@ -16,15 +16,15 @@ maybe_git_update "${REPO_ROOT}"
 (
   cd "${ADMIN_DIR_ABS}"
   if [[ -f package-lock.json ]]; then
-    npm ci
+    npm ci --silent --no-audit --no-fund --loglevel=error
   else
-    npm install
+    npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
 )
 
 run_root mkdir -p "${PUBLISH_DIR}"
-run_root rsync -av --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
+run_root rsync -a --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
 if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
   log "INGRESS_MODE=npm, reloading host nginx for admin panel"

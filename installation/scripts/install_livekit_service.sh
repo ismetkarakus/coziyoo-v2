@@ -74,7 +74,6 @@ EOF2
   run_root systemctl daemon-reload
   run_root systemctl enable "${SERVICE_NAME}"
   run_root systemctl restart "${SERVICE_NAME}"
-  run_root systemctl status "${SERVICE_NAME}" --no-pager -l
 else
   if [[ -x "${BIN_PATH}" && "${FORCE_INSTALL}" != "true" ]]; then
     log "LiveKit binary already exists at ${BIN_PATH}, skipping binary install"

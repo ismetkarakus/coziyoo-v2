@@ -69,9 +69,9 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
     set +a
   fi
   if [[ -f package-lock.json ]]; then
-    npm ci
+    npm ci --silent --no-audit --no-fund --loglevel=error
   else
-    npm install
+    npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
   npm run db:migrate
@@ -113,7 +113,6 @@ EOF2
   run_root systemctl daemon-reload
   run_root systemctl enable "${SERVICE_NAME}"
   run_root systemctl restart "${SERVICE_NAME}"
-  run_root systemctl status "${SERVICE_NAME}" --no-pager -l
 else
   PLIST_DIR="${HOME}/Library/LaunchAgents"
   mkdir -p "${PLIST_DIR}"

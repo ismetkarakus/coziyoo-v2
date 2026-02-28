@@ -26,21 +26,21 @@ ensure_node20_linux() {
   fi
 
   log "Installing/upgrading Node.js to 20.x"
-  run_root apt-get update
-  run_root apt-get install -y ca-certificates gnupg
+  run_root apt-get -qq update
+  run_root apt-get -y -qq install ca-certificates gnupg
   run_root mkdir -p /etc/apt/keyrings
   run_root bash -lc "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > /etc/apt/keyrings/nodesource.gpg"
   run_root tee /etc/apt/sources.list.d/nodesource.list >/dev/null <<EOF
 deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main
 EOF
-  run_root apt-get update
-  run_root apt-get install -y nodejs
+  run_root apt-get -qq update
+  run_root apt-get -y -qq install nodejs
   log "Installed Node.js $(node -v), npm $(npm -v)"
 }
 
 if [[ "${OS}" == "linux" ]]; then
-  run_root apt-get update
-  run_root apt-get install -y \
+  run_root apt-get -qq update
+  run_root apt-get -y -qq install \
     git \
     curl \
     rsync \

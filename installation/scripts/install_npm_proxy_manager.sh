@@ -45,6 +45,19 @@ ensure_compose_installed
 run_root systemctl enable docker
 run_root systemctl start docker
 
+if run_root docker ps --format '{{.Names}}' | grep -qx 'nginx-proxy-manager'; then
+  log "Nginx Proxy Manager container is already running, skipping reinstall"
+  run_root docker ps --filter "name=nginx-proxy-manager" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+  exit 0
+fi
+
+if run_root docker ps -a --format '{{.Names}}' | grep -qx 'nginx-proxy-manager'; then
+  log "Nginx Proxy Manager container exists but is not running, starting it"
+  run_root docker start nginx-proxy-manager >/dev/null
+  run_root docker ps --filter "name=nginx-proxy-manager" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+  exit 0
+fi
+
 if [[ "${INGRESS_MODE:-nginx}" == "npm" ]] && run_root systemctl is-active --quiet nginx; then
   log "Stopping local nginx to free ports for Nginx Proxy Manager"
   run_root systemctl stop nginx || true

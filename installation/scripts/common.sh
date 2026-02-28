@@ -139,9 +139,9 @@ maybe_git_update() {
 
   (
     cd "${repo}"
-    git fetch origin
-    git checkout "${branch}"
-    git pull --ff-only origin "${branch}"
+    git fetch --quiet origin
+    git checkout -q "${branch}"
+    git pull --quiet --ff-only origin "${branch}"
   )
 }
 
@@ -180,12 +180,12 @@ install_python_project() {
 
   # shellcheck disable=SC1091
   source "${venv_dir}/bin/activate"
-  python -m pip install --upgrade pip
+  python -m pip install --quiet --upgrade pip
 
   if [[ -f "${app_dir}/requirements.txt" ]]; then
-    pip install -r "${app_dir}/requirements.txt"
+    pip install --quiet -r "${app_dir}/requirements.txt"
   elif [[ -f "${app_dir}/pyproject.toml" ]]; then
-    pip install "${app_dir}"
+    pip install --quiet "${app_dir}"
   else
     fail "No requirements.txt or pyproject.toml found in ${app_dir}"
   fi

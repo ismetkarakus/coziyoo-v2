@@ -77,7 +77,6 @@ EOF2
   else
     run_root systemctl restart "${SERVICE_NAME}"
   fi
-  run_root systemctl status "${SERVICE_NAME}" --no-pager -l
 else
   PLIST_DIR="${HOME}/Library/LaunchAgents"
   mkdir -p "${PLIST_DIR}"
