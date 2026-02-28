@@ -103,6 +103,18 @@ const InvestigationComplaintsQuerySchema = z.object({
   status: z.enum(["open", "in_review", "resolved", "closed"]).optional(),
   search: z.string().min(1).max(120).optional(),
 });
+const BuyerSmsBodySchema = z.object({
+  message: z.string().min(1).max(1000),
+});
+const BuyerNoteBodySchema = z.object({
+  note: z.string().min(1).max(2000),
+});
+const BuyerTagBodySchema = z.object({
+  tag: z.string().min(1).max(80),
+});
+const BuyerNotesQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(200).default(50),
+});
 
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
   createdAt: "u.created_at",
@@ -154,6 +166,64 @@ async function ensureSellerUser(userId: string) {
     return { ok: false as const, status: 409, code: "USER_NOT_SELLER", message: "User is not a seller account" };
   }
   return { ok: true as const, user: row };
+}
+
+async function getBuyerRiskSnapshot(userId: string) {
+  const [complaintStats, cancellationStats, failedPaymentStats] = await Promise.all([
+    pool.query<{ open_count: string }>(
+      `SELECT count(*)::text AS open_count
+       FROM complaints
+       WHERE complainant_buyer_id = $1
+         AND status IN ('open', 'in_review')`,
+      [userId]
+    ),
+    pool.query<{ cancelled_30d: string }>(
+      `SELECT count(*)::text AS cancelled_30d
+       FROM orders
+       WHERE buyer_id = $1
+         AND status = 'cancelled'
+         AND created_at >= now() - interval '30 days'`,
+      [userId]
+    ),
+    pool.query<{ failed_count: string }>(
+      `SELECT count(*)::text AS failed_count
+       FROM payment_attempts
+       WHERE buyer_id = $1
+         AND status IN ('failed', 'cancelled', 'declined')
+         AND updated_at >= now() - interval '30 days'`,
+      [userId]
+    ),
+  ]);
+
+  const openComplaints = Number(complaintStats.rows[0]?.open_count ?? "0");
+  const cancellations30d = Number(cancellationStats.rows[0]?.cancelled_30d ?? "0");
+  const failedPayments = Number(failedPaymentStats.rows[0]?.failed_count ?? "0");
+
+  const reasons: string[] = [];
+  let level: "low" | "medium" | "high" = "low";
+  if (openComplaints >= 2) {
+    level = "high";
+    reasons.push("open_complaints>=2");
+  } else if (openComplaints === 1) {
+    level = "medium";
+    reasons.push("open_complaints==1");
+  }
+  if (cancellations30d >= 3) {
+    if (level !== "high") level = "medium";
+    reasons.push("cancellations_30d>=3");
+  }
+  if (failedPayments >= 2) {
+    if (level !== "high") level = "medium";
+    reasons.push("failed_payments>=2");
+  }
+
+  return {
+    riskLevel: level,
+    riskReasons: reasons,
+    openComplaints,
+    cancellations30d,
+    failedPayments,
+  };
 }
 
 function ingredientsTextFromJson(value: unknown): string | null {
@@ -822,6 +892,283 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       pageSize: query.data.pageSize,
       total: totalCount,
       totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
+adminUserManagementRouter.get("/buyers/:id", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const [identity, summaryStats, latestOrders, risk] = await Promise.all([
+    pool.query<{
+      id: string;
+      email: string;
+      display_name: string;
+      full_name: string | null;
+      is_active: boolean;
+    }>(
+      `SELECT id, email, display_name, full_name, is_active
+       FROM users
+       WHERE id = $1`,
+      [params.data.id]
+    ),
+    pool.query<{
+      total_orders: string;
+      total_spent: string;
+      complaint_total: string;
+      complaint_unresolved: string;
+    }>(
+      `SELECT
+         (SELECT count(*)::text FROM orders o WHERE o.buyer_id = $1) AS total_orders,
+         (SELECT COALESCE(sum(o.total_price), 0)::text FROM orders o WHERE o.buyer_id = $1 AND o.payment_completed = TRUE) AS total_spent,
+         (SELECT count(*)::text FROM complaints c WHERE c.complainant_buyer_id = $1) AS complaint_total,
+         (SELECT count(*)::text FROM complaints c WHERE c.complainant_buyer_id = $1 AND c.status IN ('open', 'in_review')) AS complaint_unresolved`,
+      [params.data.id]
+    ),
+    pool.query<{
+      id: string;
+      status: string;
+      total_price: string;
+      created_at: string;
+    }>(
+      `SELECT id, status, total_price::text, created_at::text
+       FROM orders
+       WHERE buyer_id = $1
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [params.data.id]
+    ),
+    getBuyerRiskSnapshot(params.data.id),
+  ]);
+
+  const base = identity.rows[0];
+  const summary = summaryStats.rows[0];
+
+  return res.json({
+    data: {
+      id: base.id,
+      name: base.full_name ?? base.display_name,
+      email: base.email,
+      risk_level: risk.riskLevel,
+      risk_reasons: risk.riskReasons,
+      status: base.is_active ? "active" : "disabled",
+      contact_phone: null,
+      last_orders: latestOrders.rows.map((row) => ({
+        orderId: row.id,
+        orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+        status: row.status,
+        totalAmount: Number(row.total_price),
+        createdAt: row.created_at,
+      })),
+      payment_summary: {
+        failed_payments_30d: risk.failedPayments,
+      },
+      complaints_summary: {
+        total: Number(summary?.complaint_total ?? "0"),
+        unresolved: Number(summary?.complaint_unresolved ?? "0"),
+      },
+      stats: {
+        total_orders: Number(summary?.total_orders ?? "0"),
+        total_spent: Number(summary?.total_spent ?? "0"),
+      },
+    },
+  });
+});
+
+adminUserManagementRouter.get("/buyers/:id/risk", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const snapshot = await getBuyerRiskSnapshot(params.data.id);
+  return res.json({
+    data: {
+      risk_level: snapshot.riskLevel,
+      risk_reasons: snapshot.riskReasons,
+      open_complaints: snapshot.openComplaints,
+      cancellations_30d: snapshot.cancellations30d,
+      failed_payments_30d: snapshot.failedPayments,
+    },
+  });
+});
+
+adminUserManagementRouter.post("/buyers/:id/send-sms", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerSmsBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const inserted = await pool.query<{ id: string }>(
+    `INSERT INTO sms_logs (buyer_id, admin_id, message, status)
+     VALUES ($1, $2, $3, 'queued')
+     RETURNING id`,
+    [params.data.id, req.auth!.userId, parsed.data.message.trim()]
+  );
+
+  return res.status(201).json({
+    data: {
+      success: true,
+      log_id: inserted.rows[0]?.id,
+      status: "queued",
+    },
+  });
+});
+
+adminUserManagementRouter.get("/buyers/:id/notes", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const query = BuyerNotesQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: query.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const rows = await pool.query<{
+    id: string;
+    buyer_id: string;
+    admin_id: string;
+    note: string;
+    created_at: string;
+  }>(
+    `SELECT id, buyer_id, admin_id, note, created_at::text
+     FROM buyer_notes
+     WHERE buyer_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [params.data.id, query.data.limit]
+  );
+
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      buyerId: row.buyer_id,
+      adminId: row.admin_id,
+      note: row.note,
+      createdAt: row.created_at,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/buyers/:id/notes", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerNoteBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const inserted = await pool.query<{
+    id: string;
+    note: string;
+    created_at: string;
+  }>(
+    `INSERT INTO buyer_notes (buyer_id, admin_id, note)
+     VALUES ($1, $2, $3)
+     RETURNING id, note, created_at::text`,
+    [params.data.id, req.auth!.userId, parsed.data.note.trim()]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: inserted.rows[0]?.id,
+      note: inserted.rows[0]?.note,
+      createdAt: inserted.rows[0]?.created_at,
+    },
+  });
+});
+
+adminUserManagementRouter.get("/buyers/:id/tags", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const rows = await pool.query<{ id: string; tag: string }>(
+    `SELECT id, tag
+     FROM buyer_tags
+     WHERE buyer_id = $1
+     ORDER BY tag ASC`,
+    [params.data.id]
+  );
+
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      tag: row.tag,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/buyers/:id/tags", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerTagBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const tagValue = parsed.data.tag.trim();
+  const inserted = await pool.query<{ id: string; tag: string }>(
+    `INSERT INTO buyer_tags (buyer_id, tag)
+     VALUES ($1, $2)
+     ON CONFLICT (buyer_id, tag) DO UPDATE
+     SET tag = EXCLUDED.tag
+     RETURNING id, tag`,
+    [params.data.id, tagValue]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: inserted.rows[0]?.id,
+      tag: inserted.rows[0]?.tag,
     },
   });
 });
