@@ -22,30 +22,20 @@ load_config
 sync_repo_to_root
 
 choose_livekit_install() {
-  local mode="${INSTALL_LIVEKIT:-ask}"
-  case "${mode}" in
-    true|false)
-      ;;
-    ask)
-      if [[ -t 0 ]]; then
-        read -r -p "Install LiveKit server in this setup? (y/N): " answer
-        case "${answer}" in
-          y|Y|yes|YES)
-            INSTALL_LIVEKIT=true
-            ;;
-          *)
-            INSTALL_LIVEKIT=false
-            ;;
-        esac
-      else
+  if [[ -t 0 ]]; then
+    read -r -p "Install LiveKit server in this setup? (y/N): " answer
+    case "${answer}" in
+      y|Y|yes|YES)
+        INSTALL_LIVEKIT=true
+        ;;
+      *)
         INSTALL_LIVEKIT=false
-        log "INSTALL_LIVEKIT=ask in non-interactive mode; defaulting to false"
-      fi
-      ;;
-    *)
-      fail "Invalid INSTALL_LIVEKIT value: ${mode} (use ask|true|false)"
-      ;;
-  esac
+        ;;
+    esac
+  else
+    INSTALL_LIVEKIT=false
+    log "Non-interactive mode; defaulting LiveKit install to false"
+  fi
   export INSTALL_LIVEKIT
   log "LiveKit installation enabled: ${INSTALL_LIVEKIT}"
 }

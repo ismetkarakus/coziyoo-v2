@@ -21,7 +21,7 @@ cp installation/config.env.example installation/config.env
 ```
 
 2. Edit `installation/config.env` for your VPS paths/domains/secrets.
-   `INSTALL_LIVEKIT` supports `ask`, `true`, or `false`.
+   LiveKit installation is selected interactively during `install_all.sh`.
    Values with spaces must be quoted, for example:
    `API_START_CMD="node dist/src/server.js"` and `AGENT_START_CMD="python src/agent_http_runner.py"`.
    Default deployment path is `/opt/coziyoo`, and API/Agent services run as `root`.
