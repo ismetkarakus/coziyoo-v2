@@ -1054,6 +1054,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerFilterMenuOpen, setBuyerFilterMenuOpen] = useState(false);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
+  const buyerFilterWrapRef = useRef<HTMLDivElement | null>(null);
+  const buyerBoardRef = useRef<HTMLDivElement | null>(null);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -1734,6 +1736,28 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     setBuyerSelectedIds((prev) => prev.filter((id) => filteredRows.some((row) => row.id === id)));
   }, [filteredRows, isBuyerPage]);
 
+  useEffect(() => {
+    if (!isBuyerPage) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (buyerFilterMenuOpen && buyerFilterWrapRef.current && !buyerFilterWrapRef.current.contains(target)) {
+        setBuyerFilterMenuOpen(false);
+      }
+
+      if (buyerActionMenuId && buyerBoardRef.current) {
+        const actionRoot = (target as HTMLElement).closest(".buyer-v2-row-actions");
+        if (!actionRoot) {
+          setBuyerActionMenuId(null);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", onDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
+  }, [buyerActionMenuId, buyerFilterMenuOpen, isBuyerPage]);
+
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
@@ -1799,7 +1823,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
 
             <div className="buyer-v2-toolbar-actions">
-              <div className="buyer-v2-filter-wrap">
+              <div className="buyer-v2-filter-wrap" ref={buyerFilterWrapRef}>
                 <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerFilterMenuOpen((prev) => !prev)}>
                   <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
                     <path d="M3 6h18M7 12h10M10 18h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -1881,20 +1905,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   </div>
                 ) : null}
               </div>
-              <button
-                className="ghost buyer-v2-toolbar-btn"
-                type="button"
-                onClick={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    sortBy: "createdAt",
-                    sortDir: prev.sortDir === "desc" ? "asc" : "desc",
-                    page: 1,
-                  }))
-                }
-              >
-                <strong>Sırala</strong>&nbsp; Kayıt Tarihi · {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▾
-              </button>
               <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
               <button className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel}>Excel'e Aktar</button>
             </div>
@@ -1907,8 +1917,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             <button type="button" className={`chip ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("down_spend"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Azalan Harcama</button>
           </div>
 
-          <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal">
+          <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal" ref={buyerBoardRef}>
             <table>
+              <colgroup>
+                <col style={{ width: "40px" }} />
+                <col style={{ width: "42%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "54px" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th className="buyer-v2-check-col">
@@ -1954,6 +1974,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const phoneRaw = String(row.phone ?? row.phoneNumber ?? row.contactPhone ?? "").trim();
                     const hasPhone = phoneRaw.length > 0;
                     const phoneHref = phoneRaw.replace(/\s+/g, "");
+                    const displayNameRaw = String(row.displayName ?? row.email ?? "-");
+                    const emailRaw = String(row.email ?? "-");
+                    const compactDisplayName = displayNameRaw.length > 26 ? `${displayNameRaw.slice(0, 26)}…` : displayNameRaw;
+                    const compactEmail = emailRaw.length > 40 ? `${emailRaw.slice(0, 40)}…` : emailRaw;
                     const initials = String(row.displayName ?? row.email ?? "U")
                       .split(" ")
                       .filter(Boolean)
@@ -1991,8 +2015,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           <div className="buyer-user-cell">
                             <span className="name-avatar">{initials || "U"}</span>
                             <div>
-                              <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
-                              <span title={`Son Online: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)}`}>{String(row.email ?? "-")}</span>
+                              <strong className="buyer-user-name" title={displayNameRaw}>{compactDisplayName}</strong>
+                              <span className="buyer-user-email" title={`Son Online: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)} • ${emailRaw}`}>{compactEmail}</span>
                             </div>
                           </div>
                         </td>

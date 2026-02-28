@@ -1932,7 +1932,9 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap table {
-  min-width: 1180px;
+  min-width: 1080px;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .buyer-v2-table-wrap thead th {
@@ -1943,9 +1945,15 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap tbody td {
-  font-size: 0.93rem;
-  padding-top: 12px;
-  padding-bottom: 12px;
+  font-size: 0.88rem;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: middle;
+}
+
+.buyer-v2-table-wrap thead th:not(:nth-child(2)),
+.buyer-v2-table-wrap tbody td:not(:nth-child(2)) {
+  text-align: center;
 }
 
 .buyer-v2-check-col {
@@ -1960,30 +1968,45 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap .name-avatar {
-  width: 44px;
-  height: 44px;
-  font-size: 1.15rem;
+  width: 38px;
+  height: 38px;
+  font-size: 1rem;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell strong {
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   line-height: 1.2;
   font-weight: 700;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell span {
-  font-size: 0.82rem;
+  font-size: 0.74rem;
+}
+
+.buyer-v2-table-wrap .buyer-user-cell {
+  min-width: 0;
+}
+
+.buyer-v2-table-wrap .buyer-user-cell div {
+  min-width: 0;
+}
+
+.buyer-v2-table-wrap .buyer-user-name,
+.buyer-v2-table-wrap .buyer-user-email {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .buyer-v2-table-wrap .risk-pill {
-  font-size: 1.05rem;
-  padding: 5px 14px;
+  font-size: 0.74rem;
+  padding: 4px 11px;
 }
 
 .buyer-v2-table-wrap .status-pill {
-  border-radius: 14px;
-  padding: 6px 16px;
-  font-size: 1.1rem;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
 }
 
 .buyer-v2-footer {
