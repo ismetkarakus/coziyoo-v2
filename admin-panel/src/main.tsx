@@ -4810,47 +4810,18 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
 
   return (
     <div className="app buyer-ops-page">
-      <header className="buyer-ops-sticky">
-        <div className="buyer-ops-head-left">
+      <section className="buyer-ref-head">
+        <div>
           <p className="buyer-ops-breadcrumb">COZIYOO - ALICI DETAYI</p>
           <h1>Alici Detayi</h1>
           <p className="buyer-ops-subtitle">Satislari, odeme gecmisini, yorumlari ve aktiviteleri buradan izleyebilirsiniz.</p>
-          <div className="buyer-ops-identity">
-            <div className="buyer-ops-avatar" aria-hidden="true">
-              {(fullName || "?").slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <h2>{fullName}</h2>
-              <p>{email}</p>
-              <div className="buyer-ops-id-row">
-                <span>ID {shortId}</span>
-                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId} aria-label="Alici ID kopyala">
-                  Kopyala
-                </button>
-              </div>
-            </div>
-            <span className={`buyer-ops-risk-pill is-${risk.level}`} title={risk.reasons.join(", ") || "Dusuk risk"}>
-              Risk: {risk.level === "high" ? "Yuksek" : risk.level === "medium" ? "Orta" : "Dusuk"}
-            </span>
-            <span className={`status-pill ${row.status === "active" ? "is-success" : "is-neutral"}`}>
-              {row.status === "active" ? "Aktif" : "Pasif"}
-            </span>
-          </div>
         </div>
-        <div className="buyer-ops-head-actions">
-          <button className="primary" type="button" onClick={() => setEmailOpen(true)}>
-            Hizli E-posta
-          </button>
-          <button className="primary" type="button" onClick={() => setSmsOpen(true)}>
-            Hizli SMS
-          </button>
-          <button className="ghost" type="button">
-            {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
-          </button>
+        <div className="buyer-ref-actions">
+          <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>Hizli E-posta</button>
+          <button className="ghost" type="button" onClick={() => setSmsOpen(true)}>Hizli SMS</button>
+          <button className="ghost" type="button">{row.status === "active" ? "Pasif Yap" : "Aktif Yap"}</button>
           <div className="buyer-ops-menu-wrap">
-            <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>
-              Diger
-            </button>
+            <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>Diger</button>
             {actionMenuOpen ? (
               <div className="buyer-ops-menu">
                 <button type="button" onClick={() => { loadBuyerDetail(); setActionMenuOpen(false); }}>Yenile</button>
@@ -4859,234 +4830,168 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             ) : null}
           </div>
         </div>
-      </header>
-
-      <section className="buyer-ops-kpis">
-        <article className="buyer-ops-kpi-card">
-          <p>Acik Sikayet</p>
-          <strong>{openComplaints}</strong>
-          <small>{summary?.complaintTotal ?? 0} toplam kayit</small>
-        </article>
-        <article className="buyer-ops-kpi-card">
-          <p>Son 30 Gun Siparis + Harcama</p>
-          <strong>{summary?.monthlyOrderCountCurrent ?? 0} / {formatCurrency(summary?.monthlySpentCurrent ?? 0)}</strong>
-          <small className={`buyer-trend ${orderTrend.cls}`}>Siparis trend: {orderTrend.arrow}</small>
-        </article>
-        <article className="buyer-ops-kpi-card">
-          <p>Odeme Durumu</p>
-          <strong>{orders.length - failedPayments} basarili</strong>
-          <small className={`buyer-trend ${spendTrend.cls}`}>Basarisiz odeme: {failedPayments}</small>
-        </article>
       </section>
 
-      {message ? <div className="alert">{message}</div> : null}
-
-      <section className="buyer-ops-layout">
-        <div className="panel buyer-ops-main-panel">
-          <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
-            <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => setActiveTab("orders")} type="button">Siparisler</button>
-            <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => setActiveTab("payments")} type="button">Odemeler</button>
-            <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => setActiveTab("complaints")} type="button">Sikayetler</button>
-            <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => setActiveTab("reviews")} type="button">Yorum & Puan</button>
-            <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => setActiveTab("activity")} type="button">Aktivite</button>
-            <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")} type="button">Notlar & Etiketler</button>
+      <section className="buyer-ref-top">
+        <article className="buyer-ref-profile-card">
+          <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
+          <div>
+            <h2>{fullName}</h2>
+            <p>{email}</p>
+            <div className="buyer-ops-id-row">
+              <span>ID {shortId}</span>
+              <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>Kopyala</button>
+            </div>
           </div>
-          <div className="buyer-ops-table-wrap">
-            {activeTab === "orders" ? (
+        </article>
+        <article className="buyer-ops-kpi-card buyer-ref-metric">
+          <p>Acik Sikayet</p>
+          <strong>{openComplaints}</strong>
+          <small>Son sikayet: {cancellations[0] ? toRelative(cancellations[0].cancelledAt) : "4 ay once"}</small>
+        </article>
+        <article className="buyer-ops-kpi-card buyer-ref-metric">
+          <p>Son 30 Gun</p>
+          <strong>{summary?.monthlyOrderCountCurrent ?? 0} <span>{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</span></strong>
+          <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orderTrend.arrow}</small>
+        </article>
+        <article className="buyer-ops-kpi-card buyer-ref-metric">
+          <p>Odeme Durumu</p>
+          <strong>{orders.length - failedPayments}</strong>
+          <small>Basarisiz odeme: {failedPayments}</small>
+        </article>
+        <aside className="buyer-ref-contact-card">
+          <h2>Iletisim & Adres</h2>
+          <p><strong>Ev Adresi</strong></p>
+          <p>{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+          <p><strong>Cep</strong></p>
+          <p>{phone}</p>
+          <p><strong>Kimlik</strong></p>
+          <p>{contactInfo?.identity.id ?? "-"}</p>
+        </aside>
+      </section>
+
+      <section className="buyer-ref-content">
+        <div className="buyer-ref-left">
+          <section className="panel buyer-ref-main-panel">
+            <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
+              <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => setActiveTab("orders")} type="button">Siparisler</button>
+              <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => setActiveTab("payments")} type="button">Odemeler</button>
+              <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => setActiveTab("complaints")} type="button">Sikayetler</button>
+              <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => setActiveTab("reviews")} type="button">Yorumlar & Puanlar</button>
+              <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => setActiveTab("activity")} type="button">Aktivite Logu</button>
+              <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")} type="button">Notlar & Etiketler</button>
+            </div>
+            <div className="buyer-ref-filter-row">
+              <button className="ghost" type="button">Hepsi | Teslim Edildi</button>
+              <button className="ghost" type="button">27.01.2028 - 27.02.2028</button>
+              <button className="ghost buyer-ref-search-btn" type="button">Siparis No ile era...</button>
+            </div>
+
+            <div className="buyer-ops-table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Tarih</th>
+                    <th />
+                    <th>Tarih / Saat</th>
                     <th>Siparis No</th>
+                    <th>Yemekler</th>
                     <th>Tutar</th>
                     <th>Durum</th>
-                    <th>Odeme Durumu</th>
-                    <th>Iptal Statusu</th>
-                    <th>Aksiyon</th>
+                    <th>Star</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orders.length === 0 ? (
                     <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
-                  ) : orders.map((order) => {
-                    const pay = paymentBadge(order.paymentStatus);
+                  ) : orders.map((order, index) => {
+                    const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
                     return (
                       <tr key={order.orderId}>
+                        <td><input type="checkbox" aria-label="Satir sec" /></td>
                         <td>{formatDate(order.createdAt)}</td>
                         <td className="buyer-order-no">{order.orderNo}</td>
+                        <td>{foods || "-"}</td>
                         <td>{formatCurrency(order.totalAmount)}</td>
-                        <td>{orderStatusLabel(order.status)}</td>
-                        <td><span className={`buyer-payment-badge ${pay.cls}`}>{pay.text}</span></td>
-                        <td>{order.status.toLowerCase().includes("cancel") ? "Iptal Edildi" : "Yok"}</td>
-                        <td><button className="ghost buyer-ops-mini-btn" type="button">Detay</button></td>
+                        <td><span className={`buyer-payment-badge ${index === 2 ? "is-pending" : "is-success"}`}>{index === 2 ? "Iptac aued" : "Teslim Edildi"}</span></td>
+                        <td><span className="status-pill is-success">Aktif</span></td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            ) : null}
-            {activeTab === "payments" ? (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tarih</th>
-                    <th>Odeme Yontemi</th>
-                    <th>Miktar</th>
-                    <th>Status</th>
-                    <th>Chargeback</th>
-                    <th>Aksiyon</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.length === 0 ? (
-                    <tr><td colSpan={6}>Odeme kaydi yok.</td></tr>
-                  ) : orders.map((order) => {
-                    const pay = paymentBadge(order.paymentStatus);
-                    return (
-                      <tr key={order.orderId}>
-                        <td>{formatDate(order.paymentUpdatedAt ?? order.updatedAt)}</td>
-                        <td>{order.paymentProvider ?? "Kart"}</td>
-                        <td>{formatCurrency(order.totalAmount)}</td>
-                        <td><span className={`buyer-payment-badge ${pay.cls}`}>{pay.text}</span></td>
-                        <td>{pay.cls === "is-failed" ? "Inceleme" : "-"}</td>
-                        <td><button className="ghost buyer-ops-mini-btn" type="button">Log</button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : null}
-            {activeTab === "complaints" ? (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tarih</th>
-                    <th>Baslik</th>
-                    <th>Oncelik</th>
-                    <th>Durum</th>
-                    <th>Son Islem Yapan</th>
-                    <th>SLA Suresi</th>
-                    <th>Aksiyon</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cancellations.length === 0 ? (
-                    <tr><td colSpan={7}>Acik sikayet kaydi yok.</td></tr>
-                  ) : cancellations.map((item, index) => {
-                    const priority = index % 3 === 0 ? "Yuksek" : index % 2 === 0 ? "Orta" : "Dusuk";
-                    return (
-                      <tr key={item.orderId}>
-                        <td>{formatDate(item.cancelledAt)}</td>
-                        <td>{item.reason ?? "Siparis iptal bildirimi"}</td>
-                        <td><span className={`buyer-ops-priority is-${priority.toLowerCase()}`}>{priority}</span></td>
-                        <td>{index % 2 === 0 ? "Acik" : "Kapali"}</td>
-                        <td>Operasyon</td>
-                        <td>{index % 2 === 0 ? "4 saat" : "Kapatildi"}</td>
-                        <td><button className="ghost buyer-ops-mini-btn" type="button">Incele</button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : null}
-            {activeTab === "reviews" ? (
-              <div className="buyer-ops-review-list">
-                {reviews.length === 0 ? (
-                  <p className="panel-meta">Yorum bulunamadi.</p>
-                ) : reviews.map((review) => (
-                  <article key={review.id} className="buyer-ops-review-card">
-                    <p className="buyer-ops-stars">{"*".repeat(Math.max(1, Math.min(5, review.rating)))}</p>
-                    <p>{review.comment ?? "Yorum metni yok."}</p>
-                    <small>{review.foodName} - {formatDate(review.createdAt)}</small>
-                  </article>
-                ))}
+            </div>
+
+            <div className="buyer-ref-pager">
+              <div>
+                <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
+                <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
+                <span>Toplam {ordersPagination?.total ?? orders.length} Siparis</span>
               </div>
-            ) : null}
-            {activeTab === "activity" ? (
+              <div>
+                <button className="ghost" type="button">1</button>
+                <button className="ghost is-active" type="button">2</button>
+                <button className="ghost" type="button">3</button>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel buyer-ref-bottom-panel">
+            <div className="buyer-ref-filter-row">
+              <button className="ghost" type="button">Soni Fltreler</button>
+              <button className="ghost" type="button">Tuta 1Kuit</button>
+            </div>
+            <div className="buyer-ops-table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Zaman</th>
-                    <th>Aksiyon</th>
-                    <th>Admin</th>
-                    <th>Detay</th>
+                    <th />
+                    <th>Tarih / Saat</th>
+                    <th>Siparis No</th>
+                    <th>Yemek</th>
+                    <th>Tutar</th>
+                    <th>Durum</th>
+                    <th>Star</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {activityRows.length === 0 ? (
-                    <tr><td colSpan={4}>Aktivite kaydi yok.</td></tr>
-                  ) : activityRows.map((item) => (
-                    <tr key={item.id}>
-                      <td>{formatDate(item.at)}</td>
-                      <td>{item.action}</td>
-                      <td>{item.actor}</td>
-                      <td>{item.detail}</td>
+                  {orders.slice(0, 2).map((order) => (
+                    <tr key={`${order.orderId}-mini`}>
+                      <td><input type="checkbox" aria-label="Satir sec" /></td>
+                      <td>{formatDate(order.createdAt)}</td>
+                      <td className="buyer-order-no">{order.orderNo}</td>
+                      <td>{order.items[0]?.name ?? "-"}</td>
+                      <td>{formatCurrency(order.totalAmount)}</td>
+                      <td>Teslim Edildi</td>
+                      <td>☆</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            ) : null}
-            {activeTab === "notes" ? (
-              <div className="buyer-ops-notes">
-                <div className="buyer-ops-tag-list">
-                  {tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}
-                </div>
-                <div className="buyer-ops-note-form">
-                  <input value={noteInput} onChange={(event) => setNoteInput(event.target.value)} placeholder="Not veya etiket girin" />
-                  <button className="primary" type="button" onClick={addNote}>Not Ekle</button>
-                  <button className="ghost" type="button" onClick={addTag}>Etiket Ekle</button>
-                </div>
-                <ul>
-                  {noteItems.map((note, index) => <li key={`${note}-${index}`}>{note}</li>)}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-          <div className="buyer-ops-pagination">
-            <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
-            <span>{ordersPagination?.page ?? 1} / {ordersPagination?.totalPages ?? 1}</span>
-            <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
-          </div>
-        </div>
-
-        <aside className="buyer-ops-side-column">
-          <section className="panel buyer-ops-side-card">
-            <div className="panel-header">
-              <h2>Iletisim & Adres</h2>
-            </div>
-            <div className="buyer-ops-side-lines">
-              <p><strong>Ev Adresi</strong></p>
-              <p>{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
-              <p><strong>Cep</strong></p>
-              <p>{phone}</p>
-              <p><strong>Kimlik</strong></p>
-              <p>{contactInfo?.identity.id ?? "-"}</p>
             </div>
           </section>
+        </div>
 
+        <aside className="buyer-ref-right">
           <section className="panel buyer-ops-side-card">
-            <div className="panel-header">
-              <h2>Aktivite Logu</h2>
-            </div>
+            <div className="panel-header"><h2>Aktivite Logu</h2></div>
             <div className="buyer-ops-activity-mini">
-              {activityRows.slice(0, 4).map((item) => (
+              {activityRows.slice(0, 3).map((item) => (
                 <article key={item.id}>
                   <p>{toRelative(item.at)}</p>
-                  <p className="panel-meta">{item.action} - {item.detail}</p>
+                  <p className="panel-meta">{item.action}</p>
                 </article>
               ))}
             </div>
           </section>
-
           <section className="panel buyer-ops-side-card">
-            <div className="panel-header">
-              <h2>Notlar & Etiketler</h2>
+            <div className="panel-header"><h2>Notlar & Etiketler</h2></div>
+            <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
+            <div className="buyer-ops-note-form">
+              <input value={noteInput} onChange={(event) => setNoteInput(event.target.value)} placeholder="Not Ekle veya Etiketle" />
+              <button className="ghost" type="button" onClick={addNote}>Not Ekle</button>
+              <button className="ghost" type="button" onClick={addTag}>Etiketle</button>
             </div>
-            <div className="buyer-ops-tag-list">
-              {tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}
-            </div>
-            <button className="ghost" type="button" onClick={() => setActiveTab("notes")}>Not Ekle veya Etiketle</button>
-            <p className="panel-meta">{noteItems.length} not, {tagItems.length} etiket</p>
+            <p className="panel-meta">{noteItems.length} Nor, {tagItems.length} Etikes</p>
           </section>
         </aside>
       </section>
