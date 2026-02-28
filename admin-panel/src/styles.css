@@ -2168,10 +2168,7 @@ textarea:focus {
 }
 
 .buyer-ref-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  display: block;
 }
 
 .buyer-ref-actions {
@@ -2191,6 +2188,13 @@ textarea:focus {
   background: color-mix(in srgb, #1a2240 82%, transparent);
   border-color: color-mix(in srgb, #6f81b8 28%, var(--ops-border-default));
   font-weight: 700;
+}
+
+.buyer-ref-actions-row {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .buyer-ref-top {
@@ -2430,6 +2434,37 @@ textarea:focus {
   font-size: 1.02rem;
 }
 
+.buyer-ref-filter-leading,
+.buyer-ref-filter-trailing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, #a6b3da 88%, white);
+}
+
+.buyer-ref-filter-leading {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.buyer-ref-filter-trailing {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.buyer-ref-filter-leading svg,
+.buyer-ref-filter-trailing svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .buyer-ref-filter-btn strong {
   color: color-mix(in srgb, var(--ops-text-primary) 98%, white);
   font-weight: 700;
@@ -2438,6 +2473,13 @@ textarea:focus {
 .buyer-ref-search-btn {
   justify-self: end;
   width: min(100%, 430px);
+  position: relative;
+}
+
+.buyer-ref-search-btn .buyer-ref-filter-trailing {
+  border-left: 1px solid color-mix(in srgb, #6f84bf 32%, var(--ops-border-default));
+  padding-left: 10px;
+  margin-left: 4px;
 }
 
 .buyer-ref-main-panel th {
@@ -2445,6 +2487,15 @@ textarea:focus {
   letter-spacing: 0.03em;
   font-weight: 700;
   color: color-mix(in srgb, var(--ops-text-secondary) 96%, transparent);
+}
+
+.buyer-ref-head-checkbox {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #6f84bf 45%, var(--ops-border-default));
+  background: color-mix(in srgb, #121a35 70%, transparent);
+  display: inline-block;
 }
 
 .buyer-ref-main-panel .buyer-ops-table-wrap,
@@ -2506,7 +2557,7 @@ textarea:focus {
 
 .buyer-ref-right .buyer-ops-side-card {
   min-height: 0;
-  border-radius: 18px;
+  border-radius: 20px;
   border-color: color-mix(in srgb, #6e81b8 28%, var(--ops-border-default));
   background:
     radial-gradient(120% 120% at 12% 0%, rgba(90, 111, 172, 0.18), rgba(23, 31, 55, 0)),
@@ -2514,9 +2565,9 @@ textarea:focus {
 }
 
 .buyer-ref-contact-side {
-  padding: 18px;
-  gap: 12px;
-  border-radius: 18px;
+  padding: 20px;
+  gap: 14px;
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, #6e81b8 28%, var(--ops-border-default));
   background:
     radial-gradient(120% 120% at 12% 0%, rgba(90, 111, 172, 0.18), rgba(23, 31, 55, 0)),
@@ -2525,13 +2576,14 @@ textarea:focus {
 
 .buyer-ref-contact-side h2 {
   margin: 0;
+  font-size: 2rem;
 }
 
 .buyer-ref-contact-block {
   display: grid;
-  gap: 4px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid color-mix(in srgb, #5f73aa 30%, var(--ops-border-default));
+  gap: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, #5f73aa 24%, var(--ops-border-default));
 }
 
 .buyer-ref-contact-block:last-child {
@@ -2542,10 +2594,11 @@ textarea:focus {
 .buyer-ref-contact-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
   color: var(--ops-text-primary);
   font-weight: 700;
+  font-size: 1.06rem;
 }
 
 .buyer-ref-contact-value {
@@ -2553,6 +2606,7 @@ textarea:focus {
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
   line-height: 1.45;
   word-break: break-word;
+  font-size: 1.04rem;
 }
 
 .buyer-ref-contact-id-row {
@@ -2562,9 +2616,46 @@ textarea:focus {
   gap: 8px;
 }
 
+.buyer-ref-contact-id-row .buyer-ops-mini-btn {
+  min-height: 34px;
+  border-radius: 10px;
+  padding-inline: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.buyer-ref-side-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, #a9b8e8 86%, white);
+}
+
+.buyer-ref-phone-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.buyer-ref-phone-row strong {
+  color: color-mix(in srgb, var(--ops-text-primary) 98%, white);
+  letter-spacing: 0.01em;
+}
+
+.buyer-ref-online-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #45c98f;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #45c98f 22%, transparent);
+}
+
 .buyer-ref-activity-card .panel-header,
 .buyer-ref-notes-card .panel-header {
-  padding-bottom: 6px;
+  padding-bottom: 10px;
 }
 
 .buyer-ref-activity-card .panel-header h2,
@@ -2580,11 +2671,20 @@ textarea:focus {
 .buyer-ref-activity-action {
   margin: 2px 0 0;
   font-weight: 700;
+  font-size: 1.03rem;
 }
 
 .buyer-ref-activity-card .buyer-ops-activity-mini article {
-  background: color-mix(in srgb, #151f3e 72%, transparent);
-  border-color: color-mix(in srgb, #6e81b8 24%, var(--ops-border-default));
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 8px;
+  border-bottom: 1px solid color-mix(in srgb, #5f73aa 20%, var(--ops-border-default));
+}
+
+.buyer-ref-activity-card .buyer-ops-activity-mini article:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .buyer-ref-notes-card .buyer-ops-tag-list {
@@ -2592,12 +2692,28 @@ textarea:focus {
 }
 
 .buyer-ref-notes-card .buyer-ops-note-form {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .buyer-ref-notes-card .buyer-ops-note-form .ghost {
   min-height: 36px;
   padding-inline: 10px;
+}
+
+.buyer-ref-notes-card .buyer-ops-note-form input {
+  min-height: 48px;
+  border-radius: 12px;
+  border-color: color-mix(in srgb, #6f84bf 30%, var(--ops-border-default));
+}
+
+.buyer-ref-notes-card .buyer-ops-tag {
+  background: linear-gradient(180deg, rgba(172, 130, 52, 0.88), rgba(123, 88, 29, 0.9));
+  border-color: color-mix(in srgb, #d0aa6a 58%, #6c5626);
+  color: #f2dfbc;
+  min-width: 64px;
+  text-align: center;
+  padding: 6px 14px;
+  border-radius: 12px;
 }
 
 .buyer-v2-page {
@@ -4137,7 +4253,11 @@ textarea:focus {
   }
 
   .buyer-ref-head {
-    flex-direction: column;
+    display: block;
+  }
+
+  .buyer-ref-actions-row {
+    justify-content: flex-start;
   }
 
   .buyer-ref-top {

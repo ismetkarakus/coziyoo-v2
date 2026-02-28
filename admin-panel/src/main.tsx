@@ -4816,6 +4816,9 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <h1>Alici Detayi</h1>
           <p className="buyer-ops-subtitle">Satislari, odeme gecmisini, yorumlari ve aktiviteleri buradan izleyebilirsiniz.</p>
         </div>
+      </section>
+
+      <section className="buyer-ref-actions-row" aria-label="Aksiyonlar">
         <div className="buyer-ref-actions">
           <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>
             <span aria-hidden="true">✉</span> Hizli E-posta
@@ -4893,19 +4896,51 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             </div>
             <div className="buyer-ref-filter-row">
               <button className="ghost buyer-ref-filter-btn" type="button">
-                <span aria-hidden="true">⟲</span>
+                <span className="buyer-ref-filter-leading" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M3 7h13" />
+                    <path d="M6 12h15" />
+                    <path d="M3 17h13" />
+                    <circle cx="19" cy="7" r="2" />
+                    <circle cx="4" cy="12" r="2" />
+                    <circle cx="19" cy="17" r="2" />
+                  </svg>
+                </span>
                 <span><strong>Hepsi</strong> | Teslim Edildi</span>
-                <span aria-hidden="true">⌄</span>
+                <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
               </button>
               <button className="ghost buyer-ref-filter-btn" type="button">
-                <span aria-hidden="true">⌗</span>
+                <span className="buyer-ref-filter-leading" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+                    <path d="M8 2.8v3.4M16 2.8v3.4M3.5 9.5h17" />
+                    <path d="M8.2 13h3.4M8.2 16h6.6" />
+                  </svg>
+                </span>
                 <span>27.01.2028 - 27.02.2028</span>
-                <span aria-hidden="true">⌄</span>
+                <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
               </button>
               <button className="ghost buyer-ref-search-btn" type="button">
-                <span aria-hidden="true">⌕</span>
+                <span className="buyer-ref-filter-leading" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="11" cy="11" r="5.5" />
+                    <path d="m15.2 15.2 4.3 4.3" />
+                  </svg>
+                </span>
                 <span>Siparis No ile ara...</span>
-                <span aria-hidden="true">⌄</span>
+                <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
               </button>
             </div>
 
@@ -4913,7 +4948,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <table>
                 <thead>
                   <tr>
-                    <th />
+                    <th><span className="buyer-ref-head-checkbox" aria-hidden="true" /></th>
                     <th>Tarih / Saat</th>
                     <th>Siparis No</th>
                     <th>Yemekler</th>
@@ -4994,10 +5029,35 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         </div>
 
         <aside className="buyer-ref-right">
+          <section className="panel buyer-ops-side-card buyer-ref-contact-side">
+            <h2>Iletisim & Adres</h2>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
+              <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+            </div>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
+              <p className="buyer-ref-contact-value buyer-ref-phone-row">
+                <strong>{phone}</strong>
+                <span className="buyer-ref-online-dot" aria-hidden="true" />
+              </p>
+              <p className="panel-meta">{locations.length} segilones</p>
+            </div>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Kimlik</p>
+              <div className="buyer-ref-contact-id-row">
+                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
+                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
+                  <span aria-hidden="true">□</span> <span aria-hidden="true">⌄</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
           <section className="panel buyer-ops-side-card buyer-ref-activity-card">
             <div className="panel-header"><h2>Aktivite Logu</h2></div>
             <div className="buyer-ops-activity-mini">
-              {activityRows.slice(0, 3).map((item) => (
+              {activityRows.slice(0, 2).map((item) => (
                 <article key={item.id}>
                   <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
                   <p className="buyer-ref-activity-action">{item.action}</p>
@@ -5011,9 +5071,14 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <div className="panel-header"><h2>Notlar & Etiketler</h2></div>
             <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
             <div className="buyer-ops-note-form">
-              <input value={noteInput} onChange={(event) => setNoteInput(event.target.value)} placeholder="Not Ekle veya Etiketle" />
-              <button className="ghost" type="button" onClick={addNote}>Not</button>
-              <button className="ghost" type="button" onClick={addTag}>Etiket</button>
+              <input
+                value={noteInput}
+                onChange={(event) => setNoteInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") addNote();
+                }}
+                placeholder="Not Ekle veya Etiketle"
+              />
             </div>
             <p className="panel-meta">{noteItems.length} Nor, {tagItems.length} Etikes</p>
           </section>
