@@ -1947,8 +1947,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <th>Alıcı</th>
                   <th>Risk</th>
                   <th>Şikayet</th>
-                  <th>Sipariş (30 Gün)</th>
-                  <th>Harcama (30 Gün)</th>
+                  <th>Sipariş (1 Ay)</th>
+                  <th>Harcama (1 Ay)</th>
                   <th>Durum</th>
                   <th />
                 </tr>
@@ -2469,8 +2469,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
                     <th>{language === "tr" ? "Risk" : "Risk"}</th>
                     <th>{language === "tr" ? "Şikayet" : "Complaints"}</th>
-                    <th>{language === "tr" ? "Sipariş (30 Gün)" : "Orders (30 Days)"}</th>
-                    <th>{language === "tr" ? "Harcama (30 Gün)" : "Spend (30 Days)"}</th>
+                    <th>{language === "tr" ? "Sipariş (1 Ay)" : "Orders (1 Month)"}</th>
+                    <th>{language === "tr" ? "Harcama (1 Ay)" : "Spend (1 Month)"}</th>
                     <th>{language === "tr" ? "Durum" : "Status"}</th>
                     <th>{dict.users.actions}</th>
                   </>
