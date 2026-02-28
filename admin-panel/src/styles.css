@@ -2178,8 +2178,9 @@ textarea:focus {
 .buyer-ref-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: end;
   gap: 20px;
+  padding-top: 8px;
 }
 
 .buyer-ref-actions {
@@ -2188,6 +2189,7 @@ textarea:focus {
   gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  margin-top: 22px;
 }
 
 .buyer-ref-actions .ghost {
@@ -2227,9 +2229,9 @@ textarea:focus {
 }
 
 .buyer-ref-top {
-  margin-top: 12px;
+  margin-top: 4px;
   display: grid;
-  grid-template-columns: minmax(640px, 2.8fr) minmax(250px, 1fr) minmax(250px, 1fr) minmax(250px, 1fr);
+  grid-template-columns: minmax(520px, 2.35fr) minmax(250px, 1fr) minmax(250px, 1fr) minmax(250px, 1fr);
   gap: 14px;
 }
 
@@ -2283,6 +2285,20 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.buyer-ref-profile-body {
+  min-width: 0;
+  max-width: 460px;
+}
+
+.buyer-ref-profile-body h2,
+.buyer-ref-profile-body p,
+.buyer-ref-profile-body .buyer-ops-id-row {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .buyer-ref-metric strong span {
@@ -2445,18 +2461,43 @@ textarea:focus {
 
 .buyer-ref-filter-row {
   display: grid;
-  grid-template-columns: minmax(320px, 430px) minmax(320px, 430px) minmax(300px, 1fr);
-  gap: 14px;
-  padding: 12px 16px 10px;
+  grid-template-columns: minmax(250px, 330px) minmax(250px, 330px) minmax(300px, 1fr);
+  gap: 10px;
+  padding: 10px 16px 8px;
+}
+
+.buyer-ref-mini-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 10px 12px 8px;
+}
+
+.buyer-ref-mini-filter-btn {
+  min-height: 36px !important;
+  border-radius: 10px !important;
+  padding: 0 10px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto !important;
+  justify-self: start !important;
+  font-size: 0.92rem !important;
+}
+
+.buyer-ref-mini-filter-btn .buyer-ref-filter-trailing {
+  width: 18px;
+  height: 18px;
 }
 
 .buyer-ref-filter-row .ghost {
-  min-height: 54px;
-  border-radius: 16px;
+  min-height: 46px;
+  border-radius: 12px;
   background: linear-gradient(180deg, rgba(25, 34, 63, 0.92), rgba(20, 27, 50, 0.9));
   border-color: color-mix(in srgb, #7288c2 34%, var(--ops-border-default));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  padding-inline: 16px;
+  padding-inline: 12px;
 }
 
 .buyer-ref-filter-btn,
@@ -2466,7 +2507,7 @@ textarea:focus {
   justify-content: space-between;
   gap: 10px;
   color: color-mix(in srgb, var(--ops-text-secondary) 94%, white);
-  font-size: 1.04rem;
+  font-size: 0.98rem;
   font-weight: 600;
 }
 
@@ -2505,6 +2546,7 @@ textarea:focus {
   justify-self: end;
   width: min(100%, 460px);
   position: relative;
+  min-height: 42px;
 }
 
 .buyer-ref-search-btn .buyer-ref-filter-trailing {

@@ -4812,9 +4812,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     <div className="app buyer-ops-page">
       <section className="buyer-ref-head">
         <div>
-          <p className="buyer-ops-breadcrumb"><span aria-hidden="true">‹</span> COZIYOO - ALICI DETAYI</p>
           <h1>Alici Detayi</h1>
-          <p className="buyer-ops-subtitle">Satislari, odeme gecmisini, yorumlari ve aktiviteleri buradan izleyebilirsiniz.</p>
         </div>
         <div className="buyer-ref-actions">
           <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>
@@ -4862,9 +4860,9 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       <section className="buyer-ref-top buyer-ref-hero-strip">
         <article className="buyer-ref-profile-card">
           <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
-          <div>
-            <h2>{fullName}</h2>
-            <p>{email}</p>
+          <div className="buyer-ref-profile-body">
+            <h2 title={fullName}>{fullName}</h2>
+            <p title={email}>{email}</p>
             <div className="buyer-ops-id-row">
               <span>ID {shortId}</span>
               <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
@@ -5009,9 +5007,23 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           </section>
 
           <section className="panel buyer-ref-bottom-panel">
-            <div className="buyer-ref-filter-row">
-              <button className="ghost" type="button">Soni Fltreler</button>
-              <button className="ghost" type="button">Tuta 1Kuit</button>
+            <div className="buyer-ref-filter-row buyer-ref-mini-filter-row">
+              <button className="ghost buyer-ref-mini-filter-btn" type="button">
+                <span>Son Filtreler</span>
+                <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
+              </button>
+              <button className="ghost buyer-ref-mini-filter-btn" type="button">
+                <span>Tutar 1Kuit</span>
+                <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
+              </button>
             </div>
             <div className="buyer-ops-table-wrap">
               <table>
