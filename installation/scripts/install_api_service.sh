@@ -85,6 +85,11 @@ START_CMD="${API_START_CMD:-node dist/src/server.js}"
 
 if [[ "${OS}" == "linux" ]]; then
   UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+  if run_root systemctl list-unit-files "${SERVICE_NAME}.service" --no-legend >/dev/null 2>&1; then
+    log "Existing service detected (${SERVICE_NAME}), stopping before unit update"
+    run_root systemctl stop "${SERVICE_NAME}" || true
+    run_root systemctl reset-failed "${SERVICE_NAME}" || true
+  fi
   log "Writing systemd service ${UNIT_PATH}"
   run_root tee "${UNIT_PATH}" >/dev/null <<EOF2
 [Unit]
