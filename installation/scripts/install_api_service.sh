@@ -18,6 +18,9 @@ ENV_FILE="${API_ENV_FILE:-${API_DIR_ABS}/.env}"
 
 ensure_api_env_defaults() {
   local env_file="$1"
+  local pg_db_default="${PG_DB:-coziyoo}"
+  local pg_user_default="${PG_USER:-coziyoo}"
+  local pg_password_default="${PG_PASSWORD:-coziyoo}"
   local defaults=(
     "APP_JWT_SECRET=coziyoo_app_jwt_secret_change_me_1234567890"
     "ADMIN_JWT_SECRET=coziyoo_admin_jwt_secret_change_me_1234567890"
@@ -28,6 +31,11 @@ ensure_api_env_defaults() {
     "SPEECH_TO_TEXT_API_KEY=coziyoo_stt_api_key_dummy"
     "TTS_API_KEY=coziyoo_tts_api_key_dummy"
     "N8N_API_KEY=coziyoo_n8n_api_key_dummy"
+    "PGHOST=127.0.0.1"
+    "PGPORT=5432"
+    "PGUSER=${pg_user_default}"
+    "PGPASSWORD=${pg_password_default}"
+    "PGDATABASE=${pg_db_default}"
   )
 
   if [[ ! -f "${env_file}" ]]; then
