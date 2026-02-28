@@ -129,6 +129,17 @@ maybe_git_update() {
 
   local branch="${DEPLOY_BRANCH:-main}"
   log "Updating repo at ${repo} on branch ${branch}"
+
+  local probe_err=""
+  if ! probe_err="$(git -C "${repo}" rev-parse --is-inside-work-tree 2>&1)"; then
+    if printf '%s' "${probe_err}" | grep -qi "dubious ownership"; then
+      log "Git safe.directory issue detected for ${repo}; adding it to global safe directories"
+      git config --global --add safe.directory "${repo}"
+    else
+      fail "Git repository check failed in ${repo}: ${probe_err}"
+    fi
+  fi
+
   (
     cd "${repo}"
     git fetch origin
