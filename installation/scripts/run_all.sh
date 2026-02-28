@@ -16,7 +16,11 @@ fi
 
 api_service="${API_SERVICE_NAME:-coziyoo-api}"
 agent_service="${AGENT_SERVICE_NAME:-coziyoo-agent}"
-admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
+if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
+  admin_service="nginx"
+else
+  admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
+fi
 livekit_service="${LIVEKIT_SERVICE_NAME:-livekit}"
 
 service_for_name() {

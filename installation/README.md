@@ -44,7 +44,7 @@ bash installation/scripts/update_all.sh
 
 This command updates code, rebuilds API/admin, updates agent deps, restarts services, and runs health checks.
 When `INGRESS_MODE=npm`, it also runs public domain validation.
-In `INGRESS_MODE=npm`, admin panel is served locally from `127.0.0.1:${ADMIN_PORT:-8000}` (default `8000`) for Nginx Proxy Manager upstream.
+In `INGRESS_MODE=npm`, admin panel is served by host `nginx` on `0.0.0.0:${ADMIN_PORT:-8000}` (default `8000`) for Nginx Proxy Manager upstream.
 
 ## 3) Service control
 

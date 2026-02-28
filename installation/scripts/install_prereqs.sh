@@ -15,24 +15,19 @@ OS="$(os_type)"
 log "Installing prerequisites for ${OS}"
 
 if [[ "${OS}" == "linux" ]]; then
-  NGINX_PACKAGES=()
-  if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
-    NGINX_PACKAGES=(nginx)
-  fi
-
   run_root apt-get update
   run_root apt-get install -y \
     git \
     curl \
     rsync \
+    nginx \
     postgresql \
     postgresql-contrib \
     python3 \
     python3-venv \
     python3-pip \
     nodejs \
-    npm \
-    "${NGINX_PACKAGES[@]}"
+    npm
 
   if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
     run_root systemctl enable nginx

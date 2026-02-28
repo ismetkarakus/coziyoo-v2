@@ -13,7 +13,6 @@ fi
 
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-admin-panel}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
-ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
 
 [[ -d "${ADMIN_DIR_ABS}" ]] || fail "Admin directory not found: ${ADMIN_DIR_ABS}"
@@ -37,33 +36,31 @@ run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -av --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
 if [[ "$(os_type)" == "linux" && "${INGRESS_MODE:-nginx}" == "npm" ]]; then
-  PYTHON_BIN="$(command -v python3 || true)"
-  [[ -n "${PYTHON_BIN}" ]] || fail "python3 is required to run admin panel service in INGRESS_MODE=npm"
+  LOCAL_CONF_AVAIL="/etc/nginx/sites-available/coziyoo-admin-local.conf"
+  LOCAL_CONF_ENABLED="/etc/nginx/sites-enabled/coziyoo-admin-local.conf"
+  log "Configuring host nginx to serve admin panel on 0.0.0.0:${ADMIN_PORT}"
+  run_root tee "${LOCAL_CONF_AVAIL}" >/dev/null <<EOF2
+server {
+    listen ${ADMIN_PORT};
+    server_name _;
+    root ${PUBLISH_DIR};
+    index index.html;
 
-  UNIT_PATH="/etc/systemd/system/${ADMIN_SERVICE_NAME}.service"
-  log "Configuring admin panel systemd service ${UNIT_PATH} on 0.0.0.0:${ADMIN_PORT}"
-  run_root tee "${UNIT_PATH}" >/dev/null <<EOF2
-[Unit]
-Description=Coziyoo Admin Static Service
-After=network.target
-
-[Service]
-Type=simple
-User=root
-Group=root
-WorkingDirectory=${PUBLISH_DIR}
-ExecStart=${PYTHON_BIN} -m http.server ${ADMIN_PORT} --bind 0.0.0.0 --directory ${PUBLISH_DIR}
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+    location / {
+        try_files \$uri /index.html;
+    }
+}
 EOF2
 
-  run_root systemctl daemon-reload
-  run_root systemctl enable "${ADMIN_SERVICE_NAME}"
-  run_root systemctl restart "${ADMIN_SERVICE_NAME}"
-  run_root systemctl status "${ADMIN_SERVICE_NAME}" --no-pager -l
+  run_root mkdir -p /etc/nginx/sites-enabled
+  run_root ln -sf "${LOCAL_CONF_AVAIL}" "${LOCAL_CONF_ENABLED}"
+  run_root rm -f /etc/nginx/sites-enabled/default
+  run_root rm -f /etc/nginx/sites-enabled/coziyoo.conf
+
+  run_root systemctl enable nginx
+  run_root nginx -t
+  run_root systemctl restart nginx
+  run_root systemctl status nginx --no-pager -l
 fi
 
 log "Admin panel setup finished"
