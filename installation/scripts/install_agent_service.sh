@@ -30,7 +30,14 @@ if [[ "${OS}" == "linux" ]]; then
   UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
   if run_root systemctl list-unit-files "${SERVICE_NAME}.service" --no-legend >/dev/null 2>&1; then
     log "Existing service detected (${SERVICE_NAME}), stopping before unit update"
-    run_root systemctl stop "${SERVICE_NAME}" || true
+    if command -v timeout >/dev/null 2>&1; then
+      if ! run_root timeout 25s systemctl stop "${SERVICE_NAME}"; then
+        log "Stop timeout for ${SERVICE_NAME}; forcing termination"
+        run_root systemctl kill "${SERVICE_NAME}" || true
+      fi
+    else
+      run_root systemctl stop "${SERVICE_NAME}" || true
+    fi
     run_root systemctl reset-failed "${SERVICE_NAME}" || true
   fi
   log "Writing systemd service ${UNIT_PATH}"
@@ -50,6 +57,7 @@ Environment=AGENT_HTTP_PORT=${AGENT_HTTP_PORT}
 ExecStart=/bin/bash -lc 'cd "${AGENT_DIR_ABS}" && source "${AGENT_DIR_ABS}/.venv/bin/activate" && exec ${START_CMD}'
 Restart=always
 RestartSec=5
+TimeoutStopSec=20
 
 [Install]
 WantedBy=multi-user.target
