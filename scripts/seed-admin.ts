@@ -10,7 +10,7 @@ async function main() {
     `INSERT INTO admin_users (email, password_hash, role, is_active)
      VALUES ($1, $2, $3, TRUE)
      ON CONFLICT (email)
-     DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, updated_at = now()
+     DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, is_active = TRUE, updated_at = now()
      RETURNING id, email, role`,
     [email.toLowerCase(), passwordHash, "super_admin"]
   );
@@ -26,4 +26,3 @@ main()
   .finally(async () => {
     await pool.end();
   });
-
