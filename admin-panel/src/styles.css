@@ -1715,8 +1715,9 @@ textarea:focus {
 }
 
 .buyer-v2-page {
-  max-width: 1480px;
-  margin: 0 auto;
+  width: calc(100% + 48px);
+  margin: 0 0 0 -24px;
+  padding: 0 24px;
 }
 
 .buyer-v2-head {
@@ -1851,11 +1852,61 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.buyer-v2-filter-wrap {
+  position: relative;
+}
+
 .buyer-v2-toolbar-btn {
   min-height: 44px;
   border-radius: 14px;
   padding: 0 18px;
   font-size: 1.02rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buyer-v2-toolbar-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.buyer-v2-filter-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 290px;
+  z-index: 30;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  background: color-mix(in srgb, #121a2d 94%, transparent);
+  padding: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-v2-filter-menu label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.86rem;
+  color: var(--color-secondary-text);
+}
+
+.buyer-v2-filter-menu select {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+  color: var(--color-text);
+  padding: 6px 10px;
+}
+
+.buyer-v2-filter-menu-actions {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .buyer-v2-icon-btn {
@@ -1885,12 +1936,14 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap thead th {
-  font-size: 1.1rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-secondary-text) 95%, transparent);
 }
 
 .buyer-v2-table-wrap tbody td {
-  font-size: 1.12rem;
+  font-size: 0.93rem;
   padding-top: 12px;
   padding-bottom: 12px;
 }
@@ -1907,17 +1960,19 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap .name-avatar {
-  width: 56px;
-  height: 56px;
-  font-size: 1.8rem;
+  width: 44px;
+  height: 44px;
+  font-size: 1.15rem;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell strong {
-  font-size: 2rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  font-weight: 700;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell span {
-  font-size: 1.02rem;
+  font-size: 0.82rem;
 }
 
 .buyer-v2-table-wrap .risk-pill {
@@ -3115,12 +3170,23 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .buyer-v2-page {
+    width: calc(100% + 24px);
+    margin-left: -12px;
+    padding: 0 12px;
+  }
+
   .buyer-v2-toolbar {
     grid-template-columns: 1fr;
   }
 
   .buyer-v2-toolbar-actions {
     width: 100%;
+  }
+
+  .buyer-v2-filter-menu {
+    left: auto;
+    right: 0;
   }
 
   .buyer-v2-toolbar-btn,
@@ -3286,5 +3352,11 @@ textarea:focus {
 
   .buyer-v2-page-btn {
     min-width: 34px;
+  }
+
+  .buyer-v2-page {
+    width: calc(100% + 24px);
+    margin-left: -12px;
+    padding: 0 12px;
   }
 }
