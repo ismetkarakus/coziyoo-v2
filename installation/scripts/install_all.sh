@@ -2,6 +2,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+CFG_PATH="${INSTALL_CONFIG:-${INSTALL_DIR}/config.env}"
+CFG_EXAMPLE_PATH="${INSTALL_DIR}/config.env.example"
+
+if [[ ! -f "${CFG_PATH}" ]]; then
+  [[ -f "${CFG_EXAMPLE_PATH}" ]] || {
+    echo "ERROR: Missing config template at ${CFG_EXAMPLE_PATH}" >&2
+    exit 1
+  }
+  cp "${CFG_EXAMPLE_PATH}" "${CFG_PATH}"
+  echo "Created ${CFG_PATH} from ${CFG_EXAMPLE_PATH}. Edit it for your environment, then rerun."
+  exit 0
+fi
+
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 load_config
