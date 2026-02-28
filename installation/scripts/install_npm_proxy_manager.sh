@@ -23,11 +23,24 @@ NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-443}"
 NPM_UI_PORT="${NPM_UI_PORT:-81}"
 COMPOSE_FILE="${NPM_INSTALL_DIR}/docker-compose.yml"
 
+ensure_compose_installed() {
+  if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1; then
+    return
+  fi
+
+  log "Installing Docker Compose package"
+  run_root apt-get update
+  run_root apt-get install -y docker-compose-plugin \
+    || run_root apt-get install -y docker-compose-v2 \
+    || run_root apt-get install -y docker-compose
+}
+
 if ! command -v docker >/dev/null 2>&1; then
   log "Installing Docker packages"
   run_root apt-get update
-  run_root apt-get install -y docker.io docker-compose-plugin
+  run_root apt-get install -y docker.io
 fi
+ensure_compose_installed
 
 run_root systemctl enable docker
 run_root systemctl start docker
