@@ -154,14 +154,20 @@ sync_repo_to_root() {
     return
   fi
 
-  require_cmd rsync
   run_root mkdir -p "${target}"
   log "Syncing repository from ${source} to ${target}"
-  run_root rsync -a --delete \
-    --exclude '.deploy-lock' \
-    --exclude 'node_modules' \
-    --exclude 'agent-python/.venv' \
-    "${source}/" "${target}/"
+  if command -v rsync >/dev/null 2>&1; then
+    run_root rsync -a --delete \
+      --exclude '.deploy-lock' \
+      --exclude 'node_modules' \
+      --exclude 'agent-python/.venv' \
+      "${source}/" "${target}/"
+  else
+    log "rsync not found, using fallback copy mode"
+    run_root find "${target}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+    run_root bash -lc "shopt -s dotglob; cp -a \"${source}\"/* \"${target}\"/"
+    run_root rm -rf "${target}/node_modules" "${target}/agent-python/.venv" "${target}/.deploy-lock"
+  fi
 }
 
 install_python_project() {
