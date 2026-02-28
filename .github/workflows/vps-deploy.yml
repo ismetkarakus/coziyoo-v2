@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: VPS Deploy
 
 on:
   push:
@@ -20,11 +20,11 @@ jobs:
       - name: Add host key
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Run update script on VPS
+      - name: Run automated update on VPS
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' << 'REMOTE'
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' << 'REMOTE'
           set -euo pipefail
           cd /opt/coziyoo
           bash installation/scripts/update_all.sh

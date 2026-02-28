@@ -1,104 +1,75 @@
-# VPS Installation and Deployment (No Docker)
+# Installation and Operations (No Docker)
 
-This folder contains a fast deployment setup for a single VPS:
+This folder provides an automated deployment workflow for:
 
-- `admin panel` served by Nginx as static files
-- `postgres` as a system service
-- `api` as a FastAPI `systemd` service
-- `agent` as its own `systemd` service
+- Admin panel (Nginx static hosting)
+- API (Node.js + Express as a managed service)
+- Postgres (service)
+- LiveKit server (first install, then service control)
+- Agent (Python managed service)
 
-## Folder layout
+Plan reference: `installation/PLAN.md`
 
-- `scripts/bootstrap_vps.sh`: one-time base package setup
-- `scripts/deploy_admin.sh`: build and publish admin static files
-- `scripts/deploy_api.sh`: pull latest API code and restart API service
-- `scripts/deploy_agent.sh`: pull latest agent code and restart agent service
-- `systemd/coziyoo-api.service`: FastAPI service template
-- `systemd/coziyoo-agent.service`: Agent service template
-- `nginx/coziyoo.conf`: Nginx site template
-- `github-actions/vps-deploy.yml`: CI/CD example over SSH
+## 1) Quick start
 
-## 1) First-time server setup
-
-Run on VPS as root:
+1. Copy config template:
 
 ```bash
-bash installation/scripts/bootstrap_vps.sh
+cp installation/config.env.example installation/config.env
 ```
 
-Then install PostgreSQL if not already installed:
+2. Edit `installation/config.env` for your VPS paths/domains/secrets.
+
+3. Run first installation:
 
 ```bash
-apt install -y postgresql postgresql-contrib
-systemctl enable postgresql
-systemctl start postgresql
+bash installation/scripts/install_all.sh
 ```
 
-## 2) App directories on VPS
-
-Suggested:
+## 2) Daily update command (server side)
 
 ```bash
-/opt/coziyoo/api
-/opt/coziyoo/agent
-/var/www/coziyoo-admin
+bash installation/scripts/update_all.sh
 ```
 
-Clone your repo to `/opt/coziyoo` or each app directory.
+This command updates code, rebuilds API/admin, updates agent deps, restarts services, and runs health checks.
 
-## 3) Configure systemd services
+## 3) Service control
 
-Copy and edit templates:
+All services:
 
 ```bash
-cp installation/systemd/coziyoo-api.service /etc/systemd/system/
-cp installation/systemd/coziyoo-agent.service /etc/systemd/system/
+bash installation/scripts/run_all.sh status
+bash installation/scripts/run_all.sh restart
 ```
 
-Update these fields in both files:
-
-- `WorkingDirectory`
-- `EnvironmentFile`
-- `ExecStart`
-- `User` and `Group`
-
-Then:
+Single service:
 
 ```bash
-systemctl daemon-reload
-systemctl enable coziyoo-api coziyoo-agent
-systemctl start coziyoo-api coziyoo-agent
-systemctl status coziyoo-api coziyoo-agent
+bash installation/scripts/run_all.sh status api
+bash installation/scripts/run_all.sh logs agent
 ```
 
-## 4) Configure Nginx
+## 4) GitHub auto-deploy
+
+Use `.github/workflows/vps-deploy.yml` to run update over SSH on push to `main`.
+
+Required secrets:
+
+- `VPS_HOST`
+- `VPS_USER`
+- `VPS_SSH_KEY`
+
+Remote command should be:
 
 ```bash
-cp installation/nginx/coziyoo.conf /etc/nginx/sites-available/coziyoo.conf
-ln -sf /etc/nginx/sites-available/coziyoo.conf /etc/nginx/sites-enabled/coziyoo.conf
-nginx -t
-systemctl reload nginx
+cd /opt/coziyoo
+bash installation/scripts/update_all.sh
 ```
 
-Set domain names in `server_name` and update upstream ports if needed.
+## 5) Notes
 
-## 5) Deploy workflow
-
-- Push to GitHub
-- GitHub Actions SSHs to VPS
-- Pull latest code
-- Install/update dependencies
-- Restart only changed services
-
-Use `installation/github-actions/vps-deploy.yml` as a starter workflow.
-
-## 6) Useful commands
-
-```bash
-journalctl -u coziyoo-api -f
-journalctl -u coziyoo-agent -f
-systemctl restart coziyoo-api
-systemctl restart coziyoo-agent
-```
-
-This avoids Docker image builds and usually deploys in seconds to a couple of minutes.
+- Linux services: `systemd`
+- macOS services: `launchd`
+- API runtime: `node dist/src/server.js`
+- Keep separate env files per service.
