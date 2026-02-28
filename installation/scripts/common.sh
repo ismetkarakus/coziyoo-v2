@@ -37,12 +37,40 @@ load_config() {
   local cfg="${INSTALL_CONFIG:-${INSTALL_DIR}/config.env}"
   [[ -f "${cfg}" ]] || fail "Missing config at ${cfg}. Copy installation/config.env.example to installation/config.env first."
 
-  # shellcheck disable=SC1090
-  if ! source "${cfg}"; then
-    fail "Failed to parse ${cfg}. If a value contains spaces, wrap it in double quotes (example: API_START_CMD=\"node dist/src/server.js\")."
-  fi
+  # Parse KEY=VALUE pairs without requiring strict shell syntax.
+  # This keeps command-style values (for example: node dist/src/server.js) usable.
+  local line key value
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    [[ "${line}" =~ ^[[:space:]]*$ ]] && continue
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+    [[ "${line}" == *"="* ]] || fail "Invalid config line in ${cfg}: ${line}"
 
-  REPO_ROOT="${REPO_ROOT:-$(cd "${INSTALL_DIR}/.." && pwd)}"
+    key="${line%%=*}"
+    value="${line#*=}"
+
+    key="$(printf '%s' "${key}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    value="$(printf '%s' "${value}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fail "Invalid config key '${key}' in ${cfg}"
+
+    # Support optional surrounding quotes for compatibility with shell-style .env.
+    if [[ "${value}" == \"*\" && "${value}" == *\" && "${#value}" -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value}" == \'*\' && "${value}" == *\' && "${#value}" -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+
+    printf -v "${key}" "%s" "${value}"
+    export "${key}"
+  done < "${cfg}"
+
+  local detected_repo_root
+  detected_repo_root="$(cd "${INSTALL_DIR}/.." && pwd)"
+  REPO_ROOT="${REPO_ROOT:-${detected_repo_root}}"
+  if [[ ! -d "${REPO_ROOT}" && -d "${detected_repo_root}" ]]; then
+    log "Configured REPO_ROOT does not exist (${REPO_ROOT}); falling back to ${detected_repo_root}"
+    REPO_ROOT="${detected_repo_root}"
+  fi
 }
 
 resolve_path() {

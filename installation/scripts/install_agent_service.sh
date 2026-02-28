@@ -22,7 +22,7 @@ SERVICE_NAME="${AGENT_SERVICE_NAME:-coziyoo-agent}"
 RUN_USER="${AGENT_RUN_USER:-www-data}"
 RUN_GROUP="${AGENT_RUN_GROUP:-www-data}"
 ENV_FILE="${AGENT_ENV_FILE:-${AGENT_DIR_ABS}/.env.local}"
-START_CMD="${AGENT_START_CMD:-python src/agent.py dev}"
+START_CMD="${AGENT_START_CMD:-python src/agent_http_runner.py}"
 AGENT_HTTP_HOST="${AGENT_HTTP_HOST:-127.0.0.1}"
 AGENT_HTTP_PORT="${AGENT_HTTP_PORT:-8787}"
 
