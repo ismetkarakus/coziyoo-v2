@@ -67,6 +67,9 @@ load_config() {
   local detected_repo_root
   detected_repo_root="$(cd "${INSTALL_DIR}/.." && pwd)"
   REPO_ROOT="${REPO_ROOT:-${detected_repo_root}}"
+  if [[ "${REPO_ROOT}" != /* ]]; then
+    REPO_ROOT="$(cd "${INSTALL_DIR}/${REPO_ROOT}" 2>/dev/null && pwd)" || fail "Invalid REPO_ROOT path '${REPO_ROOT}' in ${cfg}"
+  fi
   if [[ ! -d "${REPO_ROOT}" && -d "${detected_repo_root}" ]]; then
     log "Configured REPO_ROOT does not exist (${REPO_ROOT}); falling back to ${detected_repo_root}"
     REPO_ROOT="${detected_repo_root}"
