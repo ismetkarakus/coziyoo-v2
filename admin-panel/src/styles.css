@@ -1968,19 +1968,20 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap .name-avatar {
-  width: 38px;
-  height: 38px;
-  font-size: 1rem;
+  width: 44px;
+  height: 44px;
+  font-size: 1.1rem;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell strong {
-  font-size: 0.84rem;
+  font-size: 0.96rem;
   line-height: 1.2;
   font-weight: 700;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell span {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.25;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell {
