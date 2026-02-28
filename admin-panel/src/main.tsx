@@ -4812,26 +4812,42 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     <div className="app buyer-ops-page">
       <section className="buyer-ref-head">
         <div>
-          <p className="buyer-ops-breadcrumb">COZIYOO - ALICI DETAYI</p>
+          <p className="buyer-ops-breadcrumb"><span aria-hidden="true">‹</span> COZIYOO - ALICI DETAYI</p>
           <h1>Alici Detayi</h1>
           <p className="buyer-ops-subtitle">Satislari, odeme gecmisini, yorumlari ve aktiviteleri buradan izleyebilirsiniz.</p>
         </div>
-      </section>
-
-      <section className="buyer-ref-actions-row" aria-label="Aksiyonlar">
         <div className="buyer-ref-actions">
           <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>
-            <span aria-hidden="true">✉</span> Hizli E-posta
+            <span className="buyer-ref-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M3.8 6.5h16.4v11H3.8z" />
+                <path d="m4.6 7.3 7.4 6.1 7.4-6.1" />
+              </svg>
+            </span>
+            Hizli E-posta
           </button>
           <button className="ghost" type="button" onClick={() => setSmsOpen(true)}>
-            <span aria-hidden="true">☏</span> Hizli SMS
+            <span className="buyer-ref-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M5 7.2h14v9.4H9l-4 3v-3z" />
+                <path d="M9 10.8h6M9 13.5h4.2" />
+              </svg>
+            </span>
+            Hizli SMS
           </button>
           <button className="ghost" type="button">
-            <span aria-hidden="true">⟳</span> {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
+            <span className="buyer-ref-action-icon is-warn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M18.5 8.2A7 7 0 1 0 19 13" />
+                <path d="M19 5.8v4h-4" />
+              </svg>
+            </span>
+            {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
           </button>
           <div className="buyer-ops-menu-wrap">
             <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>
-              <span aria-hidden="true">•••</span> Diger
+              <span className="buyer-ref-action-icon" aria-hidden="true">•••</span>
+              Diger
             </button>
             {actionMenuOpen ? (
               <div className="buyer-ops-menu">
@@ -4906,7 +4922,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                     <circle cx="19" cy="17" r="2" />
                   </svg>
                 </span>
-                <span><strong>Hepsi</strong> | Teslim Edildi</span>
+                <span>Hepsi | Teslim Edildi</span>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="m6 9 6 6 6-6" />
@@ -4935,7 +4951,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                     <path d="m15.2 15.2 4.3 4.3" />
                   </svg>
                 </span>
-                <span>Siparis No ile ara...</span>
+                <span>Siparis No ile era...</span>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="m6 9 6 6 6-6" />
