@@ -14,6 +14,7 @@ fi
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-admin-panel}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
+ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://api.coziyoo.com}"
 
 [[ -d "${ADMIN_DIR_ABS}" ]] || fail "Admin directory not found: ${ADMIN_DIR_ABS}"
 maybe_git_update "${REPO_ROOT}"
@@ -23,6 +24,9 @@ require_cmd npm
 log "Building admin panel in ${ADMIN_DIR_ABS}"
 (
   cd "${ADMIN_DIR_ABS}"
+  cat > .env.production <<EOF
+VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
+EOF
   if [[ -f package-lock.json ]]; then
     npm ci
   else
