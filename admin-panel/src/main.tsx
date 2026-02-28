@@ -4817,11 +4817,19 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <p className="buyer-ops-subtitle">Satislari, odeme gecmisini, yorumlari ve aktiviteleri buradan izleyebilirsiniz.</p>
         </div>
         <div className="buyer-ref-actions">
-          <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>Hizli E-posta</button>
-          <button className="ghost" type="button" onClick={() => setSmsOpen(true)}>Hizli SMS</button>
-          <button className="ghost" type="button">{row.status === "active" ? "Pasif Yap" : "Aktif Yap"}</button>
+          <button className="ghost" type="button" onClick={() => setEmailOpen(true)}>
+            <span aria-hidden="true">✉</span> Hizli E-posta
+          </button>
+          <button className="ghost" type="button" onClick={() => setSmsOpen(true)}>
+            <span aria-hidden="true">☏</span> Hizli SMS
+          </button>
+          <button className="ghost" type="button">
+            <span aria-hidden="true">⟳</span> {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
+          </button>
           <div className="buyer-ops-menu-wrap">
-            <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>Diger</button>
+            <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>
+              <span aria-hidden="true">•••</span> Diger
+            </button>
             {actionMenuOpen ? (
               <div className="buyer-ops-menu">
                 <button type="button" onClick={() => { loadBuyerDetail(); setActionMenuOpen(false); }}>Yenile</button>
@@ -4832,7 +4840,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         </div>
       </section>
 
-      <section className="buyer-ref-top">
+      <section className="buyer-ref-top buyer-ref-hero-strip">
         <article className="buyer-ref-profile-card">
           <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
           <div>
@@ -4840,44 +4848,36 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <p>{email}</p>
             <div className="buyer-ops-id-row">
               <span>ID {shortId}</span>
-              <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>Kopyala</button>
+              <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
+                <span aria-hidden="true">◌</span>
+              </button>
             </div>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
-          <p>Acik Sikayet</p>
-          <strong>{openComplaints}</strong>
+          <div className="buyer-ref-metric-head">
+            <span className="buyer-ref-metric-icon is-alert" aria-hidden="true">♡</span>
+            <p>Acik Sikayet</p>
+          </div>
+          <strong>{openComplaints} <span>Aktif sikayet</span></strong>
           <small>Son sikayet: {cancellations[0] ? toRelative(cancellations[0].cancelledAt) : "4 ay once"}</small>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
-          <p>Son 30 Gun</p>
-          <strong>{summary?.monthlyOrderCountCurrent ?? 0} <span>{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</span></strong>
-          <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orderTrend.arrow}</small>
+          <div className="buyer-ref-metric-head">
+            <span className="buyer-ref-metric-icon is-trend" aria-hidden="true">⌁</span>
+            <p>Son 30 Gun</p>
+          </div>
+          <strong>{summary?.monthlyOrderCountCurrent ?? 0} <span className="is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</span></strong>
+          <small className={`buyer-trend ${orderTrend.cls}`}>Son siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
-          <p>Odeme Durumu</p>
-          <strong>{orders.length - failedPayments}</strong>
-          <small>Basarisiz odeme: {failedPayments}</small>
+          <div className="buyer-ref-metric-head">
+            <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
+            <p>Odeme Durumu</p>
+          </div>
+          <strong>{orders.length - failedPayments} <span className="is-accent">{failedPayments} beklemede</span></strong>
+          <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
         </article>
-        <aside className="buyer-ref-contact-card buyer-ref-contact-side">
-          <h2>Iletisim & Adres</h2>
-          <div className="buyer-ref-contact-block">
-            <p className="buyer-ref-contact-label"><span aria-hidden="true">⌂</span> Ev Adresi</p>
-            <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
-          </div>
-          <div className="buyer-ref-contact-block">
-            <p className="buyer-ref-contact-label"><span aria-hidden="true">✆</span> Cep</p>
-            <p className="buyer-ref-contact-value">{phone}</p>
-            <p className="panel-meta">{locations.length} giris noktasi</p>
-          </div>
-          <div className="buyer-ref-contact-block">
-            <p className="buyer-ref-contact-label"><span aria-hidden="true">○</span> Kimlik</p>
-            <div className="buyer-ref-contact-id-row">
-              <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
-              <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>Kopyala</button>
-            </div>
-          </div>
-        </aside>
       </section>
 
       <section className="buyer-ref-content">
@@ -4892,9 +4892,21 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")} type="button">Notlar & Etiketler</button>
             </div>
             <div className="buyer-ref-filter-row">
-              <button className="ghost" type="button">Hepsi | Teslim Edildi</button>
-              <button className="ghost" type="button">27.01.2028 - 27.02.2028</button>
-              <button className="ghost buyer-ref-search-btn" type="button">Siparis No ile era...</button>
+              <button className="ghost buyer-ref-filter-btn" type="button">
+                <span aria-hidden="true">⟲</span>
+                <span><strong>Hepsi</strong> | Teslim Edildi</span>
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <button className="ghost buyer-ref-filter-btn" type="button">
+                <span aria-hidden="true">⌗</span>
+                <span>27.01.2028 - 27.02.2028</span>
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <button className="ghost buyer-ref-search-btn" type="button">
+                <span aria-hidden="true">⌕</span>
+                <span>Siparis No ile ara...</span>
+                <span aria-hidden="true">⌄</span>
+              </button>
             </div>
 
             <div className="buyer-ops-table-wrap">
