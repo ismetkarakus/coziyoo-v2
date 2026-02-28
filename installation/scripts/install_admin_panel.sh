@@ -45,7 +45,7 @@ if [[ "$(os_type)" == "linux" && "${INGRESS_MODE:-nginx}" == "npm" ]]; then
   log "Configuring host nginx to serve admin panel on 0.0.0.0:${ADMIN_PORT}"
   run_root tee "${LOCAL_CONF_AVAIL}" >/dev/null <<EOF2
 server {
-    listen ${ADMIN_PORT};
+    listen ${ADMIN_PORT} default_server;
     server_name _;
     root ${PUBLISH_DIR};
     index index.html;
@@ -58,8 +58,9 @@ EOF2
 
   run_root mkdir -p /etc/nginx/sites-enabled
   run_root ln -sf "${LOCAL_CONF_AVAIL}" "${LOCAL_CONF_ENABLED}"
-  run_root rm -f /etc/nginx/sites-enabled/default
-  run_root rm -f /etc/nginx/sites-enabled/coziyoo.conf
+  # In npm mode, host nginx should serve admin only on ADMIN_PORT.
+  # Disable other site configs (which often bind :80/:443 and conflict with NPM Docker).
+  run_root find /etc/nginx/sites-enabled -mindepth 1 -maxdepth 1 ! -name "$(basename "${LOCAL_CONF_ENABLED}")" -exec rm -f {} +
 
   run_root systemctl enable nginx
   run_root nginx -t
