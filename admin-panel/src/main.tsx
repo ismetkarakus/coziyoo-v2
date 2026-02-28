@@ -4533,7 +4533,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
   const [emailBody, setEmailBody] = useState("Merhaba,");
   const [noteInput, setNoteInput] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all_delivered");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
@@ -4795,6 +4795,11 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     return next;
   }, [orders, statusFilter, dateFilter, orderSearch]);
 
+  const visibleOrders = useMemo(() => {
+    if (filteredOrders.length === 0 && orders.length > 0) return orders;
+    return filteredOrders;
+  }, [filteredOrders, orders]);
+
   function switchBuyerTab(tab: BuyerDetailTab) {
     setActiveTab(tab);
     const params = new URLSearchParams(location.search);
@@ -5035,10 +5040,10 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                   </svg>
                 </span>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Durum filtresi">
+                  <option value="all">Hepsi | Tumu</option>
                   <option value="all_delivered">Hepsi | Teslim Edildi</option>
                   <option value="all_pending">Hepsi | Bekliyor</option>
                   <option value="all_cancelled">Hepsi | Iptal</option>
-                  <option value="all">Hepsi | Tumu</option>
                 </select>
                 <span className="buyer-ref-filter-trailing" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
@@ -5096,9 +5101,9 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.length === 0 ? (
+                  {visibleOrders.length === 0 ? (
                     <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
-                  ) : filteredOrders.map((order) => {
+                  ) : visibleOrders.map((order) => {
                     const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
                     const paymentState = paymentBadge(order.paymentStatus);
                     const statusText = paymentState.cls === "is-pending"
@@ -5126,7 +5131,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <div>
                 <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
                 <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
-                <span>Toplam {filteredOrders.length} Siparis</span>
+                <span>Toplam {visibleOrders.length} Siparis</span>
               </div>
               <div>
                 <button className="ghost" type="button">1</button>

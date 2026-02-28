@@ -2423,6 +2423,10 @@ textarea:focus {
     color-mix(in srgb, #101938 94%, transparent);
 }
 
+.buyer-ref-bottom-panel {
+  display: none !important;
+}
+
 .buyer-ref-main-panel .buyer-ops-tabs {
   display: flex;
   gap: 6px;
