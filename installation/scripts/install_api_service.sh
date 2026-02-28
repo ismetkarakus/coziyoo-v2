@@ -14,6 +14,39 @@ fi
 API_DIR_ABS="$(resolve_path "${API_DIR:-.}")"
 [[ -d "${API_DIR_ABS}" ]] || fail "API directory not found: ${API_DIR_ABS}"
 [[ -f "${API_DIR_ABS}/package.json" ]] || fail "package.json not found in API dir: ${API_DIR_ABS}"
+ENV_FILE="${API_ENV_FILE:-${API_DIR_ABS}/.env}"
+
+ensure_api_env_defaults() {
+  local env_file="$1"
+  local defaults=(
+    "APP_JWT_SECRET=coziyoo_app_jwt_secret_change_me_1234567890"
+    "ADMIN_JWT_SECRET=coziyoo_admin_jwt_secret_change_me_1234567890"
+    "PAYMENT_WEBHOOK_SECRET=coziyoo_webhook_secret_1234"
+    "LIVEKIT_API_KEY=coziyoo_livekit_api_key_dummy"
+    "LIVEKIT_API_SECRET=coziyoo_livekit_api_secret_dummy_12345678"
+    "AI_SERVER_SHARED_SECRET=coziyoo_ai_shared_secret_dummy_123456"
+    "SPEECH_TO_TEXT_API_KEY=coziyoo_stt_api_key_dummy"
+    "TTS_API_KEY=coziyoo_tts_api_key_dummy"
+    "N8N_API_KEY=coziyoo_n8n_api_key_dummy"
+  )
+
+  if [[ ! -f "${env_file}" ]]; then
+    log "Creating API env file at ${env_file}"
+    mkdir -p "$(dirname "${env_file}")"
+    printf "%s\n" "${defaults[@]}" > "${env_file}"
+    return
+  fi
+
+  local entry key
+  for entry in "${defaults[@]}"; do
+    key="${entry%%=*}"
+    if ! grep -q "^${key}=" "${env_file}"; then
+      echo "${entry}" >> "${env_file}"
+    fi
+  done
+}
+
+ensure_api_env_defaults "${ENV_FILE}"
 
 maybe_git_update "${REPO_ROOT}"
 
@@ -21,6 +54,12 @@ require_cmd npm
 log "Installing API dependencies and building in ${API_DIR_ABS}"
 (
   cd "${API_DIR_ABS}"
+  if [[ -f "${ENV_FILE}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    set +a
+  fi
   if [[ -f package-lock.json ]]; then
     npm ci
   else
@@ -34,7 +73,6 @@ OS="$(os_type)"
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
 RUN_USER="${API_RUN_USER:-${APP_USER:-caziyoo}}"
 RUN_GROUP="${API_RUN_GROUP:-${APP_GROUP:-${RUN_USER}}}"
-ENV_FILE="${API_ENV_FILE:-${API_DIR_ABS}/.env}"
 START_CMD="${API_START_CMD:-node dist/src/server.js}"
 
 if [[ "${OS}" == "linux" ]]; then
