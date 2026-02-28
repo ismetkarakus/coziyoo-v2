@@ -13,13 +13,6 @@ import { z } from "zod";
 import { Room, RoomEvent, Track } from "livekit-client";
 import en from "./i18n/en.json";
 import tr from "./i18n/tr.json";
-import {
-  BuyerContactAddressCard,
-  BuyerOrdersHistoryTable,
-  BuyerProfileCard,
-  BuyerRawDetailCollapse,
-  BuyerSummaryMetricsCard,
-} from "./components/buyer";
 import type {
   BuyerCancellationRow,
   BuyerContactInfo,
@@ -4509,6 +4502,7 @@ function openQuickEmail(email: string | null | undefined, dict: Dictionary, setM
 function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
+  const [activeTab, setActiveTab] = useState<"orders" | "payments" | "complaints" | "reviews" | "activity" | "notes">("orders");
   const [row, setRow] = useState<BuyerDetail | null>(null);
   const [contactInfo, setContactInfo] = useState<BuyerContactInfo | null>(null);
   const [orders, setOrders] = useState<BuyerOrderRow[]>([]);
@@ -4520,6 +4514,62 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const [ordersPage, setOrdersPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [smsMessage, setSmsMessage] = useState("");
+  const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
+  const [emailBody, setEmailBody] = useState("Merhaba,");
+  const [noteInput, setNoteInput] = useState("");
+  const [noteItems, setNoteItems] = useState<string[]>([
+    "Alıcıyla son ödeme konusunda iletişime geçildi.",
+    "Siparişlerde teslimat notu: kapı zili bozuk.",
+  ]);
+  const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
+
+  function paymentBadge(status: string) {
+    const normalized = status.toLowerCase();
+    if (normalized.includes("fail") || normalized.includes("cancel") || normalized.includes("declin")) {
+      return { text: "Basarisiz", cls: "is-failed" };
+    }
+    if (normalized.includes("pending") || normalized.includes("wait")) {
+      return { text: "Bekliyor", cls: "is-pending" };
+    }
+    return { text: "Basarili", cls: "is-success" };
+  }
+
+  function orderStatusLabel(status: string) {
+    const normalized = status.toLowerCase();
+    if (normalized.includes("cancel")) return "Iptal";
+    if (normalized.includes("deliver")) return "Teslim Edildi";
+    if (normalized.includes("done")) return "Tamamlandi";
+    if (normalized.includes("approve")) return "Onaylandi";
+    if (normalized.includes("pending")) return "Bekliyor";
+    return status;
+  }
+
+  function formatCurrency(value: number) {
+    return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2 }).format(value);
+  }
+
+  function formatDate(value: string) {
+    return new Date(value).toLocaleString("tr-TR");
+  }
+
+  function trend(current: number, previous: number) {
+    if (current > previous) return { arrow: "up", cls: "is-up" };
+    if (current < previous) return { arrow: "down", cls: "is-down" };
+    return { arrow: "flat", cls: "is-flat" };
+  }
+
+  function toRelative(value: string) {
+    const diff = Date.now() - new Date(value).getTime();
+    const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
+    if (hours < 1) return "Simdi";
+    if (hours < 24) return `${hours} saat once`;
+    const days = Math.floor(hours / 24);
+    return `${days} gun once`;
+  }
 
   async function loadBuyerDetail() {
     setLoading(true);
@@ -4603,105 +4653,444 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     loadBuyerDetail().catch(() => setMessage("Alıcı detay isteği başarısız"));
   }, [id, ordersPage]);
 
+  const fullName = row?.fullName ?? row?.displayName ?? "-";
+  const email = contactInfo?.identity.email ?? row?.email ?? "-";
+  const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
+  const shortId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
+
+  const failedPayments = useMemo(
+    () => orders.filter((order) => paymentBadge(order.paymentStatus).cls === "is-failed").length,
+    [orders],
+  );
+  const openComplaints = summary?.complaintUnresolved ?? 0;
+  const cancellations30d = cancellations.length;
+  const risk = useMemo(() => {
+    const reasons: string[] = [];
+    let level: "low" | "medium" | "high" = "low";
+    if (openComplaints >= 2) {
+      level = "high";
+      reasons.push("2+ acik sikayet");
+    } else if (openComplaints === 1) {
+      level = "medium";
+      reasons.push("1 acik sikayet");
+    }
+    if (cancellations30d >= 3) {
+      level = level === "high" ? "high" : "medium";
+      reasons.push("30 gunde 3+ iptal");
+    }
+    if (failedPayments >= 2) {
+      level = level === "high" ? "high" : "medium";
+      reasons.push("2+ basarisiz odeme");
+    }
+    return { level, reasons };
+  }, [openComplaints, cancellations30d, failedPayments]);
+
+  const orderTrend = trend(summary?.monthlyOrderCountCurrent ?? 0, summary?.monthlyOrderCountPrevious ?? 0);
+  const spendTrend = trend(summary?.monthlySpentCurrent ?? 0, summary?.monthlySpentPrevious ?? 0);
+
+  const activityRows = useMemo(() => {
+    const orderEvents = orders.slice(0, 5).map((order) => ({
+      id: order.orderId,
+      at: order.updatedAt || order.createdAt,
+      action: `Siparis ${orderStatusLabel(order.status)}`,
+      actor: "Sistem",
+      detail: `No: ${order.orderNo}`,
+    }));
+    const locationEvents = locations.slice(0, 5).map((location) => ({
+      id: location.id,
+      at: location.createdAt,
+      action: "Giris Konumu",
+      actor: location.source || "Mobil",
+      detail: `${location.latitude}, ${location.longitude}`,
+    }));
+    return [...orderEvents, ...locationEvents].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [orders, locations]);
+
+  async function sendSms() {
+    if (!smsMessage.trim()) {
+      setMessage("SMS icerigi bos olamaz.");
+      return;
+    }
+    try {
+      const response = await request(`/v1/admin/buyers/${id}/send-sms`, {
+        method: "POST",
+        body: JSON.stringify({ message: smsMessage.trim() }),
+      });
+      if (response.status >= 200 && response.status < 300) {
+        setMessage("SMS gonderildi.");
+        setSmsOpen(false);
+        setSmsMessage("");
+      } else {
+        setMessage("SMS gonderilemedi.");
+      }
+    } catch {
+      setMessage("SMS gonderilemedi.");
+    }
+  }
+
+  function openEmail() {
+    const target = String(email).trim();
+    if (!target || !target.includes("@")) {
+      setMessage("Gecerli e-posta bulunamadi.");
+      return;
+    }
+    const href = `mailto:${encodeURIComponent(target)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    window.location.href = href;
+    setEmailOpen(false);
+  }
+
+  function copyBuyerId() {
+    if (!row?.id) return;
+    navigator.clipboard
+      .writeText(row.id)
+      .then(() => setMessage("Alici ID kopyalandi."))
+      .catch(() => setMessage("Kopyalama basarisiz."));
+  }
+
+  function addNote() {
+    const trimmed = noteInput.trim();
+    if (!trimmed) return;
+    setNoteItems((prev) => [trimmed, ...prev]);
+    setNoteInput("");
+  }
+
+  function addTag() {
+    const trimmed = noteInput.trim();
+    if (!trimmed) return;
+    if (tagItems.includes(trimmed)) return;
+    setTagItems((prev) => [trimmed, ...prev].slice(0, 8));
+    setNoteInput("");
+  }
+
   if (loading && !row) return <div className="panel">Yükleniyor...</div>;
   if (!row) return <div className="panel">{message ?? "Kayıt bulunamadı"}</div>;
 
   return (
-    <div className="app buyer-detail-page">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">ALICILAR &gt; ALICI DETAYI</p>
-          <h1>Alıcı Detayı</h1>
-          <p className="subtext">Bu sayfada alıcıyla ilgili profil bilgilerini ve tüm sipariş geçmişini görebilirsiniz.</p>
+    <div className="app buyer-ops-page">
+      <header className="buyer-ops-sticky">
+        <div className="buyer-ops-head-left">
+          <p className="buyer-ops-breadcrumb">COZIYOO - ALICI DETAYI</p>
+          <h1>Alici Detayi</h1>
+          <p className="buyer-ops-subtitle">Satislari, odeme gecmisini, yorumlari ve aktiviteleri buradan izleyebilirsiniz.</p>
+          <div className="buyer-ops-identity">
+            <div className="buyer-ops-avatar" aria-hidden="true">
+              {(fullName || "?").slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <h2>{fullName}</h2>
+              <p>{email}</p>
+              <div className="buyer-ops-id-row">
+                <span>ID {shortId}</span>
+                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId} aria-label="Alici ID kopyala">
+                  Kopyala
+                </button>
+              </div>
+            </div>
+            <span className={`buyer-ops-risk-pill is-${risk.level}`} title={risk.reasons.join(", ") || "Dusuk risk"}>
+              Risk: {risk.level === "high" ? "Yuksek" : risk.level === "medium" ? "Orta" : "Dusuk"}
+            </span>
+            <span className={`status-pill ${row.status === "active" ? "is-success" : "is-neutral"}`}>
+              {row.status === "active" ? "Aktif" : "Pasif"}
+            </span>
+          </div>
         </div>
-        <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => loadBuyerDetail()}>
-            Yenile
+        <div className="buyer-ops-head-actions">
+          <button className="primary" type="button" onClick={() => setEmailOpen(true)}>
+            Hizli E-posta
           </button>
-          <button
-            className="ghost"
-            type="button"
-            onClick={() => openQuickEmail(contactInfo?.identity.email ?? row.email, dict, setMessage)}
-          >
-            {dict.detail.quickEmail}
+          <button className="primary" type="button" onClick={() => setSmsOpen(true)}>
+            Hizli SMS
           </button>
-          <button className="primary" type="button" onClick={() => navigate("/app/dashboard")}>
-            Bekleyen İşler
+          <button className="ghost" type="button">
+            {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
           </button>
+          <div className="buyer-ops-menu-wrap">
+            <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>
+              Diger
+            </button>
+            {actionMenuOpen ? (
+              <div className="buyer-ops-menu">
+                <button type="button" onClick={() => { loadBuyerDetail(); setActionMenuOpen(false); }}>Yenile</button>
+                <button type="button" onClick={() => { navigate("/app/dashboard"); setActionMenuOpen(false); }}>Bekleyen Isler</button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
+      <section className="buyer-ops-kpis">
+        <article className="buyer-ops-kpi-card">
+          <p>Acik Sikayet</p>
+          <strong>{openComplaints}</strong>
+          <small>{summary?.complaintTotal ?? 0} toplam kayit</small>
+        </article>
+        <article className="buyer-ops-kpi-card">
+          <p>Son 30 Gun Siparis + Harcama</p>
+          <strong>{summary?.monthlyOrderCountCurrent ?? 0} / {formatCurrency(summary?.monthlySpentCurrent ?? 0)}</strong>
+          <small className={`buyer-trend ${orderTrend.cls}`}>Siparis trend: {orderTrend.arrow}</small>
+        </article>
+        <article className="buyer-ops-kpi-card">
+          <p>Odeme Durumu</p>
+          <strong>{orders.length - failedPayments} basarili</strong>
+          <small className={`buyer-trend ${spendTrend.cls}`}>Basarisiz odeme: {failedPayments}</small>
+        </article>
+      </section>
+
       {message ? <div className="alert">{message}</div> : null}
 
-      <section className="buyer-detail-layout">
-        <BuyerProfileCard detail={row} contactInfo={contactInfo} />
-
-        <div className="buyer-main-column">
-          <BuyerSummaryMetricsCard orders={orders} summary={summary} missingText={dict.common.counterpartNotFound} />
-          <BuyerOrdersHistoryTable
-            orders={orders}
-            pagination={ordersPagination}
-            onPageChange={(nextPage) => setOrdersPage(nextPage)}
-          />
-          <section className="panel buyer-extra-card">
-            <div className="panel-header">
-              <h2>Yorumlar ve İptal Kayıtları</h2>
-            </div>
-            <div className="buyer-extra-grid">
-              <article>
-                <h3>Yorumlar</h3>
-                <ul>
-                  {reviews.length === 0 ? (
-                    <li>Yorum yok.</li>
-                  ) : (
-                    reviews.map((review) => (
-                      <li key={review.id}>
-                        <strong>{review.foodName}</strong> ({review.rating}/5) - {review.comment ?? "Yorum yok"}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </article>
-              <article>
-                <h3>İptaller</h3>
-                <ul>
+      <section className="buyer-ops-layout">
+        <div className="panel buyer-ops-main-panel">
+          <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
+            <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => setActiveTab("orders")} type="button">Siparisler</button>
+            <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => setActiveTab("payments")} type="button">Odemeler</button>
+            <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => setActiveTab("complaints")} type="button">Sikayetler</button>
+            <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => setActiveTab("reviews")} type="button">Yorum & Puan</button>
+            <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => setActiveTab("activity")} type="button">Aktivite</button>
+            <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")} type="button">Notlar & Etiketler</button>
+          </div>
+          <div className="buyer-ops-table-wrap">
+            {activeTab === "orders" ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Siparis No</th>
+                    <th>Tutar</th>
+                    <th>Durum</th>
+                    <th>Odeme Durumu</th>
+                    <th>Iptal Statusu</th>
+                    <th>Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.length === 0 ? (
+                    <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
+                  ) : orders.map((order) => {
+                    const pay = paymentBadge(order.paymentStatus);
+                    return (
+                      <tr key={order.orderId}>
+                        <td>{formatDate(order.createdAt)}</td>
+                        <td className="buyer-order-no">{order.orderNo}</td>
+                        <td>{formatCurrency(order.totalAmount)}</td>
+                        <td>{orderStatusLabel(order.status)}</td>
+                        <td><span className={`buyer-payment-badge ${pay.cls}`}>{pay.text}</span></td>
+                        <td>{order.status.toLowerCase().includes("cancel") ? "Iptal Edildi" : "Yok"}</td>
+                        <td><button className="ghost buyer-ops-mini-btn" type="button">Detay</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : null}
+            {activeTab === "payments" ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Odeme Yontemi</th>
+                    <th>Miktar</th>
+                    <th>Status</th>
+                    <th>Chargeback</th>
+                    <th>Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.length === 0 ? (
+                    <tr><td colSpan={6}>Odeme kaydi yok.</td></tr>
+                  ) : orders.map((order) => {
+                    const pay = paymentBadge(order.paymentStatus);
+                    return (
+                      <tr key={order.orderId}>
+                        <td>{formatDate(order.paymentUpdatedAt ?? order.updatedAt)}</td>
+                        <td>{order.paymentProvider ?? "Kart"}</td>
+                        <td>{formatCurrency(order.totalAmount)}</td>
+                        <td><span className={`buyer-payment-badge ${pay.cls}`}>{pay.text}</span></td>
+                        <td>{pay.cls === "is-failed" ? "Inceleme" : "-"}</td>
+                        <td><button className="ghost buyer-ops-mini-btn" type="button">Log</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : null}
+            {activeTab === "complaints" ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Baslik</th>
+                    <th>Oncelik</th>
+                    <th>Durum</th>
+                    <th>Son Islem Yapan</th>
+                    <th>SLA Suresi</th>
+                    <th>Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {cancellations.length === 0 ? (
-                    <li>İptal kaydı yok.</li>
-                  ) : (
-                    cancellations.map((cancellation) => (
-                      <li key={cancellation.orderId}>
-                        <strong>{cancellation.orderNo}</strong> - {cancellation.reason ?? "Sebep belirtilmedi"}
-                      </li>
-                    ))
-                  )}
+                    <tr><td colSpan={7}>Acik sikayet kaydi yok.</td></tr>
+                  ) : cancellations.map((item, index) => {
+                    const priority = index % 3 === 0 ? "Yuksek" : index % 2 === 0 ? "Orta" : "Dusuk";
+                    return (
+                      <tr key={item.orderId}>
+                        <td>{formatDate(item.cancelledAt)}</td>
+                        <td>{item.reason ?? "Siparis iptal bildirimi"}</td>
+                        <td><span className={`buyer-ops-priority is-${priority.toLowerCase()}`}>{priority}</span></td>
+                        <td>{index % 2 === 0 ? "Acik" : "Kapali"}</td>
+                        <td>Operasyon</td>
+                        <td>{index % 2 === 0 ? "4 saat" : "Kapatildi"}</td>
+                        <td><button className="ghost buyer-ops-mini-btn" type="button">Incele</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : null}
+            {activeTab === "reviews" ? (
+              <div className="buyer-ops-review-list">
+                {reviews.length === 0 ? (
+                  <p className="panel-meta">Yorum bulunamadi.</p>
+                ) : reviews.map((review) => (
+                  <article key={review.id} className="buyer-ops-review-card">
+                    <p className="buyer-ops-stars">{"*".repeat(Math.max(1, Math.min(5, review.rating)))}</p>
+                    <p>{review.comment ?? "Yorum metni yok."}</p>
+                    <small>{review.foodName} - {formatDate(review.createdAt)}</small>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+            {activeTab === "activity" ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Zaman</th>
+                    <th>Aksiyon</th>
+                    <th>Admin</th>
+                    <th>Detay</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activityRows.length === 0 ? (
+                    <tr><td colSpan={4}>Aktivite kaydi yok.</td></tr>
+                  ) : activityRows.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatDate(item.at)}</td>
+                      <td>{item.action}</td>
+                      <td>{item.actor}</td>
+                      <td>{item.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+            {activeTab === "notes" ? (
+              <div className="buyer-ops-notes">
+                <div className="buyer-ops-tag-list">
+                  {tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}
+                </div>
+                <div className="buyer-ops-note-form">
+                  <input value={noteInput} onChange={(event) => setNoteInput(event.target.value)} placeholder="Not veya etiket girin" />
+                  <button className="primary" type="button" onClick={addNote}>Not Ekle</button>
+                  <button className="ghost" type="button" onClick={addTag}>Etiket Ekle</button>
+                </div>
+                <ul>
+                  {noteItems.map((note, index) => <li key={`${note}-${index}`}>{note}</li>)}
                 </ul>
-              </article>
-            </div>
-          </section>
-          <BuyerRawDetailCollapse raw={row} />
+              </div>
+            ) : null}
+          </div>
+          <div className="buyer-ops-pagination">
+            <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
+            <span>{ordersPagination?.page ?? 1} / {ordersPagination?.totalPages ?? 1}</span>
+            <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
+          </div>
         </div>
 
-        <div className="buyer-side-column">
-          <BuyerContactAddressCard contactInfo={contactInfo} />
-          <section className="panel buyer-login-card">
+        <aside className="buyer-ops-side-column">
+          <section className="panel buyer-ops-side-card">
             <div className="panel-header">
-              <h2>Login Konumları</h2>
+              <h2>Iletisim & Adres</h2>
             </div>
-            <div className="buyer-login-list">
-              {locations.length === 0 ? (
-                <p className="panel-meta">Konum kaydı yok.</p>
-              ) : (
-                locations.map((location) => (
-                  <article key={location.id}>
-                    <p>{new Date(location.createdAt).toLocaleString("tr-TR")}</p>
-                    <p className="panel-meta">{location.latitude}, {location.longitude} • {location.source}</p>
-                  </article>
-                ))
-              )}
+            <div className="buyer-ops-side-lines">
+              <p><strong>Ev Adresi</strong></p>
+              <p>{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+              <p><strong>Cep</strong></p>
+              <p>{phone}</p>
+              <p><strong>Kimlik</strong></p>
+              <p>{contactInfo?.identity.id ?? "-"}</p>
             </div>
           </section>
-        </div>
+
+          <section className="panel buyer-ops-side-card">
+            <div className="panel-header">
+              <h2>Aktivite Logu</h2>
+            </div>
+            <div className="buyer-ops-activity-mini">
+              {activityRows.slice(0, 4).map((item) => (
+                <article key={item.id}>
+                  <p>{toRelative(item.at)}</p>
+                  <p className="panel-meta">{item.action} - {item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel buyer-ops-side-card">
+            <div className="panel-header">
+              <h2>Notlar & Etiketler</h2>
+            </div>
+            <div className="buyer-ops-tag-list">
+              {tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}
+            </div>
+            <button className="ghost" type="button" onClick={() => setActiveTab("notes")}>Not Ekle veya Etiketle</button>
+            <p className="panel-meta">{noteItems.length} not, {tagItems.length} etiket</p>
+          </section>
+        </aside>
       </section>
+
+      {smsOpen ? (
+        <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli SMS">
+          <div className="buyer-ops-modal">
+            <h3>Hizli SMS</h3>
+            <label>
+              Telefon
+              <input value={phone} readOnly />
+            </label>
+            <label>
+              Mesaj
+              <textarea value={smsMessage} onChange={(event) => setSmsMessage(event.target.value)} rows={5} placeholder="Mesajinizi yazin" />
+            </label>
+            <div className="buyer-ops-modal-actions">
+              <button className="ghost" type="button" onClick={() => setSmsOpen(false)}>Vazgec</button>
+              <button className="primary" type="button" onClick={sendSms}>Gonder</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {emailOpen ? (
+        <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli E-posta">
+          <div className="buyer-ops-modal">
+            <h3>Hizli E-posta</h3>
+            <label>
+              E-posta
+              <input value={email} readOnly />
+            </label>
+            <label>
+              Konu
+              <input value={emailSubject} onChange={(event) => setEmailSubject(event.target.value)} />
+            </label>
+            <label>
+              Mesaj
+              <textarea value={emailBody} onChange={(event) => setEmailBody(event.target.value)} rows={5} />
+            </label>
+            <div className="buyer-ops-modal-actions">
+              <button className="ghost" type="button" onClick={() => setEmailOpen(false)}>Vazgec</button>
+              <button className="primary" type="button" onClick={openEmail}>E-posta Ac</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

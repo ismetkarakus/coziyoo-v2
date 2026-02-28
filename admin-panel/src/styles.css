@@ -1714,6 +1714,459 @@ textarea:focus {
   margin-bottom: 8px;
 }
 
+.buyer-ops-page {
+  --ops-bg-default: #1e1e2a;
+  --ops-bg-card: #252735;
+  --ops-text-primary: #e1e1e6;
+  --ops-text-secondary: #a1a1aa;
+  --ops-border-default: #2c2c3a;
+  --ops-accent-safe: #22c55e;
+  --ops-accent-warning: #f59e0b;
+  --ops-accent-danger: #ef4444;
+  --ops-accent-info: #3b82f6;
+  --heading-xl: 32px;
+  --heading-lg: 24px;
+  --heading-md: 20px;
+  --body-lg: 16px;
+  --body-md: 14px;
+  --body-sm: 12px;
+  min-height: calc(100vh - 140px);
+  background:
+    radial-gradient(100% 70% at 10% -10%, rgba(59, 130, 246, 0.22), transparent 60%),
+    radial-gradient(80% 60% at 90% 0%, rgba(148, 163, 184, 0.16), transparent 62%),
+    var(--ops-bg-default);
+  border-radius: 22px;
+  border: 1px solid var(--ops-border-default);
+  padding: 20px;
+}
+
+.buyer-ops-page h1,
+.buyer-ops-page h2,
+.buyer-ops-page h3,
+.buyer-ops-page p,
+.buyer-ops-page th,
+.buyer-ops-page td,
+.buyer-ops-page button,
+.buyer-ops-page input,
+.buyer-ops-page textarea {
+  color: var(--ops-text-primary);
+}
+
+.buyer-ops-sticky {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--ops-border-default);
+  background: color-mix(in srgb, var(--ops-bg-card) 86%, transparent);
+  backdrop-filter: blur(10px);
+  padding: 16px;
+}
+
+.buyer-ops-breadcrumb {
+  color: var(--ops-text-secondary);
+  font-size: var(--body-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.buyer-ops-head-left h1 {
+  margin-top: 4px;
+  font-size: var(--heading-xl);
+  line-height: 1.05;
+}
+
+.buyer-ops-subtitle {
+  margin-top: 8px;
+  font-size: var(--body-md);
+  color: var(--ops-text-secondary);
+}
+
+.buyer-ops-identity {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.buyer-ops-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ops-accent-info) 35%, var(--ops-border-default));
+  background: linear-gradient(140deg, rgba(59, 130, 246, 0.36), rgba(30, 41, 59, 0.95));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--body-lg);
+  font-weight: 700;
+}
+
+.buyer-ops-identity h2 {
+  font-size: var(--heading-lg);
+}
+
+.buyer-ops-identity p {
+  margin-top: 2px;
+  color: var(--ops-text-secondary);
+  font-size: var(--body-md);
+}
+
+.buyer-ops-id-row {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--body-sm);
+}
+
+.buyer-ops-mini-btn {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: var(--body-sm);
+  border-radius: 10px;
+}
+
+.buyer-ops-risk-pill {
+  border-radius: 999px;
+  border: 1px solid var(--ops-border-default);
+  padding: 6px 11px;
+  font-size: var(--body-sm);
+  font-weight: 600;
+}
+
+.buyer-ops-risk-pill.is-low {
+  color: #9cf8be;
+  border-color: color-mix(in srgb, var(--ops-accent-safe) 55%, var(--ops-border-default));
+  background: color-mix(in srgb, var(--ops-accent-safe) 22%, transparent);
+}
+
+.buyer-ops-risk-pill.is-medium {
+  color: #ffdca1;
+  border-color: color-mix(in srgb, var(--ops-accent-warning) 55%, var(--ops-border-default));
+  background: color-mix(in srgb, var(--ops-accent-warning) 24%, transparent);
+}
+
+.buyer-ops-risk-pill.is-high {
+  color: #ffc4c4;
+  border-color: color-mix(in srgb, var(--ops-accent-danger) 55%, var(--ops-border-default));
+  background: color-mix(in srgb, var(--ops-accent-danger) 20%, transparent);
+}
+
+.buyer-ops-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.buyer-ops-head-actions .primary,
+.buyer-ops-head-actions .ghost {
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: var(--body-md);
+  font-weight: 500;
+}
+
+.buyer-ops-menu-wrap {
+  position: relative;
+}
+
+.buyer-ops-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 170px;
+  border-radius: 12px;
+  border: 1px solid var(--ops-border-default);
+  background: color-mix(in srgb, var(--ops-bg-card) 96%, transparent);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+}
+
+.buyer-ops-menu button {
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  background: transparent;
+  padding: 8px 9px;
+  font-size: var(--body-md);
+}
+
+.buyer-ops-menu button:hover {
+  background: color-mix(in srgb, var(--ops-accent-info) 18%, transparent);
+}
+
+.buyer-ops-kpis {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.buyer-ops-kpi-card {
+  background: color-mix(in srgb, var(--ops-bg-card) 92%, transparent);
+  border: 1px solid var(--ops-border-default);
+  border-radius: 14px;
+  padding: 14px 16px;
+  min-height: 110px;
+  display: grid;
+  gap: 6px;
+}
+
+.buyer-ops-kpi-card p {
+  font-size: var(--body-sm);
+  color: var(--ops-text-secondary);
+}
+
+.buyer-ops-kpi-card strong {
+  font-size: var(--heading-md);
+  font-weight: 600;
+}
+
+.buyer-ops-kpi-card small {
+  font-size: var(--body-sm);
+  color: var(--ops-text-secondary);
+}
+
+.buyer-ops-layout {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 14px;
+}
+
+.buyer-ops-main-panel {
+  padding: 0;
+  background: color-mix(in srgb, var(--ops-bg-card) 94%, transparent);
+  border: 1px solid var(--ops-border-default);
+}
+
+.buyer-ops-tabs {
+  display: flex;
+  gap: 10px;
+  padding: 14px 14px 0;
+  border-bottom: 1px solid var(--ops-border-default);
+  overflow: auto;
+}
+
+.buyer-ops-tabs button {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 0;
+  font-size: var(--heading-md);
+  font-weight: 600;
+  color: var(--ops-text-secondary);
+  white-space: nowrap;
+}
+
+.buyer-ops-tabs button.is-active {
+  color: color-mix(in srgb, var(--ops-accent-info) 86%, white);
+}
+
+.buyer-ops-tabs button.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--ops-accent-info);
+}
+
+.buyer-ops-table-wrap {
+  padding: 14px;
+  overflow: auto;
+}
+
+.buyer-ops-table-wrap table {
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.buyer-ops-table-wrap th {
+  color: var(--ops-text-secondary);
+  font-size: var(--body-sm);
+  letter-spacing: 0.04em;
+}
+
+.buyer-ops-table-wrap td {
+  color: var(--ops-text-primary);
+  font-size: var(--body-md);
+  border-bottom-color: color-mix(in srgb, var(--ops-border-default) 80%, transparent);
+}
+
+.buyer-ops-priority {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--body-sm);
+  border: 1px solid var(--ops-border-default);
+}
+
+.buyer-ops-priority.is-dusuk {
+  background: color-mix(in srgb, #d4d4d8 20%, transparent);
+}
+
+.buyer-ops-priority.is-orta {
+  background: color-mix(in srgb, var(--ops-accent-warning) 24%, transparent);
+}
+
+.buyer-ops-priority.is-yuksek {
+  background: color-mix(in srgb, var(--ops-accent-danger) 24%, transparent);
+}
+
+.buyer-ops-review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.buyer-ops-review-card {
+  border: 1px solid var(--ops-border-default);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ops-bg-card) 92%, transparent);
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.buyer-ops-stars {
+  font-size: var(--body-lg);
+}
+
+.buyer-ops-notes {
+  display: grid;
+  gap: 10px;
+}
+
+.buyer-ops-note-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.buyer-ops-note-form input {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--ops-border-default);
+  background: color-mix(in srgb, var(--ops-bg-default) 75%, transparent);
+  padding: 0 12px;
+}
+
+.buyer-ops-tag-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buyer-ops-tag {
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--ops-accent-warning) 42%, var(--ops-border-default));
+  background: color-mix(in srgb, var(--ops-accent-warning) 24%, transparent);
+  padding: 3px 10px;
+  font-size: var(--body-sm);
+  font-weight: 700;
+}
+
+.buyer-ops-pagination {
+  border-top: 1px solid var(--ops-border-default);
+  padding: 10px 14px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buyer-ops-side-column {
+  display: grid;
+  gap: 12px;
+}
+
+.buyer-ops-side-card {
+  background: color-mix(in srgb, var(--ops-bg-card) 95%, transparent);
+  border: 1px solid var(--ops-border-default);
+}
+
+.buyer-ops-side-card h2 {
+  font-size: var(--heading-md);
+}
+
+.buyer-ops-side-lines p {
+  font-size: var(--body-md);
+  color: var(--ops-text-secondary);
+}
+
+.buyer-ops-activity-mini {
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-ops-activity-mini article {
+  border: 1px solid var(--ops-border-default);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.buyer-ops-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 6, 13, 0.65);
+  display: grid;
+  place-items: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.buyer-ops-modal {
+  width: min(520px, 100%);
+  border-radius: 14px;
+  border: 1px solid var(--ops-border-default);
+  background: color-mix(in srgb, var(--ops-bg-card) 98%, transparent);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.buyer-ops-modal h3 {
+  font-size: var(--heading-md);
+}
+
+.buyer-ops-modal label {
+  display: grid;
+  gap: 6px;
+  color: var(--ops-text-secondary);
+  font-size: var(--body-sm);
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.buyer-ops-modal input,
+.buyer-ops-modal textarea {
+  border-radius: 10px;
+  border: 1px solid var(--ops-border-default);
+  background: color-mix(in srgb, var(--ops-bg-default) 72%, transparent);
+  padding: 10px 12px;
+  color: var(--ops-text-primary);
+}
+
+.buyer-ops-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .buyer-v2-page {
   width: calc(100% + 48px);
   margin: 0 0 0 -24px;
@@ -3227,6 +3680,29 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .buyer-ops-page {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .buyer-ops-sticky {
+    position: static;
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .buyer-ops-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-ops-note-form {
+    grid-template-columns: 1fr;
+  }
+
   .seller-hero {
     grid-template-columns: 1fr;
   }
@@ -3451,6 +3927,23 @@ textarea:focus {
 
   .buyer-v2-kpis {
     grid-template-columns: 1fr;
+  }
+
+  .buyer-ops-head-left h1 {
+    font-size: 2rem;
+  }
+
+  .buyer-ops-identity {
+    align-items: flex-start;
+  }
+
+  .buyer-ops-head-actions {
+    width: 100%;
+  }
+
+  .buyer-ops-head-actions .primary,
+  .buyer-ops-head-actions .ghost {
+    flex: 1 1 calc(50% - 6px);
   }
 
   .buyer-v2-head h1 {
