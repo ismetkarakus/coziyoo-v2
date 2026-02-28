@@ -50,6 +50,35 @@ choose_livekit_install() {
   log "LiveKit installation enabled: ${INSTALL_LIVEKIT}"
 }
 
+choose_npm_install() {
+  local mode="${INSTALL_NPM:-false}"
+  case "${mode}" in
+    true|false)
+      ;;
+    ask)
+      if [[ -t 0 ]]; then
+        read -r -p "Install Nginx Proxy Manager (Docker) in this setup? (y/N): " answer
+        case "${answer}" in
+          y|Y|yes|YES)
+            INSTALL_NPM=true
+            ;;
+          *)
+            INSTALL_NPM=false
+            ;;
+        esac
+      else
+        INSTALL_NPM=false
+        log "INSTALL_NPM=ask in non-interactive mode; defaulting to false"
+      fi
+      ;;
+    *)
+      fail "Invalid INSTALL_NPM value: ${mode} (use ask|true|false)"
+      ;;
+  esac
+  export INSTALL_NPM
+  log "Nginx Proxy Manager installation enabled: ${INSTALL_NPM}"
+}
+
 run_step() {
   local step="$1"
   echo ""
@@ -58,6 +87,8 @@ run_step() {
 }
 
 run_step install_prereqs.sh
+choose_npm_install
+run_step install_npm_proxy_manager.sh
 run_step install_postgres.sh
 choose_livekit_install
 run_step install_livekit_service.sh
