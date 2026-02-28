@@ -96,6 +96,16 @@ load_config() {
     log "Configured REPO_ROOT does not exist (${REPO_ROOT}); falling back to ${detected_repo_root}"
     REPO_ROOT="${detected_repo_root}"
   fi
+
+  APP_USER="${APP_USER:-caziyoo}"
+  APP_GROUP="${APP_GROUP:-${APP_USER}}"
+  APP_PASSWORD="${APP_PASSWORD:-doktor}"
+  API_RUN_USER="${API_RUN_USER:-${APP_USER}}"
+  API_RUN_GROUP="${API_RUN_GROUP:-${APP_GROUP}}"
+  AGENT_RUN_USER="${AGENT_RUN_USER:-${APP_USER}}"
+  AGENT_RUN_GROUP="${AGENT_RUN_GROUP:-${APP_GROUP}}"
+
+  export APP_USER APP_GROUP APP_PASSWORD API_RUN_USER API_RUN_GROUP AGENT_RUN_USER AGENT_RUN_GROUP
 }
 
 resolve_path() {

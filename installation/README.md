@@ -23,6 +23,7 @@ cp installation/config.env.example installation/config.env
    `INSTALL_LIVEKIT` supports `ask`, `true`, or `false`.
    Values with spaces must be quoted, for example:
    `API_START_CMD="node dist/src/server.js"` and `AGENT_START_CMD="python src/agent_http_runner.py"`.
+   Linux install creates/updates `APP_USER` (default `caziyoo`) and uses it for API/Agent services.
    For this production setup use:
    - `INGRESS_MODE=npm`
    - `INSTALL_NGINX=false`

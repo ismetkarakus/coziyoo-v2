@@ -32,8 +32,8 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
 
 OS="$(os_type)"
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
-RUN_USER="${API_RUN_USER:-www-data}"
-RUN_GROUP="${API_RUN_GROUP:-www-data}"
+RUN_USER="${API_RUN_USER:-${APP_USER:-caziyoo}}"
+RUN_GROUP="${API_RUN_GROUP:-${APP_GROUP:-${RUN_USER}}}"
 ENV_FILE="${API_ENV_FILE:-${API_DIR_ABS}/.env}"
 START_CMD="${API_START_CMD:-node dist/src/server.js}"
 
