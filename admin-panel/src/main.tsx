@@ -5027,118 +5027,204 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
               <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
             </div>
-            <div className="buyer-ref-filter-row">
-              <label className="ghost buyer-ref-filter-btn buyer-ref-select-wrap">
-                <span className="buyer-ref-filter-leading" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M3 7h13" />
-                    <path d="M6 12h15" />
-                    <path d="M3 17h13" />
-                    <circle cx="19" cy="7" r="2" />
-                    <circle cx="4" cy="12" r="2" />
-                    <circle cx="19" cy="17" r="2" />
-                  </svg>
-                </span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Durum filtresi">
-                  <option value="all">Hepsi | Tumu</option>
-                  <option value="all_delivered">Hepsi | Teslim Edildi</option>
-                  <option value="all_pending">Hepsi | Bekliyor</option>
-                  <option value="all_cancelled">Hepsi | Iptal</option>
-                </select>
-                <span className="buyer-ref-filter-trailing" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </label>
-              <label className="ghost buyer-ref-filter-btn buyer-ref-select-wrap">
-                <span className="buyer-ref-filter-leading" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
-                    <path d="M8 2.8v3.4M16 2.8v3.4M3.5 9.5h17" />
-                    <path d="M8.2 13h3.4M8.2 16h6.6" />
-                  </svg>
-                </span>
-                <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="Tarih filtresi">
-                  <option value="all">27.01.2028 - 27.02.2028</option>
-                  <option value="last7">Son 7 gun</option>
-                  <option value="last30">Son 30 gun</option>
-                </select>
-                <span className="buyer-ref-filter-trailing" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </label>
-              <label className="ghost buyer-ref-search-btn">
-                <span className="buyer-ref-filter-leading" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <circle cx="11" cy="11" r="5.5" />
-                    <path d="m15.2 15.2 4.3 4.3" />
-                  </svg>
-                </span>
-                <input
-                  className="buyer-ref-search-input"
-                  value={orderSearch}
-                  onChange={(event) => setOrderSearch(event.target.value)}
-                  placeholder="Siparis No veya isim ile ara..."
-                  aria-label="Siparis veya isim ara"
-                />
-              </label>
-            </div>
+            {activeTab === "orders" || activeTab === "payments" ? (
+              <>
+                <div className="buyer-ref-filter-row">
+                  <label className="ghost buyer-ref-filter-btn buyer-ref-select-wrap">
+                    <span className="buyer-ref-filter-leading" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M3 7h13" />
+                        <path d="M6 12h15" />
+                        <path d="M3 17h13" />
+                        <circle cx="19" cy="7" r="2" />
+                        <circle cx="4" cy="12" r="2" />
+                        <circle cx="19" cy="17" r="2" />
+                      </svg>
+                    </span>
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Durum filtresi">
+                      <option value="all">Hepsi | Tumu</option>
+                      <option value="all_delivered">Hepsi | Teslim Edildi</option>
+                      <option value="all_pending">Hepsi | Bekliyor</option>
+                      <option value="all_cancelled">Hepsi | Iptal</option>
+                    </select>
+                    <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </label>
+                  <label className="ghost buyer-ref-filter-btn buyer-ref-select-wrap">
+                    <span className="buyer-ref-filter-leading" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+                        <path d="M8 2.8v3.4M16 2.8v3.4M3.5 9.5h17" />
+                        <path d="M8.2 13h3.4M8.2 16h6.6" />
+                      </svg>
+                    </span>
+                    <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="Tarih filtresi">
+                      <option value="all">27.01.2028 - 27.02.2028</option>
+                      <option value="last7">Son 7 gun</option>
+                      <option value="last30">Son 30 gun</option>
+                    </select>
+                    <span className="buyer-ref-filter-trailing" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </label>
+                  <label className="ghost buyer-ref-search-btn">
+                    <span className="buyer-ref-filter-leading" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <circle cx="11" cy="11" r="5.5" />
+                        <path d="m15.2 15.2 4.3 4.3" />
+                      </svg>
+                    </span>
+                    <input
+                      className="buyer-ref-search-input"
+                      value={orderSearch}
+                      onChange={(event) => setOrderSearch(event.target.value)}
+                      placeholder="Siparis No veya isim ile ara..."
+                      aria-label="Siparis veya isim ara"
+                    />
+                  </label>
+                </div>
 
-            <div className="buyer-ops-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th><span className="buyer-ref-head-checkbox" aria-hidden="true" /></th>
-                    <th>Tarih / Saat</th>
-                    <th>Siparis No</th>
-                    <th>Yemekler</th>
-                    <th>Tutar</th>
-                    <th>Durum</th>
-                    <th>Star</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOrders.length === 0 ? (
-                    <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
-                  ) : visibleOrders.map((order) => {
-                    const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
-                    const paymentState = paymentBadge(order.paymentStatus);
-                    const statusText = paymentState.cls === "is-pending"
-                      ? "Bekleyen"
-                      : paymentState.cls === "is-failed"
-                        ? "Basarisiz"
-                        : "Tamamlanmis";
-                    return (
-                      <tr key={order.orderId}>
-                        <td><input type="checkbox" aria-label="Satir sec" /></td>
-                        <td>{formatDate(order.createdAt)}</td>
-                        <td className="buyer-order-no">{order.orderNo}</td>
-                        <td>{foods || "-"}</td>
-                        <td>{formatCurrency(order.totalAmount)}</td>
-                        <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
-                        <td><span className="status-pill is-success">Aktif</span></td>
+                <div className="buyer-ops-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th><span className="buyer-ref-head-checkbox" aria-hidden="true" /></th>
+                        <th>Tarih / Saat</th>
+                        <th>Siparis No</th>
+                        <th>{activeTab === "orders" ? "Yemekler" : "Odeme"}</th>
+                        <th>Tutar</th>
+                        <th>Durum</th>
+                        <th>Star</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {visibleOrders.length === 0 ? (
+                        <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
+                      ) : visibleOrders.map((order) => {
+                        const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
+                        const paymentState = paymentBadge(order.paymentStatus);
+                        const statusText = paymentState.cls === "is-pending"
+                          ? "Bekleyen"
+                          : paymentState.cls === "is-failed"
+                            ? "Basarisiz"
+                            : "Tamamlanmis";
+                        return (
+                          <tr key={order.orderId}>
+                            <td><input type="checkbox" aria-label="Satir sec" /></td>
+                            <td>{formatDate(order.createdAt)}</td>
+                            <td className="buyer-order-no">{order.orderNo}</td>
+                            <td>{activeTab === "orders" ? (foods || "-") : paymentState.text}</td>
+                            <td>{formatCurrency(order.totalAmount)}</td>
+                            <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
+                            <td><span className="status-pill is-success">Aktif</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-            <div className="buyer-ref-pager">
-              <div>
-                <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
-                <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
-                <span>Toplam {visibleOrders.length} Siparis</span>
+                <div className="buyer-ref-pager">
+                  <div>
+                    <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
+                    <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
+                    <span>Toplam {visibleOrders.length} Siparis</span>
+                  </div>
+                  <div>
+                    <button className="ghost" type="button">1</button>
+                    <button className="ghost is-active" type="button">2</button>
+                    <button className="ghost" type="button">3</button>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {activeTab === "complaints" ? (
+              <div className="buyer-ops-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tarih / Saat</th>
+                      <th>Siparis No</th>
+                      <th>Tutar</th>
+                      <th>Sebep</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancellations.length === 0 ? (
+                      <tr><td colSpan={4}>Sikayet kaydi bulunamadi.</td></tr>
+                    ) : cancellations.map((item) => (
+                      <tr key={`${item.orderId}-${item.cancelledAt}`}>
+                        <td>{formatDate(item.cancelledAt)}</td>
+                        <td className="buyer-order-no">{item.orderNo}</td>
+                        <td>{formatCurrency(item.totalAmount)}</td>
+                        <td>{item.reason ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div>
-                <button className="ghost" type="button">1</button>
-                <button className="ghost is-active" type="button">2</button>
-                <button className="ghost" type="button">3</button>
+            ) : null}
+
+            {activeTab === "reviews" ? (
+              <div className="buyer-ops-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tarih / Saat</th>
+                      <th>Yemek</th>
+                      <th>Puan</th>
+                      <th>Yorum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviews.length === 0 ? (
+                      <tr><td colSpan={4}>Yorum kaydi bulunamadi.</td></tr>
+                    ) : reviews.map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatDate(item.createdAt)}</td>
+                        <td>{item.foodName}</td>
+                        <td>{item.rating}/5</td>
+                        <td>{item.comment ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            ) : null}
+
+            {activeTab === "activity" ? (
+              <div className="buyer-ops-activity-mini buyer-ref-main-activity">
+                {activityRows.map((item) => (
+                  <article key={`main-${item.id}-${item.at}`}>
+                    <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
+                    <p className="buyer-ref-activity-action">{item.action}</p>
+                    <p className="panel-meta">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            {activeTab === "notes" ? (
+              <div className="buyer-ref-main-notes">
+                <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={`main-${tag}`} className="buyer-ops-tag">{tag}</span>)}</div>
+                <div className="buyer-ops-note-form">
+                  <input
+                    value={noteInput}
+                    onChange={(event) => setNoteInput(event.target.value)}
+                    placeholder="Not Ekle veya Etiketle"
+                  />
+                  <button className="ghost" type="button" onClick={addNote}>Not</button>
+                  <button className="ghost" type="button" onClick={addTag}>Etiket</button>
+                </div>
+                <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
+              </div>
+            ) : null}
           </section>
 
         </div>
