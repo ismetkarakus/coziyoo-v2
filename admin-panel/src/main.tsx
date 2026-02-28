@@ -4854,10 +4854,11 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       return;
     }
 
-    const headers = ["Tarih / Saat", "Siparis No", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
+    const headers = ["Tarih / Saat", "Siparis No", "Satici", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
     const rowsForExport = orders.map((order) => [
       formatDate(order.createdAt),
       order.orderNo,
+      order.sellerName ?? order.sellerEmail ?? order.sellerId,
       order.items.map((item) => `${item.name} x${item.quantity}`).join(", ") || "-",
       formatCurrency(order.totalAmount),
       orderStatusLabel(order.status),
@@ -5096,7 +5097,8 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                         <th><span className="buyer-ref-head-checkbox" aria-hidden="true" /></th>
                         <th>Tarih / Saat</th>
                         <th>Siparis No</th>
-                        <th>{activeTab === "orders" ? "Yemekler" : "Odeme"}</th>
+                        <th>Satici</th>
+                        <th>{activeTab === "orders" ? "Yemekler" : "Odeme / Yemek"}</th>
                         <th>Tutar</th>
                         <th>Durum</th>
                         <th>Star</th>
@@ -5104,7 +5106,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                     </thead>
                     <tbody>
                       {visibleOrders.length === 0 ? (
-                        <tr><td colSpan={7}>Siparis kaydi bulunamadi.</td></tr>
+                        <tr><td colSpan={8}>Siparis kaydi bulunamadi.</td></tr>
                       ) : visibleOrders.map((order) => {
                         const foods = order.items.map((item) => `${item.name} x${item.quantity}`).join(", ");
                         const paymentState = paymentBadge(order.paymentStatus);
@@ -5118,7 +5120,8 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
                             <td>{formatDate(order.createdAt)}</td>
                             <td className="buyer-order-no">{order.orderNo}</td>
-                            <td>{activeTab === "orders" ? (foods || "-") : paymentState.text}</td>
+                            <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId.slice(0, 8)}</td>
+                            <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
                             <td>{formatCurrency(order.totalAmount)}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
                             <td><span className="status-pill is-success">Aktif</span></td>

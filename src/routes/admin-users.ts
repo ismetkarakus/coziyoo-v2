@@ -1199,6 +1199,9 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
 
   const rows = await pool.query<{
     id: string;
+    seller_id: string;
+    seller_name: string | null;
+    seller_email: string | null;
     status: string;
     total_price: string;
     payment_completed: boolean;
@@ -1211,6 +1214,9 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
   }>(
     `SELECT
        o.id,
+       o.seller_id::text AS seller_id,
+       su.display_name AS seller_name,
+       su.email AS seller_email,
        o.status,
        o.total_price::text,
        o.payment_completed,
@@ -1245,6 +1251,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
        ORDER BY updated_at DESC NULLS LAST, created_at DESC
        LIMIT 1
      ) pa ON TRUE
+     LEFT JOIN users su ON su.id = o.seller_id
      WHERE o.buyer_id = $1
      ORDER BY o.created_at ${sortDir}, o.id ${sortDir}
      LIMIT $2 OFFSET $3`,
@@ -1256,6 +1263,9 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
     data: rows.rows.map((row) => ({
       orderId: row.id,
       orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      sellerId: row.seller_id,
+      sellerName: row.seller_name,
+      sellerEmail: row.seller_email,
       status: row.status,
       totalAmount: Number(row.total_price),
       paymentCompleted: row.payment_completed,

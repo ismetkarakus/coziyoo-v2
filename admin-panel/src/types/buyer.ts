@@ -25,6 +25,9 @@ export type BuyerOrderItem = {
 export type BuyerOrderRow = {
   orderId: string;
   orderNo: string;
+  sellerId: string;
+  sellerName: string | null;
+  sellerEmail: string | null;
   status: string;
   totalAmount: number;
   paymentCompleted: boolean;
