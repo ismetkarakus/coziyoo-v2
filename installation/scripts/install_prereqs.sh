@@ -14,6 +14,30 @@ fi
 OS="$(os_type)"
 log "Installing prerequisites for ${OS}"
 
+ensure_node20_linux() {
+  local major=""
+  if command -v node >/dev/null 2>&1; then
+    major="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
+  fi
+
+  if [[ -n "${major}" && "${major}" -ge 20 ]]; then
+    log "Node.js version is suitable (v${major})"
+    return
+  fi
+
+  log "Installing/upgrading Node.js to 20.x"
+  run_root apt-get update
+  run_root apt-get install -y ca-certificates gnupg
+  run_root mkdir -p /etc/apt/keyrings
+  run_root bash -lc "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > /etc/apt/keyrings/nodesource.gpg"
+  run_root tee /etc/apt/sources.list.d/nodesource.list >/dev/null <<EOF
+deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main
+EOF
+  run_root apt-get update
+  run_root apt-get install -y nodejs
+  log "Installed Node.js $(node -v), npm $(npm -v)"
+}
+
 if [[ "${OS}" == "linux" ]]; then
   run_root apt-get update
   run_root apt-get install -y \
@@ -26,8 +50,9 @@ if [[ "${OS}" == "linux" ]]; then
     python3 \
     python3-venv \
     python3-pip \
-    nodejs \
     npm
+
+  ensure_node20_linux
 
   if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
     run_root systemctl enable nginx
