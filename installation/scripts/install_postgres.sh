@@ -25,7 +25,9 @@ fi
 if [[ -n "${PG_DB:-}" && -n "${PG_USER:-}" && -n "${PG_PASSWORD:-}" ]]; then
   log "Creating/updating PostgreSQL user and database"
   if [[ "${OS}" == "linux" ]]; then
-    run_root -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+    (
+      cd /tmp
+      run_root -u postgres psql -v ON_ERROR_STOP=1 <<SQL
 DO
 \$\$
 BEGIN
@@ -37,9 +39,13 @@ BEGIN
 END
 \$\$;
 SQL
+    )
 
-    run_root -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = '${PG_DB}'" | grep -q 1 || \
-      run_root -u postgres createdb -O "${PG_USER}" "${PG_DB}"
+    (
+      cd /tmp
+      run_root -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = '${PG_DB}'" | grep -q 1 || \
+        run_root -u postgres createdb -O "${PG_USER}" "${PG_DB}"
+    )
   else
     psql postgres -v ON_ERROR_STOP=1 <<SQL
 DO
