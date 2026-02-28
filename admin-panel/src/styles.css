@@ -1974,13 +1974,13 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap .buyer-user-cell strong {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   line-height: 1.2;
   font-weight: 700;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell span {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell {
@@ -2039,6 +2039,60 @@ textarea:focus {
 
 .buyer-v2-row-actions {
   position: relative;
+}
+
+.buyer-v2-table-wrap .buyer-complaint-cell {
+  justify-content: center;
+}
+
+.buyer-v2-table-wrap .buyer-complaint-cell strong {
+  font-size: 0.9rem;
+  min-width: 14px;
+}
+
+.buyer-v2-table-wrap .complaint-open-chip {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.buyer-orders-cell,
+.buyer-spend-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.buyer-orders-cell strong,
+.buyer-spend-cell strong {
+  font-size: 0.95rem;
+}
+
+.buyer-v2-table-wrap .buyer-trend {
+  font-size: 0.95rem;
+  line-height: 1;
+  min-width: 10px;
+}
+
+.buyer-delta {
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.buyer-delta.is-up {
+  color: #19a968;
+}
+
+.buyer-delta.is-down {
+  color: #e15252;
+}
+
+.buyer-dot {
+  color: var(--color-tertiary-text);
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 .buyer-row-menu {

@@ -1969,6 +1969,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const risk = computeBuyerRisk(row);
                     const orderTrendMeta = trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0));
                     const spendTrendMeta = trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
+                    const orderCurrent = Number(row.monthlyOrderCountCurrent ?? 0);
+                    const orderPrevious = Number(row.monthlyOrderCountPrevious ?? 0);
+                    const orderDelta = orderCurrent - orderPrevious;
+                    const spendCurrent = Number(row.monthlySpentCurrent ?? 0);
+                    const spendPrevious = Number(row.monthlySpentPrevious ?? 0);
+                    const spendDelta = spendCurrent - spendPrevious;
                     const unresolved = Number(row.complaintUnresolved ?? 0);
                     const totalComplaints = Number(row.complaintTotal ?? 0);
                     const phoneRaw = String(row.phone ?? row.phoneNumber ?? row.contactPhone ?? "").trim();
@@ -2028,19 +2034,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         <td>
                           <div className="buyer-complaint-cell">
                             <strong>{totalComplaints}</strong>
-                            {unresolved > 0 ? <span className="complaint-open-chip">{`${unresolved} Açık`}</span> : null}
+                            {unresolved > 0 ? <span className="complaint-open-chip">{`◀ ${unresolved} Açık`}</span> : null}
                           </div>
                         </td>
                         <td>
-                          <div className={`buyer-trend ${orderTrendMeta.className}`}>
-                            <strong>{Number(row.monthlyOrderCountCurrent ?? 0)}</strong>
-                            <span>{orderTrendMeta.symbol}</span>
+                          <div className="buyer-orders-cell">
+                            <strong>{orderCurrent}</strong>
+                            <span className={`buyer-trend ${orderTrendMeta.className}`}>{orderTrendMeta.symbol}</span>
+                            {orderDelta !== 0 ? (
+                              <span className={`buyer-delta ${orderDelta > 0 ? "is-up" : "is-down"}`}>{Math.abs(orderDelta)}</span>
+                            ) : null}
                           </div>
                         </td>
                         <td>
-                          <div className={`buyer-trend ${spendTrendMeta.className}`}>
-                            <strong>{formatTry(Number(row.monthlySpentCurrent ?? 0))}</strong>
-                            <span>{spendTrendMeta.symbol}</span>
+                          <div className="buyer-spend-cell">
+                            <strong>{formatTry(spendCurrent)}</strong>
+                            <span className={`buyer-trend ${spendTrendMeta.className}`}>{spendTrendMeta.symbol}</span>
+                            {spendDelta === 0 ? <span className="buyer-dot">•</span> : null}
                           </div>
                         </td>
                         <td>
