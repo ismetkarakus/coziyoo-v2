@@ -17,6 +17,15 @@ API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
 
 # Root .env is the source of truth for app config
 ROOT_ENV="${REPO_ROOT}/.env"
+if [[ ! -f "${ROOT_ENV}" ]]; then
+  GENERATOR="${SCRIPT_DIR}/generate_env.sh"
+  if [[ -f "${GENERATOR}" ]]; then
+    log "Root .env not found at ${ROOT_ENV}; generating from template and installation/config.env"
+    bash "${GENERATOR}" --output "${ROOT_ENV}"
+  else
+    fail "Root .env not found at ${ROOT_ENV} and generator script is missing at ${GENERATOR}"
+  fi
+fi
 [[ -f "${ROOT_ENV}" ]] || fail "Root .env not found at ${ROOT_ENV}"
 
 maybe_git_update "${REPO_ROOT}"
