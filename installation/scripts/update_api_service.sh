@@ -19,8 +19,18 @@ maybe_git_update "${REPO_ROOT}"
 (
   cd "${API_DIR_ABS}"
   NPM_INSTALL_FLAGS=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
+  needs_install="false"
   if [[ ! -d "${API_NODE_MODULES}" && ! -d "${ROOT_NODE_MODULES}" ]]; then
-    log "node_modules missing in ${API_DIR_ABS} and ${REPO_ROOT}; installing dependencies"
+    needs_install="true"
+  fi
+
+  # Even if node_modules exists, ensure core API deps are actually resolvable from API workspace.
+  if ! node -e "require.resolve('express'); require.resolve('typescript'); require.resolve('@types/express/package.json')" >/dev/null 2>&1; then
+    needs_install="true"
+  fi
+
+  if [[ "${needs_install}" == "true" ]]; then
+    log "API dependencies missing/incomplete; installing dependencies in ${API_DIR_ABS}"
     if [[ -f package-lock.json ]]; then
       if ! npm ci "${NPM_INSTALL_FLAGS[@]}"; then
         log "npm ci failed, retrying with npm install"
