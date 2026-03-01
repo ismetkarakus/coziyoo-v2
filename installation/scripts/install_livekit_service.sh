@@ -159,6 +159,7 @@ EOF_UNIT
   run_root systemctl daemon-reload
   run_root systemctl enable "${SERVICE_NAME}"
   run_root systemctl stop "${SERVICE_NAME}" || true
+  log "Stopping existing LiveKit compose stack (LiveKit + Redis) before restart"
   run_root bash -lc "cd '${INSTALL_DIR}' && ${COMPOSE_CMD} -f '${COMPOSE_FILE}' down" || true
   run_root systemctl restart "${SERVICE_NAME}"
 

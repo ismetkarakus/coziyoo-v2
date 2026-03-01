@@ -9,30 +9,8 @@ sync_repo_to_root
 acquire_update_lock
 
 log "Starting full update"
-
-stop_if_present() {
-  local svc="$1"
-  if [[ "$(os_type)" == "linux" ]]; then
-    if systemctl list-unit-files | awk '{print $1}' | grep -qx "${svc}.service"; then
-      run_root systemctl stop "${svc}" || true
-    fi
-  else
-    service_action stop "${svc}" || true
-  fi
-}
-
-log "Stopping LiveKit stack before update"
-
-LIVEKIT_DIR="/opt/livekit"
-LIVEKIT_COMPOSE_FILE="${LIVEKIT_DIR}/docker-compose.yaml"
-if [[ -f "${LIVEKIT_COMPOSE_FILE}" ]]; then
-  if docker compose version >/dev/null 2>&1; then
-    run_root bash -lc "cd '${LIVEKIT_DIR}' && docker compose -f '${LIVEKIT_COMPOSE_FILE}' down" || true
-  elif command -v docker-compose >/dev/null 2>&1; then
-    run_root bash -lc "cd '${LIVEKIT_DIR}' && docker-compose -f '${LIVEKIT_COMPOSE_FILE}' down" || true
-  fi
-  stop_if_present "livekit-docker"
-fi
+log "Stopping all managed services before update"
+"${SCRIPT_DIR}/run_all.sh" stop || true
 
 "${SCRIPT_DIR}/update_api_service.sh"
 "${SCRIPT_DIR}/update_agent_service.sh"
