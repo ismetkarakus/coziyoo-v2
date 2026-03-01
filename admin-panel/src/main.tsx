@@ -46,6 +46,7 @@ type ApiError = {
 };
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+const BUILD_COMMIT = (import.meta.env.VITE_GIT_COMMIT as string | undefined) ?? "unknown";
 const TOKEN_KEY = "coziyoo_admin_tokens";
 const ADMIN_KEY = "coziyoo_admin_me";
 const LANGUAGE_KEY = "admin_language";
@@ -385,6 +386,9 @@ function LoginScreen({ onLoggedIn, language }: { onLoggedIn: (admin: AdminUser) 
           {error ? <div className="error-box">{error}</div> : null}
           <button disabled={loading} type="submit">{loading ? dict.auth.signingIn : dict.auth.signIn}</button>
         </form>
+        <p className="panel-meta" style={{ marginTop: 10 }}>
+          {language === "tr" ? "Sürüm" : "Version"}: <code>{BUILD_COMMIT}</code>
+        </p>
       </section>
     </main>
   );

@@ -16,8 +16,10 @@ maybe_git_update "${REPO_ROOT}"
 
 (
   cd "${ADMIN_DIR_ABS}"
+  BUILD_COMMIT="$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   cat > .env.production <<EOF
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
+VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
   if [[ ! -d node_modules ]]; then
     fail "node_modules missing in ${ADMIN_DIR_ABS}. Run install_all.sh once before update_all.sh."
