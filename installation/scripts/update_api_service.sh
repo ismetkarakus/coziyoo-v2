@@ -16,14 +16,19 @@ maybe_git_update "${REPO_ROOT}"
 
 (
   cd "${API_DIR_ABS}"
-  if [[ -f package-lock.json ]]; then
-    npm ci --silent --no-audit --no-fund --loglevel=error
-  else
-    npm install --silent --no-audit --no-fund --loglevel=error
+  if [[ ! -d node_modules ]]; then
+    fail "node_modules missing in ${API_DIR_ABS}. Run install_all.sh once before update_all.sh."
   fi
+
   npm run build
-  npm run db:migrate
-  SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL_VALUE}" SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD_VALUE}" npm run seed:admin
+
+  if [[ "${UPDATE_RUN_DB_MIGRATE:-false}" == "true" ]]; then
+    npm run db:migrate
+  fi
+
+  if [[ "${UPDATE_RUN_SEED_ADMIN:-false}" == "true" ]]; then
+    SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL_VALUE}" SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD_VALUE}" npm run seed:admin
+  fi
 )
 
 service_action restart "${SERVICE_NAME}"

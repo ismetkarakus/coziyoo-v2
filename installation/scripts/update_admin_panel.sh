@@ -15,10 +15,8 @@ maybe_git_update "${REPO_ROOT}"
 
 (
   cd "${ADMIN_DIR_ABS}"
-  if [[ -f package-lock.json ]]; then
-    npm ci --silent --no-audit --no-fund --loglevel=error
-  else
-    npm install --silent --no-audit --no-fund --loglevel=error
+  if [[ ! -d node_modules ]]; then
+    fail "node_modules missing in ${ADMIN_DIR_ABS}. Run install_all.sh once before update_all.sh."
   fi
   npm run build
 )
