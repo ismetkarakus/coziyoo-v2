@@ -3345,6 +3345,87 @@ textarea:focus {
   min-width: 10px;
 }
 
+.seller-v2-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.seller-v2-kpi-empty {
+  opacity: 0.55;
+}
+
+.seller-v2-smart-panel .buyer-v2-smart-item-label {
+  font-size: 0.98rem;
+}
+
+.seller-v2-board {
+  border-radius: 20px;
+}
+
+.seller-v2-toolbar-row {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.seller-v2-toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.seller-v2-toolbar-right .users-sort-pill {
+  min-width: 300px;
+}
+
+.seller-v2-table-wrap table {
+  min-width: 1180px;
+}
+
+.seller-v2-shop-cell {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.seller-v2-shop-cell strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.seller-v2-shop-cell span {
+  font-size: 0.8rem;
+  color: var(--color-secondary-text);
+}
+
+.seller-v2-warning-pill {
+  min-width: 26px;
+  height: 24px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, #212a44 72%, transparent);
+  color: var(--color-secondary-text);
+}
+
+.seller-v2-warning-pill.is-on {
+  color: #ffe4ea;
+  border-color: color-mix(in srgb, #ff647c 52%, transparent);
+  background: color-mix(in srgb, #ff647c 24%, transparent);
+}
+
+.seller-v2-rating {
+  font-weight: 700;
+  color: #efd487;
+  white-space: nowrap;
+}
+
 .buyer-delta {
   font-size: 0.88rem;
   line-height: 1;
@@ -4614,6 +4695,10 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .seller-v2-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .buyer-v2-head {
     flex-direction: column;
     align-items: flex-start;
@@ -4653,8 +4738,21 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .seller-v2-toolbar-row {
+    grid-template-columns: 1fr;
+  }
+
   .buyer-v2-toolbar-actions {
     width: 100%;
+  }
+
+  .seller-v2-toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .seller-v2-toolbar-right .users-sort-pill {
+    min-width: 220px;
   }
 
   .buyer-v2-filter-menu {
@@ -4806,6 +4904,10 @@ textarea:focus {
   }
 
   .buyer-v2-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-v2-kpis {
     grid-template-columns: 1fr;
   }
 

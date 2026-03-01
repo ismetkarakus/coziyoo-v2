@@ -62,6 +62,15 @@ type BuyerSmartFilterKey =
   | "same_ip_multi_account"
   | "risky_seller_complaints"
   | "complainers";
+type SellerSmartFilterKey =
+  | "login_anomaly"
+  | "pending_approvals"
+  | "missing_documents"
+  | "suspicious_logins"
+  | "top_revenue"
+  | "performance_drop"
+  | "urgent_action"
+  | "complainer_sellers";
 
 const BUYER_SMART_FILTER_ITEMS: Array<{ key: BuyerSmartFilterKey; label: string; icon: string }> = [
   { key: "daily_buyer", label: "Gunun Alicisi", icon: "☀" },
@@ -70,6 +79,16 @@ const BUYER_SMART_FILTER_ITEMS: Array<{ key: BuyerSmartFilterKey; label: string;
   { key: "same_ip_multi_account", label: "Ayni IP'de Iki Giris", icon: "⌁" },
   { key: "risky_seller_complaints", label: "Riskli Satici Sikayet", icon: "⚠" },
   { key: "complainers", label: "Sikayetciler", icon: "✉" },
+];
+const SELLER_SMART_FILTER_ITEMS: Array<{ key: SellerSmartFilterKey; label: string; icon: string }> = [
+  { key: "login_anomaly", label: "Giriş Anomalisi", icon: "◷" },
+  { key: "pending_approvals", label: "Onay Bekleyenler", icon: "☑" },
+  { key: "missing_documents", label: "Eksik Belgesi Olanlar", icon: "⚠" },
+  { key: "suspicious_logins", label: "Şüpheli Girişler", icon: "◉" },
+  { key: "top_revenue", label: "En Çok Ciro Yapan", icon: "₺" },
+  { key: "performance_drop", label: "Düşen Performans", icon: "◔" },
+  { key: "urgent_action", label: "Acil Müdahale", icon: "⚑" },
+  { key: "complainer_sellers", label: "Şikayetli Satıcılar", icon: "✉" },
 ];
 
 const DICTIONARIES: Record<Language, Dictionary> = {
@@ -1148,6 +1167,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   });
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
   const [activeSmartFilter, setActiveSmartFilter] = useState<BuyerSmartFilterKey | null>(null);
+  const [activeSellerSmartFilter, setActiveSellerSmartFilter] = useState<SellerSmartFilterKey | null>(null);
   const [smartFilterCounts, setSmartFilterCounts] = useState<Record<BuyerSmartFilterKey, number>>({
     daily_buyer: 0,
     top_revenue: 0,
@@ -1263,6 +1283,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     });
     setBuyerQuickFilter("all");
     setActiveSmartFilter(null);
+    setActiveSellerSmartFilter(null);
     setBuyerActionMenuId(null);
     setCustomerIdPreview(null);
   }, [kind]);
@@ -1578,12 +1599,72 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const totalBuyersCount = pagination?.total ?? rows.length;
   const totalRevenue30d = rows.reduce((acc, row) => acc + Number(row.monthlySpentCurrent ?? 0), 0);
   const activeRatio = totalBuyersCount > 0 ? Math.round((activeRows.length / totalBuyersCount) * 100) : 0;
+  const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
+  const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
+  const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
+  const sellerComplaintTotal = (row: any): number => Number(row.complaintTotal ?? row.openComplaintCount ?? 0);
+  const sellerComplaintUnresolved = (row: any): number => Number(row.complaintUnresolved ?? row.openComplaintCount ?? 0);
+  const sellerMissingDoc = (row: any): number => Number(row.missingDocCount ?? row.missingDocuments ?? 0);
+  const sellerSuspiciousLogin = (row: any): number =>
+    Number(row.suspiciousLoginCount ?? row.loginAnomalyCount ?? row.sameIpAccountCount ?? row.sameIpEntryCount ?? 0);
+  const sellerApprovalText = (row: any): string => String(row.approvalStatus ?? row.complianceStatus ?? "").toLowerCase();
+  const sellerRating = (row: any): number => Number(row.avgRating ?? row.ratingAverage ?? row.rating ?? 0);
+  const sellerTopRevenueThreshold = useMemo(() => {
+    const revenues = trRows.map((row) => sellerRevenue(row)).filter((value) => value > 0).sort((a, b) => b - a);
+    if (revenues.length === 0) return Number.POSITIVE_INFINITY;
+    const topIndex = Math.max(0, Math.ceil(revenues.length * 0.2) - 1);
+    return revenues[topIndex] ?? Number.POSITIVE_INFINITY;
+  }, [trRows]);
+  const sellerRiskMeta = (row: any): { level: "low" | "medium" | "high"; score: number } => {
+    let score = 0;
+    score += Math.min(sellerComplaintUnresolved(row), 3) * 24;
+    score += Math.min(sellerSuspiciousLogin(row), 2) * 22;
+    score += Math.min(sellerMissingDoc(row), 2) * 18;
+    if (sellerOrderCurrent(row) < sellerOrderPrevious(row)) score += 14;
+    if (row.status === "disabled") score += 18;
+    if (score >= 70) return { level: "high", score };
+    if (score >= 35) return { level: "medium", score };
+    return { level: "low", score };
+  };
+  const matchSellerSmartFilter = (row: any, key: SellerSmartFilterKey): boolean => {
+    if (key === "login_anomaly") return sellerSuspiciousLogin(row) > 0;
+    if (key === "pending_approvals") return /(pending|review|in_progress|submitted)/.test(sellerApprovalText(row));
+    if (key === "missing_documents") return sellerMissingDoc(row) > 0;
+    if (key === "suspicious_logins") return sellerSuspiciousLogin(row) > 0;
+    if (key === "top_revenue") return sellerRevenue(row) >= sellerTopRevenueThreshold && sellerRevenue(row) > 0;
+    if (key === "performance_drop") return sellerOrderCurrent(row) < sellerOrderPrevious(row);
+    if (key === "urgent_action") return sellerRiskMeta(row).level === "high";
+    return sellerComplaintTotal(row) > 0;
+  };
+  const sellerSmartFilterCounts = useMemo(
+    () =>
+      SELLER_SMART_FILTER_ITEMS.reduce(
+        (acc, item) => {
+          acc[item.key] = trRows.filter((row) => matchSellerSmartFilter(row, item.key)).length;
+          return acc;
+        },
+        {
+          login_anomaly: 0,
+          pending_approvals: 0,
+          missing_documents: 0,
+          suspicious_logins: 0,
+          top_revenue: 0,
+          performance_drop: 0,
+          urgent_action: 0,
+          complainer_sellers: 0,
+        } as Record<SellerSmartFilterKey, number>
+      ),
+    [trRows, sellerTopRevenueThreshold]
+  );
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
     if (isSellerPage) {
       scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
       if (sellerStatusFilter !== "all") {
         scopedRows = scopedRows.filter((row) => row.status === sellerStatusFilter);
+      }
+      if (activeSellerSmartFilter) {
+        scopedRows = scopedRows.filter((row) => matchSellerSmartFilter(row, activeSellerSmartFilter));
       }
     }
 
@@ -1626,7 +1707,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
+  }, [activeSellerSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -1884,6 +1965,283 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     document.addEventListener("mousedown", onDocumentMouseDown);
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
   }, [buyerActionMenuId, buyerFilterMenuOpen, isBuyerPage]);
+
+  if (isSellerPage) {
+    const totalTrSellers = trRows.length;
+    const activeTrSellers = trRows.filter((row) => row.status === "active").length;
+    const passiveTrSellers = trRows.filter((row) => row.status === "disabled").length;
+    const todayTrSellers = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
+    return (
+      <div className="app buyer-v2-page seller-v2-page">
+        <header className="buyer-v2-head">
+          <h1>{pageTitleView}</h1>
+        </header>
+
+        <section className="buyer-v2-kpis seller-v2-kpis">
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon">👥</div>
+            <div>
+              <p>Toplam TR Satıcı</p>
+              <strong>{new Intl.NumberFormat("tr-TR").format(totalTrSellers)}</strong>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-good">✓</div>
+            <div>
+              <p>Aktif TR Satıcı</p>
+              <strong>{new Intl.NumberFormat("tr-TR").format(activeTrSellers)}</strong>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-warn">◔</div>
+            <div>
+              <p>Pasif TR Satıcı</p>
+              <strong>{new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}</strong>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-good">☀</div>
+            <div>
+              <p>Bugün Yeni TR Satıcı</p>
+              <strong>{new Intl.NumberFormat("tr-TR").format(todayTrSellers)}</strong>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi seller-v2-kpi-empty" aria-hidden="true" />
+        </section>
+
+        <section className="buyer-v2-main-layout">
+          <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
+            <h2>Akıllı Filtreler</h2>
+            <div className="buyer-v2-smart-list">
+              {SELLER_SMART_FILTER_ITEMS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`buyer-v2-smart-item ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
+                  aria-pressed={activeSellerSmartFilter === item.key}
+                  onClick={() => {
+                    setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
+                  <span className="buyer-v2-smart-item-label">{item.label}</span>
+                  <span className="buyer-v2-smart-item-count">{sellerSmartFilterCounts[item.key] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="panel buyer-v2-board seller-v2-board">
+            <div className="seller-v2-toolbar-row">
+              <div className="buyer-v2-chips">
+                <button type="button" className={`chip ${sellerStatusFilter === "all" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("all")}>
+                  Tüm TR
+                </button>
+                <button type="button" className={`chip ${sellerStatusFilter === "active" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("active")}>
+                  Aktif
+                </button>
+                <button type="button" className={`chip ${sellerStatusFilter === "disabled" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("disabled")}>
+                  Pasif
+                </button>
+              </div>
+
+              <div className="users-search-wrap buyer-v2-search">
+                <span className="users-search-icon" aria-hidden="true">
+                  <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+                    <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+                    <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <input
+                  className="users-search-input"
+                  placeholder="Satıcı Ara..."
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                />
+                {searchInput.trim().length > 0 ? (
+                  <button className="users-search-clear" type="button" aria-label="Aramayı temizle" onClick={() => setSearchInput("")}>
+                    ×
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="seller-v2-toolbar-right">
+                <button
+                  type="button"
+                  className={`chip ${last7DaysOnly ? "is-active" : ""}`}
+                  onClick={() => {
+                    setLast7DaysOnly((prev) => !prev);
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  Son 7 Gün
+                </button>
+                <button
+                  className="ghost users-sort-pill"
+                  type="button"
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      sortBy: "updatedAt",
+                      sortDir: prev.sortDir === "desc" ? "asc" : "desc",
+                      page: 1,
+                    }))
+                  }
+                >
+                  Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
+                </button>
+                <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
+              </div>
+            </div>
+
+            <div className="table-wrap users-table-wrap buyer-v2-table-wrap seller-v2-table-wrap density-normal">
+              <table>
+                <colgroup>
+                  <col style={{ width: "42px" }} />
+                  <col style={{ width: "28%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "9%" }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="buyer-v2-check-col"><input type="checkbox" /></th>
+                    <th>Mağaza Adı</th>
+                    <th>Risk</th>
+                    <th>Onay Durumu</th>
+                    <th>Durum</th>
+                    <th>Uyarılar</th>
+                    <th>Sipariş Sağlığı</th>
+                    <th>Rating Trend</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, index) => (
+                      <tr key={`skeleton-seller-${index}`}>
+                        <td colSpan={9} className="table-skeleton"><span /></td>
+                      </tr>
+                    ))
+                  ) : filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9}>{dict.common.noRecords}</td>
+                    </tr>
+                  ) : (
+                    filteredRows.map((row) => {
+                      const risk = sellerRiskMeta(row);
+                      const approvalText = sellerApprovalText(row);
+                      const approvalLabel = approvalText.includes("pending")
+                        ? "Onay Bekliyor"
+                        : approvalText.includes("review")
+                          ? "İnceleniyor"
+                          : row.status === "disabled"
+                            ? "Pasif"
+                            : "Onaylı";
+                      const warningCount = sellerComplaintUnresolved(row) + sellerSuspiciousLogin(row) + sellerMissingDoc(row);
+                      const orderCurrent = sellerOrderCurrent(row);
+                      const orderPrevious = sellerOrderPrevious(row);
+                      const orderMeta = trendArrow(orderCurrent, orderPrevious);
+                      const ratingValue = sellerRating(row);
+                      const ratingTrend = row.ratingTrend ?? row.ratingDelta ?? 0;
+                      return (
+                        <tr
+                          key={row.id}
+                          className="is-clickable"
+                          onClick={() => navigate(`/app/sellers/${row.id}`)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(`/app/sellers/${row.id}`);
+                            }
+                          }}
+                          tabIndex={0}
+                        >
+                          <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
+                          <td>
+                            <div className="seller-v2-shop-cell">
+                              <strong>{String(row.displayName ?? row.email ?? "Satıcı")}</strong>
+                              <span>{String(row.email ?? "-")}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`risk-pill is-${risk.level}`}>
+                              {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-pill ${approvalLabel === "Onaylı" ? "is-active" : approvalLabel === "Pasif" ? "is-disabled" : "is-warning"}`}>
+                              {approvalLabel}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-pill ${row.status === "active" ? "is-active" : "is-neutral"}`}>
+                              {row.status === "active" ? "Aktif" : "Pasif"}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`seller-v2-warning-pill ${warningCount > 0 ? "is-on" : ""}`}>{warningCount}</span>
+                          </td>
+                          <td>
+                            <div className="buyer-orders-cell">
+                              <strong>{orderCurrent}</strong>
+                              <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="seller-v2-rating">
+                              {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({typeof ratingTrend === "number" ? ratingTrend.toFixed(1) : String(ratingTrend)})
+                            </span>
+                          </td>
+                          <td className="cell-actions">
+                            <button
+                              className="ghost action-btn"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/app/sellers/${row.id}`);
+                              }}
+                            >
+                              <span aria-hidden="true">◉ Detay</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="buyer-v2-footer">
+              <div className="buyer-v2-pager-left">
+                <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>
+                  ‹
+                </button>
+                <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
+                <span className="panel-meta">{`${Math.min((filters.page - 1) * filters.pageSize + 1, pagination?.total ?? 0)} - ${Math.min(filters.page * filters.pageSize, pagination?.total ?? 0)} / ${pagination?.total ?? 0} kayıt`}</span>
+              </div>
+              <div className="buyer-v2-pager-right">
+                <button
+                  className="ghost buyer-v2-page-btn"
+                  type="button"
+                  disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
+                  onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+    );
+  }
 
   if (isBuyerPage) {
     return (
