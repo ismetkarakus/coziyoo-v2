@@ -22,16 +22,14 @@ maybe_git_update "${REPO_ROOT}"
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
 VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
-  if [[ ! -d node_modules ]]; then
-    log "node_modules missing in ${ADMIN_DIR_ABS}; installing dependencies"
-    if [[ -f package-lock.json ]]; then
-      if ! npm ci --silent --no-audit --no-fund --loglevel=error; then
-        log "npm ci failed, retrying with npm install"
-        npm install --silent --no-audit --no-fund --loglevel=error
-      fi
-    else
+  # Always refresh admin deps during updates to avoid stale/incomplete node_modules.
+  if [[ -f package-lock.json ]]; then
+    if ! npm ci --silent --no-audit --no-fund --loglevel=error; then
+      log "npm ci failed, retrying with npm install"
       npm install --silent --no-audit --no-fund --loglevel=error
     fi
+  else
+    npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
 )
