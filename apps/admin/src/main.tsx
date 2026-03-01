@@ -1576,6 +1576,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const buyersWithOpenComplaints = rows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0).length;
   const riskyBuyersCount = rows.filter((row) => computeBuyerRisk(row).level !== "low").length;
   const totalBuyersCount = pagination?.total ?? rows.length;
+  const totalRevenue30d = rows.reduce((acc, row) => acc + Number(row.monthlySpentCurrent ?? 0), 0);
   const activeRatio = totalBuyersCount > 0 ? Math.round((activeRows.length / totalBuyersCount) * 100) : 0;
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
@@ -1898,6 +1899,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <p>Toplam Alıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}</strong>
               <small>%{activeRatio} Son 30n Aktif Oranı</small>
+            </div>
+          </article>
+          <article className="buyer-v2-kpi">
+            <div className="buyer-v2-kpi-icon is-good">₺</div>
+            <div>
+              <p>Toplam Ciro</p>
+              <strong className="buyer-v2-kpi-value-money">{formatTry(totalRevenue30d)}</strong>
+              <small>Son 30 Gun Toplam Ciro</small>
             </div>
           </article>
           <article className="buyer-v2-kpi">

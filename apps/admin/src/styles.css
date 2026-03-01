@@ -2892,7 +2892,7 @@ textarea:focus {
 
 .buyer-v2-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -2928,6 +2928,10 @@ textarea:focus {
   margin-top: 8px;
   color: var(--color-tertiary-text);
   font-size: 0.95rem;
+}
+
+.buyer-v2-kpi-value-money {
+  font-size: clamp(2rem, 2.4vw, 2.5rem);
 }
 
 .buyer-v2-kpi-icon {
