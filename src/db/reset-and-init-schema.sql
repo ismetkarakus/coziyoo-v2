@@ -11,6 +11,7 @@ END $$;
 
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  short_id TEXT UNIQUE NOT NULL DEFAULT substr(encode(gen_random_bytes(8), 'hex'), 1, 12),
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   display_name TEXT UNIQUE NOT NULL,
@@ -118,6 +119,7 @@ CREATE TABLE categories (
 
 CREATE TABLE foods (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  short_id TEXT UNIQUE NOT NULL DEFAULT substr(encode(gen_random_bytes(8), 'hex'), 1, 12),
   seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   category_id UUID REFERENCES categories(id) ON DELETE RESTRICT,
   name TEXT NOT NULL,
@@ -170,6 +172,7 @@ CREATE UNIQUE INDEX uniq_user_default_address ON user_addresses(user_id) WHERE i
 
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  short_id TEXT UNIQUE NOT NULL DEFAULT substr(encode(gen_random_bytes(8), 'hex'), 1, 12),
   buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   status TEXT NOT NULL,
