@@ -95,8 +95,8 @@ After installation, the admin panel is available at your configured domain with:
 ### External Access
 
 Nginx Proxy Manager routes external traffic:
-- `api.yourdomain.com` → `http://127.0.0.1:3000`
-- `admin.yourdomain.com` → `http://127.0.0.1:8000`
+- `api.coziyoo.com` → `http://127.0.0.1:3000`
+- `admin.coziyoo.com` → `http://127.0.0.1:8000`
 
 ## Environment Configuration
 

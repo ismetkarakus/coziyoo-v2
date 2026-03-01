@@ -8,7 +8,7 @@ load_config
 
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-apps/admin}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
-ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://${API_DOMAIN:-api.YOURDOMAIN.com}}"
+ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://${API_DOMAIN:-api.coziyoo.com}}"
 ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 ROOT_NODE_MODULES="${REPO_ROOT}/node_modules"
 ADMIN_NODE_MODULES="${ADMIN_DIR_ABS}/node_modules"

@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 load_config
 
-API_DOMAIN="${API_DOMAIN:-api.YOURDOMAIN.com}"
-ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.YOURDOMAIN.com}"
+API_DOMAIN="${API_DOMAIN:-api.coziyoo.com}"
+ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.coziyoo.com}"
 
 log "Validating DNS + HTTPS reachability for NPM domains"
 

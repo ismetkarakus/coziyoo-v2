@@ -31,8 +31,8 @@ nano installation/config.env
 **Required changes:**
 ```bash
 # Replace with your domain
-ADMIN_DOMAIN=admin.yourdomain.com
-API_DOMAIN=api.yourdomain.com
+ADMIN_DOMAIN=admin.coziyoo.com
+API_DOMAIN=api.coziyoo.com
 
 # Change passwords
 PG_PASSWORD=your_secure_db_password
@@ -95,8 +95,8 @@ Create proxy hosts:
 
 | Domain | Forward Hostname | Forward Port |
 |--------|-----------------|--------------|
-| `api.yourdomain.com` | `127.0.0.1` | `3000` |
-| `admin.yourdomain.com` | `127.0.0.1` | `8000` |
+| `api.coziyoo.com` | `127.0.0.1` | `3000` |
+| `admin.coziyoo.com` | `127.0.0.1` | `8000` |
 
 For each host:
 - Enable "Block Common Exploits"

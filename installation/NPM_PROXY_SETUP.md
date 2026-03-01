@@ -6,15 +6,15 @@ This project uses NPM as public ingress.
 
 Point all records to your VPS public IP:
 
-- `api.YOURDOMAIN.com`
-- `admin.YOURDOMAIN.com`
+- `api.coziyoo.com`
+- `admin.coziyoo.com`
 
 ## NPM Proxy Hosts
 
 Create these proxy hosts in NPM:
 
-1. `api.YOURDOMAIN.com` -> `http://127.0.0.1:3000`
-2. `admin.YOURDOMAIN.com` -> `http://127.0.0.1:8000`
+1. `api.coziyoo.com` -> `http://127.0.0.1:3000`
+2. `admin.coziyoo.com` -> `http://127.0.0.1:8000`
 
 For each host:
 
