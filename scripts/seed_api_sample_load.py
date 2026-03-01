@@ -216,6 +216,12 @@ def slugify_display(text: str) -> str:
     return "_".join(parts)
 
 
+def camel_case_display(text: str) -> str:
+    cleaned = normalize_ascii(text).replace("-", " ").replace("_", " ")
+    parts = [p for p in cleaned.split() if p]
+    return "".join(part[:1].upper() + part[1:].lower() for part in parts)
+
+
 def http_json(
     method: str,
     url: str,
@@ -657,7 +663,7 @@ def main() -> int:
     for i in range(args.buyers):
         handle, full_name = profile_for(i, TURKISH_BUYER_NAMES)
         email = f"{handle}.{seed_id}.{i + 1}@coziyoo.local"
-        display_name = f"{handle}_{seed_id.replace('-', '')}_{i + 1}"
+        display_name = f"{camel_case_display(full_name)}{seed_id[-2:]}{i + 1:02d}"
         account = register_user(
             args.base_url,
             email=email,
@@ -672,7 +678,7 @@ def main() -> int:
     for i in range(args.sellers):
         handle, full_name = profile_for(i, TURKISH_SELLER_NAMES)
         email = f"{handle}.{seed_id}.{i + 1}@coziyoo.local"
-        display_name = f"{handle}_{seed_id.replace('-', '')}_{i + 1}"
+        display_name = f"{camel_case_display(full_name)}{seed_id[-2:]}{i + 1:02d}"
         account = register_user(
             args.base_url,
             email=email,
