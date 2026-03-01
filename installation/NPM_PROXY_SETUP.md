@@ -15,10 +15,11 @@ Point all records to your VPS public IP:
 
 Create these proxy hosts in NPM:
 
-1. `api.coziyoo.com` -> `http://127.0.0.1:3000`
-2. `admin.coziyoo.com` -> `http://127.0.0.1:8088` (or your admin upstream)
-3. `livekit.coziyoo.com` -> `http://127.0.0.1:7880` (enable WebSocket support)
-4. `agent.coziyoo.com` -> `http://127.0.0.1:8787`
+1. `api.coziyoo.com` -> `http://172.12.0.1:3000`
+2. `admin.coziyoo.com` -> `http://172.12.0.1:8088` (or your admin upstream)
+3. `livekit.coziyoo.com` -> `http://172.12.0.1:7880` (enable WebSocket support)
+4. `agent.coziyoo.com` -> `http://172.12.0.1:8787`
+5. `proxy.coziyoo.com` -> `http://127.0.0.1:81`
 
 For each host:
 

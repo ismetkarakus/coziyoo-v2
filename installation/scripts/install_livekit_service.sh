@@ -20,11 +20,37 @@ REDIS_CONF="${INSTALL_DIR}/redis.conf"
 PORT="${LIVEKIT_PORT:-7880}"
 NODE_IP="${LIVEKIT_NODE_IP:-127.0.0.1}"
 KEYS="${LIVEKIT_KEYS:-}"
+RTC_PORT_START="${LIVEKIT_RTC_PORT_START:-50000}"
+RTC_PORT_END="${LIVEKIT_RTC_PORT_END:-50200}"
 FORCE_INSTALL="${FORCE_LIVEKIT_INSTALL:-false}" # backward compatibility
 SERVICE_NAME="livekit-docker"
 INIT_SCRIPT_OUT="${SCRIPT_DIR}/init_script.sh"
 
+validate_livekit_keys() {
+  local pairs="$1"
+  local pair key secret
+  IFS=',' read -r -a KEY_PAIRS <<< "${pairs}"
+  for pair in "${KEY_PAIRS[@]}"; do
+    [[ -z "${pair}" ]] && continue
+    key="${pair%%:*}"
+    secret="${pair#*:}"
+    [[ -n "${key}" && -n "${secret}" ]] || fail "Invalid LIVEKIT_KEYS pair '${pair}'. Expected key:secret."
+    if [[ "${#secret}" -lt 32 ]]; then
+      fail "LiveKit secret for key '${key}' is too short (${#secret}). Minimum is 32 characters."
+    fi
+  done
+}
+
 if [[ "${OS}" == "linux" ]]; then
+  if [[ "${RTC_PORT_START}" =~ ^[0-9]+$ && "${RTC_PORT_END}" =~ ^[0-9]+$ ]]; then
+    if (( RTC_PORT_START < 1024 || RTC_PORT_END > 65535 || RTC_PORT_START > RTC_PORT_END )); then
+      fail "Invalid LiveKit RTC port range: ${RTC_PORT_START}-${RTC_PORT_END}"
+    fi
+  else
+    fail "LIVEKIT_RTC_PORT_START and LIVEKIT_RTC_PORT_END must be numeric"
+  fi
+  validate_livekit_keys "${KEYS}"
+
   ensure_compose_installed() {
     if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1; then
       return
@@ -58,8 +84,8 @@ if [[ "${OS}" == "linux" ]]; then
   run_root mkdir -p "${INSTALL_DIR}" "${INSTALL_DIR}/redis-data"
 
   run_root tee "${REDIS_CONF}" >/dev/null <<EOF_REDIS
-bind 127.0.0.1
-protected-mode yes
+bind 0.0.0.0
+protected-mode no
 port 6379
 appendonly yes
 EOF_REDIS
@@ -68,8 +94,8 @@ EOF_REDIS
 port: ${PORT}
 rtc:
   tcp_port: 7881
-  port_range_start: 50000
-  port_range_end: 60000
+  port_range_start: ${RTC_PORT_START}
+  port_range_end: ${RTC_PORT_END}
   use_external_ip: true
 redis:
   address: redis:6379
@@ -109,7 +135,7 @@ services:
       - "${PORT}:${PORT}/tcp"
       - "7881:7881/tcp"
       - "3478:3478/udp"
-      - "50000-60000:50000-60000/udp"
+      - "${RTC_PORT_START}-${RTC_PORT_END}:${RTC_PORT_START}-${RTC_PORT_END}/udp"
 EOF_COMPOSE
 
   run_root tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<EOF_UNIT
@@ -132,6 +158,8 @@ EOF_UNIT
 
   run_root systemctl daemon-reload
   run_root systemctl enable "${SERVICE_NAME}"
+  run_root systemctl stop "${SERVICE_NAME}" || true
+  run_root bash -lc "cd '${INSTALL_DIR}' && ${COMPOSE_CMD} -f '${COMPOSE_FILE}' down" || true
   run_root systemctl restart "${SERVICE_NAME}"
 
   cat > "${INIT_SCRIPT_OUT}" <<EOF_INIT
@@ -142,6 +170,8 @@ LIVEKIT_VERSION="${VERSION}"
 LIVEKIT_PORT="${PORT}"
 LIVEKIT_NODE_IP="${NODE_IP}"
 LIVEKIT_KEYS="${KEYS}"
+LIVEKIT_RTC_PORT_START="${RTC_PORT_START}"
+LIVEKIT_RTC_PORT_END="${RTC_PORT_END}"
 INSTALL_DIR="/opt/livekit"
 COMPOSE_FILE="\${INSTALL_DIR}/docker-compose.yaml"
 CONFIG_FILE="\${INSTALL_DIR}/livekit.yaml"
@@ -186,8 +216,8 @@ systemctl start docker
 mkdir -p "\${INSTALL_DIR}" "\${INSTALL_DIR}/redis-data"
 
 cat > "\${REDIS_CONF}" <<EOF_REDIS
-bind 127.0.0.1
-protected-mode yes
+bind 0.0.0.0
+protected-mode no
 port 6379
 appendonly yes
 EOF_REDIS
@@ -196,8 +226,8 @@ cat > "\${CONFIG_FILE}" <<EOF_CFG
 port: \${LIVEKIT_PORT}
 rtc:
   tcp_port: 7881
-  port_range_start: 50000
-  port_range_end: 60000
+  port_range_start: \${LIVEKIT_RTC_PORT_START}
+  port_range_end: \${LIVEKIT_RTC_PORT_END}
   use_external_ip: true
 redis:
   address: redis:6379
@@ -235,7 +265,7 @@ services:
       - "\${LIVEKIT_PORT}:\${LIVEKIT_PORT}/tcp"
       - "7881:7881/tcp"
       - "3478:3478/udp"
-      - "50000-60000:50000-60000/udp"
+      - "\${LIVEKIT_RTC_PORT_START}-\${LIVEKIT_RTC_PORT_END}:\${LIVEKIT_RTC_PORT_START}-\${LIVEKIT_RTC_PORT_END}/udp"
 EOF_COMPOSE
 
 cat > "/etc/systemd/system/\${SERVICE_NAME}.service" <<EOF_UNIT
@@ -258,6 +288,8 @@ EOF_UNIT
 
 systemctl daemon-reload
 systemctl enable "\${SERVICE_NAME}"
+systemctl stop "\${SERVICE_NAME}" || true
+\${COMPOSE_CMD} -f "\${COMPOSE_FILE}" down || true
 systemctl restart "\${SERVICE_NAME}"
 
 echo "LiveKit installation complete."

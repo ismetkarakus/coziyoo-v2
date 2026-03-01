@@ -9,6 +9,36 @@ sync_repo_to_root
 acquire_update_lock
 
 log "Starting full update"
+
+stop_if_present() {
+  local svc="$1"
+  if [[ "$(os_type)" == "linux" ]]; then
+    if systemctl list-unit-files | awk '{print $1}' | grep -qx "${svc}.service"; then
+      run_root systemctl stop "${svc}" || true
+    fi
+  else
+    service_action stop "${svc}" || true
+  fi
+}
+
+log "Stopping services before update"
+stop_if_present "${API_SERVICE_NAME:-coziyoo-api}"
+stop_if_present "${AGENT_SERVICE_NAME:-coziyoo-agent}"
+if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
+  stop_if_present "${ADMIN_SERVICE_NAME:-coziyoo-admin}"
+fi
+
+LIVEKIT_DIR="/opt/livekit"
+LIVEKIT_COMPOSE_FILE="${LIVEKIT_DIR}/docker-compose.yaml"
+if [[ -f "${LIVEKIT_COMPOSE_FILE}" ]]; then
+  if docker compose version >/dev/null 2>&1; then
+    run_root bash -lc "cd '${LIVEKIT_DIR}' && docker compose -f '${LIVEKIT_COMPOSE_FILE}' down" || true
+  elif command -v docker-compose >/dev/null 2>&1; then
+    run_root bash -lc "cd '${LIVEKIT_DIR}' && docker-compose -f '${LIVEKIT_COMPOSE_FILE}' down" || true
+  fi
+  stop_if_present "livekit-docker"
+fi
+
 "${SCRIPT_DIR}/update_api_service.sh"
 "${SCRIPT_DIR}/update_agent_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
