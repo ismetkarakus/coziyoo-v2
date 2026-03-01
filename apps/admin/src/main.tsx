@@ -1971,6 +1971,24 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const activeTrSellers = trRows.filter((row) => row.status === "active").length;
     const passiveTrSellers = trRows.filter((row) => row.status === "disabled").length;
     const todayTrSellers = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
+    const primarySmartItems: SellerSmartFilterKey[] = [
+      "login_anomaly",
+      "pending_approvals",
+      "missing_documents",
+      "suspicious_logins",
+      "top_revenue",
+      "performance_drop",
+      "urgent_action",
+    ];
+    const secondarySmartItems: SellerSmartFilterKey[] = [
+      "complainer_sellers",
+      "pending_approvals",
+      "missing_documents",
+      "suspicious_logins",
+      "top_revenue",
+      "performance_drop",
+    ];
+
     return (
       <div className="app buyer-v2-page seller-v2-page">
         <header className="buyer-v2-head">
@@ -1978,28 +1996,47 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </header>
 
         <section className="buyer-v2-kpis seller-v2-kpis">
-          <article className="buyer-v2-kpi">
+          <article className="buyer-v2-kpi seller-v2-kpi">
             <div className="buyer-v2-kpi-icon">👥</div>
             <div>
               <p>Toplam TR Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(totalTrSellers)}</strong>
+              <div className="seller-v2-kpi-dots">
+                <span className="seller-v2-dot is-red" />
+                <span className="seller-v2-dot is-blue" />
+                <span className="seller-v2-dot is-blue" />
+                <span className="seller-v2-dot" />
+                <span className="seller-v2-dot" />
+              </div>
             </div>
           </article>
-          <article className="buyer-v2-kpi">
+          <article className="buyer-v2-kpi seller-v2-kpi is-green">
             <div className="buyer-v2-kpi-icon is-good">✓</div>
             <div>
               <p>Aktif TR Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(activeTrSellers)}</strong>
+              <div className="seller-v2-kpi-dots">
+                <span className="seller-v2-dot is-green" />
+                <span className="seller-v2-dot is-green" />
+                <span className="seller-v2-dot is-green" />
+                <span className="seller-v2-dot is-green" />
+              </div>
             </div>
           </article>
-          <article className="buyer-v2-kpi">
+          <article className="buyer-v2-kpi seller-v2-kpi is-orange">
             <div className="buyer-v2-kpi-icon is-warn">◔</div>
             <div>
               <p>Pasif TR Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}</strong>
+              <div className="seller-v2-kpi-dots">
+                <span className="seller-v2-dot is-orange" />
+                <span className="seller-v2-dot is-orange" />
+                <span className="seller-v2-dot is-orange" />
+                <span className="seller-v2-dot is-orange" />
+              </div>
             </div>
           </article>
-          <article className="buyer-v2-kpi">
+          <article className="buyer-v2-kpi seller-v2-kpi">
             <div className="buyer-v2-kpi-icon is-good">☀</div>
             <div>
               <p>Bugün Yeni TR Satıcı</p>
@@ -2011,30 +2048,61 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
         <section className="buyer-v2-main-layout">
           <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
-            <h2>Akıllı Filtreler</h2>
-            <div className="buyer-v2-smart-list">
-              {SELLER_SMART_FILTER_ITEMS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`buyer-v2-smart-item ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
-                  aria-pressed={activeSellerSmartFilter === item.key}
-                  onClick={() => {
-                    setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
-                    setFilters((prev) => ({ ...prev, page: 1 }));
-                  }}
-                >
-                  <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
-                  <span className="buyer-v2-smart-item-label">{item.label}</span>
-                  <span className="buyer-v2-smart-item-count">{sellerSmartFilterCounts[item.key] ?? 0}</span>
-                </button>
-              ))}
+            <div className="seller-v2-smart-head">
+              <span className="buyer-v2-check-col"><input type="checkbox" aria-label="Tum filtreler" /></span>
+              <strong>ID</strong>
+            </div>
+            <div className="buyer-v2-smart-list seller-v2-smart-primary">
+              {primarySmartItems.map((key) => {
+                const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
+                if (!item) return null;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`buyer-v2-smart-item ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
+                    aria-pressed={activeSellerSmartFilter === item.key}
+                    onClick={() => {
+                      setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
+                      setFilters((prev) => ({ ...prev, page: 1 }));
+                    }}
+                  >
+                    <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
+                    <span className="buyer-v2-smart-item-label">{item.label}</span>
+                    <span className="buyer-v2-smart-item-count">{sellerSmartFilterCounts[item.key] ?? 0}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="seller-v2-smart-separator" />
+            <div className="buyer-v2-smart-list seller-v2-smart-secondary">
+              {secondarySmartItems.map((key) => {
+                const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
+                if (!item) return null;
+                const count = sellerSmartFilterCounts[item.key] ?? 0;
+                return (
+                  <button
+                    key={`secondary-${item.key}`}
+                    type="button"
+                    className={`buyer-v2-smart-item seller-v2-smart-item-light ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
+                    aria-pressed={activeSellerSmartFilter === item.key}
+                    onClick={() => {
+                      setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
+                      setFilters((prev) => ({ ...prev, page: 1 }));
+                    }}
+                  >
+                    <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
+                    <span className="buyer-v2-smart-item-label">{item.label}</span>
+                    {count > 0 ? <span className="buyer-v2-smart-item-count">{count}</span> : null}
+                  </button>
+                );
+              })}
             </div>
           </aside>
 
           <section className="panel buyer-v2-board seller-v2-board">
             <div className="seller-v2-toolbar-row">
-              <div className="buyer-v2-chips">
+              <div className="buyer-v2-chips seller-v2-top-tabs">
                 <button type="button" className={`chip ${sellerStatusFilter === "all" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("all")}>
                   Tüm TR
                 </button>
@@ -2069,13 +2137,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <div className="seller-v2-toolbar-right">
                 <button
                   type="button"
-                  className={`chip ${last7DaysOnly ? "is-active" : ""}`}
+                  className={`chip seller-v2-dropdown ${last7DaysOnly ? "is-active" : ""}`}
                   onClick={() => {
                     setLast7DaysOnly((prev) => !prev);
                     setFilters((prev) => ({ ...prev, page: 1 }));
                   }}
                 >
-                  Son 7 Gün
+                  Son 7 Gün ▼
                 </button>
                 <button
                   className="ghost users-sort-pill"
@@ -2091,7 +2159,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 >
                   Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
                 </button>
-                <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
               </div>
             </div>
 
@@ -2099,6 +2166,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <table>
                 <colgroup>
                   <col style={{ width: "42px" }} />
+                  <col style={{ width: "10%" }} />
                   <col style={{ width: "28%" }} />
                   <col style={{ width: "11%" }} />
                   <col style={{ width: "16%" }} />
@@ -2111,9 +2179,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <thead>
                   <tr>
                     <th className="buyer-v2-check-col"><input type="checkbox" /></th>
+                    <th>ID</th>
                     <th>Mağaza Adı</th>
-                    <th>Risk</th>
-                    <th>Onay Durumu</th>
+                    <th>Risk ▼</th>
+                    <th>Onay Durumu ▼</th>
                     <th>Durum</th>
                     <th>Uyarılar</th>
                     <th>Sipariş Sağlığı</th>
@@ -2125,16 +2194,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   {loading ? (
                     Array.from({ length: 6 }).map((_, index) => (
                       <tr key={`skeleton-seller-${index}`}>
-                        <td colSpan={9} className="table-skeleton"><span /></td>
+                        <td colSpan={10} className="table-skeleton"><span /></td>
                       </tr>
                     ))
                   ) : filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={9}>{dict.common.noRecords}</td>
+                      <td colSpan={10}>{dict.common.noRecords}</td>
                     </tr>
                   ) : (
                     filteredRows.map((row) => {
                       const risk = sellerRiskMeta(row);
+                      const rowIdShort = String(row.id ?? "").slice(0, 8);
                       const approvalText = sellerApprovalText(row);
                       const approvalLabel = approvalText.includes("pending")
                         ? "Onay Bekliyor"
@@ -2143,12 +2213,22 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           : row.status === "disabled"
                             ? "Pasif"
                             : "Onaylı";
-                      const warningCount = sellerComplaintUnresolved(row) + sellerSuspiciousLogin(row) + sellerMissingDoc(row);
                       const orderCurrent = sellerOrderCurrent(row);
                       const orderPrevious = sellerOrderPrevious(row);
                       const orderMeta = trendArrow(orderCurrent, orderPrevious);
                       const ratingValue = sellerRating(row);
-                      const ratingTrend = row.ratingTrend ?? row.ratingDelta ?? 0;
+                      const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
+                      const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
+                      const sellerName = String(row.displayName ?? row.email ?? "Satıcı");
+                      const nameParts = sellerName.split(" ").filter(Boolean);
+                      const initials = nameParts.length >= 2
+                        ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
+                        : sellerName.slice(0, 2).toUpperCase();
+                      const docsTotal = 9;
+                      const docsDone = Math.max(0, docsTotal - sellerMissingDoc(row));
+                      const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
+                      const warningInfo = sellerComplaintUnresolved(row);
+
                       return (
                         <tr
                           key={row.id}
@@ -2163,10 +2243,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           tabIndex={0}
                         >
                           <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
+                          <td>{rowIdShort || "-"}</td>
                           <td>
                             <div className="seller-v2-shop-cell">
-                              <strong>{String(row.displayName ?? row.email ?? "Satıcı")}</strong>
-                              <span>{String(row.email ?? "-")}</span>
+                              <span className="name-avatar seller-v2-avatar">{initials || "S"}</span>
+                              <div>
+                                <strong>{sellerName}</strong>
+                                <span>{String(row.email ?? "-")}</span>
+                              </div>
                             </div>
                           </td>
                           <td>
@@ -2175,39 +2259,43 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </span>
                           </td>
                           <td>
-                            <span className={`status-pill ${approvalLabel === "Onaylı" ? "is-active" : approvalLabel === "Pasif" ? "is-disabled" : "is-warning"}`}>
-                              {approvalLabel}
+                            <span className={`status-pill ${approvalLabel === "Onaylı" ? "is-active" : approvalLabel === "Pasif" ? "is-disabled" : "is-warning"} seller-v2-approval-pill`}>
+                              {approvalLabel === "Onaylı" ? `Onaylı (${docsDone}/${docsTotal} belge)` : approvalLabel}
                             </span>
                           </td>
                           <td>
-                            <span className={`status-pill ${row.status === "active" ? "is-active" : "is-neutral"}`}>
-                              {row.status === "active" ? "Aktif" : "Pasif"}
+                            <span className={`seller-v2-like-pill ${row.status === "active" ? "is-good" : ""}`}>
+                              👍 {row.status === "active" ? 1 : 0}
                             </span>
                           </td>
                           <td>
-                            <span className={`seller-v2-warning-pill ${warningCount > 0 ? "is-on" : ""}`}>{warningCount}</span>
+                            <div className="seller-v2-warning-cell">
+                              <span className={`seller-v2-tag ${warningA === "A" ? "is-red" : ""}`}>{warningA}</span>
+                              <span>{warningInfo}</span>
+                              <span>◔ {sellerMissingDoc(row)}</span>
+                            </div>
                           </td>
                           <td>
-                            <div className="buyer-orders-cell">
-                              <strong>{orderCurrent}</strong>
+                            <div className="seller-v2-health-cell">
+                              <span className="seller-v2-health-pill">{revenueTag}</span>
                               <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
                             </div>
                           </td>
                           <td>
                             <span className="seller-v2-rating">
-                              {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({typeof ratingTrend === "number" ? ratingTrend.toFixed(1) : String(ratingTrend)})
+                              {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({ratingTrend >= 0 ? "+" : ""}{ratingTrend.toFixed(1)})
                             </span>
                           </td>
                           <td className="cell-actions">
                             <button
-                              className="ghost action-btn"
+                              className="ghost action-btn seller-v2-detail-btn"
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 navigate(`/app/sellers/${row.id}`);
                               }}
                             >
-                              <span aria-hidden="true">◉ Detay</span>
+                              <span aria-hidden="true">{row.status === "active" ? "◉ Detay ▾" : "◉ Aktif Yap"}</span>
                             </button>
                           </td>
                         </tr>
@@ -2218,15 +2306,29 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               </table>
             </div>
 
-            <div className="buyer-v2-footer">
+            <div className="buyer-v2-footer seller-v2-footer">
               <div className="buyer-v2-pager-left">
+                <button className="ghost buyer-v2-page-btn" type="button">10 / sayfa ▼</button>
                 <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>
-                  ‹
+                  Önceki
                 </button>
                 <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-                <span className="panel-meta">{`${Math.min((filters.page - 1) * filters.pageSize + 1, pagination?.total ?? 0)} - ${Math.min(filters.page * filters.pageSize, pagination?.total ?? 0)} / ${pagination?.total ?? 0} kayıt`}</span>
+                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}>
+                  Sonraki
+                </button>
               </div>
               <div className="buyer-v2-pager-right">
+                <span className="panel-meta">{`${Math.min((filters.page - 1) * filters.pageSize + 1, pagination?.total ?? 0)}-${Math.min(filters.page * filters.pageSize, pagination?.total ?? 0)} / ${pagination?.total ?? 0} kayıt`}</span>
+                <button
+                  className="ghost buyer-v2-page-btn"
+                  type="button"
+                  disabled={filters.page <= 1}
+                  onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
+                >
+                  ‹
+                </button>
                 <button
                   className="ghost buyer-v2-page-btn"
                   type="button"
@@ -2242,7 +2344,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       </div>
     );
   }
-
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
