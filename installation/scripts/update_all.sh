@@ -24,9 +24,6 @@ log "Stopping app services before update (leaving PostgreSQL running)"
 "${SCRIPT_DIR}/update_api_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
 
-log "Ensuring PostgreSQL service is running"
-"${SCRIPT_DIR}/run_all.sh" start postgres || true
-
 API_PORT="${API_PORT:-3000}"
 UPDATE_SKIP_HEALTHCHECKS="${UPDATE_SKIP_HEALTHCHECKS:-false}"
 HEALTHCHECK_TIMEOUT_SECONDS="${HEALTHCHECK_TIMEOUT_SECONDS:-8}"
