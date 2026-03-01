@@ -1133,8 +1133,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerFilterMenuOpen, setBuyerFilterMenuOpen] = useState(false);
+  const [buyerTodoMenuOpen, setBuyerTodoMenuOpen] = useState(false);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
   const buyerFilterWrapRef = useRef<HTMLDivElement | null>(null);
+  const buyerTodoWrapRef = useRef<HTMLDivElement | null>(null);
   const buyerBoardRef = useRef<HTMLDivElement | null>(null);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
@@ -1238,6 +1240,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     });
     setBuyerQuickFilter("all");
     setBuyerActionMenuId(null);
+    setBuyerTodoMenuOpen(false);
     setCustomerIdPreview(null);
   }, [kind]);
 
@@ -1810,6 +1813,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
   const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
+  const buyerTodoSections = useMemo(
+    () => ({
+      pending: [
+        `Acik sikayetli alicilar: ${buyersWithOpenComplaints}`,
+        `Riskli alicilar: ${riskyBuyersCount}`,
+      ],
+      done: [
+        "Filtre konfigrasyonu guncellendi",
+        "Alici tablosu son durumla yenilendi",
+      ],
+      notDone: [
+        "Riskli alicilar icin manuel kontrol",
+        "Acik sikayetlerin kapanis takibi",
+      ],
+    }),
+    [buyersWithOpenComplaints, riskyBuyersCount],
+  );
 
   useEffect(() => {
     if (!isBuyerPage) return;
@@ -1825,6 +1845,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       if (buyerFilterMenuOpen && buyerFilterWrapRef.current && !buyerFilterWrapRef.current.contains(target)) {
         setBuyerFilterMenuOpen(false);
       }
+      if (buyerTodoMenuOpen && buyerTodoWrapRef.current && !buyerTodoWrapRef.current.contains(target)) {
+        setBuyerTodoMenuOpen(false);
+      }
 
       if (buyerActionMenuId && buyerBoardRef.current) {
         const actionRoot = (target as HTMLElement).closest(".buyer-v2-row-actions");
@@ -1836,7 +1859,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     document.addEventListener("mousedown", onDocumentMouseDown);
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [buyerActionMenuId, buyerFilterMenuOpen, isBuyerPage]);
+  }, [buyerActionMenuId, buyerFilterMenuOpen, buyerTodoMenuOpen, isBuyerPage]);
 
   if (isBuyerPage) {
     return (
@@ -1903,9 +1926,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
 
             <div className="buyer-v2-toolbar-actions">
-              <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => navigate("/app/dashboard")}>
-                Yapilacak Bekleyen Isler
-              </button>
               <div className="buyer-v2-filter-wrap" ref={buyerFilterWrapRef}>
                 <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerFilterMenuOpen((prev) => !prev)}>
                   <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
@@ -1985,6 +2005,39 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         Uygula
                       </button>
                     </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="buyer-v2-todo-wrap" ref={buyerTodoWrapRef}>
+                <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerTodoMenuOpen((prev) => !prev)}>
+                  Yapilacak Isler ▾
+                </button>
+                {buyerTodoMenuOpen ? (
+                  <div className="buyer-v2-todo-menu">
+                    <section>
+                      <h4>Bekleyen</h4>
+                      <ul>
+                        {buyerTodoSections.pending.map((item) => (
+                          <li key={`pending-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                    <section>
+                      <h4>Yapilmis</h4>
+                      <ul>
+                        {buyerTodoSections.done.map((item) => (
+                          <li key={`done-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                    <section>
+                      <h4>Yapilmamislar</h4>
+                      <ul>
+                        {buyerTodoSections.notDone.map((item) => (
+                          <li key={`not-done-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
                   </div>
                 ) : null}
               </div>
