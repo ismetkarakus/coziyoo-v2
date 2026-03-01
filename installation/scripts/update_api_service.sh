@@ -23,10 +23,16 @@ maybe_git_update "${REPO_ROOT}"
   npm run build
 
   if [[ "${UPDATE_RUN_DB_MIGRATE:-false}" == "true" ]]; then
+    if [[ -n "${API_ENV_FILE:-}" && -f "${API_ENV_FILE}" ]]; then
+      export_env_file_kv "${API_ENV_FILE}"
+    fi
     npm run db:migrate
   fi
 
   if [[ "${UPDATE_RUN_SEED_ADMIN:-false}" == "true" ]]; then
+    if [[ -n "${API_ENV_FILE:-}" && -f "${API_ENV_FILE}" ]]; then
+      export_env_file_kv "${API_ENV_FILE}"
+    fi
     SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL_VALUE}" SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD_VALUE}" npm run seed:admin
   fi
 )

@@ -105,6 +105,35 @@ load_config() {
   export SOURCE_REPO_ROOT REPO_ROOT API_RUN_USER API_RUN_GROUP AGENT_RUN_USER AGENT_RUN_GROUP
 }
 
+export_env_file_kv() {
+  local env_file="$1"
+  [[ -f "${env_file}" ]] || fail "Env file not found: ${env_file}"
+
+  local line key value
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    [[ "${line}" =~ ^[[:space:]]*$ ]] && continue
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+    [[ "${line}" == *"="* ]] || continue
+
+    key="${line%%=*}"
+    value="${line#*=}"
+
+    key="$(printf '%s' "${key}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    value="$(printf '%s' "${value}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+
+    if [[ "${value}" == \"*\" && "${value}" == *\" && "${#value}" -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value}" == \'*\' && "${value}" == *\' && "${#value}" -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+
+    printf -v "${key}" "%s" "${value}"
+    export "${key}"
+  done < "${env_file}"
+}
+
 resolve_path() {
   local p="$1"
   if [[ "${p}" = /* ]]; then
@@ -225,7 +254,7 @@ service_action() {
 acquire_update_lock() {
   local lock_dir="${REPO_ROOT}/.deploy-lock"
   if mkdir "${lock_dir}" 2>/dev/null; then
-    trap 'rm -rf "${lock_dir}"' EXIT
+    trap "rm -rf '${lock_dir}'" EXIT
   else
     fail "Another deployment appears to be running (lock: ${lock_dir})"
   fi
