@@ -2,11 +2,28 @@ name: VPS Deploy
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
+    paths:
+      - "installation/**"
+      - "scripts/**"
+      - ".github/workflows/vps-deploy.yml"
+      - "docker-compose.yml"
+      - "compose.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: vps-deploy-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
 
     steps:
       - name: Checkout
@@ -17,14 +34,19 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      - name: Add host key
+      - name: Configure known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Run automated update on VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' << 'REMOTE'
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'REMOTE'
           set -euo pipefail
           cd /opt/coziyoo
           bash installation/scripts/update_all.sh

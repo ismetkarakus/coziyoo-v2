@@ -2,12 +2,21 @@ name: Docker Agent Publish
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
+    paths:
+      - "agent/**"
+      - ".github/workflows/docker-agent-publish.yml"
   workflow_dispatch:
+
+concurrency:
+  group: docker-agent-publish-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
 
@@ -36,7 +45,7 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: ./agent
