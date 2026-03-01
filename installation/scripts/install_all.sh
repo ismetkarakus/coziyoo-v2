@@ -25,7 +25,7 @@ run_step() {
   local step="$1"
   echo ""
   echo "========== ${step} =========="
-  "${SCRIPT_DIR}/${step}"
+  bash "${SCRIPT_DIR}/${step}"
 }
 
 run_step install_prereqs.sh
@@ -33,7 +33,6 @@ run_step install_npm_proxy_manager.sh
 run_step install_postgres.sh
 run_step install_api_service.sh
 run_step install_admin_panel.sh
-run_step install_nginx.sh
 
 echo ""
 echo "All installation steps completed."

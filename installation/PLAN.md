@@ -1,80 +1,101 @@
-# Automated Non-Docker Deployment Plan (Linux VPS, Node/Express API)
+# Coziyoo Deployment Architecture
 
-## Summary
+## Overview
 
-Build a fully automated install/update/run system under `installation/` with:
+Production deployment uses:
+- **Nginx Proxy Manager** (Docker) for external ingress (TLS, routing)
+- **Systemd services** for applications (API, Admin, PostgreSQL)
+- **Python HTTP server** for serving admin static files
+- **Node.js/Express** for API
 
-- Per-service scripts (`admin`, `postgres`, `api`, `nginx`)
-- One orchestrator for first-time setup (`install_all.sh`)
-- One orchestrator for ongoing updates (`update_all.sh`)
-- One orchestrator for operations (`run_all.sh` with `start|stop|restart|status|logs`)
-- GitHub auto-deploy on push to `main` that runs `update_all.sh` on VPS over SSH
+## Service Architecture
 
-This keeps the API on Node.js + Express and avoids Docker for the application.
+```
+Internet
+    ↓
+Nginx Proxy Manager (Docker: 80/443)
+    ├──→ API (systemd: 127.0.0.1:3000)
+    └──→ Admin (systemd: 127.0.0.1:8000) [Python HTTP]
+    
+PostgreSQL (systemd: 127.0.0.1:5432)
+```
 
-## Architecture
+## Services
 
-- **External Ingress**: Nginx Proxy Manager (Docker) handles TLS and routing
-- **Internal Services**: Native systemd services (API, PostgreSQL)
-- **Static Files**: Local nginx serves admin panel on port 8000
+### 1. API (`coziyoo-api`)
+- **Type:** Systemd service
+- **Runtime:** Node.js/Express
+- **Port:** 127.0.0.1:3000
+- **Working Dir:** `/opt/coziyoo/apps/api`
+- **Start:** `node dist/src/server.js`
 
-## Script layout
+### 2. Admin Panel (`coziyoo-admin`)
+- **Type:** Systemd service  
+- **Runtime:** Python HTTP server
+- **Port:** 127.0.0.1:8000
+- **Working Dir:** `/var/www/coziyoo-admin`
+- **Start:** `python3 -m http.server 8000 --bind 0.0.0.0`
 
-- `scripts/install_all.sh` - Main installation orchestrator
-- `scripts/update_all.sh` - Main update orchestrator
-- `scripts/run_all.sh` - Service operations
-- `scripts/install_prereqs.sh` - System packages
-- `scripts/install_postgres.sh` - PostgreSQL setup
-- `scripts/install_api_service.sh` - API service
-- `scripts/install_admin_panel.sh` - Admin panel build + nginx config
-- `scripts/install_nginx.sh` - Local nginx for static files
-- `scripts/install_npm_proxy_manager.sh` - NPM (Docker)
-- `scripts/update_api_service.sh` - API update
-- `scripts/update_admin_panel.sh` - Admin update
-- `scripts/common.sh` - Shared functions
+### 3. PostgreSQL
+- **Type:** Systemd service
+- **Port:** 127.0.0.1:5432
 
-## Config contract
+### 4. Nginx Proxy Manager
+- **Type:** Docker container
+- **Ports:** 80, 443 (public), 81 (admin UI)
+- **Config:** `/opt/nginx-proxy-manager/docker-compose.yml`
 
-The control plane is `installation/config.env`:
+## Install Flow
 
-- Global: repo path, branch, git update behavior
-- Toggles for each install step
-- Service names and run users
-- Per-service env file paths
-- NPM settings and domains
-- PostgreSQL credentials
+1. **install_prereqs.sh** - Install git, node, python, postgres
+2. **install_npm_proxy_manager.sh** - Start NPM Docker container
+3. **install_postgres.sh** - Configure PostgreSQL
+4. **install_api_service.sh**:
+   - npm ci
+   - npm run build
+   - Run SQL migrations
+   - Create systemd service
+   - Start service
+   - Wait for API health
+   - Seed admin user
+   - Optionally seed sample data
+5. **install_admin_panel.sh**:
+   - npm ci
+   - npm run build
+   - Copy to `/var/www/coziyoo-admin`
+   - Create Python HTTP systemd service
+   - Start service
 
-## Install flow (`install_all.sh`)
+## Configuration Files
 
-1. Install prerequisites
-2. Install Nginx Proxy Manager
-3. Start/configure PostgreSQL
-4. Build/migrate and install API service
-5. Build admin panel and configure nginx
+### Root `.env` (Application config)
+```
+API_PORT=3000
+PGHOST=127.0.0.1
+PGUSER=coziyoo
+...
+```
 
-## Update flow (`update_all.sh`)
+### `installation/config.env` (Install config)
+```
+REPO_ROOT=/opt/coziyoo
+API_DIR=apps/api
+ADMIN_DIR=apps/admin
+SEED_SAMPLE_DATA=false
+...
+```
 
-1. Acquire deploy lock
-2. Stop services
-3. Update API (`npm ci`, `npm run build`, restart)
-4. Update Admin (build + publish)
-5. Run API health check
-6. Validate NPM domains
+## Security
 
-## Run flow (`run_all.sh`)
+- All services bind to localhost (127.0.0.1) except NPM
+- NPM handles SSL termination
+- PostgreSQL uses pgcrypto for password hashing
+- No local nginx (removed in favor of NPM + Python HTTP)
 
-- Supported actions: `start`, `stop`, `restart`, `status`, `logs`
-- Scope: all services or single service (`api`, `nginx`, `postgres`)
+## Data Seeding
 
-## Acceptance criteria
+**During install only:**
+- Admin user: `admin@coziyoo.com` / `Admin12345`
+- Sample data: buyers, sellers, foods, orders (if `SEED_SAMPLE_DATA=true`)
 
-- Fresh Linux install results in all services active.
-- Re-running install is safe and idempotent.
-- Push to `main` triggers auto-deploy and health check.
-- Manual run operations work consistently.
-
-## Assumptions
-
-- Default server path is `/opt/coziyoo`.
-- API code is repository root (`API_DIR=.`).
-- Services run as `root` (configure API_RUN_USER for production).
+**Not during updates** - database remains untouched on deploy.

@@ -59,7 +59,7 @@ EOF
   log "Installed Node.js $(node -v), npm $(npm -v)"
 }
 
-REQUIRED_CMDS=(git curl rsync nginx psql python3 npm)
+REQUIRED_CMDS=(git curl rsync psql python3 npm)
 MISSING_CMDS=()
 for cmd in "${REQUIRED_CMDS[@]}"; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
@@ -73,7 +73,6 @@ if [[ "${#MISSING_CMDS[@]}" -gt 0 ]]; then
     git \
     curl \
     rsync \
-    nginx \
     postgresql \
     postgresql-contrib \
     python3 \
@@ -96,9 +95,5 @@ else
 fi
 
 ensure_node20_linux
-
-# Enable nginx for local static file serving (admin panel)
-run_root systemctl enable nginx
-run_root systemctl start nginx
 
 log "Prerequisites installed"

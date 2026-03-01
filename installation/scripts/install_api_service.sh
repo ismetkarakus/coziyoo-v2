@@ -19,9 +19,6 @@ API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
 ROOT_ENV="${REPO_ROOT}/.env"
 [[ -f "${ROOT_ENV}" ]] || fail "Root .env not found at ${ROOT_ENV}"
 
-SEED_ADMIN_EMAIL_VALUE="${SEED_ADMIN_EMAIL:-admin@YOURDOMAIN.com}"
-SEED_ADMIN_PASSWORD_VALUE="${SEED_ADMIN_PASSWORD:-CHANGE_ME_TO_SECURE_PASSWORD_12345}"
-
 maybe_git_update "${REPO_ROOT}"
 
 require_cmd npm
@@ -41,22 +38,13 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
     npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
-  
-  # Run database migrations
-  log "Running database migrations"
-  npm run db:migrate
-  
-  # Seed admin user
-  log "Seeding admin user"
-  SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL_VALUE}" SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD_VALUE}" npm run seed:admin
-  
-  # Seed sample data (optional, skip if data already exists)
-  if [[ "${SEED_SAMPLE_DATA:-false}" == "true" ]]; then
-    log "Seeding sample data"
-    npm run seed:sample || log "Sample seeding skipped or failed (may already have data)"
-  fi
 )
 
+# Run database migrations
+log "Running database migrations"
+bash "${SCRIPT_DIR}/db-migrate.sh"
+
+# Create/restart systemd service
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
 RUN_USER="${API_RUN_USER:-root}"
 RUN_GROUP="${API_RUN_GROUP:-root}"
@@ -92,5 +80,24 @@ EOF
 run_root systemctl daemon-reload
 run_root systemctl enable "${SERVICE_NAME}"
 run_root systemctl restart "${SERVICE_NAME}"
+
+# Wait for API to be ready before seeding
+log "Waiting for API to start..."
+API_BASE_URL="http://127.0.0.1:${API_PORT:-3000}"
+for i in {1..30}; do
+  if curl -fs "${API_BASE_URL}/v1/health" >/dev/null 2>&1; then
+    log "API is ready"
+    break
+  fi
+  if [[ $i -eq 30 ]]; then
+    log "Warning: API did not become ready in time, skipping data seeding"
+    exit 0
+  fi
+  sleep 1
+done
+
+# Seed admin user and optionally sample data
+log "Seeding data..."
+bash "${SCRIPT_DIR}/seed-data.sh"
 
 log "API service setup finished"

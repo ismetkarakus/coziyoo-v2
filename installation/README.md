@@ -1,74 +1,170 @@
 # Installation and Operations
 
-This folder provides an automated deployment workflow for:
+Automated deployment for Coziyoo platform on Linux VPS.
 
-- Admin panel (static files served by local nginx)
-- API (Node.js + Express as a systemd service)
-- PostgreSQL (systemd service)
-- Nginx Proxy Manager (Docker-based, external ingress)
+## Architecture
 
-Plan reference: `installation/PLAN.md`
-NPM guide: `installation/NPM_PROXY_SETUP.md`
+| Service | Type | Port | Purpose |
+|---------|------|------|---------|
+| `coziyoo-api` | systemd | 3000 | Node.js/Express API |
+| `coziyoo-admin` | systemd | 8000 | Python HTTP server (admin panel static files) |
+| `postgresql` | systemd | 5432 | Database |
+| `nginx-proxy-manager` | Docker | 80/443/81 | External ingress (TLS, routing) |
 
-## 1) Quick start
+External traffic flows through Nginx Proxy Manager → local services.
 
-1. Copy config template:
+## Prerequisites
+
+- Ubuntu/Debian Linux VPS
+- Root or sudo access
+- Domain with DNS A records pointing to VPS
+
+## 1) Configure Installation
+
+Copy and edit the config:
 
 ```bash
 cp installation/config.env.example installation/config.env
+nano installation/config.env
 ```
 
-2. Edit `installation/config.env` for your VPS paths/domains/secrets.
-   Values with spaces must be quoted, for example:
-   `API_START_CMD="node dist/src/server.js"`.
-   
-   **Required changes:**
-   - Replace `YOURDOMAIN.com` with your actual domain
-   - Change all `CHANGE_ME_...` passwords
+**Required changes:**
+```bash
+# Replace with your domain
+ADMIN_DOMAIN=admin.yourdomain.com
+API_DOMAIN=api.yourdomain.com
 
-3. Run first installation:
+# Change passwords
+PG_PASSWORD=your_secure_db_password
+SEED_ADMIN_PASSWORD=your_secure_admin_password
+
+# Optional: enable sample data seeding
+SEED_SAMPLE_DATA=true
+```
+
+## 2) First Time Install
 
 ```bash
 bash installation/scripts/install_all.sh
 ```
 
-## 2) Daily update command (server side)
+This will:
+1. Install system packages (git, node, python, postgres)
+2. Install Nginx Proxy Manager (Docker)
+3. Configure PostgreSQL
+4. Build and start API (with database migrations)
+5. Build and start Admin panel (Python HTTP server)
+
+**Default admin credentials:**
+- Email: `admin@coziyoo.com`
+- Password: `Admin12345` (or what you set in `SEED_ADMIN_PASSWORD`)
+
+## 3) Configure Nginx Proxy Manager
+
+After install, access NPM UI:
+
+```
+http://your-server-ip:81
+```
+
+Default NPM login:
+- Email: `admin@example.com`
+- Password: `changeme`
+
+Create proxy hosts:
+
+| Domain | Forward Hostname | Forward Port |
+|--------|-----------------|--------------|
+| `api.yourdomain.com` | `127.0.0.1` | `3000` |
+| `admin.yourdomain.com` | `127.0.0.1` | `8000` |
+
+For each host:
+- Enable "Block Common Exploits"
+- Enable SSL (Let's Encrypt)
+- Enable "Force SSL"
+- Enable HTTP/2
+
+## 4) Daily Operations
+
+### Update (deploy new code)
 
 ```bash
 bash installation/scripts/update_all.sh
 ```
 
-This command updates code, rebuilds API/admin, restarts services, and runs health checks.
+This pulls latest code, rebuilds, and restarts services.
 
-## 3) Service control
-
-All services:
+### Service Control
 
 ```bash
+# Check status of all services
 bash installation/scripts/run_all.sh status
+
+# Restart all services
 bash installation/scripts/run_all.sh restart
+
+# Check specific service
+bash installation/scripts/run_all.sh status api
+bash installation/scripts/run_all.sh status admin
+
+# View logs
+bash installation/scripts/run_all.sh logs api
 ```
 
-Single service:
+### Database Migrations (manual)
+
+If you need to run migrations manually:
 
 ```bash
-bash installation/scripts/run_all.sh status api
-bash installation/scripts/run_all.sh logs nginx
+bash installation/scripts/db-migrate.sh
 ```
 
-## 4) Nginx Proxy Manager Setup
+### Data Seeding (manual)
 
-After installation:
+To seed sample data after install:
 
-1. Access NPM UI at `http://your-server-ip:81`
-2. Create proxy hosts:
-   - `api.yourdomain.com` → `http://127.0.0.1:3000`
-   - `admin.yourdomain.com` → `http://127.0.0.1:8000`
-3. Enable SSL for each host
+```bash
+# Edit config to enable
+SEED_SAMPLE_DATA=true
 
-## 5) Notes
+# Run seeding
+bash installation/scripts/seed-data.sh
+```
 
-- API runtime: `node dist/src/server.js`
-- Admin panel: nginx serves `/var/www/coziyoo-admin` on port 8000
-- NPM proxies external traffic to local services
-- Keep separate env files per service.
+## Troubleshooting
+
+### Check service logs
+
+```bash
+journalctl -u coziyoo-api -n 100 --no-pager
+journalctl -u coziyoo-admin -n 100 --no-pager
+journalctl -u postgresql -n 100 --no-pager
+```
+
+### Check NPM logs
+
+```bash
+docker logs nginx-proxy-manager
+```
+
+### API health check
+
+```bash
+curl http://127.0.0.1:3000/v1/health
+```
+
+### Admin health check
+
+```bash
+curl http://127.0.0.1:8000
+```
+
+## File Locations
+
+| Path | Description |
+|------|-------------|
+| `/opt/coziyoo` | Application code |
+| `/opt/coziyoo/.env` | Application configuration |
+| `/var/www/coziyoo-admin` | Admin panel static files |
+| `/opt/nginx-proxy-manager` | NPM Docker files |
+| `/etc/systemd/system/coziyoo-*.service` | Systemd services |

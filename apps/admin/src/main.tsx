@@ -2,7 +2,7 @@ import "./styles.css";
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  BrowserRouter,
+  HashRouter,
   Link,
   Navigate,
   Outlet,
@@ -248,14 +248,14 @@ function App() {
   }, [language]);
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode((value) => !value)}
         language={language}
         onToggleLanguage={() => setLanguage((value) => (value === "tr" ? "en" : "tr"))}
       />
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
@@ -328,7 +328,7 @@ function Routes({
 function LoginScreen({ onLoggedIn, language }: { onLoggedIn: (admin: AdminUser) => void; language: Language }) {
   const dict = DICTIONARIES[language];
   const [email, setEmail] = useState("admin@coziyoo.com");
-  const [password, setPassword] = useState("12345");
+  const [password, setPassword] = useState("Admin12345");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();

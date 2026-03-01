@@ -11,14 +11,14 @@ coziyoo/
 ├── apps/
 │   ├── api/               # Backend API (Node.js/Express)
 │   ├── admin/             # Admin panel (React + Vite)
-│   └── web/               # Customer web app (Expo/React Native Web)
+│   └── web/               # Customer web/mobile app (Expo)
 ├── packages/
 │   ├── shared-types/      # Shared TypeScript types
 │   └── shared-utils/      # Shared utility functions
 └── installation/          # Deployment scripts
 ```
 
-## Quick Start
+## Quick Start (Local Development)
 
 ### 1. Install Dependencies
 
@@ -36,15 +36,14 @@ cp .env.example .env
 ### 3. Run Development
 
 ```bash
-# API only
+# API only (http://localhost:3000)
 npm run dev:api
 
-# Admin only
+# Admin panel only (http://localhost:5173)
 npm run dev:admin
 
-# Or from individual directories
-cd apps/api && npm run dev
-cd apps/admin && npm run dev
+# Web/mobile app
+npm run dev:web
 ```
 
 ## Available Scripts
@@ -54,50 +53,72 @@ cd apps/admin && npm run dev
 | `npm run build` | Build all workspaces |
 | `npm run dev:api` | Start API in dev mode |
 | `npm run dev:admin` | Start Admin panel in dev mode |
+| `npm run dev:web` | Start Web app in dev mode |
 | `npm run build:api` | Build API only |
 | `npm run build:admin` | Build Admin only |
+| `npm run build:web` | Build Web for production |
 | `npm run test` | Run tests in all workspaces |
+| `npm run test:api` | Run API tests only |
 
-## Environment Configuration
+## Production Deployment
 
-All application configuration is centralized in the root `.env` file:
-
-- **API settings**: `API_PORT`, `API_HOST`, `*_SECRET` keys
-- **Database**: `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
-- **External services**: `PAYMENT_WEBHOOK_SECRET`, `AI_SERVER_*`, etc.
-
-Installation-specific settings remain in `installation/config.env`.
-
-## Deployment
-
-See [installation/README.md](installation/README.md) for deployment instructions.
+See [installation/README.md](installation/README.md) for VPS deployment instructions.
 
 ```bash
-# First time setup on VPS
+# On VPS - First time setup
 bash installation/scripts/install_all.sh
 
-# Daily updates
+# On VPS - Updates
 bash installation/scripts/update_all.sh
 ```
 
-## Workspace Commands
+## Default Credentials
 
-Run commands in specific workspaces:
+After installation, the admin panel is available at your configured domain with:
+- **Email:** `admin@coziyoo.com`
+- **Password:** `Admin12345`
+
+## Architecture
+
+### Services (Production)
+
+| Service | Type | Port | Description |
+|---------|------|------|-------------|
+| `coziyoo-api` | systemd | 3000 | Node.js/Express API |
+| `coziyoo-admin` | systemd | 8000 | Python HTTP server (admin panel) |
+| `postgresql` | systemd | 5432 | PostgreSQL database |
+| `nginx-proxy-manager` | Docker | 80/443/81 | Nginx Proxy Manager (ingress) |
+
+### External Access
+
+Nginx Proxy Manager routes external traffic:
+- `api.yourdomain.com` → `http://127.0.0.1:3000`
+- `admin.yourdomain.com` → `http://127.0.0.1:8000`
+
+## Environment Configuration
+
+Application configuration is centralized in the root `.env` file:
+
+- **API settings:** `API_PORT`, `*_SECRET` keys
+- **Database:** `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
+- **External services:** `PAYMENT_WEBHOOK_SECRET`, `AI_SERVER_*`, etc.
+
+Installation-specific settings are in `installation/config.env`.
+
+## Workspace Commands
 
 ```bash
 # Install package in specific app
 npm install some-package --workspace=apps/api
 
 # Run script in specific app
-npm run db:migrate --workspace=apps/api
+npm run test --workspace=apps/api
 
 # Add shared package as dependency
 npm install @coziyoo/shared-types --workspace=apps/api
 ```
 
 ## Adding New Packages
-
-To add a new shared package:
 
 1. Create directory in `packages/my-package/`
 2. Add `package.json` with `"name": "@coziyoo/my-package"`
