@@ -9,6 +9,7 @@ load_config
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-admin-panel}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
 ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://api.coziyoo.com}"
+ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 
 [[ -f "${ADMIN_DIR_ABS}/package.json" ]] || fail "Admin package.json not found in ${ADMIN_DIR_ABS}"
 
@@ -30,16 +31,6 @@ EOF
 run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -a --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
-if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
-  log "INGRESS_MODE=npm, reloading host nginx for admin panel"
-  run_root nginx -t
-  run_root systemctl reload nginx
-elif [[ "$(os_type)" == "linux" ]]; then
-  run_root nginx -t
-  run_root systemctl reload nginx
-else
-  nginx -t
-  brew services restart nginx
-fi
+service_action restart "${ADMIN_SERVICE_NAME}"
 
 log "Admin updated"

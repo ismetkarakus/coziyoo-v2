@@ -16,11 +16,7 @@ fi
 
 api_service="${API_SERVICE_NAME:-coziyoo-api}"
 agent_service="${AGENT_SERVICE_NAME:-coziyoo-agent}"
-if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
-  admin_service="nginx"
-else
-  admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
-fi
+admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 
 service_for_name() {
   case "$1" in
@@ -66,9 +62,7 @@ if [[ -n "${SERVICE}" ]]; then
 else
   run_on_service api
   run_on_service agent
-  if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
-    run_on_service admin
-  fi
+  run_on_service admin
   if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
     run_on_service nginx
   else
