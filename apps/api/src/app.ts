@@ -84,12 +84,15 @@ app.use(requestContext);
 app.use((req, _res, next) => {
   const ct = req.headers["content-type"] as string | string[] | undefined;
   const normalize = (value: string): string => {
-    let out = value;
-    // Normalize quoted/odd charset formats to plain utf-8 token.
-    out = out.replace(/charset\s*=\s*["']?\s*utf-?8\s*["']?/i, "charset=utf-8");
-    // Generic fallback: strip quotes around charset value.
-    out = out.replace(/charset\s*=\s*["']([^"']+)["']/i, (_m, cs: string) => `charset=${cs.toLowerCase()}`);
-    return out;
+    const [rawMime] = value.split(";");
+    const mime = rawMime.trim().toLowerCase();
+
+    // Force a canonical charset for JSON-like bodies to avoid proxy/header quirks.
+    if (mime === "application/json" || mime.endsWith("+json") || mime === "text/plain") {
+      return `${mime}; charset=utf-8`;
+    }
+
+    return value;
   };
 
   if (typeof ct === "string") {
