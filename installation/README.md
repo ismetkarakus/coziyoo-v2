@@ -42,6 +42,26 @@ SEED_ADMIN_PASSWORD=your_secure_admin_password
 SEED_SAMPLE_DATA=true
 ```
 
+### Generate Root `.env` Automatically
+
+Use the env generator to create root `.env` from `.env.example` while mirroring overlap values from `installation/config.env`:
+
+```bash
+bash installation/scripts/generate_env.sh
+```
+
+If `.env` already exists, use `--force`:
+
+```bash
+bash installation/scripts/generate_env.sh --force
+```
+
+Dry output to a temp path:
+
+```bash
+bash installation/scripts/generate_env.sh --output /tmp/coziyoo.env --force
+```
+
 ## 2) First Time Install
 
 ```bash

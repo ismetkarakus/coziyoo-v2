@@ -105,6 +105,18 @@ Application configuration is centralized in the root `.env` file:
 
 Installation-specific settings are in `installation/config.env`.
 
+Generate a conflict-safe root env from template:
+
+```bash
+bash installation/scripts/generate_env.sh
+```
+
+Overwrite existing `.env`:
+
+```bash
+bash installation/scripts/generate_env.sh --force
+```
+
 ## Workspace Commands
 
 ```bash
