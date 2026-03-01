@@ -17,11 +17,15 @@ dump_failure_diagnostics() {
 }
 
 log "Starting full update"
-log "Stopping managed services before update"
-"${SCRIPT_DIR}/run_all.sh" stop || true
+log "Stopping app services before update (leaving PostgreSQL running)"
+"${SCRIPT_DIR}/run_all.sh" stop api || true
+"${SCRIPT_DIR}/run_all.sh" stop admin || true
 
 "${SCRIPT_DIR}/update_api_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
+
+log "Ensuring PostgreSQL service is running"
+"${SCRIPT_DIR}/run_all.sh" start postgres || true
 
 API_PORT="${API_PORT:-3000}"
 UPDATE_SKIP_HEALTHCHECKS="${UPDATE_SKIP_HEALTHCHECKS:-false}"
