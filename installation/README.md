@@ -114,6 +114,51 @@ bash installation/scripts/update_all.sh
 
 This pulls latest code, rebuilds, and restarts services.
 
+## 5) Auto-Deploy on Git Push (GitHub Actions)
+
+To deploy automatically when you push to `main`, this repo includes:
+
+- `.github/workflows/deploy-on-push.yml`
+
+### Required GitHub Secrets
+
+1. `DEPLOY_SSH_KEY`
+   - Private SSH key with access to all target servers.
+2. `DEPLOY_TARGETS`
+   - Newline-separated rows in this format:
+
+```text
+name|host|user|port|repo_path
+```
+
+Example:
+
+```text
+prod-eu|203.0.113.10|root|22|/opt/coziyoo
+prod-us|198.51.100.12|ubuntu|22|/opt/coziyoo
+```
+
+Notes:
+- `host` can be omitted and then `name` is used as host.
+- `user` defaults to `root`.
+- `port` defaults to `22`.
+- `repo_path` defaults to `/opt/coziyoo`.
+
+### Optional GitHub Variable
+
+- `DEPLOY_BRANCH` (Repository Variables)
+  - Defaults to `main` if not set.
+
+### What the workflow does
+
+On each push to `main`, GitHub Actions:
+1. Connects to each server over SSH
+2. Runs:
+```bash
+GIT_UPDATE=true DEPLOY_BRANCH=<branch> bash installation/scripts/update_all.sh
+```
+3. Fails the workflow if any server update fails
+
 ### Service Control
 
 ```bash

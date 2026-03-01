@@ -1,0 +1,84 @@
+name: Deploy On Push
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to servers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOY_TARGETS: ${{ secrets.DEPLOY_TARGETS }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH || 'main' }}
+    steps:
+      - name: Validate deploy secrets
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEPLOY_TARGETS}" ]]; then
+            echo "Missing required secret: DEPLOY_TARGETS" >&2
+            exit 1
+          fi
+          if [[ -z "${DEPLOY_SSH_KEY}" ]]; then
+            echo "Missing required secret: DEPLOY_SSH_KEY" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH key
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          printf "%s\n" "${DEPLOY_SSH_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+
+      - name: Trust target host keys
+        run: |
+          set -euo pipefail
+          touch "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/known_hosts"
+
+          while IFS='|' read -r NAME HOST USER PORT REPO_PATH; do
+            [[ -z "${NAME}${HOST}${USER}${PORT}${REPO_PATH}" ]] && continue
+            [[ "${NAME}" =~ ^# ]] && continue
+
+            HOST="${HOST:-${NAME}}"
+            PORT="${PORT:-22}"
+
+            if [[ -z "${HOST}" ]]; then
+              echo "Invalid DEPLOY_TARGETS row: missing host" >&2
+              exit 1
+            fi
+
+            ssh-keyscan -p "${PORT}" -H "${HOST}" >> "${HOME}/.ssh/known_hosts"
+          done <<< "${DEPLOY_TARGETS}"
+
+      - name: Deploy
+        run: |
+          set -euo pipefail
+
+          while IFS='|' read -r NAME HOST USER PORT REPO_PATH; do
+            [[ -z "${NAME}${HOST}${USER}${PORT}${REPO_PATH}" ]] && continue
+            [[ "${NAME}" =~ ^# ]] && continue
+
+            HOST="${HOST:-${NAME}}"
+            USER="${USER:-root}"
+            PORT="${PORT:-22}"
+            REPO_PATH="${REPO_PATH:-/opt/coziyoo}"
+
+            echo "Deploying ${NAME:-${HOST}} (${USER}@${HOST}:${PORT}, repo=${REPO_PATH})"
+
+            ssh -i "${HOME}/.ssh/id_ed25519" \
+              -p "${PORT}" \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${USER}@${HOST}" \
+              "set -euo pipefail; cd '${REPO_PATH}'; GIT_UPDATE=true DEPLOY_BRANCH='${DEPLOY_BRANCH}' bash installation/scripts/update_all.sh"
+          done <<< "${DEPLOY_TARGETS}"

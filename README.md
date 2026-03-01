@@ -72,6 +72,9 @@ bash installation/scripts/install_all.sh
 bash installation/scripts/update_all.sh
 ```
 
+Auto-deploy on push is available via GitHub Actions (`.github/workflows/deploy-on-push.yml`).
+See `installation/README.md` for required secrets (`DEPLOY_SSH_KEY`, `DEPLOY_TARGETS`).
+
 ## Default Credentials
 
 After installation, the admin panel is available at your configured domain with:
