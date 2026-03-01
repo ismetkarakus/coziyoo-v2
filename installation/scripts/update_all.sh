@@ -8,6 +8,14 @@ load_config
 sync_repo_to_root
 acquire_update_lock
 
+dump_failure_diagnostics() {
+  log "Collecting deployment diagnostics"
+  "${SCRIPT_DIR}/run_all.sh" status api || true
+  "${SCRIPT_DIR}/run_all.sh" status postgres || true
+  run_root journalctl -u "${API_SERVICE_NAME:-coziyoo-api}" -n 120 --no-pager || true
+  run_root journalctl -u postgresql -n 80 --no-pager || true
+}
+
 log "Starting full update"
 log "Stopping managed services before update"
 "${SCRIPT_DIR}/run_all.sh" stop || true
@@ -36,12 +44,16 @@ if [[ "${UPDATE_SKIP_HEALTHCHECKS}" != "true" ]]; then
     sleep "${HEALTHCHECK_RETRY_DELAY_SECONDS}"
   done
   if [[ "${health_ok}" != "true" ]]; then
+    dump_failure_diagnostics
     fail "API liveness checks failed after ${HEALTHCHECK_RETRIES} attempts"
   fi
 
   if [[ "${STRICT_DB_HEALTHCHECK}" == "true" ]]; then
     log "Running strict DB health check on /v1/health"
-    curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://127.0.0.1:${API_PORT}/v1/health" >/dev/null
+    if ! curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://127.0.0.1:${API_PORT}/v1/health" >/dev/null; then
+      dump_failure_diagnostics
+      fail "Strict DB health check failed"
+    fi
     log "Strict DB health check passed"
   fi
 else
