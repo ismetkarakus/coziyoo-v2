@@ -12,7 +12,10 @@ if [[ "${INSTALL_AGENT:-true}" != "true" ]]; then
 fi
 
 AGENT_DIR_ABS="$(resolve_path "${AGENT_DIR:-agent-python}")"
-[[ -d "${AGENT_DIR_ABS}" ]] || fail "Agent directory not found: ${AGENT_DIR_ABS}"
+if [[ ! -d "${AGENT_DIR_ABS}" ]]; then
+  log "Agent directory not found (${AGENT_DIR_ABS}), skipping agent install"
+  exit 0
+fi
 
 maybe_git_update "${REPO_ROOT}"
 install_python_project "${AGENT_DIR_ABS}"

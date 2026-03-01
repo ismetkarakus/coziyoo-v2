@@ -10,7 +10,14 @@ AGENT_NODE_DIR_ABS="$(resolve_path "${AGENT_NODE_DIR:-agent}")"
 AGENT_NODE_SERVICE_NAME="${AGENT_NODE_SERVICE_NAME:-}"
 AGENT_NODE_HEALTH_URL="${AGENT_NODE_HEALTH_URL:-}"
 AGENT_NODE_PACKAGE_MANAGER="${AGENT_NODE_PACKAGE_MANAGER:-npm}"
-[[ -f "${AGENT_NODE_DIR_ABS}/package.json" ]] || fail "Agent node package.json not found in ${AGENT_NODE_DIR_ABS}"
+if [[ "${INSTALL_AGENT:-true}" != "true" ]]; then
+  log "INSTALL_AGENT=false, skipping Node agent update"
+  exit 0
+fi
+if [[ ! -f "${AGENT_NODE_DIR_ABS}/package.json" ]]; then
+  log "Agent node package.json not found in ${AGENT_NODE_DIR_ABS}, skipping Node agent update"
+  exit 0
+fi
 
 maybe_git_update "${REPO_ROOT}"
 

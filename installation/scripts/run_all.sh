@@ -17,6 +17,11 @@ fi
 api_service="${API_SERVICE_NAME:-coziyoo-api}"
 agent_service="${AGENT_SERVICE_NAME:-coziyoo-agent}"
 admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
+agent_dir_abs="$(resolve_path "${AGENT_DIR:-agent-python}")"
+agent_enabled="true"
+if [[ "${INSTALL_AGENT:-true}" != "true" || ! -d "${agent_dir_abs}" ]]; then
+  agent_enabled="false"
+fi
 
 service_for_name() {
   case "$1" in
@@ -61,7 +66,11 @@ if [[ -n "${SERVICE}" ]]; then
   run_on_service "${SERVICE}"
 else
   run_on_service api
-  run_on_service agent
+  if [[ "${agent_enabled}" == "true" ]]; then
+    run_on_service agent
+  else
+    log "Skipping agent service action (INSTALL_AGENT=false or agent dir missing)"
+  fi
   run_on_service admin
   if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
     run_on_service nginx

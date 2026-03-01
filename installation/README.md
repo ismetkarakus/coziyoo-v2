@@ -6,7 +6,7 @@ This folder provides an automated deployment workflow for:
 - API (Node.js + Express as a managed service)
 - Postgres (service)
 - LiveKit server (first install, then service control)
-- Agent (Python managed service)
+- Agent (Python managed service, optional)
 - Nginx Proxy Manager (optional, Docker-based)
 
 Plan reference: `installation/PLAN.md`
@@ -24,7 +24,7 @@ cp installation/config.env.example installation/config.env
    LiveKit installation is selected interactively during `install_all.sh`.
    Values with spaces must be quoted, for example:
    `API_START_CMD="node dist/src/server.js"` and `AGENT_START_CMD="python src/agent_http_runner.py"`.
-   Default deployment path is `/opt/coziyoo`, and API/Agent services run as `root`.
+   Default deployment path is `/opt/coziyoo`, and API/Admin services run as `root`.
    For this production setup use:
    - `INGRESS_MODE=npm`
    - `INSTALL_NGINX=false`
@@ -42,9 +42,9 @@ bash installation/scripts/install_all.sh
 bash installation/scripts/update_all.sh
 ```
 
-This command updates code, rebuilds API/admin, updates agent deps, restarts services, and runs health checks.
+This command updates code, rebuilds API/admin, optionally updates agent deps, restarts services, and runs health checks.
 When `INGRESS_MODE=npm`, it also runs public domain validation.
-In `INGRESS_MODE=npm`, admin panel is served by host `nginx` on `0.0.0.0:${ADMIN_PORT:-8000}` (default `8000`) for Nginx Proxy Manager upstream.
+In `INGRESS_MODE=npm`, admin panel is served by the `coziyoo-admin` python service on `0.0.0.0:${ADMIN_PORT:-8000}` (default `8000`) for Nginx Proxy Manager upstream.
 
 ## 3) Service control
 
@@ -86,4 +86,4 @@ bash installation/scripts/update_all.sh
 - macOS services: `launchd`
 - API runtime: `node dist/src/server.js`
 - Keep separate env files per service.
-- Agent runtime default is `python src/agent_http_runner.py` and exposes `/health`.
+- Agent runtime default is `python src/agent_http_runner.py` and exposes `/health` when `INSTALL_AGENT=true`.
