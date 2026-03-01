@@ -79,6 +79,18 @@ app.use((req, res, next) => {
 
 app.use(requestContext);
 
+// Some upstream proxies/clients send quoted charset (e.g. charset="UTF-8"),
+// which body-parser rejects. Normalize it before JSON parsing.
+app.use((req, _res, next) => {
+  const ct = req.headers["content-type"];
+  if (typeof ct === "string") {
+    req.headers["content-type"] = ct
+      .replace(/charset\s*=\s*"([^"]+)"/i, (_m, cs: string) => `charset=${cs.toLowerCase()}`)
+      .replace(/charset\s*=\s*'([^']+)'/i, (_m, cs: string) => `charset=${cs.toLowerCase()}`);
+  }
+  next();
+});
+
 app.use(
   express.json({
     limit: env.JSON_BODY_LIMIT,
