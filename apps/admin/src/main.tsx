@@ -1890,6 +1890,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className="app buyer-v2-page">
         <header className="buyer-v2-head">
           <h1>Alıcı Yönetimi</h1>
+          <div className="buyer-v2-head-revenue" aria-label="Toplam Ciro">
+            <span>Toplam Ciro</span>
+            <strong>{formatTry(totalRevenue30d)}</strong>
+          </div>
         </header>
 
         <section className="buyer-v2-kpis">
@@ -1899,14 +1903,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <p>Toplam Alıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}</strong>
               <small>%{activeRatio} Son 30n Aktif Oranı</small>
-            </div>
-          </article>
-          <article className="buyer-v2-kpi">
-            <div className="buyer-v2-kpi-icon is-good">₺</div>
-            <div>
-              <p>Toplam Ciro</p>
-              <strong className="buyer-v2-kpi-value-money">{formatTry(totalRevenue30d)}</strong>
-              <small>Son 30 Gun Toplam Ciro</small>
             </div>
           </article>
           <article className="buyer-v2-kpi">

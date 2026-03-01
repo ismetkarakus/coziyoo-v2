@@ -2889,6 +2889,10 @@ textarea:focus {
 }
 
 .buyer-v2-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
@@ -2912,9 +2916,26 @@ textarea:focus {
   font-size: 1.12rem;
 }
 
+.buyer-v2-head-revenue {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.buyer-v2-head-revenue span {
+  font-size: 0.86rem;
+  color: var(--color-secondary-text);
+}
+
+.buyer-v2-head-revenue strong {
+  font-size: clamp(1.8rem, 2.6vw, 2.4rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
 .buyer-v2-kpis {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -2950,10 +2971,6 @@ textarea:focus {
   margin-top: 8px;
   color: var(--color-tertiary-text);
   font-size: 0.95rem;
-}
-
-.buyer-v2-kpi-value-money {
-  font-size: clamp(2rem, 2.4vw, 2.5rem);
 }
 
 .buyer-v2-kpi-icon {
@@ -4595,6 +4612,15 @@ textarea:focus {
 
   .buyer-v2-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .buyer-v2-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .buyer-v2-head-revenue {
+    justify-items: start;
   }
 
   .buyer-v2-page {
