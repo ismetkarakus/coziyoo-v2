@@ -3286,6 +3286,17 @@ textarea:focus {
   line-height: 1;
 }
 
+.buyer-login-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.buyer-login-cell strong {
+  font-size: 0.82rem;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
 .buyer-row-menu {
   position: absolute;
   right: 0;
