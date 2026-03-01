@@ -2075,7 +2075,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <col style={{ width: "8%" }} />
                 <col style={{ width: "10%" }} />
                 <col style={{ width: "11%" }} />
-                <col style={{ width: "10%" }} />
                 <col style={{ width: "11%" }} />
                 <col style={{ width: "7%" }} />
                 <col style={{ width: "54px" }} />
@@ -2100,7 +2099,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <th>Şikayet</th>
                   <th>Sipariş (1 Ay)</th>
                   <th>Harcama (1 Ay)</th>
-                  <th>IP/Giris Bilgisi</th>
                   <th>Son Giris</th>
                   <th>Durum</th>
                   <th />
@@ -2110,12 +2108,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 {loading ? (
                   Array.from({ length: 6 }).map((_, index) => (
                     <tr key={`skeleton-buyer-${index}`}>
-                      <td colSpan={10} className="table-skeleton"><span /></td>
+                      <td colSpan={9} className="table-skeleton"><span /></td>
                     </tr>
                   ))
                 ) : filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>{dict.common.noRecords}</td>
+                    <td colSpan={9}>{dict.common.noRecords}</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => {
@@ -2133,7 +2131,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const phoneRaw = String(row.phone ?? row.phoneNumber ?? row.contactPhone ?? "").trim();
                     const hasPhone = phoneRaw.length > 0;
                     const phoneHref = phoneRaw.replace(/\s+/g, "");
-                    const loginIp = String(row.lastLoginIp ?? row.last_login_ip ?? row.ip ?? row.loginIp ?? "-").trim() || "-";
                     const loginAtRaw = String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "");
                     const loginAt = loginAtRaw ? formatUiDate(loginAtRaw, language) : "-";
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
@@ -2217,11 +2214,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <strong>{formatTry(spendCurrent)}</strong>
                             <span className={`buyer-trend ${spendTrendMeta.className}`}>{spendTrendMeta.symbol}</span>
                             {spendDelta === 0 ? <span className="buyer-dot">•</span> : null}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="buyer-login-cell">
-                            <strong>{loginIp}</strong>
                           </div>
                         </td>
                         <td>
@@ -4947,7 +4939,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
   const shortId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
   const latestLoginLocation = locations[0] ?? null;
-  const detailLoginIp = latestLoginLocation?.ip ?? "-";
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = detailLastLoginAtRaw ? formatDate(detailLastLoginAtRaw) : "-";
 
@@ -5488,8 +5479,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <p className="panel-meta">{locations.length} segilones</p>
             </div>
             <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌁</span> IP/Giris Bilgisi</p>
-              <p className="buyer-ref-contact-value">{detailLoginIp}</p>
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
               <p className="buyer-ref-contact-value">{detailLastLoginAt}</p>
               {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
