@@ -107,6 +107,7 @@ function fmt(template: string, vars: Record<string, string | number>): string {
 }
 
 function formatTableHeader(column: string): string {
+  if (column.toLowerCase() === "image_url") return "image";
   return column.replace(/_/g, " ");
 }
 
@@ -3175,7 +3176,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
   };
 
   const renderRecordsCell = (column: string, value: unknown): ReactNode => {
-    if (tableKey !== "orders") return renderCell(value);
+    if (tableKey !== "orders") return renderCell(value, column);
 
     if (column === "status") {
       const meta = orderStatusMeta(value);
@@ -3191,7 +3192,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
       return formatOrderAddress(value);
     }
 
-    return renderCell(value);
+    return renderCell(value, column);
   };
 
   useEffect(() => {
@@ -3502,7 +3503,7 @@ function EntitiesPage({ language }: { language: Language }) {
                   rows.map((row, index) => (
                     <tr key={`${selectedTableKey}-${index}`}>
                       {columns.map((column) => (
-                        <td key={`${index}-${column}`}>{renderCell(row[column])}</td>
+                        <td key={`${index}-${column}`}>{renderCell(row[column], column)}</td>
                       ))}
                     </tr>
                   ))
@@ -3538,8 +3539,25 @@ function EntitiesPage({ language }: { language: Language }) {
   );
 }
 
-function renderCell(value: unknown): string {
+function resolveImageCellSrc(raw: string): string {
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (raw.startsWith("/")) return `${API_BASE}${raw}`;
+  return raw;
+}
+
+function renderCell(value: unknown, columnName?: string): ReactNode {
   if (value === null || value === undefined) return "";
+  if (typeof value === "string") {
+    const raw = value.trim();
+    const normalizedColumn = String(columnName ?? "").trim().toLowerCase();
+    const imageColumn = normalizedColumn === "image_url" || normalizedColumn === "imageurl";
+    const imageUrlPattern = /^(https?:\/\/\S+|\/\S+)\.(?:png|jpe?g|gif|webp|svg)(?:\?\S*)?$/i;
+    if (imageColumn || imageUrlPattern.test(raw)) {
+      const src = resolveImageCellSrc(raw);
+      return <img src={src} alt="table image" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} loading="lazy" />;
+    }
+  }
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
 }
