@@ -16,8 +16,17 @@ maybe_git_update "${REPO_ROOT}"
 
 (
   cd "${API_DIR_ABS}"
+  NPM_INSTALL_FLAGS=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
   if [[ ! -d node_modules ]]; then
-    fail "node_modules missing in ${API_DIR_ABS}. Run install_all.sh once before update_all.sh."
+    log "node_modules missing in ${API_DIR_ABS}; installing dependencies"
+    if [[ -f package-lock.json ]]; then
+      if ! npm ci "${NPM_INSTALL_FLAGS[@]}"; then
+        log "npm ci failed, retrying with npm install"
+        npm install "${NPM_INSTALL_FLAGS[@]}"
+      fi
+    else
+      npm install "${NPM_INSTALL_FLAGS[@]}"
+    fi
   fi
 
   # Load root env
