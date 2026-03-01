@@ -108,6 +108,34 @@ maybe_git_update() {
   fi
 
   local branch="${DEPLOY_BRANCH:-main}"
+  local preserve_paths_csv="${DEPLOY_GIT_PRESERVE_PATHS:-installation/config.env,.env}"
+  local -a preserve_paths=()
+  local -a dirty_preserve_paths=()
+  local stashed="false"
+  local stash_name=""
+  local p=""
+
+  IFS=',' read -r -a preserve_paths <<< "${preserve_paths_csv}"
+  for p in "${preserve_paths[@]}"; do
+    p="$(printf "%s" "${p}" | xargs)"
+    [[ -z "${p}" ]] && continue
+    if git -C "${repo}" ls-files --error-unmatch "${p}" >/dev/null 2>&1; then
+      if ! git -C "${repo}" diff --quiet -- "${p}"; then
+        dirty_preserve_paths+=("${p}")
+      fi
+    fi
+  done
+
+  if [[ "${#dirty_preserve_paths[@]}" -gt 0 ]]; then
+    stash_name="deploy-preserve-$(date +%s)"
+    log "Stashing local changes before git update: ${dirty_preserve_paths[*]}"
+    (
+      cd "${repo}"
+      git stash push --quiet --message "${stash_name}" -- "${dirty_preserve_paths[@]}" || true
+    )
+    stashed="true"
+  fi
+
   log "Updating repo at ${repo} on branch ${branch}"
 
   # Add safe directory unconditionally
@@ -119,6 +147,16 @@ maybe_git_update() {
     git checkout -q "${branch}"
     git pull --quiet --ff-only origin "${branch}"
   )
+
+  if [[ "${stashed}" == "true" ]]; then
+    log "Restoring stashed local config changes"
+    (
+      cd "${repo}"
+      if ! git stash pop --quiet; then
+        fail "Failed to restore stashed local changes after pull. Resolve conflicts in ${repo} and retry."
+      fi
+    )
+  fi
 }
 
 sync_repo_to_root() {
