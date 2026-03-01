@@ -10,6 +10,8 @@ ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-apps/admin}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
 ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://${API_DOMAIN:-api.YOURDOMAIN.com}}"
 ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
+ROOT_NODE_MODULES="${REPO_ROOT}/node_modules"
+ADMIN_NODE_MODULES="${ADMIN_DIR_ABS}/node_modules"
 
 [[ -f "${ADMIN_DIR_ABS}/package.json" ]] || fail "Admin package.json not found in ${ADMIN_DIR_ABS}"
 
@@ -22,14 +24,17 @@ maybe_git_update "${REPO_ROOT}"
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
 VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
-  # Always refresh admin deps during updates to avoid stale/incomplete node_modules.
-  if [[ -f package-lock.json ]]; then
-    if ! npm ci --silent --no-audit --no-fund --loglevel=error; then
-      log "npm ci failed, retrying with npm install"
+  # Install only when neither workspace-root nor app-local node_modules exists.
+  if [[ ! -d "${ADMIN_NODE_MODULES}" && ! -d "${ROOT_NODE_MODULES}" ]]; then
+    log "node_modules missing in ${ADMIN_DIR_ABS} and ${REPO_ROOT}; installing dependencies"
+    if [[ -f package-lock.json ]]; then
+      if ! npm ci --silent --no-audit --no-fund --loglevel=error; then
+        log "npm ci failed, retrying with npm install"
+        npm install --silent --no-audit --no-fund --loglevel=error
+      fi
+    else
       npm install --silent --no-audit --no-fund --loglevel=error
     fi
-  else
-    npm install --silent --no-audit --no-fund --loglevel=error
   fi
   npm run build
 )

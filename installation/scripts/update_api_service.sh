@@ -9,6 +9,8 @@ load_config
 API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
 ROOT_ENV="${REPO_ROOT}/.env"
+ROOT_NODE_MODULES="${REPO_ROOT}/node_modules"
+API_NODE_MODULES="${API_DIR_ABS}/node_modules"
 
 [[ -f "${API_DIR_ABS}/package.json" ]] || fail "API package.json not found in ${API_DIR_ABS}"
 
@@ -17,8 +19,8 @@ maybe_git_update "${REPO_ROOT}"
 (
   cd "${API_DIR_ABS}"
   NPM_INSTALL_FLAGS=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
-  if [[ ! -d node_modules ]]; then
-    log "node_modules missing in ${API_DIR_ABS}; installing dependencies"
+  if [[ ! -d "${API_NODE_MODULES}" && ! -d "${ROOT_NODE_MODULES}" ]]; then
+    log "node_modules missing in ${API_DIR_ABS} and ${REPO_ROOT}; installing dependencies"
     if [[ -f package-lock.json ]]; then
       if ! npm ci "${NPM_INSTALL_FLAGS[@]}"; then
         log "npm ci failed, retrying with npm install"
