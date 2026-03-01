@@ -27,10 +27,28 @@ require_cmd() {
 
 # Simple sudo wrapper for root deployment
 run_root() {
-  if [[ "${EUID}" -eq 0 ]]; then
-    "$@"
+  local as_user=""
+  if [[ "${1:-}" == "-u" ]]; then
+    as_user="${2:-}"
+    shift 2
+  fi
+
+  if [[ -n "${as_user}" ]]; then
+    if [[ "${EUID}" -eq 0 ]]; then
+      if command -v runuser >/dev/null 2>&1; then
+        runuser -u "${as_user}" -- "$@"
+      else
+        su -s /bin/bash -c "$(printf '%q ' "$@")" "${as_user}"
+      fi
+    else
+      sudo -u "${as_user}" "$@"
+    fi
   else
-    sudo "$@"
+    if [[ "${EUID}" -eq 0 ]]; then
+      "$@"
+    else
+      sudo "$@"
+    fi
   fi
 }
 
