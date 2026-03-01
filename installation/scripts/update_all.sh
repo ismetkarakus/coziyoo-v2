@@ -21,12 +21,7 @@ stop_if_present() {
   fi
 }
 
-log "Stopping services before update"
-stop_if_present "${API_SERVICE_NAME:-coziyoo-api}"
-stop_if_present "${AGENT_SERVICE_NAME:-coziyoo-agent}"
-if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
-  stop_if_present "${ADMIN_SERVICE_NAME:-coziyoo-admin}"
-fi
+log "Stopping LiveKit stack before update"
 
 LIVEKIT_DIR="/opt/livekit"
 LIVEKIT_COMPOSE_FILE="${LIVEKIT_DIR}/docker-compose.yaml"
