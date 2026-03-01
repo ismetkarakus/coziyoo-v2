@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../db/client.js";
@@ -17,6 +18,23 @@ const SeedDemoDataSchema = z.object({
 });
 
 export const adminSystemRouter = Router();
+
+adminSystemRouter.get("/system/version", requireAuth("admin"), async (_req, res) => {
+  let commit = "unknown";
+  try {
+    commit = execSync("git rev-parse --short HEAD", { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] })
+      .toString("utf8")
+      .trim();
+  } catch {
+    commit = "unknown";
+  }
+
+  return res.json({
+    data: {
+      commit,
+    },
+  });
+});
 
 adminSystemRouter.post("/system/reset-database", requireAuth("admin"), requireSuperAdmin, async (req, res) => {
   const parsed = ResetDatabaseSchema.safeParse(req.body ?? {});

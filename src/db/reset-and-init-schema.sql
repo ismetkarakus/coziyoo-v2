@@ -553,6 +553,22 @@ CREATE TABLE admin_auth_audit (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE admin_api_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'super_admin')),
+  token_hash TEXT NOT NULL,
+  token_preview TEXT NOT NULL,
+  claims_json JSONB,
+  created_by_admin_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE RESTRICT,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_admin_api_tokens_created_by ON admin_api_tokens(created_by_admin_id, created_at DESC);
+CREATE INDEX idx_admin_api_tokens_active ON admin_api_tokens(created_at DESC) WHERE revoked_at IS NULL;
+
 CREATE TABLE abuse_risk_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'device', 'ip', 'session', 'order')),

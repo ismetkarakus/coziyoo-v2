@@ -505,11 +505,23 @@ function TopNavTabs({
   const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
   const [isResettingDb, setIsResettingDb] = useState(false);
   const [isSeedingDemoData, setIsSeedingDemoData] = useState(false);
+  const [gitCommit, setGitCommit] = useState<string>("unknown");
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setIsManagementOpen(isManagementActive);
   }, [isManagementActive]);
+
+  useEffect(() => {
+    request("/v1/admin/system/version")
+      .then(async (response) => {
+        if (response.status !== 200) return;
+        const body = await parseJson<{ data?: { commit?: string } }>(response);
+        const commit = body.data?.commit?.trim();
+        if (commit) setGitCommit(commit);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -657,6 +669,9 @@ function TopNavTabs({
               {isResettingDb ? (language === "tr" ? "Sıfırlanıyor..." : "Resetting...") : dict.actions.resetDatabase}
             </button>
           ) : null}
+          <div className="nav-submenu-meta" title={language === "tr" ? "Mevcut commit" : "Current commit"}>
+            {`Commit: ${gitCommit}`}
+          </div>
         </div>
       ) : null}
     </div>
@@ -3850,6 +3865,18 @@ type AdminApiTokenResponse = {
   };
 } & ApiError;
 
+type AdminApiTokenListItem = {
+  id: string;
+  sessionId: string;
+  label: string;
+  role: "admin" | "super_admin";
+  tokenPreview: string;
+  createdAt: string;
+  revokedAt: string | null;
+  createdByAdminId: string;
+  createdByEmail: string | null;
+};
+
 function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuperAdmin: boolean }) {
   const dict = DICTIONARIES[language];
   const [label, setLabel] = useState("");
@@ -3857,6 +3884,24 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AdminApiTokenResponse["data"] | null>(null);
+  const [records, setRecords] = useState<AdminApiTokenListItem[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+
+  async function loadTokens() {
+    setLoadingRecords(true);
+    try {
+      const response = await request("/v1/admin/api-tokens/admin");
+      const body = await parseJson<{ data?: AdminApiTokenListItem[] } & ApiError>(response);
+      if (response.status !== 200 || !body.data) return;
+      setRecords(body.data);
+    } finally {
+      setLoadingRecords(false);
+    }
+  }
+
+  useEffect(() => {
+    loadTokens().catch(() => undefined);
+  }, []);
 
   async function createToken() {
     const trimmedLabel = label.trim();
@@ -3881,6 +3926,7 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
         return;
       }
       setResult(body.data);
+      await loadTokens();
     } catch {
       setError(dict.apiTokens.tokenRequestFailed);
     } finally {
@@ -3926,6 +3972,45 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
           <button className="primary" type="button" disabled={saving} onClick={() => createToken()}>
             {dict.apiTokens.create}
           </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{language === "tr" ? "Kayıtlı API Tokenları" : "Saved API Tokens"}</h2>
+          <span className="panel-meta">{loadingRecords ? dict.common.loading : `${records.length}`}</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{dict.apiTokens.label}</th>
+                <th>{dict.apiTokens.role}</th>
+                <th>{language === "tr" ? "Token Önizleme" : "Token Preview"}</th>
+                <th>{language === "tr" ? "Oluşturan" : "Created By"}</th>
+                <th>{language === "tr" ? "Oluşturulma" : "Created At"}</th>
+                <th>{language === "tr" ? "Durum" : "Status"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>{dict.apiTokens.noToken}</td>
+                </tr>
+              ) : (
+                records.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.label}</td>
+                    <td>{adminRoleLabel(dict, row.role)}</td>
+                    <td><code>{row.tokenPreview}</code></td>
+                    <td>{row.createdByEmail ?? row.createdByAdminId}</td>
+                    <td>{row.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}</td>
+                    <td>{row.revokedAt ? (language === "tr" ? "İptal" : "Revoked") : (language === "tr" ? "Aktif" : "Active")}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
