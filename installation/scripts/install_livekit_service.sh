@@ -12,60 +12,109 @@ if [[ "${INSTALL_LIVEKIT:-true}" != "true" ]]; then
 fi
 
 OS="$(os_type)"
-SERVICE_NAME="${LIVEKIT_SERVICE_NAME:-livekit}"
+SERVICE_NAME="${LIVEKIT_SERVICE_NAME:-livekit-docker}"
 VERSION="${LIVEKIT_VERSION:-1.8.3}"
-BIN_PATH="${LIVEKIT_BIN_PATH:-/usr/local/bin/livekit-server}"
-CONFIG_FILE="${LIVEKIT_CONFIG_FILE:-/etc/livekit/livekit.yaml}"
+INSTALL_DIR="/opt/livekit"
+CONFIG_FILE="${LIVEKIT_CONFIG_FILE:-${INSTALL_DIR}/livekit.yaml}"
+COMPOSE_FILE="${INSTALL_DIR}/docker-compose.yaml"
+REDIS_CONF="${INSTALL_DIR}/redis.conf"
 PORT="${LIVEKIT_PORT:-7880}"
 NODE_IP="${LIVEKIT_NODE_IP:-127.0.0.1}"
 KEYS="${LIVEKIT_KEYS:-}"
-FORCE_INSTALL="${FORCE_LIVEKIT_INSTALL:-false}"
+FORCE_INSTALL="${FORCE_LIVEKIT_INSTALL:-false}" # kept for backward compatibility
 
 if [[ "${OS}" == "linux" ]]; then
-  if [[ -x "${BIN_PATH}" && "${FORCE_INSTALL}" != "true" ]]; then
-    log "LiveKit binary already exists at ${BIN_PATH}, skipping binary install"
-  else
-    TMP_DIR="$(mktemp -d)"
-    ARCHIVE="${TMP_DIR}/livekit.tgz"
-    URL="https://github.com/livekit/livekit/releases/download/v${VERSION}/livekit-linux-amd64.tar.gz"
-    log "Installing LiveKit ${VERSION} from ${URL}"
-    curl -fsSL "${URL}" -o "${ARCHIVE}"
-    tar -xzf "${ARCHIVE}" -C "${TMP_DIR}"
-    run_root install -m 0755 "${TMP_DIR}/livekit-server" "${BIN_PATH}"
-    rm -rf "${TMP_DIR}"
-  fi
+  ensure_compose_installed() {
+    if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1; then
+      return
+    fi
+    run_root apt-get -qq update
+    run_root apt-get -y -qq install docker-compose-plugin \
+      || run_root apt-get -y -qq install docker-compose-v2 \
+      || run_root apt-get -y -qq install docker-compose
+  }
 
-  run_root mkdir -p "$(dirname "${CONFIG_FILE}")"
-  if [[ ! -f "${CONFIG_FILE}" ]]; then
-    run_root tee "${CONFIG_FILE}" >/dev/null <<EOF2
+  if ! command -v docker >/dev/null 2>&1; then
+    log "Installing Docker for LiveKit VM deployment"
+    run_root apt-get -qq update
+    run_root apt-get -y -qq install docker.io
+  fi
+  ensure_compose_installed
+
+  run_root systemctl enable docker
+  run_root systemctl start docker
+
+  run_root mkdir -p "${INSTALL_DIR}"
+  run_root tee "${REDIS_CONF}" >/dev/null <<EOF2
+bind 127.0.0.1
+protected-mode yes
+port 6379
+appendonly yes
+EOF2
+
+  # Always render config from env to keep deployment deterministic.
+  run_root tee "${CONFIG_FILE}" >/dev/null <<EOF2
 port: ${PORT}
 rtc:
   tcp_port: 7881
-  use_external_ip: false
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+redis:
+  address: redis:6379
 keys:
 EOF2
-    IFS=',' read -r -a PAIRS <<< "${KEYS}"
-    for pair in "${PAIRS[@]}"; do
-      [[ -z "${pair}" ]] && continue
-      run_root tee -a "${CONFIG_FILE}" >/dev/null <<EOF2
-  ${pair}
+  IFS=',' read -r -a PAIRS <<< "${KEYS}"
+  for pair in "${PAIRS[@]}"; do
+    [[ -z "${pair}" ]] && continue
+    key="${pair%%:*}"
+    secret="${pair#*:}"
+    [[ -n "${key}" && -n "${secret}" ]] || continue
+    run_root tee -a "${CONFIG_FILE}" >/dev/null <<EOF2
+  ${key}: ${secret}
 EOF2
-    done
-  else
-    log "LiveKit config already exists at ${CONFIG_FILE}, leaving unchanged"
-  fi
+  done
+
+  run_root tee "${COMPOSE_FILE}" >/dev/null <<EOF2
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis.conf:/etc/redis/redis.conf:ro
+      - ./redis-data:/data
+
+  livekit:
+    image: livekit/livekit-server:v${VERSION}
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml", "--node-ip", "${NODE_IP}"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      - redis
+    ports:
+      - "${PORT}:${PORT}/tcp"
+      - "7881:7881/tcp"
+      - "3478:3478/udp"
+      - "50000-60000:50000-60000/udp"
+EOF2
 
   UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
   run_root tee "${UNIT_PATH}" >/dev/null <<EOF2
 [Unit]
-Description=LiveKit Server
+Description=LiveKit Server (Docker Compose)
 After=network.target
+Requires=docker.service
 
 [Service]
-Type=simple
-ExecStart=${BIN_PATH} --config ${CONFIG_FILE} --node-ip ${NODE_IP}
-Restart=always
-RestartSec=5
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=/bin/bash -lc 'docker compose -f ${COMPOSE_FILE} up -d || docker-compose -f ${COMPOSE_FILE} up -d'
+ExecStop=/bin/bash -lc 'docker compose -f ${COMPOSE_FILE} down || docker-compose -f ${COMPOSE_FILE} down'
+TimeoutStartSec=180
+TimeoutStopSec=120
 
 [Install]
 WantedBy=multi-user.target
@@ -74,7 +123,9 @@ EOF2
   run_root systemctl daemon-reload
   run_root systemctl enable "${SERVICE_NAME}"
   run_root systemctl restart "${SERVICE_NAME}"
+  log "LiveKit deployed at ${INSTALL_DIR} using service ${SERVICE_NAME}"
 else
+  BIN_PATH="${LIVEKIT_BIN_PATH:-/usr/local/bin/livekit-server}"
   if [[ -x "${BIN_PATH}" && "${FORCE_INSTALL}" != "true" ]]; then
     log "LiveKit binary already exists at ${BIN_PATH}, skipping binary install"
   else
