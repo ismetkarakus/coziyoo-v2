@@ -1,13 +1,15 @@
 # LiveKit Integration Connection Details
 
-Last updated: 2026-02-25
+Last updated: 2026-03-01
 
 ## 1) LiveKit
 
-- `LIVEKIT_URL`: `https://livekit.example.com/` (client should use `wss://livekit.example.com/`)
-- `LIVEKIT_API_KEY`: set in API/Coolify env (not stored in repo)
-- `LIVEKIT_API_SECRET`: set in API/Coolify env (not stored in repo)
+- `LIVEKIT_URL`: `wss://livekit.coziyoo.com`
+- `LIVEKIT_API_KEY`: `API2vcr7kDphBSL`
+- `LIVEKIT_API_SECRET`: `VJIYY63sZAJ2SiEnonMWecjrHTe4KnnBAAfgFzhhcrkA`
 - `LIVEKIT_AGENT_IDENTITY`: default `assistant-ai-agent`
+- Test token:
+  - `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MDgzNzUwMDQsImlzcyI6IkFQSTJ2Y3I3a0RwaEJTTCIsIm5hbWUiOiJUZXN0IFVzZXIiLCJuYmYiOjE3NzIzNzUwMDQsInN1YiI6InRlc3QtdXNlciIsInZpZGVvIjp7InJvb20iOiJteS1maXJzdC1yb29tIiwicm9vbUpvaW4iOnRydWV9fQ.UYTFikvsLF2Z993f5xFd9iv0HvURx6Dg-hwzv76B8gM`
 
 ## 2) API Server
 
