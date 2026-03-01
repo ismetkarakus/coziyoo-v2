@@ -8,7 +8,7 @@ load_config
 
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-apps/admin}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
-ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://api.YOURDOMAIN.com}"
+ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://${API_DOMAIN:-api.YOURDOMAIN.com}}"
 ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 
 [[ -f "${ADMIN_DIR_ABS}/package.json" ]] || fail "Admin package.json not found in ${ADMIN_DIR_ABS}"
