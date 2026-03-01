@@ -25,33 +25,12 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
 }
 
+# Simple sudo wrapper for root deployment
 run_root() {
-  local run_user=""
-  if [[ "${1:-}" == "-u" ]]; then
-    run_user="${2:-}"
-    [[ -n "${run_user}" ]] || fail "run_root: missing username after -u"
-    shift 2
-  fi
-  [[ "${#}" -gt 0 ]] || fail "run_root: missing command"
-
   if [[ "${EUID}" -eq 0 ]]; then
-    if [[ -n "${run_user}" ]]; then
-      if command -v runuser >/dev/null 2>&1; then
-        runuser -u "${run_user}" -- "$@"
-      else
-        local cmd
-        printf -v cmd '%q ' "$@"
-        su -s /bin/bash "${run_user}" -c "${cmd}"
-      fi
-    else
-      "$@"
-    fi
+    "$@"
   else
-    if [[ -n "${run_user}" ]]; then
-      sudo -u "${run_user}" "$@"
-    else
-      sudo "$@"
-    fi
+    sudo "$@"
   fi
 }
 
@@ -59,32 +38,11 @@ load_config() {
   local cfg="${INSTALL_CONFIG:-${INSTALL_DIR}/config.env}"
   [[ -f "${cfg}" ]] || fail "Missing config at ${cfg}. Copy installation/config.env.example to installation/config.env first."
 
-  # Parse KEY=VALUE pairs without requiring strict shell syntax.
-  # This keeps command-style values (for example: node dist/src/server.js) usable.
-  local line key value
-  while IFS= read -r line || [[ -n "${line}" ]]; do
-    line="${line%$'\r'}"
-    [[ "${line}" =~ ^[[:space:]]*$ ]] && continue
-    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
-    [[ "${line}" == *"="* ]] || fail "Invalid config line in ${cfg}: ${line}"
-
-    key="${line%%=*}"
-    value="${line#*=}"
-
-    key="$(printf '%s' "${key}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-    value="$(printf '%s' "${value}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fail "Invalid config key '${key}' in ${cfg}"
-
-    # Support optional surrounding quotes for compatibility with shell-style .env.
-    if [[ "${value}" == \"*\" && "${value}" == *\" && "${#value}" -ge 2 ]]; then
-      value="${value:1:${#value}-2}"
-    elif [[ "${value}" == \'*\' && "${value}" == *\' && "${#value}" -ge 2 ]]; then
-      value="${value:1:${#value}-2}"
-    fi
-
-    printf -v "${key}" "%s" "${value}"
-    export "${key}"
-  done < "${cfg}"
+  # Use native bash source for .env files
+  set -a
+  # shellcheck disable=SC1090
+  source "${cfg}"
+  set +a
 
   local detected_repo_root
   detected_repo_root="$(cd "${INSTALL_DIR}/.." && pwd)"
@@ -106,29 +64,10 @@ export_env_file_kv() {
   local env_file="$1"
   [[ -f "${env_file}" ]] || fail "Env file not found: ${env_file}"
 
-  local line key value
-  while IFS= read -r line || [[ -n "${line}" ]]; do
-    line="${line%$'\r'}"
-    [[ "${line}" =~ ^[[:space:]]*$ ]] && continue
-    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
-    [[ "${line}" == *"="* ]] || continue
-
-    key="${line%%=*}"
-    value="${line#*=}"
-
-    key="$(printf '%s' "${key}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-    value="$(printf '%s' "${value}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
-
-    if [[ "${value}" == \"*\" && "${value}" == *\" && "${#value}" -ge 2 ]]; then
-      value="${value:1:${#value}-2}"
-    elif [[ "${value}" == \'*\' && "${value}" == *\' && "${#value}" -ge 2 ]]; then
-      value="${value:1:${#value}-2}"
-    fi
-
-    printf -v "${key}" "%s" "${value}"
-    export "${key}"
-  done < "${env_file}"
+  set -a
+  # shellcheck disable=SC1090
+  source "${env_file}"
+  set +a
 }
 
 resolve_path() {
@@ -153,15 +92,8 @@ maybe_git_update() {
   local branch="${DEPLOY_BRANCH:-main}"
   log "Updating repo at ${repo} on branch ${branch}"
 
-  local probe_err=""
-  if ! probe_err="$(git -C "${repo}" rev-parse --is-inside-work-tree 2>&1)"; then
-    if printf '%s' "${probe_err}" | grep -qi "dubious ownership"; then
-      log "Git safe.directory issue detected for ${repo}; adding it to global safe directories"
-      git config --global --add safe.directory "${repo}"
-    else
-      fail "Git repository check failed in ${repo}: ${probe_err}"
-    fi
-  fi
+  # Add safe directory unconditionally
+  git config --global --add safe.directory "${repo}" 2>/dev/null || true
 
   (
     cd "${repo}"
@@ -219,32 +151,7 @@ install_python_project() {
 service_action() {
   local action="$1"
   local service="$2"
-  local os
-  os="$(os_type)"
-
-  if [[ "${os}" == "linux" ]]; then
-    run_root systemctl "${action}" "${service}"
-  else
-    local plist="${HOME}/Library/LaunchAgents/${service}.plist"
-    case "${action}" in
-      start)
-        launchctl load "${plist}" >/dev/null 2>&1 || true
-        ;;
-      stop)
-        launchctl unload "${plist}" >/dev/null 2>&1 || true
-        ;;
-      restart)
-        launchctl unload "${plist}" >/dev/null 2>&1 || true
-        launchctl load "${plist}"
-        ;;
-      status)
-        launchctl list | grep -F "${service}" || true
-        ;;
-      *)
-        fail "Unsupported service action: ${action}"
-        ;;
-    esac
-  fi
+  run_root systemctl "${action}" "${service}"
 }
 
 acquire_update_lock() {
@@ -254,4 +161,44 @@ acquire_update_lock() {
   else
     fail "Another deployment appears to be running (lock: ${lock_dir})"
   fi
+}
+
+# Shared function for ensuring API env defaults
+ensure_api_env_defaults() {
+  local env_file="$1"
+  local pg_db_default="${PG_DB:-coziyoo}"
+  local pg_user_default="${PG_USER:-coziyoo}"
+  local pg_password_default="${PG_PASSWORD:-coziyoo}"
+  local admin_domain="${ADMIN_DOMAIN:-admin.YOURDOMAIN.com}"
+  local cors_default="${API_CORS_ALLOWED_ORIGINS:-https://${admin_domain},http://${admin_domain},http://localhost:8081,http://localhost:5173,http://localhost:19006}"
+  local defaults=(
+    "APP_JWT_SECRET=coziyoo_app_jwt_secret_change_me_1234567890"
+    "ADMIN_JWT_SECRET=coziyoo_admin_jwt_secret_change_me_1234567890"
+    "PAYMENT_WEBHOOK_SECRET=coziyoo_webhook_secret_1234"
+    "AI_SERVER_SHARED_SECRET=coziyoo_ai_shared_secret_dummy_123456"
+    "SPEECH_TO_TEXT_API_KEY=coziyoo_stt_api_key_dummy"
+    "TTS_API_KEY=coziyoo_tts_api_key_dummy"
+    "N8N_API_KEY=coziyoo_n8n_api_key_dummy"
+    "PGHOST=127.0.0.1"
+    "PGPORT=5432"
+    "PGUSER=${pg_user_default}"
+    "PGPASSWORD=${pg_password_default}"
+    "PGDATABASE=${pg_db_default}"
+    "CORS_ALLOWED_ORIGINS=${cors_default}"
+  )
+
+  if [[ ! -f "${env_file}" ]]; then
+    log "Creating API env file at ${env_file}"
+    mkdir -p "$(dirname "${env_file}")"
+    printf "%s\n" "${defaults[@]}" > "${env_file}"
+    return
+  fi
+
+  local entry key
+  for entry in "${defaults[@]}"; do
+    key="${entry%%=*}"
+    if ! grep -q "^${key}=" "${env_file}"; then
+      echo "${entry}" >> "${env_file}"
+    fi
+  done
 }

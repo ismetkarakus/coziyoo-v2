@@ -6,11 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 load_config
 
-if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
-  log "INGRESS_MODE is not npm, skipping Nginx Proxy Manager install"
-  exit 0
-fi
-
 OS="$(os_type)"
 if [[ "${OS}" != "linux" ]]; then
   log "Nginx Proxy Manager installer currently supports Linux only, skipping"
@@ -58,10 +53,10 @@ if run_root docker ps -a --format '{{.Names}}' | grep -qx 'nginx-proxy-manager';
   exit 0
 fi
 
-if [[ "${INGRESS_MODE:-nginx}" == "npm" ]] && run_root systemctl is-active --quiet nginx; then
+# Stop local nginx to free ports for NPM
+if run_root systemctl is-active --quiet nginx; then
   log "Stopping local nginx to free ports for Nginx Proxy Manager"
   run_root systemctl stop nginx || true
-  run_root systemctl disable nginx || true
 fi
 
 run_root mkdir -p "${NPM_INSTALL_DIR}/data" "${NPM_INSTALL_DIR}/letsencrypt"

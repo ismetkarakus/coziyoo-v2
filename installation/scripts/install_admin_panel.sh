@@ -11,11 +11,9 @@ if [[ "${INSTALL_ADMIN:-true}" != "true" ]]; then
   exit 0
 fi
 
-ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-admin-panel}")"
+ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-apps/admin}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
-ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://api.coziyoo.com}"
-ADMIN_SERVICE_NAME="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 
 [[ -d "${ADMIN_DIR_ABS}" ]] || fail "Admin directory not found: ${ADMIN_DIR_ABS}"
 maybe_git_update "${REPO_ROOT}"
@@ -26,10 +24,19 @@ log "Building admin panel in ${ADMIN_DIR_ABS}"
 (
   cd "${ADMIN_DIR_ABS}"
   BUILD_COMMIT="$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  
+  # Get API base URL from root env or use default
+  ROOT_ENV="${REPO_ROOT}/.env"
+  if [[ -f "${ROOT_ENV}" ]]; then
+    # shellcheck disable=SC1090
+    source "${ROOT_ENV}"
+  fi
+  
   cat > .env.production <<EOF
-VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
+VITE_API_BASE_URL=${API_DOMAIN:-https://api.YOURDOMAIN.com}
 VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
+  
   if [[ -f package-lock.json ]]; then
     npm ci --silent --no-audit --no-fund --loglevel=error
   else
@@ -42,35 +49,32 @@ log "Publishing admin files to ${PUBLISH_DIR}"
 run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -a --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
-if [[ "$(os_type)" == "linux" ]]; then
-  require_cmd python3
-  UNIT_PATH="/etc/systemd/system/${ADMIN_SERVICE_NAME}.service"
-  log "Configuring ${ADMIN_SERVICE_NAME} to serve admin panel with python on 0.0.0.0:${ADMIN_PORT}"
-  run_root tee "${UNIT_PATH}" >/dev/null <<EOF2
-[Unit]
-Description=Coziyoo Admin Static Service (Python HTTP)
-After=network.target
+# Create nginx config for admin static files
+NGINX_CONF="/etc/nginx/sites-available/coziyoo-admin.conf"
+NGINX_ENABLED="/etc/nginx/sites-enabled/coziyoo-admin.conf"
 
-[Service]
-Type=simple
-WorkingDirectory=${PUBLISH_DIR}
-ExecStart=/usr/bin/env python3 -m http.server ${ADMIN_PORT} --bind 0.0.0.0 --directory ${PUBLISH_DIR}
-Restart=always
-RestartSec=2
+log "Creating nginx config for admin panel at ${NGINX_CONF}"
+run_root tee "${NGINX_CONF}" >/dev/null <<EOF
+server {
+    listen ${ADMIN_PORT};
+    server_name _;
+    root ${PUBLISH_DIR};
+    index index.html;
 
-[Install]
-WantedBy=multi-user.target
-EOF2
+    location / {
+        try_files \$uri /index.html;
+    }
 
-  run_root systemctl daemon-reload
-  run_root systemctl enable "${ADMIN_SERVICE_NAME}"
-  run_root systemctl restart "${ADMIN_SERVICE_NAME}"
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+EOF
 
-  if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
-    LOCAL_CONF_AVAIL="/etc/nginx/sites-available/coziyoo-admin-local.conf"
-    LOCAL_CONF_ENABLED="/etc/nginx/sites-enabled/coziyoo-admin-local.conf"
-    run_root rm -f "${LOCAL_CONF_ENABLED}" "${LOCAL_CONF_AVAIL}"
-  fi
-fi
+run_root ln -sf "${NGINX_CONF}" "${NGINX_ENABLED}"
+run_root nginx -t
+run_root systemctl reload nginx
 
-log "Admin panel setup finished"
+log "Admin panel setup finished (served by nginx on port ${ADMIN_PORT})"

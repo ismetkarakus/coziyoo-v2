@@ -1,5 +1,0 @@
-BEGIN;
-
-TRUNCATE TABLE users, foods, orders RESTART IDENTITY CASCADE;
-
-COMMIT;

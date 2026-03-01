@@ -11,8 +11,7 @@ if [[ "${INSTALL_PREREQS:-true}" != "true" ]]; then
   exit 0
 fi
 
-OS="$(os_type)"
-log "Installing prerequisites for ${OS}"
+log "Installing prerequisites for Linux"
 
 apt_install_with_repair() {
   if run_root apt-get -y -qq install "$@"; then
@@ -60,62 +59,46 @@ EOF
   log "Installed Node.js $(node -v), npm $(npm -v)"
 }
 
-if [[ "${OS}" == "linux" ]]; then
-  REQUIRED_CMDS=(git curl rsync nginx psql python3 npm)
-  MISSING_CMDS=()
-  for cmd in "${REQUIRED_CMDS[@]}"; do
-    if ! command -v "${cmd}" >/dev/null 2>&1; then
-      MISSING_CMDS+=("${cmd}")
-    fi
-  done
-
-  if [[ "${#MISSING_CMDS[@]}" -gt 0 ]]; then
-    run_root apt-get -qq update
-    if ! apt_install_with_repair \
-      git \
-      curl \
-      rsync \
-      nginx \
-      postgresql \
-      postgresql-contrib \
-      python3 \
-      python3-venv \
-      python3-pip \
-      npm; then
-      STILL_MISSING=()
-      for cmd in "${REQUIRED_CMDS[@]}"; do
-        if ! command -v "${cmd}" >/dev/null 2>&1; then
-          STILL_MISSING+=("${cmd}")
-        fi
-      done
-      if [[ "${#STILL_MISSING[@]}" -gt 0 ]]; then
-        fail "Unable to install required packages due to apt issues. Missing commands: ${STILL_MISSING[*]}"
-      fi
-      log "apt reported issues but required commands are present; continuing"
-    fi
-  else
-    log "Required system packages already present; skipping apt package installation"
+REQUIRED_CMDS=(git curl rsync nginx psql python3 npm)
+MISSING_CMDS=()
+for cmd in "${REQUIRED_CMDS[@]}"; do
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    MISSING_CMDS+=("${cmd}")
   fi
+done
 
-  ensure_node20_linux
-
-  if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
-    run_root systemctl enable nginx
-    run_root systemctl start nginx
-  else
-    log "INGRESS_MODE=npm, skipping local nginx service install/start"
+if [[ "${#MISSING_CMDS[@]}" -gt 0 ]]; then
+  run_root apt-get -qq update
+  if ! apt_install_with_repair \
+    git \
+    curl \
+    rsync \
+    nginx \
+    postgresql \
+    postgresql-contrib \
+    python3 \
+    python3-venv \
+    python3-pip \
+    npm; then
+    STILL_MISSING=()
+    for cmd in "${REQUIRED_CMDS[@]}"; do
+      if ! command -v "${cmd}" >/dev/null 2>&1; then
+        STILL_MISSING+=("${cmd}")
+      fi
+    done
+    if [[ "${#STILL_MISSING[@]}" -gt 0 ]]; then
+      fail "Unable to install required packages due to apt issues. Missing commands: ${STILL_MISSING[*]}"
+    fi
+    log "apt reported issues but required commands are present; continuing"
   fi
 else
-  require_cmd brew
-  brew update
-  if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
-    brew install git curl rsync nginx postgresql@16 python@3.11 node
-    brew services start nginx
-  else
-    brew install git curl rsync postgresql@16 python@3.11 node
-    log "INGRESS_MODE=npm, skipping local nginx service install/start"
-  fi
-  brew services start postgresql@16
+  log "Required system packages already present; skipping apt package installation"
 fi
+
+ensure_node20_linux
+
+# Enable nginx for local static file serving (admin panel)
+run_root systemctl enable nginx
+run_root systemctl start nginx
 
 log "Prerequisites installed"
