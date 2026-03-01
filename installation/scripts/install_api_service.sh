@@ -41,10 +41,15 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
   source "${ROOT_ENV}"
   set +a
   
+  # Avoid platform-specific optional package failures (e.g. android-only binaries).
+  NPM_INSTALL_FLAGS=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
   if [[ -f package-lock.json ]]; then
-    npm ci --silent --no-audit --no-fund --loglevel=error
+    if ! npm ci "${NPM_INSTALL_FLAGS[@]}"; then
+      log "npm ci failed (likely lock/platform optional package mismatch), retrying with npm install"
+      npm install "${NPM_INSTALL_FLAGS[@]}"
+    fi
   else
-    npm install --silent --no-audit --no-fund --loglevel=error
+    npm install "${NPM_INSTALL_FLAGS[@]}"
   fi
   npm run build
 )
