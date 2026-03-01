@@ -13,7 +13,7 @@ log "Stopping all managed services before update"
 "${SCRIPT_DIR}/run_all.sh" stop || true
 
 "${SCRIPT_DIR}/update_api_service.sh"
-"${SCRIPT_DIR}/update_agent_service.sh"
+"${SCRIPT_DIR}/update_agent_python_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
 
 API_PORT="${API_PORT:-3000}"
