@@ -5371,6 +5371,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                   />
                   <button className="ghost" type="button" onClick={addNote}>Not</button>
                   <button className="ghost" type="button" onClick={addTag}>Etiket</button>
+                  <button className="ghost" type="button" onClick={() => switchBuyerTab("activity")}>Kayit</button>
                 </div>
                 <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
               </div>
