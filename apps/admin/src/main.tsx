@@ -106,6 +106,10 @@ function fmt(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => String(vars[key] ?? ""));
 }
 
+function formatTableHeader(column: string): string {
+  return column.replace(/_/g, " ");
+}
+
 function adminRoleLabel(dict: Dictionary, value: "admin" | "super_admin"): string {
   return value === "admin" ? dict.users.roleAdmin : dict.users.roleSuperAdmin;
 }
@@ -3280,7 +3284,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
             <thead>
               <tr>
                 {columns.map((column) => (
-                  <th key={column}>{column}</th>
+                  <th key={column}>{formatTableHeader(column)}</th>
                 ))}
               </tr>
             </thead>
@@ -3481,7 +3485,7 @@ function EntitiesPage({ language }: { language: Language }) {
               <thead>
                 <tr>
                   {columns.map((column) => (
-                    <th key={column}>{column}</th>
+                    <th key={column}>{formatTableHeader(column)}</th>
                   ))}
                 </tr>
               </thead>
