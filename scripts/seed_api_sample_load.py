@@ -425,6 +425,48 @@ def seed_categories(conn: Any, *, count: int) -> list[dict[str, Any]]:
     return categories
 
 
+def ensure_user_gps_columns(conn: Any) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS latitude NUMERIC(9,6)
+            """
+        )
+        cur.execute(
+            """
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS longitude NUMERIC(9,6)
+            """
+        )
+        cur.execute(
+            """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'users_latitude_range_check'
+              ) THEN
+                ALTER TABLE users
+                ADD CONSTRAINT users_latitude_range_check CHECK (latitude BETWEEN -90 AND 90);
+              END IF;
+            END $$;
+            """
+        )
+        cur.execute(
+            """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'users_longitude_range_check'
+              ) THEN
+                ALTER TABLE users
+                ADD CONSTRAINT users_longitude_range_check CHECK (longitude BETWEEN -180 AND 180);
+              END IF;
+            END $$;
+            """
+        )
+
+
 def backfill_users(conn: Any, users: list[UserAccount], *, role: str) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     with conn.cursor() as cur:
@@ -639,6 +681,7 @@ def main() -> int:
     conn, db_driver = open_db(args.database_url)
     print(f"connected to postgres with driver={db_driver}")
     try:
+        ensure_user_gps_columns(conn)
         categories = seed_categories(conn, count=args.categories)
         buyer_geo = backfill_users(conn, buyers, role="buyer")
         seller_geo = backfill_users(conn, sellers, role="seller")
