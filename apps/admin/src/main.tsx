@@ -5273,36 +5273,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
 
       <section className="buyer-ref-content">
         <div className="buyer-ref-left">
-          <section className="panel buyer-ops-side-card buyer-ref-contact-side">
-            <h2>Iletisim & Adres</h2>
-            <button type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(contactInfo?.addresses.home?.addressLine ?? null)}>
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
-              <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
-            </button>
-            <button type="button" className="buyer-ref-link-block" onClick={() => openDialer(phone)}>
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
-              <p className="buyer-ref-contact-value buyer-ref-phone-row">
-                <strong>{phone}</strong>
-                <span className="buyer-ref-online-dot" aria-hidden="true" />
-              </p>
-              <p className="panel-meta">{locations.length} segilones</p>
-            </button>
-            <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
-              <p className="buyer-ref-contact-value">{detailLastLoginAt}</p>
-              {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
-            </button>
-            <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Kimlik</p>
-              <div className="buyer-ref-contact-id-row">
-                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
-                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
-                  <span aria-hidden="true">□</span> <span aria-hidden="true">⌄</span>
-                </button>
-              </div>
-            </div>
-          </section>
-
           <section className="panel buyer-ref-main-panel">
             <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
               <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => switchBuyerTab("orders")} type="button">Siparisler</button>
@@ -5516,6 +5486,78 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           </section>
 
         </div>
+
+        <aside className="buyer-ref-right">
+          <section className="panel buyer-ops-side-card buyer-ref-contact-side">
+            <h2>Iletisim & Adres</h2>
+            <button type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(contactInfo?.addresses.home?.addressLine ?? null)}>
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
+              <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+            </button>
+            <button type="button" className="buyer-ref-link-block" onClick={() => openDialer(phone)}>
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
+              <p className="buyer-ref-contact-value buyer-ref-phone-row">
+                <strong>{phone}</strong>
+                <span className="buyer-ref-online-dot" aria-hidden="true" />
+              </p>
+              <p className="panel-meta">{locations.length} segilones</p>
+            </button>
+            <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
+              <p className="buyer-ref-contact-value">{detailLastLoginAt}</p>
+              {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
+            </button>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Kimlik</p>
+              <div className="buyer-ref-contact-id-row">
+                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
+                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
+                  <span aria-hidden="true">□</span> <span aria-hidden="true">⌄</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel buyer-ops-side-card buyer-ref-activity-card">
+            <div className="panel-header">
+              <h2>Aktivite Logu</h2>
+              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("activity")}>Ac</button>
+            </div>
+            <div className="buyer-ops-activity-mini">
+              {activityRows.slice(0, 2).map((item) => (
+                <article key={item.id} className="buyer-ref-click-item" onClick={() => switchBuyerTab("activity")} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    switchBuyerTab("activity");
+                  }
+                }}>
+                  <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
+                  <p className="buyer-ref-activity-action">{item.action}</p>
+                  <p className="panel-meta">{item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel buyer-ops-side-card buyer-ref-notes-card">
+            <div className="panel-header">
+              <h2>Notlar & Etiketler</h2>
+              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
+            </div>
+            <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
+            <div className="buyer-ops-note-form">
+              <input
+                value={noteInput}
+                onChange={(event) => setNoteInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") addNote();
+                }}
+                placeholder="Not Ekle veya Etiketle"
+              />
+            </div>
+            <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etikes</p>
+          </section>
+        </aside>
       </section>
 
       {smsOpen ? (
