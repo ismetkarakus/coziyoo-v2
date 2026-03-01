@@ -8,6 +8,8 @@ load_config
 
 API_DIR_ABS="$(resolve_path "${API_DIR:-.}")"
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
+SEED_ADMIN_EMAIL_VALUE="${SEED_ADMIN_EMAIL:-admin@coziyoo.com}"
+SEED_ADMIN_PASSWORD_VALUE="${SEED_ADMIN_PASSWORD:-12345}"
 [[ -f "${API_DIR_ABS}/package.json" ]] || fail "API package.json not found in ${API_DIR_ABS}"
 
 maybe_git_update "${REPO_ROOT}"
@@ -21,6 +23,7 @@ maybe_git_update "${REPO_ROOT}"
   fi
   npm run build
   npm run db:migrate
+  SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL_VALUE}" SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD_VALUE}" npm run seed:admin
 )
 
 service_action restart "${SERVICE_NAME}"

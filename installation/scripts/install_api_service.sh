@@ -15,6 +15,8 @@ API_DIR_ABS="$(resolve_path "${API_DIR:-.}")"
 [[ -d "${API_DIR_ABS}" ]] || fail "API directory not found: ${API_DIR_ABS}"
 [[ -f "${API_DIR_ABS}/package.json" ]] || fail "package.json not found in API dir: ${API_DIR_ABS}"
 ENV_FILE="${API_ENV_FILE:-${API_DIR_ABS}/.env}"
+SEED_ADMIN_EMAIL_VALUE="${SEED_ADMIN_EMAIL:-admin@coziyoo.com}"
+SEED_ADMIN_PASSWORD_VALUE="${SEED_ADMIN_PASSWORD:-12345}"
 
 ensure_api_env_defaults() {
   local env_file="$1"
@@ -79,6 +81,7 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
   fi
   npm run build
   npm run db:migrate
+  SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL_VALUE}" SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD_VALUE}" npm run seed:admin
 )
 
 OS="$(os_type)"
