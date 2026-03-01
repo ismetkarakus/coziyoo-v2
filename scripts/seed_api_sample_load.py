@@ -175,6 +175,12 @@ class UserAccount:
     full_name: str
 
 
+def short_id(value: str, n: int = 8) -> str:
+    if not value:
+        return value
+    return value[:n]
+
+
 def now_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
 
@@ -661,7 +667,7 @@ def main() -> int:
             user_type="buyer",
         )
         buyers.append(account)
-        print(f"[buyer {i + 1}/{args.buyers}] {account.email} ({account.user_id})")
+        print(f"[buyer {i + 1}/{args.buyers}] {account.email} ({short_id(account.user_id)})")
 
     for i in range(args.sellers):
         handle, full_name = profile_for(i, TURKISH_SELLER_NAMES)
@@ -676,7 +682,7 @@ def main() -> int:
             user_type="seller",
         )
         sellers.append(account)
-        print(f"[seller {i + 1}/{args.sellers}] {account.email} ({account.user_id})")
+        print(f"[seller {i + 1}/{args.sellers}] {account.email} ({short_id(account.user_id)})")
 
     conn, db_driver = open_db(args.database_url)
     print(f"connected to postgres with driver={db_driver}")
@@ -741,7 +747,10 @@ def main() -> int:
             )
             order_no = buyer_idx * args.orders_per_buyer + order_idx + 1
             total_orders = args.buyers * args.orders_per_buyer
-            print(f"[order {order_no}/{total_orders}] orderId={order_id} buyer={buyer.user_id} seller={seller_id}")
+            print(
+                f"[order {order_no}/{total_orders}] orderId={short_id(order_id)} "
+                f"buyer={short_id(buyer.user_id)} seller={short_id(seller_id)}"
+            )
             time.sleep(max(0.0, args.order_interval_seconds))
 
     summary = {
