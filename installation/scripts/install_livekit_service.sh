@@ -40,6 +40,14 @@ if [[ "${OS}" == "linux" ]]; then
     run_root apt-get -y -qq install docker.io
   fi
   ensure_compose_installed
+  COMPOSE_CMD=""
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+  else
+    fail "Neither 'docker compose' nor 'docker-compose' is available"
+  fi
 
   run_root systemctl enable docker
   run_root systemctl start docker
@@ -111,9 +119,9 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=/bin/bash -lc 'docker compose -f ${COMPOSE_FILE} up -d || docker-compose -f ${COMPOSE_FILE} up -d'
-ExecStop=/bin/bash -lc 'docker compose -f ${COMPOSE_FILE} down || docker-compose -f ${COMPOSE_FILE} down'
-TimeoutStartSec=180
+ExecStart=/bin/bash -lc '${COMPOSE_CMD} -f ${COMPOSE_FILE} up -d --remove-orphans'
+ExecStop=/bin/bash -lc '${COMPOSE_CMD} -f ${COMPOSE_FILE} down'
+TimeoutStartSec=0
 TimeoutStopSec=120
 
 [Install]
