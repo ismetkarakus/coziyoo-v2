@@ -42,10 +42,23 @@ jobs:
       - name: Trust target host keys
         run: |
           set -euo pipefail
+          trim() {
+            local s="$1"
+            s="${s%$'\r'}"
+            s="${s#"${s%%[![:space:]]*}"}"
+            s="${s%"${s##*[![:space:]]}"}"
+            printf "%s" "${s}"
+          }
+
           touch "${HOME}/.ssh/known_hosts"
           chmod 600 "${HOME}/.ssh/known_hosts"
 
           while IFS='|' read -r NAME HOST USER PORT REPO_PATH; do
+            NAME="$(trim "${NAME:-}")"
+            HOST="$(trim "${HOST:-}")"
+            USER="$(trim "${USER:-}")"
+            PORT="$(trim "${PORT:-}")"
+            REPO_PATH="$(trim "${REPO_PATH:-}")"
             [[ -z "${NAME}${HOST}${USER}${PORT}${REPO_PATH}" ]] && continue
             [[ "${NAME}" =~ ^# ]] && continue
 
@@ -63,8 +76,20 @@ jobs:
       - name: Deploy
         run: |
           set -euo pipefail
+          trim() {
+            local s="$1"
+            s="${s%$'\r'}"
+            s="${s#"${s%%[![:space:]]*}"}"
+            s="${s%"${s##*[![:space:]]}"}"
+            printf "%s" "${s}"
+          }
 
           while IFS='|' read -r NAME HOST USER PORT REPO_PATH; do
+            NAME="$(trim "${NAME:-}")"
+            HOST="$(trim "${HOST:-}")"
+            USER="$(trim "${USER:-}")"
+            PORT="$(trim "${PORT:-}")"
+            REPO_PATH="$(trim "${REPO_PATH:-}")"
             [[ -z "${NAME}${HOST}${USER}${PORT}${REPO_PATH}" ]] && continue
             [[ "${NAME}" =~ ^# ]] && continue
 
