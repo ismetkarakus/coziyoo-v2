@@ -1903,6 +1903,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
 
             <div className="buyer-v2-toolbar-actions">
+              <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => navigate("/app/dashboard")}>
+                Yapilacak Bekleyen Isler
+              </button>
               <div className="buyer-v2-filter-wrap" ref={buyerFilterWrapRef}>
                 <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerFilterMenuOpen((prev) => !prev)}>
                   <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
