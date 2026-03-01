@@ -12,7 +12,6 @@ if [[ "${INSTALL_LIVEKIT:-true}" != "true" ]]; then
 fi
 
 OS="$(os_type)"
-SERVICE_NAME="${LIVEKIT_SERVICE_NAME:-livekit-docker}"
 VERSION="${LIVEKIT_VERSION:-1.8.3}"
 INSTALL_DIR="/opt/livekit"
 CONFIG_FILE="${LIVEKIT_CONFIG_FILE:-${INSTALL_DIR}/livekit.yaml}"
@@ -108,30 +107,8 @@ services:
       - "50000-60000:50000-60000/udp"
 EOF2
 
-  UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
-  run_root tee "${UNIT_PATH}" >/dev/null <<EOF2
-[Unit]
-Description=LiveKit Server (Docker Compose)
-After=network.target
-Requires=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=${INSTALL_DIR}
-ExecStart=/bin/bash -lc '${COMPOSE_CMD} -f ${COMPOSE_FILE} up -d --remove-orphans'
-ExecStop=/bin/bash -lc '${COMPOSE_CMD} -f ${COMPOSE_FILE} down'
-TimeoutStartSec=0
-TimeoutStopSec=120
-
-[Install]
-WantedBy=multi-user.target
-EOF2
-
-  run_root systemctl daemon-reload
-  run_root systemctl enable "${SERVICE_NAME}"
-  run_root systemctl restart "${SERVICE_NAME}"
-  log "LiveKit deployed at ${INSTALL_DIR} using service ${SERVICE_NAME}"
+  run_root bash -lc "cd '${INSTALL_DIR}' && ${COMPOSE_CMD} -f '${COMPOSE_FILE}' up -d --remove-orphans"
+  log "LiveKit deployed at ${INSTALL_DIR} using Docker Compose"
 else
   BIN_PATH="${LIVEKIT_BIN_PATH:-/usr/local/bin/livekit-server}"
   if [[ -x "${BIN_PATH}" && "${FORCE_INSTALL}" != "true" ]]; then

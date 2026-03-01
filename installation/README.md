@@ -82,6 +82,7 @@ bash installation/scripts/update_all.sh
 ## 5) Notes
 
 - Linux services: `systemd`
+- LiveKit on Linux: Docker Compose under `/opt/livekit` (managed by `run_all.sh livekit` helpers)
 - macOS services: `launchd`
 - API runtime: `node dist/src/server.js`
 - Keep separate env files per service.
