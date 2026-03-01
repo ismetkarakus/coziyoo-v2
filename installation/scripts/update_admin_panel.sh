@@ -8,6 +8,7 @@ load_config
 
 ADMIN_DIR_ABS="$(resolve_path "${ADMIN_DIR:-admin-panel}")"
 PUBLISH_DIR="${ADMIN_PUBLISH_DIR:-/var/www/coziyoo-admin}"
+ADMIN_API_BASE_URL="${ADMIN_API_BASE_URL:-https://api.coziyoo.com}"
 
 [[ -f "${ADMIN_DIR_ABS}/package.json" ]] || fail "Admin package.json not found in ${ADMIN_DIR_ABS}"
 
@@ -15,6 +16,9 @@ maybe_git_update "${REPO_ROOT}"
 
 (
   cd "${ADMIN_DIR_ABS}"
+  cat > .env.production <<EOF
+VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
+EOF
   if [[ ! -d node_modules ]]; then
     fail "node_modules missing in ${ADMIN_DIR_ABS}. Run install_all.sh once before update_all.sh."
   fi
