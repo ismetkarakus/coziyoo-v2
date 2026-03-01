@@ -21,6 +21,8 @@ CREATE TABLE users (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   country_code TEXT,
   language TEXT,
+  latitude NUMERIC(9,6) CHECK (latitude BETWEEN -90 AND 90),
+  longitude NUMERIC(9,6) CHECK (longitude BETWEEN -180 AND 180),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
