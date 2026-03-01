@@ -5087,6 +5087,25 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       .catch(() => setMessage("Kopyalama basarisiz."));
   }
 
+  function openAddressInMaps(address: string | null | undefined) {
+    const value = String(address ?? "").trim();
+    if (!value || value.toLowerCase() === "adres yok") {
+      setMessage("Acilabilir adres bulunamadi.");
+      return;
+    }
+    const target = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`;
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
+
+  function openDialer(phoneValue: string | null | undefined) {
+    const normalized = String(phoneValue ?? "").trim();
+    if (!normalized || normalized.toLowerCase() === "bilinmiyor") {
+      setMessage("Aranabilir telefon bulunamadi.");
+      return;
+    }
+    window.location.href = `tel:${normalized.replace(/\s+/g, "")}`;
+  }
+
   function downloadBuyerOrdersAsExcel() {
     if (orders.length === 0) {
       setMessage("Disa aktarilacak siparis bulunamadi.");
@@ -5475,23 +5494,23 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         <aside className="buyer-ref-right">
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
             <h2>Iletisim & Adres</h2>
-            <div className="buyer-ref-contact-block">
+            <button type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(contactInfo?.addresses.home?.addressLine ?? null)}>
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
               <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
-            </div>
-            <div className="buyer-ref-contact-block">
+            </button>
+            <button type="button" className="buyer-ref-link-block" onClick={() => openDialer(phone)}>
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
               <p className="buyer-ref-contact-value buyer-ref-phone-row">
                 <strong>{phone}</strong>
                 <span className="buyer-ref-online-dot" aria-hidden="true" />
               </p>
               <p className="panel-meta">{locations.length} segilones</p>
-            </div>
-            <div className="buyer-ref-contact-block">
+            </button>
+            <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
               <p className="buyer-ref-contact-value">{detailLastLoginAt}</p>
               {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
-            </div>
+            </button>
             <div className="buyer-ref-contact-block">
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Kimlik</p>
               <div className="buyer-ref-contact-id-row">
@@ -5504,10 +5523,18 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           </section>
 
           <section className="panel buyer-ops-side-card buyer-ref-activity-card">
-            <div className="panel-header"><h2>Aktivite Logu</h2></div>
+            <div className="panel-header">
+              <h2>Aktivite Logu</h2>
+              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("activity")}>Ac</button>
+            </div>
             <div className="buyer-ops-activity-mini">
               {activityRows.slice(0, 2).map((item) => (
-                <article key={item.id}>
+                <article key={item.id} className="buyer-ref-click-item" onClick={() => switchBuyerTab("activity")} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    switchBuyerTab("activity");
+                  }
+                }}>
                   <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
                   <p className="buyer-ref-activity-action">{item.action}</p>
                   <p className="panel-meta">{item.detail}</p>
@@ -5517,7 +5544,10 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           </section>
 
           <section className="panel buyer-ops-side-card buyer-ref-notes-card">
-            <div className="panel-header"><h2>Notlar & Etiketler</h2></div>
+            <div className="panel-header">
+              <h2>Notlar & Etiketler</h2>
+              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
+            </div>
             <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
             <div className="buyer-ops-note-form">
               <input
