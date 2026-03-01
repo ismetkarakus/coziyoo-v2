@@ -114,6 +114,10 @@ bash installation/scripts/update_all.sh
 
 This pulls latest code, rebuilds, and restarts services.
 
+Health check behavior during updates:
+- Default liveness endpoint: `/v1` (ensures API process is up)
+- Optional strict DB check: set `STRICT_DB_HEALTHCHECK=true` to also require `/v1/health`
+
 ## 5) Auto-Deploy on Git Push (GitHub Actions)
 
 To deploy automatically when you push to `main`, this repo includes:
