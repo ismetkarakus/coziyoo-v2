@@ -82,11 +82,20 @@ app.use(requestContext);
 // Some upstream proxies/clients send quoted charset (e.g. charset="UTF-8"),
 // which body-parser rejects. Normalize it before JSON parsing.
 app.use((req, _res, next) => {
-  const ct = req.headers["content-type"];
+  const ct = req.headers["content-type"] as string | string[] | undefined;
+  const normalize = (value: string): string => {
+    let out = value;
+    // Normalize quoted/odd charset formats to plain utf-8 token.
+    out = out.replace(/charset\s*=\s*["']?\s*utf-?8\s*["']?/i, "charset=utf-8");
+    // Generic fallback: strip quotes around charset value.
+    out = out.replace(/charset\s*=\s*["']([^"']+)["']/i, (_m, cs: string) => `charset=${cs.toLowerCase()}`);
+    return out;
+  };
+
   if (typeof ct === "string") {
-    req.headers["content-type"] = ct
-      .replace(/charset\s*=\s*"([^"]+)"/i, (_m, cs: string) => `charset=${cs.toLowerCase()}`)
-      .replace(/charset\s*=\s*'([^']+)'/i, (_m, cs: string) => `charset=${cs.toLowerCase()}`);
+    req.headers["content-type"] = normalize(ct);
+  } else if (Array.isArray(ct) && ct.length > 0) {
+    req.headers["content-type"] = normalize(ct[0]);
   }
   next();
 });
