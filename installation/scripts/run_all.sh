@@ -10,7 +10,7 @@ ACTION="${1:-}"
 SERVICE="${2:-}"
 
 if [[ -z "${ACTION}" ]]; then
-  echo "Usage: $0 <start|stop|restart|status|logs> [api|agent|admin|livekit|nginx|postgres]"
+  echo "Usage: $0 <start|stop|restart|status|logs> [api|agent|admin|nginx|postgres]"
   exit 1
 fi
 
@@ -21,15 +21,12 @@ if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
 else
   admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 fi
-LIVEKIT_DIR="/opt/livekit"
-LIVEKIT_COMPOSE_FILE="${LIVEKIT_DIR}/docker-compose.yaml"
 
 service_for_name() {
   case "$1" in
     api) echo "${api_service}" ;;
     agent) echo "${agent_service}" ;;
     admin) echo "${admin_service}" ;;
-    livekit) echo "livekit" ;;
     nginx) echo "nginx" ;;
     postgres)
       if [[ "$(os_type)" == "linux" ]]; then
@@ -44,37 +41,6 @@ service_for_name() {
 
 run_on_service() {
   local name="$1"
-  if [[ "${name}" == "livekit" && "$(os_type)" == "linux" ]]; then
-    local compose_cmd=""
-    if docker compose version >/dev/null 2>&1; then
-      compose_cmd="docker compose"
-    elif command -v docker-compose >/dev/null 2>&1; then
-      compose_cmd="docker-compose"
-    else
-      fail "LiveKit compose command not found ('docker compose' or 'docker-compose')"
-    fi
-    [[ -f "${LIVEKIT_COMPOSE_FILE}" ]] || fail "LiveKit compose file not found at ${LIVEKIT_COMPOSE_FILE}"
-
-    case "${ACTION}" in
-      start|restart)
-        run_root bash -lc "cd '${LIVEKIT_DIR}' && ${compose_cmd} -f '${LIVEKIT_COMPOSE_FILE}' up -d --remove-orphans"
-        ;;
-      stop)
-        run_root bash -lc "cd '${LIVEKIT_DIR}' && ${compose_cmd} -f '${LIVEKIT_COMPOSE_FILE}' down"
-        ;;
-      status)
-        run_root bash -lc "cd '${LIVEKIT_DIR}' && ${compose_cmd} -f '${LIVEKIT_COMPOSE_FILE}' ps"
-        ;;
-      logs)
-        run_root bash -lc "cd '${LIVEKIT_DIR}' && ${compose_cmd} -f '${LIVEKIT_COMPOSE_FILE}' logs --tail=100"
-        ;;
-      *)
-        fail "Unsupported action: ${ACTION}"
-        ;;
-    esac
-    return
-  fi
-
   local resolved
   resolved="$(service_for_name "${name}")"
 
@@ -103,7 +69,6 @@ else
   if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
     run_on_service admin
   fi
-  run_on_service livekit
   if [[ "${INGRESS_MODE:-nginx}" != "npm" ]]; then
     run_on_service nginx
   else

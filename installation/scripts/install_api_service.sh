@@ -30,8 +30,6 @@ ensure_api_env_defaults() {
     "APP_JWT_SECRET=coziyoo_app_jwt_secret_change_me_1234567890"
     "ADMIN_JWT_SECRET=coziyoo_admin_jwt_secret_change_me_1234567890"
     "PAYMENT_WEBHOOK_SECRET=coziyoo_webhook_secret_1234"
-    "LIVEKIT_API_KEY=coziyoo_livekit_api_key_dummy"
-    "LIVEKIT_API_SECRET=coziyoo_livekit_api_secret_dummy_12345678"
     "AI_SERVER_SHARED_SECRET=coziyoo_ai_shared_secret_dummy_123456"
     "SPEECH_TO_TEXT_API_KEY=coziyoo_stt_api_key_dummy"
     "TTS_API_KEY=coziyoo_tts_api_key_dummy"

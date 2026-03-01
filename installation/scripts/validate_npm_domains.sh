@@ -8,13 +8,12 @@ load_config
 
 API_DOMAIN="${API_DOMAIN:-api.coziyoo.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.coziyoo.com}"
-LIVEKIT_DOMAIN="${LIVEKIT_DOMAIN:-livekit.coziyoo.com}"
 AGENT_DOMAIN="${AGENT_DOMAIN:-agent.coziyoo.com}"
 AGENT_HEALTH_PATH="${AGENT_HEALTH_PATH:-/health}"
 
 log "Validating DNS + HTTPS reachability for NPM domains"
 
-for host in "${API_DOMAIN}" "${ADMIN_DOMAIN}" "${LIVEKIT_DOMAIN}" "${AGENT_DOMAIN}"; do
+for host in "${API_DOMAIN}" "${ADMIN_DOMAIN}" "${AGENT_DOMAIN}"; do
   if command -v getent >/dev/null 2>&1; then
     getent hosts "${host}" >/dev/null || fail "DNS resolution failed for ${host}"
   elif command -v dig >/dev/null 2>&1; then
