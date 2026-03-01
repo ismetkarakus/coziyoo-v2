@@ -55,6 +55,22 @@ type Language = "tr" | "en";
 type Dictionary = typeof en;
 type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw";
 type BuyerDetailTab = "orders" | "payments" | "complaints" | "reviews" | "activity" | "notes";
+type BuyerSmartFilterKey =
+  | "daily_buyer"
+  | "top_revenue"
+  | "suspicious_login"
+  | "same_ip_multi_account"
+  | "risky_seller_complaints"
+  | "complainers";
+
+const BUYER_SMART_FILTER_ITEMS: Array<{ key: BuyerSmartFilterKey; label: string; icon: string }> = [
+  { key: "daily_buyer", label: "Gunun Alicisi", icon: "☀" },
+  { key: "top_revenue", label: "En Fazla Ciro", icon: "₺" },
+  { key: "suspicious_login", label: "Supheli Giris", icon: "◉" },
+  { key: "same_ip_multi_account", label: "Ayni IP'de Iki Giris", icon: "⌁" },
+  { key: "risky_seller_complaints", label: "Riskli Satici Sikayet", icon: "⚠" },
+  { key: "complainers", label: "Sikayetciler", icon: "✉" },
+];
 
 const DICTIONARIES: Record<Language, Dictionary> = {
   en,
@@ -1131,12 +1147,19 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     spendTrend: "all",
   });
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
+  const [activeSmartFilter, setActiveSmartFilter] = useState<BuyerSmartFilterKey | null>(null);
+  const [smartFilterCounts, setSmartFilterCounts] = useState<Record<BuyerSmartFilterKey, number>>({
+    daily_buyer: 0,
+    top_revenue: 0,
+    suspicious_login: 0,
+    same_ip_multi_account: 0,
+    risky_seller_complaints: 0,
+    complainers: 0,
+  });
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerFilterMenuOpen, setBuyerFilterMenuOpen] = useState(false);
-  const [buyerTodoMenuOpen, setBuyerTodoMenuOpen] = useState(false);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
   const buyerFilterWrapRef = useRef<HTMLDivElement | null>(null);
-  const buyerTodoWrapRef = useRef<HTMLDivElement | null>(null);
   const buyerBoardRef = useRef<HTMLDivElement | null>(null);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
@@ -1239,8 +1262,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       spendTrend: "all",
     });
     setBuyerQuickFilter("all");
+    setActiveSmartFilter(null);
     setBuyerActionMenuId(null);
-    setBuyerTodoMenuOpen(false);
     setCustomerIdPreview(null);
   }, [kind]);
 
@@ -1285,6 +1308,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       sortDir: filters.sortDir,
       ...(searchTerm ? { search: searchTerm } : {}),
       ...(audience ? { audience } : {}),
+      ...(isBuyerPage && activeSmartFilter ? { smartFilter: activeSmartFilter } : {}),
       ...(isAppScoped && filters.roleFilter !== "all" ? { userType: filters.roleFilter } : {}),
       ...(!isAppScoped && filters.roleFilter !== "all" ? { role: filters.roleFilter } : {}),
     });
@@ -1306,7 +1330,26 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   useEffect(() => {
     loadRows().catch(() => setError(dict.users.requestFailed));
-  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm]);
+  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm, activeSmartFilter, isBuyerPage]);
+
+  useEffect(() => {
+    if (!isBuyerPage) return;
+    request("/v1/admin/buyers/smart-filter-counts")
+      .then(async (response) => {
+        if (response.status !== 200) return;
+        const body = await parseJson<{ data?: Partial<Record<BuyerSmartFilterKey, number>> }>(response);
+        if (!body.data) return;
+        setSmartFilterCounts({
+          daily_buyer: Number(body.data.daily_buyer ?? 0),
+          top_revenue: Number(body.data.top_revenue ?? 0),
+          suspicious_login: Number(body.data.suspicious_login ?? 0),
+          same_ip_multi_account: Number(body.data.same_ip_multi_account ?? 0),
+          risky_seller_complaints: Number(body.data.risky_seller_complaints ?? 0),
+          complainers: Number(body.data.complainers ?? 0),
+        });
+      })
+      .catch(() => undefined);
+  }, [isBuyerPage, activeSmartFilter, buyerQuickFilter, buyerFilters.status, buyerFilters.complaint, buyerFilters.orderTrend, buyerFilters.spendTrend]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
@@ -1813,23 +1856,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
   const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
-  const buyerTodoSections = useMemo(
-    () => ({
-      pending: [
-        `Acik sikayetli alicilar: ${buyersWithOpenComplaints}`,
-        `Riskli alicilar: ${riskyBuyersCount}`,
-      ],
-      done: [
-        "Filtre konfigrasyonu guncellendi",
-        "Alici tablosu son durumla yenilendi",
-      ],
-      notDone: [
-        "Riskli alicilar icin manuel kontrol",
-        "Acik sikayetlerin kapanis takibi",
-      ],
-    }),
-    [buyersWithOpenComplaints, riskyBuyersCount],
-  );
 
   useEffect(() => {
     if (!isBuyerPage) return;
@@ -1845,9 +1871,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       if (buyerFilterMenuOpen && buyerFilterWrapRef.current && !buyerFilterWrapRef.current.contains(target)) {
         setBuyerFilterMenuOpen(false);
       }
-      if (buyerTodoMenuOpen && buyerTodoWrapRef.current && !buyerTodoWrapRef.current.contains(target)) {
-        setBuyerTodoMenuOpen(false);
-      }
 
       if (buyerActionMenuId && buyerBoardRef.current) {
         const actionRoot = (target as HTMLElement).closest(".buyer-v2-row-actions");
@@ -1859,7 +1882,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     document.addEventListener("mousedown", onDocumentMouseDown);
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [buyerActionMenuId, buyerFilterMenuOpen, buyerTodoMenuOpen, isBuyerPage]);
+  }, [buyerActionMenuId, buyerFilterMenuOpen, isBuyerPage]);
 
   if (isBuyerPage) {
     return (
@@ -1903,7 +1926,30 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </article>
         </section>
 
-        <section className="panel buyer-v2-board">
+        <section className="buyer-v2-main-layout">
+          <aside className="panel buyer-v2-smart-panel" aria-label="Akilli filtreler">
+            <h2>Akilli Filtreler</h2>
+            <div className="buyer-v2-smart-list">
+              {BUYER_SMART_FILTER_ITEMS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`buyer-v2-smart-item ${activeSmartFilter === item.key ? "is-active" : ""}`}
+                  aria-pressed={activeSmartFilter === item.key}
+                  onClick={() => {
+                    setActiveSmartFilter((prev) => (prev === item.key ? null : item.key));
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                >
+                  <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
+                  <span className="buyer-v2-smart-item-label">{item.label}</span>
+                  <span className="buyer-v2-smart-item-count">{smartFilterCounts[item.key] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="panel buyer-v2-board">
           <div className="buyer-v2-toolbar">
             <div className="users-search-wrap buyer-v2-search">
               <span className="users-search-icon" aria-hidden="true">
@@ -2005,39 +2051,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         Uygula
                       </button>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="buyer-v2-todo-wrap" ref={buyerTodoWrapRef}>
-                <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerTodoMenuOpen((prev) => !prev)}>
-                  Yapilacak Isler ▾
-                </button>
-                {buyerTodoMenuOpen ? (
-                  <div className="buyer-v2-todo-menu">
-                    <section>
-                      <h4>Bekleyen</h4>
-                      <ul>
-                        {buyerTodoSections.pending.map((item) => (
-                          <li key={`pending-${item}`}>{item}</li>
-                        ))}
-                      </ul>
-                    </section>
-                    <section>
-                      <h4>Yapilmis</h4>
-                      <ul>
-                        {buyerTodoSections.done.map((item) => (
-                          <li key={`done-${item}`}>{item}</li>
-                        ))}
-                      </ul>
-                    </section>
-                    <section>
-                      <h4>Yapilmamislar</h4>
-                      <ul>
-                        {buyerTodoSections.notDone.map((item) => (
-                          <li key={`not-done-${item}`}>{item}</li>
-                        ))}
-                      </ul>
-                    </section>
                   </div>
                 ) : null}
               </div>
@@ -2308,6 +2321,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               </button>
             </div>
           </div>
+          </section>
         </section>
       </div>
     );

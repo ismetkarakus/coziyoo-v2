@@ -15,6 +15,14 @@ const AppUserListQuerySchema = z.object({
   status: z.enum(["active", "disabled"]).optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
   audience: z.enum(["buyer", "seller"]).optional(),
+  smartFilter: z.enum([
+    "daily_buyer",
+    "top_revenue",
+    "suspicious_login",
+    "same_ip_multi_account",
+    "risky_seller_complaints",
+    "complainers",
+  ]).optional(),
   search: z.string().min(1).max(120).optional(),
 });
 
@@ -135,8 +143,103 @@ const adminSortFieldMap: Record<AdminUserListQuery["sortBy"], string> = {
 
 type AppUserListQuery = z.infer<typeof AppUserListQuerySchema>;
 type AdminUserListQuery = z.infer<typeof AdminUserListQuerySchema>;
+type BuyerSmartFilter = NonNullable<AppUserListQuery["smartFilter"]>;
 
 export const adminUserManagementRouter = Router();
+
+function buyerSmartFilterConditionSql(filter: BuyerSmartFilter): string {
+  if (filter === "daily_buyer") {
+    return `u.id IN (
+      SELECT ranked.buyer_id
+      FROM (
+        SELECT
+          o.buyer_id,
+          COALESCE(sum(o.total_price), 0) AS day_spent,
+          DENSE_RANK() OVER (ORDER BY COALESCE(sum(o.total_price), 0) DESC) AS rnk
+        FROM orders o
+        WHERE o.payment_completed = TRUE
+          AND o.created_at >= date_trunc('day', now())
+        GROUP BY o.buyer_id
+      ) ranked
+      WHERE ranked.rnk = 1
+        AND ranked.day_spent > 0
+    )`;
+  }
+
+  if (filter === "top_revenue") {
+    return `u.id IN (
+      SELECT ranked.buyer_id
+      FROM (
+        SELECT
+          o.buyer_id,
+          COALESCE(sum(o.total_price), 0) AS spent_30d,
+          DENSE_RANK() OVER (ORDER BY COALESCE(sum(o.total_price), 0) DESC) AS rnk
+        FROM orders o
+        WHERE o.payment_completed = TRUE
+          AND o.created_at >= (now() - interval '30 days')
+        GROUP BY o.buyer_id
+      ) ranked
+      WHERE ranked.rnk <= 10
+        AND ranked.spent_30d > 0
+    )`;
+  }
+
+  if (filter === "suspicious_login") {
+    return `EXISTS (
+      SELECT 1
+      FROM user_login_locations ul
+      WHERE ul.user_id = u.id
+        AND ul.created_at >= (now() - interval '24 hours')
+      GROUP BY ul.user_id
+      HAVING count(*) >= 2
+         AND (
+           count(DISTINCT COALESCE(NULLIF(ul.ip, ''), 'no-ip')) >= 2
+           OR (max(ul.latitude) - min(ul.latitude)) > 1
+           OR (max(ul.longitude) - min(ul.longitude)) > 1
+         )
+    )`;
+  }
+
+  if (filter === "same_ip_multi_account") {
+    return `EXISTS (
+      SELECT 1
+      FROM user_login_locations ul
+      WHERE ul.user_id = u.id
+        AND ul.created_at >= (now() - interval '24 hours')
+        AND NULLIF(ul.ip, '') IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM user_login_locations ul2
+          WHERE ul2.ip = ul.ip
+            AND ul2.user_id <> u.id
+            AND ul2.created_at >= (now() - interval '24 hours')
+        )
+    )`;
+  }
+
+  if (filter === "risky_seller_complaints") {
+    return `EXISTS (
+      SELECT 1
+      FROM complaints c
+      JOIN orders o ON o.id = c.order_id
+      WHERE c.complainant_buyer_id = u.id
+        AND o.seller_id IN (
+          SELECT os.seller_id
+          FROM complaints cs
+          JOIN orders os ON os.id = cs.order_id
+          WHERE cs.status IN ('open', 'in_review')
+          GROUP BY os.seller_id
+          HAVING count(*) >= 2
+        )
+    )`;
+  }
+
+  return `EXISTS (
+    SELECT 1
+    FROM complaints c
+    WHERE c.complainant_buyer_id = u.id
+  )`;
+}
 
 async function ensureBuyerUser(userId: string) {
   const user = await pool.query<{ id: string; user_type: "buyer" | "seller" | "both" }>(
@@ -583,6 +686,10 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     where.push(`u.user_type IN ($${params.length - 1}, $${params.length})`);
   }
 
+  if (input.audience === "buyer" && input.smartFilter) {
+    where.push(buyerSmartFilterConditionSql(input.smartFilter));
+  }
+
   if (input.search) {
     params.push(`%${input.search.toLowerCase()}%`);
     const searchParamIndex = params.length;
@@ -745,6 +852,45 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       pageSize: input.pageSize,
       total: totalCount,
       totalPages: Math.ceil(totalCount / input.pageSize),
+    },
+  });
+});
+
+adminUserManagementRouter.get("/buyers/smart-filter-counts", requireAuth("admin"), async (_req, res) => {
+  const buyerScopeSql = `u.user_type IN ('buyer', 'both')`;
+  const dailyBuyerSql = buyerSmartFilterConditionSql("daily_buyer");
+  const topRevenueSql = buyerSmartFilterConditionSql("top_revenue");
+  const suspiciousLoginSql = buyerSmartFilterConditionSql("suspicious_login");
+  const sameIpSql = buyerSmartFilterConditionSql("same_ip_multi_account");
+  const riskySellerSql = buyerSmartFilterConditionSql("risky_seller_complaints");
+  const complainersSql = buyerSmartFilterConditionSql("complainers");
+
+  const counts = await pool.query<{
+    daily_buyer: number;
+    top_revenue: number;
+    suspicious_login: number;
+    same_ip_multi_account: number;
+    risky_seller_complaints: number;
+    complainers: number;
+  }>(
+    `SELECT
+       count(*) FILTER (WHERE ${buyerScopeSql} AND ${dailyBuyerSql})::int AS daily_buyer,
+       count(*) FILTER (WHERE ${buyerScopeSql} AND ${topRevenueSql})::int AS top_revenue,
+       count(*) FILTER (WHERE ${buyerScopeSql} AND ${suspiciousLoginSql})::int AS suspicious_login,
+       count(*) FILTER (WHERE ${buyerScopeSql} AND ${sameIpSql})::int AS same_ip_multi_account,
+       count(*) FILTER (WHERE ${buyerScopeSql} AND ${riskySellerSql})::int AS risky_seller_complaints,
+       count(*) FILTER (WHERE ${buyerScopeSql} AND ${complainersSql})::int AS complainers
+     FROM users u`
+  );
+
+  return res.json({
+    data: {
+      daily_buyer: Number(counts.rows[0]?.daily_buyer ?? 0),
+      top_revenue: Number(counts.rows[0]?.top_revenue ?? 0),
+      suspicious_login: Number(counts.rows[0]?.suspicious_login ?? 0),
+      same_ip_multi_account: Number(counts.rows[0]?.same_ip_multi_account ?? 0),
+      risky_seller_complaints: Number(counts.rows[0]?.risky_seller_complaints ?? 0),
+      complainers: Number(counts.rows[0]?.complainers ?? 0),
     },
   });
 });
