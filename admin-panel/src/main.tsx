@@ -3883,7 +3883,6 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
   const [role, setRole] = useState<"admin" | "super_admin">("admin");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AdminApiTokenResponse["data"] | null>(null);
   const [records, setRecords] = useState<AdminApiTokenListItem[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
@@ -3925,7 +3924,7 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
         setError(body.error?.message ?? dict.apiTokens.tokenCreateFailed);
         return;
       }
-      setResult(body.data);
+      setLabel("");
       await loadTokens();
     } catch {
       setError(dict.apiTokens.tokenRequestFailed);
@@ -3934,9 +3933,9 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
     }
   }
 
-  async function copyToken() {
-    if (!result?.token) return;
-    await navigator.clipboard.writeText(result.token);
+  async function copyPreviewToken(value: string) {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
   }
 
   return (
@@ -4002,7 +4001,14 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
                   <tr key={row.id}>
                     <td>{row.label}</td>
                     <td>{adminRoleLabel(dict, row.role)}</td>
-                    <td><code>{row.tokenPreview}</code></td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <code>{row.tokenPreview}</code>
+                        <button className="ghost" type="button" onClick={() => copyPreviewToken(row.tokenPreview)}>
+                          {dict.apiTokens.copyToken}
+                        </button>
+                      </div>
+                    </td>
                     <td>{row.createdByEmail ?? row.createdByAdminId}</td>
                     <td>{row.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}</td>
                     <td>{row.revokedAt ? (language === "tr" ? "İptal" : "Revoked") : (language === "tr" ? "Aktif" : "Active")}</td>
@@ -4012,29 +4018,6 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.apiTokens.createdToken}</h2>
-          <button className="ghost" type="button" onClick={() => copyToken()} disabled={!result?.token}>
-            {dict.apiTokens.copyToken}
-          </button>
-        </div>
-        {result ? (
-          <>
-            <label>
-              {dict.apiTokens.createdToken}
-              <div className="token-output-row">
-                <input value={result.token} readOnly />
-                <button className="ghost" type="button" onClick={() => copyToken()}>{dict.apiTokens.copyToken}</button>
-              </div>
-            </label>
-            <pre className="json-box">{JSON.stringify(result, null, 2)}</pre>
-          </>
-        ) : (
-          <p className="panel-meta">{dict.apiTokens.noToken}</p>
-        )}
       </section>
     </div>
   );
