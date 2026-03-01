@@ -4,7 +4,7 @@
 
 Build a fully automated install/update/run system under `installation/` with:
 
-- Per-service scripts (`admin`, `postgres`, `api`, `agent`, `livekit`, `nginx`)
+- Per-service scripts (`admin`, `postgres`, `api`, `livekit`, `nginx`)
 - One orchestrator for first-time setup (`install_all.sh`)
 - One orchestrator for ongoing updates (`update_all.sh`)
 - One orchestrator for operations (`run_all.sh` with `start|stop|restart|status|logs`)
@@ -28,11 +28,9 @@ This keeps the API on Node.js + Express and avoids Docker.
 - `scripts/install_postgres.sh`
 - `scripts/install_livekit_service.sh`
 - `scripts/install_api_service.sh`
-- `scripts/install_agent_service.sh`
 - `scripts/install_admin_panel.sh`
 - `scripts/install_nginx.sh`
 - `scripts/update_api_service.sh`
-- `scripts/update_agent_service.sh`
 - `scripts/update_admin_panel.sh`
 - `scripts/common.sh`
 
@@ -48,7 +46,7 @@ The control plane is `installation/config.env`:
 - Nginx domains and API proxy port
 - Optional Postgres bootstrap credentials
 
-Runtime env remains split by service (`API_ENV_FILE`, `AGENT_ENV_FILE`, LiveKit config).
+Runtime env remains split by service (`API_ENV_FILE`, LiveKit config).
 
 ## Install flow (`install_all.sh`)
 
@@ -56,22 +54,20 @@ Runtime env remains split by service (`API_ENV_FILE`, `AGENT_ENV_FILE`, LiveKit 
 2. Start/configure PostgreSQL
 3. Install/configure LiveKit service (skip binary if exists)
 4. Build/migrate and install API service
-5. Install Agent service
-6. Build and publish Admin static files
-7. Write/test/reload Nginx
+5. Build and publish Admin static files
+6. Write/test/reload Nginx
 
 ## Update flow (`update_all.sh`)
 
 1. Acquire deploy lock
 2. Update API (`npm ci`, `npm run build`, `npm run db:migrate`, restart)
-3. Update Agent (venv + install, restart)
-4. Update Admin (build + publish + nginx reload)
-5. Run API health check
+3. Update Admin (build + publish + service restart)
+4. Run API health check
 
 ## Run flow (`run_all.sh`)
 
 - Supported actions: `start`, `stop`, `restart`, `status`, `logs`
-- Scope: all services or single service (`api`, `agent`, `livekit`, `nginx`, `postgres`)
+- Scope: all services or single service (`api`, `admin`, `livekit`, `nginx`, `postgres`)
 
 ## Acceptance criteria
 

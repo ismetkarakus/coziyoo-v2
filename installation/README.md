@@ -6,7 +6,6 @@ This folder provides an automated deployment workflow for:
 - API (Node.js + Express as a managed service)
 - Postgres (service)
 - LiveKit server (first install, then service control)
-- Agent (Python managed service, optional)
 - Nginx Proxy Manager (optional, Docker-based)
 
 Plan reference: `installation/PLAN.md`
@@ -23,7 +22,7 @@ cp installation/config.env.example installation/config.env
 2. Edit `installation/config.env` for your VPS paths/domains/secrets.
    LiveKit installation is selected interactively during `install_all.sh`.
    Values with spaces must be quoted, for example:
-   `API_START_CMD="node dist/src/server.js"` and `AGENT_START_CMD="python src/agent_http_runner.py"`.
+   `API_START_CMD="node dist/src/server.js"`.
    Default deployment path is `/opt/coziyoo`, and API/Admin services run as `root`.
    For this production setup use:
    - `INGRESS_MODE=npm`
@@ -42,7 +41,7 @@ bash installation/scripts/install_all.sh
 bash installation/scripts/update_all.sh
 ```
 
-This command updates code, rebuilds API/admin, optionally updates agent deps, restarts services, and runs health checks.
+This command updates code, rebuilds API/admin, restarts services, and runs health checks.
 When `INGRESS_MODE=npm`, it also runs public domain validation.
 In `INGRESS_MODE=npm`, admin panel is served by the `coziyoo-admin` python service on `0.0.0.0:${ADMIN_PORT:-8000}` (default `8000`) for Nginx Proxy Manager upstream.
 
@@ -59,7 +58,7 @@ Single service:
 
 ```bash
 bash installation/scripts/run_all.sh status api
-bash installation/scripts/run_all.sh logs agent
+bash installation/scripts/run_all.sh logs admin
 ```
 
 ## 4) GitHub auto-deploy
@@ -82,8 +81,7 @@ bash installation/scripts/update_all.sh
 ## 5) Notes
 
 - Linux services: `systemd`
-- LiveKit on Linux: Docker Compose under `/opt/livekit` (managed by `run_all.sh livekit` helpers)
+- LiveKit on Linux: Docker Compose under `/opt/livekit` (managed by `livekit-docker` service)
 - macOS services: `launchd`
 - API runtime: `node dist/src/server.js`
 - Keep separate env files per service.
-- Agent runtime default is `python src/agent_http_runner.py` and exposes `/health` when `INSTALL_AGENT=true`.

@@ -99,10 +99,7 @@ load_config() {
 
   API_RUN_USER="${API_RUN_USER:-root}"
   API_RUN_GROUP="${API_RUN_GROUP:-root}"
-  AGENT_RUN_USER="${AGENT_RUN_USER:-root}"
-  AGENT_RUN_GROUP="${AGENT_RUN_GROUP:-root}"
-
-  export SOURCE_REPO_ROOT REPO_ROOT API_RUN_USER API_RUN_GROUP AGENT_RUN_USER AGENT_RUN_GROUP
+  export SOURCE_REPO_ROOT REPO_ROOT API_RUN_USER API_RUN_GROUP
 }
 
 export_env_file_kv() {
@@ -189,13 +186,12 @@ sync_repo_to_root() {
     run_root rsync -a --delete \
       --exclude '.deploy-lock' \
       --exclude 'node_modules' \
-      --exclude 'agent-python/.venv' \
       "${source}/" "${target}/"
   else
     log "rsync not found, using fallback copy mode"
     run_root find "${target}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
     run_root bash -lc "shopt -s dotglob; cp -a \"${source}\"/* \"${target}\"/"
-    run_root rm -rf "${target}/node_modules" "${target}/agent-python/.venv" "${target}/.deploy-lock"
+    run_root rm -rf "${target}/node_modules" "${target}/.deploy-lock"
   fi
 }
 

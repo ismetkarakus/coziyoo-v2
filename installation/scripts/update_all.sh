@@ -13,13 +13,9 @@ log "Stopping all managed services before update"
 "${SCRIPT_DIR}/run_all.sh" stop || true
 
 "${SCRIPT_DIR}/update_api_service.sh"
-"${SCRIPT_DIR}/update_agent_python_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
 
 API_PORT="${API_PORT:-3000}"
-AGENT_HTTP_HOST="${AGENT_HTTP_HOST:-127.0.0.1}"
-AGENT_HTTP_PORT="${AGENT_HTTP_PORT:-8787}"
-AGENT_HEALTH_PATH="${AGENT_HEALTH_PATH:-/health}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
 UPDATE_SKIP_HEALTHCHECKS="${UPDATE_SKIP_HEALTHCHECKS:-false}"
 HEALTHCHECK_TIMEOUT_SECONDS="${HEALTHCHECK_TIMEOUT_SECONDS:-8}"
@@ -27,13 +23,6 @@ if [[ "${UPDATE_SKIP_HEALTHCHECKS}" != "true" ]]; then
   log "Running health checks"
   curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://127.0.0.1:${API_PORT}/v1/health" >/dev/null
   log "API health check passed"
-  AGENT_DIR_ABS="$(resolve_path "${AGENT_DIR:-agent-python}")"
-  if [[ "${INSTALL_AGENT:-true}" == "true" && -d "${AGENT_DIR_ABS}" ]]; then
-    curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://${AGENT_HTTP_HOST}:${AGENT_HTTP_PORT}${AGENT_HEALTH_PATH}" >/dev/null
-    log "Agent health check passed"
-  else
-    log "Skipping agent health check (INSTALL_AGENT=false or agent dir missing)"
-  fi
   if [[ "${INGRESS_MODE:-nginx}" == "npm" ]]; then
     curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://127.0.0.1:${ADMIN_PORT}" >/dev/null
     log "Admin health check passed"
