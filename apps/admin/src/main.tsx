@@ -3233,9 +3233,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 navigate(
                                   kind === "app"
                                     ? `/app/users/${row.id}`
-                                    : kind === "sellers"
-                                        ? `/app/sellers/${row.id}`
-                                      : `/app/admins/${row.id}`
+                                    : `/app/admins/${row.id}`
                                 )
                               }
                             >
