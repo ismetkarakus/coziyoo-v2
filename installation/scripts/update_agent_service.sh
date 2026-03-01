@@ -14,5 +14,4 @@ maybe_git_update "${REPO_ROOT}"
 install_python_project "${AGENT_DIR_ABS}"
 
 service_action restart "${SERVICE_NAME}"
-service_action status "${SERVICE_NAME}"
 log "Agent updated"
