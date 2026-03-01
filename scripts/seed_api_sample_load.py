@@ -222,6 +222,12 @@ def camel_case_display(text: str) -> str:
     return "".join(part[:1].upper() + part[1:].lower() for part in parts)
 
 
+def compact_email_local(full_name: str, index: int, seed_id: str) -> str:
+    base = camel_case_display(full_name).lower()
+    tiny = seed_id[-2:].lower()
+    return f"{base}{index:02d}{tiny}"
+
+
 def http_json(
     method: str,
     url: str,
@@ -662,7 +668,8 @@ def main() -> int:
 
     for i in range(args.buyers):
         handle, full_name = profile_for(i, TURKISH_BUYER_NAMES)
-        email = f"{handle}.{seed_id}.{i + 1}@coziyoo.local"
+        email_local = compact_email_local(full_name, i + 1, seed_id)
+        email = f"{email_local}@coziyoo.local"
         display_name = f"{camel_case_display(full_name)}{seed_id[-2:]}{i + 1:02d}"
         account = register_user(
             args.base_url,
@@ -677,7 +684,8 @@ def main() -> int:
 
     for i in range(args.sellers):
         handle, full_name = profile_for(i, TURKISH_SELLER_NAMES)
-        email = f"{handle}.{seed_id}.{i + 1}@coziyoo.local"
+        email_local = compact_email_local(full_name, i + 1, seed_id)
+        email = f"{email_local}@coziyoo.local"
         display_name = f"{camel_case_display(full_name)}{seed_id[-2:]}{i + 1:02d}"
         account = register_user(
             args.base_url,
