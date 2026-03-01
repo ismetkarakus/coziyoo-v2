@@ -17,6 +17,20 @@ const SeedDemoDataSchema = z.object({
   confirmText: z.literal("SEED DEMO DATA"),
 });
 
+function demoFoodImageUrl(foodName: string): string {
+  const normalized = foodName.toLowerCase();
+  if (normalized.includes("tavuk") || normalized.includes("pilav")) {
+    return "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80";
+  }
+  if (normalized.includes("sutlac") || normalized.includes("sütlaç")) {
+    return "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80";
+  }
+  if (normalized.includes("fasulye")) {
+    return "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80";
+  }
+  return "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80";
+}
+
 export const adminSystemRouter = Router();
 
 adminSystemRouter.get("/system/version", requireAuth("admin"), async (_req, res) => {
@@ -122,9 +136,9 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       for (const [index, name] of foodNames.entries()) {
         const price = index === 0 ? 189.9 : index === 1 ? 129.9 : 159.9;
         await client.query(
-          `INSERT INTO foods (seller_id, name, card_summary, description, country_code, price, current_stock, daily_stock, is_available, is_active, delivery_fee, delivery_options_json)
-           VALUES ($1, $2, $3, $4, 'TR', $5, 100, 200, TRUE, TRUE, 0, $6::jsonb)`,
-          [sellerId, name, `${name} - Demo menu`, `${name} demo icerik`, price, JSON.stringify(["pickup", "delivery"])]
+          `INSERT INTO foods (seller_id, name, card_summary, description, country_code, price, image_url, current_stock, daily_stock, is_available, is_active, delivery_fee, delivery_options_json)
+           VALUES ($1, $2, $3, $4, 'TR', $5, $6, 100, 200, TRUE, TRUE, 0, $7::jsonb)`,
+          [sellerId, name, `${name} - Demo menu`, `${name} demo icerik`, price, demoFoodImageUrl(name), JSON.stringify(["pickup", "delivery"])]
         );
       }
     }

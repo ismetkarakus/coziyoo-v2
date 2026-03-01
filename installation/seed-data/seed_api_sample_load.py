@@ -165,6 +165,28 @@ TURKEY_CITY_COORDS: list[tuple[str, float, float]] = [
     ("Trabzon", 41.0015, 39.7178),
 ]
 
+FOOD_IMAGE_BY_KEYWORD: list[tuple[str, str]] = [
+    ("mercimek", "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80"),
+    ("ezogelin", "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80"),
+    ("corba", "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80"),
+    ("karnıyarık", "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80"),
+    ("karniyarik", "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80"),
+    ("kuru fasulye", "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80"),
+    ("fasulye", "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80"),
+    ("tavuk", "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=900&q=80"),
+    ("pilav", "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80"),
+    ("enginar", "https://images.unsplash.com/photo-1611584186769-0a53b5f7f350?auto=format&fit=crop&w=900&q=80"),
+    ("zeytinyagli", "https://images.unsplash.com/photo-1611584186769-0a53b5f7f350?auto=format&fit=crop&w=900&q=80"),
+    ("zeytinyağlı", "https://images.unsplash.com/photo-1611584186769-0a53b5f7f350?auto=format&fit=crop&w=900&q=80"),
+    ("sutlac", "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80"),
+    ("sütlaç", "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80"),
+    ("revani", "https://images.unsplash.com/photo-1626803775151-61d756612f97?auto=format&fit=crop&w=900&q=80"),
+    ("baklava", "https://images.unsplash.com/photo-1626803775151-61d756612f97?auto=format&fit=crop&w=900&q=80"),
+    ("ayran", "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80"),
+    ("salgam", "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80"),
+    ("şalgam", "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=900&q=80"),
+]
+
 
 @dataclass
 class UserAccount:
@@ -400,7 +422,7 @@ def build_food_payload(category_name_tr: str, seller_slot: int, food_slot: int) 
         "recipe": base["recipe"],
         "country_code": "TR",
         "price": price,
-        "image_url": f"https://images.coziyoo.local/foods/{slugify_display(base['name'])}-{seller_slot + 1}-{food_slot + 1}.jpg",
+        "image_url": resolve_seed_food_image_url(base["name"]),
         "ingredients_json": base["ingredients"],
         "allergens_json": base["allergens"],
         "preparation_time_minutes": prep_minutes,
@@ -417,6 +439,14 @@ def build_food_payload(category_name_tr: str, seller_slot: int, food_slot: int) 
         "is_available": True,
         "is_active": True,
     }
+
+
+def resolve_seed_food_image_url(food_name: str) -> str:
+    normalized = normalize_ascii(food_name).lower()
+    for keyword, url in FOOD_IMAGE_BY_KEYWORD:
+        if keyword in normalized:
+            return url
+    return "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80"
 
 
 def seed_categories(conn: Any, *, count: int) -> list[dict[str, Any]]:

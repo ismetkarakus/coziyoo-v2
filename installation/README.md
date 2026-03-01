@@ -200,6 +200,14 @@ SEED_SAMPLE_DATA=true
 bash installation/scripts/seed-data.sh
 ```
 
+### Backfill real food images (manual)
+
+If old records contain placeholder image URLs (e.g. `images.coziyoo.local`), run:
+
+```bash
+bash installation/scripts/backfill_food_images.sh
+```
+
 ## Troubleshooting
 
 ### Check service logs
