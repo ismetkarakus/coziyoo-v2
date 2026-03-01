@@ -49,6 +49,9 @@ jobs:
             s="${s%"${s##*[![:space:]]}"}"
             printf "%s" "${s}"
           }
+          strip_all_ws() {
+            printf "%s" "$1" | tr -d '[:space:]'
+          }
 
           touch "${HOME}/.ssh/known_hosts"
           chmod 600 "${HOME}/.ssh/known_hosts"
@@ -64,9 +67,15 @@ jobs:
 
             HOST="${HOST:-${NAME}}"
             PORT="${PORT:-22}"
+            HOST="$(strip_all_ws "${HOST}")"
+            PORT="$(strip_all_ws "${PORT}")"
 
             if [[ -z "${HOST}" ]]; then
               echo "Invalid DEPLOY_TARGETS row: missing host" >&2
+              exit 1
+            fi
+            if ! [[ "${PORT}" =~ ^[0-9]+$ ]]; then
+              echo "Invalid DEPLOY_TARGETS row: invalid port '${PORT}'" >&2
               exit 1
             fi
 
@@ -83,6 +92,9 @@ jobs:
             s="${s%"${s##*[![:space:]]}"}"
             printf "%s" "${s}"
           }
+          strip_all_ws() {
+            printf "%s" "$1" | tr -d '[:space:]'
+          }
 
           while IFS='|' read -r NAME HOST USER PORT REPO_PATH; do
             NAME="$(trim "${NAME:-}")"
@@ -97,6 +109,22 @@ jobs:
             USER="${USER:-root}"
             PORT="${PORT:-22}"
             REPO_PATH="${REPO_PATH:-/opt/coziyoo}"
+            HOST="$(strip_all_ws "${HOST}")"
+            USER="$(strip_all_ws "${USER}")"
+            PORT="$(strip_all_ws "${PORT}")"
+
+            if [[ -z "${HOST}" ]]; then
+              echo "Invalid DEPLOY_TARGETS row: missing host" >&2
+              exit 1
+            fi
+            if [[ -z "${USER}" ]]; then
+              echo "Invalid DEPLOY_TARGETS row: missing user" >&2
+              exit 1
+            fi
+            if ! [[ "${PORT}" =~ ^[0-9]+$ ]]; then
+              echo "Invalid DEPLOY_TARGETS row: invalid port '${PORT}'" >&2
+              exit 1
+            fi
 
             echo "Deploying ${NAME:-${HOST}} (${USER}@${HOST}:${PORT}, repo=${REPO_PATH})"
 
