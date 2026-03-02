@@ -6,6 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_DEMO_DB_REBUILD_ON_UPDATE="${DEMO_DB_REBUILD_ON_UPDATE:-}"
 RUNTIME_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE="${DEMO_DB_REBUILD_ON_SCHEMA_CHANGE:-}"
 RUNTIME_DEMO_DB_RESEED_ON_UPDATE="${DEMO_DB_RESEED_ON_UPDATE:-}"
+RUNTIME_ADMIN_SYNC_ON_UPDATE="${ADMIN_SYNC_ON_UPDATE:-}"
+RUNTIME_ADMIN_SYNC_EMAIL="${ADMIN_SYNC_EMAIL:-}"
+RUNTIME_ADMIN_SYNC_PASSWORD="${ADMIN_SYNC_PASSWORD:-}"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 load_config
@@ -17,6 +20,15 @@ if [[ -n "${RUNTIME_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE}" ]]; then
 fi
 if [[ -n "${RUNTIME_DEMO_DB_RESEED_ON_UPDATE}" ]]; then
   DEMO_DB_RESEED_ON_UPDATE="${RUNTIME_DEMO_DB_RESEED_ON_UPDATE}"
+fi
+if [[ -n "${RUNTIME_ADMIN_SYNC_ON_UPDATE}" ]]; then
+  ADMIN_SYNC_ON_UPDATE="${RUNTIME_ADMIN_SYNC_ON_UPDATE}"
+fi
+if [[ -n "${RUNTIME_ADMIN_SYNC_EMAIL}" ]]; then
+  ADMIN_SYNC_EMAIL="${RUNTIME_ADMIN_SYNC_EMAIL}"
+fi
+if [[ -n "${RUNTIME_ADMIN_SYNC_PASSWORD}" ]]; then
+  ADMIN_SYNC_PASSWORD="${RUNTIME_ADMIN_SYNC_PASSWORD}"
 fi
 sync_repo_to_root
 acquire_update_lock
@@ -81,6 +93,11 @@ fi
 if [[ "${db_rebuilt}" == "true" && "${DEMO_DB_RESEED_ON_UPDATE:-true}" == "true" ]]; then
   log "Demo DB rebuilt, reseeding baseline data"
   "${SCRIPT_DIR}/seed-data.sh"
+fi
+
+if [[ "${ADMIN_SYNC_ON_UPDATE:-true}" == "true" ]]; then
+  log "Synchronizing admin credentials after update"
+  "${SCRIPT_DIR}/ensure_admin_user.sh"
 fi
 
 "${SCRIPT_DIR}/update_admin_panel.sh"

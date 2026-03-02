@@ -116,6 +116,7 @@ bash installation/scripts/update_all.sh
 This pulls latest code, rebuilds, and restarts services.
 It also runs post-deploy DB data patch checks (idempotent, one-time per patch key).
 It also runs SQL migrations automatically during API update (`db-migrate.sh`), unless `RUN_DB_MIGRATIONS_ON_UPDATE=false`.
+It also syncs admin credentials after update (`ensure_admin_user.sh`) unless `ADMIN_SYNC_ON_UPDATE=false`.
 
 ### Demo DB Refresh on Each Deploy
 
@@ -149,6 +150,9 @@ GitHub Actions variables for demo DB refresh:
 - `DEPLOY_DEMO_DB_REBUILD` (`true|false`)
 - `DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE` (`true|false`)
 - `DEPLOY_DEMO_DB_RESEED` (`true|false`)
+- `DEPLOY_ADMIN_SYNC_ON_UPDATE` (`true|false`)
+- `DEPLOY_ADMIN_EMAIL` (default: `admin@coziyoo.com`)
+- `DEPLOY_ADMIN_PASSWORD` (recommended as GitHub Secret)
 
 ## 5) Auto-Deploy on Git Push (GitHub Actions)
 
