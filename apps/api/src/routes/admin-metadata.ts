@@ -15,6 +15,7 @@ const TABLE_MAP = {
   paymentAttempts: "payment_attempts",
   sellerComplianceProfiles: "seller_compliance_profiles",
   sellerComplianceDocuments: "seller_compliance_documents",
+  sellerComplianceProfileDocuments: "seller_compliance_profile_documents",
   productionLots: "production_lots",
   lotEvents: "lot_events",
   orderItemLotAllocations: "order_item_lot_allocations",
@@ -31,7 +32,6 @@ const TABLE_MAP = {
   idempotencyKeys: "idempotency_keys",
   outboxEvents: "outbox_events",
   outboxDeadLetters: "outbox_dead_letters",
-  legalHolds: "legal_holds",
 } as const;
 
 const TableKeySchema = z.enum(Object.keys(TABLE_MAP) as [keyof typeof TABLE_MAP, ...(keyof typeof TABLE_MAP)[]]);

@@ -6724,7 +6724,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       roleLabel,
       isActive,
     },
-    legalHoldState: "unknown",
+    legalHoldState: Boolean(row.legalHoldState),
   };
 
   const tabs = [
@@ -6845,7 +6845,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </form>
             <div className="seller-meta-chips">
               <span className="retention-chip">{`${dict.detail.updatedAtLabel}: ${formatUiDate(row.updatedAt, language)}`}</span>
-              <span className="retention-chip">{`${dict.detail.legalHoldStateLabel}: ${dict.detail.legalHoldUnknown}`}</span>
+              <span className="retention-chip">{`${dict.detail.legalHoldStateLabel}: ${Boolean(row.legalHoldState)}`}</span>
             </div>
             {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
           </article>
@@ -6998,7 +6998,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               foodRetentionUntil,
               language
             )}`}</span>
-            <span className="retention-chip">{`${dict.detail.legalHold}: ${dict.detail.legalHoldUnknown}`}</span>
+            <span className="retention-chip">{`${dict.detail.legalHold}: ${Boolean(row.legalHoldState)}`}</span>
           </div>
         </section>
       ) : null}

@@ -133,11 +133,35 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
   }
   const input = parsed.data;
 
+  await pool.query(
+    `INSERT INTO seller_compliance_profiles (seller_id, country_code, status, updated_at)
+     VALUES (
+       $1,
+       COALESCE((SELECT NULLIF(upper(country_code), '') FROM users WHERE id = $1), 'TR'),
+       'in_progress',
+       now()
+     )
+     ON CONFLICT (seller_id)
+     DO UPDATE SET updated_at = now()`,
+    [req.auth!.userId]
+  );
+
   const doc = await pool.query<{ id: string }>(
     `INSERT INTO seller_compliance_documents (seller_id, doc_type, file_url, metadata_json, status, uploaded_at)
      VALUES ($1, $2, $3, $4, 'pending', now())
      RETURNING id`,
     [req.auth!.userId, input.docType, input.fileUrl, input.metadata ? JSON.stringify(input.metadata) : null]
+  );
+
+  await pool.query(
+    `INSERT INTO seller_compliance_profile_documents (seller_id, doc_type, latest_document_id, status, required, updated_at)
+     VALUES ($1, $2, $3, 'pending', true, now())
+     ON CONFLICT (seller_id, doc_type)
+     DO UPDATE SET
+       latest_document_id = EXCLUDED.latest_document_id,
+       status = EXCLUDED.status,
+       updated_at = now()`,
+    [req.auth!.userId, input.docType, doc.rows[0].id]
   );
 
   await pool.query(
@@ -261,7 +285,14 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
     "SELECT id, doc_type, file_url, status, rejection_reason, uploaded_at, reviewed_at FROM seller_compliance_documents WHERE seller_id = $1 ORDER BY uploaded_at DESC",
     [sellerId]
   );
-  return res.json({ data: { profile: profile.rows[0], checks: checks.rows, documents: docs.rows } });
+  const profileDocuments = await pool.query(
+    `SELECT id, seller_id, doc_type, latest_document_id, status, required, updated_at
+     FROM seller_compliance_profile_documents
+     WHERE seller_id = $1
+     ORDER BY doc_type ASC`,
+    [sellerId]
+  );
+  return res.json({ data: { profile: profile.rows[0], checks: checks.rows, documents: docs.rows, profileDocuments: profileDocuments.rows } });
 });
 
 adminComplianceRouter.post("/:sellerId/approve", requireAuth("admin"), async (req, res) => {

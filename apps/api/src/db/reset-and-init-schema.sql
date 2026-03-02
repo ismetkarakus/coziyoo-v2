@@ -21,6 +21,7 @@ CREATE TABLE users (
   profile_image_url TEXT,
   user_type TEXT NOT NULL CHECK (user_type IN ('buyer', 'seller', 'both')),
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  legal_hold_state BOOLEAN NOT NULL DEFAULT FALSE,
   country_code TEXT,
   language TEXT,
   latitude NUMERIC(9,6) CHECK (latitude BETWEEN -90 AND 90),
@@ -327,6 +328,17 @@ CREATE TABLE seller_compliance_documents (
   rejection_reason TEXT,
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   reviewed_at TIMESTAMPTZ
+);
+
+CREATE TABLE seller_compliance_profile_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  seller_id UUID NOT NULL REFERENCES seller_compliance_profiles(seller_id) ON DELETE CASCADE,
+  doc_type TEXT NOT NULL,
+  latest_document_id UUID REFERENCES seller_compliance_documents(id) ON DELETE SET NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'rejected')),
+  required BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (seller_id, doc_type)
 );
 
 CREATE TABLE seller_compliance_checks (
@@ -648,15 +660,3 @@ CREATE TABLE outbox_dead_letters (
   last_error TEXT,
   failed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-CREATE TABLE legal_holds (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  entity_type TEXT NOT NULL,
-  entity_id UUID NOT NULL,
-  reason TEXT,
-  active BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  released_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_legal_holds_entity ON legal_holds(entity_type, entity_id, active);
