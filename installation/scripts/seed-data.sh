@@ -19,6 +19,7 @@ API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
 
 ADMIN_EMAIL="${SEED_ADMIN_EMAIL:-admin@coziyoo.com}"
 ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-Admin12345}"
+ADMIN_PASSWORD_SYNC_IF_EXISTS="${SEED_ADMIN_PASSWORD_SYNC_IF_EXISTS:-true}"
 API_BASE_URL="http://127.0.0.1:${API_PORT:-3000}"
 
 log "Seeding admin user: ${ADMIN_EMAIL}"
@@ -28,23 +29,33 @@ if ! node -e "require('argon2')" >/dev/null 2>&1; then
   fail "argon2 module not found in API dependencies. Run install_api_service.sh first."
 fi
 
-# Check if admin already exists
-EXISTS=$(psql "${DATABASE_URL}" -t -c "SELECT 1 FROM admin_users WHERE email = '${ADMIN_EMAIL}';" 2>/dev/null | tr -d '[:space:]' || echo "")
+# API verifies with argon2, so generate argon2id hash via Node in API workspace.
+PASSWORD_HASH="$(
+  cd "${API_DIR_ABS}" && node -e "require('argon2').hash(process.argv[1], { type: require('argon2').argon2id }).then(h => { process.stdout.write(h); }).catch(e => { console.error(e); process.exit(1); });" "${ADMIN_PASSWORD}"
+)"
+[[ -n "${PASSWORD_HASH}" ]] || fail "Failed to generate admin password hash"
 
-if [[ "${EXISTS}" == "1" ]]; then
-  log "  Admin user ${ADMIN_EMAIL} already exists, skipping."
+if [[ "${ADMIN_PASSWORD_SYNC_IF_EXISTS}" == "true" ]]; then
+  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
+    -v admin_email="${ADMIN_EMAIL}" \
+    -v admin_hash="${PASSWORD_HASH}" <<'SQL'
+INSERT INTO admin_users (email, password_hash, role, is_active)
+VALUES (:'admin_email', :'admin_hash', 'super_admin', TRUE)
+ON CONFLICT (email)
+DO UPDATE SET
+  password_hash = EXCLUDED.password_hash,
+  is_active = TRUE,
+  updated_at = now();
+SQL
+  log "  ✓ Ensured admin user and synced password: ${ADMIN_EMAIL}"
 else
-  # API verifies with argon2, so generate argon2id hash via Node in API workspace.
-  PASSWORD_HASH="$(
-    cd "${API_DIR_ABS}" && node -e "require('argon2').hash(process.argv[1], { type: require('argon2').argon2id }).then(h => { process.stdout.write(h); }).catch(e => { console.error(e); process.exit(1); });" "${ADMIN_PASSWORD}"
-  )"
-  [[ -n "${PASSWORD_HASH}" ]] || fail "Failed to generate admin password hash"
-
-  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -v admin_email="${ADMIN_EMAIL}" -v admin_hash="${PASSWORD_HASH}" <<'SQL'
+  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
+    -v admin_email="${ADMIN_EMAIL}" \
+    -v admin_hash="${PASSWORD_HASH}" <<'SQL'
 INSERT INTO admin_users (email, password_hash, role)
 VALUES (:'admin_email', :'admin_hash', 'super_admin');
 SQL
-  log "  ✓ Created admin user: ${ADMIN_EMAIL}"
+  log "  ✓ Created admin user (password sync disabled for existing users): ${ADMIN_EMAIL}"
 fi
 
 # Sample data seeding (optional, runs via Python through API)

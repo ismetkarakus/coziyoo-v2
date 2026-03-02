@@ -37,6 +37,7 @@ API_DOMAIN=api.coziyoo.com
 # Change passwords
 PG_PASSWORD=your_secure_db_password
 SEED_ADMIN_PASSWORD=your_secure_admin_password
+SEED_ADMIN_PASSWORD_SYNC_IF_EXISTS=true
 
 # Optional: enable sample data seeding
 SEED_SAMPLE_DATA=true
