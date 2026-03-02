@@ -24,9 +24,19 @@ maybe_git_update "${REPO_ROOT}"
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
 VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
-  # Install only when neither workspace-root nor app-local node_modules exists.
+  needs_install="false"
+  # Install when neither workspace-root nor app-local node_modules exists.
   if [[ ! -d "${ADMIN_NODE_MODULES}" && ! -d "${ROOT_NODE_MODULES}" ]]; then
-    log "node_modules missing in ${ADMIN_DIR_ABS} and ${REPO_ROOT}; installing dependencies"
+    needs_install="true"
+  fi
+
+  # Even if node_modules exists, ensure core admin build deps are resolvable.
+  if ! node -e "require.resolve('vite'); require.resolve('@vitejs/plugin-react'); require.resolve('vite/client')" >/dev/null 2>&1; then
+    needs_install="true"
+  fi
+
+  if [[ "${needs_install}" == "true" ]]; then
+    log "Admin dependencies missing/incomplete; installing dependencies in ${ADMIN_DIR_ABS}"
     if [[ -f package-lock.json ]]; then
       if ! npm ci --silent --no-audit --no-fund --loglevel=error; then
         log "npm ci failed, retrying with npm install"
