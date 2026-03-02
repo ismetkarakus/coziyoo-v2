@@ -5951,13 +5951,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                     {dict.detail.copyJson}
                   </button>
                 </div>
-                <ol className="seller-json-lines">
-                  {JSON.stringify(buyerRawPayload, null, 2)
-                    .split("\n")
-                    .map((line, index) => (
-                      <li key={`buyer-raw-${index}-${line}`}>{renderJsonLine(line)}</li>
-                    ))}
-                </ol>
+                <pre className="json-box">{JSON.stringify(buyerRawPayload, null, 2)}</pre>
               </section>
             ) : null}
           </section>
@@ -7025,13 +7019,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 {dict.detail.copyJson}
               </button>
             </div>
-            <ol className="seller-json-lines">
-              {JSON.stringify(sellerRawPayload, null, 2)
-                .split("\n")
-                .map((line, index) => (
-                  <li key={`seller-raw-${index}-${line}`}>{renderJsonLine(line)}</li>
-                ))}
-            </ol>
+            <pre className="json-box">{JSON.stringify(sellerRawPayload, null, 2)}</pre>
           </section>
         </section>
       ) : null}
