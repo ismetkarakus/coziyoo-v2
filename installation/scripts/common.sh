@@ -189,7 +189,7 @@ acquire_update_lock() {
 # Tries npm ci first (fast, reproducible); falls back to npm install if ci fails.
 # Call from within REPO_ROOT or any subdir — this always cd's to REPO_ROOT.
 npm_install_from_root() {
-  local flags=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
+  local flags=(--silent --no-audit --no-fund --loglevel=error)
   (
     cd "${REPO_ROOT}"
     if [[ -f package-lock.json ]]; then
