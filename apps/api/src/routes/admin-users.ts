@@ -1447,6 +1447,119 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
   });
 });
 
+adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = BuyerListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM orders WHERE seller_id = $1",
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    buyer_id: string;
+    buyer_name: string | null;
+    buyer_email: string | null;
+    status: string;
+    total_price: string;
+    payment_completed: boolean;
+    created_at: string;
+    updated_at: string;
+    payment_status: string | null;
+    payment_provider: string | null;
+    payment_updated_at: string | null;
+    items_json: unknown;
+  }>(
+    `SELECT
+       o.id,
+       o.buyer_id::text AS buyer_id,
+       bu.display_name AS buyer_name,
+       bu.email AS buyer_email,
+       o.status,
+       o.total_price::text,
+       o.payment_completed,
+       o.created_at::text,
+       o.updated_at::text,
+       pa.status AS payment_status,
+       pa.provider AS payment_provider,
+       pa.updated_at::text AS payment_updated_at,
+       COALESCE(items.items_json, '[]'::jsonb) AS items_json
+     FROM orders o
+     LEFT JOIN LATERAL (
+       SELECT jsonb_agg(
+         jsonb_build_object(
+           'orderItemId', oi.id,
+           'foodId', f.id,
+           'name', f.name,
+           'imageUrl', f.image_url,
+           'quantity', oi.quantity,
+           'unitPrice', oi.unit_price,
+           'lineTotal', oi.line_total
+         )
+         ORDER BY oi.created_at ASC
+       ) AS items_json
+       FROM order_items oi
+       JOIN foods f ON f.id = oi.food_id
+       WHERE oi.order_id = o.id
+     ) items ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT status, provider, updated_at
+       FROM payment_attempts
+       WHERE order_id = o.id
+       ORDER BY updated_at DESC NULLS LAST, created_at DESC
+       LIMIT 1
+     ) pa ON TRUE
+     LEFT JOIN users bu ON bu.id = o.buyer_id
+     WHERE o.seller_id = $1
+     ORDER BY o.created_at ${sortDir}, o.id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      orderId: row.id,
+      orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      buyerId: row.buyer_id,
+      buyerName: row.buyer_name,
+      buyerEmail: row.buyer_email,
+      status: row.status,
+      totalAmount: Number(row.total_price),
+      paymentCompleted: row.payment_completed,
+      paymentStatus: row.payment_status ?? (row.payment_completed ? "succeeded" : "pending"),
+      paymentProvider: row.payment_provider,
+      paymentUpdatedAt: row.payment_updated_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      items: Array.isArray(row.items_json) ? row.items_json : [],
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
 adminUserManagementRouter.get("/users/:id/buyer-summary", requireAuth("admin"), async (req, res) => {
   const params = UuidParamSchema.safeParse(req.params);
   if (!params.success) {

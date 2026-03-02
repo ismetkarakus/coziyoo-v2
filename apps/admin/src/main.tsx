@@ -6529,6 +6529,25 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     createdAt: string;
     updatedAt: string;
   }>>([]);
+  const [sellerOrders, setSellerOrders] = useState<
+    Array<{
+      orderId: string;
+      orderNo: string;
+      buyerId: string;
+      buyerName: string | null;
+      buyerEmail: string | null;
+      status: string;
+      totalAmount: number;
+      paymentCompleted: boolean;
+      paymentStatus: string;
+      paymentProvider: string | null;
+      paymentUpdatedAt: string | null;
+      createdAt: string;
+      updatedAt: string;
+      items: Array<{ name?: string; quantity?: number }>;
+    }>
+  >([]);
+  const [sellerOrdersPagination, setSellerOrdersPagination] = useState<BuyerPagination | null>(null);
   const [activeTab, setActiveTab] = useState<SellerDetailTab>(() => resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -6540,10 +6559,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setLoading(true);
     setMessage(null);
     try {
-      const [detailResponse, complianceResponse, foodsResponse] = await Promise.all([
+      const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse] = await Promise.all([
         request(endpoint),
         request(`/v1/admin/compliance/${id}`),
         request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`),
+        request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`),
       ]);
 
       if (detailResponse.status !== 200) {
@@ -6581,6 +6601,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setFoodRows(foodsBody.data);
       } else {
         setFoodRows([]);
+      }
+
+      if (sellerOrdersResponse.status === 200) {
+        const ordersBody = await parseJson<{ data: any[]; pagination: BuyerPagination }>(sellerOrdersResponse);
+        setSellerOrders(ordersBody.data);
+        setSellerOrdersPagination(ordersBody.pagination);
+      } else {
+        setSellerOrders([]);
+        setSellerOrdersPagination(null);
       }
     } catch {
       setMessage(dict.detail.requestFailed);
@@ -6712,6 +6741,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     user: row,
     compliance,
     foods: foodRows,
+    orders: {
+      rows: sellerOrders,
+      pagination: sellerOrdersPagination,
+    },
     derived: {
       emailMasked: maskedEmail,
       phoneFromComplianceChecks: phone,
@@ -6973,6 +7006,61 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
+      {activeTab === "orders" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.orders}</h2>
+          </div>
+          {sellerOrders.length === 0 ? (
+            <p className="panel-meta">{dict.common.noRecords}</p>
+          ) : (
+            <>
+              <div className="buyer-ops-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tarih / Saat</th>
+                      <th>Sipariş No</th>
+                      <th>Alıcı</th>
+                      <th>Yemekler</th>
+                      <th>Tutar</th>
+                      <th>Ödeme</th>
+                      <th>Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sellerOrders.map((order) => {
+                      const paymentText = String(order.paymentStatus ?? "").toLowerCase().includes("fail")
+                        ? "Başarısız"
+                        : String(order.paymentStatus ?? "").toLowerCase().includes("pending")
+                          ? "Bekliyor"
+                          : "Başarılı";
+                      const foods = Array.isArray(order.items)
+                        ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
+                        : "-";
+                      return (
+                        <tr key={order.orderId}>
+                          <td>{formatUiDate(order.createdAt, language)}</td>
+                          <td>{order.orderNo}</td>
+                          <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
+                          <td>{foods || "-"}</td>
+                          <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
+                          <td>{paymentText}</td>
+                          <td>{order.status}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="panel-meta">
+                {`${sellerOrdersPagination?.total ?? sellerOrders.length} sipariş`}
+              </p>
+            </>
+          )}
+        </section>
+      ) : null}
+
       {activeTab === "retention" ? (
         <section className="panel">
           <div className="panel-header">
@@ -7024,7 +7112,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
+      {activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>
