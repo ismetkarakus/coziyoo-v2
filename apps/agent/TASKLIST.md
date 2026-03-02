@@ -16,7 +16,7 @@
 ## Phase 3: Session Flow
 
 - [x] Start session from home via `/v1/livekit/session/start`
-- [ ] Connect and stream media with LiveKit client in-app
+- [x] Connect and stream media with LiveKit client in-app
 - [ ] Display transcript/events in home page
 
 ## Phase 4: API Modularization
