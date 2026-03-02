@@ -15,8 +15,8 @@ type LoginResponse = {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@coziyoo.com");
+  const [password, setPassword] = useState("Admin12345");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
