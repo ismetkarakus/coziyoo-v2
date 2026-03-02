@@ -80,6 +80,15 @@ const AgentChatSchema = z.object({
   text: z.string().min(1).max(8_000),
 });
 
+const MobileTelemetrySchema = z.object({
+  level: z.enum(["info", "warn", "error"]),
+  eventType: z.string().min(1).max(128),
+  message: z.string().min(1).max(2_000),
+  roomName: z.string().min(1).max(128).optional(),
+  requestId: z.string().max(128).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
 const StarterSessionSchema = z.object({
   roomName: z.string().min(1).max(128).optional(),
   username: z.string().min(2).max(64),
@@ -604,6 +613,29 @@ liveKitRouter.post("/agent/chat", requireAuth("app"), async (req, res) => {
       },
     });
   }
+});
+
+liveKitRouter.post("/mobile/telemetry", requireAuth("app"), async (req, res) => {
+  const parsed = MobileTelemetrySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const context = {
+    userId: req.auth?.userId,
+    role: req.auth?.role,
+    eventType: input.eventType,
+    level: input.level,
+    roomName: input.roomName ?? null,
+    requestId: input.requestId ?? null,
+    metadata: input.metadata ?? null,
+  };
+
+  const sink = input.level === "error" ? console.error : input.level === "warn" ? console.warn : console.log;
+  sink("[mobile-telemetry]", input.message, context);
+
+  return res.status(201).json({ data: { accepted: true } });
 });
 
 liveKitRouter.post("/starter/session/start", async (req, res) => {

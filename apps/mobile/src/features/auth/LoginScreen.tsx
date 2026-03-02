@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { login } from '../../services/api/auth';
+import { saveStoredAuth } from '../../services/storage/authStorage';
 import { useSessionStore } from '../../state/sessionStore';
 
 export function LoginScreen() {
@@ -13,6 +14,7 @@ export function LoginScreen() {
     setLoading(true);
     try {
       const result = await login(email.trim(), password);
+      await saveStoredAuth(result);
       setAuth(result);
     } catch (error) {
       Alert.alert('Login failed', error instanceof Error ? error.message : 'Unknown error');

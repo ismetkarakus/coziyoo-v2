@@ -1,3 +1,5 @@
+import type { NavigationContainerRef } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ConnectionState } from 'livekit-client';
@@ -5,23 +7,39 @@ import { dispatchAgentAction } from '../actions/dispatcher';
 import { AgentActionEnvelopeSchema } from '../actions/schema';
 import { useVoiceSession } from '../voice/useVoiceSession';
 import { startLiveKitSession } from '../../services/api/livekit';
+import { clearStoredAuth } from '../../services/storage/authStorage';
+import { trackEvent } from '../../services/telemetry/client';
 import { useSessionStore } from '../../state/sessionStore';
+import type { RootStackParamList } from '../../types/navigation';
 
-export function HomeScreen({ navigation }: { navigation: any }) {
+type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
+export function HomeScreen({ navigation }: Props) {
   const auth = useSessionStore((s) => s.auth);
   const livekitSession = useSessionStore((s) => s.livekitSession);
   const setLivekitSession = useSessionStore((s) => s.setLivekitSession);
+  const setAuth = useSessionStore((s) => s.setAuth);
   const deviceId = useSessionStore((s) => s.selectedDeviceId);
   const settingsProfileId = useSessionStore((s) => s.settingsProfileId);
   const [notes, setNotes] = useState<string[]>([]);
   const [settingsHint, setSettingsHint] = useState('');
   const [events, setEvents] = useState<string[]>([]);
-  const navigationRef = useRef<any>({
-    navigate: (screen: string, params?: unknown) => navigation.navigate(screen, params),
-  });
+  const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>({
+    navigate: (screen: any, params?: any) => navigation.navigate(screen, params),
+  } as NavigationContainerRef<RootStackParamList>);
 
   const appendEvent = (line: string) => {
     setEvents((prev) => [`${new Date().toISOString()} ${line}`, ...prev].slice(0, 25));
+  };
+
+  const track = async (level: 'info' | 'warn' | 'error', eventType: string, message: string, metadata?: Record<string, unknown>) => {
+    await trackEvent(auth?.tokens.accessToken, {
+      level,
+      eventType,
+      message,
+      roomName: livekitSession?.roomName,
+      metadata,
+    });
   };
 
   const voice = useVoiceSession({
@@ -32,6 +50,9 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       const parsed = AgentActionEnvelopeSchema.safeParse(JSON.parse(text));
       if (!parsed.success) {
         appendEvent('Rejected action schema');
+        void track('warn', 'action_rejected', 'Action schema rejected', {
+          error: parsed.error.flatten(),
+        });
         return;
       }
       dispatchAgentAction(parsed.data, {
@@ -39,8 +60,18 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         onAppendNote: (textToAppend) => setNotes((prev) => [textToAppend, ...prev]),
         onSettingsHint: (message) => setSettingsHint(message),
       });
+      void track('info', 'action_accepted', 'Action accepted', {
+        actionName: parsed.data.action.name,
+        requestId: parsed.data.requestId,
+      });
     },
-    onError: (message) => appendEvent(`Voice error: ${message}`),
+    onError: (message) => {
+      appendEvent(`Voice error: ${message}`);
+      void track('error', 'voice_error', message);
+    },
+    onStateChange: (state) => {
+      void track('info', 'voice_state', `State changed to ${state}`, { state });
+    },
   });
 
   const status = useMemo(() => {
@@ -65,8 +96,12 @@ export function HomeScreen({ navigation }: { navigation: any }) {
       });
       setLivekitSession(session);
       appendEvent(`Session started room=${session.roomName}`);
+      await track('info', 'session_started', 'LiveKit voice session started', {
+        roomName: session.roomName,
+      });
     } catch (error) {
       Alert.alert('Session start failed', error instanceof Error ? error.message : 'Unknown error');
+      await track('error', 'session_start_failed', 'Failed to start LiveKit session');
     }
   };
 
@@ -74,6 +109,13 @@ export function HomeScreen({ navigation }: { navigation: any }) {
     await voice.disconnect();
     setLivekitSession(null);
     appendEvent('Session disconnected');
+    await track('info', 'session_stopped', 'LiveKit voice session disconnected');
+  };
+
+  const logout = async () => {
+    await stopVoice();
+    await clearStoredAuth();
+    setAuth(null);
   };
 
   return (
@@ -88,6 +130,9 @@ export function HomeScreen({ navigation }: { navigation: any }) {
         <Button title="Settings" onPress={() => navigation.navigate('Settings')} />
         <Button title="Profile" onPress={() => navigation.navigate('Profile')} />
         <Button title="Notes" onPress={() => navigation.navigate('Notes')} />
+      </View>
+      <View style={styles.buttons}>
+        <Button title="Logout" onPress={logout} />
       </View>
 
       <Text style={styles.sectionTitle}>Settings Hint</Text>

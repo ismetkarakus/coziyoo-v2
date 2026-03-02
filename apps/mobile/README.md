@@ -20,3 +20,5 @@ npm run dev --workspace=apps/mobile
 - App uses `/v1/auth/login` for auth and `/v1/livekit/session/start` for voice bootstrap.
 - Agent actions are accepted only through strict JSON schema in `src/features/actions/schema.ts`.
 - Keep UI action handlers allowlisted in `src/features/actions/dispatcher.ts`.
+- Auth tokens are persisted with Expo Secure Store.
+- Voice/action telemetry is posted to `/v1/livekit/mobile/telemetry`.

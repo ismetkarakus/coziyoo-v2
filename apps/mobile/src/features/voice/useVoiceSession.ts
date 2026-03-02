@@ -8,6 +8,7 @@ type VoiceSessionInput = {
   token?: string;
   onAction: (jsonText: string) => void;
   onError: (message: string) => void;
+  onStateChange?: (state: ConnectionState) => void;
 };
 
 export function useVoiceSession(input: VoiceSessionInput) {
@@ -42,7 +43,10 @@ export function useVoiceSession(input: VoiceSessionInput) {
     };
 
     room
-      .on(RoomEvent.ConnectionStateChanged, (state) => setConnectionState(state))
+      .on(RoomEvent.ConnectionStateChanged, (state) => {
+        setConnectionState(state);
+        input.onStateChange?.(state);
+      })
       .on(RoomEvent.DataReceived, (payload) => {
         try {
           const text = new TextDecoder().decode(payload);
@@ -64,7 +68,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
       void room.disconnect();
       void AudioSession.stopAudioSession();
     };
-  }, [ready, input.onAction, input.onError, input.token, input.wsUrl]);
+  }, [ready, input.onAction, input.onError, input.onStateChange, input.token, input.wsUrl]);
 
   return {
     connectionState,

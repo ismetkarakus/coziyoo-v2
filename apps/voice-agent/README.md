@@ -23,6 +23,11 @@ Agent join API (port 9000):
 uvicorn voice_agent.join_api:app --host 0.0.0.0 --port 9000
 ```
 
+Dispatch status:
+```bash
+curl http://127.0.0.1:9000/livekit/agent-session/<task-id>
+```
+
 Agent worker:
 ```bash
 python -m voice_agent.entrypoint

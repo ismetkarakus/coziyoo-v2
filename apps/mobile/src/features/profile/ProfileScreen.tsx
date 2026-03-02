@@ -1,8 +1,12 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from '../../types/navigation';
 
-export function ProfileScreen({ route }: { route: any }) {
-  const userId = route?.params?.userId ?? 'current-user';
+type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
+
+export function ProfileScreen({ route }: Props) {
+  const userId = route.params?.userId ?? 'current-user';
   return (
     <View style={styles.root}>
       <Text style={styles.title}>Profile</Text>

@@ -7,6 +7,8 @@ export function SettingsScreen() {
   const auth = useSessionStore((s) => s.auth);
   const deviceId = useSessionStore((s) => s.selectedDeviceId);
   const setDeviceId = useSessionStore((s) => s.setDeviceId);
+  const settingsProfileId = useSessionStore((s) => s.settingsProfileId);
+  const setSettingsProfileId = useSessionStore((s) => s.setSettingsProfileId);
   const [sttBaseUrl, setSttBaseUrl] = useState('');
   const [llmBaseUrl, setLlmBaseUrl] = useState('');
   const [llmModel, setLlmModel] = useState('llama3.1:8b');
@@ -56,6 +58,12 @@ export function SettingsScreen() {
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Voice Settings</Text>
       <TextInput style={styles.input} value={deviceId} onChangeText={setDeviceId} placeholder="Device ID" />
+      <TextInput
+        style={styles.input}
+        value={settingsProfileId ?? ''}
+        onChangeText={(value) => setSettingsProfileId(value.trim().length > 0 ? value : undefined)}
+        placeholder="Settings Profile ID"
+      />
       <TextInput style={styles.input} value={sttBaseUrl} onChangeText={setSttBaseUrl} placeholder="STT Base URL" />
       <TextInput style={styles.input} value={llmBaseUrl} onChangeText={setLlmBaseUrl} placeholder="Ollama Base URL" />
       <TextInput style={styles.input} value={llmModel} onChangeText={setLlmModel} placeholder="LLM Model" />

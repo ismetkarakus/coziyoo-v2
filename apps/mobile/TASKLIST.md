@@ -8,12 +8,14 @@
 
 ## In Progress
 1. Harden mobile runtime integration with LiveKit RN native setup.
-2. Connect DataChannel contract to telemetry/error reporting.
 
 ## Next
-1. Add strong typed navigation params and route guards.
-2. Add persisted secure token storage on mobile.
-3. Add agent dispatch worker process manager in `apps/voice-agent`.
-4. Implement real streaming STT/TTS providers in `apps/voice-agent`.
-5. Add end-to-end tests across API + voice-agent + mobile harness.
-6. Add deployment units for `apps/voice-agent` (`systemd` + health checks).
+1. Add end-to-end tests across API + voice-agent + mobile harness.
+
+## Newly Completed
+1. Added strong typed navigation params and route-safe screen props.
+2. Added persisted secure token storage on mobile (Expo Secure Store).
+3. Connected DataChannel/voice lifecycle to telemetry endpoint reporting.
+4. Added agent dispatch worker process manager scaffold in `apps/voice-agent`.
+5. Replaced placeholder TTS adapter with remote TTS provider module.
+6. Added deployment scripts and systemd units for `apps/voice-agent` API and worker services.

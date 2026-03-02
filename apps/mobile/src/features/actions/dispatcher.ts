@@ -1,9 +1,10 @@
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { RefObject } from 'react';
+import type { RootStackParamList } from '../../types/navigation';
 import type { ValidAgentActionEnvelope } from './schema';
 
 type DispatcherDependencies = {
-  navigationRef: RefObject<NavigationContainerRef<any>>;
+  navigationRef: RefObject<NavigationContainerRef<RootStackParamList>>;
   onAppendNote: (text: string) => void;
   onSettingsHint: (message: string) => void;
 };
@@ -13,9 +14,17 @@ export function dispatchAgentAction(message: ValidAgentActionEnvelope, deps: Dis
 
   switch (action.name) {
     case 'navigate': {
-      deps.navigationRef.current?.navigate(action.params.screen, {
-        prefill: action.params.prefill,
-      });
+      if (action.params.screen === 'Notes') {
+        deps.navigationRef.current?.navigate('Notes', {
+          prefill: action.params.prefill,
+        });
+      } else if (action.params.screen === 'Profile') {
+        deps.navigationRef.current?.navigate('Profile');
+      } else if (action.params.screen === 'Settings') {
+        deps.navigationRef.current?.navigate('Settings');
+      } else {
+        deps.navigationRef.current?.navigate('Home');
+      }
       return;
     }
     case 'open_profile': {

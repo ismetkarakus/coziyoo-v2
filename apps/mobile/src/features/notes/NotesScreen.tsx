@@ -1,8 +1,12 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from '../../types/navigation';
 
-export function NotesScreen({ route }: { route: any }) {
-  const prefill = route?.params?.prefill;
+type Props = NativeStackScreenProps<RootStackParamList, 'Notes'>;
+
+export function NotesScreen({ route }: Props) {
+  const prefill = route.params?.prefill;
   return (
     <View style={styles.root}>
       <Text style={styles.title}>Notes</Text>
