@@ -81,7 +81,7 @@ const BUYER_SMART_FILTER_ITEMS: Array<{ key: BuyerSmartFilterKey; label: string;
   { key: "complainers", label: "Sikayetciler", icon: "✉" },
 ];
 const SELLER_SMART_FILTER_ITEMS: Array<{ key: SellerSmartFilterKey; label: string; icon: string }> = [
-  { key: "login_anomaly", label: "Giriş Anomalisi", icon: "◷" },
+  { key: "login_anomaly", label: "Tüm Kayıtlar", icon: "☰" },
   { key: "pending_approvals", label: "Onay Bekleyenler", icon: "☑" },
   { key: "missing_documents", label: "Eksik Belgesi Olanlar", icon: "⚠" },
   { key: "suspicious_logins", label: "Şüpheli Girişler", icon: "◉" },
@@ -1642,7 +1642,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return { level: "low", score };
   };
   const matchSellerSmartFilter = (row: any, key: SellerSmartFilterKey): boolean => {
-    if (key === "login_anomaly") return sellerSuspiciousLogin(row) > 0;
+    if (key === "login_anomaly") return true;
     if (key === "pending_approvals") return /(pending|review|in_progress|submitted)/.test(sellerApprovalText(row));
     if (key === "missing_documents") return sellerMissingDoc(row) > 0;
     if (key === "suspicious_logins") return sellerSuspiciousLogin(row) > 0;
@@ -1994,14 +1994,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "top_revenue",
       "performance_drop",
       "urgent_action",
-    ];
-    const secondarySmartItems: SellerSmartFilterKey[] = [
       "complainer_sellers",
-      "pending_approvals",
-      "missing_documents",
-      "suspicious_logins",
-      "top_revenue",
-      "performance_drop",
     ];
 
     return (
@@ -2063,10 +2056,53 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
         <section className="buyer-v2-main-layout">
           <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
-            <div className="seller-v2-smart-head">
-              <span className="buyer-v2-check-col"><input type="checkbox" aria-label="Tum filtreler" /></span>
-              <strong>ID</strong>
+            <div className="buyer-v2-smart-list seller-v2-smart-primary">
+              <button
+                type="button"
+                className={`buyer-v2-smart-item ${sellerStatusFilter === "all" ? "is-active" : ""}`}
+                aria-pressed={sellerStatusFilter === "all"}
+                onClick={() => {
+                  setSellerStatusFilter("all");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-label">Tüm TR</span>
+              </button>
+              <button
+                type="button"
+                className={`buyer-v2-smart-item ${sellerStatusFilter === "active" ? "is-active" : ""}`}
+                aria-pressed={sellerStatusFilter === "active"}
+                onClick={() => {
+                  setSellerStatusFilter("active");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-label">Aktif</span>
+              </button>
+              <button
+                type="button"
+                className={`buyer-v2-smart-item ${sellerStatusFilter === "disabled" ? "is-active" : ""}`}
+                aria-pressed={sellerStatusFilter === "disabled"}
+                onClick={() => {
+                  setSellerStatusFilter("disabled");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-label">Pasif</span>
+              </button>
+              <button
+                type="button"
+                className={`buyer-v2-smart-item ${last7DaysOnly ? "is-active" : ""}`}
+                aria-pressed={last7DaysOnly}
+                onClick={() => {
+                  setLast7DaysOnly((prev) => !prev);
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-label">Son 7 Gün</span>
+              </button>
             </div>
+            <div className="seller-v2-smart-separator" />
             <div className="buyer-v2-smart-list seller-v2-smart-primary">
               {primarySmartItems.map((key) => {
                 const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
@@ -2089,46 +2125,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 );
               })}
             </div>
-            <div className="seller-v2-smart-separator" />
-            <div className="buyer-v2-smart-list seller-v2-smart-secondary">
-              {secondarySmartItems.map((key) => {
-                const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
-                if (!item) return null;
-                const count = sellerSmartFilterCounts[item.key] ?? 0;
-                return (
-                  <button
-                    key={`secondary-${item.key}`}
-                    type="button"
-                    className={`buyer-v2-smart-item seller-v2-smart-item-light ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
-                    aria-pressed={activeSellerSmartFilter === item.key}
-                    onClick={() => {
-                      setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
-                      setFilters((prev) => ({ ...prev, page: 1 }));
-                    }}
-                  >
-                    <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
-                    <span className="buyer-v2-smart-item-label">{item.label}</span>
-                    {count > 0 ? <span className="buyer-v2-smart-item-count">{count}</span> : null}
-                  </button>
-                );
-              })}
-            </div>
           </aside>
 
           <section className="panel buyer-v2-board seller-v2-board">
             <div className="seller-v2-toolbar-row">
-              <div className="buyer-v2-chips seller-v2-top-tabs">
-                <button type="button" className={`chip ${sellerStatusFilter === "all" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("all")}>
-                  Tüm TR
-                </button>
-                <button type="button" className={`chip ${sellerStatusFilter === "active" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("active")}>
-                  Aktif
-                </button>
-                <button type="button" className={`chip ${sellerStatusFilter === "disabled" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("disabled")}>
-                  Pasif
-                </button>
-              </div>
-
               <div className="users-search-wrap buyer-v2-search">
                 <span className="users-search-icon" aria-hidden="true">
                   <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
@@ -2151,16 +2151,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
               <div className="seller-v2-toolbar-right">
                 <button
-                  type="button"
-                  className={`chip seller-v2-dropdown ${last7DaysOnly ? "is-active" : ""}`}
-                  onClick={() => {
-                    setLast7DaysOnly((prev) => !prev);
-                    setFilters((prev) => ({ ...prev, page: 1 }));
-                  }}
-                >
-                  Son 7 Gün ▼
-                </button>
-                <button
                   className="ghost users-sort-pill"
                   type="button"
                   onClick={() =>
@@ -2181,11 +2171,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <table>
                 <colgroup>
                   <col style={{ width: "42px" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "28%" }} />
-                  <col style={{ width: "11%" }} />
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "36%" }} />
+                  <col style={{ width: "12%" }} />
                   <col style={{ width: "10%" }} />
                   <col style={{ width: "13%" }} />
                   <col style={{ width: "10%" }} />
@@ -2194,10 +2181,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <thead>
                   <tr>
                     <th className="buyer-v2-check-col"><input type="checkbox" /></th>
-                    <th>ID</th>
                     <th>Mağaza Adı</th>
-                    <th>Risk ▼</th>
-                    <th>Onay Durumu ▼</th>
                     <th>Durum</th>
                     <th>Uyarılar</th>
                     <th>Sipariş Sağlığı</th>
@@ -2209,25 +2193,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   {loading ? (
                     Array.from({ length: 6 }).map((_, index) => (
                       <tr key={`skeleton-seller-${index}`}>
-                        <td colSpan={10} className="table-skeleton"><span /></td>
+                        <td colSpan={7} className="table-skeleton"><span /></td>
                       </tr>
                     ))
                   ) : filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={10}>{dict.common.noRecords}</td>
+                      <td colSpan={7}>{dict.common.noRecords}</td>
                     </tr>
                   ) : (
                     filteredRows.map((row) => {
-                      const risk = sellerRiskMeta(row);
-                      const rowIdShort = String(row.id ?? "").slice(0, 8);
-                      const approvalText = sellerApprovalText(row);
-                      const approvalLabel = approvalText.includes("pending")
-                        ? "Onay Bekliyor"
-                        : approvalText.includes("review")
-                          ? "İnceleniyor"
-                          : row.status === "disabled"
-                            ? "Pasif"
-                            : "Onaylı";
                       const orderCurrent = sellerOrderCurrent(row);
                       const orderPrevious = sellerOrderPrevious(row);
                       const orderMeta = trendArrow(orderCurrent, orderPrevious);
@@ -2239,8 +2213,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       const initials = nameParts.length >= 2
                         ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
                         : sellerName.slice(0, 2).toUpperCase();
-                      const docsTotal = 9;
-                      const docsDone = Math.max(0, docsTotal - sellerMissingDoc(row));
                       const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
                       const warningInfo = sellerComplaintUnresolved(row);
 
@@ -2258,25 +2230,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           tabIndex={0}
                         >
                           <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
-                          <td>{rowIdShort || "-"}</td>
                           <td>
                             <div className="seller-v2-shop-cell">
                               <span className="name-avatar seller-v2-avatar">{initials || "S"}</span>
                               <div>
                                 <strong>{sellerName}</strong>
-                                <span>{String(row.email ?? "-")}</span>
                               </div>
                             </div>
-                          </td>
-                          <td>
-                            <span className={`risk-pill is-${risk.level}`}>
-                              {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`status-pill ${approvalLabel === "Onaylı" ? "is-active" : approvalLabel === "Pasif" ? "is-disabled" : "is-warning"} seller-v2-approval-pill`}>
-                              {approvalLabel === "Onaylı" ? `Onaylı (${docsDone}/${docsTotal} belge)` : approvalLabel}
-                            </span>
                           </td>
                           <td>
                             <span className={`seller-v2-like-pill ${row.status === "active" ? "is-good" : ""}`}>
