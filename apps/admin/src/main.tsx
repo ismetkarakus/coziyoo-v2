@@ -54,7 +54,7 @@ const LANGUAGE_KEY = "admin_language";
 type Language = "tr" | "en";
 type Dictionary = typeof en;
 type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw";
-type BuyerDetailTab = "orders" | "payments" | "complaints" | "reviews" | "activity" | "notes";
+type BuyerDetailTab = "orders" | "payments" | "complaints" | "reviews" | "activity" | "notes" | "raw";
 type BuyerSmartFilterKey =
   | "daily_buyer"
   | "top_revenue"
@@ -114,6 +114,7 @@ function resolveBuyerDetailTab(value: string | null | undefined): BuyerDetailTab
   if (value === "reviews") return "reviews";
   if (value === "activity") return "activity";
   if (value === "notes") return "notes";
+  if (value === "raw") return "raw";
   return "orders";
 }
 
@@ -5472,6 +5473,21 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
     if (filteredOrders.length === 0 && orders.length > 0) return orders;
     return filteredOrders;
   }, [filteredOrders, orders]);
+  const buyerRawPayload = {
+    user: row,
+    contact: contactInfo,
+    summary,
+    orders: {
+      rows: orders,
+      pagination: ordersPagination,
+      filteredRows: visibleOrders,
+    },
+    reviews,
+    cancellations,
+    loginLocations: locations,
+    notes: noteItems,
+    tags: tagItems,
+  };
 
   function switchBuyerTab(tab: BuyerDetailTab) {
     setActiveTab(tab);
@@ -5719,6 +5735,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => switchBuyerTab("reviews")} type="button">Yorumlar & Puanlar</button>
               <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
               <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
+              <button className={activeTab === "raw" ? "is-active" : ""} onClick={() => switchBuyerTab("raw")} type="button">Ham Veri</button>
             </div>
             {activeTab === "orders" || activeTab === "payments" ? (
               <>
@@ -5920,6 +5937,28 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                 </div>
                 <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
               </div>
+            ) : null}
+
+            {activeTab === "raw" ? (
+              <section className="seller-json-card">
+                <div className="seller-json-header">
+                  <h2>Ham Veri (JSON)</h2>
+                  <button
+                    className="ghost seller-json-copy"
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(JSON.stringify(buyerRawPayload, null, 2)).catch(() => undefined)}
+                  >
+                    {dict.detail.copyJson}
+                  </button>
+                </div>
+                <ol className="seller-json-lines">
+                  {JSON.stringify(buyerRawPayload, null, 2)
+                    .split("\n")
+                    .map((line, index) => (
+                      <li key={`buyer-raw-${index}-${line}`}>{renderJsonLine(line)}</li>
+                    ))}
+                </ol>
+              </section>
             ) : null}
           </section>
 
@@ -6674,17 +6713,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
 
-  const maskedJson = {
+  const sellerRawPayload = {
     id: row.id,
-    email: maskedEmail,
-    displayName: row.displayName,
-    fullName: row.fullName,
-    role: row.role,
-    status: row.status,
-    countryCode: row.countryCode,
-    language: row.language,
-    updatedAt: row.updatedAt,
-    phone,
+    user: row,
+    compliance,
+    foods: foodRows,
+    derived: {
+      emailMasked: maskedEmail,
+      phoneFromComplianceChecks: phone,
+      roleLabel,
+      isActive,
+    },
     legalHoldState: "unknown",
   };
 
@@ -6809,25 +6848,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <span className="retention-chip">{`${dict.detail.legalHoldStateLabel}: ${dict.detail.legalHoldUnknown}`}</span>
             </div>
             {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
-            <section className="seller-json-card">
-              <div className="seller-json-header">
-                <h2>{dict.detail.accountJson}</h2>
-                <button
-                  className="ghost seller-json-copy"
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(JSON.stringify(maskedJson, null, 2)).catch(() => undefined)}
-                >
-                  {dict.detail.copyJson}
-                </button>
-              </div>
-              <ol className="seller-json-lines">
-                {JSON.stringify(maskedJson, null, 2)
-                  .split("\n")
-                  .map((line, index) => (
-                    <li key={`${index}-${line}`}>{renderJsonLine(line)}</li>
-                  ))}
-              </ol>
-            </section>
           </article>
         </section>
       ) : null}
@@ -6994,18 +7014,25 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       {activeTab === "raw" ? (
         <section className="panel">
-          <div className="panel-header">
-            <h2>{dict.detail.sellerTabs.raw}</h2>
-          </div>
-          <pre className="json-box">
-            {JSON.stringify(
-              {
-                legalHoldState: "unknown",
-              },
-              null,
-              2
-            )}
-          </pre>
+          <section className="seller-json-card">
+            <div className="seller-json-header">
+              <h2>{dict.detail.accountJson}</h2>
+              <button
+                className="ghost seller-json-copy"
+                type="button"
+                onClick={() => navigator.clipboard.writeText(JSON.stringify(sellerRawPayload, null, 2)).catch(() => undefined)}
+              >
+                {dict.detail.copyJson}
+              </button>
+            </div>
+            <ol className="seller-json-lines">
+              {JSON.stringify(sellerRawPayload, null, 2)
+                .split("\n")
+                .map((line, index) => (
+                  <li key={`seller-raw-${index}-${line}`}>{renderJsonLine(line)}</li>
+                ))}
+            </ol>
+          </section>
         </section>
       ) : null}
 
