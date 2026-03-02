@@ -1229,6 +1229,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       return {
         id: "id",
         email: "email",
+        phone: "phone",
         display_name: "displayName",
         full_name: "fullName",
         total_foods: "totalFoods",
@@ -1254,11 +1255,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const coreColumns = useMemo(() => {
     return isAppScoped
-      ? ["id", "display_name", "email", "is_active", "country_code", "language", "created_at", "updated_at"]
+      ? ["id", "display_name", "email", "phone", "is_active", "country_code", "language", "created_at", "updated_at"]
       : ["id", "email", "role", "is_active", "created_at", "updated_at", "last_login_at"];
   }, [isAppScoped]);
   const sellerDefaultColumns = useMemo(
-    () => ["display_name", "email", "id", "total_foods", "status", "language", "created_at", "updated_at"],
+    () => ["display_name", "email", "phone", "id", "total_foods", "status", "language", "created_at", "updated_at"],
     []
   );
 
@@ -1729,6 +1730,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "id") return "ID";
     if (mapped === "displayName") return isSellerPage ? (language === "tr" ? "Satıcı Adı" : "Seller Name") : language === "tr" ? "Ad Soyad" : "Full Name";
     if (mapped === "email") return language === "tr" ? "E-Posta" : "Email";
+    if (mapped === "phone") return language === "tr" ? "Telefon" : "Phone";
     if (mapped === "status") return dict.users.status;
     if (mapped === "totalFoods") return language === "tr" ? "Yemek" : "Foods";
     if (mapped === "role") return dict.users.role;
@@ -1841,6 +1843,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (mapped === "email" && isBuyerPage) {
       return String(value ?? "");
+    }
+    if (mapped === "phone") {
+      const phoneValue = String(value ?? "").trim();
+      return phoneValue || "-";
     }
     if (mapped === "countryCode") {
       const cc = String(value ?? "").toUpperCase();
@@ -6632,7 +6638,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
   const phone = extractPhoneFromChecks(compliance);
   const maskedEmail = maskEmail(row.email);
-  const maskedPhone = maskPhone(phone);
   const profileRetentionUntil = addTwoYears(row.updatedAt);
   const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
   const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
@@ -6676,11 +6681,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     fullName: row.fullName,
     role: row.role,
     status: row.status,
-    displayStatusLabel: accountStatusLabel,
     countryCode: row.countryCode,
     language: row.language,
     updatedAt: row.updatedAt,
-    maskedPhone,
+    phone,
     legalHoldState: "unknown",
   };
 

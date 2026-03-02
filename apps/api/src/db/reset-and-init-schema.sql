@@ -17,6 +17,7 @@ CREATE TABLE users (
   display_name TEXT UNIQUE NOT NULL,
   display_name_normalized TEXT UNIQUE NOT NULL,
   full_name TEXT,
+  phone TEXT,
   profile_image_url TEXT,
   user_type TEXT NOT NULL CHECK (user_type IN ('buyer', 'seller', 'both')),
   is_active BOOLEAN NOT NULL DEFAULT TRUE,

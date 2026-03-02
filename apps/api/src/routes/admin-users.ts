@@ -41,6 +41,7 @@ const CreateAppUserSchema = z.object({
   password: z.string().min(8).max(128),
   displayName: z.string().min(3).max(40),
   fullName: z.string().min(1).max(120).optional(),
+  phone: z.string().min(3).max(40).optional(),
   profileImageUrl: z.string().url().max(2048).optional(),
   userType: z.enum(["buyer", "seller", "both"]),
   countryCode: z.string().min(2).max(3).optional(),
@@ -53,6 +54,7 @@ const UpdateAppUserSchema = z.object({
   password: z.string().min(8).max(128).optional(),
   displayName: z.string().min(3).max(40).optional(),
   fullName: z.string().min(1).max(120).nullable().optional(),
+  phone: z.string().min(3).max(40).nullable().optional(),
   profileImageUrl: z.string().url().max(2048).nullable().optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
   countryCode: z.string().min(2).max(3).nullable().optional(),
@@ -695,6 +697,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     const searchParamIndex = params.length;
     where.push(
       `(lower(u.email) LIKE $${searchParamIndex}
+        OR lower(coalesce(u.phone, '')) LIKE $${searchParamIndex}
         OR lower(u.display_name) LIKE $${searchParamIndex}
         OR lower(u.id::text) LIKE $${searchParamIndex}
         OR lower('cust-' || u.id::text) LIKE $${searchParamIndex}
@@ -742,6 +745,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     email: string;
     display_name: string;
     full_name: string | null;
+    phone: string | null;
     profile_image_url: string | null;
     user_type: "buyer" | "seller" | "both";
     is_active: boolean;
@@ -764,6 +768,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.email,
        u.display_name,
        u.full_name,
+       u.phone,
        u.profile_image_url,
        u.user_type,
        u.is_active,
@@ -829,6 +834,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       email: row.email,
       displayName: row.display_name,
       fullName: row.full_name,
+      phone: row.phone,
       profileImageUrl: row.profile_image_url,
       role: row.user_type,
       status: row.is_active ? "active" : "disabled",
@@ -906,6 +912,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
     email: string;
     display_name: string;
     full_name: string | null;
+    phone: string | null;
     profile_image_url: string | null;
     user_type: "buyer" | "seller" | "both";
     is_active: boolean;
@@ -920,6 +927,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
        email,
        display_name,
        full_name,
+       phone,
        profile_image_url,
        user_type,
        is_active,
@@ -948,6 +956,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       email: row.email,
       displayName: row.display_name,
       fullName: row.full_name,
+      phone: row.phone,
       profileImageUrl: row.profile_image_url,
       role: row.user_type,
       status: row.is_active ? "active" : "disabled",
@@ -1857,15 +1866,16 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
   try {
     await client.query("BEGIN");
     const created = await client.query(
-      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, profile_image_url, user_type, is_active, country_code, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, phone, profile_image_url, user_type, is_active, country_code, language)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [
         input.email.toLowerCase(),
         passwordHash,
         input.displayName,
         displayNameNormalized,
         input.fullName ?? null,
+        input.phone ?? null,
         input.profileImageUrl ?? null,
         input.userType,
         input.isActive ?? true,
@@ -1883,6 +1893,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
       after: {
         email: row.email,
         displayName: row.display_name,
+        phone: row.phone,
         userType: row.user_type,
         isActive: row.is_active,
       },
@@ -1895,6 +1906,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        phone: row.phone,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
@@ -1928,7 +1940,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
   try {
     await client.query("BEGIN");
     const existing = await client.query(
-      `SELECT id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language
+      `SELECT id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language
        FROM users
        WHERE id = $1
        FOR UPDATE`,
@@ -1952,13 +1964,14 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
          display_name = coalesce($4, display_name),
          display_name_normalized = coalesce($5, display_name_normalized),
          full_name = CASE WHEN $6::boolean THEN $7 ELSE full_name END,
-         profile_image_url = CASE WHEN $8::boolean THEN $9 ELSE profile_image_url END,
-         user_type = coalesce($10, user_type),
-         country_code = CASE WHEN $11::boolean THEN $12 ELSE country_code END,
-         language = CASE WHEN $13::boolean THEN $14 ELSE language END,
+         phone = CASE WHEN $8::boolean THEN $9 ELSE phone END,
+         profile_image_url = CASE WHEN $10::boolean THEN $11 ELSE profile_image_url END,
+         user_type = coalesce($12, user_type),
+         country_code = CASE WHEN $13::boolean THEN $14 ELSE country_code END,
+         language = CASE WHEN $15::boolean THEN $16 ELSE language END,
          updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [
         params.data.id,
         input.email ? input.email.toLowerCase() : null,
@@ -1967,6 +1980,8 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         displayNameNormalized,
         Object.hasOwn(input, "fullName"),
         input.fullName ?? null,
+        Object.hasOwn(input, "phone"),
+        input.phone ?? null,
         Object.hasOwn(input, "profileImageUrl"),
         input.profileImageUrl ?? null,
         input.userType ?? null,
@@ -1988,6 +2003,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        phone: row.phone,
         profileImageUrl: row.profile_image_url,
         userType: row.user_type,
         isActive: row.is_active,
@@ -2003,6 +2019,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        phone: row.phone,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
@@ -2048,7 +2065,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
       `UPDATE users
        SET is_active = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [params.data.id, nextActive]
     );
 
@@ -2069,6 +2086,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        phone: row.phone,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
@@ -2114,7 +2132,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
       `UPDATE users
        SET user_type = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language, created_at::text, updated_at::text`,
       [params.data.id, parsed.data.role]
     );
 
@@ -2135,6 +2153,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
         email: row.email,
         displayName: row.display_name,
         fullName: row.full_name,
+        phone: row.phone,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
