@@ -10,7 +10,7 @@
 1. Harden mobile runtime integration with LiveKit RN native setup.
 
 ## Next
-1. Add end-to-end tests across API + voice-agent + mobile harness.
+1. Harden LiveKit native runtime behavior under real mobile network transitions.
 
 ## Newly Completed
 1. Added strong typed navigation params and route-safe screen props.
@@ -19,3 +19,4 @@
 4. Added agent dispatch worker process manager scaffold in `apps/voice-agent`.
 5. Replaced placeholder TTS adapter with remote TTS provider module.
 6. Added deployment scripts and systemd units for `apps/voice-agent` API and worker services.
+7. Added executable E2E voice smoke harness spanning API + voice-agent dispatch flow.

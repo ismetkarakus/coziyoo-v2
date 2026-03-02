@@ -15,6 +15,16 @@ npm install
 npm run dev --workspace=apps/mobile
 ```
 
+## E2E Smoke
+
+```bash
+API_BASE_URL=https://api.coziyoo.com \
+AGENT_API_BASE_URL=http://agent.coziyoo.com:9000 \
+E2E_EMAIL=admin@coziyoo.com \
+E2E_PASSWORD=Admin12345 \
+npm run e2e:voice-smoke --workspace=apps/mobile
+```
+
 ## Notes
 
 - App uses `/v1/auth/login` for auth and `/v1/livekit/session/start` for voice bootstrap.
