@@ -2,9 +2,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Preserve runtime overrides passed from caller before config load.
+RUNTIME_DEMO_DB_REBUILD_ON_UPDATE="${DEMO_DB_REBUILD_ON_UPDATE:-}"
+RUNTIME_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE="${DEMO_DB_REBUILD_ON_SCHEMA_CHANGE:-}"
+RUNTIME_DEMO_DB_RESEED_ON_UPDATE="${DEMO_DB_RESEED_ON_UPDATE:-}"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 load_config
+if [[ -n "${RUNTIME_DEMO_DB_REBUILD_ON_UPDATE}" ]]; then
+  DEMO_DB_REBUILD_ON_UPDATE="${RUNTIME_DEMO_DB_REBUILD_ON_UPDATE}"
+fi
+if [[ -n "${RUNTIME_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE}" ]]; then
+  DEMO_DB_REBUILD_ON_SCHEMA_CHANGE="${RUNTIME_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE}"
+fi
+if [[ -n "${RUNTIME_DEMO_DB_RESEED_ON_UPDATE}" ]]; then
+  DEMO_DB_RESEED_ON_UPDATE="${RUNTIME_DEMO_DB_RESEED_ON_UPDATE}"
+fi
 sync_repo_to_root
 acquire_update_lock
 

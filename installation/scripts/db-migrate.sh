@@ -46,11 +46,8 @@ if [[ "${MIGRATION_TRACK_COUNT:-0}" == "0" && "${USERS_TABLE_EXISTS}" == "t" ]];
   log "Detected legacy DB without schema_migrations history; bootstrapping migration tracker"
   for FILE in "${MIGRATION_FILES[@]}"; do
     FILENAME="$(basename "${FILE}")"
-    psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -v f="${FILENAME}" <<'SQL'
-INSERT INTO schema_migrations (filename)
-VALUES (:'f')
-ON CONFLICT (filename) DO NOTHING;
-SQL
+    psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
+      -c "INSERT INTO schema_migrations (filename) VALUES ('${FILENAME}') ON CONFLICT (filename) DO NOTHING;"
   done
   log "Migration tracker bootstrapped from existing schema. New migrations will apply on next deploy."
   exit 0
@@ -61,8 +58,8 @@ for FILE in "${MIGRATION_FILES[@]}"; do
   FILENAME=$(basename "${FILE}")
 
   EXISTS="$(
-    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -v f="${FILENAME}" \
-      -c "SELECT 1 FROM schema_migrations WHERE filename = :'f' LIMIT 1;" | tr -d '[:space:]' || true
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+      -c "SELECT 1 FROM schema_migrations WHERE filename = '${FILENAME}' LIMIT 1;" | tr -d '[:space:]' || true
   )"
   if [[ "${EXISTS}" == "1" ]]; then
     log "  ✓ Already applied: ${FILENAME}"
@@ -71,11 +68,8 @@ for FILE in "${MIGRATION_FILES[@]}"; do
 
   log "  Applying: ${FILENAME}"
   psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${FILE}"
-  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -v f="${FILENAME}" <<'SQL'
-INSERT INTO schema_migrations (filename)
-VALUES (:'f')
-ON CONFLICT (filename) DO NOTHING;
-SQL
+  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
+    -c "INSERT INTO schema_migrations (filename) VALUES ('${FILENAME}') ON CONFLICT (filename) DO NOTHING;"
   ((APPLIED_COUNT++)) || true
   log "  ✓ Applied: ${FILENAME}"
 done
