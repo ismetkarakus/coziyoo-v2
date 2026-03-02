@@ -45,6 +45,9 @@ coverage
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
+**/.venv/
+apps/voice-agent/.venv/
 
 # Deployment
 .deploy-lock
