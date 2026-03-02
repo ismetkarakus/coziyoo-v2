@@ -20,23 +20,25 @@ if [[ -n "${PG_DB:-}" && -n "${PG_USER:-}" && -n "${PG_PASSWORD:-}" ]]; then
   log "Creating/updating PostgreSQL user and database"
   (
     cd /tmp
-    run_root -u postgres psql -v ON_ERROR_STOP=1 <<SQL
-DO
-\$\$
+    run_root -u postgres psql -v ON_ERROR_STOP=1 \
+      -v pg_user="${PG_USER}" \
+      -v pg_pass="${PG_PASSWORD}" <<'SQL'
+DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${PG_USER}') THEN
-    CREATE ROLE ${PG_USER} LOGIN PASSWORD '${PG_PASSWORD}';
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'pg_user') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'pg_user', :'pg_pass');
   ELSE
-    ALTER ROLE ${PG_USER} WITH LOGIN PASSWORD '${PG_PASSWORD}';
+    EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'pg_user', :'pg_pass');
   END IF;
 END
-\$\$;
+$$;
 SQL
   )
 
   (
     cd /tmp
-    run_root -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = '${PG_DB}'" | grep -q 1 || \
+    run_root -u postgres psql -tAc \
+      "SELECT 1 FROM pg_database WHERE datname = '${PG_DB}'" | grep -q 1 || \
       run_root -u postgres createdb -O "${PG_USER}" "${PG_DB}"
   )
 else

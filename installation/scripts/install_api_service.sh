@@ -39,20 +39,8 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
   source "${ROOT_ENV}"
   set +a
   
-  # Install from repo root (workspace root) to ensure monorepo deps are resolved
-  cd "${REPO_ROOT}"
-  
-  # Avoid platform-specific optional package failures (e.g. android-only binaries).
-  NPM_INSTALL_FLAGS=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
-  if [[ -f package-lock.json ]]; then
-    if ! npm ci "${NPM_INSTALL_FLAGS[@]}"; then
-      log "npm ci failed (likely lock/platform optional package mismatch), retrying with npm install"
-      npm install "${NPM_INSTALL_FLAGS[@]}"
-    fi
-  else
-    npm install "${NPM_INSTALL_FLAGS[@]}"
-  fi
-  
+  npm_install_from_root
+
   # Build from API directory
   cd "${API_DIR_ABS}"
   npm run build
@@ -64,9 +52,20 @@ bash "${SCRIPT_DIR}/db-migrate.sh"
 
 # Create/restart systemd service
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
-RUN_USER="${API_RUN_USER:-root}"
-RUN_GROUP="${API_RUN_GROUP:-root}"
+RUN_USER="${API_RUN_USER:-coziyoo}"
+RUN_GROUP="${API_RUN_GROUP:-coziyoo}"
 START_CMD="${API_START_CMD:-node dist/src/server.js}"
+
+log "Ensuring service user and group exist: ${RUN_USER}:${RUN_GROUP}"
+if ! getent group "${RUN_GROUP}" >/dev/null 2>&1; then
+  run_root groupadd --system "${RUN_GROUP}"
+fi
+if ! getent passwd "${RUN_USER}" >/dev/null 2>&1; then
+  run_root useradd --system -g "${RUN_GROUP}" -d "${REPO_ROOT}" -s /sbin/nologin "${RUN_USER}"
+fi
+
+# Ensure the user has permission to read the repo root and edit logs if needed
+run_root chown -R "${RUN_USER}:${RUN_GROUP}" "${REPO_ROOT}" || true
 
 UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 if run_root systemctl list-unit-files "${SERVICE_NAME}.service" --no-legend >/dev/null 2>&1; then

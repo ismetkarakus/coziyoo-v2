@@ -17,7 +17,9 @@ fi
 API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
 [[ -d "${API_DIR_ABS}" ]] || fail "API directory not found: ${API_DIR_ABS}"
 
-ADMIN_EMAIL="${SEED_ADMIN_EMAIL:-admin@coziyoo.com}"
+# Normalize email to lowercase — the login endpoint queries with email.toLowerCase()
+# so the stored email MUST be lowercase or the lookup will never match.
+ADMIN_EMAIL="$(printf '%s' "${SEED_ADMIN_EMAIL:-admin@coziyoo.com}" | tr '[:upper:]' '[:lower:]')"
 ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-Admin12345}"
 ADMIN_PASSWORD_SYNC_IF_EXISTS="${SEED_ADMIN_PASSWORD_SYNC_IF_EXISTS:-true}"
 API_BASE_URL="http://127.0.0.1:${API_PORT:-3000}"
@@ -25,7 +27,8 @@ API_BASE_URL="http://127.0.0.1:${API_PORT:-3000}"
 log "Seeding admin user: ${ADMIN_EMAIL}"
 
 # Verify argon2 is available (required for password hashing)
-if ! node -e "require('argon2')" >/dev/null 2>&1; then
+# Must be checked from within the API workspace so Node can resolve workspace modules
+if ! (cd "${API_DIR_ABS}" && node -e "require('argon2')") >/dev/null 2>&1; then
   fail "argon2 module not found in API dependencies. Run install_api_service.sh first."
 fi
 
@@ -62,20 +65,6 @@ fi
 if [[ "${SEED_SAMPLE_DATA:-false}" == "true" ]]; then
   log "Seeding sample data via API..."
   ALLOW_SEED_FAILURE="${INSTALL_ALLOW_SEED_FAILURE:-false}"
-  
-  # Wait for API to be ready
-  log "  Waiting for API at ${API_BASE_URL}..."
-  for i in {1..60}; do
-    if curl -fs "${API_BASE_URL}/v1/health" >/dev/null 2>&1; then
-      log "  API is ready"
-      break
-    fi
-    if [[ $i -eq 60 ]]; then
-      log "  Warning: API did not become ready, skipping sample data seeding"
-      exit 0
-    fi
-    sleep 1
-  done
   
   PYTHON_SCRIPT="${INSTALL_DIR}/seed-data/seed_api_sample_load.py"
   if [[ -f "${PYTHON_SCRIPT}" ]]; then

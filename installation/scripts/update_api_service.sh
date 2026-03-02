@@ -44,29 +44,10 @@ maybe_git_update "${REPO_ROOT}"
     needs_install="true"
   fi
 
-  # Verify iconv-lite encodings module is present (can be corrupted/broken in some deployments)
-  if ! node -e "require('iconv-lite').getCodec('utf8')" >/dev/null 2>&1; then
-    log "iconv-lite module corrupted or incomplete; forcing reinstall"
-    needs_install="true"
-  fi
-
   if [[ "${needs_install}" == "true" ]]; then
     log "API dependencies missing/incomplete; installing dependencies"
-    # Clean install from repo root (workspace root) to ensure monorepo deps are resolved
-    cd "${REPO_ROOT}"
-    if [[ -d "${ROOT_NODE_MODULES}" ]]; then
-      log "Removing existing node_modules for clean install"
-      rm -rf "${ROOT_NODE_MODULES}"
-    fi
-    if [[ -f package-lock.json ]]; then
-      if ! npm ci "${NPM_INSTALL_FLAGS[@]}"; then
-        log "npm ci failed, retrying with npm install"
-        rm -rf node_modules
-        npm install "${NPM_INSTALL_FLAGS[@]}"
-      fi
-    else
-      npm install "${NPM_INSTALL_FLAGS[@]}"
-    fi
+    npm_install_from_root
+    
     # Return to API dir for build
     cd "${API_DIR_ABS}"
   fi

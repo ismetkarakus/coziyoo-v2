@@ -25,9 +25,7 @@ fi
 
 log "Backfilling foods.image_url with real image URLs"
 
-PSQL="psql \"${DATABASE_URL}\" -v ON_ERROR_STOP=1"
-
-eval "${PSQL}" <<'SQL'
+psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 <<'SQL'
 WITH updated AS (
   UPDATE foods
   SET image_url = CASE

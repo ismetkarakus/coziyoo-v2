@@ -37,17 +37,8 @@ EOF
 
   if [[ "${needs_install}" == "true" ]]; then
     log "Admin dependencies missing/incomplete; installing dependencies from workspace root"
-    # Install from repo root (workspace root) to ensure monorepo deps are resolved
-    cd "${REPO_ROOT}"
-    if [[ -f package-lock.json ]]; then
-      if ! npm ci --silent --no-audit --no-fund --loglevel=error; then
-        log "npm ci failed, retrying with npm install"
-        rm -rf node_modules
-        npm install --silent --no-audit --no-fund --loglevel=error
-      fi
-    else
-      npm install --silent --no-audit --no-fund --loglevel=error
-    fi
+    npm_install_from_root
+    
     # Return to admin dir for build
     cd "${ADMIN_DIR_ABS}"
   fi

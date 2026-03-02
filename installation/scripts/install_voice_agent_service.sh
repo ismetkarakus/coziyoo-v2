@@ -45,6 +45,8 @@ After=network.target
 
 [Service]
 Type=simple
+User=${API_RUN_USER:-coziyoo}
+Group=${API_RUN_GROUP:-coziyoo}
 WorkingDirectory=${VOICE_AGENT_DIR_ABS}
 EnvironmentFile=${ROOT_ENV}
 ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/uvicorn voice_agent.join_api:app --host ${VOICE_AGENT_HOST} --port ${VOICE_AGENT_PORT}'
@@ -63,6 +65,8 @@ After=network.target
 
 [Service]
 Type=simple
+User=${API_RUN_USER:-coziyoo}
+Group=${API_RUN_GROUP:-coziyoo}
 WorkingDirectory=${VOICE_AGENT_DIR_ABS}
 EnvironmentFile=${ROOT_ENV}
 ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/python -m voice_agent.entrypoint start'

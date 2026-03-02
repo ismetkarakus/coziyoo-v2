@@ -24,13 +24,7 @@ require_cmd npm
 
 log "Building admin panel in ${ADMIN_DIR_ABS}"
 (
-  # Install from repo root (workspace root) to ensure monorepo deps are resolved
-  cd "${REPO_ROOT}"
-  if [[ -f package-lock.json ]]; then
-    npm ci --silent --no-audit --no-fund --loglevel=error
-  else
-    npm install --silent --no-audit --no-fund --loglevel=error
-  fi
+  npm_install_from_root
   
   # Build from admin directory
   cd "${ADMIN_DIR_ABS}"
@@ -46,19 +40,22 @@ log "Publishing admin files to ${PUBLISH_DIR}"
 run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -a --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
-# Create systemd service for Python HTTP server
+# Create systemd service for static file serving
 UNIT_PATH="/etc/systemd/system/${ADMIN_SERVICE_NAME}.service"
-log "Creating Python HTTP service for admin panel at ${UNIT_PATH}"
+log "Creating systemd service for admin panel at ${UNIT_PATH}"
 
+# We use 'serve' to properly handle SPA routing (-s flag routes unknown paths to index.html)
 run_root tee "${UNIT_PATH}" >/dev/null <<EOF
 [Unit]
-Description=Coziyoo Admin Panel (Python HTTP Server)
+Description=Coziyoo Admin Panel (Node Serve)
 After=network.target
 
 [Service]
 Type=simple
+User=${API_RUN_USER:-coziyoo}
+Group=${API_RUN_GROUP:-coziyoo}
 WorkingDirectory=${PUBLISH_DIR}
-ExecStart=/usr/bin/env python3 -m http.server ${ADMIN_PORT} --bind 0.0.0.0 --directory ${PUBLISH_DIR}
+ExecStart=/usr/bin/env npx --yes serve -s . -l ${ADMIN_PORT}
 Restart=always
 RestartSec=2
 
@@ -70,4 +67,4 @@ run_root systemctl daemon-reload
 run_root systemctl enable "${ADMIN_SERVICE_NAME}"
 run_root systemctl restart "${ADMIN_SERVICE_NAME}"
 
-log "Admin panel setup finished (Python HTTP server on port ${ADMIN_PORT})"
+log "Admin panel setup finished (Node Serve on port ${ADMIN_PORT})"

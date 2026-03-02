@@ -73,8 +73,8 @@ load_config() {
     run_root mkdir -p "${REPO_ROOT}"
   fi
 
-  API_RUN_USER="${API_RUN_USER:-root}"
-  API_RUN_GROUP="${API_RUN_GROUP:-root}"
+  API_RUN_USER="${API_RUN_USER:-coziyoo}"
+  API_RUN_GROUP="${API_RUN_GROUP:-coziyoo}"
   export SOURCE_REPO_ROOT REPO_ROOT API_RUN_USER API_RUN_GROUP
 }
 
@@ -108,40 +108,6 @@ maybe_git_update() {
   fi
 
   local branch="${DEPLOY_BRANCH:-main}"
-  local preserve_paths_csv="${DEPLOY_GIT_PRESERVE_PATHS:-installation/config.env,.env}"
-  local -a preserve_paths=()
-  local stashed="false"
-  local stash_ref=""
-  local preserve_backup_dir=""
-  local p=""
-
-  IFS=',' read -r -a preserve_paths <<< "${preserve_paths_csv}"
-
-  preserve_backup_dir="$(mktemp -d)"
-  for p in "${preserve_paths[@]}"; do
-    p="$(printf "%s" "${p}" | xargs)"
-    [[ -z "${p}" ]] && continue
-    if [[ -f "${repo}/${p}" ]]; then
-      mkdir -p "${preserve_backup_dir}/$(dirname "${p}")"
-      cp -f "${repo}/${p}" "${preserve_backup_dir}/${p}"
-    fi
-  done
-
-  if [[ -n "$(git -C "${repo}" status --porcelain --untracked-files=all)" ]]; then
-    local stash_count_before stash_count_after
-    stash_count_before="$(git -C "${repo}" stash list | wc -l | tr -d ' ')"
-    log "Stashing local repo changes before git update"
-    (
-      cd "${repo}"
-      git stash push --quiet --include-untracked --message "deploy-autostash-$(date +%s)" || true
-    )
-    stash_count_after="$(git -C "${repo}" stash list | wc -l | tr -d ' ')"
-    if [[ "${stash_count_after}" -gt "${stash_count_before}" ]]; then
-      stashed="true"
-      stash_ref="stash@{0}"
-    fi
-  fi
-
   log "Updating repo at ${repo} on branch ${branch}"
 
   # Add safe directory unconditionally
@@ -153,25 +119,6 @@ maybe_git_update() {
     git checkout -q "${branch}"
     git pull --quiet --ff-only origin "${branch}"
   )
-
-  if [[ "${stashed}" == "true" ]]; then
-    log "Dropping temporary deploy stash ${stash_ref}"
-    (
-      cd "${repo}"
-      git stash drop --quiet "${stash_ref}" || true
-    )
-  fi
-
-  log "Restoring preserved local config files from backup"
-  for p in "${preserve_paths[@]}"; do
-    p="$(printf "%s" "${p}" | xargs)"
-    [[ -z "${p}" ]] && continue
-    if [[ -f "${preserve_backup_dir}/${p}" ]]; then
-      mkdir -p "${repo}/$(dirname "${p}")"
-      cp -f "${preserve_backup_dir}/${p}" "${repo}/${p}"
-    fi
-  done
-  rm -rf "${preserve_backup_dir}"
 }
 
 sync_repo_to_root() {
@@ -238,7 +185,28 @@ acquire_update_lock() {
   fi
 }
 
-# Shared function for ensuring API env defaults
+# Shared npm install from workspace root.
+# Tries npm ci first (fast, reproducible); falls back to npm install if ci fails.
+# Call from within REPO_ROOT or any subdir — this always cd's to REPO_ROOT.
+npm_install_from_root() {
+  local flags=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
+  (
+    cd "${REPO_ROOT}"
+    if [[ -f package-lock.json ]]; then
+      if ! npm ci "${flags[@]}"; then
+        log "npm ci failed (likely lock/platform mismatch), retrying with npm install"
+        rm -rf node_modules
+        npm install "${flags[@]}"
+      fi
+    else
+      npm install "${flags[@]}"
+    fi
+  )
+}
+
+# Shared function for ensuring API env defaults.
+# Only non-secret infrastructure defaults are set here. Secrets (JWT, webhook,
+# API keys) MUST be generated via generate_env.sh — never hardcoded.
 ensure_api_env_defaults() {
   local env_file="$1"
   local pg_db_default="${PG_DB:-coziyoo}"
@@ -247,13 +215,6 @@ ensure_api_env_defaults() {
   local admin_domain="${ADMIN_DOMAIN:-admin.coziyoo.com}"
   local cors_default="${API_CORS_ALLOWED_ORIGINS:-https://${admin_domain},http://${admin_domain},http://localhost:8081,http://localhost:5173,http://localhost:19006}"
   local defaults=(
-    "APP_JWT_SECRET=coziyoo_app_jwt_secret_change_me_1234567890"
-    "ADMIN_JWT_SECRET=coziyoo_admin_jwt_secret_change_me_1234567890"
-    "PAYMENT_WEBHOOK_SECRET=coziyoo_webhook_secret_1234"
-    "AI_SERVER_SHARED_SECRET=coziyoo_ai_shared_secret_dummy_123456"
-    "SPEECH_TO_TEXT_API_KEY=coziyoo_stt_api_key_dummy"
-    "TTS_API_KEY=coziyoo_tts_api_key_dummy"
-    "N8N_API_KEY=coziyoo_n8n_api_key_dummy"
     "PGHOST=127.0.0.1"
     "PGPORT=5432"
     "PGUSER=${pg_user_default}"
@@ -266,6 +227,14 @@ ensure_api_env_defaults() {
     log "Creating API env file at ${env_file}"
     mkdir -p "$(dirname "${env_file}")"
     printf "%s\n" "${defaults[@]}" > "${env_file}"
+    # Secrets are missing — generate them
+    local generator="${SCRIPT_DIR}/generate_env.sh"
+    if [[ -f "${generator}" ]]; then
+      log "Generating secrets via generate_env.sh"
+      bash "${generator}" --force --output "${env_file}"
+    else
+      fail "Env file created without secrets and generate_env.sh is missing. Generate secrets manually."
+    fi
     return
   fi
 
