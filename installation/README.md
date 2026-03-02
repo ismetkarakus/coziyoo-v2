@@ -113,10 +113,19 @@ bash installation/scripts/update_all.sh
 ```
 
 This pulls latest code, rebuilds, and restarts services.
+It also runs post-deploy DB data patch checks (idempotent, one-time per patch key).
 
 Health check behavior during updates:
 - Default liveness endpoint: `/v1` (ensures API process is up)
 - Optional strict DB check: set `STRICT_DB_HEALTHCHECK=true` to also require `/v1/health`
+
+### Post-Deploy DB Data Patch Flags
+
+`update_all.sh` runs `installation/scripts/apply_post_deploy_db_updates.sh` when enabled.
+
+- Toggle in `installation/config.env`: `APPLY_POST_DEPLOY_DATA_PATCHES=true`
+- Applied patch keys are tracked in DB table: `deployment_update_flags`
+- If a patch key already exists, that patch is skipped automatically.
 
 ## 5) Auto-Deploy on Git Push (GitHub Actions)
 

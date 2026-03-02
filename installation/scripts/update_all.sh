@@ -30,6 +30,9 @@ log "Stopping app services before update (leaving PostgreSQL running)"
 "${SCRIPT_DIR}/update_api_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
 "${SCRIPT_DIR}/update_voice_agent_service.sh"
+if [[ -x "${SCRIPT_DIR}/apply_post_deploy_db_updates.sh" ]]; then
+  "${SCRIPT_DIR}/apply_post_deploy_db_updates.sh"
+fi
 
 API_PORT="${API_PORT:-3000}"
 UPDATE_SKIP_HEALTHCHECKS="${UPDATE_SKIP_HEALTHCHECKS:-false}"
