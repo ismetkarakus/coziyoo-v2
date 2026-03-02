@@ -1,12 +1,28 @@
 import type { PoolClient } from "pg";
 
+async function markExpiredLotsForFoodTx(client: PoolClient, foodId: string): Promise<void> {
+  await client.query(
+    `UPDATE production_lots
+     SET status = 'expired',
+         updated_at = now()
+     WHERE food_id = $1
+       AND status = 'open'
+       AND sale_ends_at < now()`,
+    [foodId]
+  );
+}
+
 export async function recalculateFoodStockTx(client: PoolClient, foodId: string): Promise<void> {
+  await markExpiredLotsForFoodTx(client, foodId);
   await client.query(
     `UPDATE foods
      SET current_stock = coalesce((
        SELECT sum(quantity_available)
        FROM production_lots
-       WHERE food_id = $1 AND status = 'open'
+       WHERE food_id = $1
+         AND status = 'open'
+         AND sale_starts_at <= now()
+         AND sale_ends_at >= now()
      ), 0),
      updated_at = now()
      WHERE id = $1`,
@@ -26,6 +42,7 @@ export async function allocateLotsFefoTx(params: {
   );
 
   for (const item of items.rows) {
+    await markExpiredLotsForFoodTx(client, item.food_id);
     let remaining = Number(item.quantity);
     const lots = await client.query<{
       id: string;
@@ -36,8 +53,10 @@ export async function allocateLotsFefoTx(params: {
        WHERE seller_id = $1
          AND food_id = $2
          AND status = 'open'
+         AND sale_starts_at <= now()
+         AND sale_ends_at >= now()
          AND quantity_available > 0
-       ORDER BY coalesce(use_by, best_before, produced_at) ASC, created_at ASC
+       ORDER BY sale_ends_at ASC, produced_at ASC, created_at ASC
        FOR UPDATE`,
       [sellerId, item.food_id]
     );
@@ -70,4 +89,3 @@ export async function allocateLotsFefoTx(params: {
     await recalculateFoodStockTx(client, item.food_id);
   }
 }
-

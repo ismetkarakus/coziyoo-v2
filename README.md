@@ -76,6 +76,7 @@ bash installation/scripts/update_all.sh
 Auto-deploy on push is available via GitHub Actions (`.github/workflows/deploy-on-push.yml`).
 See `installation/README.md` for required secrets (`DEPLOY_SSH_KEY`, `DEPLOY_TARGETS`).
 Post-deploy one-time DB data patch checks are also run during `update_all.sh` (flag-tracked in DB).
+Latest lot lifecycle patch key: `lot_lifecycle_v1_20260302` (adds sale window + snapshot fields on `production_lots`).
 
 ## Default Credentials
 

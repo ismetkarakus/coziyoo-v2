@@ -180,3 +180,98 @@ SQL
     log "Patch applied (${PATCH_KEY}). Upserted rows: ${UPDATED_COUNT}"
   fi
 fi
+
+PATCH_KEY="lot_lifecycle_v1_20260302"
+PATCH_NOTE="Add lot sale window and snapshot fields with idempotent backfill"
+
+log "Checking post-deploy DB patch flag: ${PATCH_KEY}"
+EXISTS="$(
+  psql "${DATABASE_URL}" -t -A \
+    -v flag_key="${PATCH_KEY}" \
+    -c "SELECT 1 FROM deployment_update_flags WHERE flag_key = :'flag_key' LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || true
+)"
+
+if [[ "${EXISTS}" == "1" ]]; then
+  log "Patch already applied (${PATCH_KEY}), skipping."
+else
+  log "Applying post-deploy DB patch: ${PATCH_KEY}"
+  UPDATED_COUNT="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
+ALTER TABLE production_lots
+ADD COLUMN IF NOT EXISTS sale_starts_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS sale_ends_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS recipe_snapshot TEXT,
+ADD COLUMN IF NOT EXISTS ingredients_snapshot_json JSONB,
+ADD COLUMN IF NOT EXISTS allergens_snapshot_json JSONB;
+
+UPDATE production_lots
+SET sale_starts_at = COALESCE(sale_starts_at, NOW()),
+    sale_ends_at = COALESCE(sale_ends_at, use_by, best_before, NOW() + INTERVAL '7 days')
+WHERE sale_starts_at IS NULL
+   OR sale_ends_at IS NULL;
+
+ALTER TABLE production_lots
+ALTER COLUMN sale_starts_at SET NOT NULL,
+ALTER COLUMN sale_ends_at SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'production_lots_sale_window_check'
+  ) THEN
+    ALTER TABLE production_lots
+    ADD CONSTRAINT production_lots_sale_window_check
+    CHECK (sale_starts_at <= sale_ends_at);
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'production_lots_produced_before_sale_start_check'
+  ) THEN
+    ALTER TABLE production_lots
+    ADD CONSTRAINT production_lots_produced_before_sale_start_check
+    CHECK (produced_at <= sale_starts_at);
+  END IF;
+END
+$$;
+
+ALTER TABLE production_lots
+DROP CONSTRAINT IF EXISTS production_lots_status_check;
+
+ALTER TABLE production_lots
+ADD CONSTRAINT production_lots_status_check
+CHECK (status IN ('open', 'locked', 'depleted', 'recalled', 'discarded', 'expired'));
+
+SELECT count(*)::text
+FROM production_lots
+WHERE sale_starts_at IS NOT NULL
+  AND sale_ends_at IS NOT NULL;
+SQL
+  )"
+  UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
+
+  FLAG_WRITTEN="$(
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+    -v flag_key="${PATCH_KEY}" \
+    -v note="${PATCH_NOTE}; touched_rows=${UPDATED_COUNT}" <<'SQL'
+INSERT INTO deployment_update_flags (flag_key, note)
+VALUES (:'flag_key', :'note')
+ON CONFLICT (flag_key) DO NOTHING
+RETURNING flag_key;
+SQL
+  )"
+  FLAG_WRITTEN="$(printf "%s" "${FLAG_WRITTEN}" | tr -d '[:space:]')"
+
+  if [[ -z "${FLAG_WRITTEN}" ]]; then
+    log "Patch execution completed but flag already existed (${PATCH_KEY}); treating as applied."
+  else
+    log "Patch applied (${PATCH_KEY}). Rows with sale window: ${UPDATED_COUNT}"
+  fi
+fi

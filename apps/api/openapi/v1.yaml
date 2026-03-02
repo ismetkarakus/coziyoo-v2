@@ -696,12 +696,29 @@ paths:
   /v1/seller/lots:
     post:
       tags: [lots]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [foodId, producedAt, saleStartsAt, saleEndsAt, quantityProduced]
+              properties:
+                foodId: { type: string, format: uuid }
+                producedAt: { type: string, format: date-time }
+                saleStartsAt: { type: string, format: date-time }
+                saleEndsAt: { type: string, format: date-time }
+                useBy: { type: string, format: date-time }
+                bestBefore: { type: string, format: date-time }
+                quantityProduced: { type: integer, minimum: 1 }
+                quantityAvailable: { type: integer, minimum: 0 }
+                notes: { type: string, maxLength: 500 }
       responses:
         '201': { description: Lot created }
     get:
       tags: [lots]
       responses:
-        '200': { description: Seller lots }
+        '200': { description: Seller lots with sale window and snapshots }
   /v1/seller/lots/{lotId}/adjust:
     post:
       tags: [lots]
@@ -726,7 +743,7 @@ paths:
     get:
       tags: [lots]
       responses:
-        '200': { description: Admin lots list }
+        '200': { description: Admin lots list with sale window and snapshots }
   /v1/admin/lots/{lotId}/orders:
     get:
       tags: [lots]

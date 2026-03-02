@@ -9,6 +9,8 @@ import { enqueueOutboxEvent } from "../services/outbox.js";
 const CreateLotSchema = z.object({
   foodId: z.string().uuid(),
   producedAt: z.string().datetime(),
+  saleStartsAt: z.string().datetime(),
+  saleEndsAt: z.string().datetime(),
   useBy: z.string().datetime().optional(),
   bestBefore: z.string().datetime().optional(),
   quantityProduced: z.number().int().min(1),
@@ -18,6 +20,7 @@ const CreateLotSchema = z.object({
 
 const AdjustLotSchema = z.object({
   quantityAvailable: z.number().int().min(0),
+  saleEndsAt: z.string().datetime().optional(),
   notes: z.string().min(2).max(500).optional(),
 });
 
@@ -42,14 +45,22 @@ sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
   if (qtyAvailable > input.quantityProduced) {
     return res.status(400).json({ error: { code: "LOT_INVALID_QUANTITY", message: "Available cannot exceed produced" } });
   }
+  if (new Date(input.producedAt).getTime() > new Date(input.saleStartsAt).getTime()) {
+    return res.status(400).json({ error: { code: "LOT_INVALID_TIMELINE", message: "producedAt must be before saleStartsAt" } });
+  }
+  if (new Date(input.saleStartsAt).getTime() > new Date(input.saleEndsAt).getTime()) {
+    return res.status(400).json({ error: { code: "LOT_INVALID_TIMELINE", message: "saleStartsAt must be before saleEndsAt" } });
+  }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const food = await client.query<{ id: string }>("SELECT id FROM foods WHERE id = $1 AND seller_id = $2", [
-      input.foodId,
-      req.auth!.userId,
-    ]);
+    const food = await client.query<{ id: string; recipe: string | null; ingredients_json: unknown; allergens_json: unknown }>(
+      `SELECT id, recipe, ingredients_json, allergens_json
+       FROM foods
+       WHERE id = $1 AND seller_id = $2`,
+      [input.foodId, req.auth!.userId]
+    );
     if ((food.rowCount ?? 0) === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: { code: "FOOD_NOT_FOUND", message: "Food not found in seller scope" } });
@@ -58,16 +69,21 @@ sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
     const lotNumber = `CZ-${input.foodId.slice(0, 8).toUpperCase()}-${new Date(input.producedAt).toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const created = await client.query<{ id: string; lot_number: string }>(
       `INSERT INTO production_lots
-        (seller_id, food_id, lot_number, produced_at, use_by, best_before, quantity_produced, quantity_available, status, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'open', $9, now(), now())
+        (seller_id, food_id, lot_number, produced_at, sale_starts_at, sale_ends_at, use_by, best_before, recipe_snapshot, ingredients_snapshot_json, allergens_snapshot_json, quantity_produced, quantity_available, status, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'open', $14, now(), now())
        RETURNING id, lot_number`,
       [
         req.auth!.userId,
         input.foodId,
         lotNumber,
         input.producedAt,
+        input.saleStartsAt,
+        input.saleEndsAt,
         input.useBy ?? null,
         input.bestBefore ?? null,
+        food.rows[0].recipe ?? null,
+        food.rows[0].ingredients_json ? JSON.stringify(food.rows[0].ingredients_json) : null,
+        food.rows[0].allergens_json ? JSON.stringify(food.rows[0].allergens_json) : null,
         input.quantityProduced,
         qtyAvailable,
         input.notes ?? null,
@@ -76,7 +92,17 @@ sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
     await client.query(
       `INSERT INTO lot_events (lot_id, event_type, event_payload_json, created_by, created_at)
        VALUES ($1, 'created', $2, $3, now())`,
-      [created.rows[0].id, JSON.stringify({ quantityProduced: input.quantityProduced, quantityAvailable: qtyAvailable }), req.auth!.userId]
+      [
+        created.rows[0].id,
+        JSON.stringify({
+          quantityProduced: input.quantityProduced,
+          quantityAvailable: qtyAvailable,
+          producedAt: input.producedAt,
+          saleStartsAt: input.saleStartsAt,
+          saleEndsAt: input.saleEndsAt,
+        }),
+        req.auth!.userId,
+      ]
     );
     await recalculateFoodStockTx(client, input.foodId);
     await enqueueOutboxEvent(client, {
@@ -105,7 +131,29 @@ sellerLotsRouter.get("/", requireAuth("app"), async (req, res) => {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid foodId" } });
   }
   const lots = await pool.query(
-    `SELECT id, food_id, lot_number, produced_at::text, use_by::text, best_before::text, quantity_produced, quantity_available, status, notes, created_at::text, updated_at::text
+    `SELECT id,
+            food_id,
+            lot_number,
+            produced_at::text,
+            sale_starts_at::text,
+            sale_ends_at::text,
+            use_by::text,
+            best_before::text,
+            recipe_snapshot,
+            ingredients_snapshot_json,
+            allergens_snapshot_json,
+            quantity_produced,
+            quantity_available,
+            status,
+            CASE
+              WHEN status IN ('recalled', 'discarded', 'depleted', 'expired') THEN status
+              WHEN sale_ends_at < now() THEN 'expired'
+              WHEN sale_starts_at > now() THEN 'planned'
+              ELSE 'on_sale'
+            END AS lifecycle_status,
+            notes,
+            created_at::text,
+            updated_at::text
      FROM production_lots
      WHERE seller_id = $1
        AND ($2::uuid IS NULL OR food_id = $2::uuid)
@@ -132,8 +180,15 @@ sellerLotsRouter.post("/:lotId/adjust", requireAuth("app"), async (req, res) => 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const lot = await client.query<{ food_id: string; seller_id: string; status: string; quantity_produced: number }>(
-      "SELECT food_id, seller_id, status, quantity_produced FROM production_lots WHERE id = $1 FOR UPDATE",
+    const lot = await client.query<{
+      food_id: string;
+      seller_id: string;
+      status: string;
+      quantity_produced: number;
+      sale_starts_at: string;
+      sale_ends_at: string;
+    }>(
+      "SELECT food_id, seller_id, status, quantity_produced, sale_starts_at::text, sale_ends_at::text FROM production_lots WHERE id = $1 FOR UPDATE",
       [lotId]
     );
     if ((lot.rowCount ?? 0) === 0) {
@@ -153,24 +208,38 @@ sellerLotsRouter.post("/:lotId/adjust", requireAuth("app"), async (req, res) => 
       await client.query("ROLLBACK");
       return res.status(400).json({ error: { code: "LOT_INVALID_QUANTITY", message: "Available cannot exceed produced" } });
     }
+    if (parsed.data.saleEndsAt && new Date(row.sale_starts_at).getTime() > new Date(parsed.data.saleEndsAt).getTime()) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: { code: "LOT_INVALID_TIMELINE", message: "saleEndsAt must be after saleStartsAt" } });
+    }
 
     await client.query(
       `UPDATE production_lots
        SET quantity_available = $2,
+           sale_ends_at = coalesce($3::timestamptz, sale_ends_at),
            status = CASE
              WHEN $2 = 0 THEN 'depleted'
-             WHEN status = 'depleted' AND $2 > 0 THEN 'open'
+             WHEN coalesce($3::timestamptz, sale_ends_at) < now() THEN 'expired'
+             WHEN status IN ('depleted', 'expired') AND $2 > 0 THEN 'open'
              ELSE status
            END,
-           notes = coalesce($3, notes),
+           notes = coalesce($4, notes),
            updated_at = now()
        WHERE id = $1`,
-      [lotId, parsed.data.quantityAvailable, parsed.data.notes ?? null]
+      [lotId, parsed.data.quantityAvailable, parsed.data.saleEndsAt ?? null, parsed.data.notes ?? null]
     );
     await client.query(
       `INSERT INTO lot_events (lot_id, event_type, event_payload_json, created_by, created_at)
        VALUES ($1, 'adjusted', $2, $3, now())`,
-      [lotId, JSON.stringify({ quantityAvailable: parsed.data.quantityAvailable, notes: parsed.data.notes ?? null }), req.auth!.userId]
+      [
+        lotId,
+        JSON.stringify({
+          quantityAvailable: parsed.data.quantityAvailable,
+          saleEndsAt: parsed.data.saleEndsAt ?? null,
+          notes: parsed.data.notes ?? null,
+        }),
+        req.auth!.userId,
+      ]
     );
     await recalculateFoodStockTx(client, row.food_id);
     await client.query("COMMIT");
@@ -250,7 +319,30 @@ adminLotsRouter.get("/", requireAuth("admin"), async (req, res) => {
   const offset = (page - 1) * pageSize;
 
   const list = await pool.query(
-    `SELECT id, seller_id, food_id, lot_number, produced_at::text, use_by::text, best_before::text, quantity_produced, quantity_available, status, notes, created_at::text, updated_at::text
+    `SELECT id,
+            seller_id,
+            food_id,
+            lot_number,
+            produced_at::text,
+            sale_starts_at::text,
+            sale_ends_at::text,
+            use_by::text,
+            best_before::text,
+            recipe_snapshot,
+            ingredients_snapshot_json,
+            allergens_snapshot_json,
+            quantity_produced,
+            quantity_available,
+            status,
+            CASE
+              WHEN status IN ('recalled', 'discarded', 'depleted', 'expired') THEN status
+              WHEN sale_ends_at < now() THEN 'expired'
+              WHEN sale_starts_at > now() THEN 'planned'
+              ELSE 'on_sale'
+            END AS lifecycle_status,
+            notes,
+            created_at::text,
+            updated_at::text
      FROM production_lots
      WHERE ($1::uuid IS NULL OR seller_id = $1::uuid)
        AND ($2::uuid IS NULL OR food_id = $2::uuid)
@@ -296,4 +388,3 @@ adminLotsRouter.get("/:lotId/orders", requireAuth("admin"), async (req, res) => 
   );
   return res.json({ data: rows.rows });
 });
-

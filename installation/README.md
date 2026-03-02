@@ -126,6 +126,9 @@ Health check behavior during updates:
 - Toggle in `installation/config.env`: `APPLY_POST_DEPLOY_DATA_PATCHES=true`
 - Applied patch keys are tracked in DB table: `deployment_update_flags`
 - If a patch key already exists, that patch is skipped automatically.
+- Lot lifecycle patch key: `lot_lifecycle_v1_20260302`
+  - Adds `sale_starts_at`, `sale_ends_at`, and lot snapshot fields.
+  - Backfills existing rows idempotently.
 
 ## 5) Auto-Deploy on Git Push (GitHub Actions)
 
