@@ -37,10 +37,10 @@ mapfile -t MIGRATION_FILES < <(find "${MIGRATIONS_DIR}" -name "*.sql" -type f | 
 # assume historical migrations were applied outside this tracker and seed
 # tracking rows to prevent replaying non-idempotent early migrations.
 MIGRATION_TRACK_COUNT="$(
-  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -c "SELECT count(*)::text FROM schema_migrations;" 2>/dev/null | tr -d '[:space:]'
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -c "SELECT count(*)::text FROM schema_migrations;" | tr -d '[:space:]' || echo "0"
 )"
 USERS_TABLE_EXISTS="$(
-  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.users') IS NOT NULL;" 2>/dev/null | tr -d '[:space:]'
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.users') IS NOT NULL;" | tr -d '[:space:]' || echo "f"
 )"
 if [[ "${MIGRATION_TRACK_COUNT:-0}" == "0" && "${USERS_TABLE_EXISTS}" == "t" ]]; then
   log "Detected legacy DB without schema_migrations history; bootstrapping migration tracker"
@@ -62,7 +62,7 @@ for FILE in "${MIGRATION_FILES[@]}"; do
 
   EXISTS="$(
     psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -v f="${FILENAME}" \
-      -c "SELECT 1 FROM schema_migrations WHERE filename = :'f' LIMIT 1;" 2>/dev/null | tr -d '[:space:]'
+      -c "SELECT 1 FROM schema_migrations WHERE filename = :'f' LIMIT 1;" | tr -d '[:space:]' || true
   )"
   if [[ "${EXISTS}" == "1" ]]; then
     log "  ✓ Already applied: ${FILENAME}"
