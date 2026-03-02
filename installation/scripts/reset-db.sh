@@ -47,8 +47,32 @@ GRANT ALL ON SCHEMA public TO public;
 SQL
 log "  ✓ Schema wiped."
 
-log "Step 2/3: Running migrations..."
-bash "${SCRIPT_DIR}/db-migrate.sh"
+log "Step 2/3: Applying all migrations..."
+API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
+MIGRATIONS_DIR="${API_DIR_ABS}/src/db/migrations"
+[[ -d "${MIGRATIONS_DIR}" ]] || fail "Migrations directory not found: ${MIGRATIONS_DIR}"
+
+mapfile -t MIGRATION_FILES < <(find "${MIGRATIONS_DIR}" -name "*.sql" -type f | sort)
+[[ ${#MIGRATION_FILES[@]} -gt 0 ]] || fail "No migration files found in ${MIGRATIONS_DIR}"
+
+# Create migration tracker
+psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -c "
+  CREATE TABLE schema_migrations (
+    filename TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );"
+
+# Apply all files in one pass — no incremental checking needed on a fresh schema
+cat "${MIGRATION_FILES[@]}" | psql "${DATABASE_URL}" -v ON_ERROR_STOP=1
+
+# Bulk-mark all files as applied
+VALUES=""
+for f in "${MIGRATION_FILES[@]}"; do
+  VALUES="${VALUES}('$(basename "${f}")'),"
+done
+psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO schema_migrations (filename) VALUES ${VALUES%,};"
+log "  ✓ Applied ${#MIGRATION_FILES[@]} migration(s)."
 
 log "Step 3/3: Seeding admin user..."
 bash "${SCRIPT_DIR}/seed-data.sh"
