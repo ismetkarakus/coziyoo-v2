@@ -136,8 +136,8 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       for (const [index, name] of foodNames.entries()) {
         const price = index === 0 ? 189.9 : index === 1 ? 129.9 : 159.9;
         await client.query(
-          `INSERT INTO foods (seller_id, name, card_summary, description, country_code, price, image_url, current_stock, daily_stock, is_available, is_active, delivery_fee, delivery_options_json)
-           VALUES ($1, $2, $3, $4, 'TR', $5, $6, 100, 200, TRUE, TRUE, 0, $7::jsonb)`,
+          `INSERT INTO foods (seller_id, name, card_summary, description, country_code, price, image_url, is_active, delivery_fee, delivery_options_json)
+           VALUES ($1, $2, $3, $4, 'TR', $5, $6, TRUE, 0, $7::jsonb)`,
           [sellerId, name, `${name} - Demo menu`, `${name} demo icerik`, price, demoFoodImageUrl(name), JSON.stringify(["pickup", "delivery"])]
         );
       }

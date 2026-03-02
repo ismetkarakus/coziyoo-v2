@@ -411,8 +411,6 @@ def build_food_payload(category_name_tr: str, seller_slot: int, food_slot: int) 
     base = options[(seller_slot + food_slot) % len(options)]
     price = round(random.uniform(70, 280), 2)
     delivery_fee = round(random.uniform(10, 35), 2)
-    current_stock = random.randint(12, 80)
-    daily_stock = current_stock + random.randint(5, 50)
     prep_minutes = random.randint(15, 60)
 
     return {
@@ -434,9 +432,6 @@ def build_food_payload(category_name_tr: str, seller_slot: int, food_slot: int) 
             "pickup": True,
             "minimumOrderAmount": round(random.uniform(120, 280), 2),
         },
-        "current_stock": current_stock,
-        "daily_stock": daily_stock,
-        "is_available": True,
         "is_active": True,
     }
 
@@ -577,9 +572,6 @@ def seed_foods(
                       delivery_fee,
                       max_delivery_distance_km,
                       delivery_options_json,
-                      current_stock,
-                      daily_stock,
-                      is_available,
                       is_active,
                       created_at,
                       updated_at
@@ -601,9 +593,6 @@ def seed_foods(
                       %s,
                       %s,
                       %s::jsonb,
-                      %s,
-                      %s,
-                      %s,
                       %s,
                       now(),
                       now()
@@ -627,9 +616,6 @@ def seed_foods(
                         payload["delivery_fee"],
                         payload["max_delivery_distance_km"],
                         json.dumps(payload["delivery_options_json"], ensure_ascii=False),
-                        payload["current_stock"],
-                        payload["daily_stock"],
-                        payload["is_available"],
                         payload["is_active"],
                     ),
                 )

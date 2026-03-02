@@ -14,20 +14,6 @@ async function markExpiredLotsForFoodTx(client: PoolClient, foodId: string): Pro
 
 export async function recalculateFoodStockTx(client: PoolClient, foodId: string): Promise<void> {
   await markExpiredLotsForFoodTx(client, foodId);
-  await client.query(
-    `UPDATE foods
-     SET current_stock = coalesce((
-       SELECT sum(quantity_available)
-       FROM production_lots
-       WHERE food_id = $1
-         AND status = 'open'
-         AND sale_starts_at <= now()
-         AND sale_ends_at >= now()
-     ), 0),
-     updated_at = now()
-     WHERE id = $1`,
-    [foodId]
-  );
 }
 
 export async function allocateLotsFefoTx(params: {
