@@ -1,12 +1,30 @@
 # Dependencies
 node_modules
+**/node_modules
 .pnp
 .pnp.js
+.npm
+.pnpm-store
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
 # Build outputs
 dist
 build
+out
+release
+target
 *.tsbuildinfo
+.eslintcache
+.stylelintcache
+.parcel-cache
+.turbo
+.vite
+vite.svg
 
 # Environment files (keep .env.example)
 .env
@@ -35,16 +53,34 @@ yarn-error.log*
 # Testing
 coverage
 .nyc_output
+htmlcov
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.hypothesis
+.tox
+.nox
+.coverage*
+playwright-report
+test-results
+*.lcov
 
 # Misc
 .cache
 .temp
 .tmp
+tmp
+*.tmp
+*.bak
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+.Python
+pip-wheel-metadata/
+*.egg-info/
+__pypackages__/
 .venv/
 **/.venv/
 apps/voice-agent/.venv/
@@ -54,17 +90,24 @@ apps/voice-agent/.venv/
 
 # Expo
 .expo
+.expo-shared
+.expo/web
+.expo/types
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
 *.orig.*
+*.keystore
+*.mobileprovision
 
 # Metro
 .metro-health-check*
+metro-cache
 
 # debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+pnpm-debug.log*
