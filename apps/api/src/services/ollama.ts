@@ -18,8 +18,14 @@ type OllamaTagsResponse = {
   }>;
 };
 
-export async function askOllamaChat(userText: string, options?: { model?: string }) {
-  const endpoint = new URL("/api/chat", env.OLLAMA_BASE_URL).toString();
+type OllamaRequestOptions = {
+  model?: string;
+  baseUrl?: string;
+};
+
+export async function askOllamaChat(userText: string, options?: OllamaRequestOptions) {
+  const selectedBaseUrl = options?.baseUrl?.trim() || env.OLLAMA_BASE_URL;
+  const endpoint = new URL("/api/chat", selectedBaseUrl).toString();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OLLAMA_TIMEOUT_MS);
   const selectedModel = options?.model?.trim() || env.OLLAMA_CHAT_MODEL;
@@ -68,8 +74,9 @@ export async function askOllamaChat(userText: string, options?: { model?: string
   }
 }
 
-export async function listOllamaModels() {
-  const endpoint = new URL("/api/tags", env.OLLAMA_BASE_URL).toString();
+export async function listOllamaModels(options?: { baseUrl?: string }) {
+  const selectedBaseUrl = options?.baseUrl?.trim() || env.OLLAMA_BASE_URL;
+  const endpoint = new URL("/api/tags", selectedBaseUrl).toString();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OLLAMA_TIMEOUT_MS);
   try {

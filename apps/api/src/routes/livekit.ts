@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
+import { getN8nStatus, runN8nToolWebhook } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
 import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
 import { TTS_ENGINES } from "../services/tts-engines.js";
@@ -134,6 +135,7 @@ const StarterAgentSettingsSchema = z.object({
         })
         .optional(),
     })
+    .passthrough()
     .optional(),
   ttsEnabled: z.boolean(),
   sttEnabled: z.boolean(),
@@ -505,7 +507,18 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
     const activeTtsConfig = ((activeTtsServer?.config as Record<string, unknown> | undefined) ??
       (settings?.ttsConfig as Record<string, unknown> | null) ??
       {}) as Record<string, unknown>;
-    const answer = await askOllamaChat(input.text, { model: settings?.ollamaModel });
+    const llmConfig =
+      activeTtsConfig.llm && typeof activeTtsConfig.llm === "object"
+        ? (activeTtsConfig.llm as Record<string, unknown>)
+        : {};
+    const ollamaBaseUrl =
+      typeof llmConfig.ollamaBaseUrl === "string" && llmConfig.ollamaBaseUrl.trim().length > 0
+        ? llmConfig.ollamaBaseUrl.trim()
+        : undefined;
+    const answer = await askOllamaChat(input.text, {
+      model: settings?.ollamaModel,
+      baseUrl: ollamaBaseUrl,
+    });
     const payload = {
       type: "agent_message",
       from: agentIdentity,
@@ -673,40 +686,8 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
 });
 
 liveKitRouter.get("/starter/tools/status", async (_req, res) => {
-  const configured = Boolean(env.N8N_BASE_URL);
-  if (!configured) {
-    return res.status(200).json({
-      data: {
-        configured: false,
-        reachable: false,
-        baseUrl: null,
-      },
-    });
-  }
-
-  let reachable = false;
-  try {
-    const endpoint = new URL("/healthz", env.N8N_BASE_URL).toString();
-    const headers = new Headers();
-    if (env.N8N_API_KEY) {
-      headers.set("x-n8n-api-key", env.N8N_API_KEY);
-    }
-    const response = await fetch(endpoint, {
-      method: "GET",
-      headers,
-    });
-    reachable = response.ok;
-  } catch {
-    reachable = false;
-  }
-
-  return res.status(200).json({
-    data: {
-      configured: true,
-      reachable,
-      baseUrl: env.N8N_BASE_URL,
-    },
-  });
+  const status = await getN8nStatus();
+  return res.status(200).json({ data: status });
 });
 
 liveKitRouter.get("/starter/tools/registry", async (_req, res) => {
@@ -771,52 +752,29 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
   }
 
   const input = parsed.data;
-  const webhookPath = `/webhook/coziyoo/${encodeURIComponent(input.toolId)}`;
-  const endpoint = new URL(webhookPath, env.N8N_BASE_URL).toString();
-  const headers = new Headers({ "content-type": "application/json" });
-  if (env.N8N_API_KEY) {
-    headers.set("x-n8n-api-key", env.N8N_API_KEY);
-    headers.set("authorization", `Bearer ${env.N8N_API_KEY}`);
-  }
-
   try {
-    const upstream = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        toolId: input.toolId,
-        input: input.input ?? "",
-        roomName: input.roomName ?? null,
-        username: input.username ?? null,
-        source: "agent",
-        timestamp: new Date().toISOString(),
-      }),
+    const upstream = await runN8nToolWebhook({
+      toolId: input.toolId,
+      toolInput: input.input,
+      roomName: input.roomName,
+      username: input.username,
     });
-
-    const raw = await upstream.text();
-    let body: unknown = raw;
-    try {
-      body = raw ? (JSON.parse(raw) as unknown) : null;
-    } catch {
-      body = raw;
-    }
-
     if (!upstream.ok) {
       return res.status(502).json({
         error: {
           code: "N8N_TOOL_RUN_FAILED",
           message: `n8n webhook failed (${upstream.status})`,
-          endpoint,
-          response: body,
+          endpoint: upstream.endpoint,
+          response: upstream.body,
         },
       });
     }
 
     return res.status(201).json({
       data: {
-        endpoint,
+        endpoint: upstream.endpoint,
         toolId: input.toolId,
-        result: body,
+        result: upstream.body,
       },
     });
   } catch (error) {
@@ -824,7 +782,6 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
       error: {
         code: "N8N_TOOL_RUN_FAILED",
         message: error instanceof Error ? error.message : "Failed to call n8n",
-        endpoint,
       },
     });
   }
