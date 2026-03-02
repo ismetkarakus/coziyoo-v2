@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/drascom/Work/coziyoo-v2/apps/api/*.json)",
+      "Bash(ls -la /Users/drascom/Work/coziyoo-v2/apps/admin/*.json /Users/drascom/Work/coziyoo-v2/apps/admin/*.ts)",
+      "Bash(chmod +x /Users/drascom/Work/coziyoo-v2/installation/scripts/reset-db.sh)",
+      "Bash(git pull --ff-only origin main)",
+      "Bash(git add .github/workflows/deploy-on-push.yml .github/workflows/reset-db.yml apps/api/package.json apps/api/scripts/seed-admin.ts apps/api/src/db/migrations/0013_buyer_profile_and_login_locations.sql CLAUDE.md installation/config.env.example installation/scripts/backfill_food_images.sh installation/scripts/common.sh installation/scripts/db-migrate.sh installation/scripts/generate_env.sh installation/scripts/install_admin_panel.sh installation/scripts/install_api_service.sh installation/scripts/install_postgres.sh installation/scripts/install_voice_agent_service.sh installation/scripts/reset-db.sh installation/scripts/seed-data.sh installation/scripts/update_admin_panel.sh installation/scripts/update_all.sh installation/scripts/update_api_service.sh)",
+      "Bash(git rm --cached apps/api/src/db/migrations/0004_buyer_profile_and_login_locations.sql)",
+      "Bash(git commit:*)",
+      "Bash(git pull --rebase origin main)",
+      "Bash(git checkout --ours .github/workflows/deploy-on-push.yml installation/scripts/db-migrate.sh installation/scripts/update_all.sh)",
+      "Bash(git add .github/workflows/deploy-on-push.yml installation/scripts/db-migrate.sh installation/scripts/update_all.sh)",
+      "Bash(git rebase --continue --no-edit)",
+      "Bash(GIT_EDITOR=true git rebase --continue)",
+      "Bash(git push origin main)",
+      "Bash(npm run build:admin)",
+      "Bash(npx tsc -b --noEmit)",
+      "Bash(node -e \":*)",
+      "Bash(npm view typescript@5.9.3 version)",
+      "Bash(node -e \"const l=require\\(''/Users/drascom/Work/coziyoo-v2/package-lock.json''\\); const z=l.packages[''node_modules/zod'']; console.log\\(''root zod:'', z?.version\\)\")",
+      "Bash(git rm apps/admin/package-lock.json)",
+      "Bash(npm install --silent)"
+    ]
+  }
+}
