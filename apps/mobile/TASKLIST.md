@@ -7,7 +7,7 @@
 4. Created `apps/voice-agent` modular scaffold.
 
 ## In Progress
-1. Harden mobile runtime integration with LiveKit RN native setup.
+1. Add robust runtime metrics and alerts for mobile reconnect quality in production.
 
 ## Next
 1. Harden LiveKit native runtime behavior under real mobile network transitions.
@@ -20,3 +20,4 @@
 5. Replaced placeholder TTS adapter with remote TTS provider module.
 6. Added deployment scripts and systemd units for `apps/voice-agent` API and worker services.
 7. Added executable E2E voice smoke harness spanning API + voice-agent dispatch flow.
+8. Hardened LiveKit mobile session lifecycle with connect retry/backoff, startup timeout, and safer teardown.
