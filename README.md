@@ -64,6 +64,7 @@ npm run dev:web
 
 See [installation/README.md](installation/README.md) for VPS deployment instructions.
 Quick deploy smoke test note: this section was last verified on **March 2, 2026**.
+Latest deploy smoke trigger commit timestamp: **2026-03-02 22:13:57 GMT**.
 
 ```bash
 # On VPS - First time setup
