@@ -14,6 +14,16 @@ API_NODE_MODULES="${API_DIR_ABS}/node_modules"
 
 [[ -f "${API_DIR_ABS}/package.json" ]] || fail "API package.json not found in ${API_DIR_ABS}"
 
+if [[ ! -f "${ROOT_ENV}" ]]; then
+  GENERATOR="${SCRIPT_DIR}/generate_env.sh"
+  if [[ -f "${GENERATOR}" ]]; then
+    log "Root .env not found at ${ROOT_ENV}; regenerating from template and installation/config.env"
+    bash "${GENERATOR}" --output "${ROOT_ENV}"
+  else
+    fail "Root .env not found at ${ROOT_ENV} and generator script is missing at ${GENERATOR}"
+  fi
+fi
+
 maybe_git_update "${REPO_ROOT}"
 
 (

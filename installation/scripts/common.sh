@@ -112,9 +112,20 @@ maybe_git_update() {
   local -a preserve_paths=()
   local stashed="false"
   local stash_ref=""
+  local preserve_backup_dir=""
   local p=""
 
   IFS=',' read -r -a preserve_paths <<< "${preserve_paths_csv}"
+
+  preserve_backup_dir="$(mktemp -d)"
+  for p in "${preserve_paths[@]}"; do
+    p="$(printf "%s" "${p}" | xargs)"
+    [[ -z "${p}" ]] && continue
+    if [[ -f "${repo}/${p}" ]]; then
+      mkdir -p "${preserve_backup_dir}/$(dirname "${p}")"
+      cp -f "${repo}/${p}" "${preserve_backup_dir}/${p}"
+    fi
+  done
 
   if [[ -n "$(git -C "${repo}" status --porcelain --untracked-files=all)" ]]; then
     local stash_count_before stash_count_after
@@ -144,20 +155,23 @@ maybe_git_update() {
   )
 
   if [[ "${stashed}" == "true" ]]; then
-    log "Restoring preserved local config files from ${stash_ref}"
+    log "Dropping temporary deploy stash ${stash_ref}"
     (
       cd "${repo}"
-      for p in "${preserve_paths[@]}"; do
-        p="$(printf "%s" "${p}" | xargs)"
-        [[ -z "${p}" ]] && continue
-        if git cat-file -e "${stash_ref}:${p}" 2>/dev/null; then
-          git checkout -q "${stash_ref}" -- "${p}" \
-            || fail "Failed to restore preserved file '${p}' from ${stash_ref}"
-        fi
-      done
       git stash drop --quiet "${stash_ref}" || true
     )
   fi
+
+  log "Restoring preserved local config files from backup"
+  for p in "${preserve_paths[@]}"; do
+    p="$(printf "%s" "${p}" | xargs)"
+    [[ -z "${p}" ]] && continue
+    if [[ -f "${preserve_backup_dir}/${p}" ]]; then
+      mkdir -p "${repo}/$(dirname "${p}")"
+      cp -f "${preserve_backup_dir}/${p}" "${repo}/${p}"
+    fi
+  done
+  rm -rf "${preserve_backup_dir}"
 }
 
 sync_repo_to_root() {
