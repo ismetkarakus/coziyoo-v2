@@ -114,6 +114,7 @@ bash installation/scripts/update_all.sh
 
 This pulls latest code, rebuilds, and restarts services.
 It also runs post-deploy DB data patch checks (idempotent, one-time per patch key).
+It also runs SQL migrations automatically during API update (`db-migrate.sh`), unless `RUN_DB_MIGRATIONS_ON_UPDATE=false`.
 
 ### Demo DB Refresh on Each Deploy
 

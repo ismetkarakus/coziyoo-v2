@@ -73,10 +73,16 @@ maybe_git_update "${REPO_ROOT}"
   set +a
 
   npm run build
-  
-  # Note: Database migrations and seeding are NOT run during updates by design
-  # Run install_all.sh if you need to re-run migrations or seeding
 )
+
+# Run database migrations on updates by default (idempotent).
+# Set RUN_DB_MIGRATIONS_ON_UPDATE=false to disable.
+if [[ "${RUN_DB_MIGRATIONS_ON_UPDATE:-true}" == "true" ]]; then
+  log "Running database migrations during API update"
+  bash "${SCRIPT_DIR}/db-migrate.sh"
+else
+  log "Skipping DB migrations during API update (RUN_DB_MIGRATIONS_ON_UPDATE=false)"
+fi
 
 service_action restart "${SERVICE_NAME}"
 log "API updated"
