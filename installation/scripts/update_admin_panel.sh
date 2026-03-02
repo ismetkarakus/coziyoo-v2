@@ -24,13 +24,20 @@ maybe_git_update "${REPO_ROOT}"
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
 VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
+  # Remove any stale app-local node_modules left from a pre-workspace standalone
+  # install. Packages are now hoisted to the workspace root; a local node_modules
+  # causes TypeScript to pick up wrong/old versions before the root ones.
+  if [[ -d "${ADMIN_NODE_MODULES}" ]]; then
+    log "Removing stale admin-local node_modules (workspace root handles deps)"
+    rm -rf "${ADMIN_NODE_MODULES}"
+  fi
+
   needs_install="false"
-  # Install when neither workspace-root nor app-local node_modules exists.
-  if [[ ! -d "${ADMIN_NODE_MODULES}" && ! -d "${ROOT_NODE_MODULES}" ]]; then
+  if [[ ! -d "${ROOT_NODE_MODULES}" ]]; then
     needs_install="true"
   fi
 
-  # Even if node_modules exists, ensure core admin build deps are resolvable.
+  # Ensure core admin build deps are resolvable from workspace root.
   if ! node -e "require.resolve('vite'); require.resolve('@vitejs/plugin-react'); require.resolve('vite/client')" >/dev/null 2>&1; then
     needs_install="true"
   fi
@@ -38,8 +45,6 @@ EOF
   if [[ "${needs_install}" == "true" ]]; then
     log "Admin dependencies missing/incomplete; installing dependencies from workspace root"
     npm_install_from_root
-    
-    # Return to admin dir for build
     cd "${ADMIN_DIR_ABS}"
   fi
   npm run build
