@@ -2393,6 +2393,53 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 </button>
               ))}
             </div>
+            <h2>Hızlı Filtreler</h2>
+            <div className="buyer-v2-smart-list buyer-v2-quick-filter-list">
+              <button
+                type="button"
+                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "all" ? "is-active" : ""}`}
+                onClick={() => {
+                  setBuyerQuickFilter("all");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">◉</span>
+                <span className="buyer-v2-smart-item-label">Tümü</span>
+              </button>
+              <button
+                type="button"
+                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "risky" ? "is-active" : ""}`}
+                onClick={() => {
+                  setBuyerQuickFilter("risky");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">⚠</span>
+                <span className="buyer-v2-smart-item-label">Riskli</span>
+              </button>
+              <button
+                type="button"
+                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`}
+                onClick={() => {
+                  setBuyerQuickFilter("open_complaint");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
+                <span className="buyer-v2-smart-item-label">Şikayetli</span>
+              </button>
+              <button
+                type="button"
+                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`}
+                onClick={() => {
+                  setBuyerQuickFilter("down_spend");
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">↓</span>
+                <span className="buyer-v2-smart-item-label">Azalan Harcama</span>
+              </button>
+            </div>
           </aside>
 
           <section className="panel buyer-v2-board">
@@ -2503,13 +2550,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
               <button className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel}>Excel'e Aktar</button>
             </div>
-          </div>
-
-          <div className="buyer-v2-chips">
-            <button type="button" className={`chip ${buyerQuickFilter === "all" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("all"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Tümü</button>
-            <button type="button" className={`chip ${buyerQuickFilter === "risky" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("risky"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Riskli</button>
-            <button type="button" className={`chip ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("open_complaint"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Şikayetli</button>
-            <button type="button" className={`chip ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`} onClick={() => { setBuyerQuickFilter("down_spend"); setFilters((prev) => ({ ...prev, page: 1 })); }}>Azalan Harcama</button>
           </div>
 
           <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal" ref={buyerBoardRef}>

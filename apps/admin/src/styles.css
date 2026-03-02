@@ -3049,6 +3049,14 @@ textarea:focus {
   gap: 8px;
 }
 
+.buyer-v2-quick-filter-list {
+  padding-top: 2px;
+}
+
+.buyer-v2-quick-filter-item {
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+
 .buyer-v2-smart-item {
   width: 100%;
   min-height: 42px;
@@ -3190,13 +3198,6 @@ textarea:focus {
   border-radius: 14px;
   padding: 0 24px;
   font-size: 1.05rem;
-}
-
-.buyer-v2-chips {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .buyer-v2-table-wrap table {
@@ -5154,12 +5155,6 @@ textarea:focus {
 
   .buyer-v2-board {
     padding: 12px 10px 10px;
-  }
-
-  .buyer-v2-chips {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 3px;
   }
 
   .buyer-v2-page-btn {
