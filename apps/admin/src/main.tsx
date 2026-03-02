@@ -275,6 +275,25 @@ async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function postJsonWith415Fallback(path: string, payload: unknown): Promise<Response> {
+  const asJson = JSON.stringify(payload);
+
+  const primary = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: asJson,
+  });
+  if (primary.status !== 415) return primary;
+
+  // Some proxy/client chains can mutate JSON content-type unexpectedly.
+  // API accepts text/plain JSON too, so retry with a fallback media type.
+  return fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "content-type": "text/plain; charset=utf-8", accept: "application/json" },
+    body: asJson,
+  });
+}
+
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(initializeDarkMode);
   const [language, setLanguage] = useState<Language>(initializeLanguage);
@@ -379,11 +398,7 @@ function LoginScreen({ onLoggedIn, language }: { onLoggedIn: (admin: AdminUser) 
     setError(null);
 
     try {
-      const login = await fetch(`${API_BASE}/v1/admin/auth/login`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const login = await postJsonWith415Fallback("/v1/admin/auth/login", { email, password });
       const body = await parseJson<{ data?: { tokens?: Tokens }; error?: { message?: string } }>(login);
 
       if (login.status !== 200 || !body.data?.tokens) {
