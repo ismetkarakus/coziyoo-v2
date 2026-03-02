@@ -773,7 +773,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.profile_image_url,
        u.user_type,
        u.is_active,
-       u.legal_hold_state,
+       COALESCE((to_jsonb(u) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
        u.country_code,
        u.language,
        u.created_at::text,
@@ -935,7 +935,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
        profile_image_url,
        user_type,
        is_active,
-       legal_hold_state,
+       COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
        country_code,
        language,
        created_at::text,
@@ -1874,7 +1874,9 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
     const created = await client.query(
       `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, phone, profile_image_url, user_type, is_active, country_code, language)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, legal_hold_state, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         country_code, language, created_at::text, updated_at::text`,
       [
         input.email.toLowerCase(),
         passwordHash,
@@ -1947,7 +1949,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
   try {
     await client.query("BEGIN");
     const existing = await client.query(
-      `SELECT id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, legal_hold_state, country_code, language
+      `SELECT id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language
        FROM users
        WHERE id = $1
        FOR UPDATE`,
@@ -1978,7 +1980,9 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
          language = CASE WHEN $15::boolean THEN $16 ELSE language END,
          updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, legal_hold_state, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         country_code, language, created_at::text, updated_at::text`,
       [
         params.data.id,
         input.email ? input.email.toLowerCase() : null,
@@ -2073,7 +2077,9 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
       `UPDATE users
        SET is_active = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, legal_hold_state, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         country_code, language, created_at::text, updated_at::text`,
       [params.data.id, nextActive]
     );
 
@@ -2141,7 +2147,9 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
       `UPDATE users
        SET user_type = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, legal_hold_state, country_code, language, created_at::text, updated_at::text`,
+       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         country_code, language, created_at::text, updated_at::text`,
       [params.data.id, parsed.data.role]
     );
 

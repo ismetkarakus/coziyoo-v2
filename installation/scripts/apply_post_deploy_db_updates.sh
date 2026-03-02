@@ -38,13 +38,11 @@ EXISTS="$(
 
 if [[ "${EXISTS}" == "1" ]]; then
   log "Patch already applied (${PATCH_KEY}), skipping."
-  exit 0
-fi
+else
+  log "Applying post-deploy DB patch: ${PATCH_KEY}"
 
-log "Applying post-deploy DB patch: ${PATCH_KEY}"
-
-UPDATED_COUNT="$(
-  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
+  UPDATED_COUNT="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS phone TEXT;
 
@@ -85,24 +83,100 @@ updated AS (
 )
 SELECT count(*)::text FROM updated;
 SQL
-)"
-UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
+  )"
+  UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
 
-FLAG_WRITTEN="$(
-psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
-  -v flag_key="${PATCH_KEY}" \
-  -v note="${PATCH_NOTE}; updated_rows=${UPDATED_COUNT}" <<'SQL'
+  FLAG_WRITTEN="$(
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+    -v flag_key="${PATCH_KEY}" \
+    -v note="${PATCH_NOTE}; updated_rows=${UPDATED_COUNT}" <<'SQL'
 INSERT INTO deployment_update_flags (flag_key, note)
 VALUES (:'flag_key', :'note')
 ON CONFLICT (flag_key) DO NOTHING
 RETURNING flag_key;
 SQL
-)"
-FLAG_WRITTEN="$(printf "%s" "${FLAG_WRITTEN}" | tr -d '[:space:]')"
+  )"
+  FLAG_WRITTEN="$(printf "%s" "${FLAG_WRITTEN}" | tr -d '[:space:]')"
 
-if [[ -z "${FLAG_WRITTEN}" ]]; then
-  log "Patch execution completed but flag already existed (${PATCH_KEY}); treating as applied."
-  exit 0
+  if [[ -z "${FLAG_WRITTEN}" ]]; then
+    log "Patch execution completed but flag already existed (${PATCH_KEY}); treating as applied."
+  else
+    log "Patch applied (${PATCH_KEY}). Updated rows: ${UPDATED_COUNT}"
+  fi
 fi
 
-log "Patch applied (${PATCH_KEY}). Updated rows: ${UPDATED_COUNT}"
+PATCH_KEY="users_legal_hold_state_and_profile_documents_v1_20260302"
+PATCH_NOTE="Ensure users.legal_hold_state and seller_compliance_profile_documents exist/backfilled"
+
+log "Checking post-deploy DB patch flag: ${PATCH_KEY}"
+EXISTS="$(
+  psql "${DATABASE_URL}" -t -A \
+    -v flag_key="${PATCH_KEY}" \
+    -c "SELECT 1 FROM deployment_update_flags WHERE flag_key = :'flag_key' LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || true
+)"
+
+if [[ "${EXISTS}" == "1" ]]; then
+  log "Patch already applied (${PATCH_KEY}), skipping."
+else
+  log "Applying post-deploy DB patch: ${PATCH_KEY}"
+  UPDATED_COUNT="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS legal_hold_state BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS seller_compliance_profile_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  seller_id UUID NOT NULL REFERENCES seller_compliance_profiles(seller_id) ON DELETE CASCADE,
+  doc_type TEXT NOT NULL,
+  latest_document_id UUID REFERENCES seller_compliance_documents(id) ON DELETE SET NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'rejected')),
+  required BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (seller_id, doc_type)
+);
+
+WITH latest AS (
+  SELECT DISTINCT ON (d.seller_id, d.doc_type)
+    d.id,
+    d.seller_id,
+    d.doc_type,
+    d.status
+  FROM seller_compliance_documents d
+  JOIN seller_compliance_profiles p ON p.seller_id = d.seller_id
+  ORDER BY d.seller_id, d.doc_type, d.uploaded_at DESC, d.id DESC
+),
+upserted AS (
+  INSERT INTO seller_compliance_profile_documents (seller_id, doc_type, latest_document_id, status, required, updated_at)
+  SELECT seller_id, doc_type, id, status, TRUE, NOW()
+  FROM latest
+  ON CONFLICT (seller_id, doc_type)
+  DO UPDATE SET
+    latest_document_id = EXCLUDED.latest_document_id,
+    status = EXCLUDED.status,
+    required = EXCLUDED.required,
+    updated_at = NOW()
+  RETURNING id
+)
+SELECT count(*)::text FROM upserted;
+SQL
+  )"
+  UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
+
+  FLAG_WRITTEN="$(
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+    -v flag_key="${PATCH_KEY}" \
+    -v note="${PATCH_NOTE}; upserted_rows=${UPDATED_COUNT}" <<'SQL'
+INSERT INTO deployment_update_flags (flag_key, note)
+VALUES (:'flag_key', :'note')
+ON CONFLICT (flag_key) DO NOTHING
+RETURNING flag_key;
+SQL
+  )"
+  FLAG_WRITTEN="$(printf "%s" "${FLAG_WRITTEN}" | tr -d '[:space:]')"
+
+  if [[ -z "${FLAG_WRITTEN}" ]]; then
+    log "Patch execution completed but flag already existed (${PATCH_KEY}); treating as applied."
+  else
+    log "Patch applied (${PATCH_KEY}). Upserted rows: ${UPDATED_COUNT}"
+  fi
+fi
