@@ -77,6 +77,12 @@ const StarterToolRunSchema = z.object({
   input: z.string().max(8_000).optional(),
   roomName: z.string().min(1).max(128).optional(),
   username: z.string().min(1).max(64).optional(),
+  deviceId: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional(),
 });
 
 const StarterAgentSettingsParamsSchema = z.object({
@@ -686,7 +692,22 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
 });
 
 liveKitRouter.get("/starter/tools/status", async (_req, res) => {
-  const status = await getN8nStatus();
+  const rawDeviceId = String(_req.query.deviceId ?? "").trim();
+  let n8nBaseUrlOverride: string | null = null;
+  if (/^[a-zA-Z0-9_-]{8,128}$/.test(rawDeviceId)) {
+    const settings = await getStarterAgentSettings(rawDeviceId);
+    const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
+    const n8nConfig =
+      ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
+        ? (ttsConfig.n8n as Record<string, unknown>)
+        : {};
+    n8nBaseUrlOverride =
+      typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
+        ? n8nConfig.baseUrl.trim()
+        : null;
+  }
+
+  const status = await getN8nStatus({ baseUrl: n8nBaseUrlOverride });
   return res.status(200).json({ data: status });
 });
 
@@ -742,22 +763,29 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
-  if (!env.N8N_BASE_URL) {
-    return res.status(503).json({
-      error: {
-        code: "N8N_NOT_CONFIGURED",
-        message: "Set N8N_BASE_URL in API environment.",
-      },
-    });
-  }
 
   const input = parsed.data;
+  let n8nBaseUrlOverride: string | null = null;
+  if (input.deviceId) {
+    const settings = await getStarterAgentSettings(input.deviceId);
+    const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
+    const n8nConfig =
+      ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
+        ? (ttsConfig.n8n as Record<string, unknown>)
+        : {};
+    n8nBaseUrlOverride =
+      typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
+        ? n8nConfig.baseUrl.trim()
+        : null;
+  }
+
   try {
     const upstream = await runN8nToolWebhook({
       toolId: input.toolId,
       toolInput: input.input,
       roomName: input.roomName,
       username: input.username,
+      baseUrl: n8nBaseUrlOverride,
     });
     if (!upstream.ok) {
       return res.status(502).json({
@@ -778,6 +806,14 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("N8N_NOT_CONFIGURED")) {
+      return res.status(503).json({
+        error: {
+          code: "N8N_NOT_CONFIGURED",
+          message: "Set N8N_BASE_URL in API environment or save n8n.baseUrl in device settings.",
+        },
+      });
+    }
     return res.status(502).json({
       error: {
         code: "N8N_TOOL_RUN_FAILED",

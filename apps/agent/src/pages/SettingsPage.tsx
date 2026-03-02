@@ -68,7 +68,11 @@ export default function SettingsPage() {
           setModels(modelBody.data?.models ?? []);
         }
 
-        const n8nRes = await request("/v1/livekit/starter/tools/status", { method: "GET" }, false);
+        const n8nRes = await request(
+          `/v1/livekit/starter/tools/status?deviceId=${encodeURIComponent(deviceId)}`,
+          { method: "GET" },
+          false
+        );
         if (n8nRes.ok) {
           const n8nBody = await readJson<N8nStatusResponse>(n8nRes);
           if (!n8nBody.data?.configured) {

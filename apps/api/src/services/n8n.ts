@@ -15,8 +15,9 @@ function buildHeaders() {
   return headers;
 }
 
-export async function getN8nStatus(): Promise<N8nStatus> {
-  if (!env.N8N_BASE_URL) {
+export async function getN8nStatus(options?: { baseUrl?: string | null }): Promise<N8nStatus> {
+  const configuredBaseUrl = options?.baseUrl?.trim() || env.N8N_BASE_URL || null;
+  if (!configuredBaseUrl) {
     return {
       configured: false,
       reachable: false,
@@ -25,7 +26,7 @@ export async function getN8nStatus(): Promise<N8nStatus> {
   }
 
   try {
-    const endpoint = new URL("/healthz", env.N8N_BASE_URL).toString();
+    const endpoint = new URL("/healthz", configuredBaseUrl).toString();
     const response = await fetch(endpoint, {
       method: "GET",
       headers: buildHeaders(),
@@ -33,24 +34,25 @@ export async function getN8nStatus(): Promise<N8nStatus> {
     return {
       configured: true,
       reachable: response.ok,
-      baseUrl: env.N8N_BASE_URL,
+      baseUrl: configuredBaseUrl,
     };
   } catch {
     return {
       configured: true,
       reachable: false,
-      baseUrl: env.N8N_BASE_URL,
+      baseUrl: configuredBaseUrl,
     };
   }
 }
 
-export function resolveToolWebhookEndpoint(toolId: string) {
-  if (!env.N8N_BASE_URL) {
+export function resolveToolWebhookEndpoint(toolId: string, options?: { baseUrl?: string | null }) {
+  const configuredBaseUrl = options?.baseUrl?.trim() || env.N8N_BASE_URL || null;
+  if (!configuredBaseUrl) {
     throw new Error("N8N_NOT_CONFIGURED");
   }
 
   const webhookPath = `/webhook/coziyoo/${encodeURIComponent(toolId)}`;
-  return new URL(webhookPath, env.N8N_BASE_URL).toString();
+  return new URL(webhookPath, configuredBaseUrl).toString();
 }
 
 export async function runN8nToolWebhook(input: {
@@ -58,8 +60,9 @@ export async function runN8nToolWebhook(input: {
   toolInput?: string;
   roomName?: string;
   username?: string;
+  baseUrl?: string | null;
 }) {
-  const endpoint = resolveToolWebhookEndpoint(input.toolId);
+  const endpoint = resolveToolWebhookEndpoint(input.toolId, { baseUrl: input.baseUrl });
 
   const upstream = await fetch(endpoint, {
     method: "POST",
