@@ -24,6 +24,9 @@ const UploadDocumentSchema = z.object({
   fileUrl: z.string().url(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
+const ComplianceDocumentParamSchema = z.object({
+  documentId: z.string().uuid(),
+});
 
 const ReviewSchema = z.object({
   reviewNotes: z.string().min(3).max(1000).optional(),
@@ -185,6 +188,53 @@ sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) =>
     [req.auth!.userId]
   );
   return res.json({ data: docs.rows });
+});
+
+sellerComplianceRouter.delete("/documents/:documentId", requireAuth("app"), async (req, res) => {
+  const role = resolveActorRole(req);
+  if (role !== "seller") {
+    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+  const params = ComplianceDocumentParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const target = await client.query<{ id: string; doc_type: string }>(
+      `SELECT id, doc_type
+       FROM seller_compliance_documents
+       WHERE id = $1 AND seller_id = $2
+       FOR UPDATE`,
+      [params.data.documentId, req.auth!.userId]
+    );
+    if ((target.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "DOCUMENT_NOT_FOUND", message: "Document not found" } });
+    }
+
+    const docType = target.rows[0].doc_type;
+    await client.query("DELETE FROM seller_compliance_documents WHERE id = $1", [params.data.documentId]);
+    await client.query(
+      `DELETE FROM seller_compliance_profile_documents
+       WHERE seller_id = $1 AND doc_type = $2`,
+      [req.auth!.userId, docType]
+    );
+    await client.query(
+      `INSERT INTO seller_compliance_events (seller_id, actor_admin_id, event_type, payload_json)
+       VALUES ($1, NULL, 'document_deleted', $2)`,
+      [req.auth!.userId, JSON.stringify({ documentId: params.data.documentId, docType })]
+    );
+    await client.query("COMMIT");
+    return res.json({ data: { deleted: true, documentId: params.data.documentId, docType } });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document delete failed" } });
+  } finally {
+    client.release();
+  }
 });
 
 sellerComplianceRouter.post("/submit", requireAuth("app"), async (req, res) => {
