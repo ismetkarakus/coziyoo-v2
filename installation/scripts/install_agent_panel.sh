@@ -13,7 +13,7 @@ fi
 
 AGENT_APP_DIR_ABS="$(resolve_path "${AGENT_APP_DIR:-apps/agent}")"
 PUBLISH_DIR="${AGENT_APP_PUBLISH_DIR:-/var/www/coziyoo-agent}"
-AGENT_APP_PORT="${AGENT_APP_PORT:-8001}"
+AGENT_APP_PORT="${AGENT_APP_PORT:-9000}"
 AGENT_API_BASE_URL="${AGENT_API_BASE_URL:-https://${API_DOMAIN:-api.coziyoo.com}}"
 AGENT_APP_SERVICE_NAME="${AGENT_APP_SERVICE_NAME:-coziyoo-agent-app}"
 
