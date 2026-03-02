@@ -33,7 +33,7 @@ SQL
 EXISTS="$(
   psql "${DATABASE_URL}" -t -A \
     -v flag_key="${PATCH_KEY}" \
-    -c "SELECT 1 FROM deployment_update_flags WHERE flag_key = :'flag_key' LIMIT 1;" 2>/dev/null || true
+    -c "SELECT 1 FROM deployment_update_flags WHERE flag_key = :'flag_key' LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || true
 )"
 
 if [[ "${EXISTS}" == "1" ]]; then
@@ -86,13 +86,23 @@ updated AS (
 SELECT count(*)::text FROM updated;
 SQL
 )"
+UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
 
-psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
+FLAG_WRITTEN="$(
+psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
   -v flag_key="${PATCH_KEY}" \
   -v note="${PATCH_NOTE}; updated_rows=${UPDATED_COUNT}" <<'SQL'
 INSERT INTO deployment_update_flags (flag_key, note)
-VALUES (:'flag_key', :'note');
+VALUES (:'flag_key', :'note')
+ON CONFLICT (flag_key) DO NOTHING
+RETURNING flag_key;
 SQL
+)"
+FLAG_WRITTEN="$(printf "%s" "${FLAG_WRITTEN}" | tr -d '[:space:]')"
+
+if [[ -z "${FLAG_WRITTEN}" ]]; then
+  log "Patch execution completed but flag already existed (${PATCH_KEY}); treating as applied."
+  exit 0
+fi
 
 log "Patch applied (${PATCH_KEY}). Updated rows: ${UPDATED_COUNT}"
-
