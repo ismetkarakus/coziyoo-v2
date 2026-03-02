@@ -65,7 +65,7 @@ After=network.target
 Type=simple
 WorkingDirectory=${VOICE_AGENT_DIR_ABS}
 EnvironmentFile=${ROOT_ENV}
-ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/python -m voice_agent.entrypoint'
+ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/python -m voice_agent.entrypoint start'
 Restart=always
 RestartSec=3
 
