@@ -204,6 +204,10 @@ install_python_project() {
 
   require_cmd python3
   log "Installing Python dependencies in ${app_dir}"
+  if [[ -d "${venv_dir}" ]]; then
+    log "Removing existing virtualenv at ${venv_dir} to avoid stale/corrupt package metadata"
+    rm -rf "${venv_dir}"
+  fi
   python3 -m venv "${venv_dir}"
 
   # shellcheck disable=SC1091
