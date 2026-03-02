@@ -1994,7 +1994,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const passiveTrSellers = trRows.filter((row) => row.status === "disabled").length;
     const todayTrSellers = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
     const primarySmartItems: SellerSmartFilterKey[] = [
-      "login_anomaly",
       "pending_approvals",
       "missing_documents",
       "suspicious_logins",
@@ -2066,14 +2065,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             <div className="buyer-v2-smart-list seller-v2-smart-primary">
               <button
                 type="button"
-                className={`buyer-v2-smart-item ${sellerStatusFilter === "all" ? "is-active" : ""}`}
-                aria-pressed={sellerStatusFilter === "all"}
+                className={`buyer-v2-smart-item ${sellerStatusFilter === "all" && !activeSellerSmartFilter ? "is-active" : ""}`}
+                aria-pressed={sellerStatusFilter === "all" && !activeSellerSmartFilter}
                 onClick={() => {
                   setSellerStatusFilter("all");
+                  setActiveSellerSmartFilter(null);
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
-                <span className="buyer-v2-smart-item-label">Tüm TR</span>
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">☰</span>
+                <span className="buyer-v2-smart-item-label">Tüm Kayıtlar</span>
+                <span className="buyer-v2-smart-item-count">{totalTrSellers}</span>
               </button>
               <button
                 type="button"
@@ -2084,7 +2086,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
-                <span className="buyer-v2-smart-item-label">Aktif</span>
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">✓</span>
+                <span className="buyer-v2-smart-item-label">Aktif Kayıtlar</span>
+                <span className="buyer-v2-smart-item-count">{activeTrSellers}</span>
               </button>
               <button
                 type="button"
@@ -2095,22 +2099,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
-                <span className="buyer-v2-smart-item-label">Pasif</span>
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">◔</span>
+                <span className="buyer-v2-smart-item-label">Pasif Kayıtlar</span>
+                <span className="buyer-v2-smart-item-count">{passiveTrSellers}</span>
               </button>
-              <button
-                type="button"
-                className={`buyer-v2-smart-item ${last7DaysOnly ? "is-active" : ""}`}
-                aria-pressed={last7DaysOnly}
-                onClick={() => {
-                  setLast7DaysOnly((prev) => !prev);
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-label">Son 7 Gün</span>
-              </button>
-            </div>
-            <div className="seller-v2-smart-separator" />
-            <div className="buyer-v2-smart-list seller-v2-smart-primary">
               {primarySmartItems.map((key) => {
                 const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
                 if (!item) return null;
