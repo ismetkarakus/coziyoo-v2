@@ -63,6 +63,7 @@ npm run dev:web
 ## Production Deployment
 
 See [installation/README.md](installation/README.md) for VPS deployment instructions.
+Quick deploy smoke test note: this section was last verified on **March 2, 2026**.
 
 ```bash
 # On VPS - First time setup
