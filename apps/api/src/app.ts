@@ -83,22 +83,39 @@ app.use(requestContext);
 // which body-parser rejects. Normalize it before JSON parsing.
 app.use((req, _res, next) => {
   const ct = req.headers["content-type"] as string | string[] | undefined;
+  const requestPath = req.path || req.url || "";
+  const isAdminLogin = req.method === "POST" && requestPath.endsWith("/v1/admin/auth/login");
   const normalize = (value: string): string => {
     const [rawMime] = value.split(";");
     const mime = rawMime.trim().toLowerCase();
 
-    // Force a canonical charset for JSON-like bodies to avoid proxy/header quirks.
+    // Drop charset for JSON-like bodies to avoid malformed proxy forwarded values
+    // such as charset="UTF-8 " that can trigger body-parser 415 errors.
     if (mime === "application/json" || mime.endsWith("+json") || mime === "text/plain") {
-      return `${mime}; charset=utf-8`;
+      return mime;
     }
 
-    return value;
+    return value.replace(/charset\s*=\s*"?([^";]+)"?/i, (_match, charsetRaw: string) => {
+      const charset = String(charsetRaw || "").trim().toLowerCase();
+      return `charset=${charset}`;
+    });
   };
 
   if (typeof ct === "string") {
     req.headers["content-type"] = normalize(ct);
   } else if (Array.isArray(ct) && ct.length > 0) {
     req.headers["content-type"] = normalize(ct[0]);
+  }
+
+  // Some reverse-proxy chains can forward admin login payloads with
+  // unexpected media types. Force JSON parsing on this single endpoint.
+  if (isAdminLogin) {
+    const current = req.headers["content-type"];
+    const value = Array.isArray(current) ? current[0] : current;
+    const lower = String(value ?? "").toLowerCase();
+    if (!lower.includes("application/json") && !lower.includes("text/plain")) {
+      req.headers["content-type"] = "application/json; charset=utf-8";
+    }
   }
   next();
 });
