@@ -20,11 +20,9 @@ log "Starting full update"
 log "Stopping app services before update (leaving PostgreSQL running)"
 "${SCRIPT_DIR}/run_all.sh" stop api || true
 "${SCRIPT_DIR}/run_all.sh" stop admin || true
-"${SCRIPT_DIR}/run_all.sh" stop agent || true
 
 "${SCRIPT_DIR}/update_api_service.sh"
 "${SCRIPT_DIR}/update_admin_panel.sh"
-"${SCRIPT_DIR}/update_agent_panel.sh"
 
 API_PORT="${API_PORT:-3000}"
 UPDATE_SKIP_HEALTHCHECKS="${UPDATE_SKIP_HEALTHCHECKS:-false}"

@@ -1,39 +1,19 @@
-# TASKLIST
+# Mobile Replatform Tasklist
 
-## Phase 0
-1. Create `apps/mobile` scaffold.
-2. Save `PLAN.md` and `TASKLIST.md` in `apps/mobile`.
-3. Commit and push.
+## Completed
+1. Created `apps/mobile` scaffold and core docs.
+2. Replaced legacy app folders (`apps/web`, `apps/agent`).
+3. Added API start-session metadata support for mobile context.
+4. Created `apps/voice-agent` modular scaffold.
 
-## Phase 1 - Mobile Foundation
-1. Add React Native app shell and navigation.
-2. Add API client + auth flow.
-3. Add settings screen for STT/TTS/LLM/n8n profile binding.
-4. Add voice session manager for LiveKit.
-5. Add DataChannel action parser + deterministic dispatcher.
+## In Progress
+1. Harden mobile runtime integration with LiveKit RN native setup.
+2. Connect DataChannel contract to telemetry/error reporting.
 
-## Phase 2 - API Alignment
-1. Extend `/v1/livekit/session/start` metadata fields:
-- `locale`
-- `campaignId`
-- `leadId`
-- `channel`
-- `deviceId`
-- `settingsProfileId`
-2. Keep `/v1/livekit/session/end` idempotent and secret-authenticated.
-
-## Phase 3 - Agent Runtime
-1. Create modular agent service in `apps/voice-agent`.
-2. Add provider interfaces for STT/LLM/TTS.
-3. Implement remote speech STT adapter.
-4. Implement Ollama-compatible LLM adapter.
-5. Implement streaming TTS adapter.
-6. Emit strict action JSON over DataChannel.
-7. Post session summary to API end endpoint.
-
-## Phase 4 - Hardening
-1. Unit tests for action schema/dispatcher.
-2. Integration tests for session bootstrap + auth + session end.
-3. E2E validation: voice interaction and UI actions.
-4. Retry/backoff and dead-letter path for n8n delivery.
-5. Observability and rollout checklist.
+## Next
+1. Add strong typed navigation params and route guards.
+2. Add persisted secure token storage on mobile.
+3. Add agent dispatch worker process manager in `apps/voice-agent`.
+4. Implement real streaming STT/TTS providers in `apps/voice-agent`.
+5. Add end-to-end tests across API + voice-agent + mobile harness.
+6. Add deployment units for `apps/voice-agent` (`systemd` + health checks).

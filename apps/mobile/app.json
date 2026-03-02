@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Coziyoo Mobile",
+    "slug": "coziyoo-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.coziyoo.mobile"
+    },
+    "android": {
+      "package": "com.coziyoo.mobile"
+    },
+    "plugins": []
+  }
+}

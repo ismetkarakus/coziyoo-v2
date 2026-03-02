@@ -10,19 +10,17 @@ ACTION="${1:-}"
 SERVICE="${2:-}"
 
 if [[ -z "${ACTION}" ]]; then
-  echo "Usage: $0 <start|stop|restart|status|logs> [api|admin|agent|postgres]"
+  echo "Usage: $0 <start|stop|restart|status|logs> [api|admin|postgres]"
   exit 1
 fi
 
 api_service="${API_SERVICE_NAME:-coziyoo-api}"
 admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
-agent_service="${AGENT_APP_SERVICE_NAME:-coziyoo-agent-app}"
 
 service_for_name() {
   case "$1" in
     api) echo "${api_service}" ;;
     admin) echo "${admin_service}" ;;
-    agent) echo "${agent_service}" ;;
     postgres) echo "postgresql" ;;
     *) fail "Unknown service name: $1" ;;
   esac
@@ -51,7 +49,6 @@ if [[ -n "${SERVICE}" ]]; then
 else
   run_on_service api
   run_on_service admin
-  run_on_service agent
   run_on_service postgres
 fi
 

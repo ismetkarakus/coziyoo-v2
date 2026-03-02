@@ -43,6 +43,17 @@ const StartSessionSchema = z.object({
   metadata: z.string().max(2_000).optional(),
   ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
   autoDispatchAgent: z.boolean().default(true),
+  locale: z.string().max(32).optional(),
+  campaignId: z.string().max(128).optional(),
+  leadId: z.string().max(128).optional(),
+  channel: z.string().max(64).optional(),
+  deviceId: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional(),
+  settingsProfileId: z.string().max(128).optional(),
 });
 
 const EndSessionSchema = z.object({
@@ -439,7 +450,19 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
   const input = parsed.data;
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const userIdentity = input.participantIdentity ?? `user-${req.auth!.userId}`;
-  const userMetadata = input.metadata ?? JSON.stringify({ userId: req.auth!.userId, role: req.auth!.role, source: "session-start" });
+  const userMetadata =
+    input.metadata ??
+    JSON.stringify({
+      userId: req.auth!.userId,
+      role: req.auth!.role,
+      source: "session-start",
+      locale: input.locale ?? null,
+      campaignId: input.campaignId ?? null,
+      leadId: input.leadId ?? null,
+      channel: input.channel ?? "mobile",
+      deviceId: input.deviceId ?? null,
+      settingsProfileId: input.settingsProfileId ?? null,
+    });
 
   try {
     await ensureLiveKitRoom(roomName);
@@ -468,7 +491,17 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
 
   const agentIdentity = buildRoomScopedAgentIdentity(roomName);
   const agentName = env.LIVEKIT_AGENT_IDENTITY;
-  const agentMetadata = JSON.stringify({ kind: "ai-agent", source: "session-start", roomName });
+  const agentMetadata = JSON.stringify({
+    kind: "ai-agent",
+    source: "session-start",
+    roomName,
+    locale: input.locale ?? null,
+    campaignId: input.campaignId ?? null,
+    leadId: input.leadId ?? null,
+    channel: input.channel ?? "mobile",
+    deviceId: input.deviceId ?? null,
+    settingsProfileId: input.settingsProfileId ?? null,
+  });
   const agentToken = await mintLiveKitToken({
     identity: agentIdentity,
     name: agentName,
@@ -495,6 +528,14 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
           participantName: agentName,
           token: agentToken,
           metadata: agentMetadata,
+          payload: {
+            locale: input.locale ?? null,
+            campaignId: input.campaignId ?? null,
+            leadId: input.leadId ?? null,
+            channel: input.channel ?? "mobile",
+            deviceId: input.deviceId ?? null,
+            settingsProfileId: input.settingsProfileId ?? null,
+          },
         });
       }
     } catch (error) {

@@ -1,32 +1,41 @@
 # Mobile Voice Assistant Replatform Plan
 
-## Summary
-Replatform to a mobile-first stack with `apps/mobile` (React Native), keep `apps/api` as the main backend, and run realtime voice with LiveKit + LiveKit Agents.
+## Goal
+Deliver a production-oriented voice-first mobile foundation where realtime voice, deterministic action control, and backend orchestration are cleanly separated.
 
-## Locked Decisions
-1. `apps/api` remains the single business backend.
-2. Legacy `apps/web` and `apps/agent` will be removed.
-3. New client lives in `apps/mobile`.
-4. Voice uses LiveKit duplex audio + DataChannel actions.
-5. UI actions are strict allowlisted JSON commands.
-6. Session bootstrap and auth use existing `apps/api` contracts.
+## Scope
+1. Mobile client is `apps/mobile` (React Native single codebase).
+2. Main backend remains `apps/api`.
+3. Legacy `apps/web` and `apps/agent` are removed.
+4. Agent runtime is split into `apps/voice-agent`.
 
-## Core Architecture
-1. Mobile app authenticates against API.
-2. Mobile starts LiveKit session via `/v1/livekit/session/start`.
-3. API mints tokens and dispatches voice agent.
-4. Agent handles STT -> LLM -> TTS and emits DataChannel actions.
-5. Mobile validates actions and updates local UI state.
-6. Agent posts session end summary to `/v1/livekit/session/end`.
-7. API emits normalized events to n8n with idempotency.
+## Architecture
+1. Mobile authenticates using `apps/api`.
+2. Mobile starts session via `POST /v1/livekit/session/start`.
+3. API mints user token and dispatches agent join.
+4. Agent streams voice and emits strict action messages over DataChannel.
+5. Mobile validates action schema and executes allowlisted actions only.
+6. Agent sends end-of-session summary to API.
+7. API delivers normalized event to n8n with idempotency.
 
-## DataChannel Contract
-- Envelope: `type`, `version`, `requestId`, `timestamp`, `action`.
-- Action fields: `name`, `params`, `policy`.
-- Unknown version/action or schema mismatch is rejected.
+## Session Metadata Extension
+`/v1/livekit/session/start` accepts optional:
+- `locale`
+- `campaignId`
+- `leadId`
+- `channel`
+- `deviceId`
+- `settingsProfileId`
+
+## Deterministic Action Rules
+1. Messages must match versioned envelope: `type=action`, `version=1.0`.
+2. Unknown version/action is rejected.
+3. Invalid schema is rejected.
+4. App executes only allowlisted action names.
+5. High-risk actions require confirmation policy.
 
 ## Provider Direction
-- STT: remote speech server.
-- LLM: remote Ollama by default, override by settings profile.
-- TTS: pluggable provider interface.
-- n8n: invoked by API, not directly by mobile.
+1. STT default: remote speech server.
+2. LLM default: remote Ollama.
+3. TTS: modular provider adapter.
+4. n8n invoked by API only.
