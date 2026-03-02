@@ -83,22 +83,32 @@ app.use(requestContext);
 // which body-parser rejects. Normalize it before JSON parsing.
 app.use((req, _res, next) => {
   const ct = req.headers["content-type"] as string | string[] | undefined;
-  const requestPath = req.path || req.url || "";
-  const isAdminLogin = req.method === "POST" && requestPath.endsWith("/v1/admin/auth/login");
+
   const normalize = (value: string): string => {
-    const [rawMime] = value.split(";");
+    const [rawMime, ...rest] = value.split(";");
     const mime = rawMime.trim().toLowerCase();
 
-    // Drop charset for JSON-like bodies to avoid malformed proxy forwarded values
-    // such as charset="UTF-8 " that can trigger body-parser 415 errors.
-    if (mime === "application/json" || mime.endsWith("+json") || mime === "text/plain") {
+    // For JSON-like bodies: completely strip charset to avoid malformed proxy
+    // forwarded values such as charset="UTF-8 " (note trailing space) that
+    // trigger body-parser 415 errors.
+    if (mime === "application/json" || mime.endsWith("+json")) {
       return mime;
     }
 
-    return value.replace(/charset\s*=\s*"?([^";]+)"?/i, (_match, charsetRaw: string) => {
-      const charset = String(charsetRaw || "").trim().toLowerCase();
-      return `charset=${charset}`;
-    });
+    // For other types: normalize charset if present (trim, lowercase, remove quotes)
+    const params = rest
+      .map((p) => p.trim())
+      .map((p) => {
+        const m = p.match(/^charset\s*=\s*"?([^"]*)"?$/i);
+        if (m) {
+          const cleaned = String(m[1] || "").trim().toLowerCase();
+          return cleaned ? `charset=${cleaned}` : "";
+        }
+        return p;
+      })
+      .filter(Boolean);
+
+    return params.length > 0 ? `${mime}; ${params.join("; ")}` : mime;
   };
 
   if (typeof ct === "string") {
@@ -107,55 +117,60 @@ app.use((req, _res, next) => {
     req.headers["content-type"] = normalize(ct[0]);
   }
 
-  // Some reverse-proxy chains can forward admin login payloads with
-  // unexpected media types. Force JSON parsing on this single endpoint.
-  if (isAdminLogin) {
-    const current = req.headers["content-type"];
-    const value = Array.isArray(current) ? current[0] : current;
-    const lower = String(value ?? "").toLowerCase();
-    if (!lower.includes("application/json") && !lower.includes("text/plain")) {
-      req.headers["content-type"] = "application/json; charset=utf-8";
-    }
-  }
   next();
 });
 
-// Parse login payloads with a tolerant text parser first to avoid body-parser
-// charset failures (e.g. malformed charset values from proxy chains).
-app.use(["/v1/admin/auth/login", "/v1/auth/login"], express.text({ limit: env.JSON_BODY_LIMIT, type: "*/*" }));
+// Parse login payloads manually to bypass body-parser charset checks entirely.
+// Some proxy chains send malformed Content-Type (e.g., charset="UTF-8 " with trailing space)
+// which causes body-parser to throw 415 errors.
 app.use((req, res, next) => {
   const path = req.path || req.url || "";
   const isLoginPath =
     req.method === "POST" && (path.endsWith("/v1/admin/auth/login") || path.endsWith("/v1/auth/login"));
   if (!isLoginPath) return next();
 
-  const raw = req.body;
-  if (raw === undefined || raw === null || raw === "") {
-    req.body = {};
-    return next();
-  }
+  // If body was already parsed by earlier middleware, skip
+  if (req.body !== undefined) return next();
 
-  if (typeof raw === "string") {
+  let data = "";
+  req.setEncoding("utf8");
+  req.on("data", (chunk: string) => {
+    data += chunk;
+  });
+  req.on("end", () => {
+    if (!data) {
+      req.body = {};
+      return next();
+    }
     try {
-      req.body = JSON.parse(raw);
+      req.body = JSON.parse(data);
     } catch {
       return res.status(400).json({ error: { code: "INVALID_JSON", message: "Invalid JSON payload" } });
     }
-  }
-
-  return next();
+    next();
+  });
+  req.on("error", () => {
+    return res.status(400).json({ error: { code: "BODY_READ_ERROR", message: "Failed to read request body" } });
+  });
 });
 
-app.use(
+app.use((req, res, next) => {
+  const path = req.path || req.url || "";
+  const isLoginPath =
+    req.method === "POST" && (path.endsWith("/v1/admin/auth/login") || path.endsWith("/v1/auth/login"));
+  if (isLoginPath) {
+    // Skip JSON parsing for login paths - body already parsed by manual middleware above
+    return next();
+  }
   express.json({
     limit: env.JSON_BODY_LIMIT,
     strict: false,
     type: ["application/json", "application/*+json", "text/plain"],
-    verify: (req, _res, buf) => {
-      (req as { rawBody?: string }).rawBody = buf.toString("utf8");
+    verify: (req2, _res2, buf) => {
+      (req2 as { rawBody?: string }).rawBody = buf.toString("utf8");
     },
-  })
-);
+  })(req, res, next);
+});
 
 app.get("/", (_req, res) => {
   res.setHeader("content-type", "text/html; charset=utf-8");

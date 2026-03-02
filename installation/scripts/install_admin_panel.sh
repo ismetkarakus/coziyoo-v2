@@ -24,17 +24,21 @@ require_cmd npm
 
 log "Building admin panel in ${ADMIN_DIR_ABS}"
 (
+  # Install from repo root (workspace root) to ensure monorepo deps are resolved
+  cd "${REPO_ROOT}"
+  if [[ -f package-lock.json ]]; then
+    npm ci --silent --no-audit --no-fund --loglevel=error
+  else
+    npm install --silent --no-audit --no-fund --loglevel=error
+  fi
+  
+  # Build from admin directory
   cd "${ADMIN_DIR_ABS}"
   BUILD_COMMIT="$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   cat > .env.production <<EOF
 VITE_API_BASE_URL=${ADMIN_API_BASE_URL}
 VITE_GIT_COMMIT=${BUILD_COMMIT}
 EOF
-  if [[ -f package-lock.json ]]; then
-    npm ci --silent --no-audit --no-fund --loglevel=error
-  else
-    npm install --silent --no-audit --no-fund --loglevel=error
-  fi
   npm run build
 )
 

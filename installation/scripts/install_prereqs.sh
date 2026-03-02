@@ -40,12 +40,17 @@ ensure_node20_linux() {
 
   if [[ -n "${major}" && "${major}" -ge 20 ]]; then
     log "Node.js version is suitable (v${major})"
+    # Also verify npm is available
+    if ! command -v npm >/dev/null 2>&1; then
+      log "npm not found, installing npm"
+      apt_install_with_repair npm || true
+    fi
     return
   fi
 
   log "Installing/upgrading Node.js to 20.x"
   run_root apt-get -qq update
-  apt_install_with_repair ca-certificates gnupg
+  apt_install_with_repair ca-certificates gnupg curl
   run_root mkdir -p /etc/apt/keyrings
   run_root bash -lc "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > /etc/apt/keyrings/nodesource.gpg"
   run_root tee /etc/apt/sources.list.d/nodesource.list >/dev/null <<EOF
@@ -56,6 +61,13 @@ EOF
     log "Unable to install Node.js 20 automatically due to apt issues; continuing with current Node.js $(node -v 2>/dev/null || echo 'missing')"
     return
   fi
+  
+  # Ensure npm is installed (nodesource nodejs includes npm, but verify anyway)
+  if ! command -v npm >/dev/null 2>&1; then
+    log "npm not found after nodejs install, attempting to install npm"
+    apt_install_with_repair npm || true
+  fi
+  
   log "Installed Node.js $(node -v), npm $(npm -v)"
 }
 

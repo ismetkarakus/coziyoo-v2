@@ -33,13 +33,14 @@ maybe_git_update "${REPO_ROOT}"
 require_cmd npm
 log "Installing API dependencies and building in ${API_DIR_ABS}"
 (
-  cd "${API_DIR_ABS}"
-  
   # Load root env
   set -a
   # shellcheck disable=SC1090
   source "${ROOT_ENV}"
   set +a
+  
+  # Install from repo root (workspace root) to ensure monorepo deps are resolved
+  cd "${REPO_ROOT}"
   
   # Avoid platform-specific optional package failures (e.g. android-only binaries).
   NPM_INSTALL_FLAGS=(--silent --no-audit --no-fund --loglevel=error --omit=optional)
@@ -51,6 +52,9 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
   else
     npm install "${NPM_INSTALL_FLAGS[@]}"
   fi
+  
+  # Build from API directory
+  cd "${API_DIR_ABS}"
   npm run build
 )
 

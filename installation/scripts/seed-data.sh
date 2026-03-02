@@ -23,6 +23,11 @@ API_BASE_URL="http://127.0.0.1:${API_PORT:-3000}"
 
 log "Seeding admin user: ${ADMIN_EMAIL}"
 
+# Verify argon2 is available (required for password hashing)
+if ! node -e "require('argon2')" >/dev/null 2>&1; then
+  fail "argon2 module not found in API dependencies. Run install_api_service.sh first."
+fi
+
 # Check if admin already exists
 EXISTS=$(psql "${DATABASE_URL}" -t -c "SELECT 1 FROM admin_users WHERE email = '${ADMIN_EMAIL}';" 2>/dev/null | tr -d '[:space:]' || echo "")
 

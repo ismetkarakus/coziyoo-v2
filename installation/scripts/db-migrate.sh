@@ -33,10 +33,10 @@ SQL
 APPLIED=$(psql "${DATABASE_URL}" -t -c "SELECT filename FROM schema_migrations;" 2>/dev/null || echo "")
 
 # Find and sort migration files
-MIGRATION_FILES=$(find "${MIGRATIONS_DIR}" -name "*.sql" -type f | sort)
+mapfile -t MIGRATION_FILES < <(find "${MIGRATIONS_DIR}" -name "*.sql" -type f | sort)
 
 APPLIED_COUNT=0
-for FILE in ${MIGRATION_FILES}; do
+for FILE in "${MIGRATION_FILES[@]}"; do
   FILENAME=$(basename "${FILE}")
   
   # Check if already applied
