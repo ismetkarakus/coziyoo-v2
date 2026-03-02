@@ -29,25 +29,53 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 SQL
 
-# Get list of already applied migrations
-APPLIED=$(psql "${DATABASE_URL}" -t -c "SELECT filename FROM schema_migrations;" 2>/dev/null || echo "")
-
 # Find and sort migration files
 mapfile -t MIGRATION_FILES < <(find "${MIGRATIONS_DIR}" -name "*.sql" -type f | sort)
+
+# Legacy bootstrap:
+# If the database already has core app tables but schema_migrations is empty,
+# assume historical migrations were applied outside this tracker and seed
+# tracking rows to prevent replaying non-idempotent early migrations.
+MIGRATION_TRACK_COUNT="$(
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -c "SELECT count(*)::text FROM schema_migrations;" 2>/dev/null | tr -d '[:space:]'
+)"
+USERS_TABLE_EXISTS="$(
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.users') IS NOT NULL;" 2>/dev/null | tr -d '[:space:]'
+)"
+if [[ "${MIGRATION_TRACK_COUNT:-0}" == "0" && "${USERS_TABLE_EXISTS}" == "t" ]]; then
+  log "Detected legacy DB without schema_migrations history; bootstrapping migration tracker"
+  for FILE in "${MIGRATION_FILES[@]}"; do
+    FILENAME="$(basename "${FILE}")"
+    psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -v f="${FILENAME}" <<'SQL'
+INSERT INTO schema_migrations (filename)
+VALUES (:'f')
+ON CONFLICT (filename) DO NOTHING;
+SQL
+  done
+  log "Migration tracker bootstrapped from existing schema. New migrations will apply on next deploy."
+  exit 0
+fi
 
 APPLIED_COUNT=0
 for FILE in "${MIGRATION_FILES[@]}"; do
   FILENAME=$(basename "${FILE}")
-  
-  # Check if already applied
-  if echo "${APPLIED}" | grep -q "${FILENAME}"; then
+
+  EXISTS="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 -v f="${FILENAME}" \
+      -c "SELECT 1 FROM schema_migrations WHERE filename = :'f' LIMIT 1;" 2>/dev/null | tr -d '[:space:]'
+  )"
+  if [[ "${EXISTS}" == "1" ]]; then
     log "  ✓ Already applied: ${FILENAME}"
     continue
   fi
-  
+
   log "  Applying: ${FILENAME}"
   psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${FILE}"
-  psql "${DATABASE_URL}" -c "INSERT INTO schema_migrations (filename) VALUES ('${FILENAME}');"
+  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -v f="${FILENAME}" <<'SQL'
+INSERT INTO schema_migrations (filename)
+VALUES (:'f')
+ON CONFLICT (filename) DO NOTHING;
+SQL
   ((APPLIED_COUNT++)) || true
   log "  ✓ Applied: ${FILENAME}"
 done
