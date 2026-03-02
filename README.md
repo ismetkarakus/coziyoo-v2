@@ -77,6 +77,7 @@ Auto-deploy on push is available via GitHub Actions (`.github/workflows/deploy-o
 See `installation/README.md` for required secrets (`DEPLOY_SSH_KEY`, `DEPLOY_TARGETS`).
 Post-deploy one-time DB data patch checks are also run during `update_all.sh` (flag-tracked in DB).
 Latest lot lifecycle patch key: `lot_lifecycle_v1_20260302` (adds sale window + snapshot fields on `production_lots`).
+For demo environments, default workflow behavior is DB reset only on schema changes (`DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE=true`).
 
 ## Default Credentials
 

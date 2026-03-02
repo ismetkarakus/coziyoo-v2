@@ -27,7 +27,49 @@ log "Stopping app services before update (leaving PostgreSQL running)"
 "${SCRIPT_DIR}/run_all.sh" stop voice-agent-api || true
 "${SCRIPT_DIR}/run_all.sh" stop voice-agent-worker || true
 
+db_rebuilt="false"
+should_rebuild_db="false"
+
+if [[ "${DEMO_DB_REBUILD_ON_UPDATE:-false}" == "true" ]]; then
+  should_rebuild_db="true"
+  log "DB rebuild decision: DEMO_DB_REBUILD_ON_UPDATE=true"
+elif [[ "${DEMO_DB_REBUILD_ON_SCHEMA_CHANGE:-true}" == "true" ]]; then
+  if [[ "${GIT_UPDATE:-false}" == "true" && -d "${REPO_ROOT}/.git" ]]; then
+    current_sha="$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo "")"
+    deploy_branch="${DEPLOY_BRANCH:-main}"
+    if [[ -n "${current_sha}" ]]; then
+      git -C "${REPO_ROOT}" fetch --quiet origin "${deploy_branch}" || true
+      remote_sha="$(git -C "${REPO_ROOT}" rev-parse "origin/${deploy_branch}" 2>/dev/null || echo "")"
+      if [[ -n "${remote_sha}" && "${remote_sha}" != "${current_sha}" ]]; then
+        if git -C "${REPO_ROOT}" diff --name-only "${current_sha}..${remote_sha}" | grep -E -q \
+          '^(apps/api/src/db/migrations/|apps/api/src/db/reset-and-init-schema\.sql|installation/scripts/apply_post_deploy_db_updates\.sh)'; then
+          should_rebuild_db="true"
+          log "DB rebuild decision: schema-affecting files changed on ${deploy_branch}"
+        else
+          log "DB rebuild decision: no schema-affecting file changes detected"
+        fi
+      else
+        log "DB rebuild decision: no new remote commit detected"
+      fi
+    fi
+  else
+    log "DB rebuild decision: schema-change mode enabled but git remote diff unavailable"
+  fi
+fi
+
+if [[ "${should_rebuild_db}" == "true" ]]; then
+  log "Rebuilding demo DB before service updates"
+  "${SCRIPT_DIR}/rebuild_demo_db.sh"
+  db_rebuilt="true"
+fi
+
 "${SCRIPT_DIR}/update_api_service.sh"
+
+if [[ "${db_rebuilt}" == "true" && "${DEMO_DB_RESEED_ON_UPDATE:-true}" == "true" ]]; then
+  log "Demo DB rebuilt, reseeding baseline data"
+  "${SCRIPT_DIR}/seed-data.sh"
+fi
+
 "${SCRIPT_DIR}/update_admin_panel.sh"
 "${SCRIPT_DIR}/update_voice_agent_service.sh"
 if [[ -x "${SCRIPT_DIR}/apply_post_deploy_db_updates.sh" ]]; then

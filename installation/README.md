@@ -115,6 +115,19 @@ bash installation/scripts/update_all.sh
 This pulls latest code, rebuilds, and restarts services.
 It also runs post-deploy DB data patch checks (idempotent, one-time per patch key).
 
+### Demo DB Refresh on Each Deploy
+
+For demo-only environments (where existing data can be discarded), you can enable controlled database rebuilds:
+
+- `DEMO_DB_REBUILD_ON_UPDATE=true` (always rebuild on every update)
+- `DEMO_DB_REBUILD_ON_SCHEMA_CHANGE=true` (recommended default: rebuild only when schema-related files changed)
+- `DEMO_DB_RESEED_ON_UPDATE=true` (default: re-creates admin + optional sample data)
+
+When enabled, `update_all.sh` runs:
+1. `installation/scripts/rebuild_demo_db.sh` (drops/recreates schema from `reset-and-init-schema.sql`)
+2. normal API update/start
+3. `installation/scripts/seed-data.sh` (if reseed enabled)
+
 Health check behavior during updates:
 - Default liveness endpoint: `/v1` (ensures API process is up)
 - Optional strict DB check: set `STRICT_DB_HEALTHCHECK=true` to also require `/v1/health`
@@ -129,6 +142,11 @@ Health check behavior during updates:
 - Lot lifecycle patch key: `lot_lifecycle_v1_20260302`
   - Adds `sale_starts_at`, `sale_ends_at`, and lot snapshot fields.
   - Backfills existing rows idempotently.
+
+GitHub Actions variables for demo DB refresh:
+- `DEPLOY_DEMO_DB_REBUILD` (`true|false`)
+- `DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE` (`true|false`)
+- `DEPLOY_DEMO_DB_RESEED` (`true|false`)
 
 ## 5) Auto-Deploy on Git Push (GitHub Actions)
 

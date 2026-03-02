@@ -18,6 +18,9 @@ jobs:
       DEPLOY_TARGETS: ${{ secrets.DEPLOY_TARGETS }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH || 'main' }}
+      DEPLOY_DEMO_DB_REBUILD: ${{ vars.DEPLOY_DEMO_DB_REBUILD || 'false' }}
+      DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE: ${{ vars.DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE || 'true' }}
+      DEPLOY_DEMO_DB_RESEED: ${{ vars.DEPLOY_DEMO_DB_RESEED || 'true' }}
     steps:
       - name: Validate deploy secrets
         run: |
@@ -133,5 +136,5 @@ jobs:
               -o StrictHostKeyChecking=yes \
               -o BatchMode=yes \
               "${USER}@${HOST}" \
-              "set -euo pipefail; cd '${REPO_PATH}'; GIT_UPDATE=true DEPLOY_BRANCH='${DEPLOY_BRANCH}' bash installation/scripts/update_all.sh"
+              "set -euo pipefail; cd '${REPO_PATH}'; GIT_UPDATE=true DEPLOY_BRANCH='${DEPLOY_BRANCH}' DEMO_DB_REBUILD_ON_UPDATE='${DEPLOY_DEMO_DB_REBUILD}' DEMO_DB_REBUILD_ON_SCHEMA_CHANGE='${DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE}' DEMO_DB_RESEED_ON_UPDATE='${DEPLOY_DEMO_DB_RESEED}' bash installation/scripts/update_all.sh"
           done <<< "${DEPLOY_TARGETS}"
