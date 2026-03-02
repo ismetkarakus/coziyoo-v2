@@ -150,6 +150,16 @@ const StarterAgentSettingsSchema = z.object({
   greetingInstruction: z.string().max(2_000).optional(),
 });
 
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export const liveKitRouter = Router();
 
 liveKitRouter.use((_, res, next) => {
@@ -689,6 +699,135 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
       },
     });
   }
+});
+
+liveKitRouter.post("/starter/agent-settings/:deviceId/test/stt", async (req, res) => {
+  const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
+  const sttConfig =
+    ttsConfig && typeof ttsConfig.stt === "object" && ttsConfig.stt !== null
+      ? (ttsConfig.stt as Record<string, unknown>)
+      : {};
+
+  const baseUrl =
+    typeof sttConfig.baseUrl === "string" && sttConfig.baseUrl.trim().length > 0
+      ? sttConfig.baseUrl.trim()
+      : env.SPEECH_TO_TEXT_BASE_URL;
+  const transcribePath =
+    typeof sttConfig.transcribePath === "string" && sttConfig.transcribePath.trim().length > 0
+      ? sttConfig.transcribePath.trim()
+      : env.SPEECH_TO_TEXT_TRANSCRIBE_PATH;
+  const model =
+    typeof sttConfig.model === "string" && sttConfig.model.trim().length > 0
+      ? sttConfig.model.trim()
+      : env.SPEECH_TO_TEXT_MODEL;
+
+  if (!baseUrl) {
+    return res.status(503).json({
+      error: {
+        code: "STT_NOT_CONFIGURED",
+        message: "Set SPEECH_TO_TEXT_BASE_URL or save stt.baseUrl in device settings.",
+      },
+    });
+  }
+
+  const endpoint = new URL(transcribePath, baseUrl).toString();
+
+  try {
+    const optionsResp = await fetchWithTimeout(endpoint, { method: "OPTIONS" }, Math.min(env.SPEECH_TO_TEXT_TIMEOUT_MS, 10_000));
+    if (optionsResp.ok || optionsResp.status === 405 || optionsResp.status === 415) {
+      return res.status(200).json({
+        data: {
+          configured: true,
+          reachable: true,
+          endpoint,
+          status: optionsResp.status,
+          model,
+        },
+      });
+    }
+
+    return res.status(502).json({
+      error: {
+        code: "STT_TEST_FAILED",
+        message: `STT endpoint responded with HTTP ${optionsResp.status}`,
+        endpoint,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "STT_TEST_FAILED",
+        message: error instanceof Error ? error.message : "Failed to reach STT endpoint",
+        endpoint,
+      },
+    });
+  }
+});
+
+liveKitRouter.post("/starter/agent-settings/:deviceId/test/ollama", async (req, res) => {
+  const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
+  const llmConfig =
+    ttsConfig && typeof ttsConfig.llm === "object" && ttsConfig.llm !== null
+      ? (ttsConfig.llm as Record<string, unknown>)
+      : {};
+  const ollamaBaseUrl =
+    typeof llmConfig.ollamaBaseUrl === "string" && llmConfig.ollamaBaseUrl.trim().length > 0
+      ? llmConfig.ollamaBaseUrl.trim()
+      : undefined;
+
+  try {
+    const result = await listOllamaModels({ baseUrl: ollamaBaseUrl });
+    return res.status(200).json({
+      data: {
+        reachable: true,
+        endpoint: result.endpoint,
+        modelCount: result.models.length,
+        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: {
+        code: "OLLAMA_TEST_FAILED",
+        message: error instanceof Error ? error.message : "Failed to reach Ollama",
+      },
+    });
+  }
+});
+
+liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res) => {
+  const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
+  const n8nConfig =
+    ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
+      ? (ttsConfig.n8n as Record<string, unknown>)
+      : {};
+  const n8nBaseUrl =
+    typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
+      ? n8nConfig.baseUrl.trim()
+      : null;
+
+  const status = await getN8nStatus({ baseUrl: n8nBaseUrl });
+  return res.status(200).json({
+    data: status,
+  });
 });
 
 liveKitRouter.get("/starter/tools/status", async (_req, res) => {

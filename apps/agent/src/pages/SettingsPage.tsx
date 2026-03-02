@@ -50,6 +50,8 @@ export default function SettingsPage() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [n8nStatus, setN8nStatus] = useState<string>("unknown");
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testing, setTesting] = useState<null | "stt" | "ollama" | "n8n">(null);
 
   useEffect(() => {
     const run = async () => {
@@ -121,6 +123,28 @@ export default function SettingsPage() {
     }
   }
 
+  async function testIntegration(kind: "stt" | "ollama" | "n8n") {
+    setTesting(kind);
+    setTestResult(null);
+    try {
+      const res = await request(
+        `/v1/livekit/starter/agent-settings/${encodeURIComponent(deviceId)}/test/${kind}`,
+        { method: "POST" },
+        false
+      );
+      const raw = (await res.json()) as { data?: unknown; error?: { message?: string } };
+      if (!res.ok) {
+        setTestResult(`${kind.toUpperCase()} failed: ${raw.error?.message ?? "Unknown error"}`);
+        return;
+      }
+      setTestResult(`${kind.toUpperCase()} ok: ${JSON.stringify(raw.data)}`);
+    } catch (e) {
+      setTestResult(`${kind.toUpperCase()} failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setTesting(null);
+    }
+  }
+
   if (loading) {
     return <main className="page-center"><section className="card"><p>Loading settings...</p></section></main>;
   }
@@ -188,6 +212,18 @@ export default function SettingsPage() {
             <label className="checkbox"><input type="checkbox" checked={settings.ttsEnabled} onChange={(e) => setSettings((prev) => ({ ...prev, ttsEnabled: e.target.checked }))} /> TTS enabled</label>
           </div>
           <p className="hint">n8n status: {n8nStatus}</p>
+          <div className="row">
+            <button type="button" className="ghost" onClick={() => testIntegration("stt")} disabled={testing !== null}>
+              {testing === "stt" ? "Testing STT..." : "Test STT"}
+            </button>
+            <button type="button" className="ghost" onClick={() => testIntegration("ollama")} disabled={testing !== null}>
+              {testing === "ollama" ? "Testing Ollama..." : "Test Ollama"}
+            </button>
+            <button type="button" className="ghost" onClick={() => testIntegration("n8n")} disabled={testing !== null}>
+              {testing === "n8n" ? "Testing n8n..." : "Test n8n"}
+            </button>
+          </div>
+          {testResult ? <p className="hint">{testResult}</p> : null}
           {saveMessage ? <p className="hint">{saveMessage}</p> : null}
           <button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Settings"}</button>
         </form>

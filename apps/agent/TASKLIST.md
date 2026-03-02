@@ -11,7 +11,7 @@
 - [x] Link settings page from login
 - [x] Load/save settings with `deviceId` using API
 - [x] Surface Ollama models and n8n status
-- [ ] Add dedicated STT/Ollama/n8n test buttons backed by API endpoints
+- [x] Add dedicated STT/Ollama/n8n test buttons backed by API endpoints
 
 ## Phase 3: Session Flow
 
