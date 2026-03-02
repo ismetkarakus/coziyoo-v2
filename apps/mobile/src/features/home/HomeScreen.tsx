@@ -1,6 +1,6 @@
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ConnectionState } from 'livekit-client';
 import { dispatchAgentAction } from '../actions/dispatcher';
@@ -24,6 +24,7 @@ export function HomeScreen({ navigation }: Props) {
   const [notes, setNotes] = useState<string[]>([]);
   const [settingsHint, setSettingsHint] = useState('');
   const [events, setEvents] = useState<string[]>([]);
+  const autoStartedRef = useRef<string | null>(null);
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>({
     navigate: (screen: any, params?: any) => navigation.navigate(screen, params),
   } as NavigationContainerRef<RootStackParamList>);
@@ -81,7 +82,7 @@ export function HomeScreen({ navigation }: Props) {
     return 'Disconnected';
   }, [livekitSession, voice.connectionState]);
 
-  const startVoice = async () => {
+  const startVoice = useCallback(async () => {
     if (!auth?.tokens.accessToken) {
       Alert.alert('Not authenticated', 'Please sign in first.');
       return;
@@ -103,14 +104,33 @@ export function HomeScreen({ navigation }: Props) {
       Alert.alert('Session start failed', error instanceof Error ? error.message : 'Unknown error');
       await track('error', 'session_start_failed', 'Failed to start LiveKit session');
     }
-  };
+  }, [auth?.tokens.accessToken, auth?.user.email, deviceId, settingsProfileId, setLivekitSession]);
 
-  const stopVoice = async () => {
+  const stopVoice = useCallback(async () => {
     await voice.disconnect();
     setLivekitSession(null);
     appendEvent('Session disconnected');
     await track('info', 'session_stopped', 'LiveKit voice session disconnected');
-  };
+  }, [setLivekitSession, voice]);
+
+  useEffect(() => {
+    const authSessionKey = auth?.tokens.accessToken ?? null;
+    if (!authSessionKey) {
+      autoStartedRef.current = null;
+      return;
+    }
+
+    if (livekitSession) {
+      return;
+    }
+
+    if (autoStartedRef.current === authSessionKey) {
+      return;
+    }
+
+    autoStartedRef.current = authSessionKey;
+    void startVoice();
+  }, [auth?.tokens.accessToken, livekitSession, startVoice]);
 
   const logout = async () => {
     await stopVoice();
