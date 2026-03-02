@@ -7,6 +7,12 @@ export type AgentSettings = {
   agentName: string;
   voiceLanguage: string;
   ollamaModel: string;
+  ollamaBaseUrl?: string;
+  n8nBaseUrl?: string;
+  sttProvider?: string;
+  sttBaseUrl?: string;
+  sttTranscribePath?: string;
+  sttModel?: string;
   ttsEngine: "f5-tts" | "xtts" | "chatterbox";
   ttsEnabled: boolean;
   sttEnabled: boolean;

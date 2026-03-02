@@ -17,20 +17,20 @@
 
 - [x] Start session from home via `/v1/livekit/session/start`
 - [x] Connect and stream media with LiveKit client in-app
-- [ ] Display transcript/events in home page
+- [x] Display transcript/events in home page
 
 ## Phase 4: API Modularization
 
-- [ ] Extract n8n logic from routes into `services/n8n.ts`
-- [ ] Rewire `/starter/tools/status` and `/starter/tools/run` to use service
-- [ ] Add session-end webhook flow for sales outcomes
+- [x] Extract n8n logic from routes into `services/n8n.ts`
+- [x] Rewire `/starter/tools/status` and `/starter/tools/run` to use service
+- [x] Add session-end webhook flow for sales outcomes
 
 ## Phase 5: Provider Modularity
 
-- [ ] Add explicit provider config contract in API response payloads
-- [ ] Add runtime provider factory skeleton for STT/TTS/LLM in agent runtime
-- [ ] Implement remote-speech-server STT adapter
-- [ ] Implement Ollama provider adapter
+- [x] Add explicit provider config contract in API response payloads
+- [x] Add runtime provider factory skeleton for STT/TTS/LLM in agent runtime
+- [x] Implement remote-speech-server STT adapter
+- [x] Implement Ollama provider adapter
 
 ## Phase 6: Validation and Testing
 

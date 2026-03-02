@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
-import { getN8nStatus, runN8nToolWebhook } from "../services/n8n.js";
+import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
 import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
 import { TTS_ENGINES } from "../services/tts-engines.js";
@@ -43,6 +43,25 @@ const StartSessionSchema = z.object({
   metadata: z.string().max(2_000).optional(),
   ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
   autoDispatchAgent: z.boolean().default(true),
+});
+
+const EndSessionSchema = z.object({
+  roomName: z.string().min(1).max(128),
+  jobId: z.string().max(256).optional(),
+  userIdentity: z.string().max(256).optional(),
+  agentIdentity: z.string().max(256).optional(),
+  summary: z.string().min(1).max(32_000),
+  startedAt: z.string().datetime().optional(),
+  endedAt: z.string().datetime().optional(),
+  outcome: z.string().max(128).optional(),
+  sentiment: z.string().max(64).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  deviceId: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional(),
 });
 
 const AgentChatSchema = z.object({
@@ -143,6 +162,12 @@ const StarterAgentSettingsSchema = z.object({
     })
     .passthrough()
     .optional(),
+  sttProvider: z.string().max(64).optional(),
+  sttBaseUrl: z.string().url().optional(),
+  sttTranscribePath: z.string().max(256).optional(),
+  sttModel: z.string().max(128).optional(),
+  ollamaBaseUrl: z.string().url().optional(),
+  n8nBaseUrl: z.string().url().optional(),
   ttsEnabled: z.boolean(),
   sttEnabled: z.boolean(),
   systemPrompt: z.string().max(4_000).optional(),
@@ -158,6 +183,66 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function isValidSharedSecret(providedSecret: string) {
+  if (!env.AI_SERVER_SHARED_SECRET) return false;
+  const providedBuffer = Buffer.from(providedSecret, "utf8");
+  const expectedBuffer = Buffer.from(env.AI_SERVER_SHARED_SECRET, "utf8");
+  return (
+    providedSecret.length > 0 &&
+    providedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(providedBuffer, expectedBuffer)
+  );
+}
+
+function readProviderConfigFromTtsConfig(raw: Record<string, unknown> | null | undefined) {
+  const sttConfig =
+    raw && typeof raw.stt === "object" && raw.stt !== null
+      ? (raw.stt as Record<string, unknown>)
+      : {};
+  const llmConfig =
+    raw && typeof raw.llm === "object" && raw.llm !== null
+      ? (raw.llm as Record<string, unknown>)
+      : {};
+  const n8nConfig =
+    raw && typeof raw.n8n === "object" && raw.n8n !== null
+      ? (raw.n8n as Record<string, unknown>)
+      : {};
+
+  return {
+    sttProvider: typeof sttConfig.provider === "string" ? sttConfig.provider : "remote-speech-server",
+    sttBaseUrl: typeof sttConfig.baseUrl === "string" ? sttConfig.baseUrl : null,
+    sttTranscribePath: typeof sttConfig.transcribePath === "string" ? sttConfig.transcribePath : env.SPEECH_TO_TEXT_TRANSCRIBE_PATH,
+    sttModel: typeof sttConfig.model === "string" ? sttConfig.model : env.SPEECH_TO_TEXT_MODEL,
+    ollamaBaseUrl: typeof llmConfig.ollamaBaseUrl === "string" ? llmConfig.ollamaBaseUrl : null,
+    n8nBaseUrl: typeof n8nConfig.baseUrl === "string" ? n8nConfig.baseUrl : null,
+  };
+}
+
+function buildMergedTtsConfig(input: z.infer<typeof StarterAgentSettingsSchema>) {
+  const base = ((input.ttsConfig ?? {}) as Record<string, unknown>) ?? {};
+  const current = readProviderConfigFromTtsConfig(base);
+
+  const stt = {
+    provider: input.sttProvider ?? current.sttProvider ?? "remote-speech-server",
+    baseUrl: input.sttBaseUrl ?? current.sttBaseUrl ?? null,
+    transcribePath: input.sttTranscribePath ?? current.sttTranscribePath ?? env.SPEECH_TO_TEXT_TRANSCRIBE_PATH,
+    model: input.sttModel ?? current.sttModel ?? env.SPEECH_TO_TEXT_MODEL,
+  };
+  const llm = {
+    ollamaBaseUrl: input.ollamaBaseUrl ?? current.ollamaBaseUrl ?? null,
+  };
+  const n8n = {
+    baseUrl: input.n8nBaseUrl ?? current.n8nBaseUrl ?? null,
+  };
+
+  return {
+    ...base,
+    stt,
+    llm,
+    n8n,
+  };
 }
 
 export const liveKitRouter = Router();
@@ -219,15 +304,7 @@ liveKitRouter.post("/agent-token", async (req, res) => {
   }
 
   const provided = String(req.headers["x-ai-server-secret"] ?? "");
-  const providedBuffer = Buffer.from(provided, "utf8");
-  const expectedBuffer = Buffer.from(env.AI_SERVER_SHARED_SECRET, "utf8");
-
-  const valid =
-    provided.length > 0 &&
-    providedBuffer.length === expectedBuffer.length &&
-    crypto.timingSafeEqual(providedBuffer, expectedBuffer);
-
-  if (!valid) {
+  if (!isValidSharedSecret(provided)) {
     return res.status(401).json({
       error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" },
     });
@@ -264,6 +341,93 @@ liveKitRouter.post("/agent-token", async (req, res) => {
       token,
     },
   });
+});
+
+liveKitRouter.post("/session/end", async (req, res) => {
+  if (!env.AI_SERVER_SHARED_SECRET) {
+    return res.status(503).json({
+      error: {
+        code: "AI_SERVER_SHARED_SECRET_MISSING",
+        message: "Set AI_SERVER_SHARED_SECRET before using /v1/livekit/session/end.",
+      },
+    });
+  }
+
+  const provided = String(req.headers["x-ai-server-secret"] ?? "");
+  if (!isValidSharedSecret(provided)) {
+    return res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" },
+    });
+  }
+
+  const parsed = EndSessionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  let n8nBaseUrlOverride: string | null = null;
+  if (input.deviceId) {
+    const settings = await getStarterAgentSettings(input.deviceId);
+    const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
+    const n8nConfig =
+      ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
+        ? (ttsConfig.n8n as Record<string, unknown>)
+        : {};
+    n8nBaseUrlOverride =
+      typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
+        ? n8nConfig.baseUrl.trim()
+        : null;
+  }
+
+  try {
+    const upstream = await sendSessionEndEvent({
+      roomName: input.roomName,
+      jobId: input.jobId,
+      userIdentity: input.userIdentity,
+      agentIdentity: input.agentIdentity,
+      summary: input.summary,
+      startedAt: input.startedAt,
+      endedAt: input.endedAt,
+      outcome: input.outcome,
+      sentiment: input.sentiment,
+      metadata: input.metadata,
+      baseUrl: n8nBaseUrlOverride,
+    });
+    if (!upstream.ok) {
+      return res.status(502).json({
+        error: {
+          code: "N8N_SESSION_END_FAILED",
+          message: `n8n webhook failed (${upstream.status})`,
+          endpoint: upstream.endpoint,
+          response: upstream.body,
+        },
+      });
+    }
+
+    return res.status(201).json({
+      data: {
+        endpoint: upstream.endpoint,
+        delivered: true,
+        response: upstream.body,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("N8N_NOT_CONFIGURED")) {
+      return res.status(503).json({
+        error: {
+          code: "N8N_NOT_CONFIGURED",
+          message: "Set N8N_BASE_URL in API environment or save n8n.baseUrl in device settings.",
+        },
+      });
+    }
+    return res.status(502).json({
+      error: {
+        code: "N8N_SESSION_END_FAILED",
+        message: error instanceof Error ? error.message : "Failed to call n8n session-end webhook",
+      },
+    });
+  }
 });
 
 liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
@@ -411,7 +575,31 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
-  const userMetadata = JSON.stringify({ username, source: "agent", deviceId: input.deviceId });
+  const settings = await getStarterAgentSettings(input.deviceId);
+  const providerConfig = readProviderConfigFromTtsConfig((settings?.ttsConfig as Record<string, unknown> | null) ?? null);
+  const userMetadata = JSON.stringify({
+    username,
+    source: "agent",
+    deviceId: input.deviceId,
+    providers: {
+      stt: {
+        provider: providerConfig.sttProvider,
+        baseUrl: providerConfig.sttBaseUrl,
+        transcribePath: providerConfig.sttTranscribePath,
+        model: providerConfig.sttModel,
+      },
+      tts: {
+        engine: settings?.ttsEngine ?? "f5-tts",
+      },
+      llm: {
+        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
+        baseUrl: providerConfig.ollamaBaseUrl,
+      },
+      n8n: {
+        baseUrl: providerConfig.n8nBaseUrl,
+      },
+    },
+  });
 
   try {
     await ensureLiveKitRoom(roomName);
@@ -440,7 +628,30 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
 
   const agentIdentity = buildRoomScopedAgentIdentity(roomName);
   const agentName = env.LIVEKIT_AGENT_IDENTITY;
-  const agentMetadata = JSON.stringify({ kind: "ai-agent", source: "starter-session", roomName });
+  const agentMetadata = JSON.stringify({
+    kind: "ai-agent",
+    source: "starter-session",
+    roomName,
+    deviceId: input.deviceId,
+    providers: {
+      stt: {
+        provider: providerConfig.sttProvider,
+        baseUrl: providerConfig.sttBaseUrl,
+        transcribePath: providerConfig.sttTranscribePath,
+        model: providerConfig.sttModel,
+      },
+      tts: {
+        engine: settings?.ttsEngine ?? "f5-tts",
+      },
+      llm: {
+        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
+        baseUrl: providerConfig.ollamaBaseUrl,
+      },
+      n8n: {
+        baseUrl: providerConfig.n8nBaseUrl,
+      },
+    },
+  });
   const agentToken = await mintLiveKitToken({
     identity: agentIdentity,
     name: agentName,
@@ -469,6 +680,24 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
         voiceMode: "assistant_native_audio",
         payload: {
           deviceId: input.deviceId,
+          providers: {
+            stt: {
+              provider: providerConfig.sttProvider,
+              baseUrl: providerConfig.sttBaseUrl,
+              transcribePath: providerConfig.sttTranscribePath,
+              model: providerConfig.sttModel,
+            },
+            tts: {
+              engine: settings?.ttsEngine ?? "f5-tts",
+            },
+            llm: {
+              model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
+              baseUrl: providerConfig.ollamaBaseUrl,
+            },
+            n8n: {
+              baseUrl: providerConfig.n8nBaseUrl,
+            },
+          },
         },
       });
     }
@@ -622,6 +851,7 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
 
     return res.status(200).json({
       data: {
+        ...readProviderConfigFromTtsConfig(settings.ttsConfig as Record<string, unknown> | null),
         agentName: settings.agentName,
         voiceLanguage: settings.voiceLanguage,
         ollamaModel: settings.ollamaModel,
@@ -658,6 +888,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
   }
 
   try {
+    const mergedTtsConfig = buildMergedTtsConfig(parsed.data);
     const settings = await upsertStarterAgentSettings({
       deviceId: params.data.deviceId,
       agentName: parsed.data.agentName,
@@ -666,7 +897,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
       ttsEngine: parsed.data.ttsEngine,
       activeTtsServerId: parsed.data.activeTtsServerId,
       ttsServers: parsed.data.ttsServers,
-      ttsConfig: parsed.data.ttsConfig,
+      ttsConfig: mergedTtsConfig,
       ttsEnabled: parsed.data.ttsEnabled,
       sttEnabled: parsed.data.sttEnabled,
       systemPrompt: parsed.data.systemPrompt,
@@ -676,6 +907,7 @@ liveKitRouter.put("/starter/agent-settings/:deviceId", async (req, res) => {
 
     return res.status(200).json({
       data: {
+        ...readProviderConfigFromTtsConfig(settings.ttsConfig as Record<string, unknown> | null),
         agentName: settings.agentName,
         voiceLanguage: settings.voiceLanguage,
         ollamaModel: settings.ollamaModel,

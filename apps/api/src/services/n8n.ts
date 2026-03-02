@@ -95,3 +95,55 @@ export async function runN8nToolWebhook(input: {
     body,
   };
 }
+
+export async function sendSessionEndEvent(input: {
+  roomName: string;
+  jobId?: string | null;
+  userIdentity?: string | null;
+  agentIdentity?: string | null;
+  summary: string;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  outcome?: string | null;
+  sentiment?: string | null;
+  metadata?: Record<string, unknown> | null;
+  baseUrl?: string | null;
+}) {
+  const endpoint = resolveToolWebhookEndpoint("session-end", { baseUrl: input.baseUrl });
+  const upstream = await fetch(endpoint, {
+    method: "POST",
+    headers: new Headers({
+      "content-type": "application/json",
+      ...Object.fromEntries(buildHeaders().entries()),
+    }),
+    body: JSON.stringify({
+      source: "livekit-agent",
+      timestamp: new Date().toISOString(),
+      roomName: input.roomName,
+      jobId: input.jobId ?? null,
+      userIdentity: input.userIdentity ?? null,
+      agentIdentity: input.agentIdentity ?? null,
+      summary: input.summary,
+      startedAt: input.startedAt ?? null,
+      endedAt: input.endedAt ?? null,
+      outcome: input.outcome ?? null,
+      sentiment: input.sentiment ?? null,
+      metadata: input.metadata ?? {},
+    }),
+  });
+
+  const raw = await upstream.text();
+  let body: unknown = raw;
+  try {
+    body = raw ? (JSON.parse(raw) as unknown) : null;
+  } catch {
+    body = raw;
+  }
+
+  return {
+    endpoint,
+    ok: upstream.ok,
+    status: upstream.status,
+    body,
+  };
+}

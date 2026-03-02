@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getDeviceId } from "../lib/device";
 import { readJson, request } from "../lib/api";
+import { resolveVoiceProviders } from "../providers";
 import type { AgentSettings } from "../types";
 
 type SettingsResponse = {
@@ -27,6 +28,12 @@ const defaultSettings: AgentSettings = {
   agentName: "Coziyoo Voice Agent",
   voiceLanguage: "tr",
   ollamaModel: "llama3.1",
+  ollamaBaseUrl: "",
+  n8nBaseUrl: "",
+  sttProvider: "remote-speech-server",
+  sttBaseUrl: "",
+  sttTranscribePath: "/v1/audio/transcriptions",
+  sttModel: "whisper-1",
   ttsEngine: "f5-tts",
   ttsEnabled: true,
   sttEnabled: true,
@@ -60,7 +67,20 @@ export default function SettingsPage() {
         if (settingsRes.ok) {
           const body = await readJson<SettingsResponse>(settingsRes);
           if (body.data) {
-            setSettings({ ...defaultSettings, ...body.data, ttsConfig: { ...defaultSettings.ttsConfig, ...(body.data.ttsConfig ?? {}) } });
+            const nestedStt = body.data.ttsConfig?.stt ?? {};
+            const nestedLlm = body.data.ttsConfig?.llm ?? {};
+            const nestedN8n = body.data.ttsConfig?.n8n ?? {};
+            setSettings({
+              ...defaultSettings,
+              ...body.data,
+              sttProvider: body.data.sttProvider ?? nestedStt.provider ?? defaultSettings.sttProvider,
+              sttBaseUrl: body.data.sttBaseUrl ?? nestedStt.baseUrl ?? defaultSettings.sttBaseUrl,
+              sttTranscribePath: body.data.sttTranscribePath ?? nestedStt.transcribePath ?? defaultSettings.sttTranscribePath,
+              sttModel: body.data.sttModel ?? nestedStt.model ?? defaultSettings.sttModel,
+              ollamaBaseUrl: body.data.ollamaBaseUrl ?? nestedLlm.ollamaBaseUrl ?? defaultSettings.ollamaBaseUrl,
+              n8nBaseUrl: body.data.n8nBaseUrl ?? nestedN8n.baseUrl ?? defaultSettings.n8nBaseUrl,
+              ttsConfig: { ...defaultSettings.ttsConfig, ...(body.data.ttsConfig ?? {}) },
+            });
           }
         }
 
@@ -98,11 +118,28 @@ export default function SettingsPage() {
     try {
       const payload: AgentSettings = {
         ...settings,
+        sttProvider: settings.sttProvider ?? "remote-speech-server",
+        sttBaseUrl: settings.sttBaseUrl,
+        sttTranscribePath: settings.sttTranscribePath ?? "/v1/audio/transcriptions",
+        sttModel: settings.sttModel ?? "whisper-1",
+        ollamaBaseUrl: settings.ollamaBaseUrl,
+        n8nBaseUrl: settings.n8nBaseUrl,
         ttsConfig: {
           ...(settings.ttsConfig ?? {}),
           stt: {
             ...(settings.ttsConfig?.stt ?? {}),
-            provider: settings.ttsConfig?.stt?.provider ?? "remote-speech-server",
+            provider: settings.sttProvider ?? settings.ttsConfig?.stt?.provider ?? "remote-speech-server",
+            baseUrl: settings.sttBaseUrl ?? settings.ttsConfig?.stt?.baseUrl,
+            transcribePath: settings.sttTranscribePath ?? settings.ttsConfig?.stt?.transcribePath ?? "/v1/audio/transcriptions",
+            model: settings.sttModel ?? settings.ttsConfig?.stt?.model ?? "whisper-1",
+          },
+          llm: {
+            ...(settings.ttsConfig?.llm ?? {}),
+            ollamaBaseUrl: settings.ollamaBaseUrl ?? settings.ttsConfig?.llm?.ollamaBaseUrl,
+          },
+          n8n: {
+            ...(settings.ttsConfig?.n8n ?? {}),
+            baseUrl: settings.n8nBaseUrl ?? settings.ttsConfig?.n8n?.baseUrl,
           },
         },
       };
@@ -149,9 +186,7 @@ export default function SettingsPage() {
     return <main className="page-center"><section className="card"><p>Loading settings...</p></section></main>;
   }
 
-  const stt = settings.ttsConfig?.stt ?? {};
-  const llm = settings.ttsConfig?.llm ?? {};
-  const n8n = settings.ttsConfig?.n8n ?? {};
+  const providers = resolveVoiceProviders(settings);
 
   return (
     <main className="page-center">
@@ -170,19 +205,19 @@ export default function SettingsPage() {
           </label>
           <label>
             STT Provider
-            <input value={stt.provider ?? "remote-speech-server"} onChange={(e) => setSettings((prev) => ({ ...prev, ttsConfig: { ...(prev.ttsConfig ?? {}), stt: { ...(prev.ttsConfig?.stt ?? {}), provider: e.target.value } } }))} required />
+            <input value={settings.sttProvider ?? "remote-speech-server"} onChange={(e) => setSettings((prev) => ({ ...prev, sttProvider: e.target.value }))} required />
           </label>
           <label>
             STT Base URL
-            <input value={stt.baseUrl ?? ""} onChange={(e) => setSettings((prev) => ({ ...prev, ttsConfig: { ...(prev.ttsConfig ?? {}), stt: { ...(prev.ttsConfig?.stt ?? {}), baseUrl: e.target.value } } }))} placeholder="http://speech-server:8000" />
+            <input value={settings.sttBaseUrl ?? ""} onChange={(e) => setSettings((prev) => ({ ...prev, sttBaseUrl: e.target.value }))} placeholder="http://speech-server:8000" />
           </label>
           <label>
             STT Transcribe Path
-            <input value={stt.transcribePath ?? "/v1/audio/transcriptions"} onChange={(e) => setSettings((prev) => ({ ...prev, ttsConfig: { ...(prev.ttsConfig ?? {}), stt: { ...(prev.ttsConfig?.stt ?? {}), transcribePath: e.target.value } } }))} />
+            <input value={settings.sttTranscribePath ?? "/v1/audio/transcriptions"} onChange={(e) => setSettings((prev) => ({ ...prev, sttTranscribePath: e.target.value }))} />
           </label>
           <label>
             STT Model
-            <input value={stt.model ?? "whisper-1"} onChange={(e) => setSettings((prev) => ({ ...prev, ttsConfig: { ...(prev.ttsConfig ?? {}), stt: { ...(prev.ttsConfig?.stt ?? {}), model: e.target.value } } }))} />
+            <input value={settings.sttModel ?? "whisper-1"} onChange={(e) => setSettings((prev) => ({ ...prev, sttModel: e.target.value }))} />
           </label>
           <label>
             TTS Engine
@@ -194,7 +229,7 @@ export default function SettingsPage() {
           </label>
           <label>
             Ollama Base URL
-            <input value={llm.ollamaBaseUrl ?? ""} onChange={(e) => setSettings((prev) => ({ ...prev, ttsConfig: { ...(prev.ttsConfig ?? {}), llm: { ...(prev.ttsConfig?.llm ?? {}), ollamaBaseUrl: e.target.value } } }))} placeholder="http://ollama:11434" />
+            <input value={settings.ollamaBaseUrl ?? ""} onChange={(e) => setSettings((prev) => ({ ...prev, ollamaBaseUrl: e.target.value }))} placeholder="http://ollama:11434" />
           </label>
           <label>
             Ollama Model
@@ -205,7 +240,7 @@ export default function SettingsPage() {
           </label>
           <label>
             n8n Base URL
-            <input value={n8n.baseUrl ?? ""} onChange={(e) => setSettings((prev) => ({ ...prev, ttsConfig: { ...(prev.ttsConfig ?? {}), n8n: { ...(prev.ttsConfig?.n8n ?? {}), baseUrl: e.target.value } } }))} placeholder="http://n8n:5678" />
+            <input value={settings.n8nBaseUrl ?? ""} onChange={(e) => setSettings((prev) => ({ ...prev, n8nBaseUrl: e.target.value }))} placeholder="http://n8n:5678" />
           </label>
           <div className="row">
             <label className="checkbox"><input type="checkbox" checked={settings.sttEnabled} onChange={(e) => setSettings((prev) => ({ ...prev, sttEnabled: e.target.checked }))} /> STT enabled</label>
@@ -224,6 +259,7 @@ export default function SettingsPage() {
             </button>
           </div>
           {testResult ? <p className="hint">{testResult}</p> : null}
+          <p className="hint">Resolved providers: {providers.stt.provider} / {providers.tts.provider} / {providers.llm.provider}</p>
           {saveMessage ? <p className="hint">{saveMessage}</p> : null}
           <button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Settings"}</button>
         </form>
