@@ -64,6 +64,29 @@ if [[ "${UPDATE_SKIP_HEALTHCHECKS}" != "true" ]]; then
     fi
     log "Strict DB health check passed"
   fi
+
+  log "Running admin login media-type compatibility check"
+  login_check_status="$(
+    curl -sS -o /tmp/coziyoo-admin-login-check.out -w "%{http_code}" \
+      --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" \
+      -X POST \
+      -H 'content-type: application/json; charset="UTF-8 "' \
+      -H 'accept: application/json' \
+      -d '{"email":"deploy-check@invalid.local","password":"invalid-password"}' \
+      "http://127.0.0.1:${API_PORT}/v1/admin/auth/login" || true
+  )"
+  case "${login_check_status}" in
+    400|401|403|429)
+      log "Admin login media-type check passed (HTTP ${login_check_status})"
+      ;;
+    415)
+      dump_failure_diagnostics
+      fail "Admin login media-type check failed with HTTP 415"
+      ;;
+    *)
+      log "Admin login media-type check returned HTTP ${login_check_status}; inspect /tmp/coziyoo-admin-login-check.out if needed"
+      ;;
+  esac
 else
   log "Skipping health checks (UPDATE_SKIP_HEALTHCHECKS=true)"
 fi

@@ -120,6 +120,32 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Parse login payloads with a tolerant text parser first to avoid body-parser
+// charset failures (e.g. malformed charset values from proxy chains).
+app.use(["/v1/admin/auth/login", "/v1/auth/login"], express.text({ limit: env.JSON_BODY_LIMIT, type: "*/*" }));
+app.use((req, res, next) => {
+  const path = req.path || req.url || "";
+  const isLoginPath =
+    req.method === "POST" && (path.endsWith("/v1/admin/auth/login") || path.endsWith("/v1/auth/login"));
+  if (!isLoginPath) return next();
+
+  const raw = req.body;
+  if (raw === undefined || raw === null || raw === "") {
+    req.body = {};
+    return next();
+  }
+
+  if (typeof raw === "string") {
+    try {
+      req.body = JSON.parse(raw);
+    } catch {
+      return res.status(400).json({ error: { code: "INVALID_JSON", message: "Invalid JSON payload" } });
+    }
+  }
+
+  return next();
+});
+
 app.use(
   express.json({
     limit: env.JSON_BODY_LIMIT,
