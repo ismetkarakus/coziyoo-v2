@@ -16,6 +16,18 @@ VOICE_AGENT_WORKER_SERVICE_NAME="${VOICE_AGENT_WORKER_SERVICE_NAME:-coziyoo-voic
 maybe_git_update "${REPO_ROOT}"
 install_python_project "${VOICE_AGENT_DIR_ABS}"
 
+if ! run_root systemctl list-unit-files "${VOICE_AGENT_API_SERVICE_NAME}.service" --no-legend >/dev/null 2>&1; then
+  log "Service ${VOICE_AGENT_API_SERVICE_NAME} not found, running install_voice_agent_service.sh"
+  bash "${SCRIPT_DIR}/install_voice_agent_service.sh"
+  exit 0
+fi
+
+if ! run_root systemctl list-unit-files "${VOICE_AGENT_WORKER_SERVICE_NAME}.service" --no-legend >/dev/null 2>&1; then
+  log "Service ${VOICE_AGENT_WORKER_SERVICE_NAME} not found, running install_voice_agent_service.sh"
+  bash "${SCRIPT_DIR}/install_voice_agent_service.sh"
+  exit 0
+fi
+
 service_action restart "${VOICE_AGENT_API_SERVICE_NAME}"
 service_action restart "${VOICE_AGENT_WORKER_SERVICE_NAME}"
 
