@@ -12,9 +12,14 @@ set -euo pipefail
 #   SEED_SAMPLE_DATA=true bash installation/scripts/reset-db.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Preserve runtime overrides before config load.
+RUNTIME_SEED_SAMPLE_DATA="${SEED_SAMPLE_DATA:-}"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 load_config
+if [[ -n "${RUNTIME_SEED_SAMPLE_DATA}" ]]; then
+  SEED_SAMPLE_DATA="${RUNTIME_SEED_SAMPLE_DATA}"
+fi
 
 # Build DATABASE_URL from components if not set
 if [[ -z "${DATABASE_URL:-}" ]]; then
