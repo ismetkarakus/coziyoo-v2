@@ -91,16 +91,21 @@ fi
 "${SCRIPT_DIR}/update_api_service.sh"
 
 if [[ "${db_rebuilt}" == "true" && "${DEMO_DB_RESEED_ON_UPDATE:-true}" == "true" ]]; then
-  log "Demo DB rebuilt, waiting for API before reseeding..."
+  log "Demo DB rebuilt, reseeding..."
   _seed_api_port="${API_PORT:-3000}"
-  for ((_attempt=1; _attempt<=24; _attempt++)); do
-    if curl -fsS --max-time 5 "http://127.0.0.1:${_seed_api_port}/v1" >/dev/null 2>&1; then
-      log "  API ready, reseeding baseline data"
-      break
-    fi
-    log "  API not ready yet (attempt ${_attempt}/24), waiting 5s..."
-    sleep 5
-  done
+  if [[ "${SEED_SAMPLE_DATA:-false}" == "true" ]]; then
+    log "  Sample data requested — waiting for API..."
+    for ((_attempt=1; _attempt<=24; _attempt++)); do
+      if curl -fsS --max-time 5 "http://127.0.0.1:${_seed_api_port}/v1" >/dev/null 2>&1; then
+        log "  API ready, reseeding"
+        break
+      fi
+      log "  API not ready yet (attempt ${_attempt}/24), waiting 5s..."
+      sleep 5
+    done
+  else
+    log "  Seeding admin user directly via SQL (no API wait needed)"
+  fi
   "${SCRIPT_DIR}/seed-data.sh"
 fi
 
