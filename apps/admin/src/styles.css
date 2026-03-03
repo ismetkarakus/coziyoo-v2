@@ -4353,6 +4353,87 @@ textarea:focus {
   font-size: 0.95rem;
 }
 
+.seller-food-lot-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.seller-food-lot-toggle {
+  padding: 5px 10px;
+  font-size: 0.82rem;
+}
+
+.seller-food-lots-block {
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 72%, transparent);
+  padding-top: 8px;
+}
+
+.seller-food-lots-table-wrap {
+  overflow-x: auto;
+}
+
+.seller-food-lots-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.seller-food-lots-table th,
+.seller-food-lots-table td {
+  text-align: left;
+  padding: 8px 6px;
+  vertical-align: top;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
+}
+
+.lot-diff-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lot-orders-row td {
+  background: color-mix(in srgb, var(--color-card-bg) 62%, transparent);
+}
+
+.seller-food-lot-orders-wrap {
+  overflow-x: auto;
+}
+
+.seller-food-lot-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.seller-food-lot-orders-table th,
+.seller-food-lot-orders-table td {
+  text-align: left;
+  padding: 6px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+
+.foods-lots-main-table td {
+  vertical-align: top;
+}
+
+.foods-lots-expanded-row td {
+  background: color-mix(in srgb, var(--color-card-bg) 76%, transparent);
+}
+
+.lot-summary-cell {
+  display: grid;
+  gap: 2px;
+  font-size: 0.84rem;
+}
+
+.lot-summary-danger {
+  color: color-mix(in srgb, #ff7272 88%, var(--color-text));
+  font-weight: 600;
+}
+
 .seller-actions-row {
   display: flex;
   align-items: center;
