@@ -1311,6 +1311,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
   const [activeSellerKpiFilter, setActiveSellerKpiFilter] = useState<"active" | "disabled" | "new_today" | null>(null);
+  const [sellerDailySales, setSellerDailySales] = useState<number | null>(null);
   const [buyerFilters, setBuyerFilters] = useState<{
     status: "all" | "active" | "disabled";
     complaint: "all" | "has_unresolved" | "resolved_only" | "no_complaint";
@@ -1574,6 +1575,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       })
       .catch(() => undefined);
   }, [isBuyerPage, activeSmartFilter, buyerQuickFilter, buyerFilters.status, buyerFilters.complaint, buyerFilters.orderTrend, buyerFilters.spendTrend]);
+
+  useEffect(() => {
+    if (!isSellerPage) return;
+    request("/v1/admin/users/sellers/daily-sales")
+      .then(async (response) => {
+        if (response.status !== 200) return;
+        const body = await parseJson<{ data?: { dailySales?: number } }>(response);
+        setSellerDailySales(Number(body.data?.dailySales ?? 0));
+      })
+      .catch(() => setSellerDailySales(null));
+  }, [isSellerPage]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
@@ -2219,9 +2231,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </div>
           <div className="topbar-search-center">{renderUnifiedSearch(true)}</div>
           <div className="topbar-actions">
-            <button className="ghost" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-              Yenile
-            </button>
+            <div className="seller-daily-sales-chip" aria-label="Günlük satış tutarı">
+              <span>Günlük Satış</span>
+              <strong>{sellerDailySales == null ? "-" : formatTry(sellerDailySales)}</strong>
+            </div>
           </div>
         </header>
 

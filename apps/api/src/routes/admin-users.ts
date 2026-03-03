@@ -175,6 +175,27 @@ type BuyerSmartFilter = NonNullable<AppUserListQuery["smartFilter"]>;
 
 export const adminUserManagementRouter = Router();
 
+adminUserManagementRouter.get("/users/sellers/daily-sales", requireAuth("admin"), async (_req, res) => {
+  const revenue = await pool.query<{ daily_sales: string }>(
+    `SELECT COALESCE(sum(o.total_price), 0)::text AS daily_sales
+     FROM orders o
+     JOIN users s ON s.id = o.seller_id
+     WHERE o.payment_completed = TRUE
+       AND o.created_at >= date_trunc('day', now())
+       AND o.created_at < (date_trunc('day', now()) + interval '1 day')
+       AND upper(coalesce(s.country_code, '')) = 'TR'
+       AND s.user_type IN ('seller', 'both')`
+  );
+
+  return res.json({
+    data: {
+      dailySales: Number(revenue.rows[0]?.daily_sales ?? 0),
+      currency: "TRY",
+      date: new Date().toISOString().slice(0, 10),
+    },
+  });
+});
+
 function buyerSmartFilterConditionSql(filter: BuyerSmartFilter): string {
   if (filter === "daily_buyer") {
     return `u.id IN (
