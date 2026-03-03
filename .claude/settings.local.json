@@ -20,7 +20,12 @@
       "Bash(npm view typescript@5.9.3 version)",
       "Bash(node -e \"const l=require\\(''/Users/drascom/Work/coziyoo-v2/package-lock.json''\\); const z=l.packages[''node_modules/zod'']; console.log\\(''root zod:'', z?.version\\)\")",
       "Bash(git rm apps/admin/package-lock.json)",
-      "Bash(npm install --silent)"
+      "Bash(npm install --silent)",
+      "Bash(xargs ls -la)",
+      "Read(//Users/drascom/Work/coziyoo-v2/**)",
+      "Bash(git stash)",
+      "Bash(git stash pop)",
+      "Bash(git pull origin main)"
     ]
   }
 }
