@@ -67,6 +67,7 @@ type SellerSmartFilterKey =
   | "pending_approvals"
   | "missing_documents"
   | "suspicious_logins"
+  | "top_selling_foods"
   | "top_revenue"
   | "performance_drop"
   | "urgent_action"
@@ -141,6 +142,7 @@ const SELLER_SMART_FILTER_ITEMS: Array<{ key: SellerSmartFilterKey; label: strin
   { key: "pending_approvals", label: "Onay Bekleyenler", icon: "☑" },
   { key: "missing_documents", label: "Eksik Belgesi Olanlar", icon: "⚠" },
   { key: "suspicious_logins", label: "Şüpheli Girişler", icon: "◉" },
+  { key: "top_selling_foods", label: "En Çok Satan Yemekler", icon: "🍽" },
   { key: "top_revenue", label: "En Çok Ciro Yapan", icon: "₺" },
   { key: "performance_drop", label: "Düşen Performans", icon: "◔" },
   { key: "urgent_action", label: "Acil Müdahale", icon: "⚑" },
@@ -1817,6 +1819,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
   const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
+  const sellerTotalFoods = (row: any): number => Number(row.totalFoods ?? 0);
   const sellerComplaintTotal = (row: any): number => Number(row.complaintTotal ?? row.openComplaintCount ?? 0);
   const sellerComplaintUnresolved = (row: any): number => Number(row.complaintUnresolved ?? row.openComplaintCount ?? 0);
   const sellerMissingDoc = (row: any): number => Number(row.missingDocCount ?? row.missingDocuments ?? 0);
@@ -1829,6 +1832,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (revenues.length === 0) return Number.POSITIVE_INFINITY;
     const topIndex = Math.max(0, Math.ceil(revenues.length * 0.2) - 1);
     return revenues[topIndex] ?? Number.POSITIVE_INFINITY;
+  }, [trRows]);
+  const sellerTopSellingFoodsOrderThreshold = useMemo(() => {
+    const orderCounts = trRows
+      .filter((row) => sellerTotalFoods(row) > 0)
+      .map((row) => sellerOrderCurrent(row))
+      .filter((value) => value > 0)
+      .sort((a, b) => b - a);
+    if (orderCounts.length === 0) return Number.POSITIVE_INFINITY;
+    const topIndex = Math.max(0, Math.ceil(orderCounts.length * 0.2) - 1);
+    return orderCounts[topIndex] ?? Number.POSITIVE_INFINITY;
   }, [trRows]);
   const sellerRiskMeta = (row: any): { level: "low" | "medium" | "high"; score: number } => {
     let score = 0;
@@ -1846,6 +1859,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (key === "pending_approvals") return /(pending|review|in_progress|submitted)/.test(sellerApprovalText(row));
     if (key === "missing_documents") return sellerMissingDoc(row) > 0;
     if (key === "suspicious_logins") return sellerSuspiciousLogin(row) > 0;
+    if (key === "top_selling_foods") {
+      return sellerTotalFoods(row) > 0 && sellerOrderCurrent(row) >= sellerTopSellingFoodsOrderThreshold && sellerOrderCurrent(row) > 0;
+    }
     if (key === "top_revenue") return sellerRevenue(row) >= sellerTopRevenueThreshold && sellerRevenue(row) > 0;
     if (key === "performance_drop") return sellerOrderCurrent(row) < sellerOrderPrevious(row);
     if (key === "urgent_action") return sellerRiskMeta(row).level === "high";
@@ -1863,13 +1879,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           pending_approvals: 0,
           missing_documents: 0,
           suspicious_logins: 0,
+          top_selling_foods: 0,
           top_revenue: 0,
           performance_drop: 0,
           urgent_action: 0,
           complainer_sellers: 0,
         } as Record<SellerSmartFilterKey, number>
       ),
-    [trRows, sellerTopRevenueThreshold]
+    [trRows, sellerTopRevenueThreshold, sellerTopSellingFoodsOrderThreshold]
   );
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
@@ -2159,6 +2176,29 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     URL.revokeObjectURL(url);
   }
 
+  function downloadSellersAsExcel() {
+    if (!isSellerPage) return;
+    const headers = ["Satici Adi", "E-Posta", "Satici ID", "Durum", "Yemek Sayisi", "Aylik Siparis", "Aylik Ciro"];
+    const rowsForExport = filteredRows.map((row) => [
+      String(row.displayName ?? row.email ?? ""),
+      String(row.email ?? ""),
+      String(row.id ?? ""),
+      row.status === "disabled" ? "Pasif" : "Aktif",
+      String(sellerTotalFoods(row)),
+      String(sellerOrderCurrent(row)),
+      formatTry(sellerRevenue(row)),
+    ]);
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `sellers-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
   const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
 
@@ -2198,6 +2238,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "pending_approvals",
       "missing_documents",
       "suspicious_logins",
+      "top_selling_foods",
       "top_revenue",
       "performance_drop",
       "urgent_action",
@@ -2303,49 +2344,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         <section className="buyer-v2-main-layout">
           <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
             <div className="buyer-v2-smart-list seller-v2-smart-primary">
-              <button
-                type="button"
-                className={`buyer-v2-smart-item ${sellerStatusFilter === "all" && !activeSellerSmartFilter ? "is-active" : ""}`}
-                aria-pressed={sellerStatusFilter === "all" && !activeSellerSmartFilter}
-                onClick={() => {
-                  setSellerStatusFilter("all");
-                  setActiveSellerKpiFilter(null);
-                  setActiveSellerSmartFilter(null);
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">☰</span>
-                <span className="buyer-v2-smart-item-label">Tüm Kayıtlar</span>
-                <span className="buyer-v2-smart-item-count">{totalTrSellers}</span>
-              </button>
-              <button
-                type="button"
-                className={`buyer-v2-smart-item ${sellerStatusFilter === "active" ? "is-active" : ""}`}
-                aria-pressed={sellerStatusFilter === "active"}
-                onClick={() => {
-                  setSellerStatusFilter("active");
-                  setActiveSellerKpiFilter(null);
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">✓</span>
-                <span className="buyer-v2-smart-item-label">Aktif Kayıtlar</span>
-                <span className="buyer-v2-smart-item-count">{activeTrSellers}</span>
-              </button>
-              <button
-                type="button"
-                className={`buyer-v2-smart-item ${sellerStatusFilter === "disabled" ? "is-active" : ""}`}
-                aria-pressed={sellerStatusFilter === "disabled"}
-                onClick={() => {
-                  setSellerStatusFilter("disabled");
-                  setActiveSellerKpiFilter(null);
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">◔</span>
-                <span className="buyer-v2-smart-item-label">Pasif Kayıtlar</span>
-                <span className="buyer-v2-smart-item-count">{passiveTrSellers}</span>
-              </button>
               {primarySmartItems.map((key) => {
                 const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
                 if (!item) return null;
@@ -2356,6 +2354,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     className={`buyer-v2-smart-item ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
                     aria-pressed={activeSellerSmartFilter === item.key}
                     onClick={() => {
+                      setSellerStatusFilter("all");
                       setActiveSellerKpiFilter(null);
                       setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
                       setFilters((prev) => ({ ...prev, page: 1 }));
@@ -2387,6 +2386,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 >
                   Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
                 </button>
+                <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
               </div>
             </div>
 
