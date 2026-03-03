@@ -4,8 +4,9 @@
 Flow:
 - Create buyers/sellers via /v1/auth/register
 - Insert categories/foods directly into PostgreSQL
+- Insert one active lot for each seeded food directly into PostgreSQL
 - Backfill profile and GPS fields for created users
-- Create orders via /v1/orders
+- Create orders via /v1/orders using lotId items
 """
 
 from __future__ import annotations
@@ -633,10 +634,78 @@ def seed_foods(
     return foods_by_seller
 
 
-def build_items_for_seller(seller_foods: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    count = min(len(seller_foods), random.randint(1, 3))
-    picked = random.sample(seller_foods, k=count)
-    return [{"foodId": row["id"], "quantity": random.randint(1, 3)} for row in picked]
+def seed_lots(
+    conn: Any,
+    *,
+    foods_by_seller: dict[str, list[dict[str, Any]]],
+) -> dict[str, list[dict[str, Any]]]:
+    lots_by_seller: dict[str, list[dict[str, Any]]] = {}
+    with conn.cursor() as cur:
+        for seller_id, foods in foods_by_seller.items():
+            seller_lots: list[dict[str, Any]] = []
+            for idx, food in enumerate(foods):
+                lot_number = f"SEED-{short_id(food['id'], 6).upper()}-{now_stamp()}-{idx + 1:02d}-{rand_suffix(4).upper()}"
+                quantity_produced = 500
+                quantity_available = 500
+                cur.execute(
+                    """
+                    INSERT INTO production_lots (
+                      seller_id,
+                      food_id,
+                      lot_number,
+                      produced_at,
+                      sale_starts_at,
+                      sale_ends_at,
+                      recipe_snapshot,
+                      ingredients_snapshot_json,
+                      allergens_snapshot_json,
+                      quantity_produced,
+                      quantity_available,
+                      status,
+                      notes,
+                      created_at,
+                      updated_at
+                    )
+                    SELECT
+                      f.seller_id,
+                      f.id,
+                      %s,
+                      now() - interval '1 hour',
+                      now(),
+                      now() + interval '3 days',
+                      f.recipe,
+                      f.ingredients_json,
+                      f.allergens_json,
+                      %s,
+                      %s,
+                      'open',
+                      'seed_api_sample_load',
+                      now(),
+                      now()
+                    FROM foods f
+                    WHERE f.id = %s::uuid
+                    RETURNING id::text, food_id::text, quantity_available
+                    """,
+                    (lot_number, quantity_produced, quantity_available, food["id"]),
+                )
+                inserted = cur.fetchone()
+                if not inserted:
+                    raise RuntimeError(f"lot create failed for food={food['id']}")
+                seller_lots.append(
+                    {
+                        "id": inserted[0],
+                        "foodId": inserted[1],
+                        "quantityAvailable": int(inserted[2]),
+                    }
+                )
+            lots_by_seller[seller_id] = seller_lots
+    return lots_by_seller
+
+
+def build_items_for_seller(seller_lots: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    count = min(len(seller_lots), random.randint(1, 3))
+    picked = random.sample(seller_lots, k=count)
+    return [{"lotId": row["id"], "quantity": random.randint(1, 3)} for row in picked]
 
 
 def profile_for(index: int, names: list[str]) -> tuple[str, str]:
@@ -727,6 +796,7 @@ def main() -> int:
             categories=categories,
             foods_per_seller=args.foods_per_seller,
         )
+        lots_by_seller = seed_lots(conn, foods_by_seller=foods_by_seller)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -734,7 +804,7 @@ def main() -> int:
     finally:
         conn.close()
 
-    seller_ids = [s.user_id for s in sellers if s.user_id in foods_by_seller]
+    seller_ids = [s.user_id for s in sellers if s.user_id in lots_by_seller]
     created_orders: list[dict[str, Any]] = []
     if not seller_ids:
         raise RuntimeError("No seller foods created; cannot create orders.")
@@ -747,7 +817,7 @@ def main() -> int:
         b_geo = buyer_geo.get(buyer.user_id, {})
         for order_idx in range(args.orders_per_buyer):
             seller_id = seller_rotation[order_idx]
-            items = build_items_for_seller(foods_by_seller[seller_id])
+            items = build_items_for_seller(lots_by_seller[seller_id])
             idem_key = f"api-seed-order-{seed_id}-{buyer_idx + 1}-{order_idx + 1}"
             address = {
                 "country": "TR",
@@ -791,6 +861,7 @@ def main() -> int:
             "sellers": len(sellers),
             "categories": len(categories),
             "foods": sum(len(rows) for rows in foods_by_seller.values()),
+            "lots": sum(len(rows) for rows in lots_by_seller.values()),
             "orders": len(created_orders),
         },
         "buyersCreated": [
@@ -813,6 +884,7 @@ def main() -> int:
         ],
         "categoriesCreated": categories,
         "foodsBySeller": foods_by_seller,
+        "lotsBySeller": lots_by_seller,
         "ordersCreated": created_orders,
     }
     with open(args.out, "w", encoding="utf-8") as fh:
