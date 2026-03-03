@@ -3048,6 +3048,11 @@ textarea:focus {
   align-items: start;
 }
 
+.seller-v2-page .buyer-v2-main-layout {
+  grid-template-columns: minmax(520px, 2fr) minmax(0, 3fr);
+  gap: 14px;
+}
+
 .buyer-v2-smart-panel {
   padding: 12px;
   border-radius: 20px;
@@ -3436,6 +3441,10 @@ textarea:focus {
   padding: 8px;
 }
 
+.seller-v2-page .seller-v2-smart-panel {
+  padding: 12px 14px;
+}
+
 .seller-v2-smart-head {
   display: flex;
   align-items: center;
@@ -3466,8 +3475,23 @@ textarea:focus {
   padding: 7px 9px;
 }
 
+.seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item {
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 9px 12px;
+  gap: 10px;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
 .seller-v2-smart-panel .buyer-v2-smart-item-label {
   font-size: 0.92rem;
+}
+
+.seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item-label {
+  font-size: 0.97rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .seller-v2-top-tabs .chip {
