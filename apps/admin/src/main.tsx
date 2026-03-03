@@ -2190,14 +2190,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     return (
       <div className="app buyer-v2-page seller-v2-page">
-        <header className="topbar">
+        <header className="topbar topbar-with-centered-search">
           <div>
             <p className="eyebrow">Coziyoo v2</p>
             <h1>{pageTitleView}</h1>
             <p className="subtext">Satıcı, ürün ve operasyon metriklerini tek aramayla takip edin.</p>
           </div>
+          <div className="topbar-search-center">{renderUnifiedSearch(true)}</div>
           <div className="topbar-actions">
-            {renderUnifiedSearch(true)}
             <button className="ghost" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
               Yenile
             </button>
@@ -2496,14 +2496,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
-        <header className="topbar">
+        <header className="topbar topbar-with-centered-search">
           <div>
             <p className="eyebrow">Coziyoo v2</p>
             <h1>Operasyon Paneli</h1>
             <p className="subtext">Kullanıcı, sipariş, uygunluk ve itiraz metriklerini gerçek zamanlı izleyin.</p>
           </div>
+          <div className="topbar-search-center">{renderUnifiedSearch(true)}</div>
           <div className="topbar-actions">
-            {renderUnifiedSearch(true)}
             <div className="buyer-v2-head-revenue" aria-label="Toplam Ciro">
               <span>Toplam Ciro</span>
               <strong>{formatTry(totalRevenue30d)}</strong>
@@ -2963,7 +2963,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div className="users-title-wrap">
           <h1>{pageTitleView}</h1>
           {customerIdPreview ? (
@@ -2982,9 +2982,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           ) : null}
         </div>
+        <div className="topbar-search-center">{renderUnifiedSearch(true)}</div>
         <div className="topbar-actions">
           <>
-            {renderUnifiedSearch(true)}
             <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
               {dict.users.visibleColumns}
             </button>

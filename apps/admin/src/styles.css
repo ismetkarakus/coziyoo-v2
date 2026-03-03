@@ -351,6 +351,27 @@ a {
   gap: 22px;
 }
 
+.topbar-with-centered-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 460px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.topbar-search-center {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.topbar-search-center .users-search-wrap {
+  margin: 0;
+  max-width: 460px;
+}
+
+.topbar-with-centered-search .topbar-actions {
+  justify-self: end;
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -4885,6 +4906,18 @@ textarea:focus {
   .topbar {
     flex-direction: column;
     gap: 14px;
+  }
+
+  .topbar-with-centered-search {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-search-center {
+    justify-content: flex-start;
+  }
+
+  .topbar-with-centered-search .topbar-actions {
+    justify-self: start;
   }
 
   .topbar-actions {
