@@ -41,8 +41,16 @@ if [[ "${EXISTS}" == "1" ]]; then
 else
   log "Applying post-deploy DB patch: ${PATCH_KEY}"
 
-  UPDATED_COUNT="$(
-    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
+  HAS_SELLER_COMPLIANCE_CHECKS="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+      -c "SELECT to_regclass('public.seller_compliance_checks') IS NOT NULL;" | tr -d '[:space:]' || echo "f"
+  )"
+  if [[ "${HAS_SELLER_COMPLIANCE_CHECKS}" != "t" ]]; then
+    log "Legacy source table seller_compliance_checks not found; skipping data backfill for ${PATCH_KEY}"
+    UPDATED_COUNT="0"
+  else
+    UPDATED_COUNT="$(
+      psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS phone TEXT;
 
@@ -83,7 +91,8 @@ updated AS (
 )
 SELECT count(*)::text FROM updated;
 SQL
-  )"
+    )"
+  fi
   UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
 
   FLAG_WRITTEN="$(
@@ -119,8 +128,16 @@ if [[ "${EXISTS}" == "1" ]]; then
   log "Patch already applied (${PATCH_KEY}), skipping."
 else
   log "Applying post-deploy DB patch: ${PATCH_KEY}"
-  UPDATED_COUNT="$(
-    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
+  HAS_LEGACY_COMPLIANCE_SCHEMA="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+      -c "SELECT (to_regclass('public.seller_compliance_profiles') IS NOT NULL AND to_regclass('public.seller_compliance_documents') IS NOT NULL);" | tr -d '[:space:]' || echo "f"
+  )"
+  if [[ "${HAS_LEGACY_COMPLIANCE_SCHEMA}" != "t" ]]; then
+    log "Legacy compliance schema not found; skipping profile-document backfill for ${PATCH_KEY}"
+    UPDATED_COUNT="0"
+  else
+    UPDATED_COUNT="$(
+      psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS legal_hold_state BOOLEAN NOT NULL DEFAULT FALSE;
 
@@ -159,7 +176,8 @@ upserted AS (
 )
 SELECT count(*)::text FROM upserted;
 SQL
-  )"
+    )"
+  fi
   UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
 
   FLAG_WRITTEN="$(
