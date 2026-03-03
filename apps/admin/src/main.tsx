@@ -2272,9 +2272,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </div>
           <div className="topbar-search-center">{renderUnifiedSearch(true)}</div>
           <div className="topbar-actions">
-            <div className="seller-daily-sales-chip" aria-label="Günlük satış tutarı">
-              <span>Günlük Satış</span>
-              <strong>{sellerDailySales == null ? "-" : formatTry(sellerDailySales)}</strong>
+            <div className="seller-daily-sales-inline" aria-label="Günlük satış tutarı">
+              <span className="seller-daily-sales-icon" aria-hidden="true">₺</span>
+              <strong>{sellerDailySales == null ? "-" : formatTry(sellerDailySales).replace("₺", "").trim()}</strong>
             </div>
           </div>
         </header>
