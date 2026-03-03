@@ -3653,13 +3653,13 @@ function InvestigationPage({ language }: { language: Language }) {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.menu.investigation}</p>
           <h1>{dict.investigation.title}</h1>
           <p className="subtext">{dict.investigation.subtitle}</p>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-search-center">
           <div className="users-search-wrap users-search-wrap--compact">
             <span className="users-search-icon" aria-hidden="true">
               <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
@@ -3690,6 +3690,8 @@ function InvestigationPage({ language }: { language: Language }) {
               </button>
             ) : null}
           </div>
+        </div>
+        <div className="topbar-actions">
           <select
             value={statusFilter}
             onChange={(event) => {
@@ -3917,13 +3919,13 @@ function FoodsLotsPage({ language }: { language: Language }) {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.menu.foods}</p>
           <h1>{dict.menu.foods}</h1>
           <p className="subtext">{dict.detail.foodsLotsSubtitle}</p>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-search-center">
           <div className="users-search-wrap users-search-wrap--compact">
             <span className="users-search-icon" aria-hidden="true">
               <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
@@ -3954,6 +3956,8 @@ function FoodsLotsPage({ language }: { language: Language }) {
               </button>
             ) : null}
           </div>
+        </div>
+        <div className="topbar-actions">
         </div>
       </header>
 
@@ -4336,13 +4340,13 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.entities.eyebrow}</p>
           <h1>{pageTitle}</h1>
           <p className="subtext">{subtitle}</p>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-search-center">
           <div className="users-search-wrap users-search-wrap--compact">
             <span className="users-search-icon" aria-hidden="true">
               <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
@@ -4373,6 +4377,8 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
               </button>
             ) : null}
           </div>
+        </div>
+        <div className="topbar-actions">
         </div>
       </header>
       <section className="panel">
@@ -4513,13 +4519,13 @@ function EntitiesPage({ language }: { language: Language }) {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.entities.eyebrow}</p>
           <h1>{selectedEntity ? selectedEntity.tableName : dict.entities.titleAll}</h1>
           <p className="subtext">{dict.entities.subtitle}</p>
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-search-center">
           <div className="users-search-wrap users-search-wrap--compact">
             <span className="users-search-icon" aria-hidden="true">
               <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
@@ -4550,6 +4556,8 @@ function EntitiesPage({ language }: { language: Language }) {
               </button>
             ) : null}
           </div>
+        </div>
+        <div className="topbar-actions">
         </div>
       </header>
 
