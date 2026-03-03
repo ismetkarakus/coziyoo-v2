@@ -190,12 +190,28 @@ CREATE INDEX idx_orders_seller ON orders(seller_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_created ON orders(created_at);
 
+CREATE TABLE complaint_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_complaint_categories_is_active ON complaint_categories(is_active);
+
 CREATE TABLE complaints (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
   complainant_buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   subject TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('open', 'in_review', 'resolved', 'closed')),
+  description TEXT,
+  category_id UUID REFERENCES complaint_categories(id) ON DELETE SET NULL,
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  resolved_at TIMESTAMPTZ,
+  resolution_note TEXT,
+  assigned_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -203,6 +219,9 @@ CREATE INDEX idx_complaints_order ON complaints(order_id);
 CREATE INDEX idx_complaints_buyer ON complaints(complainant_buyer_id);
 CREATE INDEX idx_complaints_status ON complaints(status);
 CREATE INDEX idx_complaints_created_at ON complaints(created_at DESC);
+CREATE INDEX idx_complaints_category ON complaints(category_id);
+CREATE INDEX idx_complaints_priority ON complaints(priority);
+CREATE INDEX idx_complaints_assigned_admin ON complaints(assigned_admin_id);
 
 CREATE TABLE order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

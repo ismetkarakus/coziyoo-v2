@@ -111,8 +111,34 @@ const InvestigationComplaintsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   status: z.enum(["open", "in_review", "resolved", "closed"]).optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  categoryId: z.string().uuid().optional(),
   search: z.string().min(1).max(120).optional(),
 });
+const CreateComplaintCategorySchema = z.object({
+  code: z.string().trim().min(2).max(64).regex(/^[a-z0-9_]+$/),
+  name: z.string().trim().min(2).max(120),
+  isActive: z.boolean().optional(),
+});
+const CreateComplaintSchema = z.object({
+  orderId: z.string().uuid(),
+  complainantBuyerId: z.string().uuid(),
+  subject: z.string().trim().min(3).max(300),
+  description: z.string().trim().max(4000).optional(),
+  categoryId: z.string().uuid().optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  assignedAdminId: z.string().uuid().optional(),
+});
+const UpdateComplaintSchema = z.object({
+  subject: z.string().trim().min(3).max(300).optional(),
+  description: z.string().trim().max(4000).nullable().optional(),
+  categoryId: z.string().uuid().nullable().optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  status: z.enum(["open", "in_review", "resolved", "closed"]).optional(),
+  resolvedAt: z.coerce.date().nullable().optional(),
+  resolutionNote: z.string().trim().max(4000).nullable().optional(),
+  assignedAdminId: z.string().uuid().nullable().optional(),
+}).refine((value) => Object.keys(value).length > 0, { message: "At least one field required" });
 const BuyerSmsBodySchema = z.object({
   message: z.string().min(1).max(1000),
 });
@@ -376,7 +402,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const { page, pageSize, status, search } = parsed.data;
+  const { page, pageSize, status, priority, categoryId, search } = parsed.data;
   const offset = (page - 1) * pageSize;
 
   const where: string[] = [];
@@ -385,12 +411,23 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     params.push(status);
     where.push(`c.status = $${params.length}`);
   }
+  if (priority) {
+    params.push(priority);
+    where.push(`c.priority = $${params.length}`);
+  }
+  if (categoryId) {
+    params.push(categoryId);
+    where.push(`c.category_id = $${params.length}`);
+  }
   if (search && search.trim()) {
     params.push(`%${search.trim().toLowerCase()}%`);
     where.push(`(
       lower(c.subject) LIKE $${params.length}
+      OR lower(COALESCE(c.description, '')) LIKE $${params.length}
       OR lower(o.id::text) LIKE $${params.length}
       OR lower(c.complainant_buyer_id::text) LIKE $${params.length}
+      OR lower(COALESCE(cat.name, '')) LIKE $${params.length}
+      OR lower(COALESCE(cat.code, '')) LIKE $${params.length}
     )`);
   }
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
@@ -399,6 +436,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     `SELECT count(*)::text AS count
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
+     LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      ${whereSql}`,
     params
   );
@@ -411,6 +449,15 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     order_id: string;
     complainant_buyer_id: string;
     subject: string;
+    description: string | null;
+    category_id: string | null;
+    category_code: string | null;
+    category_name: string | null;
+    priority: "low" | "medium" | "high" | "urgent";
+    resolved_at: string | null;
+    resolution_note: string | null;
+    assigned_admin_id: string | null;
+    assigned_admin_email: string | null;
     created_at: string;
     status: "open" | "in_review" | "resolved" | "closed";
   }>(
@@ -419,10 +466,21 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
        c.order_id::text,
        c.complainant_buyer_id::text,
        c.subject,
+       c.description,
+       c.category_id::text,
+       cat.code AS category_code,
+       cat.name AS category_name,
+       c.priority,
+       c.resolved_at::text,
+       c.resolution_note,
+       c.assigned_admin_id::text,
+       au.email AS assigned_admin_email,
        c.created_at::text,
        c.status
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
+     LEFT JOIN complaint_categories cat ON cat.id = c.category_id
+     LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
      ${whereSql}
      ORDER BY c.created_at DESC
      LIMIT ${limitParam} OFFSET ${offsetParam}`,
@@ -438,6 +496,15 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
       orderNo: `#${row.order_id.slice(0, 8).toUpperCase()}`,
       complainantBuyerNo: row.complainant_buyer_id,
       subject: row.subject,
+      description: row.description,
+      categoryId: row.category_id,
+      categoryCode: row.category_code,
+      categoryName: row.category_name,
+      priority: row.priority,
+      resolvedAt: row.resolved_at,
+      resolutionNote: row.resolution_note,
+      assignedAdminId: row.assigned_admin_id,
+      assignedAdminEmail: row.assigned_admin_email,
       createdAt: row.created_at,
       status: row.status,
     })),
@@ -446,6 +513,167 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
       totalPages,
       page,
       pageSize,
+    },
+  });
+});
+
+adminUserManagementRouter.get("/investigations/complaint-categories", requireAuth("admin"), async (_req, res) => {
+  const rows = await pool.query<{
+    id: string;
+    code: string;
+    name: string;
+    is_active: boolean;
+    created_at: string;
+  }>(
+    `SELECT id::text, code, name, is_active, created_at::text
+     FROM complaint_categories
+     ORDER BY is_active DESC, name ASC`
+  );
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/investigations/complaint-categories", requireAuth("admin"), async (req, res) => {
+  const parsed = CreateComplaintCategorySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { code, name, isActive = true } = parsed.data;
+  const created = await pool.query<{
+    id: string;
+    code: string;
+    name: string;
+    is_active: boolean;
+    created_at: string;
+  }>(
+    `INSERT INTO complaint_categories (code, name, is_active)
+     VALUES ($1, $2, $3)
+     RETURNING id::text, code, name, is_active, created_at::text`,
+    [code, name, isActive]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: created.rows[0].id,
+      code: created.rows[0].code,
+      name: created.rows[0].name,
+      isActive: created.rows[0].is_active,
+      createdAt: created.rows[0].created_at,
+    },
+  });
+});
+
+adminUserManagementRouter.post("/investigations/complaints", requireAuth("admin"), async (req, res) => {
+  const parsed = CreateComplaintSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const created = await pool.query<{
+    id: string;
+    created_at: string;
+  }>(
+    `INSERT INTO complaints (
+       order_id,
+       complainant_buyer_id,
+       subject,
+       description,
+       category_id,
+       priority,
+       assigned_admin_id,
+       status
+     )
+     VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, 'open')
+     RETURNING id::text, created_at::text`,
+    [
+      input.orderId,
+      input.complainantBuyerId,
+      input.subject,
+      input.description ?? null,
+      input.categoryId ?? null,
+      input.priority,
+      input.assignedAdminId ?? null,
+    ]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: created.rows[0].id,
+      createdAt: created.rows[0].created_at,
+      status: "open",
+    },
+  });
+});
+
+adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = UpdateComplaintSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const status = input.status;
+  const resolvedAtValue = input.resolvedAt !== undefined
+    ? input.resolvedAt
+    : (status === "resolved" || status === "closed" ? new Date() : undefined);
+
+  const updated = await pool.query<{
+    id: string;
+    status: string;
+    resolved_at: string | null;
+  }>(
+    `UPDATE complaints
+     SET
+       subject = COALESCE($2, subject),
+       description = CASE WHEN $3::boolean THEN $4 ELSE description END,
+       category_id = CASE WHEN $5::boolean THEN $6 ELSE category_id END,
+       priority = COALESCE($7, priority),
+       status = COALESCE($8, status),
+       resolved_at = CASE WHEN $9::boolean THEN $10 ELSE resolved_at END,
+       resolution_note = CASE WHEN $11::boolean THEN $12 ELSE resolution_note END,
+       assigned_admin_id = CASE WHEN $13::boolean THEN $14 ELSE assigned_admin_id END
+     WHERE id = $1
+     RETURNING id::text, status, resolved_at::text`,
+    [
+      params.data.id,
+      input.subject ?? null,
+      input.description !== undefined,
+      input.description ?? null,
+      input.categoryId !== undefined,
+      input.categoryId ?? null,
+      input.priority ?? null,
+      input.status ?? null,
+      resolvedAtValue !== undefined,
+      resolvedAtValue ? resolvedAtValue.toISOString() : null,
+      input.resolutionNote !== undefined,
+      input.resolutionNote ?? null,
+      input.assignedAdminId !== undefined,
+      input.assignedAdminId ?? null,
+    ]
+  );
+
+  if (!updated.rows[0]) {
+    return res.status(404).json({ error: { code: "COMPLAINT_NOT_FOUND", message: "Complaint not found" } });
+  }
+
+  return res.json({
+    data: {
+      id: updated.rows[0].id,
+      status: updated.rows[0].status,
+      resolvedAt: updated.rows[0].resolved_at,
     },
   });
 });
