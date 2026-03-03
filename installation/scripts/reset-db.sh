@@ -74,20 +74,24 @@ psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
   -c "INSERT INTO schema_migrations (filename) VALUES ${VALUES%,};"
 log "  ✓ Applied ${#MIGRATION_FILES[@]} migration(s)."
 
-log "Step 3/4: Restarting API to pick up fresh schema..."
+log "Step 3/3: Seeding..."
 _api_service="${API_SERVICE_NAME:-coziyoo-api}"
 _api_port="${API_PORT:-3000}"
-service_action restart "${_api_service}" || log "  Warning: could not restart ${_api_service} (may not be installed yet)"
 
-log "Step 4/4: Waiting for API then seeding..."
-for ((_attempt=1; _attempt<=24; _attempt++)); do
-  if curl -fsS --max-time 5 "http://127.0.0.1:${_api_port}/v1" >/dev/null 2>&1; then
-    log "  API ready"
-    break
-  fi
-  log "  API not ready yet (attempt ${_attempt}/24), waiting 5s..."
-  sleep 5
-done
+if [[ "${SEED_SAMPLE_DATA:-false}" == "true" ]]; then
+  log "  Sample data requested — restarting API first..."
+  service_action restart "${_api_service}" || log "  Warning: could not restart ${_api_service} (may not be installed yet)"
+  for ((_attempt=1; _attempt<=24; _attempt++)); do
+    if curl -fsS --max-time 5 "http://127.0.0.1:${_api_port}/v1" >/dev/null 2>&1; then
+      log "  API ready"
+      break
+    fi
+    log "  API not ready yet (attempt ${_attempt}/24), waiting 5s..."
+    sleep 5
+  done
+else
+  log "  Seeding admin user directly via SQL (no API restart needed)"
+fi
 bash "${SCRIPT_DIR}/seed-data.sh"
 
 log ""
