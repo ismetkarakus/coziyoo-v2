@@ -520,6 +520,7 @@ function AppShell({
         {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+        {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
         {location.pathname === "/app/livekit-demo" ? <LiveKitDemoPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
@@ -555,6 +556,7 @@ function TopNavTabs({
   const managementItems = [
     { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
+    { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
     { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
     { to: "/app/livekit-demo", active: pathname === "/app/livekit-demo", label: dict.menu.livekitDemo },
@@ -4459,6 +4461,19 @@ type AdminApiTokenListItem = {
   createdByEmail: string | null;
 };
 
+type ComplianceDocumentListRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  source_info: string | null;
+  details: string | null;
+  is_active: boolean;
+  seller_assignment_count: string;
+  created_at: string;
+  updated_at: string;
+};
+
 function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuperAdmin: boolean }) {
   const dict = DICTIONARIES[language];
   const [label, setLabel] = useState("");
@@ -4594,6 +4609,254 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
                     <td>{row.createdByEmail ?? row.createdByAdminId}</td>
                     <td>{row.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}</td>
                     <td>{row.revokedAt ? (language === "tr" ? "İptal" : "Revoked") : (language === "tr" ? "Aktif" : "Active")}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Language; isSuperAdmin: boolean }) {
+  const dict = DICTIONARIES[language];
+  const [rows, setRows] = useState<ComplianceDocumentListRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [sourceInfo, setSourceInfo] = useState("");
+  const [details, setDetails] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
+  async function loadRows() {
+    setLoading(true);
+    try {
+      const response = await request("/v1/admin/compliance/document-list");
+      const body = await parseJson<{ data?: ComplianceDocumentListRow[] } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
+        setMessage(body.error?.message ?? dict.complianceDocuments.loadFailed);
+        return;
+      }
+      setRows(body.data);
+    } catch {
+      setMessage(dict.complianceDocuments.requestFailed);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadRows().catch(() => setMessage(dict.complianceDocuments.requestFailed));
+  }, [dict.complianceDocuments.requestFailed]);
+
+  function resetForm() {
+    setEditingId(null);
+    setCode("");
+    setName("");
+    setDescription("");
+    setSourceInfo("");
+    setDetails("");
+    setIsActive(true);
+  }
+
+  async function submitForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isSuperAdmin || saving) return;
+    if (!code.trim() || !name.trim()) {
+      setMessage(dict.complianceDocuments.validationRequired);
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const payload = {
+        code: code.trim(),
+        name: name.trim(),
+        description: description.trim() || null,
+        sourceInfo: sourceInfo.trim() || null,
+        details: details.trim() || null,
+        isActive,
+      };
+      const endpoint = editingId
+        ? `/v1/admin/compliance/document-list/${editingId}`
+        : "/v1/admin/compliance/document-list";
+      const method = editingId ? "PATCH" : "POST";
+      const response = await request(endpoint, {
+        method,
+        body: JSON.stringify(payload),
+      });
+      const body = await parseJson<ApiError>(response);
+      if (response.status !== 200 && response.status !== 201) {
+        setMessage(body.error?.message ?? dict.complianceDocuments.saveFailed);
+        return;
+      }
+      await loadRows();
+      resetForm();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.complianceDocuments.requestFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeRow(row: ComplianceDocumentListRow) {
+    if (!isSuperAdmin || saving) return;
+    const confirmed = window.confirm(
+      language === "tr"
+        ? `${row.name} dokuman turunu silmek istiyor musunuz?`
+        : `Delete document type ${row.name}?`
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/compliance/document-list/${row.id}`, {
+        method: "DELETE",
+      });
+      const body = await parseJson<ApiError>(response);
+      if (response.status !== 200) {
+        setMessage(body.error?.message ?? dict.complianceDocuments.deleteFailed);
+        return;
+      }
+      await loadRows();
+      if (editingId === row.id) resetForm();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.complianceDocuments.requestFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(row: ComplianceDocumentListRow) {
+    setEditingId(row.id);
+    setCode(row.code);
+    setName(row.name);
+    setDescription(row.description ?? "");
+    setSourceInfo(row.source_info ?? "");
+    setDetails(row.details ?? "");
+    setIsActive(row.is_active);
+  }
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.complianceDocuments.eyebrow}</p>
+          <h1>{dict.complianceDocuments.title}</h1>
+          <p className="subtext">{dict.complianceDocuments.subtitle}</p>
+        </div>
+      </header>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{editingId ? dict.complianceDocuments.editDocument : dict.complianceDocuments.createDocument}</h2>
+          <span className="panel-meta">{isSuperAdmin ? dict.common.yes : dict.common.readOnly}</span>
+        </div>
+        <form className="form-grid" onSubmit={submitForm}>
+          <label>
+            {dict.complianceDocuments.code}
+            <input value={code} onChange={(event) => setCode(event.target.value)} disabled={!isSuperAdmin || saving} />
+          </label>
+          <label>
+            {dict.complianceDocuments.name}
+            <input value={name} onChange={(event) => setName(event.target.value)} disabled={!isSuperAdmin || saving} />
+          </label>
+          <label>
+            {dict.complianceDocuments.description}
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+          </label>
+          <label>
+            {dict.complianceDocuments.sourceInfo}
+            <textarea value={sourceInfo} onChange={(event) => setSourceInfo(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+          </label>
+          <label>
+            {dict.complianceDocuments.details}
+            <textarea value={details} onChange={(event) => setDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
+          </label>
+          <label>
+            {dict.complianceDocuments.active}
+            <select value={isActive ? "true" : "false"} onChange={(event) => setIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
+              <option value="true">{dict.common.active}</option>
+              <option value="false">{dict.common.disabled}</option>
+            </select>
+          </label>
+          <div className="topbar-actions">
+            <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
+              {editingId ? dict.actions.save : dict.actions.create}
+            </button>
+            <button className="ghost" type="button" disabled={saving} onClick={() => resetForm()}>
+              {dict.common.cancel}
+            </button>
+          </div>
+        </form>
+        {!isSuperAdmin ? <p className="panel-meta">{dict.users.onlySuperAdmin}</p> : null}
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.complianceDocuments.tableTitle}</h2>
+          <div className="topbar-actions">
+            <button className="ghost" type="button" onClick={() => loadRows().catch(() => setMessage(dict.complianceDocuments.requestFailed))}>
+              {dict.actions.refresh}
+            </button>
+          </div>
+        </div>
+        {message ? <div className="alert">{message}</div> : null}
+        <div className="buyer-ops-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{dict.complianceDocuments.code}</th>
+                <th>{dict.complianceDocuments.name}</th>
+                <th>{dict.complianceDocuments.description}</th>
+                <th>{dict.complianceDocuments.sourceInfo}</th>
+                <th>{dict.complianceDocuments.details}</th>
+                <th>{dict.complianceDocuments.active}</th>
+                <th>{dict.complianceDocuments.assignedCount}</th>
+                <th>{dict.complianceDocuments.updatedAt}</th>
+                <th>{dict.users.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={9}>{dict.common.loading}</td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>{dict.common.noRecords}</td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td><code>{row.code}</code></td>
+                    <td>{row.name}</td>
+                    <td>{row.description ?? "-"}</td>
+                    <td>{row.source_info ?? "-"}</td>
+                    <td>{row.details ?? "-"}</td>
+                    <td>{row.is_active ? dict.common.active : dict.common.disabled}</td>
+                    <td>{row.seller_assignment_count}</td>
+                    <td>{formatUiDate(row.updated_at, language)}</td>
+                    <td>
+                      <div className="legal-doc-actions">
+                        <button className="ghost compliance-edit-btn" type="button" onClick={() => startEdit(row)}>
+                          {dict.complianceDocuments.editAction}
+                        </button>
+                        <button className="ghost compliance-edit-btn" type="button" disabled={!isSuperAdmin || saving} onClick={() => void removeRow(row)}>
+                          {dict.complianceDocuments.deleteAction}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}

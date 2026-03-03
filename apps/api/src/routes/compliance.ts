@@ -44,6 +44,44 @@ const UpdateDocTypeSchema = z.object({
   required: z.boolean(),
 });
 
+const DocumentListParamsSchema = z.object({
+  documentListId: z.string().uuid(),
+});
+
+const ComplianceDocumentListCreateSchema = z.object({
+  code: z.string().trim().min(2).max(80),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).nullable().optional(),
+  sourceInfo: z.string().trim().max(1000).nullable().optional(),
+  details: z.string().trim().max(4000).nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const ComplianceDocumentListUpdateSchema = z
+  .object({
+    code: z.string().trim().min(2).max(80).optional(),
+    name: z.string().trim().min(2).max(120).optional(),
+    description: z.string().trim().max(1000).nullable().optional(),
+    sourceInfo: z.string().trim().max(1000).nullable().optional(),
+    details: z.string().trim().max(4000).nullable().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.code === undefined &&
+      value.name === undefined &&
+      value.description === undefined &&
+      value.sourceInfo === undefined &&
+      value.details === undefined &&
+      value.isActive === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one field must be provided",
+      });
+    }
+  });
+
 type SellerDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
 type SellerComplianceProfileStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
 
@@ -357,6 +395,278 @@ adminComplianceRouter.get("/queue", requireAuth("admin"), async (_req, res) => {
      ORDER BY max(scd.updated_at) DESC`
   );
   return res.json({ data: queue.rows });
+});
+
+adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, res) => {
+  const rows = await pool.query<{
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    source_info: string | null;
+    details: string | null;
+    is_active: boolean;
+    seller_assignment_count: string;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT
+       cdl.id::text,
+       cdl.code,
+       cdl.name,
+       cdl.description,
+       cdl.source_info,
+       cdl.details,
+       cdl.is_active,
+       count(scd.id)::text AS seller_assignment_count,
+       cdl.created_at::text,
+       cdl.updated_at::text
+     FROM compliance_documents_list cdl
+     LEFT JOIN seller_compliance_documents scd ON scd.document_list_id = cdl.id
+     GROUP BY cdl.id
+     ORDER BY cdl.is_active DESC, cdl.name ASC, cdl.created_at ASC`
+  );
+  return res.json({ data: rows.rows });
+});
+
+adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, res) => {
+  const parsed = ComplianceDocumentListCreateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query<{
+      id: string;
+      code: string;
+      name: string;
+      description: string | null;
+      source_info: string | null;
+      details: string | null;
+      is_active: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `INSERT INTO compliance_documents_list (
+         code,
+         name,
+         description,
+         source_info,
+         details,
+         is_active,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+       RETURNING
+         id::text,
+         code,
+         name,
+         description,
+         source_info,
+         details,
+         is_active,
+         created_at::text,
+         updated_at::text`,
+      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.isActive ?? true]
+    );
+
+    await client.query(
+      `INSERT INTO seller_compliance_documents (
+         seller_id,
+         document_list_id,
+         is_required,
+         status,
+         created_at,
+         updated_at
+       )
+       SELECT
+         u.id,
+         $1,
+         TRUE,
+         'requested',
+         now(),
+         now()
+       FROM users u
+       WHERE u.user_type IN ('seller', 'both')
+       ON CONFLICT (seller_id, document_list_id) DO NOTHING`,
+      [inserted.rows[0].id]
+    );
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "compliance_document_list_created",
+      entityType: "compliance_documents_list",
+      entityId: inserted.rows[0].id,
+      before: null,
+      after: inserted.rows[0],
+    });
+
+    await client.query("COMMIT");
+    return res.status(201).json({ data: inserted.rows[0] });
+  } catch (error: unknown) {
+    await client.query("ROLLBACK");
+    if (String((error as { code?: string } | undefined)?.code ?? "") === "23505") {
+      return res.status(409).json({ error: { code: "DOCUMENT_CODE_EXISTS", message: "Document code already exists" } });
+    }
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list create failed" } });
+  } finally {
+    client.release();
+  }
+});
+
+adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin"), async (req, res) => {
+  const params = DocumentListParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = ComplianceDocumentListUpdateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const before = await client.query<{
+      id: string;
+      code: string;
+      name: string;
+      description: string | null;
+      source_info: string | null;
+      details: string | null;
+      is_active: boolean;
+    }>(
+      `SELECT
+         id::text,
+         code,
+         name,
+         description,
+         source_info,
+         details,
+         is_active
+       FROM compliance_documents_list
+       WHERE id = $1
+       FOR UPDATE`,
+      [params.data.documentListId]
+    );
+    if ((before.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
+    }
+
+    const updated = await client.query<{
+      id: string;
+      code: string;
+      name: string;
+      description: string | null;
+      source_info: string | null;
+      details: string | null;
+      is_active: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `UPDATE compliance_documents_list
+       SET
+         code = COALESCE($2, code),
+         name = COALESCE($3, name),
+         description = CASE WHEN $4::boolean THEN $5 ELSE description END,
+         source_info = CASE WHEN $6::boolean THEN $7 ELSE source_info END,
+         details = CASE WHEN $8::boolean THEN $9 ELSE details END,
+         is_active = COALESCE($10, is_active),
+         updated_at = now()
+       WHERE id = $1
+       RETURNING
+         id::text,
+         code,
+         name,
+         description,
+         source_info,
+         details,
+         is_active,
+         created_at::text,
+         updated_at::text`,
+      [
+        params.data.documentListId,
+        input.code ?? null,
+        input.name ?? null,
+        input.description !== undefined,
+        input.description ?? null,
+        input.sourceInfo !== undefined,
+        input.sourceInfo ?? null,
+        input.details !== undefined,
+        input.details ?? null,
+        input.isActive ?? null,
+      ]
+    );
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "compliance_document_list_updated",
+      entityType: "compliance_documents_list",
+      entityId: params.data.documentListId,
+      before: before.rows[0],
+      after: updated.rows[0],
+    });
+
+    await client.query("COMMIT");
+    return res.json({ data: updated.rows[0] });
+  } catch (error: unknown) {
+    await client.query("ROLLBACK");
+    if (String((error as { code?: string } | undefined)?.code ?? "") === "23505") {
+      return res.status(409).json({ error: { code: "DOCUMENT_CODE_EXISTS", message: "Document code already exists" } });
+    }
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list update failed" } });
+  } finally {
+    client.release();
+  }
+});
+
+adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admin"), async (req, res) => {
+  const params = DocumentListParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const before = await client.query<{ id: string; code: string; name: string }>(
+      `SELECT id::text, code, name
+       FROM compliance_documents_list
+       WHERE id = $1
+       FOR UPDATE`,
+      [params.data.documentListId]
+    );
+    if ((before.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
+    }
+
+    await client.query("DELETE FROM seller_compliance_documents WHERE document_list_id = $1", [params.data.documentListId]);
+    await client.query("DELETE FROM compliance_documents_list WHERE id = $1", [params.data.documentListId]);
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "compliance_document_list_deleted",
+      entityType: "compliance_documents_list",
+      entityId: params.data.documentListId,
+      before: before.rows[0],
+      after: null,
+    });
+
+    await client.query("COMMIT");
+    return res.json({ data: { deleted: true, id: params.data.documentListId } });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list delete failed" } });
+  } finally {
+    client.release();
+  }
 });
 
 adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) => {
