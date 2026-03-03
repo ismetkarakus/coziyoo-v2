@@ -6821,22 +6821,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
-  const legalDocuments = useMemo(() => {
-    const rows = [...(compliance?.documents ?? [])];
-    rows.sort((a, b) => {
-      const rankDiff = knownDocumentCodeRank(a.code) - knownDocumentCodeRank(b.code);
-      if (rankDiff !== 0) return rankDiff;
-      return a.name.localeCompare(b.name, language === "tr" ? "tr" : "en", { sensitivity: "base" });
-    });
-    return rows;
-  }, [compliance?.documents, language]);
-  const legalTypeRows = useMemo(() => {
+  const legalDocuments = [...(compliance?.documents ?? [])].sort((a, b) => {
+    const rankDiff = knownDocumentCodeRank(a.code) - knownDocumentCodeRank(b.code);
+    if (rankDiff !== 0) return rankDiff;
+    return a.name.localeCompare(b.name, language === "tr" ? "tr" : "en", { sensitivity: "base" });
+  });
+  const legalTypeRows = (() => {
     const map = new Map<string, (typeof legalDocuments)[number]>();
     for (const row of legalDocuments) {
       if (!map.has(row.code)) map.set(row.code, row);
     }
     return Array.from(map.values());
-  }, [legalDocuments]);
+  })();
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSaving(true);
