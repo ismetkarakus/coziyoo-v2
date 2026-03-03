@@ -4626,13 +4626,17 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [sourceInfo, setSourceInfo] = useState("");
-  const [details, setDetails] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [createCode, setCreateCode] = useState("");
+  const [createName, setCreateName] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createSourceInfo, setCreateSourceInfo] = useState("");
+  const [createDetails, setCreateDetails] = useState("");
+  const [createIsActive, setCreateIsActive] = useState(true);
+  const [editingRow, setEditingRow] = useState<ComplianceDocumentListRow | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editSourceInfo, setEditSourceInfo] = useState("");
+  const [editDetails, setEditDetails] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
 
   async function loadRows() {
     setLoading(true);
@@ -4655,20 +4659,28 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
     loadRows().catch(() => setMessage(dict.complianceDocuments.requestFailed));
   }, [dict.complianceDocuments.requestFailed]);
 
-  function resetForm() {
-    setEditingId(null);
-    setCode("");
-    setName("");
-    setDescription("");
-    setSourceInfo("");
-    setDetails("");
-    setIsActive(true);
+  function resetCreateForm() {
+    setCreateCode("");
+    setCreateName("");
+    setCreateDescription("");
+    setCreateSourceInfo("");
+    setCreateDetails("");
+    setCreateIsActive(true);
   }
 
-  async function submitForm(event: FormEvent<HTMLFormElement>) {
+  function closeEditModal() {
+    if (saving) return;
+    setEditingRow(null);
+    setEditDescription("");
+    setEditSourceInfo("");
+    setEditDetails("");
+    setEditIsActive(true);
+  }
+
+  async function submitCreateForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isSuperAdmin || saving) return;
-    if (!code.trim() || !name.trim()) {
+    if (!createCode.trim() || !createName.trim()) {
       setMessage(dict.complianceDocuments.validationRequired);
       return;
     }
@@ -4677,28 +4689,55 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
     setMessage(null);
     try {
       const payload = {
-        code: code.trim(),
-        name: name.trim(),
-        description: description.trim() || null,
-        sourceInfo: sourceInfo.trim() || null,
-        details: details.trim() || null,
-        isActive,
+        code: createCode.trim(),
+        name: createName.trim(),
+        description: createDescription.trim() || null,
+        sourceInfo: createSourceInfo.trim() || null,
+        details: createDetails.trim() || null,
+        isActive: createIsActive,
       };
-      const endpoint = editingId
-        ? `/v1/admin/compliance/document-list/${editingId}`
-        : "/v1/admin/compliance/document-list";
-      const method = editingId ? "PATCH" : "POST";
-      const response = await request(endpoint, {
-        method,
+      const response = await request("/v1/admin/compliance/document-list", {
+        method: "POST",
         body: JSON.stringify(payload),
       });
       const body = await parseJson<ApiError>(response);
-      if (response.status !== 200 && response.status !== 201) {
+      if (response.status !== 201) {
         setMessage(body.error?.message ?? dict.complianceDocuments.saveFailed);
         return;
       }
       await loadRows();
-      resetForm();
+      resetCreateForm();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.complianceDocuments.requestFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitEditForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isSuperAdmin || saving || !editingRow) return;
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/compliance/document-list/${editingRow.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          description: editDescription.trim() || null,
+          sourceInfo: editSourceInfo.trim() || null,
+          details: editDetails.trim() || null,
+          isActive: editIsActive,
+        }),
+      });
+      const body = await parseJson<ApiError>(response);
+      if (response.status !== 200) {
+        setMessage(body.error?.message ?? dict.complianceDocuments.saveFailed);
+        return;
+      }
+      await loadRows();
+      closeEditModal();
       setMessage(dict.common.saved);
     } catch {
       setMessage(dict.complianceDocuments.requestFailed);
@@ -4711,8 +4750,8 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
     if (!isSuperAdmin || saving) return;
     const confirmed = window.confirm(
       language === "tr"
-        ? `${row.name} dokuman turunu silmek istiyor musunuz?`
-        : `Delete document type ${row.name}?`
+        ? `${row.name} kaydini pasif yapmak istiyor musunuz?`
+        : `Set document type ${row.name} as inactive?`
     );
     if (!confirmed) return;
 
@@ -4728,7 +4767,7 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
         return;
       }
       await loadRows();
-      if (editingId === row.id) resetForm();
+      if (editingRow?.id === row.id) closeEditModal();
       setMessage(dict.common.saved);
     } catch {
       setMessage(dict.complianceDocuments.requestFailed);
@@ -4738,13 +4777,11 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
   }
 
   function startEdit(row: ComplianceDocumentListRow) {
-    setEditingId(row.id);
-    setCode(row.code);
-    setName(row.name);
-    setDescription(row.description ?? "");
-    setSourceInfo(row.source_info ?? "");
-    setDetails(row.details ?? "");
-    setIsActive(row.is_active);
+    setEditingRow(row);
+    setEditDescription(row.description ?? "");
+    setEditSourceInfo(row.source_info ?? "");
+    setEditDetails(row.details ?? "");
+    setEditIsActive(row.is_active);
   }
 
   return (
@@ -4759,42 +4796,40 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
 
       <section className="panel">
         <div className="panel-header">
-          <h2>{editingId ? dict.complianceDocuments.editDocument : dict.complianceDocuments.createDocument}</h2>
+          <h2>{dict.complianceDocuments.createDocument}</h2>
           <span className="panel-meta">{isSuperAdmin ? dict.common.yes : dict.common.readOnly}</span>
         </div>
-        <form className="form-grid" onSubmit={submitForm}>
+        <form className="form-grid" onSubmit={submitCreateForm}>
           <label>
             {dict.complianceDocuments.code}
-            <input value={code} onChange={(event) => setCode(event.target.value)} disabled={!isSuperAdmin || saving} />
+            <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} disabled={!isSuperAdmin || saving} />
           </label>
           <label>
             {dict.complianceDocuments.name}
-            <input value={name} onChange={(event) => setName(event.target.value)} disabled={!isSuperAdmin || saving} />
+            <input value={createName} onChange={(event) => setCreateName(event.target.value)} disabled={!isSuperAdmin || saving} />
           </label>
           <label>
             {dict.complianceDocuments.description}
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+            <textarea value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
           </label>
           <label>
             {dict.complianceDocuments.sourceInfo}
-            <textarea value={sourceInfo} onChange={(event) => setSourceInfo(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+            <textarea value={createSourceInfo} onChange={(event) => setCreateSourceInfo(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
           </label>
           <label>
             {dict.complianceDocuments.details}
-            <textarea value={details} onChange={(event) => setDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
+            <textarea value={createDetails} onChange={(event) => setCreateDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
           </label>
           <label>
             {dict.complianceDocuments.active}
-            <select value={isActive ? "true" : "false"} onChange={(event) => setIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
+            <select value={createIsActive ? "true" : "false"} onChange={(event) => setCreateIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
               <option value="true">{dict.common.active}</option>
               <option value="false">{dict.common.disabled}</option>
             </select>
           </label>
           <div className="topbar-actions">
-            <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
-              {editingId ? dict.actions.save : dict.actions.create}
-            </button>
-            <button className="ghost" type="button" disabled={saving} onClick={() => resetForm()}>
+            <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>{dict.actions.create}</button>
+            <button className="ghost" type="button" disabled={saving} onClick={() => resetCreateForm()}>
               {dict.common.cancel}
             </button>
           </div>
@@ -4864,6 +4899,51 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
           </table>
         </div>
       </section>
+
+      {editingRow ? (
+        <div className="buyer-ops-modal-backdrop">
+          <div className="buyer-ops-modal">
+            <h3>{dict.complianceDocuments.editDocument}</h3>
+            <form className="form-grid" onSubmit={submitEditForm}>
+              <label>
+                {dict.complianceDocuments.code}
+                <input value={editingRow.code} disabled readOnly />
+              </label>
+              <label>
+                {dict.complianceDocuments.name}
+                <input value={editingRow.name} disabled readOnly />
+              </label>
+              <label>
+                {dict.complianceDocuments.description}
+                <textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.sourceInfo}
+                <textarea value={editSourceInfo} onChange={(event) => setEditSourceInfo(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.details}
+                <textarea value={editDetails} onChange={(event) => setEditDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.active}
+                <select value={editIsActive ? "true" : "false"} onChange={(event) => setEditIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
+                  <option value="true">{dict.common.active}</option>
+                  <option value="false">{dict.common.disabled}</option>
+                </select>
+              </label>
+              <div className="buyer-ops-modal-actions">
+                <button className="ghost" type="button" onClick={closeEditModal} disabled={saving}>
+                  {dict.common.cancel}
+                </button>
+                <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
+                  {dict.actions.save}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

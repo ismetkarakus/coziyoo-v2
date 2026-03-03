@@ -635,8 +635,13 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const before = await client.query<{ id: string; code: string; name: string }>(
-      `SELECT id::text, code, name
+    const before = await client.query<{
+      id: string;
+      code: string;
+      name: string;
+      is_active: boolean;
+    }>(
+      `SELECT id::text, code, name, is_active
        FROM compliance_documents_list
        WHERE id = $1
        FOR UPDATE`,
@@ -647,20 +652,38 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
       return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
     }
 
-    await client.query("DELETE FROM seller_compliance_documents WHERE document_list_id = $1", [params.data.documentListId]);
-    await client.query("DELETE FROM compliance_documents_list WHERE id = $1", [params.data.documentListId]);
+    const updated = await client.query<{
+      id: string;
+      code: string;
+      name: string;
+      is_active: boolean;
+      updated_at: string;
+    }>(
+      `UPDATE compliance_documents_list
+       SET is_active = FALSE,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING id::text, code, name, is_active, updated_at::text`,
+      [params.data.documentListId]
+    );
 
     await writeAdminAudit(client, {
       actorAdminId: req.auth!.userId,
-      action: "compliance_document_list_deleted",
+      action: "compliance_document_list_soft_deleted",
       entityType: "compliance_documents_list",
       entityId: params.data.documentListId,
       before: before.rows[0],
-      after: null,
+      after: updated.rows[0],
     });
 
     await client.query("COMMIT");
-    return res.json({ data: { deleted: true, id: params.data.documentListId } });
+    return res.json({
+      data: {
+        deleted: true,
+        id: params.data.documentListId,
+        isActive: updated.rows[0].is_active,
+      },
+    });
   } catch {
     await client.query("ROLLBACK");
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list delete failed" } });
