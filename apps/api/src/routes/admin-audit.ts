@@ -155,22 +155,6 @@ const EVENTS_CTE = `
 
     SELECT
       id::text AS event_id,
-      'compliance_event'::text AS source,
-      event_type::text AS event_type,
-      actor_admin_id::text AS actor_id,
-      NULL::text AS actor_label,
-      'seller_compliance'::text AS entity_type,
-      seller_id::text AS entity_id,
-      NULL::text AS ip,
-      NULL::text AS user_agent,
-      payload_json,
-      created_at
-    FROM seller_compliance_events
-
-    UNION ALL
-
-    SELECT
-      id::text AS event_id,
       'lot_event'::text AS source,
       event_type::text AS event_type,
       created_by::text AS actor_id,

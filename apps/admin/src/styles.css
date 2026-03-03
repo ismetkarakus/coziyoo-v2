@@ -4648,6 +4648,40 @@ textarea:focus {
   padding: 4px;
 }
 
+.legal-docs-table table th,
+.legal-docs-table table td {
+  vertical-align: top;
+}
+
+.legal-docs-table .status-pill {
+  white-space: nowrap;
+}
+
+.legal-doc-sub {
+  margin-top: 4px;
+}
+
+.legal-required-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legal-required-toggle input {
+  transform: translateY(1px);
+}
+
+.legal-doc-history-block {
+  margin-top: 16px;
+}
+
+.legal-doc-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .inline-copy {
   border: 0;
   background: transparent;

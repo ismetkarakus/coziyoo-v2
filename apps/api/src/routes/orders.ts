@@ -355,27 +355,29 @@ async function transitionHandler(
     }
 
     if (actorRole === "seller") {
-      const compliance = await client.query<{ country_code: string; status: string }>(
-        "SELECT country_code, status FROM seller_compliance_profiles WHERE seller_id = $1",
+      const compliance = await client.query<{
+        required_count: string;
+        approved_count: string;
+        rejected_count: string;
+      }>(
+        `SELECT
+           count(*) FILTER (WHERE is_required = TRUE)::text AS required_count,
+           count(*) FILTER (WHERE is_required = TRUE AND status = 'approved')::text AS approved_count,
+           count(*) FILTER (WHERE is_required = TRUE AND status = 'rejected')::text AS rejected_count
+         FROM seller_compliance_documents
+         WHERE seller_id = $1`,
         [req.auth!.userId]
       );
-      if ((compliance.rowCount ?? 0) === 0) {
+      const requiredCount = Number(compliance.rows[0]?.required_count ?? "0");
+      const approvedCount = Number(compliance.rows[0]?.approved_count ?? "0");
+      const rejectedCount = Number(compliance.rows[0]?.rejected_count ?? "0");
+      if (requiredCount === 0 || approvedCount < requiredCount || rejectedCount > 0) {
         await client.query("ROLLBACK");
         return res.status(403).json({
-          error: { code: "COMPLIANCE_REQUIRED", message: "Seller compliance profile required for seller operations" },
-        });
-      }
-      const profile = compliance.rows[0];
-      if (profile.status === "suspended" || profile.status === "rejected") {
-        await client.query("ROLLBACK");
-        return res.status(403).json({
-          error: { code: "COMPLIANCE_BLOCKED", message: `Seller blocked by compliance status ${profile.status}` },
-        });
-      }
-      if (profile.country_code === "UK" && profile.status !== "approved") {
-        await client.query("ROLLBACK");
-        return res.status(403).json({
-          error: { code: "COMPLIANCE_REQUIRED", message: "UK sellers must be approved before seller operations" },
+          error: {
+            code: "COMPLIANCE_REQUIRED",
+            message: "Seller required compliance documents are not fully approved",
+          },
         });
       }
     }

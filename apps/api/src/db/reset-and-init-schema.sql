@@ -322,61 +322,72 @@ CREATE TABLE finance_reconciliation_reports (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE seller_compliance_profiles (
-  seller_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE RESTRICT,
-  country_code TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('not_started', 'in_progress', 'submitted', 'under_review', 'approved', 'rejected', 'suspended')),
-  submitted_at TIMESTAMPTZ,
-  approved_at TIMESTAMPTZ,
-  rejected_at TIMESTAMPTZ,
-  reviewed_by_admin_id UUID REFERENCES admin_users(id) ON DELETE RESTRICT,
-  review_notes TEXT,
+CREATE TABLE compliance_documents_list (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  source_info TEXT,
+  details TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE seller_compliance_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  reviewed_by_admin_id UUID REFERENCES admin_users(id) ON DELETE RESTRICT,
-  doc_type TEXT NOT NULL,
-  file_url TEXT NOT NULL,
-  metadata_json JSONB,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'rejected')),
+  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  document_list_id UUID NOT NULL REFERENCES compliance_documents_list(id) ON DELETE RESTRICT,
+  is_required BOOLEAN NOT NULL DEFAULT TRUE,
+  status TEXT NOT NULL CHECK (status IN ('requested', 'uploaded', 'approved', 'rejected')),
+  file_url TEXT,
+  uploaded_at TIMESTAMPTZ,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
   rejection_reason TEXT,
-  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  reviewed_at TIMESTAMPTZ
-);
-
-CREATE TABLE seller_compliance_profile_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  seller_id UUID NOT NULL REFERENCES seller_compliance_profiles(seller_id) ON DELETE CASCADE,
-  doc_type TEXT NOT NULL,
-  latest_document_id UUID REFERENCES seller_compliance_documents(id) ON DELETE SET NULL,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'rejected')),
-  required BOOLEAN NOT NULL DEFAULT TRUE,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (seller_id, doc_type)
+  UNIQUE (seller_id, document_list_id)
 );
 
-CREATE TABLE seller_compliance_checks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  check_code TEXT NOT NULL,
-  required BOOLEAN NOT NULL,
-  value_json JSONB,
-  status TEXT NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (seller_id, check_code)
-);
+CREATE INDEX idx_compliance_documents_list_active ON compliance_documents_list(is_active);
+CREATE INDEX idx_seller_compliance_documents_seller ON seller_compliance_documents(seller_id);
+CREATE INDEX idx_seller_compliance_documents_status ON seller_compliance_documents(status);
+CREATE INDEX idx_seller_compliance_documents_list_id ON seller_compliance_documents(document_list_id);
 
-CREATE TABLE seller_compliance_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  actor_admin_id UUID REFERENCES admin_users(id) ON DELETE RESTRICT,
-  event_type TEXT NOT NULL,
-  payload_json JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+CREATE OR REPLACE FUNCTION seed_seller_compliance_documents_on_user_upsert()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.user_type IN ('seller', 'both') THEN
+    INSERT INTO seller_compliance_documents (
+      seller_id,
+      document_list_id,
+      is_required,
+      status,
+      created_at,
+      updated_at
+    )
+    SELECT
+      NEW.id,
+      cdl.id,
+      TRUE,
+      'requested',
+      now(),
+      now()
+    FROM compliance_documents_list cdl
+    WHERE cdl.is_active = TRUE
+    ON CONFLICT (seller_id, document_list_id) DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_seed_seller_compliance_documents_on_users
+AFTER INSERT OR UPDATE OF user_type ON users
+FOR EACH ROW
+EXECUTE FUNCTION seed_seller_compliance_documents_on_user_upsert();
 
 CREATE TABLE production_lots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

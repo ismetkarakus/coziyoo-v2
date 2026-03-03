@@ -50,7 +50,8 @@
     "paginationSummary": "Toplam: {total} | Sayfa {page} / {totalPages}",
     "saved": "Kaydedildi",
     "yes": "evet",
-    "no": "hayır"
+    "no": "hayır",
+    "cancel": "Vazgeç"
   },
   "auth": {
     "title": "Coziyoo Yönetim Paneli",
@@ -277,6 +278,22 @@
       "phoneVerification": "Telefon Doğrulama",
       "workplaceInsurance": "İş Yeri Sigortası"
     },
+    "legalDocumentTypesTitle": "Belge Türleri",
+    "legalDocumentHistoryTitle": "Belge Geçmişi / Tekil Belgeler",
+    "legalDocType": "Doküman Türü",
+    "legalRequired": "Zorunlu",
+    "legalStatus": "Durum",
+    "legalUploadedAt": "Yüklenme",
+    "legalReviewedAt": "İnceleme",
+    "legalRejectionReason": "Red Nedeni",
+    "legalFile": "Dosya",
+    "legalOpenFile": "Dosyayı Aç",
+    "legalActions": "Aksiyonlar",
+    "legalApprove": "Kabul Et",
+    "legalReject": "Reddet",
+    "legalPend": "Beklemeye Al",
+    "legalRejectModalTitle": "Red Gerekçesi",
+    "legalUpdateFailed": "Yasal belge güncellemesi başarısız",
     "foodRetentionTitle": "Yemek İçerikleri Saklama Bilgisi",
     "foodRetentionHint": "Yemek içerikleri yasal gereklilik gereği 2 yıl saklanır.",
     "totalFoods": "Toplam Yemek",
@@ -303,6 +320,8 @@
       "rejected": "Reddedildi",
       "suspended": "Askıda",
       "pending": "Beklemede",
+      "requested": "Talep Edildi",
+      "uploaded": "Yüklendi",
       "verified": "Onaylandı",
       "validated": "Doğrulandı"
     },

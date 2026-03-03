@@ -6110,17 +6110,18 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   );
 }
 
-type SellerComplianceStatus = "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected" | "suspended";
-type SellerComplianceDocumentStatus = "pending" | "verified" | "rejected";
+type SellerComplianceStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
+type SellerComplianceDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
 
 type SellerCompliancePayload = {
   profile: {
     seller_id: string;
-    country_code: string;
     status: SellerComplianceStatus;
-    submitted_at: string | null;
-    approved_at: string | null;
-    rejected_at: string | null;
+    required_count: number;
+    approved_required_count: number;
+    uploaded_required_count: number;
+    requested_required_count: number;
+    rejected_required_count: number;
     review_notes: string | null;
     updated_at: string;
   };
@@ -6134,12 +6135,32 @@ type SellerCompliancePayload = {
   }>;
   documents: Array<{
     id: string;
+    seller_id: string;
+    document_list_id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    source_info: string | null;
+    details: string | null;
+    is_required: boolean;
+    is_active: boolean;
     doc_type: string;
-    file_url: string;
+    file_url: string | null;
     status: SellerComplianceDocumentStatus;
     rejection_reason: string | null;
-    uploaded_at: string;
+    notes: string | null;
+    uploaded_at: string | null;
     reviewed_at: string | null;
+    updated_at: string;
+  }>;
+  profileDocuments: Array<{
+    id: string;
+    seller_id: string;
+    doc_type: string;
+    latest_document_id: string | null;
+    status: SellerComplianceDocumentStatus;
+    required: boolean;
+    updated_at: string;
   }>;
 };
 
@@ -6403,9 +6424,37 @@ function profileBadgeFromStatus(
 ): { label: string; tone: ComplianceTone } {
   if (!status) return { label: dict.detail.legalProfileBadge.pending, tone: "warning" };
   if (status === "approved") return { label: dict.detail.legalProfileBadge.completed, tone: "success" };
-  if (status === "rejected" || status === "suspended") return { label: dict.detail.legalProfileBadge.rejected, tone: "danger" };
-  if (status === "under_review" || status === "submitted") return { label: dict.detail.legalProfileBadge.inReview, tone: "warning" };
+  if (status === "rejected") return { label: dict.detail.legalProfileBadge.rejected, tone: "danger" };
+  if (status === "under_review") return { label: dict.detail.legalProfileBadge.inReview, tone: "warning" };
   return { label: dict.detail.legalProfileBadge.pending, tone: "warning" };
+}
+
+function sellerDocumentStatusLabel(status: SellerComplianceDocumentStatus, dict: Dictionary): string {
+  if (status === "approved") return dict.detail.sellerStatus.approved;
+  if (status === "rejected") return dict.detail.sellerStatus.rejected;
+  if (status === "uploaded") return dict.detail.sellerStatus.uploaded;
+  return dict.detail.sellerStatus.requested;
+}
+
+function sellerDocumentStatusTone(status: SellerComplianceDocumentStatus): ComplianceTone {
+  if (status === "approved") return "success";
+  if (status === "rejected") return "danger";
+  if (status === "uploaded") return "warning";
+  return "neutral";
+}
+
+function knownDocumentCodeRank(code: string): number {
+  const normalized = normalizeComplianceToken(code);
+  const order = [
+    "food_business",
+    "tax_plate",
+    "kvkk",
+    "food_safety_training",
+    "phone_verification",
+    "workplace_insurance",
+  ];
+  const index = order.findIndex((item) => normalized.includes(item));
+  return index >= 0 ? index : 999;
 }
 
 function mapComplianceRows(
@@ -6583,6 +6632,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [activeTab, setActiveTab] = useState<SellerDetailTab>(() => resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [legalSaving, setLegalSaving] = useState(false);
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [activeFoodDate, setActiveFoodDate] = useState<string | null>(null);
@@ -6658,6 +6710,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setProfileImageFailed(false);
     setFoodImageErrors({});
     setActiveFoodDate(null);
+    setRejectTargetId(null);
+    setRejectReason("");
   }, [id]);
 
   useEffect(() => {
@@ -6767,6 +6821,71 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
+  const legalDocuments = useMemo(() => {
+    const rows = [...(compliance?.documents ?? [])];
+    rows.sort((a, b) => {
+      const rankDiff = knownDocumentCodeRank(a.code) - knownDocumentCodeRank(b.code);
+      if (rankDiff !== 0) return rankDiff;
+      return a.name.localeCompare(b.name, language === "tr" ? "tr" : "en", { sensitivity: "base" });
+    });
+    return rows;
+  }, [compliance?.documents, language]);
+  const legalTypeRows = useMemo(() => {
+    const map = new Map<string, (typeof legalDocuments)[number]>();
+    for (const row of legalDocuments) {
+      if (!map.has(row.code)) map.set(row.code, row);
+    }
+    return Array.from(map.values());
+  }, [legalDocuments]);
+
+  async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
+    setLegalSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/compliance/${id}/documents/${documentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status,
+          rejectionReason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+        }),
+      });
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
+        return;
+      }
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+      setRejectTargetId(null);
+      setRejectReason("");
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setLegalSaving(false);
+    }
+  }
+
+  async function updateDocumentRequired(docTypeCode: string, required: boolean) {
+    setLegalSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/compliance/${id}/doc-types/${encodeURIComponent(docTypeCode)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ required }),
+      });
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
+        return;
+      }
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setLegalSaving(false);
+    }
+  }
 
   const sellerRawPayload = {
     id: row.id,
@@ -6923,32 +7042,155 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
             {compliance?.profile.review_notes ? <div className="panel-note">{compliance.profile.review_notes}</div> : null}
             <div className="seller-compliance-list">
-              {legalRows.map((item) => (
-                <article key={item.key} className="seller-compliance-row">
-                  <div className={`compliance-icon is-${item.tone}`} aria-hidden="true" />
-                  <div className="compliance-body">
-                    <h3>{item.label}</h3>
-                    <p className="compliance-meta">
-                      <span className={`status-pill compliance-status-pill is-${item.tone}`}>{item.statusLabel}</span>
-                      <span>{item.detailText}</span>
-                      {item.isOptional ? <span className="status-pill compliance-status-pill is-neutral">{dict.detail.optional}</span> : null}
-                    </p>
-                  </div>
-                  <button
-                    className="ghost compliance-edit-btn"
-                    type="button"
-                    title={dict.detail.actionSoon}
-                    onClick={() => undefined}
-                  >
-                    {dict.detail.edit}
-                  </button>
-                </article>
-              ))}
+              <h3>{dict.detail.legalDocumentTypesTitle}</h3>
+              {legalTypeRows.length === 0 ? (
+                <p className="panel-meta">{dict.detail.noComplianceData}</p>
+              ) : (
+                <div className="buyer-ops-table-wrap legal-docs-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{dict.detail.legalDocType}</th>
+                        <th>{dict.detail.legalRequired}</th>
+                        <th>{dict.detail.legalStatus}</th>
+                        <th>{dict.detail.updatedAtLabel}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {legalTypeRows.map((row) => {
+                        const tone = sellerDocumentStatusTone(row.status);
+                        return (
+                          <tr key={`dtype-${row.code}`}>
+                            <td>
+                              <strong>{row.name}</strong>
+                              <div className="panel-meta legal-doc-sub">{row.code}</div>
+                            </td>
+                            <td>
+                              <label className="legal-required-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={row.is_required}
+                                  disabled={!isSuperAdmin || legalSaving}
+                                  onChange={(event) => {
+                                    void updateDocumentRequired(row.code, event.target.checked);
+                                  }}
+                                />
+                                <span>{row.is_required ? dict.common.yes : dict.common.no}</span>
+                              </label>
+                            </td>
+                            <td><span className={`status-pill compliance-status-pill is-${tone}`}>{sellerDocumentStatusLabel(row.status, dict)}</span></td>
+                            <td>{formatUiDate(row.updated_at, language)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <button className="compliance-footer-link" type="button">
-              {dict.detail.termsAndConditions}
-            </button>
+
+            <div className="seller-compliance-list legal-doc-history-block">
+              <h3>{dict.detail.legalDocumentHistoryTitle}</h3>
+              {legalDocuments.length === 0 ? (
+                <p className="panel-meta">{dict.detail.noComplianceData}</p>
+              ) : (
+                <div className="buyer-ops-table-wrap legal-docs-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{dict.detail.legalUploadedAt}</th>
+                        <th>{dict.detail.legalDocType}</th>
+                        <th>{dict.detail.legalFile}</th>
+                        <th>{dict.detail.legalStatus}</th>
+                        <th>{dict.detail.legalReviewedAt}</th>
+                        <th>{dict.detail.legalRejectionReason}</th>
+                        <th>{dict.detail.legalActions}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {legalDocuments.map((row) => {
+                        const tone = sellerDocumentStatusTone(row.status);
+                        return (
+                          <tr key={row.id}>
+                            <td>{formatUiDate(row.uploaded_at, language)}</td>
+                            <td>
+                              <strong>{row.name}</strong>
+                              <div className="panel-meta legal-doc-sub">{row.code}</div>
+                            </td>
+                            <td>
+                              {row.file_url ? (
+                                <a href={row.file_url} target="_blank" rel="noreferrer" className="inline-copy">{dict.detail.legalOpenFile}</a>
+                              ) : (
+                                <span className="panel-meta">-</span>
+                              )}
+                            </td>
+                            <td><span className={`status-pill compliance-status-pill is-${tone}`}>{sellerDocumentStatusLabel(row.status, dict)}</span></td>
+                            <td>{formatUiDate(row.reviewed_at, language)}</td>
+                            <td>{row.rejection_reason ?? "-"}</td>
+                            <td>
+                              <div className="legal-doc-actions">
+                                <button
+                                  className="ghost compliance-edit-btn"
+                                  type="button"
+                                  disabled={!isSuperAdmin || legalSaving}
+                                  onClick={() => void updateDocumentStatus(row.id, "approved")}
+                                >
+                                  {dict.detail.legalApprove}
+                                </button>
+                                <button
+                                  className="ghost compliance-edit-btn"
+                                  type="button"
+                                  disabled={!isSuperAdmin || legalSaving}
+                                  onClick={() => {
+                                    setRejectTargetId(row.id);
+                                    setRejectReason(row.rejection_reason ?? "");
+                                  }}
+                                >
+                                  {dict.detail.legalReject}
+                                </button>
+                                <button
+                                  className="ghost compliance-edit-btn"
+                                  type="button"
+                                  disabled={!isSuperAdmin || legalSaving}
+                                  onClick={() => void updateDocumentStatus(row.id, "requested")}
+                                >
+                                  {dict.detail.legalPend}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </article>
+          {rejectTargetId ? (
+            <div className="buyer-ops-modal-backdrop">
+              <div className="buyer-ops-modal">
+                <h3>{dict.detail.legalRejectModalTitle}</h3>
+                <label>
+                  {dict.detail.legalRejectionReason}
+                  <textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={4} />
+                </label>
+                <div className="buyer-ops-modal-actions">
+                  <button className="ghost" type="button" onClick={() => { setRejectTargetId(null); setRejectReason(""); }}>
+                    {dict.common.cancel}
+                  </button>
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={!rejectReason.trim() || legalSaving}
+                    onClick={() => void updateDocumentStatus(rejectTargetId, "rejected", rejectReason.trim())}
+                  >
+                    {dict.detail.legalReject}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

@@ -1,29 +1,20 @@
-import { Router, type Request, type Response } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../db/client.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
-import { enqueueOutboxEvent } from "../services/outbox.js";
+import { writeAdminAudit } from "../services/admin-audit.js";
 
 const SellerProfileSchema = z.object({
-  countryCode: z.enum(["TR", "UK"]),
-  checks: z
-    .array(
-      z.object({
-        checkCode: z.string().min(2).max(60),
-        required: z.boolean(),
-        status: z.enum(["pending", "verified", "rejected"]),
-        value: z.record(z.string(), z.unknown()).optional(),
-      })
-    )
-    .optional(),
+  countryCode: z.enum(["TR", "UK"]).optional(),
 });
 
 const UploadDocumentSchema = z.object({
-  docType: z.string().min(2).max(60),
+  docType: z.string().trim().min(2).max(80),
   fileUrl: z.string().url(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  notes: z.string().trim().max(1500).optional(),
 });
+
 const ComplianceDocumentParamSchema = z.object({
   documentId: z.string().uuid(),
 });
@@ -32,8 +23,173 @@ const ReviewSchema = z.object({
   reviewNotes: z.string().min(3).max(1000).optional(),
 });
 
+const UpdateDocumentStatusSchema = z
+  .object({
+    status: z.enum(["requested", "uploaded", "approved", "rejected", "pending"]),
+    rejectionReason: z.string().trim().min(3).max(1000).nullable().optional(),
+    notes: z.string().trim().max(1500).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const normalized = normalizeDocumentStatus(value.status);
+    if (normalized === "rejected" && !value.rejectionReason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rejectionReason"],
+        message: "rejectionReason is required when status is rejected",
+      });
+    }
+  });
+
+const UpdateDocTypeSchema = z.object({
+  required: z.boolean(),
+});
+
+type SellerDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
+type SellerComplianceProfileStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
+
 export const sellerComplianceRouter = Router();
 export const adminComplianceRouter = Router();
+
+function normalizeDocumentStatus(value: string): SellerDocumentStatus {
+  return value === "pending" ? "requested" : (value as SellerDocumentStatus);
+}
+
+function computeSellerComplianceProfile(rows: Array<{ is_required: boolean; status: SellerDocumentStatus; updated_at: string }>): {
+  status: SellerComplianceProfileStatus;
+  requiredCount: number;
+  approvedRequiredCount: number;
+  uploadedRequiredCount: number;
+  requestedRequiredCount: number;
+  rejectedRequiredCount: number;
+  updatedAt: string | null;
+} {
+  const requiredRows = rows.filter((row) => row.is_required);
+  const requiredCount = requiredRows.length;
+  const approvedRequiredCount = requiredRows.filter((row) => row.status === "approved").length;
+  const uploadedRequiredCount = requiredRows.filter((row) => row.status === "uploaded").length;
+  const requestedRequiredCount = requiredRows.filter((row) => row.status === "requested").length;
+  const rejectedRequiredCount = requiredRows.filter((row) => row.status === "rejected").length;
+
+  const updatedAt = rows
+    .map((row) => row.updated_at)
+    .filter(Boolean)
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
+
+  if (requiredCount === 0) {
+    return {
+      status: "not_started",
+      requiredCount,
+      approvedRequiredCount,
+      uploadedRequiredCount,
+      requestedRequiredCount,
+      rejectedRequiredCount,
+      updatedAt,
+    };
+  }
+  if (rejectedRequiredCount > 0) {
+    return {
+      status: "rejected",
+      requiredCount,
+      approvedRequiredCount,
+      uploadedRequiredCount,
+      requestedRequiredCount,
+      rejectedRequiredCount,
+      updatedAt,
+    };
+  }
+  if (approvedRequiredCount === requiredCount) {
+    return {
+      status: "approved",
+      requiredCount,
+      approvedRequiredCount,
+      uploadedRequiredCount,
+      requestedRequiredCount,
+      rejectedRequiredCount,
+      updatedAt,
+    };
+  }
+  if (requestedRequiredCount > 0) {
+    return {
+      status: "in_progress",
+      requiredCount,
+      approvedRequiredCount,
+      uploadedRequiredCount,
+      requestedRequiredCount,
+      rejectedRequiredCount,
+      updatedAt,
+    };
+  }
+  return {
+    status: "under_review",
+    requiredCount,
+    approvedRequiredCount,
+    uploadedRequiredCount,
+    requestedRequiredCount,
+    rejectedRequiredCount,
+    updatedAt,
+  };
+}
+
+async function getSellerDocuments(client: { query: typeof pool.query }, sellerId: string) {
+  return client.query<{
+    id: string;
+    seller_id: string;
+    document_list_id: string;
+    is_required: boolean;
+    status: SellerDocumentStatus;
+    file_url: string | null;
+    uploaded_at: string | null;
+    reviewed_at: string | null;
+    reviewed_by_admin_id: string | null;
+    rejection_reason: string | null;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+    code: string;
+    name: string;
+    description: string | null;
+    source_info: string | null;
+    details: string | null;
+    is_active: boolean;
+  }>(
+    `SELECT
+       scd.id::text,
+       scd.seller_id::text,
+       scd.document_list_id::text,
+       scd.is_required,
+       scd.status,
+       scd.file_url,
+       scd.uploaded_at::text,
+       scd.reviewed_at::text,
+       scd.reviewed_by_admin_id::text,
+       scd.rejection_reason,
+       scd.notes,
+       scd.created_at::text,
+       scd.updated_at::text,
+       cdl.code,
+       cdl.name,
+       cdl.description,
+       cdl.source_info,
+       cdl.details,
+       cdl.is_active
+     FROM seller_compliance_documents scd
+     JOIN compliance_documents_list cdl ON cdl.id = scd.document_list_id
+     WHERE scd.seller_id = $1
+     ORDER BY scd.is_required DESC, cdl.name ASC, scd.created_at ASC`,
+    [sellerId]
+  );
+}
+
+async function ensureSellerAssignments(sellerId: string) {
+  await pool.query(
+    `INSERT INTO seller_compliance_documents (seller_id, document_list_id, is_required, status, created_at, updated_at)
+     SELECT $1, cdl.id, TRUE, 'requested', now(), now()
+     FROM compliance_documents_list cdl
+     WHERE cdl.is_active = TRUE
+     ON CONFLICT (seller_id, document_list_id) DO NOTHING`,
+    [sellerId]
+  );
+}
 
 sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
   const role = resolveActorRole(req);
@@ -41,35 +197,22 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
   }
 
-  const profile = await pool.query(
-    `SELECT seller_id, country_code, status, submitted_at, approved_at, rejected_at, review_notes, updated_at
-     FROM seller_compliance_profiles
-     WHERE seller_id = $1`,
-    [req.auth!.userId]
-  );
-  if ((profile.rowCount ?? 0) === 0) {
-    return res.json({
-      data: {
-        sellerId: req.auth!.userId,
-        status: "not_started",
-        countryCode: null,
-        checks: [],
-      },
-    });
-  }
-
-  const checks = await pool.query(
-    `SELECT check_code, required, status, value_json
-     FROM seller_compliance_checks
-     WHERE seller_id = $1
-     ORDER BY check_code`,
-    [req.auth!.userId]
-  );
-
+  await ensureSellerAssignments(req.auth!.userId);
+  const docs = await getSellerDocuments(pool, req.auth!.userId);
+  const profile = computeSellerComplianceProfile(docs.rows);
   return res.json({
     data: {
-      profile: profile.rows[0],
-      checks: checks.rows,
+      profile: {
+        seller_id: req.auth!.userId,
+        status: profile.status,
+        required_count: profile.requiredCount,
+        approved_required_count: profile.approvedRequiredCount,
+        uploaded_required_count: profile.uploadedRequiredCount,
+        requested_required_count: profile.requestedRequiredCount,
+        rejected_required_count: profile.rejectedRequiredCount,
+        updated_at: profile.updatedAt,
+      },
+      documents: docs.rows,
     },
   });
 });
@@ -79,50 +222,12 @@ sellerComplianceRouter.put("/profile", requireAuth("app"), async (req, res) => {
   if (role !== "seller") {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
   }
-
-  const parsed = SellerProfileSchema.safeParse(req.body);
+  const parsed = SellerProfileSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
-  const input = parsed.data;
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(
-      `INSERT INTO seller_compliance_profiles (seller_id, country_code, status, updated_at)
-       VALUES ($1, $2, 'in_progress', now())
-       ON CONFLICT (seller_id)
-       DO UPDATE SET country_code = EXCLUDED.country_code, status = CASE
-         WHEN seller_compliance_profiles.status IN ('approved', 'under_review', 'submitted') THEN seller_compliance_profiles.status
-         ELSE 'in_progress'
-       END, updated_at = now()`,
-      [req.auth!.userId, input.countryCode]
-    );
-
-    for (const check of input.checks ?? []) {
-      await client.query(
-        `INSERT INTO seller_compliance_checks (seller_id, check_code, required, value_json, status, updated_at)
-         VALUES ($1, $2, $3, $4, $5, now())
-         ON CONFLICT (seller_id, check_code)
-         DO UPDATE SET required = EXCLUDED.required, value_json = EXCLUDED.value_json, status = EXCLUDED.status, updated_at = now()`,
-        [req.auth!.userId, check.checkCode, check.required, check.value ? JSON.stringify(check.value) : null, check.status]
-      );
-    }
-
-    await client.query(
-      `INSERT INTO seller_compliance_events (seller_id, actor_admin_id, event_type, payload_json)
-       VALUES ($1, NULL, 'seller_profile_updated', $2)`,
-      [req.auth!.userId, JSON.stringify({ countryCode: input.countryCode, checks: (input.checks ?? []).length })]
-    );
-    await client.query("COMMIT");
-    return res.json({ data: { success: true } });
-  } catch {
-    await client.query("ROLLBACK");
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance profile update failed" } });
-  } finally {
-    client.release();
-  }
+  await ensureSellerAssignments(req.auth!.userId);
+  return res.json({ data: { success: true } });
 });
 
 sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) => {
@@ -136,43 +241,44 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
   }
   const input = parsed.data;
 
-  await pool.query(
-    `INSERT INTO seller_compliance_profiles (seller_id, country_code, status, updated_at)
-     VALUES (
-       $1,
-       COALESCE((SELECT NULLIF(upper(country_code), '') FROM users WHERE id = $1), 'TR'),
-       'in_progress',
-       now()
+  const docType = await pool.query<{ id: string }>(
+    "SELECT id::text FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
+    [input.docType]
+  );
+  if ((docType.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
+  }
+
+  const row = await pool.query<{ id: string }>(
+    `INSERT INTO seller_compliance_documents (
+       seller_id,
+       document_list_id,
+       is_required,
+       status,
+       file_url,
+       uploaded_at,
+       reviewed_at,
+       reviewed_by_admin_id,
+       rejection_reason,
+       notes,
+       updated_at
      )
-     ON CONFLICT (seller_id)
-     DO UPDATE SET updated_at = now()`,
-    [req.auth!.userId]
-  );
-
-  const doc = await pool.query<{ id: string }>(
-    `INSERT INTO seller_compliance_documents (seller_id, doc_type, file_url, metadata_json, status, uploaded_at)
-     VALUES ($1, $2, $3, $4, 'pending', now())
-     RETURNING id`,
-    [req.auth!.userId, input.docType, input.fileUrl, input.metadata ? JSON.stringify(input.metadata) : null]
-  );
-
-  await pool.query(
-    `INSERT INTO seller_compliance_profile_documents (seller_id, doc_type, latest_document_id, status, required, updated_at)
-     VALUES ($1, $2, $3, 'pending', true, now())
-     ON CONFLICT (seller_id, doc_type)
+     VALUES ($1, $2, TRUE, 'uploaded', $3, now(), NULL, NULL, NULL, $4, now())
+     ON CONFLICT (seller_id, document_list_id)
      DO UPDATE SET
-       latest_document_id = EXCLUDED.latest_document_id,
-       status = EXCLUDED.status,
-       updated_at = now()`,
-    [req.auth!.userId, input.docType, doc.rows[0].id]
+       status = 'uploaded',
+       file_url = EXCLUDED.file_url,
+       uploaded_at = now(),
+       reviewed_at = NULL,
+       reviewed_by_admin_id = NULL,
+       rejection_reason = NULL,
+       notes = EXCLUDED.notes,
+       updated_at = now()
+     RETURNING id::text`,
+    [req.auth!.userId, docType.rows[0].id, input.fileUrl, input.notes ?? null]
   );
 
-  await pool.query(
-    `INSERT INTO seller_compliance_events (seller_id, actor_admin_id, event_type, payload_json)
-     VALUES ($1, NULL, 'document_uploaded', $2)`,
-    [req.auth!.userId, JSON.stringify({ documentId: doc.rows[0].id, docType: input.docType })]
-  );
-  return res.status(201).json({ data: { documentId: doc.rows[0].id } });
+  return res.status(201).json({ data: { documentId: row.rows[0].id } });
 });
 
 sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) => {
@@ -180,13 +286,8 @@ sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) =>
   if (role !== "seller") {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
   }
-  const docs = await pool.query(
-    `SELECT id, doc_type, file_url, status, rejection_reason, uploaded_at, reviewed_at
-     FROM seller_compliance_documents
-     WHERE seller_id = $1
-     ORDER BY uploaded_at DESC`,
-    [req.auth!.userId]
-  );
+  await ensureSellerAssignments(req.auth!.userId);
+  const docs = await getSellerDocuments(pool, req.auth!.userId);
   return res.json({ data: docs.rows });
 });
 
@@ -200,41 +301,25 @@ sellerComplianceRouter.delete("/documents/:documentId", requireAuth("app"), asyn
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const target = await client.query<{ id: string; doc_type: string }>(
-      `SELECT id, doc_type
-       FROM seller_compliance_documents
-       WHERE id = $1 AND seller_id = $2
-       FOR UPDATE`,
-      [params.data.documentId, req.auth!.userId]
-    );
-    if ((target.rowCount ?? 0) === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: { code: "DOCUMENT_NOT_FOUND", message: "Document not found" } });
-    }
-
-    const docType = target.rows[0].doc_type;
-    await client.query("DELETE FROM seller_compliance_documents WHERE id = $1", [params.data.documentId]);
-    await client.query(
-      `DELETE FROM seller_compliance_profile_documents
-       WHERE seller_id = $1 AND doc_type = $2`,
-      [req.auth!.userId, docType]
-    );
-    await client.query(
-      `INSERT INTO seller_compliance_events (seller_id, actor_admin_id, event_type, payload_json)
-       VALUES ($1, NULL, 'document_deleted', $2)`,
-      [req.auth!.userId, JSON.stringify({ documentId: params.data.documentId, docType })]
-    );
-    await client.query("COMMIT");
-    return res.json({ data: { deleted: true, documentId: params.data.documentId, docType } });
-  } catch {
-    await client.query("ROLLBACK");
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document delete failed" } });
-  } finally {
-    client.release();
+  const updated = await pool.query<{ id: string }>(
+    `UPDATE seller_compliance_documents
+     SET
+       status = 'requested',
+       file_url = NULL,
+       uploaded_at = NULL,
+       reviewed_at = NULL,
+       reviewed_by_admin_id = NULL,
+       rejection_reason = NULL,
+       updated_at = now()
+     WHERE id = $1
+       AND seller_id = $2
+     RETURNING id::text`,
+    [params.data.documentId, req.auth!.userId]
+  );
+  if ((updated.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "DOCUMENT_NOT_FOUND", message: "Document not found" } });
   }
+  return res.json({ data: { deleted: true, documentId: updated.rows[0].id } });
 });
 
 sellerComplianceRouter.post("/submit", requireAuth("app"), async (req, res) => {
@@ -242,72 +327,34 @@ sellerComplianceRouter.post("/submit", requireAuth("app"), async (req, res) => {
   if (role !== "seller") {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
   }
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const profile = await client.query<{ country_code: string }>(
-      "SELECT country_code FROM seller_compliance_profiles WHERE seller_id = $1 FOR UPDATE",
-      [req.auth!.userId]
-    );
-    if ((profile.rowCount ?? 0) === 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: { code: "COMPLIANCE_PROFILE_REQUIRED", message: "Profile required before submit" } });
-    }
-
-    const checksAgg = await client.query<{ required_count: string; verified_required_count: string }>(
-      `SELECT
-        count(*) FILTER (WHERE required = TRUE)::text AS required_count,
-        count(*) FILTER (WHERE required = TRUE AND status = 'verified')::text AS verified_required_count
-       FROM seller_compliance_checks
-       WHERE seller_id = $1`,
-      [req.auth!.userId]
-    );
-    const requiredCount = Number(checksAgg.rows[0].required_count);
-    const verifiedRequiredCount = Number(checksAgg.rows[0].verified_required_count);
-    if (requiredCount > 0 && verifiedRequiredCount < requiredCount) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({
-        error: {
-          code: "COMPLIANCE_REQUIRED_CHECKS_MISSING",
-          message: "All required checks must be verified before submit",
-        },
-      });
-    }
-
-    await client.query(
-      `UPDATE seller_compliance_profiles
-       SET status = 'submitted', submitted_at = now(), updated_at = now()
-       WHERE seller_id = $1`,
-      [req.auth!.userId]
-    );
-    await client.query(
-      `UPDATE seller_compliance_profiles
-       SET status = 'under_review', updated_at = now()
-       WHERE seller_id = $1`,
-      [req.auth!.userId]
-    );
-    await client.query(
-      `INSERT INTO seller_compliance_events (seller_id, actor_admin_id, event_type, payload_json)
-       VALUES ($1, NULL, 'submitted', $2)`,
-      [req.auth!.userId, JSON.stringify({ requiredCount, verifiedRequiredCount })]
-    );
-    await client.query("COMMIT");
-    return res.json({ data: { success: true, status: "under_review" } });
-  } catch {
-    await client.query("ROLLBACK");
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance submit failed" } });
-  } finally {
-    client.release();
+  await ensureSellerAssignments(req.auth!.userId);
+  const docs = await getSellerDocuments(pool, req.auth!.userId);
+  const profile = computeSellerComplianceProfile(docs.rows);
+  if (profile.requestedRequiredCount > 0 || profile.rejectedRequiredCount > 0) {
+    return res.status(409).json({
+      error: {
+        code: "COMPLIANCE_REQUIRED_DOCUMENTS_MISSING",
+        message: "All required documents must be uploaded and not rejected before submit",
+      },
+    });
   }
+  return res.json({ data: { success: true, status: profile.status } });
 });
 
 adminComplianceRouter.get("/queue", requireAuth("admin"), async (_req, res) => {
-  const queue = await pool.query(
-    `SELECT seller_id, country_code, status, submitted_at, updated_at
-     FROM seller_compliance_profiles
-     WHERE status IN ('submitted', 'under_review')
-     ORDER BY submitted_at NULLS LAST, updated_at DESC`
+  const queue = await pool.query<{
+    seller_id: string;
+    uploaded_required_count: string;
+    updated_at: string;
+  }>(
+    `SELECT
+       scd.seller_id::text,
+       count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'uploaded')::text AS uploaded_required_count,
+       max(scd.updated_at)::text AS updated_at
+     FROM seller_compliance_documents scd
+     GROUP BY scd.seller_id
+     HAVING count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'uploaded') > 0
+     ORDER BY max(scd.updated_at) DESC`
   );
   return res.json({ data: queue.rows });
 });
@@ -317,57 +364,152 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
   if (!z.string().uuid().safeParse(sellerId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
   }
+  await ensureSellerAssignments(sellerId);
+  const docs = await getSellerDocuments(pool, sellerId);
+  const profile = computeSellerComplianceProfile(docs.rows);
 
-  const profile = await pool.query(
-    `SELECT seller_id, country_code, status, submitted_at, approved_at, rejected_at, review_notes, updated_at
-     FROM seller_compliance_profiles
-     WHERE seller_id = $1`,
-    [sellerId]
-  );
-  if ((profile.rowCount ?? 0) === 0) {
-    return res.status(404).json({ error: { code: "COMPLIANCE_PROFILE_NOT_FOUND", message: "Profile not found" } });
-  }
-  const checks = await pool.query(
-    "SELECT id, check_code, required, status, value_json, updated_at FROM seller_compliance_checks WHERE seller_id = $1 ORDER BY check_code",
-    [sellerId]
-  );
-  const docs = await pool.query(
-    "SELECT id, doc_type, file_url, status, rejection_reason, uploaded_at, reviewed_at FROM seller_compliance_documents WHERE seller_id = $1 ORDER BY uploaded_at DESC",
-    [sellerId]
-  );
-  const profileDocuments = await pool.query(
-    `SELECT id, seller_id, doc_type, latest_document_id, status, required, updated_at
-     FROM seller_compliance_profile_documents
-     WHERE seller_id = $1
-     ORDER BY doc_type ASC`,
-    [sellerId]
-  );
-  return res.json({ data: { profile: profile.rows[0], checks: checks.rows, documents: docs.rows, profileDocuments: profileDocuments.rows } });
+  return res.json({
+    data: {
+      profile: {
+        seller_id: sellerId,
+        status: profile.status,
+        required_count: profile.requiredCount,
+        approved_required_count: profile.approvedRequiredCount,
+        uploaded_required_count: profile.uploadedRequiredCount,
+        requested_required_count: profile.requestedRequiredCount,
+        rejected_required_count: profile.rejectedRequiredCount,
+        review_notes: null,
+        updated_at: profile.updatedAt,
+      },
+      checks: [],
+      documents: docs.rows.map((row) => ({
+        ...row,
+        doc_type: row.code,
+      })),
+      profileDocuments: docs.rows.map((row) => ({
+        id: row.id,
+        seller_id: row.seller_id,
+        doc_type: row.code,
+        latest_document_id: row.id,
+        status: row.status,
+        required: row.is_required,
+        updated_at: row.updated_at,
+      })),
+    },
+  });
 });
 
-adminComplianceRouter.post("/:sellerId/approve", requireAuth("admin"), async (req, res) => {
-  return handleAdminReviewAction(req, res, "approved");
-});
-
-adminComplianceRouter.post("/:sellerId/reject", requireAuth("admin"), async (req, res) => {
-  return handleAdminReviewAction(req, res, "rejected");
-});
-
-adminComplianceRouter.post("/:sellerId/request-changes", requireAuth("admin"), async (req, res) => {
-  return handleAdminReviewAction(req, res, "in_progress");
-});
-
-async function handleAdminReviewAction(
-  req: Request,
-  res: Response,
-  targetStatus: "approved" | "rejected" | "in_progress"
-) {
+adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("admin"), async (req, res) => {
   const sellerId = String(req.params.sellerId ?? "");
   if (!z.string().uuid().safeParse(sellerId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
   }
+  const params = ComplianceDocumentParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = UpdateDocumentStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
 
-  const parsed = ReviewSchema.safeParse(req.body ?? {});
+  const normalizedStatus = normalizeDocumentStatus(parsed.data.status);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const before = await client.query<{
+      id: string;
+      status: SellerDocumentStatus;
+      rejection_reason: string | null;
+      reviewed_by_admin_id: string | null;
+      document_list_id: string;
+      code: string;
+    }>(
+      `SELECT
+         scd.id::text,
+         scd.status,
+         scd.rejection_reason,
+         scd.reviewed_by_admin_id::text,
+         scd.document_list_id::text,
+         cdl.code
+       FROM seller_compliance_documents scd
+       JOIN compliance_documents_list cdl ON cdl.id = scd.document_list_id
+       WHERE scd.id = $1
+         AND scd.seller_id = $2
+       FOR UPDATE`,
+      [params.data.documentId, sellerId]
+    );
+    if ((before.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "DOCUMENT_NOT_FOUND", message: "Document not found" } });
+    }
+
+    const updated = await client.query<{ id: string; status: SellerDocumentStatus }>(
+      `UPDATE seller_compliance_documents
+       SET
+         status = $3,
+         rejection_reason = CASE WHEN $3 = 'rejected' THEN $4 ELSE NULL END,
+         reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
+         reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
+         notes = CASE WHEN $6::boolean THEN $7 ELSE notes END,
+         updated_at = now()
+       WHERE id = $1
+         AND seller_id = $2
+       RETURNING id::text, status`,
+      [
+        params.data.documentId,
+        sellerId,
+        normalizedStatus,
+        parsed.data.rejectionReason ?? null,
+        req.auth!.userId,
+        parsed.data.notes !== undefined,
+        parsed.data.notes ?? null,
+      ]
+    );
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "compliance_document_status_updated",
+      entityType: "seller_compliance_documents",
+      entityId: params.data.documentId,
+      before: {
+        status: before.rows[0].status,
+        rejectionReason: before.rows[0].rejection_reason,
+      },
+      after: {
+        status: updated.rows[0].status,
+        rejectionReason: normalizedStatus === "rejected" ? parsed.data.rejectionReason ?? null : null,
+        sellerId,
+        docType: before.rows[0].code,
+      },
+    });
+
+    await client.query("COMMIT");
+    return res.json({
+      data: {
+        sellerId,
+        documentId: updated.rows[0].id,
+        status: updated.rows[0].status,
+      },
+    });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance document update failed" } });
+  } finally {
+    client.release();
+  }
+});
+
+adminComplianceRouter.patch("/:sellerId/doc-types/:docType", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const docType = String(req.params.docType ?? "").trim();
+  if (docType.length < 2) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid docType" } });
+  }
+  const parsed = UpdateDocTypeSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
@@ -375,61 +517,135 @@ async function handleAdminReviewAction(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const profile = await client.query<{ status: string; country_code: string }>(
-      "SELECT status, country_code FROM seller_compliance_profiles WHERE seller_id = $1 FOR UPDATE",
-      [sellerId]
+    const list = await client.query<{ id: string }>(
+      "SELECT id::text FROM compliance_documents_list WHERE code = $1 FOR UPDATE",
+      [docType]
     );
-    if ((profile.rowCount ?? 0) === 0) {
+    if ((list.rowCount ?? 0) === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: { code: "COMPLIANCE_PROFILE_NOT_FOUND", message: "Profile not found" } });
+      return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
     }
 
-    await client.query(
-      `UPDATE seller_compliance_profiles
-       SET status = $1,
-           approved_at = CASE WHEN $1 = 'approved' THEN now() ELSE approved_at END,
-           rejected_at = CASE WHEN $1 = 'rejected' THEN now() ELSE rejected_at END,
-           reviewed_by_admin_id = $2,
-           review_notes = $3,
-           updated_at = now()
-       WHERE seller_id = $4`,
-      [targetStatus, req.auth!.userId, parsed.data.reviewNotes ?? null, sellerId]
+    const before = await client.query<{ is_required: boolean }>(
+      `SELECT is_required
+       FROM seller_compliance_documents
+       WHERE seller_id = $1
+         AND document_list_id = $2`,
+      [sellerId, list.rows[0].id]
     );
-    await client.query(
-      `INSERT INTO seller_compliance_events (seller_id, actor_admin_id, event_type, payload_json)
-       VALUES ($1, $2, $3, $4)`,
-      [sellerId, req.auth!.userId, `admin_${targetStatus}`, JSON.stringify({ reviewNotes: parsed.data.reviewNotes ?? null })]
+
+    const upserted = await client.query<{ id: string; is_required: boolean }>(
+      `INSERT INTO seller_compliance_documents (
+         seller_id,
+         document_list_id,
+         is_required,
+         status,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, 'requested', now(), now())
+       ON CONFLICT (seller_id, document_list_id)
+       DO UPDATE SET
+         is_required = EXCLUDED.is_required,
+         updated_at = now()
+       RETURNING id::text, is_required`,
+      [sellerId, list.rows[0].id, parsed.data.required]
     );
-    await enqueueOutboxEvent(client, {
-      eventType: "compliance_status_changed",
-      aggregateType: "seller_compliance_profiles",
-      aggregateId: sellerId,
-      payload: { sellerId, status: targetStatus, reviewedBy: req.auth!.userId },
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "compliance_document_requirement_updated",
+      entityType: "seller_compliance_documents",
+      entityId: upserted.rows[0].id,
+      before: { required: before.rows[0]?.is_required ?? null, docType, sellerId },
+      after: { required: upserted.rows[0].is_required, docType, sellerId },
     });
 
-    const adminUser = await client.query<{ email: string; role: string }>("SELECT email, role FROM admin_users WHERE id = $1", [
-      req.auth!.userId,
-    ]);
-    await client.query(
-      `INSERT INTO admin_audit_logs (actor_admin_id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
-       VALUES ($1, $2, $3, $4, 'seller_compliance_profiles', $5, $6, $7)`,
-      [
-        req.auth!.userId,
-        adminUser.rows[0]?.email ?? "unknown",
-        adminUser.rows[0]?.role ?? "admin",
-        `compliance_${targetStatus}`,
-        sellerId,
-        JSON.stringify({ status: profile.rows[0].status }),
-        JSON.stringify({ status: targetStatus }),
-      ]
-    );
-
     await client.query("COMMIT");
-    return res.json({ data: { sellerId, status: targetStatus } });
+    return res.json({
+      data: {
+        sellerId,
+        docType,
+        required: upserted.rows[0].is_required,
+      },
+    });
   } catch {
     await client.query("ROLLBACK");
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance review failed" } });
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document requirement update failed" } });
   } finally {
     client.release();
   }
-}
+});
+
+adminComplianceRouter.post("/:sellerId/approve", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const parsed = ReviewSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const result = await pool.query(
+    `UPDATE seller_compliance_documents
+     SET status = 'approved',
+         rejection_reason = NULL,
+         reviewed_at = now(),
+         reviewed_by_admin_id = $2,
+         notes = COALESCE($3, notes),
+         updated_at = now()
+     WHERE seller_id = $1
+       AND is_required = TRUE
+       AND status IN ('uploaded', 'requested', 'rejected')`,
+    [sellerId, req.auth!.userId, parsed.data.reviewNotes ?? null]
+  );
+  return res.json({ data: { sellerId, updatedCount: result.rowCount ?? 0, status: "approved" } });
+});
+
+adminComplianceRouter.post("/:sellerId/reject", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const parsed = ReviewSchema.safeParse(req.body ?? {});
+  if (!parsed.success || !parsed.data.reviewNotes) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "reviewNotes is required" } });
+  }
+  const result = await pool.query(
+    `UPDATE seller_compliance_documents
+     SET status = 'rejected',
+         rejection_reason = $3,
+         reviewed_at = now(),
+         reviewed_by_admin_id = $2,
+         updated_at = now()
+     WHERE seller_id = $1
+       AND is_required = TRUE
+       AND status IN ('uploaded', 'requested', 'approved')`,
+    [sellerId, req.auth!.userId, parsed.data.reviewNotes]
+  );
+  return res.json({ data: { sellerId, updatedCount: result.rowCount ?? 0, status: "rejected" } });
+});
+
+adminComplianceRouter.post("/:sellerId/request-changes", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const parsed = ReviewSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const result = await pool.query(
+    `UPDATE seller_compliance_documents
+     SET status = 'requested',
+         notes = COALESCE($3, notes),
+         rejection_reason = NULL,
+         reviewed_at = NULL,
+         reviewed_by_admin_id = NULL,
+         updated_at = now()
+     WHERE seller_id = $1
+       AND is_required = TRUE`,
+    [sellerId, req.auth!.userId, parsed.data.reviewNotes ?? null]
+  );
+  return res.json({ data: { sellerId, updatedCount: result.rowCount ?? 0, status: "in_progress" } });
+});

@@ -21,8 +21,13 @@ adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_re
     ),
     pool.query<{ compliance_queue_count: string }>(
       `SELECT count(*)::text AS compliance_queue_count
-       FROM seller_compliance_profiles
-       WHERE status IN ('submitted', 'under_review')`
+       FROM (
+         SELECT seller_id
+         FROM seller_compliance_documents
+         WHERE is_required = TRUE
+           AND status = 'uploaded'
+         GROUP BY seller_id
+       ) q`
     ),
     pool.query<{ open_dispute_count: string }>(
       `SELECT count(*)::text AS open_dispute_count

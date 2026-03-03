@@ -50,7 +50,8 @@
     "paginationSummary": "Total: {total} | Page {page} / {totalPages}",
     "saved": "Saved",
     "yes": "yes",
-    "no": "no"
+    "no": "no",
+    "cancel": "Cancel"
   },
   "auth": {
     "title": "Coziyoo Admin Control",
@@ -277,6 +278,22 @@
       "phoneVerification": "Phone Verification",
       "workplaceInsurance": "Workplace Insurance"
     },
+    "legalDocumentTypesTitle": "Document Types",
+    "legalDocumentHistoryTitle": "Document History / Single Files",
+    "legalDocType": "Document Type",
+    "legalRequired": "Required",
+    "legalStatus": "Status",
+    "legalUploadedAt": "Uploaded At",
+    "legalReviewedAt": "Reviewed At",
+    "legalRejectionReason": "Rejection Reason",
+    "legalFile": "File",
+    "legalOpenFile": "Open File",
+    "legalActions": "Actions",
+    "legalApprove": "Approve",
+    "legalReject": "Reject",
+    "legalPend": "Pend",
+    "legalRejectModalTitle": "Reject Reason",
+    "legalUpdateFailed": "Legal document update failed",
     "foodRetentionTitle": "Food Content Retention",
     "foodRetentionHint": "Food contents are retained for 2 years due to legal requirements.",
     "totalFoods": "Total Foods",
@@ -303,6 +320,8 @@
       "rejected": "Rejected",
       "suspended": "Suspended",
       "pending": "Pending",
+      "requested": "Requested",
+      "uploaded": "Uploaded",
       "verified": "Approved",
       "validated": "Validated"
     },
