@@ -42,8 +42,11 @@ jobs:
           set -euo pipefail
           mkdir -p "${HOME}/.ssh"
           chmod 700 "${HOME}/.ssh"
-          printf "%s\n" "${DEPLOY_SSH_KEY}" > "${HOME}/.ssh/id_ed25519"
+          printf "%s" "${DEPLOY_SSH_KEY}" | sed 's/[[:space:]]*$//' > "${HOME}/.ssh/id_ed25519"
+          echo "" >> "${HOME}/.ssh/id_ed25519"
           chmod 600 "${HOME}/.ssh/id_ed25519"
+          ssh-keygen -y -f "${HOME}/.ssh/id_ed25519" > /dev/null \
+            || { echo "Invalid DEPLOY_SSH_KEY private key" >&2; exit 1; }
 
       - name: Trust target host keys
         run: |
@@ -85,8 +88,18 @@ jobs:
               exit 1
             fi
 
-            ssh-keyscan -p "${PORT}" -H "${HOST}" >> "${HOME}/.ssh/known_hosts"
+            for attempt in 1 2 3; do
+              if ssh-keyscan -p "${PORT}" -T 15 -H "${HOST}" >> "${HOME}/.ssh/known_hosts" 2>/dev/null; then
+                break
+              fi
+              if [[ "${attempt}" -eq 3 ]]; then
+                echo "ssh-keyscan failed for ${HOST}:${PORT}" >&2
+                exit 1
+              fi
+              sleep 5
+            done
           done <<< "${DEPLOY_TARGETS}"
+          sort -u "${HOME}/.ssh/known_hosts" -o "${HOME}/.ssh/known_hosts"
 
       - name: Deploy
         run: |
