@@ -4469,6 +4469,7 @@ type ComplianceDocumentListRow = {
   source_info: string | null;
   details: string | null;
   is_active: boolean;
+  is_required_default: boolean;
   seller_assignment_count: string;
   created_at: string;
   updated_at: string;
@@ -4632,11 +4633,13 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
   const [createSourceInfo, setCreateSourceInfo] = useState("");
   const [createDetails, setCreateDetails] = useState("");
   const [createIsActive, setCreateIsActive] = useState(true);
+  const [createIsRequiredDefault, setCreateIsRequiredDefault] = useState(true);
   const [editingRow, setEditingRow] = useState<ComplianceDocumentListRow | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editSourceInfo, setEditSourceInfo] = useState("");
   const [editDetails, setEditDetails] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
+  const [editIsRequiredDefault, setEditIsRequiredDefault] = useState(true);
 
   async function loadRows() {
     setLoading(true);
@@ -4666,6 +4669,7 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
     setCreateSourceInfo("");
     setCreateDetails("");
     setCreateIsActive(true);
+    setCreateIsRequiredDefault(true);
   }
 
   function closeEditModal() {
@@ -4675,6 +4679,7 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
     setEditSourceInfo("");
     setEditDetails("");
     setEditIsActive(true);
+    setEditIsRequiredDefault(true);
   }
 
   async function submitCreateForm(event: FormEvent<HTMLFormElement>) {
@@ -4695,6 +4700,7 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
         sourceInfo: createSourceInfo.trim() || null,
         details: createDetails.trim() || null,
         isActive: createIsActive,
+        isRequiredDefault: createIsRequiredDefault,
       };
       const response = await request("/v1/admin/compliance/document-list", {
         method: "POST",
@@ -4729,6 +4735,7 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
           sourceInfo: editSourceInfo.trim() || null,
           details: editDetails.trim() || null,
           isActive: editIsActive,
+          isRequiredDefault: editIsRequiredDefault,
         }),
       });
       const body = await parseJson<ApiError>(response);
@@ -4782,6 +4789,30 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
     setEditSourceInfo(row.source_info ?? "");
     setEditDetails(row.details ?? "");
     setEditIsActive(row.is_active);
+    setEditIsRequiredDefault(row.is_required_default);
+  }
+
+  async function toggleRequiredDefault(row: ComplianceDocumentListRow) {
+    if (!isSuperAdmin || saving) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/compliance/document-list/${row.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isRequiredDefault: !row.is_required_default }),
+      });
+      const body = await parseJson<ApiError>(response);
+      if (response.status !== 200) {
+        setMessage(body.error?.message ?? dict.complianceDocuments.saveFailed);
+        return;
+      }
+      await loadRows();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.complianceDocuments.requestFailed);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -4827,6 +4858,17 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
               <option value="false">{dict.common.disabled}</option>
             </select>
           </label>
+          <label>
+            {dict.complianceDocuments.requiredDefault}
+            <select
+              value={createIsRequiredDefault ? "true" : "false"}
+              onChange={(event) => setCreateIsRequiredDefault(event.target.value === "true")}
+              disabled={!isSuperAdmin || saving}
+            >
+              <option value="true">{dict.common.yes}</option>
+              <option value="false">{dict.common.no}</option>
+            </select>
+          </label>
           <div className="topbar-actions">
             <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>{dict.actions.create}</button>
             <button className="ghost" type="button" disabled={saving} onClick={() => resetCreateForm()}>
@@ -4857,6 +4899,7 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
                 <th>{dict.complianceDocuments.sourceInfo}</th>
                 <th>{dict.complianceDocuments.details}</th>
                 <th>{dict.complianceDocuments.active}</th>
+                <th>{dict.complianceDocuments.requiredDefault}</th>
                 <th>{dict.complianceDocuments.assignedCount}</th>
                 <th>{dict.complianceDocuments.updatedAt}</th>
                 <th>{dict.users.actions}</th>
@@ -4865,11 +4908,11 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9}>{dict.common.loading}</td>
+                  <td colSpan={10}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>{dict.common.noRecords}</td>
+                  <td colSpan={10}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
@@ -4880,6 +4923,11 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
                     <td>{row.source_info ?? "-"}</td>
                     <td>{row.details ?? "-"}</td>
                     <td>{row.is_active ? dict.common.active : dict.common.disabled}</td>
+                    <td>
+                      <button className="ghost compliance-edit-btn" type="button" disabled={!isSuperAdmin || saving} onClick={() => void toggleRequiredDefault(row)}>
+                        {row.is_required_default ? dict.complianceDocuments.requiredYes : dict.complianceDocuments.requiredNo}
+                      </button>
+                    </td>
                     <td>{row.seller_assignment_count}</td>
                     <td>{formatUiDate(row.updated_at, language)}</td>
                     <td>
@@ -4930,6 +4978,13 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
                 <select value={editIsActive ? "true" : "false"} onChange={(event) => setEditIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
                   <option value="true">{dict.common.active}</option>
                   <option value="false">{dict.common.disabled}</option>
+                </select>
+              </label>
+              <label>
+                {dict.complianceDocuments.requiredDefault}
+                <select value={editIsRequiredDefault ? "true" : "false"} onChange={(event) => setEditIsRequiredDefault(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
+                  <option value="true">{dict.common.yes}</option>
+                  <option value="false">{dict.common.no}</option>
                 </select>
               </label>
               <div className="buyer-ops-modal-actions">

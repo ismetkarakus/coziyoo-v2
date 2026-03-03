@@ -330,6 +330,7 @@ CREATE TABLE compliance_documents_list (
   source_info TEXT,
   details TEXT,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  is_required_default BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -371,7 +372,7 @@ BEGIN
     SELECT
       NEW.id,
       cdl.id,
-      TRUE,
+      cdl.is_required_default,
       'requested',
       now(),
       now()

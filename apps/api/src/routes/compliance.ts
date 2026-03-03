@@ -55,6 +55,7 @@ const ComplianceDocumentListCreateSchema = z.object({
   sourceInfo: z.string().trim().max(1000).nullable().optional(),
   details: z.string().trim().max(4000).nullable().optional(),
   isActive: z.boolean().optional(),
+  isRequiredDefault: z.boolean().optional(),
 });
 
 const ComplianceDocumentListUpdateSchema = z
@@ -65,6 +66,7 @@ const ComplianceDocumentListUpdateSchema = z
     sourceInfo: z.string().trim().max(1000).nullable().optional(),
     details: z.string().trim().max(4000).nullable().optional(),
     isActive: z.boolean().optional(),
+    isRequiredDefault: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -73,7 +75,8 @@ const ComplianceDocumentListUpdateSchema = z
       value.description === undefined &&
       value.sourceInfo === undefined &&
       value.details === undefined &&
-      value.isActive === undefined
+      value.isActive === undefined &&
+      value.isRequiredDefault === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -221,7 +224,7 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
 async function ensureSellerAssignments(sellerId: string) {
   await pool.query(
     `INSERT INTO seller_compliance_documents (seller_id, document_list_id, is_required, status, created_at, updated_at)
-     SELECT $1, cdl.id, TRUE, 'requested', now(), now()
+     SELECT $1, cdl.id, cdl.is_required_default, 'requested', now(), now()
      FROM compliance_documents_list cdl
      WHERE cdl.is_active = TRUE
      ON CONFLICT (seller_id, document_list_id) DO NOTHING`,
@@ -406,6 +409,7 @@ adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, r
     source_info: string | null;
     details: string | null;
     is_active: boolean;
+    is_required_default: boolean;
     seller_assignment_count: string;
     created_at: string;
     updated_at: string;
@@ -418,6 +422,7 @@ adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, r
        cdl.source_info,
        cdl.details,
        cdl.is_active,
+       cdl.is_required_default,
        count(scd.id)::text AS seller_assignment_count,
        cdl.created_at::text,
        cdl.updated_at::text
@@ -447,6 +452,7 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
       source_info: string | null;
       details: string | null;
       is_active: boolean;
+      is_required_default: boolean;
       created_at: string;
       updated_at: string;
     }>(
@@ -457,10 +463,11 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
          source_info,
          details,
          is_active,
+         is_required_default,
          created_at,
          updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
        RETURNING
          id::text,
          code,
@@ -469,9 +476,10 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
          source_info,
          details,
          is_active,
+         is_required_default,
          created_at::text,
          updated_at::text`,
-      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.isActive ?? true]
+      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.isActive ?? true, input.isRequiredDefault ?? true]
     );
 
     await client.query(
@@ -486,14 +494,14 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
        SELECT
          u.id,
          $1,
-         TRUE,
+         $2,
          'requested',
          now(),
          now()
        FROM users u
        WHERE u.user_type IN ('seller', 'both')
        ON CONFLICT (seller_id, document_list_id) DO NOTHING`,
-      [inserted.rows[0].id]
+      [inserted.rows[0].id, inserted.rows[0].is_required_default]
     );
 
     await writeAdminAudit(client, {
@@ -540,6 +548,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       source_info: string | null;
       details: string | null;
       is_active: boolean;
+      is_required_default: boolean;
     }>(
       `SELECT
          id::text,
@@ -548,7 +557,8 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description,
          source_info,
          details,
-         is_active
+         is_active,
+         is_required_default
        FROM compliance_documents_list
        WHERE id = $1
        FOR UPDATE`,
@@ -567,6 +577,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       source_info: string | null;
       details: string | null;
       is_active: boolean;
+      is_required_default: boolean;
       created_at: string;
       updated_at: string;
     }>(
@@ -578,6 +589,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          source_info = CASE WHEN $6::boolean THEN $7 ELSE source_info END,
          details = CASE WHEN $8::boolean THEN $9 ELSE details END,
          is_active = COALESCE($10, is_active),
+         is_required_default = COALESCE($11, is_required_default),
          updated_at = now()
        WHERE id = $1
        RETURNING
@@ -588,6 +600,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          source_info,
          details,
          is_active,
+         is_required_default,
          created_at::text,
          updated_at::text`,
       [
@@ -601,8 +614,19 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
         input.details !== undefined,
         input.details ?? null,
         input.isActive ?? null,
+        input.isRequiredDefault ?? null,
       ]
     );
+
+    if (input.isRequiredDefault !== undefined) {
+      await client.query(
+        `UPDATE seller_compliance_documents
+         SET is_required = $2,
+             updated_at = now()
+         WHERE document_list_id = $1`,
+        [params.data.documentListId, input.isRequiredDefault]
+      );
+    }
 
     await writeAdminAudit(client, {
       actorAdminId: req.auth!.userId,
@@ -647,6 +671,14 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
        FOR UPDATE`,
       [params.data.documentListId]
     );
+
+    await client.query(
+      `UPDATE seller_compliance_documents
+       SET is_required = FALSE,
+           updated_at = now()
+       WHERE document_list_id = $1`,
+      [params.data.documentListId]
+    );
     if ((before.rowCount ?? 0) === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
@@ -657,13 +689,15 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
       code: string;
       name: string;
       is_active: boolean;
+      is_required_default: boolean;
       updated_at: string;
     }>(
       `UPDATE compliance_documents_list
        SET is_active = FALSE,
+           is_required_default = FALSE,
            updated_at = now()
        WHERE id = $1
-       RETURNING id::text, code, name, is_active, updated_at::text`,
+       RETURNING id::text, code, name, is_active, is_required_default, updated_at::text`,
       [params.data.documentListId]
     );
 
