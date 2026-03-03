@@ -147,12 +147,13 @@ CREATE INDEX idx_orders_created ON orders(created_at);
 CREATE TABLE order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  food_id UUID NOT NULL REFERENCES foods(id) ON DELETE RESTRICT,
+  lot_id UUID,
+  food_id UUID NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   unit_price NUMERIC(12,2) NOT NULL,
   line_total NUMERIC(12,2) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (order_id, food_id)
+  UNIQUE (order_id, lot_id)
 );
 
 CREATE TABLE order_events (
@@ -311,6 +312,10 @@ CREATE TABLE order_item_lot_allocations (
   quantity_allocated INTEGER NOT NULL CHECK (quantity_allocated > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE order_items
+ADD CONSTRAINT order_items_lot_id_fkey
+FOREIGN KEY (lot_id) REFERENCES production_lots(id) ON DELETE RESTRICT;
 
 CREATE TABLE lot_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -20,7 +20,7 @@ const CreateOrderSchema = z.object({
   deliveryType: z.enum(["pickup", "delivery"]),
   deliveryAddress: z.record(z.string(), z.unknown()).optional(),
   requestedAt: z.string().datetime().optional(),
-  items: z.array(z.object({ foodId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
+  items: z.array(z.object({ lotId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
 });
 
 const ListOrdersQuerySchema = z.object({
@@ -81,30 +81,78 @@ ordersRouter.post(
   try {
     await client.query("BEGIN");
 
-    const foods = await client.query<{ id: string; seller_id: string; price: string; is_active: boolean }>(
-      "SELECT id, seller_id, price::text, is_active FROM foods WHERE id = ANY($1::uuid[])",
-      [input.items.map((item) => item.foodId)]
-    );
-
-    if (foods.rowCount !== input.items.length) {
+    const uniqueLotIds = new Set(input.items.map((item) => item.lotId));
+    if (uniqueLotIds.size !== input.items.length) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: { code: "FOOD_NOT_FOUND", message: "One or more foods do not exist" } });
+      return res.status(400).json({ error: { code: "ORDER_DUPLICATE_LOTS", message: "Each lot can be used only once per order" } });
     }
 
-    const foodsMap = new Map(foods.rows.map((f) => [f.id, f]));
+    const lots = await client.query<{
+      lot_id: string;
+      food_id: string;
+      seller_id: string;
+      quantity_available: number;
+      status: string;
+      sale_starts_at: string;
+      sale_ends_at: string;
+      price: string;
+      food_is_active: boolean;
+    }>(
+      `SELECT l.id AS lot_id,
+              l.food_id,
+              l.seller_id,
+              l.quantity_available,
+              l.status,
+              l.sale_starts_at::text,
+              l.sale_ends_at::text,
+              f.price::text AS price,
+              f.is_active AS food_is_active
+       FROM production_lots l
+       LEFT JOIN foods f ON f.id = l.food_id
+       WHERE l.id = ANY($1::uuid[])`,
+      [input.items.map((item) => item.lotId)]
+    );
+
+    if (lots.rowCount !== input.items.length) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: { code: "LOT_NOT_FOUND", message: "One or more lots do not exist" } });
+    }
+
+    const lotsMap = new Map(lots.rows.map((lot) => [lot.lot_id, lot]));
+    const now = Date.now();
     for (const item of input.items) {
-      const food = foodsMap.get(item.foodId);
-      if (!food || !food.is_active || food.seller_id !== input.sellerId) {
+      const lot = lotsMap.get(item.lotId);
+      if (!lot || lot.seller_id !== input.sellerId) {
         await client.query("ROLLBACK");
         return res.status(400).json({
-          error: { code: "ORDER_INVALID_ITEMS", message: "Foods must be active and belong to selected seller" },
+          error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
         });
+      }
+      if (lot.status !== "open") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: { code: "LOT_NOT_OPEN", message: "Lot is not open for ordering" } });
+      }
+      if (Date.parse(lot.sale_starts_at) > now || Date.parse(lot.sale_ends_at) < now) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: { code: "LOT_NOT_ON_SALE", message: "Lot is outside sale window" } });
+      }
+      if (!lot.food_is_active) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: { code: "FOOD_NOT_ACTIVE", message: "Lot food is not active" } });
+      }
+      if (Number(lot.quantity_available) < item.quantity) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: { code: "LOT_STOCK_INSUFFICIENT", message: "Not enough stock in selected lot" } });
+      }
+      if (!lot.price) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: { code: "LOT_PRICE_UNAVAILABLE", message: "Lot food price is unavailable" } });
       }
     }
 
     let total = 0;
     for (const item of input.items) {
-      const price = Number(foodsMap.get(item.foodId)!.price);
+      const price = Number(lotsMap.get(item.lotId)!.price);
       total += price * item.quantity;
     }
     total = Number(total.toFixed(2));
@@ -124,12 +172,13 @@ ordersRouter.post(
     );
 
     for (const item of input.items) {
-      const price = Number(foodsMap.get(item.foodId)!.price);
+      const lot = lotsMap.get(item.lotId)!;
+      const price = Number(lot.price);
       const lineTotal = Number((price * item.quantity).toFixed(2));
       await client.query(
-        `INSERT INTO order_items (order_id, food_id, quantity, unit_price, line_total)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [orderInsert.rows[0].id, item.foodId, item.quantity, price, lineTotal]
+        `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [orderInsert.rows[0].id, item.lotId, lot.food_id, item.quantity, price, lineTotal]
       );
     }
 

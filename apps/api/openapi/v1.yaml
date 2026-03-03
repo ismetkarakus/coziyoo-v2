@@ -209,9 +209,9 @@ paths:
                   minItems: 1
                   items:
                     type: object
-                    required: [foodId, quantity]
+                    required: [lotId, quantity]
                     properties:
-                      foodId: { type: string, format: uuid }
+                      lotId: { type: string, format: uuid }
                       quantity: { type: integer, minimum: 1 }
       responses:
         '201': { description: Order created }
