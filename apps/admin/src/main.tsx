@@ -7611,7 +7611,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [optionalRejectReason, setOptionalRejectReason] = useState("");
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
-  const [activeFoodDate, setActiveFoodDate] = useState<string | null>(null);
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
   const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
   const [expandedFoodIds, setExpandedFoodIds] = useState<Record<string, boolean>>({});
@@ -7715,7 +7714,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setProfileImageFailed(false);
     setFoodImageErrors({});
-    setActiveFoodDate(null);
     setRejectTargetId(null);
     setRejectReason("");
     setOptionalRejectTargetId(null);
@@ -7732,49 +7730,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setActiveTab(resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
   }, [location.search]);
-
-  const foodDateChips = useMemo(() => {
-    const counts = new Map<string, { count: number; latestTimestamp: number; label: string }>();
-    for (const food of foodRows) {
-      const key = foodDateKey(food.createdAt);
-      if (!key) continue;
-      const timestamp = Date.parse(String(food.createdAt ?? ""));
-      const current = counts.get(key);
-      if (current) {
-        current.count += 1;
-        if (!Number.isNaN(timestamp) && timestamp > current.latestTimestamp) {
-          current.latestTimestamp = timestamp;
-          current.label = formatUiDate(food.createdAt, language);
-        }
-        continue;
-      }
-      counts.set(key, {
-        count: 1,
-        latestTimestamp: Number.isNaN(timestamp) ? 0 : timestamp,
-        label: formatUiDate(food.createdAt, language),
-      });
-    }
-    return Array.from(counts.entries())
-      .map(([key, value]) => ({
-        key,
-        count: value.count,
-        label: value.label,
-        latestTimestamp: value.latestTimestamp,
-      }))
-      .sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-  }, [foodRows, language]);
-
-  useEffect(() => {
-    if (!activeFoodDate || activeFoodDate === "all") return;
-    if (foodDateChips.some((chip) => chip.key === activeFoodDate)) return;
-    setActiveFoodDate(null);
-  }, [activeFoodDate, foodDateChips]);
-
-  const filteredFoodRows = useMemo(() => {
-    if (!activeFoodDate) return [];
-    if (activeFoodDate === "all") return foodRows;
-    return foodRows.filter((food) => foodDateKey(food.createdAt) === activeFoodDate);
-  }, [activeFoodDate, foodRows]);
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -8344,88 +8299,60 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           {foodRows.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
           ) : (
-            <>
-              <div className="seller-food-filter-chips">
-                <button
-                  type="button"
-                  className={`chip ${activeFoodDate === "all" ? "is-active" : ""}`}
-                  onClick={() => setActiveFoodDate((prev) => (prev === "all" ? null : "all"))}
-                >
-                  {`${dict.common.all} (${foodRows.length})`}
-                </button>
-                {foodDateChips.map((chip) => (
-                  <button
-                    key={chip.key}
-                    type="button"
-                    className={`chip ${activeFoodDate === chip.key ? "is-active" : ""}`}
-                    onClick={() => setActiveFoodDate((prev) => (prev === chip.key ? null : chip.key))}
-                  >
-                    {`${chip.label} (${chip.count})`}
-                  </button>
-                ))}
-              </div>
-              {!activeFoodDate ? (
-                <p className="panel-meta">{language === "tr" ? "Listeyi açmak için bir tarih veya Tümü chip'ine tıklayın." : "Click a date or All chip to open the list."}</p>
-              ) : filteredFoodRows.length === 0 ? (
-                <p className="panel-meta">{dict.common.noRecords}</p>
-              ) : (
-                <div className="seller-food-grid">
-                  {filteredFoodRows.map((food) => {
+            <div className="table-wrap">
+              <table className="foods-lots-main-table">
+                <thead>
+                  <tr>
+                    <th>{dict.detail.foodName}</th>
+                    <th>{dict.detail.foodStatus}</th>
+                    <th>{dict.detail.foodPrice}</th>
+                    <th>{dict.detail.updatedAtLabel}</th>
+                    <th>{dict.detail.lotSummary}</th>
+                    <th>{dict.detail.lotActions}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {foodRows.map((food) => {
                     const isActiveFood = food.status === "active";
-                    const meta = foodMetadataByName(food.name);
-                    const imageUrl = resolveFoodImageUrl(food.name, food.imageUrl, meta?.imageUrl);
-                    const hasImage = Boolean(imageUrl) && !foodImageErrors[food.id];
-                    const ingredients = resolveFoodIngredients(food.ingredients, food.recipe, meta?.ingredients, language);
                     const foodLots = lotsByFoodId[food.id] ?? [];
+                    const activeLots = foodLots.filter((lot) => lot.lifecycle_status === "on_sale").length;
+                    const recalledLots = foodLots.filter((lot) => lot.lifecycle_status === "recalled").length;
                     const foodExpanded = Boolean(expandedFoodIds[food.id]);
                     return (
-                      <article key={food.id} className="seller-food-card">
-                        <div className="seller-food-image-wrap">
-                          {hasImage ? (
-                            <img
-                              className="seller-food-image"
-                              src={imageUrl ?? ""}
-                              alt={food.name}
-                              onError={() => setFoodImageErrors((prev) => ({ ...prev, [food.id]: true }))}
-                            />
-                          ) : (
-                            <div className="seller-food-image-placeholder">{food.name.slice(0, 1).toUpperCase()}</div>
-                          )}
-                        </div>
-                        <div className="seller-food-body">
-                          <div className="seller-food-title-row">
-                            <div>
-                              <h3>{food.name}</h3>
-                              <p className="seller-food-code">{food.code}</p>
-                            </div>
+                      <Fragment key={food.id}>
+                        <tr>
+                          <td>
+                            <strong>{food.name}</strong>
+                            <div className="panel-meta">{food.code}</div>
+                            <div className="panel-meta">{sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}</div>
+                          </td>
+                          <td>
                             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
                               {isActiveFood ? dict.common.active : dict.common.disabled}
                             </span>
-                          </div>
-                          <p className="seller-food-description">
-                            {sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}
-                          </p>
-                          <p className="seller-food-ingredients">
-                            {`${language === "tr" ? "İçerik" : "Ingredients"}: ${ingredients}`}
-                          </p>
-                          <div className="seller-food-meta">
-                            <span>{formatCurrency(food.price, language)}</span>
-                            <span>{`${dict.detail.updatedAtLabel}: ${formatUiDate(food.updatedAt, language)}`}</span>
-                          </div>
-                          <div className="seller-food-lot-toggle-row">
-                            <span className="panel-meta">{`${dict.detail.lotsTitle}: ${foodLots.length}`}</span>
+                          </td>
+                          <td>{formatCurrency(food.price, language)}</td>
+                          <td>{formatUiDate(food.updatedAt, language)}</td>
+                          <td>
+                            <div className="lot-summary-cell">
+                              <span>{`${dict.detail.lotsTitle}: ${foodLots.length}`}</span>
+                              <span>{`${language === "tr" ? "Satışta" : "On Sale"}: ${activeLots}`}</span>
+                              {recalledLots > 0 ? <span className="lot-summary-danger">{`${language === "tr" ? "Geri çağrılan" : "Recalled"}: ${recalledLots}`}</span> : null}
+                            </div>
+                          </td>
+                          <td>
                             <button
+                              className="ghost"
                               type="button"
-                              className="ghost seller-food-lot-toggle"
-                              onClick={() => {
-                                setExpandedFoodIds((prev) => ({ ...prev, [food.id]: !prev[food.id] }));
-                              }}
+                              onClick={() => setExpandedFoodIds((prev) => ({ ...prev, [food.id]: !prev[food.id] }))}
                             >
                               {foodExpanded ? dict.detail.hideLots : dict.detail.showLots}
                             </button>
-                          </div>
-                          {foodExpanded ? (
-                            <div className="seller-food-lots-block">
+                          </td>
+                        </tr>
+                        {foodExpanded ? (
+                          <tr className="foods-lots-expanded-row">
+                            <td colSpan={6}>
                               {lotsLoading ? (
                                 <p className="panel-meta">{dict.common.loading}</p>
                               ) : foodLots.length === 0 ? (
@@ -8484,9 +8411,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                   onClick={() => {
                                                     const next = !isLotExpanded;
                                                     setExpandedLotIds((prev) => ({ ...prev, [lot.id]: next }));
-                                                    if (next) {
-                                                      void loadLotOrders(lot.id);
-                                                    }
+                                                    if (next) void loadLotOrders(lot.id);
                                                   }}
                                                 >
                                                   {isLotExpanded ? dict.detail.hideLotOrders : dict.detail.showLotOrders}
@@ -8538,15 +8463,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   </table>
                                 </div>
                               )}
-                            </div>
-                          ) : null}
-                        </div>
-                      </article>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     );
                   })}
-                </div>
-              )}
-            </>
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       ) : null}
