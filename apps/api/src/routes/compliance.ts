@@ -227,7 +227,10 @@ async function ensureSellerAssignments(sellerId: string) {
      SELECT $1, cdl.id, cdl.is_required_default, 'requested', now(), now()
      FROM compliance_documents_list cdl
      WHERE cdl.is_active = TRUE
-     ON CONFLICT (seller_id, document_list_id) DO NOTHING`,
+     ON CONFLICT (seller_id, document_list_id)
+     DO UPDATE SET
+       is_required = EXCLUDED.is_required,
+       updated_at = now()`,
     [sellerId]
   );
 }
@@ -482,28 +485,6 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
       [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.isActive ?? true, input.isRequiredDefault ?? true]
     );
 
-    await client.query(
-      `INSERT INTO seller_compliance_documents (
-         seller_id,
-         document_list_id,
-         is_required,
-         status,
-         created_at,
-         updated_at
-       )
-       SELECT
-         u.id,
-         $1,
-         $2,
-         'requested',
-         now(),
-         now()
-       FROM users u
-       WHERE u.user_type IN ('seller', 'both')
-       ON CONFLICT (seller_id, document_list_id) DO NOTHING`,
-      [inserted.rows[0].id, inserted.rows[0].is_required_default]
-    );
-
     await writeAdminAudit(client, {
       actorAdminId: req.auth!.userId,
       action: "compliance_document_list_created",
@@ -618,16 +599,6 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       ]
     );
 
-    if (input.isRequiredDefault !== undefined) {
-      await client.query(
-        `UPDATE seller_compliance_documents
-         SET is_required = $2,
-             updated_at = now()
-         WHERE document_list_id = $1`,
-        [params.data.documentListId, input.isRequiredDefault]
-      );
-    }
-
     await writeAdminAudit(client, {
       actorAdminId: req.auth!.userId,
       action: "compliance_document_list_updated",
@@ -672,13 +643,6 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
       [params.data.documentListId]
     );
 
-    await client.query(
-      `UPDATE seller_compliance_documents
-       SET is_required = FALSE,
-           updated_at = now()
-       WHERE document_list_id = $1`,
-      [params.data.documentListId]
-    );
     if ((before.rowCount ?? 0) === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
