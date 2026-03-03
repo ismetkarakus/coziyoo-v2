@@ -354,13 +354,13 @@ a {
 .topbar-with-centered-search {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 460px) minmax(0, 1fr);
-  align-items: start;
+  align-items: center;
 }
 
 .topbar-search-center {
   width: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .topbar-search-center .users-search-wrap {
