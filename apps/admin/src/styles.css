@@ -3371,7 +3371,7 @@ textarea:focus {
 }
 
 .seller-v2-kpis {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -3389,6 +3389,22 @@ textarea:focus {
 
 .seller-v2-kpi.is-orange {
   background: radial-gradient(130% 150% at 18% 0%, rgba(153, 89, 40, 0.24), rgba(23, 27, 42, 0.24)), linear-gradient(160deg, color-mix(in srgb, #1d253e 74%, transparent), color-mix(in srgb, #121528 92%, transparent));
+}
+
+.seller-v2-kpi.is-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.seller-v2-kpi.is-clickable:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, #89a6e5 55%, var(--color-border));
+  box-shadow: 0 10px 24px rgba(8, 16, 34, 0.34);
+}
+
+.seller-v2-kpi.is-selected {
+  border-color: color-mix(in srgb, #f3b34a 58%, var(--color-border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, #f3b34a 22%, transparent);
 }
 
 .seller-v2-kpi .buyer-v2-kpi-icon {
@@ -3430,10 +3446,6 @@ textarea:focus {
 
 .seller-v2-dot.is-orange {
   background: color-mix(in srgb, #cb8445 72%, transparent);
-}
-
-.seller-v2-kpi-empty {
-  opacity: 0.4;
 }
 
 .seller-v2-smart-panel {

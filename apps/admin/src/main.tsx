@@ -1310,6 +1310,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [searchTerm, setSearchTerm] = useState("");
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
+  const [activeSellerKpiFilter, setActiveSellerKpiFilter] = useState<"active" | "disabled" | "new_today" | null>(null);
   const [buyerFilters, setBuyerFilters] = useState<{
     status: "all" | "active" | "disabled";
     complaint: "all" | "has_unresolved" | "resolved_only" | "no_complaint";
@@ -1862,6 +1863,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     let scopedRows = rows;
     if (isSellerPage) {
       scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
+      if (activeSellerKpiFilter === "new_today") {
+        scopedRows = scopedRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey);
+      }
       if (sellerStatusFilter !== "all") {
         scopedRows = scopedRows.filter((row) => row.status === sellerStatusFilter);
       }
@@ -1909,7 +1913,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [activeSellerSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter]);
+  }, [activeSellerKpiFilter, activeSellerSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter, todayKey]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -2188,6 +2192,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "complainer_sellers",
     ];
 
+    const applySellerKpiFilter = (mode: "active" | "disabled" | "new_today") => {
+      setActiveSellerSmartFilter(null);
+      setFilters((prev) => ({ ...prev, page: 1 }));
+      if (mode === "active") {
+        setSellerStatusFilter("active");
+        setActiveSellerKpiFilter("active");
+        return;
+      }
+      if (mode === "disabled") {
+        setSellerStatusFilter("disabled");
+        setActiveSellerKpiFilter("disabled");
+        return;
+      }
+      setSellerStatusFilter("all");
+      setActiveSellerKpiFilter("new_today");
+    };
+
     return (
       <div className="app buyer-v2-page seller-v2-page">
         <header className="topbar topbar-with-centered-search">
@@ -2208,7 +2229,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <article className="buyer-v2-kpi seller-v2-kpi">
             <div className="buyer-v2-kpi-icon">👥</div>
             <div>
-              <p>Toplam TR Satıcı</p>
+              <p>Toplam Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(totalTrSellers)}</strong>
               <div className="seller-v2-kpi-dots">
                 <span className="seller-v2-dot is-red" />
@@ -2219,10 +2240,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               </div>
             </div>
           </article>
-          <article className="buyer-v2-kpi seller-v2-kpi is-green">
+          <button
+            type="button"
+            className={`buyer-v2-kpi seller-v2-kpi is-green is-clickable ${activeSellerKpiFilter === "active" ? "is-selected" : ""}`}
+            onClick={() => applySellerKpiFilter("active")}
+          >
             <div className="buyer-v2-kpi-icon is-good">✓</div>
             <div>
-              <p>Aktif TR Satıcı</p>
+              <p>Aktif Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(activeTrSellers)}</strong>
               <div className="seller-v2-kpi-dots">
                 <span className="seller-v2-dot is-green" />
@@ -2231,11 +2256,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <span className="seller-v2-dot is-green" />
               </div>
             </div>
-          </article>
-          <article className="buyer-v2-kpi seller-v2-kpi is-orange">
+          </button>
+          <button
+            type="button"
+            className={`buyer-v2-kpi seller-v2-kpi is-orange is-clickable ${activeSellerKpiFilter === "disabled" ? "is-selected" : ""}`}
+            onClick={() => applySellerKpiFilter("disabled")}
+          >
             <div className="buyer-v2-kpi-icon is-warn">◔</div>
             <div>
-              <p>Pasif TR Satıcı</p>
+              <p>Pasif Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}</strong>
               <div className="seller-v2-kpi-dots">
                 <span className="seller-v2-dot is-orange" />
@@ -2244,15 +2273,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <span className="seller-v2-dot is-orange" />
               </div>
             </div>
-          </article>
-          <article className="buyer-v2-kpi seller-v2-kpi">
+          </button>
+          <button
+            type="button"
+            className={`buyer-v2-kpi seller-v2-kpi is-clickable ${activeSellerKpiFilter === "new_today" ? "is-selected" : ""}`}
+            onClick={() => applySellerKpiFilter("new_today")}
+          >
             <div className="buyer-v2-kpi-icon is-good">☀</div>
             <div>
-              <p>Bugün Yeni TR Satıcı</p>
+              <p>Bugün Yeni Satıcı</p>
               <strong>{new Intl.NumberFormat("tr-TR").format(todayTrSellers)}</strong>
             </div>
-          </article>
-          <article className="buyer-v2-kpi seller-v2-kpi-empty" aria-hidden="true" />
+          </button>
         </section>
 
         <section className="buyer-v2-main-layout">
@@ -2264,6 +2296,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 aria-pressed={sellerStatusFilter === "all" && !activeSellerSmartFilter}
                 onClick={() => {
                   setSellerStatusFilter("all");
+                  setActiveSellerKpiFilter(null);
                   setActiveSellerSmartFilter(null);
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
@@ -2278,6 +2311,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 aria-pressed={sellerStatusFilter === "active"}
                 onClick={() => {
                   setSellerStatusFilter("active");
+                  setActiveSellerKpiFilter(null);
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
@@ -2291,6 +2325,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 aria-pressed={sellerStatusFilter === "disabled"}
                 onClick={() => {
                   setSellerStatusFilter("disabled");
+                  setActiveSellerKpiFilter(null);
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
@@ -2308,6 +2343,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     className={`buyer-v2-smart-item ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
                     aria-pressed={activeSellerSmartFilter === item.key}
                     onClick={() => {
+                      setActiveSellerKpiFilter(null);
                       setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
                       setFilters((prev) => ({ ...prev, page: 1 }));
                     }}
