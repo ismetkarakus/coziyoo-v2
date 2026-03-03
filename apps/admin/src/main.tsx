@@ -1418,6 +1418,40 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const pageTitle =
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
   const pageTitleView = isSellerPage ? (language === "tr" ? "Satıcı Yönetimi (TR)" : "Seller Management (TR)") : pageTitle;
+  const unifiedSearchPlaceholder =
+    isSellerPage
+      ? language === "tr"
+        ? "Satıcı ID, e-posta, yemek no ile ara..."
+        : "Search seller ID, email, food no..."
+      : language === "tr"
+        ? "Alıcı/Satıcı ID, e-posta, yemek no ile ara..."
+        : "Search buyer/seller ID, email, food no...";
+  const renderUnifiedSearch = (compact = false) => (
+    <div className={`users-search-wrap ${compact ? "users-search-wrap--compact" : ""}`.trim()}>
+      <span className="users-search-icon" aria-hidden="true">
+        <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
+          <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
+          <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+      <input
+        className={`users-search-input ${compact ? "users-search-input--compact" : ""}`.trim()}
+        placeholder={unifiedSearchPlaceholder}
+        value={searchInput}
+        onChange={(event) => setSearchInput(event.target.value)}
+      />
+      {searchInput.trim().length > 0 ? (
+        <button
+          className="users-search-clear"
+          type="button"
+          aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+          onClick={() => setSearchInput("")}
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
   const isDrawerOpen = drawerMode !== null;
   const createTitle =
     isAppScoped
@@ -2156,8 +2190,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     return (
       <div className="app buyer-v2-page seller-v2-page">
-        <header className="buyer-v2-head">
-          <h1>{pageTitleView}</h1>
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Coziyoo v2</p>
+            <h1>{pageTitleView}</h1>
+            <p className="subtext">Satıcı, ürün ve operasyon metriklerini tek aramayla takip edin.</p>
+          </div>
+          <div className="topbar-actions">
+            {renderUnifiedSearch(true)}
+            <button className="ghost" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
+              Yenile
+            </button>
+          </div>
         </header>
 
         <section className="buyer-v2-kpis seller-v2-kpis">
@@ -2279,26 +2323,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
           <section className="panel buyer-v2-board seller-v2-board">
             <div className="seller-v2-toolbar-row">
-              <div className="users-search-wrap buyer-v2-search">
-                <span className="users-search-icon" aria-hidden="true">
-                  <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                    <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                    <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </span>
-                <input
-                  className="users-search-input"
-                  placeholder="Satıcı Ara..."
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                />
-                {searchInput.trim().length > 0 ? (
-                  <button className="users-search-clear" type="button" aria-label="Aramayı temizle" onClick={() => setSearchInput("")}>
-                    ×
-                  </button>
-                ) : null}
-              </div>
-
               <div className="seller-v2-toolbar-right">
                 <button
                   className="ghost users-sort-pill"
@@ -2472,11 +2496,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
-        <header className="buyer-v2-head">
-          <h1>Alıcı Yönetimi</h1>
-          <div className="buyer-v2-head-revenue" aria-label="Toplam Ciro">
-            <span>Toplam Ciro</span>
-            <strong>{formatTry(totalRevenue30d)}</strong>
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Coziyoo v2</p>
+            <h1>Operasyon Paneli</h1>
+            <p className="subtext">Kullanıcı, sipariş, uygunluk ve itiraz metriklerini gerçek zamanlı izleyin.</p>
+          </div>
+          <div className="topbar-actions">
+            {renderUnifiedSearch(true)}
+            <div className="buyer-v2-head-revenue" aria-label="Toplam Ciro">
+              <span>Toplam Ciro</span>
+              <strong>{formatTry(totalRevenue30d)}</strong>
+            </div>
+            <button className="ghost" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>Yenile</button>
+            <button className="primary" type="button" onClick={downloadBuyersAsExcel}>Bekleyen İşler</button>
           </div>
         </header>
 
@@ -2587,26 +2620,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
           <section className="panel buyer-v2-board">
           <div className="buyer-v2-toolbar">
-            <div className="users-search-wrap buyer-v2-search">
-              <span className="users-search-icon" aria-hidden="true">
-                <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                  <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                  <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </span>
-              <input
-                className="users-search-input"
-                placeholder="E-posta, isim veya ID ile ara..."
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-              />
-              {searchInput.trim().length > 0 ? (
-                <button className="users-search-clear" type="button" aria-label="Aramayı temizle" onClick={() => setSearchInput("")}>
-                  ×
-                </button>
-              ) : null}
-            </div>
-
             <div className="buyer-v2-toolbar-actions">
               <div className="buyer-v2-filter-wrap" ref={buyerFilterWrapRef}>
                 <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerFilterMenuOpen((prev) => !prev)}>
@@ -2971,6 +2984,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </div>
         <div className="topbar-actions">
           <>
+            {renderUnifiedSearch(true)}
             <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
               {dict.users.visibleColumns}
             </button>
@@ -3069,38 +3083,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
       <section className="panel">
         <div className="users-filter-top">
-          <div className="users-search-wrap">
-            <span className="users-search-icon" aria-hidden="true">
-              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              className="users-search-input"
-              placeholder={
-                isSellerPage
-                  ? language === "tr"
-                    ? "Satıcı Ara (e-posta, müşteri ID, yemek no)..."
-                    : "Search seller (email, customer ID, food no)..."
-                  : language === "tr"
-                    ? "E-posta, müşteri ID veya yemek no ara..."
-                    : "Search by email, customer ID, or food no..."
-              }
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            {searchInput.trim().length > 0 ? (
-              <button
-                className="users-search-clear"
-                type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => setSearchInput("")}
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
           <div className="quick-filters">
             {isBuyerPage ? (
               <div className="buyer-filter-controls">
