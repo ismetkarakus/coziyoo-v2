@@ -388,9 +388,7 @@ h1 {
 }
 
 .subtext {
-  color: var(--color-secondary-text);
-  max-width: 620px;
-  font-size: 1.02rem;
+  display: none;
 }
 
 .topbar-actions {
