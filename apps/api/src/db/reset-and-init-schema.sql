@@ -361,7 +361,7 @@ CREATE TABLE seller_compliance_events (
 CREATE TABLE production_lots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  food_id UUID NOT NULL REFERENCES foods(id) ON DELETE RESTRICT,
+  food_id UUID NOT NULL,
   lot_number TEXT NOT NULL UNIQUE,
   produced_at TIMESTAMPTZ NOT NULL,
   sale_starts_at TIMESTAMPTZ NOT NULL,
@@ -380,6 +380,23 @@ CREATE TABLE production_lots (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE OR REPLACE FUNCTION prevent_production_lot_mutating_delete()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'production_lots records are immutable and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_prevent_production_lot_delete
+BEFORE DELETE ON production_lots
+FOR EACH ROW
+EXECUTE FUNCTION prevent_production_lot_mutating_delete();
+
+CREATE TRIGGER trg_prevent_production_lot_truncate
+BEFORE TRUNCATE ON production_lots
+FOR EACH STATEMENT
+EXECUTE FUNCTION prevent_production_lot_mutating_delete();
 
 CREATE TABLE order_item_lot_allocations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

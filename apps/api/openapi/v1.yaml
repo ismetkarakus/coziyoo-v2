@@ -715,6 +715,10 @@ paths:
                 notes: { type: string, maxLength: 500 }
       responses:
         '201': { description: Lot created }
+        '400':
+          description: |
+            Validation error. If food recipe/ingredients/allergens are missing, returns LOT_SNAPSHOT_REQUIRED
+            and blocks lot creation.
     get:
       tags: [lots]
       responses:

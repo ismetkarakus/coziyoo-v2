@@ -39,3 +39,6 @@ Unless explicitly requested by the user, do not modify:
 - Default focus: app features, bug fixes, tests, and product improvements.
 - Preserve CI/CD and DB update pipeline unless user gives explicit approval.
 - If a requested feature cannot be done without touching protected areas, first provide an impact analysis and ask for approval.
+
+## 6) Delivery Preference
+- Avoid over-engineering. Prefer direct, minimal, maintainable implementations unless deeper architecture is explicitly requested.

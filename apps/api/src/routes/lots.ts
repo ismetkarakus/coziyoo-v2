@@ -65,8 +65,32 @@ sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: { code: "FOOD_NOT_FOUND", message: "Food not found in seller scope" } });
     }
+    const recipeSnapshot = food.rows[0].recipe ?? null;
+    const ingredientsSnapshot = food.rows[0].ingredients_json ?? null;
+    const allergensSnapshot = food.rows[0].allergens_json ?? null;
+    const missingFields: string[] = [];
+    if (!recipeSnapshot || recipeSnapshot.trim().length === 0) {
+      missingFields.push("recipe");
+    }
+    if (ingredientsSnapshot === null) {
+      missingFields.push("ingredients_json");
+    }
+    if (allergensSnapshot === null) {
+      missingFields.push("allergens_json");
+    }
+    if (missingFields.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: {
+          code: "LOT_SNAPSHOT_REQUIRED",
+          message: "Recipe, ingredients, and allergens must be defined on food before creating a lot",
+          details: { missingFields },
+        },
+      });
+    }
 
     const lotNumber = `CZ-${input.foodId.slice(0, 8).toUpperCase()}-${new Date(input.producedAt).toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    // Snapshot fields are immutable and are persisted only at lot creation time.
     const created = await client.query<{ id: string; lot_number: string }>(
       `INSERT INTO production_lots
         (seller_id, food_id, lot_number, produced_at, sale_starts_at, sale_ends_at, use_by, best_before, recipe_snapshot, ingredients_snapshot_json, allergens_snapshot_json, quantity_produced, quantity_available, status, notes, created_at, updated_at)
@@ -81,9 +105,9 @@ sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
         input.saleEndsAt,
         input.useBy ?? null,
         input.bestBefore ?? null,
-        food.rows[0].recipe ?? null,
-        food.rows[0].ingredients_json ? JSON.stringify(food.rows[0].ingredients_json) : null,
-        food.rows[0].allergens_json ? JSON.stringify(food.rows[0].allergens_json) : null,
+        recipeSnapshot,
+        JSON.stringify(ingredientsSnapshot),
+        JSON.stringify(allergensSnapshot),
         input.quantityProduced,
         qtyAvailable,
         input.notes ?? null,
@@ -217,6 +241,7 @@ sellerLotsRouter.post("/:lotId/adjust", requireAuth("app"), async (req, res) => 
       `UPDATE production_lots
        SET quantity_available = $2,
            sale_ends_at = coalesce($3::timestamptz, sale_ends_at),
+           -- Snapshot fields remain immutable after lot creation.
            status = CASE
              WHEN $2 = 0 THEN 'depleted'
              WHEN coalesce($3::timestamptz, sale_ends_at) < now() THEN 'expired'
