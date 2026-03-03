@@ -74,9 +74,21 @@ psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 \
   -c "INSERT INTO schema_migrations (filename) VALUES ${VALUES%,};"
 log "  ✓ Applied ${#MIGRATION_FILES[@]} migration(s)."
 
-log "Step 3/3: Seeding admin user..."
+log "Step 3/4: Restarting API to pick up fresh schema..."
+_api_service="${API_SERVICE_NAME:-coziyoo-api}"
+_api_port="${API_PORT:-3000}"
+service_action restart "${_api_service}" || log "  Warning: could not restart ${_api_service} (may not be installed yet)"
+
+log "Step 4/4: Waiting for API then seeding..."
+for ((_attempt=1; _attempt<=24; _attempt++)); do
+  if curl -fsS --max-time 5 "http://127.0.0.1:${_api_port}/v1" >/dev/null 2>&1; then
+    log "  API ready"
+    break
+  fi
+  log "  API not ready yet (attempt ${_attempt}/24), waiting 5s..."
+  sleep 5
+done
 bash "${SCRIPT_DIR}/seed-data.sh"
 
 log ""
-log "✓ Database reset complete."
-log "  Admin login: ${SEED_ADMIN_EMAIL:-admin@coziyoo.com} / ${SEED_ADMIN_PASSWORD:-Admin12345}"
+log "✓ Database reset complete. Admin: ${SEED_ADMIN_EMAIL:-admin@coziyoo.com} / ${SEED_ADMIN_PASSWORD:-Admin12345}"
