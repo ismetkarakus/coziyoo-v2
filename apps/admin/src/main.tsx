@@ -6510,6 +6510,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
 
 type SellerComplianceStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
 type SellerComplianceDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
+type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived";
 
 type SellerCompliancePayload = {
   profile: {
@@ -6558,6 +6559,21 @@ type SellerCompliancePayload = {
     latest_document_id: string | null;
     status: SellerComplianceDocumentStatus;
     required: boolean;
+    updated_at: string;
+  }>;
+  optionalUploads: Array<{
+    id: string;
+    seller_id: string;
+    document_list_id: string | null;
+    catalog_doc_code: string | null;
+    catalog_doc_name: string | null;
+    custom_title: string | null;
+    custom_description: string | null;
+    file_url: string;
+    status: OptionalUploadStatus;
+    reviewed_at: string | null;
+    rejection_reason: string | null;
+    created_at: string;
     updated_at: string;
   }>;
 };
@@ -6841,6 +6857,20 @@ function sellerDocumentStatusTone(status: SellerComplianceDocumentStatus): Compl
   return "neutral";
 }
 
+function optionalUploadStatusLabel(status: OptionalUploadStatus, dict: Dictionary): string {
+  if (status === "approved") return dict.detail.sellerStatus.approved;
+  if (status === "rejected") return dict.detail.sellerStatus.rejected;
+  if (status === "uploaded") return dict.detail.sellerStatus.uploaded;
+  return dict.detail.optionalArchived;
+}
+
+function optionalUploadStatusTone(status: OptionalUploadStatus): ComplianceTone {
+  if (status === "approved") return "success";
+  if (status === "rejected") return "danger";
+  if (status === "uploaded") return "warning";
+  return "neutral";
+}
+
 function knownDocumentCodeRank(code: string): number {
   const normalized = normalizeComplianceToken(code);
   const order = [
@@ -7033,6 +7063,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [legalSaving, setLegalSaving] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [optionalRejectTargetId, setOptionalRejectTargetId] = useState<string | null>(null);
+  const [optionalRejectReason, setOptionalRejectReason] = useState("");
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [activeFoodDate, setActiveFoodDate] = useState<string | null>(null);
@@ -7110,6 +7142,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setActiveFoodDate(null);
     setRejectTargetId(null);
     setRejectReason("");
+    setOptionalRejectTargetId(null);
+    setOptionalRejectReason("");
   }, [id]);
 
   useEffect(() => {
@@ -7231,6 +7265,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
     return Array.from(map.values());
   })();
+  const optionalUploads = [...(compliance?.optionalUploads ?? [])].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSaving(true);
@@ -7252,6 +7287,35 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setMessage(dict.common.saved);
       setRejectTargetId(null);
       setRejectReason("");
+      setOptionalRejectTargetId(null);
+      setOptionalRejectReason("");
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setLegalSaving(false);
+    }
+  }
+
+  async function updateOptionalUploadStatus(uploadId: string, status: "uploaded" | "approved" | "rejected", rejectionReasonInput?: string) {
+    setLegalSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/compliance/${id}/optional-uploads/${uploadId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status,
+          rejectionReason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+        }),
+      });
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
+        return;
+      }
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+      setOptionalRejectTargetId(null);
+      setOptionalRejectReason("");
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
@@ -7560,6 +7624,81 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </div>
               )}
             </div>
+
+            <div className="seller-compliance-list legal-doc-history-block">
+              <h3>{dict.detail.optionalUploadsTitle}</h3>
+              {optionalUploads.length === 0 ? (
+                <p className="panel-meta">{dict.detail.noComplianceData}</p>
+              ) : (
+                <div className="buyer-ops-table-wrap legal-docs-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{dict.detail.legalUploadedAt}</th>
+                        <th>{dict.detail.optionalTitle}</th>
+                        <th>{dict.detail.legalFile}</th>
+                        <th>{dict.detail.legalStatus}</th>
+                        <th>{dict.detail.legalReviewedAt}</th>
+                        <th>{dict.detail.legalRejectionReason}</th>
+                        <th>{dict.detail.legalActions}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {optionalUploads.map((row) => {
+                        const tone = optionalUploadStatusTone(row.status);
+                        const title = row.catalog_doc_name ?? row.custom_title ?? row.catalog_doc_code ?? "-";
+                        return (
+                          <tr key={`optional-${row.id}`}>
+                            <td>{formatUiDate(row.created_at, language)}</td>
+                            <td>
+                              <strong>{title}</strong>
+                              {row.custom_description ? <div className="panel-meta legal-doc-sub">{row.custom_description}</div> : null}
+                            </td>
+                            <td>
+                              <a href={row.file_url} target="_blank" rel="noreferrer" className="inline-copy">{dict.detail.legalOpenFile}</a>
+                            </td>
+                            <td><span className={`status-pill compliance-status-pill is-${tone}`}>{optionalUploadStatusLabel(row.status, dict)}</span></td>
+                            <td>{formatUiDate(row.reviewed_at, language)}</td>
+                            <td>{row.rejection_reason ?? "-"}</td>
+                            <td>
+                              <div className="legal-doc-actions">
+                                <button
+                                  className="ghost compliance-edit-btn"
+                                  type="button"
+                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  onClick={() => void updateOptionalUploadStatus(row.id, "approved")}
+                                >
+                                  {dict.detail.legalApprove}
+                                </button>
+                                <button
+                                  className="ghost compliance-edit-btn"
+                                  type="button"
+                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  onClick={() => {
+                                    setOptionalRejectTargetId(row.id);
+                                    setOptionalRejectReason(row.rejection_reason ?? "");
+                                  }}
+                                >
+                                  {dict.detail.legalReject}
+                                </button>
+                                <button
+                                  className="ghost compliance-edit-btn"
+                                  type="button"
+                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  onClick={() => void updateOptionalUploadStatus(row.id, "uploaded")}
+                                >
+                                  {dict.detail.legalPend}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </article>
           {rejectTargetId ? (
             <div className="buyer-ops-modal-backdrop">
@@ -7578,6 +7717,30 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     type="button"
                     disabled={!rejectReason.trim() || legalSaving}
                     onClick={() => void updateDocumentStatus(rejectTargetId, "rejected", rejectReason.trim())}
+                  >
+                    {dict.detail.legalReject}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {optionalRejectTargetId ? (
+            <div className="buyer-ops-modal-backdrop">
+              <div className="buyer-ops-modal">
+                <h3>{dict.detail.optionalRejectModalTitle}</h3>
+                <label>
+                  {dict.detail.legalRejectionReason}
+                  <textarea value={optionalRejectReason} onChange={(event) => setOptionalRejectReason(event.target.value)} rows={4} />
+                </label>
+                <div className="buyer-ops-modal-actions">
+                  <button className="ghost" type="button" onClick={() => { setOptionalRejectTargetId(null); setOptionalRejectReason(""); }}>
+                    {dict.common.cancel}
+                  </button>
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={!optionalRejectReason.trim() || legalSaving}
+                    onClick={() => void updateOptionalUploadStatus(optionalRejectTargetId, "rejected", optionalRejectReason.trim())}
                   >
                     {dict.detail.legalReject}
                   </button>

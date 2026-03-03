@@ -19,6 +19,10 @@ const ComplianceDocumentParamSchema = z.object({
   documentId: z.string().uuid(),
 });
 
+const OptionalUploadParamSchema = z.object({
+  uploadId: z.string().uuid(),
+});
+
 const ReviewSchema = z.object({
   reviewNotes: z.string().min(3).max(1000).optional(),
 });
@@ -43,6 +47,38 @@ const UpdateDocumentStatusSchema = z
 const UpdateDocTypeSchema = z.object({
   required: z.boolean(),
 });
+
+const OptionalUploadCreateSchema = z
+  .object({
+    documentListId: z.string().uuid().optional(),
+    customTitle: z.string().trim().max(180).optional(),
+    customDescription: z.string().trim().max(1500).optional(),
+    fileUrl: z.string().url(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.documentListId && !value.customTitle?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["customTitle"],
+        message: "customTitle is required when documentListId is not provided",
+      });
+    }
+  });
+
+const OptionalUploadStatusUpdateSchema = z
+  .object({
+    status: z.enum(["uploaded", "approved", "rejected"]),
+    rejectionReason: z.string().trim().min(3).max(1000).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "rejected" && !value.rejectionReason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rejectionReason"],
+        message: "rejectionReason is required when status is rejected",
+      });
+    }
+  });
 
 const DocumentListParamsSchema = z.object({
   documentListId: z.string().uuid(),
@@ -86,6 +122,7 @@ const ComplianceDocumentListUpdateSchema = z
   });
 
 type SellerDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
+type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived";
 type SellerComplianceProfileStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
 
 export const sellerComplianceRouter = Router();
@@ -235,6 +272,44 @@ async function ensureSellerAssignments(sellerId: string) {
   );
 }
 
+async function getSellerOptionalUploads(client: { query: typeof pool.query }, sellerId: string) {
+  return client.query<{
+    id: string;
+    seller_id: string;
+    document_list_id: string | null;
+    catalog_doc_code: string | null;
+    catalog_doc_name: string | null;
+    custom_title: string | null;
+    custom_description: string | null;
+    file_url: string;
+    status: OptionalUploadStatus;
+    reviewed_at: string | null;
+    rejection_reason: string | null;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT
+       sou.id::text,
+       sou.seller_id::text,
+       sou.document_list_id::text,
+       cdl.code AS catalog_doc_code,
+       cdl.name AS catalog_doc_name,
+       sou.custom_title,
+       sou.custom_description,
+       sou.file_url,
+       sou.status,
+       sou.reviewed_at::text,
+       sou.rejection_reason,
+       sou.created_at::text,
+       sou.updated_at::text
+     FROM seller_optional_uploads sou
+     LEFT JOIN compliance_documents_list cdl ON cdl.id = sou.document_list_id
+     WHERE sou.seller_id = $1
+     ORDER BY sou.created_at DESC`,
+    [sellerId]
+  );
+}
+
 sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
   const role = resolveActorRole(req);
   if (role !== "seller") {
@@ -243,6 +318,7 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
 
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
+  const optionalUploads = await getSellerOptionalUploads(pool, req.auth!.userId);
   const profile = computeSellerComplianceProfile(docs.rows);
   return res.json({
     data: {
@@ -257,6 +333,7 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
         updated_at: profile.updatedAt,
       },
       documents: docs.rows,
+      optionalUploads: optionalUploads.rows,
     },
   });
 });
@@ -333,6 +410,91 @@ sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) =>
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
   return res.json({ data: docs.rows });
+});
+
+sellerComplianceRouter.get("/optional-uploads", requireAuth("app"), async (req, res) => {
+  const role = resolveActorRole(req);
+  if (role !== "seller") {
+    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+  const uploads = await getSellerOptionalUploads(pool, req.auth!.userId);
+  return res.json({ data: uploads.rows });
+});
+
+sellerComplianceRouter.post("/optional-uploads", requireAuth("app"), async (req, res) => {
+  const role = resolveActorRole(req);
+  if (role !== "seller") {
+    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+  const parsed = OptionalUploadCreateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (input.documentListId) {
+      const docType = await client.query<{ id: string }>(
+        "SELECT id::text FROM compliance_documents_list WHERE id = $1 AND is_active = TRUE",
+        [input.documentListId]
+      );
+      if ((docType.rowCount ?? 0) === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
+      }
+    }
+
+    const inserted = await client.query<{ id: string }>(
+      `INSERT INTO seller_optional_uploads (
+         seller_id,
+         document_list_id,
+         custom_title,
+         custom_description,
+         file_url,
+         status,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, 'uploaded', now(), now())
+       RETURNING id::text`,
+      [req.auth!.userId, input.documentListId ?? null, input.customTitle?.trim() || null, input.customDescription?.trim() || null, input.fileUrl]
+    );
+
+    await client.query("COMMIT");
+    return res.status(201).json({ data: { uploadId: inserted.rows[0].id } });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Optional upload create failed" } });
+  } finally {
+    client.release();
+  }
+});
+
+sellerComplianceRouter.delete("/optional-uploads/:uploadId", requireAuth("app"), async (req, res) => {
+  const role = resolveActorRole(req);
+  if (role !== "seller") {
+    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+  const params = OptionalUploadParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const archived = await pool.query<{ id: string }>(
+    `UPDATE seller_optional_uploads
+     SET status = 'archived',
+         updated_at = now()
+     WHERE id = $1
+       AND seller_id = $2
+     RETURNING id::text`,
+    [params.data.uploadId, req.auth!.userId]
+  );
+  if ((archived.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "OPTIONAL_UPLOAD_NOT_FOUND", message: "Optional upload not found" } });
+  }
+  return res.json({ data: { archived: true, uploadId: archived.rows[0].id } });
 });
 
 sellerComplianceRouter.delete("/documents/:documentId", requireAuth("app"), async (req, res) => {
@@ -690,6 +852,95 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
   }
 });
 
+adminComplianceRouter.get("/:sellerId/optional-uploads", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const uploads = await getSellerOptionalUploads(pool, sellerId);
+  return res.json({ data: uploads.rows });
+});
+
+adminComplianceRouter.patch("/:sellerId/optional-uploads/:uploadId", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const params = OptionalUploadParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = OptionalUploadStatusUpdateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const before = await client.query<{
+      id: string;
+      status: OptionalUploadStatus;
+      rejection_reason: string | null;
+    }>(
+      `SELECT id::text, status, rejection_reason
+       FROM seller_optional_uploads
+       WHERE id = $1
+         AND seller_id = $2
+       FOR UPDATE`,
+      [params.data.uploadId, sellerId]
+    );
+    if ((before.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "OPTIONAL_UPLOAD_NOT_FOUND", message: "Optional upload not found" } });
+    }
+
+    const updated = await client.query<{ id: string; status: OptionalUploadStatus }>(
+      `UPDATE seller_optional_uploads
+       SET
+         status = $3,
+         rejection_reason = CASE WHEN $3 = 'rejected' THEN $4 ELSE NULL END,
+         reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
+         reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
+         updated_at = now()
+       WHERE id = $1
+         AND seller_id = $2
+       RETURNING id::text, status`,
+      [params.data.uploadId, sellerId, parsed.data.status, parsed.data.rejectionReason ?? null, req.auth!.userId]
+    );
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "seller_optional_upload_status_updated",
+      entityType: "seller_optional_uploads",
+      entityId: params.data.uploadId,
+      before: {
+        status: before.rows[0].status,
+        rejectionReason: before.rows[0].rejection_reason,
+      },
+      after: {
+        status: updated.rows[0].status,
+        rejectionReason: parsed.data.status === "rejected" ? parsed.data.rejectionReason ?? null : null,
+        sellerId,
+      },
+    });
+
+    await client.query("COMMIT");
+    return res.json({
+      data: {
+        sellerId,
+        uploadId: updated.rows[0].id,
+        status: updated.rows[0].status,
+      },
+    });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Optional upload status update failed" } });
+  } finally {
+    client.release();
+  }
+});
+
 adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) => {
   const sellerId = String(req.params.sellerId ?? "");
   if (!z.string().uuid().safeParse(sellerId).success) {
@@ -697,6 +948,7 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
   }
   await ensureSellerAssignments(sellerId);
   const docs = await getSellerDocuments(pool, sellerId);
+  const optionalUploads = await getSellerOptionalUploads(pool, sellerId);
   const profile = computeSellerComplianceProfile(docs.rows);
 
   return res.json({
@@ -726,6 +978,7 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
         required: row.is_required,
         updated_at: row.updated_at,
       })),
+      optionalUploads: optionalUploads.rows,
     },
   });
 });
