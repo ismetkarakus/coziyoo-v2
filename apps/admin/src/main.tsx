@@ -633,11 +633,11 @@ function AppShell({
   const location = useLocation();
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
+  const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [globalSearchInput, setGlobalSearchInput] = useState("");
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [isGlobalSearchModalOpen, setIsGlobalSearchModalOpen] = useState(false);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
-  const globalSearchWrapRef = useRef<HTMLDivElement | null>(null);
   const globalSearchReqIdRef = useRef(0);
 
   async function logout() {
@@ -658,7 +658,7 @@ function AppShell({
   const globalSearchQuery = globalSearchInput.trim();
 
   useEffect(() => {
-    setGlobalSearchOpen(false);
+    setIsGlobalSearchModalOpen(false);
     setGlobalSearchInput("");
     setGlobalSearchResults([]);
     setGlobalSearchLoading(false);
@@ -666,15 +666,21 @@ function AppShell({
   }, [location.pathname]);
 
   useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      if (!globalSearchWrapRef.current) return;
-      if (!globalSearchWrapRef.current.contains(event.target as Node)) {
-        setGlobalSearchOpen(false);
-      }
+    if (!isGlobalSearchModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsGlobalSearchModalOpen(false);
     };
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
-  }, []);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isGlobalSearchModalOpen]);
+
+  useEffect(() => {
+    if (!isGlobalSearchModalOpen) return;
+    const timer = window.setTimeout(() => {
+      globalSearchInputRef.current?.focus();
+    }, 20);
+    return () => window.clearTimeout(timer);
+  }, [isGlobalSearchModalOpen]);
 
   useEffect(() => {
     const query = globalSearchQuery;
@@ -730,11 +736,13 @@ function AppShell({
   }
 
   function onSelectGlobalResult(item: GlobalSearchResultItem) {
-    setGlobalSearchOpen(false);
+    setIsGlobalSearchModalOpen(false);
     setGlobalSearchInput("");
     setGlobalSearchResults([]);
     navigate(item.targetPath);
   }
+
+  const shouldDockSearchInput = globalSearchQuery.length >= globalSearchMinChars;
 
   return (
     <main className="shell">
@@ -757,71 +765,19 @@ function AppShell({
             onLogout={logout}
           />
         </div>
-        <div className="navbar-global-search" ref={globalSearchWrapRef}>
-          <label className="navbar-global-search-input-wrap">
-            <span className="navbar-global-search-icon" aria-hidden="true">⌕</span>
-            <input
-              className="navbar-global-search-input"
-              value={globalSearchInput}
-              onChange={(event) => setGlobalSearchInput(event.target.value)}
-              onFocus={() => setGlobalSearchOpen(true)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") setGlobalSearchOpen(false);
-                if (event.key === "Enter" && globalSearchResults[0]) {
-                  event.preventDefault();
-                  onSelectGlobalResult(globalSearchResults[0]);
-                }
-              }}
-              placeholder={language === "tr"
-                ? "Global ara: satıcı, alıcı, yemek, sipariş, lot, şikayet"
-                : "Global search: seller, buyer, food, order, lot, complaint"}
-            />
-            {globalSearchInput.trim().length > 0 ? (
-              <button
-                type="button"
-                className="navbar-global-search-clear"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => {
-                  setGlobalSearchInput("");
-                  setGlobalSearchResults([]);
-                  setGlobalSearchLoading(false);
-                }}
-              >
-                ×
-              </button>
-            ) : null}
-          </label>
-          {globalSearchOpen ? (
-            <div className="navbar-global-search-dropdown" role="listbox" aria-label={language === "tr" ? "Arama sonuçları" : "Search results"}>
-              {globalSearchQuery.length < globalSearchMinChars ? (
-                <p className="navbar-global-search-empty">
-                  {language === "tr" ? "Aramak için en az 2 karakter yazın." : "Type at least 2 characters to search."}
-                </p>
-              ) : globalSearchLoading ? (
-                <p className="navbar-global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
-              ) : globalSearchResults.length === 0 ? (
-                <p className="navbar-global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>
-              ) : (
-                <div className="navbar-global-search-list">
-                  {globalSearchResults.map((item) => (
-                    <button
-                      key={`${item.kind}-${item.id}`}
-                      type="button"
-                      className="navbar-global-search-item"
-                      onClick={() => onSelectGlobalResult(item)}
-                    >
-                      <span className={`navbar-global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
-                      <span className="navbar-global-search-texts">
-                        <strong>{item.primaryText}</strong>
-                        <small>{item.secondaryText}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          className="navbar-search-launch"
+          aria-label={language === "tr" ? "Global aramayı aç" : "Open global search"}
+          onClick={() => setIsGlobalSearchModalOpen(true)}
+        >
+          <span className="navbar-search-launch-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <circle cx="11" cy="11" r="6.8" />
+              <path d="M16.5 16.5 21 21" />
+            </svg>
+          </span>
+        </button>
         <div className="navbar-actions">
           <ApiHealthBadge />
           <button className="ghost" onClick={onToggleLanguage} type="button">
@@ -852,6 +808,75 @@ function AppShell({
         {location.pathname.startsWith("/app/sellers/") ? <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname.startsWith("/app/admins/") ? <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
       </section>
+      {isGlobalSearchModalOpen ? (
+        <div className={`global-search-modal ${shouldDockSearchInput ? "is-docked" : ""}`} role="dialog" aria-modal="true" onClick={() => setIsGlobalSearchModalOpen(false)}>
+          <div className="global-search-modal-shell" onClick={(event) => event.stopPropagation()}>
+            <div className="global-search-input-shell">
+              <label className="global-search-input-wrap">
+                <span className="global-search-input-icon" aria-hidden="true">⌕</span>
+                <input
+                  ref={globalSearchInputRef}
+                  className="global-search-input"
+                  value={globalSearchInput}
+                  onChange={(event) => setGlobalSearchInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setIsGlobalSearchModalOpen(false);
+                    if (event.key === "Enter" && globalSearchResults[0]) {
+                      event.preventDefault();
+                      onSelectGlobalResult(globalSearchResults[0]);
+                    }
+                  }}
+                  placeholder={language === "tr"
+                    ? "Global ara: satıcı, alıcı, yemek, sipariş, lot, şikayet"
+                    : "Global search: seller, buyer, food, order, lot, complaint"}
+                />
+                {globalSearchInput.trim().length > 0 ? (
+                  <button
+                    type="button"
+                    className="global-search-clear"
+                    aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                    onClick={() => {
+                      setGlobalSearchInput("");
+                      setGlobalSearchResults([]);
+                      setGlobalSearchLoading(false);
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </label>
+            </div>
+            <div className="global-search-results-shell">
+              {globalSearchQuery.length < globalSearchMinChars ? (
+                <p className="global-search-empty">
+                  {language === "tr" ? "Aramak için en az 2 karakter yazın." : "Type at least 2 characters to search."}
+                </p>
+              ) : globalSearchLoading ? (
+                <p className="global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
+              ) : globalSearchResults.length === 0 ? (
+                <p className="global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>
+              ) : (
+                <div className="global-search-list">
+                  {globalSearchResults.map((item) => (
+                    <button
+                      key={`${item.kind}-${item.id}`}
+                      type="button"
+                      className="global-search-item"
+                      onClick={() => onSelectGlobalResult(item)}
+                    >
+                      <span className={`global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
+                      <span className="global-search-texts">
+                        <strong>{item.primaryText}</strong>
+                        <small>{item.secondaryText}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <Outlet />
     </main>
   );
