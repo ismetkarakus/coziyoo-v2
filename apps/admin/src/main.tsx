@@ -4295,6 +4295,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
   const dict = DICTIONARIES[language];
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
+  const [userNameById, setUserNameById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -4312,19 +4313,52 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
         ? "Browse order records from the database."
         : "Browse food records from the database.";
 
-  const formatOrderAddress = (input: unknown): string => {
-    if (!input || typeof input !== "object") return dict.common.counterpartNotFound;
-    const address = input as Record<string, unknown>;
-    const city = [address.il, address.city, address.province, address.state]
-      .map((value) => (typeof value === "string" ? value.trim() : ""))
-      .find(Boolean);
-    const district = [address.ilce, address.district, address.town]
-      .map((value) => (typeof value === "string" ? value.trim() : ""))
-      .find(Boolean);
-    if (city && district) return `${city} / ${district}`;
-    if (city) return city;
-    if (district) return district;
-    return dict.common.counterpartNotFound;
+  const orderColumns = useMemo(() => {
+    if (tableKey !== "orders") return columns;
+    const filtered = columns.filter((column) => column !== "delivery_address_json");
+    const preferred = ["created_at", "buyer_id", "seller_id", "status", "payment_completed"];
+    const used = new Set<string>();
+    const ordered: string[] = [];
+    for (const name of preferred) {
+      if (filtered.includes(name)) {
+        ordered.push(name);
+        used.add(name);
+      }
+    }
+    for (const name of filtered) {
+      if (!used.has(name)) ordered.push(name);
+    }
+    return ordered;
+  }, [columns, tableKey]);
+
+  const orderColumnLabel = (column: string): string => {
+    if (column === "created_at") return language === "tr" ? "Tarih" : "Date";
+    if (column === "buyer_id") return language === "tr" ? "Alıcı" : "Buyer";
+    if (column === "seller_id") return language === "tr" ? "Satıcı" : "Seller";
+    if (column === "payment_completed") return language === "tr" ? "Ödeme" : "Payment";
+    return formatTableHeader(column);
+  };
+
+  const formatOrderCreatedAt = (value: unknown): string => {
+    const iso = String(value ?? "");
+    const timestamp = Date.parse(iso);
+    if (Number.isNaN(timestamp)) return "-";
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday =
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate();
+    if (isToday) {
+      const diffMs = Math.max(0, now.getTime() - timestamp);
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return language === "tr" ? "az önce" : "just now";
+      if (diffMin < 60) return language === "tr" ? `${diffMin} dk önce` : `${diffMin} min ago`;
+      const diffHours = Math.floor(diffMin / 60);
+      return language === "tr" ? `${diffHours} saat önce` : `${diffHours} hours ago`;
+    }
+    const pad2 = (num: number) => String(num).padStart(2, "0");
+    return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   };
 
   const orderStatusMeta = (rawStatus: unknown): { label: string; note: string; toneClass: string } => {
@@ -4387,6 +4421,16 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
   const renderRecordsCell = (column: string, value: unknown): ReactNode => {
     if (tableKey !== "orders") return renderCell(value, column);
 
+    if (column === "created_at") {
+      return formatOrderCreatedAt(value);
+    }
+
+    if (column === "buyer_id" || column === "seller_id") {
+      const raw = String(value ?? "").trim();
+      if (!raw) return "-";
+      return userNameById[raw] ?? raw;
+    }
+
     if (column === "status") {
       const meta = orderStatusMeta(value);
       return (
@@ -4397,8 +4441,13 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
       );
     }
 
-    if (column === "delivery_address_json") {
-      return formatOrderAddress(value);
+    if (column === "payment_completed") {
+      const done = value === true || String(value).toLowerCase() === "true";
+      return (
+        <span className={`status-pill ${done ? "is-success" : "is-warning"}`}>
+          {done ? (language === "tr" ? "Tamamlandı" : "Completed") : (language === "tr" ? "Bekliyor" : "Pending")}
+        </span>
+      );
     }
 
     return renderCell(value, column);
@@ -4445,6 +4494,42 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
         setLoading(false);
       });
   }, [dict.entities.loadRecordsFailed, dict.entities.recordsRequestFailed, page, pageSize, search, tableKey]);
+
+  useEffect(() => {
+    if (tableKey !== "orders") return;
+    const missingIds = Array.from(
+      new Set(
+        rows
+          .flatMap((row) => [String(row.buyer_id ?? ""), String(row.seller_id ?? "")])
+          .map((id) => id.trim())
+          .filter((id) => id && !userNameById[id])
+      )
+    );
+    if (missingIds.length === 0) return;
+    let active = true;
+    Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          const response = await request(`/v1/admin/users/${id}`);
+          if (response.status !== 200) return [id, id] as const;
+          const body = await parseJson<{ data?: { displayName?: string | null; email?: string | null } }>(response);
+          return [id, body.data?.displayName || body.data?.email || id] as const;
+        } catch {
+          return [id, id] as const;
+        }
+      })
+    ).then((pairs) => {
+      if (!active) return;
+      setUserNameById((prev) => {
+        const next = { ...prev };
+        for (const [id, label] of pairs) next[id] = label;
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [rows, tableKey, userNameById]);
 
   return (
     <div className="app">
@@ -4495,24 +4580,24 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
           <table>
             <thead>
               <tr>
-                {columns.map((column) => (
-                  <th key={column}>{formatTableHeader(column)}</th>
+                {orderColumns.map((column) => (
+                  <th key={column}>{tableKey === "orders" ? orderColumnLabel(column) : formatTableHeader(column)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={Math.max(columns.length, 1)}>{dict.common.loading}</td>
+                  <td colSpan={Math.max(orderColumns.length, 1)}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={Math.max(columns.length, 1)}>{dict.common.noRecords}</td>
+                  <td colSpan={Math.max(orderColumns.length, 1)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((row, index) => (
                   <tr key={`${tableKey}-${index}`}>
-                    {columns.map((column) => (
+                    {orderColumns.map((column) => (
                       <td key={`${index}-${column}`}>{renderRecordsCell(column, row[column])}</td>
                     ))}
                   </tr>
