@@ -36,6 +36,7 @@ const TABLE_MAP = {
 const TableKeySchema = z.enum(Object.keys(TABLE_MAP) as [keyof typeof TABLE_MAP, ...(keyof typeof TABLE_MAP)[]]);
 type TableKey = z.infer<typeof TableKeySchema>;
 type ColumnSensitivity = "public" | "internal" | "secret";
+const EXCLUDED_METADATA_COLUMNS = new Set(["short_id"]);
 
 const PreferencesSchema = z.object({
   visibleColumns: z.array(z.string().min(1)).min(1),
@@ -113,6 +114,16 @@ function normalizeColumns(columns: string[], allowedColumns: string[]) {
   return normalized;
 }
 
+function isMetadataColumnVisible(columnName: string): boolean {
+  return !EXCLUDED_METADATA_COLUMNS.has(columnName);
+}
+
+function visibleColumnsFromFields(fields: Array<{ name: string; sensitivity: ColumnSensitivity }>): string[] {
+  return fields
+    .filter((f) => f.sensitivity !== "secret" && isMetadataColumnVisible(f.name))
+    .map((f) => f.name);
+}
+
 adminMetadataRouter.get("/metadata/entities", requireAuth("admin"), async (_req, res) => {
   const entities = Object.entries(TABLE_MAP).map(([tableKey, tableName]) => ({
     tableKey,
@@ -149,7 +160,7 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/fields", requireAuth("admin"
   );
 
   const rawRecord = rows.rows[0]?.raw_record ?? null;
-  const visibleFieldNames = fields.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const visibleFieldNames = visibleColumnsFromFields(fields);
   const rawRecordFallback = rawRecord
     ? Object.fromEntries(Object.entries(rawRecord).filter(([key]) => visibleFieldNames.includes(key)))
     : null;
@@ -158,7 +169,9 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/fields", requireAuth("admin"
     data: {
       tableKey,
       tableName,
-      fields: fields.map((f) => ({
+      fields: fields
+        .filter((f) => isMetadataColumnVisible(f.name))
+        .map((f) => ({
         name: f.name,
         type: f.type,
         nullable: f.nullable,
@@ -190,7 +203,7 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/records", requireAuth("admin
   const offset = (page - 1) * pageSize;
 
   const fields = await loadColumnDefinitions(tableName);
-  const columns = fields.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const columns = visibleColumnsFromFields(fields);
   if (columns.length === 0) {
     return res.status(404).json({ error: { code: "TABLE_NOT_FOUND", message: "No fields found for table" } });
   }
@@ -262,7 +275,7 @@ adminMetadataRouter.get("/table-preferences/:tableKey", requireAuth("admin"), as
 
   if ((result.rowCount ?? 0) === 0) {
     const columns = await loadColumnDefinitions(TABLE_MAP[parsed.data]);
-    const defaults = columns.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+    const defaults = visibleColumnsFromFields(columns);
     return res.json({
       data: {
         tableKey: parsed.data,
@@ -274,7 +287,7 @@ adminMetadataRouter.get("/table-preferences/:tableKey", requireAuth("admin"), as
   }
 
   const columns = await loadColumnDefinitions(TABLE_MAP[parsed.data]);
-  const allowedColumns = columns.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const allowedColumns = visibleColumnsFromFields(columns);
   const persistedVisible = Array.isArray(result.rows[0].visible_columns)
     ? (result.rows[0].visible_columns as string[])
     : [];
@@ -310,7 +323,7 @@ adminMetadataRouter.put("/table-preferences/:tableKey", requireAuth("admin"), as
   const input = bodyParsed.data;
   const tableName = TABLE_MAP[keyParsed.data];
   const columns = await loadColumnDefinitions(tableName);
-  const allowedColumns = columns.filter((f) => f.sensitivity !== "secret").map((f) => f.name);
+  const allowedColumns = visibleColumnsFromFields(columns);
   const visibleColumns = normalizeColumns(input.visibleColumns, allowedColumns);
   const fallbackColumns = visibleColumns.length > 0 ? visibleColumns : allowedColumns;
   const columnOrder = normalizeColumns(input.columnOrder ?? fallbackColumns, fallbackColumns);
