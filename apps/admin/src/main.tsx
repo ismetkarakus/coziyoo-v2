@@ -5884,6 +5884,13 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [testN8n, setTestN8n] = useState<TestStatus>(null);
   const [testing, setTesting] = useState(false);
 
+  // TTS test
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [ttsTestText, setTtsTestText] = useState("Hello, this is a voice test.");
+  const [ttsSynthesizing, setTtsSynthesizing] = useState(false);
+  const [ttsSynthError, setTtsSynthError] = useState<string | null>(null);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
+
   async function loadDeviceList() {
     const res = await request("/v1/admin/livekit/agent-settings");
     const body = await parseJson<{ data?: DeviceRow[] } & ApiError>(res);
@@ -6021,6 +6028,42 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setTestN8n(null);
     await Promise.allSettled([runTestLiveKit(), runTestStt(), runTestOllama(), runTestN8n()]);
     setTesting(false);
+  }
+
+  async function runTestTts(event: FormEvent) {
+    event.preventDefault();
+    const url = ttsBaseUrl.trim();
+    if (!url) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); return; }
+    setTtsSynthesizing(true);
+    setTtsSynthError(null);
+    if (ttsAudioUrl) { URL.revokeObjectURL(ttsAudioUrl); setTtsAudioUrl(null); }
+    try {
+      const tokens = getTokens();
+      const res = await fetch(`${API_BASE}/v1/admin/livekit/test/tts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
+        },
+        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", baseUrl: url, engine: ttsEngine }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as ApiError;
+        setTtsSynthError(body.error?.message ?? `TTS error ${res.status}`);
+        return;
+      }
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      setTtsAudioUrl(objUrl);
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.src = objUrl;
+        ttsAudioRef.current.play().catch(() => undefined);
+      }
+    } catch (err) {
+      setTtsSynthError(err instanceof Error ? err.message : "TTS request failed");
+    } finally {
+      setTtsSynthesizing(false);
+    }
   }
 
   useEffect(() => {
@@ -6169,6 +6212,28 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
               </select>
             </label>
             <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
+          </div>
+          <div style={{ borderTop: "1px solid var(--border, #e5e7eb)", margin: "1rem 0 0", paddingTop: "1rem", paddingLeft: "1.5rem", paddingRight: "1.5rem", paddingBottom: "0.5rem" }}>
+            <p className="panel-meta" style={{ marginBottom: "0.5rem" }}>{dict.voiceAgentSettings.testTts}</p>
+            <form onSubmit={runTestTts} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <input
+                  style={{ flex: 1 }}
+                  value={ttsTestText}
+                  onChange={(e) => setTtsTestText(e.target.value)}
+                  placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
+                />
+                <button className="ghost" type="submit" disabled={ttsSynthesizing}>
+                  {ttsSynthesizing ? dict.voiceAgentSettings.testTtsSynthesizing : dict.voiceAgentSettings.testTtsPlay}
+                </button>
+              </div>
+              {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444" }}>{ttsSynthError}</p> : null}
+              {ttsAudioUrl ? (
+                <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", marginTop: "0.25rem" }} />
+              ) : (
+                <audio ref={ttsAudioRef} style={{ display: "none" }} />
+              )}
+            </form>
           </div>
         </section>
 

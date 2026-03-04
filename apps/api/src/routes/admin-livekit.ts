@@ -584,3 +584,49 @@ adminLiveKitRouter.post("/test/n8n", async (req, res) => {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
   }
 });
+
+const TestTtsSchema = z.object({
+  text: z.string().min(1).max(500),
+  baseUrl: z.string().min(1),
+  engine: z.enum(["f5-tts", "xtts", "chatterbox"]).default("f5-tts"),
+  synthPath: z.string().optional(),
+});
+
+adminLiveKitRouter.post("/test/tts", async (req, res) => {
+  const parsed = TestTtsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const { text, baseUrl, engine, synthPath } = parsed.data;
+
+  const defaultPath = engine === "f5-tts" ? "/api/tts" : "/tts";
+  const path = synthPath?.trim() || defaultPath;
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+
+  try {
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!upstream.ok) {
+      const errText = await upstream.text().catch(() => "");
+      return res.status(502).json({
+        error: { code: "TTS_ERROR", message: `TTS server responded ${upstream.status}: ${errText.slice(0, 200)}` },
+      });
+    }
+
+    const contentType = upstream.headers.get("content-type") ?? "audio/wav";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "no-store");
+
+    const buffer = await upstream.arrayBuffer();
+    return res.send(Buffer.from(buffer));
+  } catch (err) {
+    return res.status(502).json({
+      error: { code: "TTS_UNREACHABLE", message: err instanceof Error ? err.message : "TTS server unreachable" },
+    });
+  }
+});

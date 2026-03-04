@@ -433,6 +433,11 @@
     "statusFail": "HATA",
     "statusUnknown": "—",
     "loadSettings": "Ayarları Yükle",
-    "newDevice": "Yeni / Cihaz ID"
+    "newDevice": "Yeni / Cihaz ID",
+    "testTts": "TTS Test",
+    "testTtsPlaceholder": "Seslendirilecek metni girin...",
+    "testTtsPlay": "Sentezle & Oynat",
+    "testTtsSynthesizing": "Sentezleniyor...",
+    "testTtsNoUrl": "TTS URL yapılandırılmamış"
   }
 }

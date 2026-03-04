@@ -433,6 +433,11 @@
     "statusFail": "FAIL",
     "statusUnknown": "—",
     "loadSettings": "Load Settings",
-    "newDevice": "New / Device ID"
+    "newDevice": "New / Device ID",
+    "testTts": "Test TTS",
+    "testTtsPlaceholder": "Enter text to synthesize...",
+    "testTtsPlay": "Synthesize & Play",
+    "testTtsSynthesizing": "Synthesizing...",
+    "testTtsNoUrl": "No TTS URL configured"
   }
 }
