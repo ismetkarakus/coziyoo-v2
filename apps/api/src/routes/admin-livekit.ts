@@ -431,19 +431,27 @@ const AdminAgentSettingsSchema = z.object({
 });
 
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
-  const result = await pool.query(
-    `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled, updated_at
-     FROM starter_agent_settings ORDER BY updated_at DESC`,
-  );
-  return res.json({ data: result.rows });
+  try {
+    const result = await pool.query(
+      `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled, updated_at
+       FROM starter_agent_settings ORDER BY updated_at DESC`,
+    );
+    return res.json({ data: result.rows });
+  } catch (err) {
+    return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
+  }
 });
 
 adminLiveKitRouter.get("/agent-settings/:deviceId", async (req, res) => {
-  const settings = await getStarterAgentSettings(req.params.deviceId);
-  if (!settings) {
-    return res.status(404).json({ error: { code: "NOT_FOUND", message: "No settings found for this device" } });
+  try {
+    const settings = await getStarterAgentSettings(req.params.deviceId);
+    if (!settings) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "No settings found for this device" } });
+    }
+    return res.json({ data: settings });
+  } catch (err) {
+    return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
   }
-  return res.json({ data: settings });
 });
 
 adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
@@ -454,6 +462,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
 
   const { deviceId } = req.params;
   const input = parsed.data;
+  try {
   const existing = await getStarterAgentSettings(deviceId);
 
   const existingTtsConfig = (existing?.ttsConfig ?? {}) as Record<string, unknown>;
@@ -481,19 +490,21 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
     },
   };
 
-  const settings = await upsertStarterAgentSettings({
-    deviceId,
-    agentName: input.agentName ?? existing?.agentName ?? "coziyoo-agent",
-    voiceLanguage: input.voiceLanguage ?? existing?.voiceLanguage ?? "en",
-    ollamaModel: input.ollamaModel ?? existing?.ollamaModel ?? "llama3.1:8b",
-    ttsEngine: normalizeTtsEngine(input.ttsEngine ?? existing?.ttsEngine),
-    ttsEnabled: input.ttsEnabled ?? existing?.ttsEnabled ?? true,
-    sttEnabled: input.sttEnabled ?? existing?.sttEnabled ?? true,
-    ttsConfig: mergedTtsConfig,
-    systemPrompt: input.systemPrompt ?? existing?.systemPrompt ?? undefined,
-    greetingEnabled: input.greetingEnabled ?? existing?.greetingEnabled ?? true,
-    greetingInstruction: input.greetingInstruction ?? existing?.greetingInstruction ?? undefined,
-  });
-
-  return res.json({ data: settings });
+    const settings = await upsertStarterAgentSettings({
+      deviceId,
+      agentName: input.agentName ?? existing?.agentName ?? "coziyoo-agent",
+      voiceLanguage: input.voiceLanguage ?? existing?.voiceLanguage ?? "en",
+      ollamaModel: input.ollamaModel ?? existing?.ollamaModel ?? "llama3.1:8b",
+      ttsEngine: normalizeTtsEngine(input.ttsEngine ?? existing?.ttsEngine),
+      ttsEnabled: input.ttsEnabled ?? existing?.ttsEnabled ?? true,
+      sttEnabled: input.sttEnabled ?? existing?.sttEnabled ?? true,
+      ttsConfig: mergedTtsConfig,
+      systemPrompt: input.systemPrompt ?? existing?.systemPrompt ?? undefined,
+      greetingEnabled: input.greetingEnabled ?? existing?.greetingEnabled ?? true,
+      greetingInstruction: input.greetingInstruction ?? existing?.greetingInstruction ?? undefined,
+    });
+    return res.json({ data: settings });
+  } catch (err) {
+    return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
+  }
 });
