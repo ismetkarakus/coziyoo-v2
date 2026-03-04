@@ -474,6 +474,20 @@ a {
   background: color-mix(in srgb, var(--color-subtle-bg) 84%, transparent);
 }
 
+.global-search-cancel {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 66%, transparent);
+  color: var(--color-secondary-text);
+  padding: 6px 10px;
+  font-size: 0.83rem;
+  flex-shrink: 0;
+}
+
+.global-search-cancel:hover {
+  background: color-mix(in srgb, var(--color-subtle-bg) 86%, transparent);
+}
+
 .global-search-results-shell {
   width: min(980px, 94vw);
   margin-top: 14px;

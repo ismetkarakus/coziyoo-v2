@@ -844,6 +844,13 @@ function AppShell({
                     ×
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className="global-search-cancel"
+                  onClick={() => setIsGlobalSearchModalOpen(false)}
+                >
+                  {language === "tr" ? "İptal" : "Cancel"}
+                </button>
               </label>
             </div>
             <div className="global-search-results-shell">
