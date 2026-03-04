@@ -5858,6 +5858,8 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<VoiceSettingsTab>("summary");
+  const [isCreateProfileOpen, setIsCreateProfileOpen] = useState(false);
+  const [newProfileIdInput, setNewProfileIdInput] = useState("");
 
   // form state
   const [agentName, setAgentName] = useState("");
@@ -5919,6 +5921,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     resetSettingsFormToDefaults();
     setSaveMsg(language === "tr" ? `Yeni profil taslağı hazır: ${normalized}` : `New profile draft is ready: ${normalized}`);
     setSaveError(null);
+    setActiveTab("general");
+    setIsCreateProfileOpen(false);
+    setNewProfileIdInput("");
   }
 
   async function loadDeviceList() {
@@ -6222,14 +6227,37 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
             <input value={deviceIdInput} onChange={(e) => setDeviceIdInput(e.target.value)} placeholder="default" />
           </label>
           <button className="ghost" type="submit">{language === "tr" ? "Aktif Profili Yükle" : "Load Active Profile"}</button>
-          <button
-            className="primary"
-            type="button"
-            onClick={() => startNewProfileDraft(deviceIdInput)}
-          >
-            {language === "tr" ? "Yeni Profil Oluştur" : "Create Profile"}
+          <button className="primary" type="button" onClick={() => setIsCreateProfileOpen((prev) => !prev)}>
+            {language === "tr" ? "Yeni Profil" : "New Profile"}
           </button>
         </form>
+        {isCreateProfileOpen ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              startNewProfileDraft(newProfileIdInput);
+            }}
+            style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", padding: "0 1.5rem 1.5rem", flexWrap: "wrap" }}
+          >
+            <label style={{ flex: 1, margin: 0 }}>
+              {language === "tr" ? "Yeni Profil ID" : "New Profile ID"}
+              <input value={newProfileIdInput} onChange={(e) => setNewProfileIdInput(e.target.value)} placeholder="profile-01" />
+            </label>
+            <button className="primary" type="submit">
+              {language === "tr" ? "Profili Aç" : "Open Profile"}
+            </button>
+            <button
+              className="ghost"
+              type="button"
+              onClick={() => {
+                setIsCreateProfileOpen(false);
+                setNewProfileIdInput("");
+              }}
+            >
+              {language === "tr" ? "Vazgeç" : "Cancel"}
+            </button>
+          </form>
+        ) : null}
       </section>
 
       <section className="panel" style={{ paddingTop: "1rem" }}>
