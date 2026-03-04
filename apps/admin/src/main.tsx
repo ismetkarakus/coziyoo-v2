@@ -615,45 +615,15 @@ function LoginScreen({ onLoggedIn, language }: { onLoggedIn: (admin: AdminUser) 
   );
 }
 
-function AppShell({
-  admin,
-  onLoggedOut,
-  isDarkMode,
-  onToggleDarkMode,
-  language,
-  onToggleLanguage,
-}: {
-  admin: AdminUser;
-  onLoggedOut: () => void;
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
-  language: Language;
-  onToggleLanguage: () => void;
-}) {
-  const location = useLocation();
+function GlobalAdminSearch({ language }: { language: Language }) {
   const navigate = useNavigate();
-  const dict = DICTIONARIES[language];
+  const location = useLocation();
   const [globalSearchInput, setGlobalSearchInput] = useState("");
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
   const globalSearchWrapRef = useRef<HTMLDivElement | null>(null);
   const globalSearchReqIdRef = useRef(0);
-
-  async function logout() {
-    const tokens = getTokens();
-    await request("/v1/admin/auth/logout", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken: tokens?.refreshToken }),
-    }).catch(() => undefined);
-
-    setTokens(null);
-    setAdmin(null);
-    onLoggedOut();
-    navigate("/login", { replace: true });
-  }
-
-  const isSuperAdmin = admin.role === "super_admin";
   const globalSearchMinChars = 2;
   const globalSearchQuery = globalSearchInput.trim();
 
@@ -737,6 +707,109 @@ function AppShell({
   }
 
   return (
+    <div className="topbar-global-search" ref={globalSearchWrapRef}>
+      <label className="topbar-global-search-input-wrap">
+        <span className="topbar-global-search-icon" aria-hidden="true">⌕</span>
+        <input
+          className="topbar-global-search-input"
+          value={globalSearchInput}
+          onChange={(event) => setGlobalSearchInput(event.target.value)}
+          onFocus={() => setGlobalSearchOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setGlobalSearchOpen(false);
+            if (event.key === "Enter" && globalSearchResults[0]) {
+              event.preventDefault();
+              onSelectGlobalResult(globalSearchResults[0]);
+            }
+          }}
+          placeholder={language === "tr"
+            ? "Global ara: satıcı, alıcı, yemek, sipariş, lot, şikayet"
+            : "Global search: seller, buyer, food, order, lot, complaint"}
+        />
+        {globalSearchInput.trim().length > 0 ? (
+          <button
+            type="button"
+            className="topbar-global-search-clear"
+            aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+            onClick={() => {
+              setGlobalSearchInput("");
+              setGlobalSearchResults([]);
+              setGlobalSearchLoading(false);
+            }}
+          >
+            ×
+          </button>
+        ) : null}
+      </label>
+      {globalSearchOpen ? (
+        <div className="topbar-global-search-dropdown" role="listbox" aria-label={language === "tr" ? "Arama sonuçları" : "Search results"}>
+          {globalSearchQuery.length < globalSearchMinChars ? (
+            <p className="topbar-global-search-empty">
+              {language === "tr" ? "Aramak için en az 2 karakter yazın." : "Type at least 2 characters to search."}
+            </p>
+          ) : globalSearchLoading ? (
+            <p className="topbar-global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
+          ) : globalSearchResults.length === 0 ? (
+            <p className="topbar-global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>
+          ) : (
+            <div className="topbar-global-search-list">
+              {globalSearchResults.map((item) => (
+                <button
+                  key={`${item.kind}-${item.id}`}
+                  type="button"
+                  className="topbar-global-search-item"
+                  onClick={() => onSelectGlobalResult(item)}
+                >
+                  <span className={`topbar-global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
+                  <span className="topbar-global-search-texts">
+                    <strong>{item.primaryText}</strong>
+                    <small>{item.secondaryText}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AppShell({
+  admin,
+  onLoggedOut,
+  isDarkMode,
+  onToggleDarkMode,
+  language,
+  onToggleLanguage,
+}: {
+  admin: AdminUser;
+  onLoggedOut: () => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  language: Language;
+  onToggleLanguage: () => void;
+}) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const dict = DICTIONARIES[language];
+
+  async function logout() {
+    const tokens = getTokens();
+    await request("/v1/admin/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: tokens?.refreshToken }),
+    }).catch(() => undefined);
+
+    setTokens(null);
+    setAdmin(null);
+    onLoggedOut();
+    navigate("/login", { replace: true });
+  }
+
+  const isSuperAdmin = admin.role === "super_admin";
+
+  return (
     <main className="shell">
       <header className="navbar">
         <div className="navbar-left">
@@ -756,71 +829,6 @@ function AppShell({
             onToggleLanguage={onToggleLanguage}
             onLogout={logout}
           />
-        </div>
-        <div className="navbar-global-search" ref={globalSearchWrapRef}>
-          <label className="navbar-global-search-input-wrap">
-            <span className="navbar-global-search-icon" aria-hidden="true">⌕</span>
-            <input
-              className="navbar-global-search-input"
-              value={globalSearchInput}
-              onChange={(event) => setGlobalSearchInput(event.target.value)}
-              onFocus={() => setGlobalSearchOpen(true)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") setGlobalSearchOpen(false);
-                if (event.key === "Enter" && globalSearchResults[0]) {
-                  event.preventDefault();
-                  onSelectGlobalResult(globalSearchResults[0]);
-                }
-              }}
-              placeholder={language === "tr"
-                ? "Global ara: satıcı, alıcı, yemek, sipariş, lot, şikayet"
-                : "Global search: seller, buyer, food, order, lot, complaint"}
-            />
-            {globalSearchInput.trim().length > 0 ? (
-              <button
-                type="button"
-                className="navbar-global-search-clear"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => {
-                  setGlobalSearchInput("");
-                  setGlobalSearchResults([]);
-                  setGlobalSearchLoading(false);
-                }}
-              >
-                ×
-              </button>
-            ) : null}
-          </label>
-          {globalSearchOpen ? (
-            <div className="navbar-global-search-dropdown" role="listbox" aria-label={language === "tr" ? "Arama sonuçları" : "Search results"}>
-              {globalSearchQuery.length < globalSearchMinChars ? (
-                <p className="navbar-global-search-empty">
-                  {language === "tr" ? "Aramak için en az 2 karakter yazın." : "Type at least 2 characters to search."}
-                </p>
-              ) : globalSearchLoading ? (
-                <p className="navbar-global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
-              ) : globalSearchResults.length === 0 ? (
-                <p className="navbar-global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>
-              ) : (
-                <div className="navbar-global-search-list">
-                  {globalSearchResults.map((item) => (
-                    <button
-                      key={`${item.kind}-${item.id}`}
-                      type="button"
-                      className="navbar-global-search-item"
-                      onClick={() => onSelectGlobalResult(item)}
-                    >
-                      <span className={`navbar-global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
-                      <span className="navbar-global-search-texts">
-                        <strong>{item.primaryText}</strong>
-                        <small>{item.secondaryText}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
         </div>
         <div className="navbar-actions">
           <ApiHealthBadge />
@@ -1235,11 +1243,12 @@ function DashboardPage({ language }: { language: Language }) {
 
   return (
     <div className="app dashboard-view">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <h1>{dict.dashboard.title}</h1>
           <p className="subtext">{dict.dashboard.subtitle}</p>
         </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => window.location.reload()}>{dict.actions.refresh}</button>
           <button className="primary" type="button">{dict.actions.reviewQueue}</button>
@@ -2571,11 +2580,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     return (
       <div className="app buyer-v2-page seller-v2-page">
-        <header className="topbar">
+        <header className="topbar topbar-with-centered-search">
           <div>
             <h1>{pageTitleView}</h1>
             <p className="subtext">Satıcı, ürün ve operasyon metriklerini tek aramayla takip edin.</p>
           </div>
+          <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
           <div className="topbar-actions">
             <div className="seller-daily-sales-inline" aria-label="Günlük satış tutarı">
               <span className="seller-daily-sales-icon" aria-hidden="true">₺</span>
@@ -2867,11 +2877,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
-        <header className="topbar">
+        <header className="topbar topbar-with-centered-search">
           <div>
             <h1>{language === "tr" ? "Alıcı Yönetimi" : "Buyer Management"}</h1>
             <p className="subtext">Kullanıcı, sipariş, uygunluk ve itiraz metriklerini gerçek zamanlı izleyin.</p>
           </div>
+          <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
           <div className="topbar-actions">
             <div className="buyer-v2-head-revenue" aria-label="Toplam Ciro">
               <span>Toplam Ciro</span>
@@ -3318,7 +3329,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div className="users-title-wrap">
           <h1>{pageTitleView}</h1>
           {customerIdPreview ? (
@@ -3337,6 +3348,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           ) : null}
         </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
           <>
             <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(true)}>
@@ -4000,38 +4012,7 @@ function InvestigationPage({ language }: { language: Language }) {
           <h1>{dict.investigation.title}</h1>
           <p className="subtext">{dict.investigation.subtitle}</p>
         </div>
-        <div className="topbar-search-center">
-          <div className="users-search-wrap users-search-wrap--compact">
-            <span className="users-search-icon" aria-hidden="true">
-              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              className="users-search-input users-search-input--compact"
-              placeholder={language === "tr" ? "Sipariş no / alıcı no / konu ara" : "Search order no / buyer no / subject"}
-              value={searchInput}
-              onChange={(event) => {
-                setPage(1);
-                setSearchInput(event.target.value);
-              }}
-            />
-            {searchInput.trim().length > 0 ? (
-              <button
-                className="users-search-clear"
-                type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => {
-                  setPage(1);
-                  setSearchInput("");
-                }}
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
           <select
             value={statusFilter}
@@ -4268,38 +4249,7 @@ function FoodsLotsPage({ language }: { language: Language }) {
           <h1>{dict.menu.foods}</h1>
           <p className="subtext">{dict.detail.foodsLotsSubtitle}</p>
         </div>
-        <div className="topbar-search-center">
-          <div className="users-search-wrap users-search-wrap--compact">
-            <span className="users-search-icon" aria-hidden="true">
-              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              className="users-search-input users-search-input--compact"
-              placeholder={dict.entities.searchPlaceholder}
-              value={search}
-              onChange={(event) => {
-                setPage(1);
-                setSearch(event.target.value);
-              }}
-            />
-            {search.trim().length > 0 ? (
-              <button
-                className="users-search-clear"
-                type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => {
-                  setPage(1);
-                  setSearch("");
-                }}
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
         </div>
       </header>
@@ -4782,38 +4732,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
           <h1>{pageTitle}</h1>
           <p className="subtext">{subtitle}</p>
         </div>
-        <div className="topbar-search-center">
-          <div className="users-search-wrap users-search-wrap--compact">
-            <span className="users-search-icon" aria-hidden="true">
-              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              className="users-search-input users-search-input--compact"
-              placeholder={dict.entities.searchPlaceholder}
-              value={search}
-              onChange={(event) => {
-                setPage(1);
-                setSearch(event.target.value);
-              }}
-            />
-            {search.trim().length > 0 ? (
-              <button
-                className="users-search-clear"
-                type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => {
-                  setPage(1);
-                  setSearch("");
-                }}
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
         </div>
       </header>
@@ -4963,38 +4882,7 @@ function EntitiesPage({ language }: { language: Language }) {
           <h1>{selectedEntity ? selectedEntity.tableName : dict.entities.titleAll}</h1>
           <p className="subtext">{dict.entities.subtitle}</p>
         </div>
-        <div className="topbar-search-center">
-          <div className="users-search-wrap users-search-wrap--compact">
-            <span className="users-search-icon" aria-hidden="true">
-              <svg className="users-search-icon-svg" viewBox="0 0 24 24" fill="none" role="presentation">
-                <circle cx="11" cy="11" r="7.2" stroke="currentColor" strokeWidth="2" />
-                <path d="M16.7 16.7L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              className="users-search-input users-search-input--compact"
-              placeholder={dict.entities.searchPlaceholder}
-              value={search}
-              onChange={(event) => {
-                setPage(1);
-                setSearch(event.target.value);
-              }}
-            />
-            {search.trim().length > 0 ? (
-              <button
-                className="users-search-clear"
-                type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
-                onClick={() => {
-                  setPage(1);
-                  setSearch("");
-                }}
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
         </div>
       </header>
@@ -5224,12 +5112,13 @@ function AuditPage({ language }: { language: Language }) {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.audit.eyebrow}</p>
           <h1>{dict.audit.title}</h1>
           <p className="subtext">{dict.audit.subtitle}</p>
         </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => loadAudit()}>{dict.actions.applyFilters}</button>
           <button className="primary" type="button" onClick={exportCsv}>{dict.actions.exportCsv}</button>
@@ -5504,12 +5393,13 @@ function ApiTokensPage({ language, isSuperAdmin }: { language: Language; isSuper
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.apiTokens.eyebrow}</p>
           <h1>{dict.apiTokens.title}</h1>
           <p className="subtext">{dict.apiTokens.subtitle}</p>
         </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
       </header>
 
       <section className="panel">
@@ -5783,12 +5673,13 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.complianceDocuments.eyebrow}</p>
           <h1>{dict.complianceDocuments.title}</h1>
           <p className="subtext">{dict.complianceDocuments.subtitle}</p>
         </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
       </header>
 
       <section className="panel">
@@ -6365,12 +6256,13 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.voiceAgentSettings.eyebrow}</p>
           <h1>{dict.voiceAgentSettings.title}</h1>
           <p className="subtext">{dict.voiceAgentSettings.subtitle}</p>
         </div>
+        <div className="topbar-search-center"><GlobalAdminSearch language={language} /></div>
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => { loadDeviceList().catch(() => undefined); }}>{dict.actions.refresh}</button>
         </div>
@@ -6710,7 +6602,7 @@ function openQuickEmail(email: string | null | undefined, dict: Dictionary, setM
   }, 700);
 }
 
-function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
+function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionary; language: Language }) {
   const navigate = useNavigate();
   const location = useLocation();
   const endpoint = `/v1/admin/users/${id}`;
@@ -7162,6 +7054,9 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
       <section className="buyer-ref-head">
         <div>
           <h1>Alici Detayi</h1>
+        </div>
+        <div className="topbar-search-center">
+          <GlobalAdminSearch language={language} />
         </div>
         <div className="buyer-ref-actions">
           <button className="ghost" type="button" onClick={downloadBuyerOrdersAsExcel}>
@@ -8539,6 +8434,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           </div>
         </article>
         <div className="seller-hero-right">
+          <div className="topbar-search-center">
+            <GlobalAdminSearch language={language} />
+          </div>
           <div className="topbar-actions">
             <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
               {dict.actions.refresh}
@@ -9251,7 +9149,7 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
   const dict = DICTIONARIES[language];
   const location = useLocation();
   const id = location.pathname.split("/").at(-1) ?? "";
-  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} />;
+  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} language={language} />;
   if (kind === "sellers") return <SellerDetailScreen id={id} isSuperAdmin={isSuperAdmin} dict={dict} language={language} />;
   return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;
 }

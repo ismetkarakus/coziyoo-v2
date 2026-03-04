@@ -359,14 +359,14 @@ a {
   gap: 10px;
 }
 
-.navbar-global-search {
+.topbar-global-search {
   position: relative;
   flex: 0 1 520px;
   min-width: 280px;
   z-index: 1300;
 }
 
-.navbar-global-search-input-wrap {
+.topbar-global-search-input-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -377,18 +377,18 @@ a {
   padding: 8px 10px;
 }
 
-.navbar-global-search-input-wrap:focus-within {
+.topbar-global-search-input-wrap:focus-within {
   border-color: color-mix(in srgb, var(--color-accent) 56%, var(--color-border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
-.navbar-global-search-icon {
+.topbar-global-search-icon {
   color: var(--color-tertiary-text);
   font-size: 0.95rem;
   line-height: 1;
 }
 
-.navbar-global-search-input {
+.topbar-global-search-input {
   width: 100%;
   border: none;
   background: transparent;
@@ -398,11 +398,11 @@ a {
   font-size: 0.88rem;
 }
 
-.navbar-global-search-input::placeholder {
+.topbar-global-search-input::placeholder {
   color: var(--color-input-placeholder);
 }
 
-.navbar-global-search-clear {
+.topbar-global-search-clear {
   border: none;
   background: transparent;
   color: var(--color-tertiary-text);
@@ -412,11 +412,11 @@ a {
   padding: 0;
 }
 
-.navbar-global-search-clear:hover {
+.topbar-global-search-clear:hover {
   background: color-mix(in srgb, var(--color-subtle-bg) 84%, transparent);
 }
 
-.navbar-global-search-dropdown {
+.topbar-global-search-dropdown {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
@@ -428,13 +428,13 @@ a {
   overflow: hidden;
 }
 
-.navbar-global-search-list {
+.topbar-global-search-list {
   display: grid;
   max-height: 380px;
   overflow-y: auto;
 }
 
-.navbar-global-search-item {
+.topbar-global-search-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -448,15 +448,15 @@ a {
   border-radius: 0;
 }
 
-.navbar-global-search-item:last-child {
+.topbar-global-search-item:last-child {
   border-bottom: none;
 }
 
-.navbar-global-search-item:hover {
+.topbar-global-search-item:hover {
   background: color-mix(in srgb, var(--color-subtle-bg) 84%, transparent);
 }
 
-.navbar-global-search-kind {
+.topbar-global-search-kind {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -469,49 +469,49 @@ a {
   font-weight: 700;
 }
 
-.navbar-global-search-kind.kind-seller {
+.topbar-global-search-kind.kind-seller {
   border-color: color-mix(in srgb, #f59e0b 45%, var(--color-border));
 }
 
-.navbar-global-search-kind.kind-buyer {
+.topbar-global-search-kind.kind-buyer {
   border-color: color-mix(in srgb, #3b82f6 45%, var(--color-border));
 }
 
-.navbar-global-search-kind.kind-food {
+.topbar-global-search-kind.kind-food {
   border-color: color-mix(in srgb, #16a34a 45%, var(--color-border));
 }
 
-.navbar-global-search-kind.kind-order {
+.topbar-global-search-kind.kind-order {
   border-color: color-mix(in srgb, #8b5cf6 45%, var(--color-border));
 }
 
-.navbar-global-search-kind.kind-lot {
+.topbar-global-search-kind.kind-lot {
   border-color: color-mix(in srgb, #06b6d4 45%, var(--color-border));
 }
 
-.navbar-global-search-kind.kind-complaint {
+.topbar-global-search-kind.kind-complaint {
   border-color: color-mix(in srgb, #ef4444 45%, var(--color-border));
 }
 
-.navbar-global-search-texts {
+.topbar-global-search-texts {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.navbar-global-search-texts strong,
-.navbar-global-search-texts small {
+.topbar-global-search-texts strong,
+.topbar-global-search-texts small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.navbar-global-search-texts small {
+.topbar-global-search-texts small {
   color: var(--color-tertiary-text);
   font-size: 0.78rem;
 }
 
-.navbar-global-search-empty {
+.topbar-global-search-empty {
   margin: 0;
   padding: 11px 12px;
   color: var(--color-secondary-text);
@@ -5308,7 +5308,7 @@ textarea:focus {
     flex-wrap: wrap;
   }
 
-  .navbar-global-search {
+  .topbar-global-search {
     width: 100%;
     min-width: 0;
     flex: 1 1 auto;
@@ -5379,7 +5379,7 @@ textarea:focus {
     border-radius: 14px;
   }
 
-  .navbar-global-search-dropdown {
+  .topbar-global-search-dropdown {
     position: static;
     margin-top: 8px;
   }
