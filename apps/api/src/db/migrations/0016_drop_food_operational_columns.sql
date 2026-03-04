@@ -1,4 +1,0 @@
-ALTER TABLE foods
-DROP COLUMN IF EXISTS current_stock,
-DROP COLUMN IF EXISTS daily_stock,
-DROP COLUMN IF EXISTS is_available;
