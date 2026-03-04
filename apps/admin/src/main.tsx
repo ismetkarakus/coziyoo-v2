@@ -2422,7 +2422,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <section className="panel buyer-v2-board seller-v2-board">
             {isSellerTableOpen ? (
               <div className="seller-v2-toolbar-row">
-                <div className="seller-v2-toolbar-right">
+                <div className="seller-v2-toolbar-left">
                   <button
                     className="ghost users-sort-pill"
                     type="button"
@@ -2437,6 +2437,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   >
                     Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
                   </button>
+                </div>
+                <div className="seller-v2-toolbar-right">
                   <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
                 </div>
               </div>
