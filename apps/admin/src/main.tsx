@@ -1995,7 +1995,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return mapped;
   }
 
-  function shortId(id: string): string {
+  function compactUuidLabel(id: string): string {
     if (!id) return "-";
     return id.length > 10 ? `${id.slice(0, 8)}…` : id;
   }
@@ -2011,7 +2011,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const value = row[mapped];
     if (mapped === "id") {
       if (isBuyerPage) {
-        return shortId(String(value ?? ""));
+        return compactUuidLabel(String(value ?? ""));
       }
       if (kind === "sellers") {
         return (
@@ -2024,7 +2024,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               navigator.clipboard.writeText(String(value ?? "")).catch(() => undefined);
             }}
           >
-            {shortId(String(value ?? ""))}
+            {compactUuidLabel(String(value ?? ""))}
           </button>
         );
       }
@@ -2038,7 +2038,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             navigator.clipboard.writeText(String(value ?? "")).catch(() => undefined);
           }}
         >
-          {shortId(String(value ?? ""))}
+          {compactUuidLabel(String(value ?? ""))}
         </button>
       );
     }
@@ -3421,7 +3421,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
                                 <span>{String(row.email ?? "-")}</span>
                                 <span className="buyer-user-meta">
-                                  {`ID: ${shortId(String(row.id ?? ""))} • ${
+                                  {`ID: ${compactUuidLabel(String(row.id ?? ""))} • ${
                                     language === "tr" ? "Son Online" : "Last Online"
                                   }: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)}`}
                                 </span>
@@ -6466,7 +6466,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
-  const shortId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
+  const compactUserId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = detailLastLoginAtRaw ? formatDate(detailLastLoginAtRaw) : "-";
@@ -6777,7 +6777,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <h2 title={fullName}>{fullName}</h2>
             <p title={email}>{email}</p>
             <div className="buyer-ops-id-row">
-              <span>ID {shortId}</span>
+              <span>ID {compactUserId}</span>
               <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
                 <span aria-hidden="true">◌</span>
               </button>
