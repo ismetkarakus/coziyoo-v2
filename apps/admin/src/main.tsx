@@ -1422,7 +1422,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const pageTitle =
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
-  const pageTitleView = isSellerPage ? (language === "tr" ? "Satıcı Yönetimi (TR)" : "Seller Management (TR)") : pageTitle;
+  const pageTitleView = isSellerPage ? (language === "tr" ? "Satıcı Yönetimi" : "Seller Management") : pageTitle;
   const unifiedSearchPlaceholder =
     isSellerPage
       ? language === "tr"
