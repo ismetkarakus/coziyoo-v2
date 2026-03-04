@@ -651,7 +651,16 @@ function AppShell({
               <p className="brand-title">{dict.navbar.title}</p>
             </div>
           </div>
-          <TopNavTabs pathname={location.pathname} dict={dict} isSuperAdmin={isSuperAdmin} language={language} />
+          <TopNavTabs
+            pathname={location.pathname}
+            dict={dict}
+            isSuperAdmin={isSuperAdmin}
+            language={language}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={onToggleDarkMode}
+            onToggleLanguage={onToggleLanguage}
+            onLogout={logout}
+          />
         </div>
         <div className="navbar-actions">
           <ApiHealthBadge />
@@ -694,11 +703,19 @@ function TopNavTabs({
   dict,
   isSuperAdmin,
   language,
+  isDarkMode,
+  onToggleDarkMode,
+  onToggleLanguage,
+  onLogout,
 }: {
   pathname: string;
   dict: Dictionary;
   isSuperAdmin: boolean;
   language: Language;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  onToggleLanguage: () => void;
+  onLogout: () => void;
 }) {
   const items = [
     { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
@@ -890,6 +907,39 @@ function TopNavTabs({
         >
           {dict.menu.management}
         </button>
+        <div className="nav-mobile-actions">
+          <ApiHealthBadge />
+          <button
+            className="ghost"
+            onClick={() => {
+              onToggleLanguage();
+              setIsCompactNavOpen(false);
+            }}
+            type="button"
+          >
+            {dict.actions.language}
+          </button>
+          <button
+            className="theme-toggle"
+            onClick={() => {
+              onToggleDarkMode();
+              setIsCompactNavOpen(false);
+            }}
+            type="button"
+          >
+            {isDarkMode ? "☀" : "☾"}
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              setIsCompactNavOpen(false);
+              void onLogout();
+            }}
+            type="button"
+          >
+            {dict.actions.logout}
+          </button>
+        </div>
       </nav>
       {isManagementOpen ? (
         <div className="nav-submenu">
@@ -956,7 +1006,12 @@ function ApiHealthBadge() {
   const label = status === "up" ? "API up" : status === "down" ? "API down" : "API check";
   return (
     <span className={`health-chip health-chip-icon is-${status}`} title={label} aria-label={label}>
-      <span className="wifi-icon" aria-hidden="true">📶</span>
+      <svg className="wifi-icon" viewBox="0 0 24 24" role="img" aria-hidden="true">
+        <path d="M2.5 9.5A14.8 14.8 0 0 1 12 6c3.7 0 7.3 1.3 9.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+        <path d="M5.8 12.8A10.2 10.2 0 0 1 12 10.6c2.4 0 4.8.8 6.2 2.2" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+        <path d="M9.1 16.1A5.2 5.2 0 0 1 12 15c1.1 0 2.2.4 2.9 1.1" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+        <circle cx="12" cy="19" r="1.7" fill="currentColor" />
+      </svg>
     </span>
   );
 }
