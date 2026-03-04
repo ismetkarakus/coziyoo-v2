@@ -3582,6 +3582,20 @@ textarea:focus {
   border-radius: 10px;
 }
 
+.seller-table-placeholder {
+  min-height: 240px;
+  border-radius: 14px;
+  border: 1px dashed color-mix(in srgb, #647bab 42%, var(--color-border));
+  background: color-mix(in srgb, #131d33 78%, transparent);
+  color: color-mix(in srgb, #b7c7e9 82%, var(--color-secondary-text));
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 18px;
+  font-size: 1.06rem;
+  font-weight: 600;
+}
+
 .seller-daily-sales-inline {
   display: inline-flex;
   align-items: center;

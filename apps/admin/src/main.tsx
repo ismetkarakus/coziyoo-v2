@@ -1314,6 +1314,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
   const [activeSellerKpiFilter, setActiveSellerKpiFilter] = useState<"active" | "disabled" | "new_today" | null>(null);
   const [sellerDailySales, setSellerDailySales] = useState<number | null>(null);
+  const [isSellerTableOpen, setIsSellerTableOpen] = useState(false);
   const [buyerFilters, setBuyerFilters] = useState<{
     status: "all" | "active" | "disabled";
     complaint: "all" | "has_unresolved" | "resolved_only" | "no_complaint";
@@ -1587,6 +1588,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         setSellerDailySales(Number(body.data?.dailySales ?? 0));
       })
       .catch(() => setSellerDailySales(null));
+  }, [isSellerPage]);
+
+  useEffect(() => {
+    if (!isSellerPage) return;
+    setIsSellerTableOpen(false);
   }, [isSellerPage]);
 
   useEffect(() => {
@@ -2248,6 +2254,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const applySellerKpiFilter = (mode: "active" | "disabled" | "new_today") => {
       setActiveSellerSmartFilter(null);
       setFilters((prev) => ({ ...prev, page: 1 }));
+      setIsSellerTableOpen(true);
       if (mode === "active") {
         setSellerStatusFilter("active");
         setActiveSellerKpiFilter("active");
@@ -2344,6 +2351,22 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         <section className="buyer-v2-main-layout">
           <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
             <div className="buyer-v2-smart-list seller-v2-smart-primary">
+              <button
+                type="button"
+                className={`buyer-v2-smart-item ${sellerStatusFilter === "all" && !activeSellerSmartFilter && !activeSellerKpiFilter ? "is-active" : ""}`}
+                aria-pressed={sellerStatusFilter === "all" && !activeSellerSmartFilter && !activeSellerKpiFilter}
+                onClick={() => {
+                  setSellerStatusFilter("all");
+                  setActiveSellerKpiFilter(null);
+                  setActiveSellerSmartFilter(null);
+                  setIsSellerTableOpen(true);
+                  setFilters((prev) => ({ ...prev, page: 1 }));
+                }}
+              >
+                <span className="buyer-v2-smart-item-icon" aria-hidden="true">☰</span>
+                <span className="buyer-v2-smart-item-label">Tüm Kayıtlar</span>
+                <span className="buyer-v2-smart-item-count">{totalTrSellers}</span>
+              </button>
               {primarySmartItems.map((key) => {
                 const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
                 if (!item) return null;
@@ -2356,7 +2379,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     onClick={() => {
                       setSellerStatusFilter("all");
                       setActiveSellerKpiFilter(null);
-                      setActiveSellerSmartFilter((prev) => (prev === item.key ? null : item.key));
+                      setActiveSellerSmartFilter((prev) => {
+                        const next = prev === item.key ? null : item.key;
+                        setIsSellerTableOpen(next !== null);
+                        return next;
+                      });
                       setFilters((prev) => ({ ...prev, page: 1 }));
                     }}
                   >
@@ -2370,173 +2397,183 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </aside>
 
           <section className="panel buyer-v2-board seller-v2-board">
-            <div className="seller-v2-toolbar-row">
-              <div className="seller-v2-toolbar-right">
-                <button
-                  className="ghost users-sort-pill"
-                  type="button"
-                  onClick={() =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      sortBy: "updatedAt",
-                      sortDir: prev.sortDir === "desc" ? "asc" : "desc",
-                      page: 1,
-                    }))
-                  }
-                >
-                  Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
-                </button>
-                <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
+            {isSellerTableOpen ? (
+              <div className="seller-v2-toolbar-row">
+                <div className="seller-v2-toolbar-right">
+                  <button
+                    className="ghost users-sort-pill"
+                    type="button"
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        sortBy: "updatedAt",
+                        sortDir: prev.sortDir === "desc" ? "asc" : "desc",
+                        page: 1,
+                      }))
+                    }
+                  >
+                    Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
+                  </button>
+                  <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
+                </div>
               </div>
-            </div>
+            ) : null}
 
-            <div className="table-wrap users-table-wrap buyer-v2-table-wrap seller-v2-table-wrap density-normal">
-              <table>
-                <colgroup>
-                  <col style={{ width: "42px" }} />
-                  <col style={{ width: "36%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "13%" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "9%" }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th className="buyer-v2-check-col"><input type="checkbox" /></th>
-                    <th>Mağaza Adı</th>
-                    <th>Durum</th>
-                    <th>Uyarılar</th>
-                    <th>Sipariş Sağlığı</th>
-                    <th>Rating Trend</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    Array.from({ length: 6 }).map((_, index) => (
-                      <tr key={`skeleton-seller-${index}`}>
-                        <td colSpan={7} className="table-skeleton"><span /></td>
-                      </tr>
-                    ))
-                  ) : filteredRows.length === 0 ? (
+            {isSellerTableOpen ? (
+              <div className="table-wrap users-table-wrap buyer-v2-table-wrap seller-v2-table-wrap density-normal">
+                <table>
+                  <colgroup>
+                    <col style={{ width: "42px" }} />
+                    <col style={{ width: "36%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "9%" }} />
+                  </colgroup>
+                  <thead>
                     <tr>
-                      <td colSpan={7}>{dict.common.noRecords}</td>
+                      <th className="buyer-v2-check-col"><input type="checkbox" /></th>
+                      <th>Mağaza Adı</th>
+                      <th>Durum</th>
+                      <th>Uyarılar</th>
+                      <th>Sipariş Sağlığı</th>
+                      <th>Rating Trend</th>
+                      <th />
                     </tr>
-                  ) : (
-                    filteredRows.map((row) => {
-                      const orderCurrent = sellerOrderCurrent(row);
-                      const orderPrevious = sellerOrderPrevious(row);
-                      const orderMeta = trendArrow(orderCurrent, orderPrevious);
-                      const ratingValue = sellerRating(row);
-                      const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
-                      const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
-                      const sellerName = String(row.displayName ?? row.email ?? "Satıcı");
-                      const nameParts = sellerName.split(" ").filter(Boolean);
-                      const initials = nameParts.length >= 2
-                        ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
-                        : sellerName.slice(0, 2).toUpperCase();
-                      const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
-                      const warningInfo = sellerComplaintUnresolved(row);
-
-                      return (
-                        <tr
-                          key={row.id}
-                          className="is-clickable"
-                          onClick={() => navigate(`/app/sellers/${row.id}`)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              navigate(`/app/sellers/${row.id}`);
-                            }
-                          }}
-                          tabIndex={0}
-                        >
-                          <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
-                          <td>
-                            <div className="seller-v2-shop-cell">
-                              <span className="name-avatar seller-v2-avatar">{initials || "S"}</span>
-                              <div>
-                                <strong>{sellerName}</strong>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`seller-v2-like-pill ${row.status === "active" ? "is-good" : ""}`}>
-                              👍 {row.status === "active" ? 1 : 0}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="seller-v2-warning-cell">
-                              <span className={`seller-v2-tag ${warningA === "A" ? "is-red" : ""}`}>{warningA}</span>
-                              <span>{warningInfo}</span>
-                              <span>◔ {sellerMissingDoc(row)}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="seller-v2-health-cell">
-                              <span className="seller-v2-health-pill">{revenueTag}</span>
-                              <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="seller-v2-rating">
-                              {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({ratingTrend >= 0 ? "+" : ""}{ratingTrend.toFixed(1)})
-                            </span>
-                          </td>
-                          <td className="cell-actions">
-                            <button
-                              className="ghost action-btn seller-v2-detail-btn"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                navigate(`/app/sellers/${row.id}`);
-                              }}
-                            >
-                              <span aria-hidden="true">{row.status === "active" ? "◉ Detay ▾" : "◉ Aktif Yap"}</span>
-                            </button>
-                          </td>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      Array.from({ length: 6 }).map((_, index) => (
+                        <tr key={`skeleton-seller-${index}`}>
+                          <td colSpan={7} className="table-skeleton"><span /></td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      ))
+                    ) : filteredRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7}>{dict.common.noRecords}</td>
+                      </tr>
+                    ) : (
+                      filteredRows.map((row) => {
+                        const orderCurrent = sellerOrderCurrent(row);
+                        const orderPrevious = sellerOrderPrevious(row);
+                        const orderMeta = trendArrow(orderCurrent, orderPrevious);
+                        const ratingValue = sellerRating(row);
+                        const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
+                        const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
+                        const sellerName = String(row.displayName ?? row.email ?? "Satıcı");
+                        const nameParts = sellerName.split(" ").filter(Boolean);
+                        const initials = nameParts.length >= 2
+                          ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
+                          : sellerName.slice(0, 2).toUpperCase();
+                        const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
+                        const warningInfo = sellerComplaintUnresolved(row);
 
-            <div className="buyer-v2-footer seller-v2-footer">
-              <div className="buyer-v2-pager-left">
-                <button className="ghost buyer-v2-page-btn" type="button">10 / sayfa ▼</button>
-                <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>
-                  Önceki
-                </button>
-                <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}>
-                  Sonraki
-                </button>
+                        return (
+                          <tr
+                            key={row.id}
+                            className="is-clickable"
+                            onClick={() => navigate(`/app/sellers/${row.id}`)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                navigate(`/app/sellers/${row.id}`);
+                              }
+                            }}
+                            tabIndex={0}
+                          >
+                            <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
+                            <td>
+                              <div className="seller-v2-shop-cell">
+                                <span className="name-avatar seller-v2-avatar">{initials || "S"}</span>
+                                <div>
+                                  <strong>{sellerName}</strong>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`seller-v2-like-pill ${row.status === "active" ? "is-good" : ""}`}>
+                                👍 {row.status === "active" ? 1 : 0}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="seller-v2-warning-cell">
+                                <span className={`seller-v2-tag ${warningA === "A" ? "is-red" : ""}`}>{warningA}</span>
+                                <span>{warningInfo}</span>
+                                <span>◔ {sellerMissingDoc(row)}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="seller-v2-health-cell">
+                                <span className="seller-v2-health-pill">{revenueTag}</span>
+                                <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="seller-v2-rating">
+                                {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({ratingTrend >= 0 ? "+" : ""}{ratingTrend.toFixed(1)})
+                              </span>
+                            </td>
+                            <td className="cell-actions">
+                              <button
+                                className="ghost action-btn seller-v2-detail-btn"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/app/sellers/${row.id}`);
+                                }}
+                              >
+                                <span aria-hidden="true">{row.status === "active" ? "◉ Detay ▾" : "◉ Aktif Yap"}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="buyer-v2-pager-right">
-                <span className="panel-meta">{`${Math.min((filters.page - 1) * filters.pageSize + 1, pagination?.total ?? 0)}-${Math.min(filters.page * filters.pageSize, pagination?.total ?? 0)} / ${pagination?.total ?? 0} kayıt`}</span>
-                <button
-                  className="ghost buyer-v2-page-btn"
-                  type="button"
-                  disabled={filters.page <= 1}
-                  onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
-                >
-                  ‹
-                </button>
-                <button
-                  className="ghost buyer-v2-page-btn"
-                  type="button"
-                  disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
-                  onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-                >
-                  ›
-                </button>
+            ) : (
+              <div className="seller-table-placeholder">
+                KPI veya soldaki filtrelerden birine tıklayınca tablo açılır.
               </div>
-            </div>
+            )}
+
+            {isSellerTableOpen ? (
+              <div className="buyer-v2-footer seller-v2-footer">
+                <div className="buyer-v2-pager-left">
+                  <button className="ghost buyer-v2-page-btn" type="button">10 / sayfa ▼</button>
+                  <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>
+                    Önceki
+                  </button>
+                  <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
+                  <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                  <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                  <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}>
+                    Sonraki
+                  </button>
+                </div>
+                <div className="buyer-v2-pager-right">
+                  <span className="panel-meta">{`${Math.min((filters.page - 1) * filters.pageSize + 1, pagination?.total ?? 0)}-${Math.min(filters.page * filters.pageSize, pagination?.total ?? 0)} / ${pagination?.total ?? 0} kayıt`}</span>
+                  <button
+                    className="ghost buyer-v2-page-btn"
+                    type="button"
+                    disabled={filters.page <= 1}
+                    onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    className="ghost buyer-v2-page-btn"
+                    type="button"
+                    disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
+                    onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
         </section>
       </div>
