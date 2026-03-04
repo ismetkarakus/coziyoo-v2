@@ -5914,17 +5914,32 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setGreetingInstruction("");
   }
 
-  function startNewProfileDraft(profileId: string) {
+  async function startNewProfileDraft(profileId: string) {
     const normalized = profileId.trim();
     if (!normalized) return;
-    setCurrentDeviceId(normalized);
-    setDeviceIdInput(normalized);
-    resetSettingsFormToDefaults();
-    setSaveMsg(language === "tr" ? `Yeni profil taslağı hazır: ${normalized}` : `New profile draft is ready: ${normalized}`);
+    setSaving(true);
+    setSaveMsg(null);
     setSaveError(null);
-    setActiveTab("general");
-    setIsCreateProfileOpen(false);
-    setNewProfileIdInput("");
+    try {
+      const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(normalized)}`, {
+        method: "PUT",
+        body: JSON.stringify({}),
+      });
+      const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
+      if (res.status !== 200 || !body.data) {
+        setSaveError(body.error?.message ?? dict.voiceAgentSettings.saveError);
+        return;
+      }
+      setIsCreateProfileOpen(false);
+      setNewProfileIdInput("");
+      await loadDeviceList();
+      await loadSettings(normalized);
+      setActiveTab("general");
+    } catch {
+      setSaveError(dict.voiceAgentSettings.saveError);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function loadDeviceList(): Promise<DeviceRow[]> {
@@ -6218,7 +6233,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
         {isCreateProfileOpen ? (
           <div style={{ padding: "0.6rem 1.5rem", borderBottom: "1px solid var(--color-border)" }}>
             <form
-              onSubmit={(event) => { event.preventDefault(); startNewProfileDraft(newProfileIdInput); }}
+              onSubmit={(event) => { event.preventDefault(); void startNewProfileDraft(newProfileIdInput); }}
               style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}
             >
               <div style={{ position: "relative", flex: 1 }}>
@@ -6430,7 +6445,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <label style={{ gap: "0.5rem" }}>
                     {dict.voiceAgentSettings.voiceLanguage}
                     <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                      {["tr", "en", "de", "fr", "es", "ar"].map((lang) => (
+                      {["tr", "en"].map((lang) => (
                         <button
                           key={lang}
                           type="button"
