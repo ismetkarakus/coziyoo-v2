@@ -1,28 +1,30 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
+from livekit import api
+from pydantic import BaseModel, Field
 
 from .config.settings import get_settings
-from .dispatch.manager import DispatchManager
-from .dispatch.models import DispatchStatus, JoinTaskPayload
 
 logger = logging.getLogger("coziyoo-voice-agent-join")
 settings = get_settings()
 app = FastAPI(title="coziyoo-voice-agent-join")
-manager = DispatchManager(worker_count=2)
 
 
-@app.on_event("startup")
-async def on_startup() -> None:
-    await manager.start()
+class JoinRequest(BaseModel):
+    roomName: str = Field(min_length=1, max_length=128)
+    participantIdentity: str = Field(min_length=3, max_length=128)
+    metadata: str = ""
 
 
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    await manager.stop()
+def _http_url(ws_url: str) -> str:
+    if ws_url.startswith("wss://"):
+        return f"https://{ws_url[len('wss://'):]}"
+    if ws_url.startswith("ws://"):
+        return f"http://{ws_url[len('ws://'):]}"
+    return ws_url
 
 
 @app.get("/health")
@@ -32,44 +34,26 @@ async def health() -> dict[str, str]:
 
 @app.post("/livekit/agent-session")
 async def join_agent_session(
-    body: JoinTaskPayload,
+    body: JoinRequest,
     x_ai_server_secret: str | None = Header(default=None),
-) -> dict[str, Any]:
+) -> dict:
     if not settings.ai_server_shared_secret:
         raise HTTPException(status_code=503, detail="AI_SERVER_SHARED_SECRET missing")
-
     if x_ai_server_secret != settings.ai_server_shared_secret:
         raise HTTPException(status_code=401, detail="invalid shared secret")
 
-    task = await manager.enqueue(body)
-    logger.info(
-        "dispatch queued taskId=%s room=%s identity=%s",
-        task.id,
-        body.roomName,
-        body.participantIdentity,
-    )
+    async with api.LiveKitAPI(
+        url=_http_url(settings.livekit_url),
+        api_key=settings.livekit_api_key,
+        api_secret=settings.livekit_api_secret,
+    ) as lkapi:
+        dispatch = await lkapi.agent_dispatch.create_dispatch(
+            api.CreateAgentDispatchRequest(
+                agent_name="coziyoo-voice-agent",
+                room=body.roomName,
+                metadata=body.metadata,
+            )
+        )
 
-    return {
-        "ok": True,
-        "accepted": True,
-        "taskId": task.id,
-        "status": task.status,
-        "roomName": body.roomName,
-        "participantIdentity": body.participantIdentity,
-        "message": "dispatch queued",
-    }
-
-
-@app.get("/livekit/agent-session/{task_id}")
-async def get_dispatch_status(task_id: str) -> dict[str, Any]:
-    task = manager.get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="task not found")
-
-    status = task.status
-    http_status = 200 if status in (DispatchStatus.queued, DispatchStatus.processing, DispatchStatus.completed) else 500
-    return {
-        "ok": status != DispatchStatus.failed,
-        "statusCode": http_status,
-        "task": task.model_dump(),
-    }
+    logger.info("dispatched agent room=%s dispatch_id=%s", body.roomName, dispatch.id)
+    return {"ok": True, "dispatchId": dispatch.id, "roomName": body.roomName}

@@ -25,7 +25,14 @@
       "Read(//Users/drascom/Work/coziyoo-v2/**)",
       "Bash(git stash)",
       "Bash(git stash pop)",
-      "Bash(git pull origin main)"
+      "Bash(git pull origin main)",
+      "WebSearch",
+      "WebFetch(domain:docs.livekit.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python3:*)"
     ]
   }
 }

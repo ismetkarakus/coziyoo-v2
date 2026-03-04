@@ -7,23 +7,25 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ActionPolicy(BaseModel):
-    requiresConfirmation: bool = False
-
-
 class NavigateParams(BaseModel):
-    screen: Literal["Home", "Settings", "Profile", "Notes"]
-    prefill: str | None = None
+    screen: Literal["Menu", "Cart", "OrderStatus", "Profile"]
 
 
-class AppendNoteParams(BaseModel):
-    text: str = Field(min_length=1, max_length=2000)
+class AddToCartParams(BaseModel):
+    productId: str
+    productName: str
+    quantity: int = Field(ge=1)
+    price: float
+
+
+class ShowOrderSummaryParams(BaseModel):
+    items: list[dict[str, Any]]
+    total: float
 
 
 class ActionPayload(BaseModel):
-    name: Literal["navigate", "append_note", "open_profile", "set_settings_hint"]
+    name: Literal["navigate", "add_to_cart", "show_order_summary"]
     params: dict[str, Any] = Field(default_factory=dict)
-    policy: ActionPolicy = Field(default_factory=ActionPolicy)
 
 
 class AgentActionEnvelope(BaseModel):
