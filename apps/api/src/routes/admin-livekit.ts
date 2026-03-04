@@ -433,6 +433,8 @@ const AdminAgentSettingsSchema = z.object({
   systemPrompt: z.string().max(4_000).optional(),
   greetingEnabled: z.boolean().optional(),
   greetingInstruction: z.string().max(2_000).optional(),
+  sttQueryParams: z.record(z.string()).optional(),
+  ttsQueryParams: z.record(z.string()).optional(),
 });
 
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
@@ -532,12 +534,14 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
   const mergedTtsConfig = {
     ...existingTtsConfig,
     ...(input.ttsBaseUrl !== undefined ? { baseUrl: input.ttsBaseUrl || null } : {}),
+    ...(input.ttsQueryParams !== undefined ? { queryParams: input.ttsQueryParams } : {}),
     stt: {
       ...existingStt,
       ...(input.sttProvider !== undefined ? { provider: input.sttProvider } : {}),
       ...(input.sttBaseUrl !== undefined ? { baseUrl: input.sttBaseUrl || null } : {}),
       ...(input.sttTranscribePath !== undefined ? { transcribePath: input.sttTranscribePath } : {}),
       ...(input.sttModel !== undefined ? { model: input.sttModel } : {}),
+      ...(input.sttQueryParams !== undefined ? { queryParams: input.sttQueryParams } : {}),
     },
     llm: {
       ...existingLlm,

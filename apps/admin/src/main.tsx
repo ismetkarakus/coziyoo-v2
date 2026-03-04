@@ -6007,6 +6007,40 @@ function readNestedStr(config: Record<string, unknown> | null, ...path: string[]
   return typeof cur === "string" ? cur : "";
 }
 
+function QueryParamsEditor({
+  label,
+  params,
+  onChange,
+}: {
+  label: string;
+  params: Array<{ key: string; value: string }>;
+  onChange: (p: Array<{ key: string; value: string }>) => void;
+}) {
+  const add = () => onChange([...params, { key: "", value: "" }]);
+  const remove = (i: number) => onChange(params.filter((_, idx) => idx !== i));
+  const update = (i: number, field: "key" | "value", val: string) =>
+    onChange(params.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "0.82em", fontWeight: 600, color: "var(--color-secondary-text)" }}>{label}</span>
+        <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 10px" }} onClick={add}>+ Add</button>
+      </div>
+      {params.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+          {params.map((p, i) => (
+            <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+              <input style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }} value={p.key} onChange={(e) => update(i, "key", e.target.value)} placeholder="key" />
+              <input style={{ flex: 2, fontSize: "0.82em", padding: "4px 8px" }} value={p.value} onChange={(e) => update(i, "value", e.target.value)} placeholder="value" />
+              <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 8px", color: "#ef4444", flexShrink: 0 }} onClick={() => remove(i)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [devices, setDevices] = useState<DeviceRow[]>([]);
@@ -6033,6 +6067,8 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [sttBaseUrl, setSttBaseUrl] = useState("");
   const [sttTranscribePath, setSttTranscribePath] = useState("/v1/transcribe");
   const [sttModel, setSttModel] = useState("");
+  const [sttQueryParams, setSttQueryParams] = useState<Array<{ key: string; value: string }>>([]);
+  const [ttsQueryParams, setTtsQueryParams] = useState<Array<{ key: string; value: string }>>([]);
   const [n8nBaseUrl, setN8nBaseUrl] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [greetingEnabled, setGreetingEnabled] = useState(true);
@@ -6066,6 +6102,8 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setSttBaseUrl("");
     setSttTranscribePath("/v1/transcribe");
     setSttModel("");
+    setSttQueryParams([]);
+    setTtsQueryParams([]);
     setN8nBaseUrl("");
     setSystemPrompt("");
     setGreetingEnabled(true);
@@ -6143,6 +6181,10 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       setSttBaseUrl(loadedSttBaseUrl);
       setSttTranscribePath(loadedSttTranscribePath);
       setSttModel(loadedSttModel);
+      const rawSttQP = (typeof s.ttsConfig?.stt === "object" && s.ttsConfig.stt !== null ? (s.ttsConfig.stt as Record<string, unknown>).queryParams : null) ?? {};
+      setSttQueryParams(Object.entries(typeof rawSttQP === "object" && rawSttQP !== null ? rawSttQP as Record<string, string> : {}).map(([k, v]) => ({ key: k, value: String(v) })));
+      const rawTtsQP = s.ttsConfig?.queryParams ?? {};
+      setTtsQueryParams(Object.entries(typeof rawTtsQP === "object" && rawTtsQP !== null ? rawTtsQP as Record<string, string> : {}).map(([k, v]) => ({ key: k, value: String(v) })));
       setN8nBaseUrl(loadedN8nBaseUrl);
       setSystemPrompt(s.systemPrompt ?? "");
       setGreetingEnabled(s.greetingEnabled ?? true);
@@ -6195,6 +6237,8 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           sttBaseUrl: sttBaseUrl.trim() || undefined,
           sttTranscribePath: sttTranscribePath.trim() || undefined,
           sttModel: sttModel.trim() || undefined,
+          sttQueryParams: Object.fromEntries(sttQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])),
+          ttsQueryParams: Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])),
           n8nBaseUrl: n8nBaseUrl.trim() || undefined,
           systemPrompt: systemPrompt.trim() || undefined,
           greetingEnabled,
@@ -6622,6 +6666,11 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
                   <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
                 </div>
+                <QueryParamsEditor
+                  label={language === "tr" ? "Query Parametreleri" : "Query Parameters"}
+                  params={sttQueryParams}
+                  onChange={setSttQueryParams}
+                />
               </div>
             ) : null}
 
@@ -6642,6 +6691,11 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   </label>
                   <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
                 </div>
+                <QueryParamsEditor
+                  label={language === "tr" ? "Query Parametreleri" : "Query Parameters"}
+                  params={ttsQueryParams}
+                  onChange={setTtsQueryParams}
+                />
               </div>
             ) : null}
 
