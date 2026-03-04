@@ -6216,21 +6216,26 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
         </div>
 
         {isCreateProfileOpen ? (
-          <div style={{ padding: "0.75rem 1.5rem", borderBottom: "1px solid var(--color-border)" }}>
+          <div style={{ padding: "0.6rem 1.5rem", borderBottom: "1px solid var(--color-border)" }}>
             <form
               onSubmit={(event) => { event.preventDefault(); startNewProfileDraft(newProfileIdInput); }}
-              style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}
+              style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}
             >
-              <label style={{ flex: 1, margin: 0 }}>
-                {language === "tr" ? "Profil ID" : "Profile ID"}
+              <div style={{ position: "relative", flex: 1 }}>
+                <span style={{ position: "absolute", top: "-0.45em", left: "0.6rem", fontSize: "0.72em", fontWeight: 600, color: "var(--color-secondary-text)", background: "var(--color-panel-bg, var(--color-bg))", padding: "0 4px", lineHeight: 1, pointerEvents: "none" }}>
+                  {language === "tr" ? "Profil ID" : "Profile ID"}
+                </span>
                 <input
+                  style={{ margin: 0, padding: "5px 10px", fontSize: "0.85em", width: "100%" }}
                   value={newProfileIdInput}
                   onChange={(e) => setNewProfileIdInput(e.target.value)}
-                  placeholder="e.g. default, english, production"
+                  placeholder="default, english, production…"
                   autoFocus
                 />
-              </label>
-              <button className="primary" type="submit">{language === "tr" ? "Oluştur" : "Create"}</button>
+              </div>
+              <button className="primary" type="submit" style={{ fontSize: "0.82em", padding: "5px 14px", flexShrink: 0 }}>
+                {language === "tr" ? "Oluştur" : "Create"}
+              </button>
             </form>
           </div>
         ) : null}
