@@ -6119,8 +6119,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setTesting(false);
   }
 
-  async function runTestTts(event: FormEvent) {
-    event.preventDefault();
+  async function runTestTts() {
     const url = ttsBaseUrl.trim();
     if (!url) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); return; }
     setTtsSynthesizing(true);
@@ -6196,323 +6195,336 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       </header>
 
       {loadError ? <div className="alert">{loadError}</div> : null}
+      {saveError ? <div className="alert">{saveError}</div> : null}
 
+      {/* ── Card 1: Profile Manager ────────────────────────────── */}
       <section className="panel">
         <div className="panel-header">
           <h2>{language === "tr" ? "Profil Yönetimi" : "Profile Manager"}</h2>
-          {currentDeviceId ? <span className="panel-meta" style={{ fontFamily: "monospace" }}>{currentDeviceId}</span> : null}
+          <button className="primary" type="button" onClick={() => setIsCreateProfileOpen((prev) => !prev)}>
+            {isCreateProfileOpen ? (language === "tr" ? "İptal" : "Cancel") : (language === "tr" ? "+ Yeni Profil" : "+ New Profile")}
+          </button>
         </div>
-        <p className="panel-note" style={{ padding: "0 1.5rem" }}>
-          {language === "tr"
-            ? "Farklı STT/TTS kombinasyonları için profil oluşturun, düzenleyin ve aktif profili yükleyin."
-            : "Create, edit, and load profiles to test different STT/TTS combinations."}
-        </p>
-        {devices.length > 0 ? (
-          <div className="table" style={{ marginBottom: "1rem" }}>
-            {devices.map((d) => (
-              <div
-                key={d.device_id}
-                className={`table-row${currentDeviceId === d.device_id ? " table-row--selected" : ""}`}
-                style={{ alignItems: "center" }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-                  <span style={{ fontFamily: "monospace", fontSize: "0.85em", fontWeight: currentDeviceId === d.device_id ? 700 : 500 }}>{d.device_id}</span>
-                  {d.is_active ? (
-                    <span style={{ fontSize: "0.7em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase" }}>
-                      {language === "tr" ? "Aktif" : "Active"}
-                    </span>
-                  ) : null}
-                </span>
-                <span>{d.agent_name}</span>
-                <span>{d.voice_language}</span>
-                <span>{d.tts_engine}</span>
-                <span>{new Date(d.updated_at).toLocaleDateString()}</span>
-                <span style={{ marginLeft: "auto", display: "inline-flex", gap: "0.5rem" }}>
-                  <button
-                    className="ghost"
-                    type="button"
-                    onClick={() => {
-                      setDeviceIdInput(d.device_id);
-                      loadSettings(d.device_id, { runTestsAfterLoad: true }).catch(() => undefined);
-                    }}
-                  >
-                    {language === "tr" ? "Yükle" : "Load"}
-                  </button>
-                  <button
-                    className="ghost"
-                    type="button"
-                    onClick={() => {
-                      setDeviceIdInput(d.device_id);
-                      loadSettings(d.device_id).catch(() => undefined);
-                      setActiveTab("general");
-                    }}
-                  >
-                    {language === "tr" ? "Düzenle" : "Edit"}
-                  </button>
-                  {!d.is_active ? (
-                    <button className="ghost" type="button" onClick={() => activateProfile(d.device_id).catch(() => undefined)}>
-                      {language === "tr" ? "Aktif Yap" : "Set Active"}
-                    </button>
-                  ) : null}
-                  <button
-                    className="ghost"
-                    type="button"
-                    style={{ color: "#ef4444" }}
-                    onClick={() => deleteProfile(d.device_id).catch(() => undefined)}
-                  >
-                    {language === "tr" ? "Sil" : "Delete"}
-                  </button>
-                </span>
-              </div>
-            ))}
+
+        {isCreateProfileOpen ? (
+          <div style={{ padding: "0.75rem 1.5rem", borderBottom: "1px solid var(--color-border)" }}>
+            <form
+              onSubmit={(event) => { event.preventDefault(); startNewProfileDraft(newProfileIdInput); }}
+              style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}
+            >
+              <label style={{ flex: 1, margin: 0 }}>
+                {language === "tr" ? "Profil ID" : "Profile ID"}
+                <input
+                  value={newProfileIdInput}
+                  onChange={(e) => setNewProfileIdInput(e.target.value)}
+                  placeholder="e.g. default, english, production"
+                  autoFocus
+                />
+              </label>
+              <button className="primary" type="submit">{language === "tr" ? "Oluştur" : "Create"}</button>
+            </form>
           </div>
         ) : null}
-        <form onSubmit={onLoad} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", padding: "0 1.5rem 1.5rem", flexWrap: "wrap" }}>
-          <label style={{ flex: 1, margin: 0 }}>
-            {language === "tr" ? "Profil ID" : "Profile ID"}
-            <input value={deviceIdInput} onChange={(e) => setDeviceIdInput(e.target.value)} placeholder="default" />
-          </label>
-          <button className="ghost" type="submit">{language === "tr" ? "Aktif Profili Yükle" : "Load Active Profile"}</button>
-          <button className="primary" type="button" onClick={() => setIsCreateProfileOpen((prev) => !prev)}>
-            {language === "tr" ? "Yeni Profil" : "New Profile"}
-          </button>
-        </form>
-        {isCreateProfileOpen ? (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              startNewProfileDraft(newProfileIdInput);
-            }}
-            style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", padding: "0 1.5rem 1.5rem", flexWrap: "wrap" }}
-          >
-            <label style={{ flex: 1, margin: 0 }}>
-              {language === "tr" ? "Yeni Profil ID" : "New Profile ID"}
-              <input value={newProfileIdInput} onChange={(e) => setNewProfileIdInput(e.target.value)} placeholder="profile-01" />
-            </label>
-            <button className="primary" type="submit">
-              {language === "tr" ? "Profili Aç" : "Open Profile"}
-            </button>
-            <button
-              className="ghost"
-              type="button"
-              onClick={() => {
-                setIsCreateProfileOpen(false);
-                setNewProfileIdInput("");
-              }}
-            >
-              {language === "tr" ? "Vazgeç" : "Cancel"}
-            </button>
-          </form>
-        ) : null}
+
+        {devices.length === 0 ? (
+          <p className="panel-meta" style={{ padding: "1.25rem 1.5rem" }}>
+            {language === "tr" ? "Henüz profil yok. Bir tane oluşturun." : "No profiles yet. Create one above."}
+          </p>
+        ) : (
+          <div className="table">
+            {devices.map((d) => {
+              const isSelected = currentDeviceId === d.device_id;
+              return (
+                <div
+                  key={d.device_id}
+                  className={`table-row${isSelected ? " table-row--selected" : ""}`}
+                  style={{ alignItems: "center", gap: "0.75rem" }}
+                >
+                  <span style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.85em", fontWeight: isSelected ? 700 : 500 }}>{d.device_id}</span>
+                      {d.is_active ? (
+                        <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", flexShrink: 0 }}>
+                          {language === "tr" ? "Aktif" : "Active"}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="panel-meta" style={{ fontSize: "0.78em" }}>{d.agent_name || "—"} · {d.voice_language} · {d.tts_engine}</span>
+                  </span>
+                  <span className="panel-meta" style={{ marginLeft: "auto", fontSize: "0.8em", flexShrink: 0 }}>
+                    {new Date(d.updated_at).toLocaleDateString()}
+                  </span>
+                  <span style={{ display: "inline-flex", gap: "0.4rem", flexShrink: 0 }}>
+                    <button
+                      className={isSelected ? "primary" : "ghost"}
+                      type="button"
+                      style={{ fontSize: "0.8em", padding: "4px 10px" }}
+                      onClick={() => { setDeviceIdInput(d.device_id); loadSettings(d.device_id, { runTestsAfterLoad: true }).catch(() => undefined); }}
+                    >
+                      {isSelected ? (language === "tr" ? "Yüklü" : "Loaded") : (language === "tr" ? "Yükle" : "Load")}
+                    </button>
+                    {!d.is_active ? (
+                      <button
+                        className="ghost"
+                        type="button"
+                        style={{ fontSize: "0.8em", padding: "4px 10px" }}
+                        onClick={() => activateProfile(d.device_id).catch(() => undefined)}
+                      >
+                        {language === "tr" ? "Aktif Yap" : "Set Active"}
+                      </button>
+                    ) : null}
+                    <button
+                      className="ghost"
+                      type="button"
+                      style={{ fontSize: "0.8em", padding: "4px 10px", color: "#ef4444" }}
+                      onClick={() => deleteProfile(d.device_id).catch(() => undefined)}
+                    >
+                      {language === "tr" ? "Sil" : "Delete"}
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      <section className="panel" style={{ paddingTop: "1rem" }}>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      {/* ── Card 2: Tabbed Settings ────────────────────────────── */}
+      <section className="panel" style={{ paddingBottom: 0 }}>
+        {/* Tab bar */}
+        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--color-border)", overflowX: "auto" }}>
           {voiceTabs.map((tab) => (
             <button
               key={tab.key}
-              className={`chip ${activeTab === tab.key ? "is-active" : ""}`}
               type="button"
               onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding: "0.65rem 1.1rem",
+                fontSize: "0.82em",
+                fontWeight: activeTab === tab.key ? 700 : 500,
+                color: activeTab === tab.key ? "var(--color-accent)" : "var(--color-secondary-text)",
+                borderRadius: 0,
+                background: "none",
+                border: "none",
+                borderBottom: activeTab === tab.key ? "2px solid var(--color-accent)" : "2px solid transparent",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
             >
-              {tab.label.toLocaleUpperCase(language === "tr" ? "tr-TR" : "en-US")}
+              {tab.label}
             </button>
           ))}
         </div>
+
+        {/* No-profile empty state */}
+        {currentDeviceId === null ? (
+          <div style={{ padding: "2rem 1.5rem", textAlign: "center" }}>
+            <p style={{ fontSize: "1em", color: "var(--color-secondary-text)" }}>
+              {language === "tr"
+                ? "Ayarları görmek için üstten bir profil yükleyin veya yeni oluşturun."
+                : "Load or create a profile above to view and edit settings."}
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={onSave} style={{ display: "flex", flexDirection: "column" }}>
+            {/* ── Summary tab ─────────────────────────── */}
+            {activeTab === "summary" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                {/* Profile info row */}
+                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <p className="panel-meta" style={{ marginBottom: 2 }}>{language === "tr" ? "Profil ID" : "Profile ID"}</p>
+                    <p style={{ fontFamily: "monospace", fontWeight: 700, margin: 0 }}>
+                      {currentDeviceId}
+                      {devices.find((d) => d.device_id === currentDeviceId)?.is_active ? (
+                        <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", marginLeft: 8, textTransform: "uppercase" }}>
+                          {language === "tr" ? "Aktif" : "Active"}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="panel-meta" style={{ marginBottom: 2 }}>{dict.voiceAgentSettings.agentName}</p>
+                    <p style={{ margin: 0, fontWeight: 500 }}>{agentName || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="panel-meta" style={{ marginBottom: 2 }}>{dict.voiceAgentSettings.voiceLanguage}</p>
+                    <p style={{ margin: 0 }}>{voiceLanguage || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="panel-meta" style={{ marginBottom: 2 }}>STT</p>
+                    <p style={{ margin: 0 }}>{sttEnabled ? "ON" : "OFF"}{sttBaseUrl ? ` · ${sttBaseUrl}` : ""}</p>
+                  </div>
+                  <div>
+                    <p className="panel-meta" style={{ marginBottom: 2 }}>TTS</p>
+                    <p style={{ margin: 0 }}>{ttsEnabled ? "ON" : "OFF"}{ttsBaseUrl ? ` · ${ttsEngine}` : ` · ${ttsEngine}`}</p>
+                  </div>
+                  <div>
+                    <p className="panel-meta" style={{ marginBottom: 2 }}>LLM</p>
+                    <p style={{ margin: 0 }}>{ollamaModel}{ollamaBaseUrl ? ` · ${ollamaBaseUrl}` : ""}</p>
+                  </div>
+                </div>
+
+                {/* Connection tests */}
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: "0.85em", marginBottom: "0.6rem", color: "var(--color-secondary-text)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    {dict.voiceAgentSettings.sectionConnection}
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.6rem" }}>
+                    {[
+                      { label: "LiveKit", status: testLiveKit, onTest: runTestLiveKit },
+                      { label: "STT", status: testStt, onTest: runTestStt },
+                      { label: "Ollama / LLM", status: testOllama, onTest: runTestOllama },
+                      { label: "N8N", status: testN8n, onTest: runTestN8n },
+                    ].map(({ label, status, onTest }) => (
+                      <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)" }}>
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: status === null ? "#aaa" : status.ok ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: "0.85em", fontWeight: 600 }}>{label}</span>
+                        {status?.detail ? <span className="panel-meta" style={{ fontSize: "0.72em", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={status.detail}>{status.detail}</span> : null}
+                        <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 8px", flexShrink: 0 }} onClick={() => { void onTest(); }}>
+                          {language === "tr" ? "Test" : "Test"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <button className="primary" type="button" onClick={() => { void runTestAll(); }} disabled={testing} style={{ fontSize: "0.85em" }}>
+                      {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── General tab ─────────────────────────── */}
+            {activeTab === "general" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div className="form-grid">
+                  <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder="coziyoo-agent" /></label>
+                  <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── STT tab ─────────────────────────────── */}
+            {activeTab === "stt" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="checkbox-grid">
+                  <label><input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />{dict.voiceAgentSettings.sttEnabled}</label>
+                </div>
+                <div className="form-grid">
+                  <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
+                  <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
+                  <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
+                  <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
+                </div>
+                <div>
+                  <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => { void runTestStt(); }}>{dict.voiceAgentSettings.testStt}</button>
+                  {testStt !== null ? <StatusDot status={testStt} /> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── TTS tab ─────────────────────────────── */}
+            {activeTab === "tts" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="checkbox-grid">
+                  <label><input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />{dict.voiceAgentSettings.ttsEnabled}</label>
+                </div>
+                <div className="form-grid">
+                  <label>
+                    {dict.voiceAgentSettings.ttsEngine}
+                    <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
+                      <option value="f5-tts">f5-tts</option>
+                      <option value="xtts">xtts</option>
+                      <option value="chatterbox">chatterbox</option>
+                    </select>
+                  </label>
+                  <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
+                </div>
+                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem" }}>
+                  <p className="panel-meta" style={{ marginBottom: "0.5rem" }}>{dict.voiceAgentSettings.testTts}</p>
+                  <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                    <input
+                      style={{ flex: 1 }}
+                      value={ttsTestText}
+                      onChange={(e) => setTtsTestText(e.target.value)}
+                      placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
+                    />
+                    <button className="ghost" type="button" disabled={ttsSynthesizing} onClick={() => { void runTestTts(); }}>
+                      {ttsSynthesizing ? dict.voiceAgentSettings.testTtsSynthesizing : dict.voiceAgentSettings.testTtsPlay}
+                    </button>
+                  </div>
+                  {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444", marginBottom: "0.5rem" }}>{ttsSynthError}</p> : null}
+                  {ttsAudioUrl ? (
+                    <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%" }} />
+                  ) : (
+                    <audio ref={ttsAudioRef} style={{ display: "none" }} />
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── LLM tab ─────────────────────────────── */}
+            {activeTab === "llm" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="form-grid">
+                  <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
+                  <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
+                </div>
+                <div>
+                  <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => { void runTestOllama(); }}>{dict.voiceAgentSettings.testOllama}</button>
+                  {testOllama !== null ? <StatusDot status={testOllama} /> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── N8N tab ─────────────────────────────── */}
+            {activeTab === "n8n" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="form-grid">
+                  <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
+                </div>
+                <div>
+                  <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => { void runTestN8n(); }}>{dict.voiceAgentSettings.testN8n}</button>
+                  {testN8n !== null ? <StatusDot status={testN8n} /> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── Behaviour tab ───────────────────────── */}
+            {activeTab === "behaviour" ? (
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div className="checkbox-grid">
+                  <label><input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />{dict.voiceAgentSettings.greetingEnabled}</label>
+                </div>
+                <div className="form-grid">
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    {dict.voiceAgentSettings.greetingInstruction}
+                    <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
+                  </label>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    {dict.voiceAgentSettings.systemPrompt}
+                    <textarea rows={6} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── Footer: save (shown on all settings tabs) ── */}
+            {activeTab !== "summary" ? (
+              <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--color-border)", display: "flex", alignItems: "center", gap: "1rem" }}>
+                <button className="primary" type="submit" disabled={saving}>{saving ? (language === "tr" ? "Kaydediliyor..." : "Saving...") : dict.actions.save}</button>
+                {saveMsg ? <span style={{ fontSize: "0.85em", color: "#22c55e", fontWeight: 600 }}>{saveMsg}</span> : null}
+              </div>
+            ) : null}
+          </form>
+        )}
       </section>
-
-      <form onSubmit={onSave}>
-        {activeTab === "summary" ? (
-          <>
-            <section className="panel">
-              <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionConnection}</h2></div>
-              <div className="table">
-                <div className="table-row table-row-kpi">
-                  <span>LiveKit</span>
-                  <StatusDot status={testLiveKit} />
-                  <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={() => { void runTestLiveKit(); }}>{dict.voiceAgentSettings.testLiveKit}</button>
-                  </span>
-                </div>
-                <div className="table-row table-row-kpi">
-                  <span>STT</span>
-                  <StatusDot status={testStt} />
-                  <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={() => { void runTestStt(); }}>{dict.voiceAgentSettings.testStt}</button>
-                  </span>
-                </div>
-                <div className="table-row table-row-kpi">
-                  <span>Ollama / LLM</span>
-                  <StatusDot status={testOllama} />
-                  <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={() => { void runTestOllama(); }}>{dict.voiceAgentSettings.testOllama}</button>
-                  </span>
-                </div>
-                <div className="table-row table-row-kpi">
-                  <span>N8N</span>
-                  <StatusDot status={testN8n} />
-                  <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={() => { void runTestN8n(); }}>{dict.voiceAgentSettings.testN8n}</button>
-                  </span>
-                </div>
-              </div>
-              <div style={{ padding: "0.75rem 1.5rem" }}>
-                <button className="primary" type="button" onClick={() => { void runTestAll(); }} disabled={testing}>
-                  {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
-                </button>
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel-header"><h2>Summary</h2></div>
-              <div className="table">
-                <div className="table-row table-row-kpi">
-                  <span>{language === "tr" ? "Profil ID" : "Profile ID"}</span>
-                  <span style={{ fontFamily: "monospace" }}>
-                    {currentDeviceId ?? "-"}
-                    {devices.find((d) => d.device_id === currentDeviceId)?.is_active ? (
-                      <span style={{ fontSize: "0.7em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", marginLeft: "0.5rem", textTransform: "uppercase" }}>
-                        {language === "tr" ? "Aktif" : "Active"}
-                      </span>
-                    ) : null}
-                  </span>
-                </div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.agentName}</span><span>{agentName || "-"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.voiceLanguage}</span><span>{voiceLanguage || "-"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.sttEnabled}</span><span>{sttEnabled ? "ON" : "OFF"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.ttsEnabled}</span><span>{ttsEnabled ? "ON" : "OFF"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.sttBaseUrl}</span><span>{sttBaseUrl || "-"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.ttsBaseUrl}</span><span>{ttsBaseUrl || "-"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.ollamaBaseUrl}</span><span>{ollamaBaseUrl || "-"}</span></div>
-                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.n8nBaseUrl}</span><span>{n8nBaseUrl || "-"}</span></div>
-              </div>
-            </section>
-          </>
-        ) : null}
-
-        {activeTab === "general" ? (
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionGeneral}</h2></div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} /></label>
-              <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === "stt" ? (
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionStt}</h2></div>
-            <div className="checkbox-grid">
-              <label>
-                <input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />
-                {dict.voiceAgentSettings.sttEnabled}
-              </label>
-            </div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
-              <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
-              <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
-              <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === "tts" ? (
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionTts}</h2></div>
-            <div className="checkbox-grid">
-              <label>
-                <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
-                {dict.voiceAgentSettings.ttsEnabled}
-              </label>
-            </div>
-            <div className="form-grid">
-              <label>
-                {dict.voiceAgentSettings.ttsEngine}
-                <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
-                  <option value="f5-tts">f5-tts</option>
-                  <option value="xtts">xtts</option>
-                  <option value="chatterbox">chatterbox</option>
-                </select>
-              </label>
-              <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
-            </div>
-            <div style={{ borderTop: "1px solid var(--border, #e5e7eb)", margin: "1rem 0 0", paddingTop: "1rem", paddingLeft: "1.5rem", paddingRight: "1.5rem", paddingBottom: "0.5rem" }}>
-              <p className="panel-meta" style={{ marginBottom: "0.5rem" }}>{dict.voiceAgentSettings.testTts}</p>
-              <form onSubmit={runTestTts} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <div style={{ display: "flex", gap: "0.75rem" }}>
-                  <input
-                    style={{ flex: 1 }}
-                    value={ttsTestText}
-                    onChange={(e) => setTtsTestText(e.target.value)}
-                    placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
-                  />
-                  <button className="ghost" type="submit" disabled={ttsSynthesizing}>
-                    {ttsSynthesizing ? dict.voiceAgentSettings.testTtsSynthesizing : dict.voiceAgentSettings.testTtsPlay}
-                  </button>
-                </div>
-                {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444" }}>{ttsSynthError}</p> : null}
-                {ttsAudioUrl ? (
-                  <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", marginTop: "0.25rem" }} />
-                ) : (
-                  <audio ref={ttsAudioRef} style={{ display: "none" }} />
-                )}
-              </form>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === "llm" ? (
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionLlm}</h2></div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
-              <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === "n8n" ? (
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionN8n}</h2></div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
-            </div>
-          </section>
-        ) : null}
-
-        {activeTab === "behaviour" ? (
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionBehaviour}</h2></div>
-            <div className="checkbox-grid">
-              <label>
-                <input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />
-                {dict.voiceAgentSettings.greetingEnabled}
-              </label>
-            </div>
-            <div className="form-grid">
-              <label style={{ gridColumn: "1 / -1" }}>
-                {dict.voiceAgentSettings.greetingInstruction}
-                <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                {dict.voiceAgentSettings.systemPrompt}
-                <textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
-              </label>
-            </div>
-          </section>
-        ) : null}
-
-        {saveMsg ? <div className="alert alert--success">{saveMsg}</div> : null}
-        {saveError ? <div className="alert">{saveError}</div> : null}
-        <div style={{ padding: "0 1.5rem 1.5rem" }}>
-          <button className="primary" type="submit" disabled={saving}>{dict.actions.save}</button>
-        </div>
-      </form>
     </div>
   );
 }
-
 function openQuickEmail(email: string | null | undefined, dict: Dictionary, setMessage?: (message: string | null) => void) {
   const normalizedEmail = String(email ?? "").trim();
   if (!normalizedEmail || !normalizedEmail.includes("@")) return;
