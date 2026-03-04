@@ -720,6 +720,7 @@ function TopNavTabs({
   ];
   const isManagementActive = managementItems.some((item) => item.active);
   const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
+  const [isCompactNavOpen, setIsCompactNavOpen] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
   const [isSeedingDemoData, setIsSeedingDemoData] = useState(false);
   const [gitCommit, setGitCommit] = useState<string>("unknown");
@@ -728,6 +729,10 @@ function TopNavTabs({
   useEffect(() => {
     setIsManagementOpen(isManagementActive);
   }, [isManagementActive]);
+
+  useEffect(() => {
+    setIsCompactNavOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     request("/v1/admin/system/version")
@@ -745,12 +750,14 @@ function TopNavTabs({
       if (!menuRef.current) return;
       if (!menuRef.current.contains(event.target as Node)) {
         setIsManagementOpen(false);
+        setIsCompactNavOpen(false);
       }
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsManagementOpen(false);
+        setIsCompactNavOpen(false);
       }
     };
 
@@ -850,15 +857,35 @@ function TopNavTabs({
 
   return (
     <div className="nav-wrap" ref={menuRef}>
-      <nav className="nav">
+      <button
+        className={`nav-hamburger ${isCompactNavOpen ? "is-active" : ""}`}
+        type="button"
+        aria-label={language === "tr" ? "Menüyü aç/kapat" : "Toggle menu"}
+        aria-expanded={isCompactNavOpen}
+        onClick={() => setIsCompactNavOpen((open) => !open)}
+      >
+        <span aria-hidden="true">{isCompactNavOpen ? "✕" : "☰"}</span>
+      </button>
+      <nav className={`nav ${isCompactNavOpen ? "is-open" : ""}`}>
         {items.map((item) => (
-          <Link key={item.to} className={`nav-link ${item.active ? "is-active" : ""}`} to={item.to} onClick={() => setIsManagementOpen(false)}>
+          <Link
+            key={item.to}
+            className={`nav-link ${item.active ? "is-active" : ""}`}
+            to={item.to}
+            onClick={() => {
+              setIsManagementOpen(false);
+              setIsCompactNavOpen(false);
+            }}
+          >
             {item.label}
           </Link>
         ))}
         <button
           className={`nav-link nav-link-button ${isManagementActive ? "is-active" : ""}`}
-          onClick={() => setIsManagementOpen((open) => !open)}
+          onClick={() => {
+            setIsManagementOpen((open) => !open);
+            setIsCompactNavOpen(true);
+          }}
           type="button"
         >
           {dict.menu.management}

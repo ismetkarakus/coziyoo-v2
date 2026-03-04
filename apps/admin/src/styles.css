@@ -168,6 +168,24 @@ a {
   display: block;
 }
 
+.nav-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-strong) 85%, transparent);
+  color: var(--color-link);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.nav-hamburger.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+}
+
 .nav {
   display: flex;
   gap: 12px;
@@ -5004,6 +5022,40 @@ textarea:focus {
   .shell {
     padding: 12px;
     gap: 16px;
+  }
+
+  .nav-wrap {
+    width: 100%;
+  }
+
+  .nav-hamburger {
+    display: inline-flex;
+    margin-bottom: 8px;
+  }
+
+  .nav {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    overflow: visible;
+  }
+
+  .nav.is-open {
+    display: flex;
+  }
+
+  .nav-link {
+    width: 100%;
+    text-align: left;
+  }
+
+  .nav-submenu {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+    box-shadow: none;
   }
 
   .navbar {
