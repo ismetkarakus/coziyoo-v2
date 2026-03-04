@@ -30,6 +30,57 @@
   --color-input-placeholder: #7e8da4;
   --color-surface: rgba(255, 255, 255, 0.8);
   --color-surface-strong: rgba(255, 255, 255, 0.92);
+  --buyer-v2-kpi-bg: linear-gradient(
+    160deg,
+    color-mix(in srgb, #dbe8ff 88%, var(--color-card-bg)),
+    color-mix(in srgb, #edf3ff 94%, var(--color-card-bg))
+  );
+  --seller-v2-kpi-bg: radial-gradient(
+      120% 150% at 8% 0%,
+      color-mix(in srgb, #86a4e8 22%, transparent),
+      color-mix(in srgb, #cad8f7 40%, transparent)
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, #dce8ff 90%, var(--color-card-bg)),
+      color-mix(in srgb, #eef4ff 95%, var(--color-card-bg))
+    );
+  --seller-v2-kpi-bg-green: radial-gradient(
+      130% 150% at 18% 0%,
+      color-mix(in srgb, #2f8c66 24%, transparent),
+      color-mix(in srgb, #d8f2e7 48%, transparent)
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, #daf2e7 92%, var(--color-card-bg)),
+      color-mix(in srgb, #effaf4 96%, var(--color-card-bg))
+    );
+  --seller-v2-kpi-bg-orange: radial-gradient(
+      130% 150% at 18% 0%,
+      color-mix(in srgb, #d08945 20%, transparent),
+      color-mix(in srgb, #fae7d2 46%, transparent)
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, #f8e9d9 92%, var(--color-card-bg)),
+      color-mix(in srgb, #fdf3e8 96%, var(--color-card-bg))
+    );
+  --buyer-v2-smart-item-bg: color-mix(in srgb, #e3ecff 82%, var(--color-card-bg));
+  --buyer-v2-smart-item-active-bg: color-mix(in srgb, #f6ead6 78%, var(--color-card-bg));
+  --buyer-v2-filter-menu-bg: color-mix(in srgb, #eef3ff 92%, var(--color-card-bg));
+  --users-search-border: color-mix(in srgb, #97abd8 42%, var(--color-border));
+  --users-search-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, #edf3ff 94%, var(--color-card-bg)),
+    color-mix(in srgb, #e5edff 90%, var(--color-card-bg))
+  );
+  --users-search-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 0 0 1px rgba(139, 160, 207, 0.22);
+  --users-search-focus-border: color-mix(in srgb, #5f89f3 62%, var(--color-border));
+  --users-search-focus-ring: color-mix(in srgb, #2d7dff 20%, transparent);
+  --users-search-icon: color-mix(in srgb, #5d74a8 80%, #ffffff);
+  --users-search-placeholder: color-mix(in srgb, #6f82aa 88%, #e7eefc);
+  --users-search-clear: color-mix(in srgb, #627bb1 84%, #ffffff);
+  --users-search-clear-hover: color-mix(in srgb, #90a9dc 24%, transparent);
 
   color-scheme: light;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -64,6 +115,29 @@
   --color-input-placeholder: #7f8ca2;
   --color-surface: rgba(17, 21, 30, 0.84);
   --color-surface-strong: rgba(30, 34, 43, 0.9);
+  --buyer-v2-kpi-bg: linear-gradient(
+    160deg,
+    color-mix(in srgb, #1c2947 70%, transparent),
+    color-mix(in srgb, #111829 92%, transparent)
+  );
+  --seller-v2-kpi-bg: radial-gradient(120% 150% at 8% 0%, rgba(92, 113, 170, 0.16), rgba(18, 27, 49, 0.1)),
+    linear-gradient(160deg, color-mix(in srgb, #1b2744 72%, transparent), color-mix(in srgb, #0f1629 92%, transparent));
+  --seller-v2-kpi-bg-green: radial-gradient(130% 150% at 18% 0%, rgba(47, 140, 102, 0.3), rgba(17, 31, 44, 0.2)),
+    linear-gradient(160deg, color-mix(in srgb, #1c2c43 74%, transparent), color-mix(in srgb, #0f1629 92%, transparent));
+  --seller-v2-kpi-bg-orange: radial-gradient(130% 150% at 18% 0%, rgba(153, 89, 40, 0.24), rgba(23, 27, 42, 0.24)),
+    linear-gradient(160deg, color-mix(in srgb, #1d253e 74%, transparent), color-mix(in srgb, #121528 92%, transparent));
+  --buyer-v2-smart-item-bg: color-mix(in srgb, #121a2d 86%, transparent);
+  --buyer-v2-smart-item-active-bg: color-mix(in srgb, #2a2133 82%, transparent);
+  --buyer-v2-filter-menu-bg: color-mix(in srgb, #121a2d 94%, transparent);
+  --users-search-border: color-mix(in srgb, #4e5f8e 45%, var(--color-border));
+  --users-search-bg: linear-gradient(180deg, color-mix(in srgb, #1a2542 78%, transparent), color-mix(in srgb, #131d33 86%, transparent));
+  --users-search-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(22, 34, 58, 0.35);
+  --users-search-focus-border: color-mix(in srgb, #6a8fff 65%, var(--color-border));
+  --users-search-focus-ring: color-mix(in srgb, #2d7dff 24%, transparent);
+  --users-search-icon: color-mix(in srgb, #9cb0d9 85%, #ffffff);
+  --users-search-placeholder: color-mix(in srgb, #7f8fb1 92%, #dbe3f4);
+  --users-search-clear: color-mix(in srgb, #aec2ea 88%, #ffffff);
+  --users-search-clear-hover: color-mix(in srgb, #4f669c 35%, transparent);
 
   color-scheme: dark;
 }
@@ -3012,7 +3086,7 @@ textarea:focus {
   align-items: start;
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: 18px;
-  background: linear-gradient(160deg, color-mix(in srgb, #1c2947 70%, transparent), color-mix(in srgb, #111829 92%, transparent));
+  background: var(--buyer-v2-kpi-bg);
   padding: 14px 16px;
 }
 
@@ -3132,7 +3206,7 @@ textarea:focus {
   min-height: 42px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  background: color-mix(in srgb, #121a2d 86%, transparent);
+  background: var(--buyer-v2-smart-item-bg);
   color: var(--color-text);
   padding: 8px 10px;
   display: grid;
@@ -3148,7 +3222,7 @@ textarea:focus {
 
 .buyer-v2-smart-item.is-active {
   border-color: color-mix(in srgb, #f3b34a 54%, var(--color-border));
-  background: color-mix(in srgb, #2a2133 82%, transparent);
+  background: var(--buyer-v2-smart-item-active-bg);
 }
 
 .buyer-v2-smart-item-icon {
@@ -3225,7 +3299,7 @@ textarea:focus {
   z-index: 30;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
-  background: color-mix(in srgb, #121a2d 94%, transparent);
+  background: var(--buyer-v2-filter-menu-bg);
   padding: 10px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
   display: grid;
@@ -3409,17 +3483,17 @@ textarea:focus {
 
 .seller-v2-kpi {
   border-radius: 14px;
-  background: radial-gradient(120% 150% at 8% 0%, rgba(92, 113, 170, 0.16), rgba(18, 27, 49, 0.1)), linear-gradient(160deg, color-mix(in srgb, #1b2744 72%, transparent), color-mix(in srgb, #0f1629 92%, transparent));
+  background: var(--seller-v2-kpi-bg);
   border-color: color-mix(in srgb, #586c9e 40%, var(--color-border));
   padding: 12px 14px;
 }
 
 .seller-v2-kpi.is-green {
-  background: radial-gradient(130% 150% at 18% 0%, rgba(47, 140, 102, 0.3), rgba(17, 31, 44, 0.2)), linear-gradient(160deg, color-mix(in srgb, #1c2c43 74%, transparent), color-mix(in srgb, #0f1629 92%, transparent));
+  background: var(--seller-v2-kpi-bg-green);
 }
 
 .seller-v2-kpi.is-orange {
-  background: radial-gradient(130% 150% at 18% 0%, rgba(153, 89, 40, 0.24), rgba(23, 27, 42, 0.24)), linear-gradient(160deg, color-mix(in srgb, #1d253e 74%, transparent), color-mix(in srgb, #121528 92%, transparent));
+  background: var(--seller-v2-kpi-bg-orange);
 }
 
 .seller-v2-kpi.is-clickable {
@@ -3939,10 +4013,10 @@ textarea:focus {
   align-items: center;
   gap: 12px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, #4e5f8e 45%, var(--color-border));
-  background: linear-gradient(180deg, color-mix(in srgb, #1a2542 78%, transparent), color-mix(in srgb, #131d33 86%, transparent));
+  border: 1px solid var(--users-search-border);
+  background: var(--users-search-bg);
   padding: 10px 14px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(22, 34, 58, 0.35);
+  box-shadow: var(--users-search-shadow);
   transform: perspective(980px) translateZ(0) scale(1);
   transform-origin: center center;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, transform 0.24s ease;
@@ -3960,12 +4034,12 @@ textarea:focus {
 }
 
 .users-search-wrap:focus-within {
-  border-color: color-mix(in srgb, #6a8fff 65%, var(--color-border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, #2d7dff 24%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: var(--users-search-focus-border);
+  box-shadow: 0 0 0 3px var(--users-search-focus-ring), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .users-search-icon {
-  color: color-mix(in srgb, #9cb0d9 85%, #ffffff);
+  color: var(--users-search-icon);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3994,7 +4068,7 @@ textarea:focus {
 }
 
 .users-search-input::placeholder {
-  color: color-mix(in srgb, #7f8fb1 92%, #dbe3f4);
+  color: var(--users-search-placeholder);
   font-weight: 600;
   font-size: 1.08rem;
 }
@@ -4002,7 +4076,7 @@ textarea:focus {
 .users-search-clear {
   border: 0;
   background: transparent;
-  color: color-mix(in srgb, #aec2ea 88%, #ffffff);
+  color: var(--users-search-clear);
   min-width: 24px;
   height: 24px;
   border-radius: 999px;
@@ -4017,7 +4091,7 @@ textarea:focus {
 }
 
 .users-search-clear:hover {
-  background: color-mix(in srgb, #4f669c 35%, transparent);
+  background: var(--users-search-clear-hover);
 }
 
 .audit-search-field {
