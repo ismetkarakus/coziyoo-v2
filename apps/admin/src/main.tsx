@@ -6371,22 +6371,39 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <p style={{ fontWeight: 600, fontSize: "0.85em", marginBottom: "0.6rem", color: "var(--color-secondary-text)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                     {dict.voiceAgentSettings.sectionConnection}
                   </p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.6rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    {/* LiveKit */}
                     {[
                       { label: "LiveKit", status: testLiveKit, onTest: runTestLiveKit },
                       { label: "STT", status: testStt, onTest: runTestStt },
                       { label: "Ollama / LLM", status: testOllama, onTest: runTestOllama },
                       { label: "N8N", status: testN8n, onTest: runTestN8n },
                     ].map(({ label, status, onTest }) => (
-                      <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)" }}>
+                      <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)" }}>
                         <span style={{ width: 9, height: 9, borderRadius: "50%", background: status === null ? "#aaa" : status.ok ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: "0.85em", fontWeight: 600 }}>{label}</span>
-                        {status?.detail ? <span className="panel-meta" style={{ fontSize: "0.72em", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={status.detail}>{status.detail}</span> : null}
-                        <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 8px", flexShrink: 0 }} onClick={() => { void onTest(); }}>
-                          {language === "tr" ? "Test" : "Test"}
-                        </button>
+                        <span style={{ fontSize: "0.85em", fontWeight: 600, width: 100, flexShrink: 0 }}>{label}</span>
+                        <span className="panel-meta" style={{ flex: 1, fontSize: "0.78em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status?.detail ?? ""}</span>
+                        <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 10px", flexShrink: 0 }} onClick={() => { void onTest(); }}>Test</button>
                       </div>
                     ))}
+                    {/* TTS — expanded with synthesize & play */}
+                    <div style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#aaa", flexShrink: 0 }} />
+                        <span style={{ fontSize: "0.85em", fontWeight: 600, width: 100, flexShrink: 0 }}>TTS</span>
+                        <input
+                          style={{ flex: 1, fontSize: "0.82em", padding: "3px 8px" }}
+                          value={ttsTestText}
+                          onChange={(e) => setTtsTestText(e.target.value)}
+                          placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
+                        />
+                        <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 10px", flexShrink: 0 }} disabled={ttsSynthesizing} onClick={() => { void runTestTts(); }}>
+                          {ttsSynthesizing ? "…" : dict.voiceAgentSettings.testTtsPlay}
+                        </button>
+                      </div>
+                      {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444", fontSize: "0.78em", margin: 0 }}>{ttsSynthError}</p> : null}
+                      {ttsAudioUrl ? <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", height: 32 }} /> : <audio ref={ttsAudioRef} style={{ display: "none" }} />}
+                    </div>
                   </div>
                   <div style={{ marginTop: "0.75rem" }}>
                     <button className="primary" type="button" onClick={() => { void runTestAll(); }} disabled={testing} style={{ fontSize: "0.85em" }}>
@@ -6419,10 +6436,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
                   <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
                 </div>
-                <div>
-                  <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => { void runTestStt(); }}>{dict.voiceAgentSettings.testStt}</button>
-                  {testStt !== null ? <StatusDot status={testStt} /> : null}
-                </div>
               </div>
             ) : null}
 
@@ -6443,26 +6456,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   </label>
                   <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
                 </div>
-                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem" }}>
-                  <p className="panel-meta" style={{ marginBottom: "0.5rem" }}>{dict.voiceAgentSettings.testTts}</p>
-                  <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.5rem" }}>
-                    <input
-                      style={{ flex: 1 }}
-                      value={ttsTestText}
-                      onChange={(e) => setTtsTestText(e.target.value)}
-                      placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
-                    />
-                    <button className="ghost" type="button" disabled={ttsSynthesizing} onClick={() => { void runTestTts(); }}>
-                      {ttsSynthesizing ? dict.voiceAgentSettings.testTtsSynthesizing : dict.voiceAgentSettings.testTtsPlay}
-                    </button>
-                  </div>
-                  {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444", marginBottom: "0.5rem" }}>{ttsSynthError}</p> : null}
-                  {ttsAudioUrl ? (
-                    <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%" }} />
-                  ) : (
-                    <audio ref={ttsAudioRef} style={{ display: "none" }} />
-                  )}
-                </div>
               </div>
             ) : null}
 
@@ -6473,10 +6466,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
                   <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
                 </div>
-                <div>
-                  <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => { void runTestOllama(); }}>{dict.voiceAgentSettings.testOllama}</button>
-                  {testOllama !== null ? <StatusDot status={testOllama} /> : null}
-                </div>
               </div>
             ) : null}
 
@@ -6485,10 +6474,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
               <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div className="form-grid">
                   <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
-                </div>
-                <div>
-                  <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => { void runTestN8n(); }}>{dict.voiceAgentSettings.testN8n}</button>
-                  {testN8n !== null ? <StatusDot status={testN8n} /> : null}
                 </div>
               </div>
             ) : null}
