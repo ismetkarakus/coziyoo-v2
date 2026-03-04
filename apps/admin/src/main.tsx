@@ -1894,6 +1894,47 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       ),
     [trRows, sellerTopRevenueThreshold, sellerTopSellingFoodsOrderThreshold]
   );
+  const buyerQuickFilterCounts = useMemo(() => {
+    if (!isBuyerPage) {
+      return {
+        all: 0,
+        risky: 0,
+        open_complaint: 0,
+        down_spend: 0,
+      };
+    }
+
+    let baseRows = rows;
+    if (buyerFilters.status !== "all") {
+      baseRows = baseRows.filter((row) => row.status === buyerFilters.status);
+    }
+    if (buyerFilters.complaint === "has_unresolved") {
+      baseRows = baseRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0);
+    } else if (buyerFilters.complaint === "resolved_only") {
+      baseRows = baseRows.filter((row) => Number(row.complaintTotal ?? 0) > 0 && Number(row.complaintUnresolved ?? 0) === 0);
+    } else if (buyerFilters.complaint === "no_complaint") {
+      baseRows = baseRows.filter((row) => Number(row.complaintTotal ?? 0) === 0);
+    }
+    if (buyerFilters.orderTrend !== "all") {
+      baseRows = baseRows.filter(
+        (row) => trendDirection(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)) === buyerFilters.orderTrend
+      );
+    }
+    if (buyerFilters.spendTrend !== "all") {
+      baseRows = baseRows.filter(
+        (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === buyerFilters.spendTrend
+      );
+    }
+
+    return {
+      all: baseRows.length,
+      risky: baseRows.filter((row) => computeBuyerRisk(row).level !== "low").length,
+      open_complaint: baseRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0).length,
+      down_spend: baseRows.filter(
+        (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === "down"
+      ).length,
+    };
+  }, [buyerFilters, isBuyerPage, rows]);
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
     if (isSellerPage) {
@@ -2689,6 +2730,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">◉</span>
                 <span className="buyer-v2-smart-item-label">Tümü</span>
+                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.all}</span>
               </button>
               <button
                 type="button"
@@ -2700,6 +2742,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">⚠</span>
                 <span className="buyer-v2-smart-item-label">Riskli</span>
+                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.risky}</span>
               </button>
               <button
                 type="button"
@@ -2711,6 +2754,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
                 <span className="buyer-v2-smart-item-label">Şikayetli</span>
+                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.open_complaint}</span>
               </button>
               <button
                 type="button"
@@ -2722,6 +2766,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">↓</span>
                 <span className="buyer-v2-smart-item-label">Azalan Harcama</span>
+                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.down_spend}</span>
               </button>
             </div>
           </aside>
