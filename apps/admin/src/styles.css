@@ -3402,16 +3402,13 @@ textarea:focus {
 
 .seller-v2-kpi.is-clickable {
   cursor: pointer;
-  transform: perspective(980px) translateZ(0) scale(1);
-  transform-origin: center center;
-  transition: transform 0.24s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  will-change: transform;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, filter 0.2s ease;
 }
 
 .seller-v2-kpi.is-clickable:hover {
-  transform: perspective(980px) translateZ(24px) scale(1.03);
   border-color: color-mix(in srgb, #89a6e5 55%, var(--color-border));
-  box-shadow: 0 10px 24px rgba(8, 16, 34, 0.34);
+  box-shadow: 0 6px 16px rgba(8, 16, 34, 0.26);
+  filter: brightness(1.04);
 }
 
 .seller-v2-kpi.is-selected {
@@ -3500,21 +3497,22 @@ textarea:focus {
 }
 
 .seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item {
-  min-height: 44px;
+  min-height: 46px;
   border-radius: 12px;
-  padding: 9px 12px;
-  gap: 10px;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-  transform: perspective(980px) translateZ(0) scale(1);
-  transform-origin: center left;
-  transition: transform 0.24s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  will-change: transform;
+  padding: 10px 13px;
+  gap: 12px;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, filter 0.2s ease;
 }
 
 .seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item:hover {
-  transform: perspective(980px) translateZ(24px) scale(1.025);
   border-color: color-mix(in srgb, var(--color-accent) 48%, var(--color-border));
-  box-shadow: 0 10px 24px rgba(8, 16, 34, 0.28);
+  box-shadow: 0 6px 16px rgba(8, 16, 34, 0.22);
+  filter: brightness(1.05);
+}
+
+.seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item-icon {
+  font-size: 1.02rem;
 }
 
 .seller-v2-smart-panel .buyer-v2-smart-item-label {
@@ -3522,10 +3520,16 @@ textarea:focus {
 }
 
 .seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item-label {
-  font-size: 0.97rem;
+  font-size: 1.08rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item-count {
+  min-width: 28px;
+  height: 28px;
+  font-size: 0.92rem;
 }
 
 .seller-v2-top-tabs .chip {
