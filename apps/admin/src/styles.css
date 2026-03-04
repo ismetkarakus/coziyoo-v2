@@ -431,7 +431,7 @@ button {
 
 .primary:hover,
 .ghost:hover {
-  transform: translateY(-1px);
+  transform: perspective(960px) translateZ(14px);
 }
 
 .ghost:disabled,
@@ -3106,6 +3106,7 @@ textarea:focus {
 }
 
 .buyer-v2-smart-item:hover {
+  transform: perspective(960px) translateZ(14px);
   border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
 }
 
@@ -3406,7 +3407,7 @@ textarea:focus {
 }
 
 .seller-v2-kpi.is-clickable:hover {
-  transform: translateY(-2px);
+  transform: perspective(980px) translateZ(20px);
   border-color: color-mix(in srgb, #8fb3ff 70%, var(--color-border));
   box-shadow: 0 12px 28px rgba(8, 16, 34, 0.36), 0 0 0 2px color-mix(in srgb, #7ea4ff 20%, transparent);
   filter: brightness(1.08) saturate(1.05);
@@ -3508,7 +3509,7 @@ textarea:focus {
 }
 
 .seller-v2-page .seller-v2-smart-panel .buyer-v2-smart-item:hover {
-  transform: translateY(-2px);
+  transform: perspective(980px) translateZ(20px);
   border-color: color-mix(in srgb, #89a8f7 62%, var(--color-border));
   box-shadow: 0 10px 24px rgba(8, 16, 34, 0.3), 0 0 0 2px color-mix(in srgb, #7ea4ff 14%, transparent);
   filter: brightness(1.08);
@@ -3925,7 +3926,7 @@ textarea:focus {
 }
 
 .users-search-wrap:hover {
-  transform: perspective(980px) translateZ(34px) scale(1.035);
+  transform: perspective(980px) translateZ(26px);
 }
 
 .users-search-wrap:focus-within {
