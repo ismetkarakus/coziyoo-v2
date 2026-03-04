@@ -1182,13 +1182,6 @@ td {
   vertical-align: middle;
 }
 
-.table-wrap table th,
-.table-wrap table td {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 th {
   font-size: 0.8rem;
   color: var(--color-tertiary-text);
@@ -4696,6 +4689,35 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.seller-excel-btn {
+  border-color: color-mix(in srgb, #2f9d6c 55%, var(--color-border));
+  color: #c9ffe6;
+  background: color-mix(in srgb, #1a6f49 38%, transparent);
+}
+
+.seller-identity-layout {
+  align-items: start;
+}
+
+.seller-identity-card,
+.seller-identity-compliance {
+  min-height: 100%;
+}
+
+.seller-identity-compliance .seller-compliance-list {
+  margin-top: 10px;
+}
+
+.seller-identity-compliance .seller-compliance-row {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+
+.seller-identity-compliance .seller-compliance-row .ghost {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.82rem;
 }
 
 .seller-meta-chips {

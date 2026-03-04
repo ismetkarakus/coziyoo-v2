@@ -8251,6 +8251,52 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
   }
 
+  function downloadSellerOrdersAsExcel() {
+    if (sellerOrders.length === 0) {
+      setMessage(language === "tr" ? "Disa aktarilacak siparis bulunamadi." : "No orders to export.");
+      return;
+    }
+
+    const headers = [
+      language === "tr" ? "Tarih / Saat" : "Date / Time",
+      language === "tr" ? "Siparis No" : "Order No",
+      language === "tr" ? "Alici" : "Buyer",
+      language === "tr" ? "Yemekler" : "Foods",
+      language === "tr" ? "Tutar" : "Amount",
+      language === "tr" ? "Odeme" : "Payment",
+      language === "tr" ? "Durum" : "Status",
+    ];
+    const rowsForExport = sellerOrders.map((order) => {
+      const paymentText = String(order.paymentStatus ?? "").toLowerCase().includes("fail")
+        ? language === "tr" ? "Basarisiz" : "Failed"
+        : String(order.paymentStatus ?? "").toLowerCase().includes("pending")
+          ? language === "tr" ? "Bekliyor" : "Pending"
+          : language === "tr" ? "Basarili" : "Successful";
+      const foods = Array.isArray(order.items)
+        ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
+        : "-";
+      return [
+        formatUiDate(order.createdAt, language),
+        order.orderNo,
+        order.buyerName ?? order.buyerEmail ?? order.buyerId,
+        foods || "-",
+        formatCurrency(Number(order.totalAmount ?? 0), language),
+        paymentText,
+        order.status,
+      ];
+    });
+
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `seller-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   const sellerRawPayload = {
     id: row.id,
     user: row,
@@ -8325,6 +8371,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
               {dict.actions.refresh}
             </button>
+            <button className="ghost seller-excel-btn" type="button" onClick={downloadSellerOrdersAsExcel}>
+              {language === "tr" ? "Excel" : "Excel"}
+            </button>
             <button className="ghost" type="button" onClick={() => openQuickEmail(row.email, dict, setMessage)}>
               {dict.detail.quickEmail}
             </button>
@@ -8364,8 +8413,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       </section>
 
       {activeTab === "identity" ? (
-        <section className="panel">
-          <article>
+        <section className="seller-detail-grid seller-identity-layout">
+          <article className="panel seller-identity-card">
             <div className="panel-header">
               <h2>{dict.detail.basicAccountEdit}</h2>
             </div>
@@ -8390,6 +8439,29 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <span className="retention-chip">{`${dict.detail.legalHoldStateLabel}: ${Boolean(row.legalHoldState)}`}</span>
             </div>
             {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
+          </article>
+          <article className="panel seller-identity-compliance">
+            <div className="seller-compliance-header">
+              <div className="seller-compliance-title">
+                <span className="seller-compliance-flag" aria-hidden="true">🇹🇷</span>
+                <h2>{dict.detail.trCompliance}</h2>
+              </div>
+              <span className={`status-pill compliance-status-pill is-${profileBadge.tone}`}>{profileBadge.label}</span>
+            </div>
+            <div className="seller-compliance-list">
+              {legalRows.map((item) => (
+                <article className="seller-compliance-row" key={`identity-${item.key}`}>
+                  <span className={`compliance-icon is-${item.tone}`} aria-hidden="true" />
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p className="panel-meta">{item.detailText}</p>
+                  </div>
+                  <button className="ghost" type="button" onClick={() => setActiveTab("legal")}>
+                    {language === "tr" ? "Duzenle" : "Edit"}
+                  </button>
+                </article>
+              ))}
+            </div>
           </article>
         </section>
       ) : null}
@@ -8671,7 +8743,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <table className="foods-lots-main-table">
                 <thead>
                   <tr>
-                    <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                     <th>{dict.detail.foodName}</th>
                     <th>{dict.detail.foodStatus}</th>
                     <th>{dict.detail.foodPrice}</th>
@@ -8690,9 +8761,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     return (
                       <Fragment key={food.id}>
                         <tr>
-                          <td>{toDisplayId(food.id)}</td>
                           <td>
                             <strong>{food.name}</strong>
+                            <div className="panel-meta">{food.code}</div>
+                            <div className="panel-meta">{sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}</div>
                           </td>
                           <td>
                             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
@@ -8720,7 +8792,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         </tr>
                         {foodExpanded ? (
                           <tr className="foods-lots-expanded-row">
-                            <td colSpan={7}>
+                            <td colSpan={6}>
                               {lotsLoading ? (
                                 <p className="panel-meta">{dict.common.loading}</p>
                               ) : foodLots.length === 0 ? (
@@ -8810,7 +8882,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                         <tbody>
                                                           {lotOrders.map((order) => (
                                                             <tr key={`${lot.id}-${order.order_id}`}>
-                                                              <td>{`#${order.order_id.slice(0, 10).toUpperCase()}`}</td>
+                                                              <td>{`#${order.order_id.slice(0, 8).toUpperCase()}`}</td>
                                                               <td>{order.status}</td>
                                                               <td>{order.buyer_id}</td>
                                                               <td>{order.quantity_allocated}</td>
@@ -8857,7 +8929,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <table>
                   <thead>
                     <tr>
-                      <th>Display ID</th>
                       <th>Tarih / Saat</th>
                       <th>Sipariş No</th>
                       <th>Alıcı</th>
@@ -8879,7 +8950,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         : "-";
                       return (
                         <tr key={order.orderId}>
-                          <td>{toDisplayId(order.orderId)}</td>
                           <td>{formatUiDate(order.createdAt, language)}</td>
                           <td>{order.orderNo}</td>
                           <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
