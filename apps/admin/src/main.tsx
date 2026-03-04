@@ -733,16 +733,12 @@ function TopNavTabs({
     { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
   ];
   const isManagementActive = managementItems.some((item) => item.active);
-  const [isManagementOpen, setIsManagementOpen] = useState(isManagementActive);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
   const [isCompactNavOpen, setIsCompactNavOpen] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
   const [isSeedingDemoData, setIsSeedingDemoData] = useState(false);
   const [gitCommit, setGitCommit] = useState<string>("unknown");
   const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setIsManagementOpen(isManagementActive);
-  }, [isManagementActive]);
 
   useEffect(() => {
     setIsCompactNavOpen(false);
