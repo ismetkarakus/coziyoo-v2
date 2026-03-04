@@ -70,7 +70,8 @@ type SellerSmartFilterKey =
   | "top_selling_foods"
   | "top_revenue"
   | "performance_drop"
-  | "urgent_action";
+  | "urgent_action"
+  | "complainer_sellers";
 
 type SellerFoodRow = {
   id: string;
@@ -145,6 +146,7 @@ const SELLER_SMART_FILTER_ITEMS: Array<{ key: SellerSmartFilterKey; label: strin
   { key: "top_revenue", label: "En Çok Ciro Yapan", icon: "₺" },
   { key: "performance_drop", label: "Düşen Performans", icon: "◔" },
   { key: "urgent_action", label: "Acil Müdahale", icon: "⚑" },
+  { key: "complainer_sellers", label: "Şikayetli Satıcılar", icon: "✉" },
 ];
 
 const DICTIONARIES: Record<Language, Dictionary> = {
@@ -1870,7 +1872,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (key === "top_revenue") return sellerRevenue(row) >= sellerTopRevenueThreshold && sellerRevenue(row) > 0;
     if (key === "performance_drop") return sellerOrderCurrent(row) < sellerOrderPrevious(row);
     if (key === "urgent_action") return sellerRiskMeta(row).level === "high";
-    return false;
+    return sellerComplaintTotal(row) > 0;
   };
   const sellerSmartFilterCounts = useMemo(
     () =>
@@ -1888,6 +1890,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           top_revenue: 0,
           performance_drop: 0,
           urgent_action: 0,
+          complainer_sellers: 0,
         } as Record<SellerSmartFilterKey, number>
       ),
     [trRows, sellerTopRevenueThreshold, sellerTopSellingFoodsOrderThreshold]
@@ -2274,6 +2277,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "top_revenue",
       "performance_drop",
       "urgent_action",
+      "complainer_sellers",
     ];
 
     const applySellerKpiFilter = (mode: "all" | "active" | "disabled" | "new_today") => {
@@ -2412,14 +2416,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   </button>
                 );
               })}
-              <button
-                type="button"
-                className="buyer-v2-smart-item"
-                onClick={() => navigate("/app/investigation")}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
-                <span className="buyer-v2-smart-item-label">Şikayet İnceleme</span>
-              </button>
             </div>
           </aside>
 
