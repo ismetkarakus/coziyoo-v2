@@ -205,6 +205,12 @@ function formatTableHeader(column: string): string {
   return column.replace(/_/g, " ");
 }
 
+function toDisplayId(raw: unknown): string {
+  const text = String(raw ?? "").trim();
+  if (!text) return "-";
+  return text.length > 10 ? `${text.slice(0, 10)}…` : text;
+}
+
 function adminRoleLabel(dict: Dictionary, value: "admin" | "super_admin"): string {
   return value === "admin" ? dict.users.roleAdmin : dict.users.roleSuperAdmin;
 }
@@ -2037,8 +2043,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }
 
   function compactUuidLabel(id: string): string {
-    if (!id) return "-";
-    return id.length > 12 ? `${id.slice(0, 10)}…` : id;
+    return toDisplayId(id);
   }
 
   function openCustomerIdPreview(rawId: unknown) {
@@ -2111,28 +2116,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </button>
         );
       }
-      const initials = text
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((p: string) => p[0]?.toUpperCase() ?? "")
-        .join("");
-      return (
-        <span className="name-cell">
-          <span className="name-avatar">{initials || "U"}</span>
-          {text}
-        </span>
-      );
+      return text;
     }
     if (mapped === "email" && kind === "sellers") {
-      const onlineText = formatUiDate(String(row.lastOnlineAt ?? ""), language);
       return (
-        <div className="seller-contact-cell">
-          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
-            {String(value ?? "")}
-          </button>
-          <span>{`${language === "tr" ? "Son Online" : "Last Online"}: ${onlineText}`}</span>
-        </div>
+        <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
+          {String(value ?? "")}
+        </button>
       );
     }
     if (mapped === "email" && isBuyerPage) {
@@ -2488,16 +2478,19 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <table>
                   <colgroup>
                     <col style={{ width: "42px" }} />
-                    <col style={{ width: "36%" }} />
+                    <col style={{ width: "110px" }} />
+                    <col style={{ width: "30%" }} />
                     <col style={{ width: "12%" }} />
                     <col style={{ width: "10%" }} />
                     <col style={{ width: "13%" }} />
                     <col style={{ width: "10%" }} />
                     <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
                   </colgroup>
                   <thead>
                     <tr>
                       <th className="buyer-v2-check-col"><input type="checkbox" /></th>
+                      <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                       <th>Mağaza Adı</th>
                       <th>Durum</th>
                       <th>Uyarılar</th>
@@ -2510,12 +2503,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     {loading ? (
                       Array.from({ length: 6 }).map((_, index) => (
                         <tr key={`skeleton-seller-${index}`}>
-                          <td colSpan={7} className="table-skeleton"><span /></td>
+                          <td colSpan={8} className="table-skeleton"><span /></td>
                         </tr>
                       ))
                     ) : filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={7}>{dict.common.noRecords}</td>
+                        <td colSpan={8}>{dict.common.noRecords}</td>
                       </tr>
                     ) : (
                       filteredRows.map((row) => {
@@ -2526,10 +2519,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
                         const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
                         const sellerName = String(row.displayName ?? row.email ?? "Satıcı");
-                        const nameParts = sellerName.split(" ").filter(Boolean);
-                        const initials = nameParts.length >= 2
-                          ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
-                          : sellerName.slice(0, 2).toUpperCase();
                         const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
                         const warningInfo = sellerComplaintUnresolved(row);
 
@@ -2547,12 +2536,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             tabIndex={0}
                           >
                             <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
+                            <td>{toDisplayId(row.id)}</td>
                             <td>
                               <div className="seller-v2-shop-cell">
-                                <span className="name-avatar seller-v2-avatar">{initials || "S"}</span>
-                                <div>
-                                  <strong>{sellerName}</strong>
-                                </div>
+                                <strong>{sellerName}</strong>
                               </div>
                             </td>
                             <td>
@@ -2865,7 +2852,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             <table>
               <colgroup>
                 <col style={{ width: "40px" }} />
-                <col style={{ width: "31%" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "27%" }} />
                 <col style={{ width: "10%" }} />
                 <col style={{ width: "8%" }} />
                 <col style={{ width: "10%" }} />
@@ -2889,6 +2877,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       }}
                     />
                   </th>
+                  <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                   <th>Alıcı</th>
                   <th>Risk</th>
                   <th>Şikayet</th>
@@ -2903,12 +2892,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 {loading ? (
                   Array.from({ length: 6 }).map((_, index) => (
                     <tr key={`skeleton-buyer-${index}`}>
-                      <td colSpan={9} className="table-skeleton"><span /></td>
+                      <td colSpan={10} className="table-skeleton"><span /></td>
                     </tr>
                   ))
                 ) : filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9}>{dict.common.noRecords}</td>
+                    <td colSpan={10}>{dict.common.noRecords}</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => {
@@ -2929,25 +2918,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const loginAtRaw = String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "");
                     const loginAt = loginAtRaw ? formatUiDate(loginAtRaw, language) : "-";
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
-                    const emailRaw = String(row.email ?? "-");
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
-                    const [emailLocalRaw, emailDomainRaw = ""] = emailRaw.split("@");
-                    const emailSeedSuffix = emailLocalRaw.match(/-(\d+)$/)?.[1] ?? "";
-                    const normalizedEmail =
-                      /^apiseed-buyer-/i.test(emailLocalRaw) && emailSeedSuffix
-                        ? `nbuyer${emailSeedSuffix}@${emailDomainRaw}`
-                        : emailRaw;
-                    const nameParts = normalizedDisplayName
-                      .replace(/[^\p{L}\p{N}\s]/gu, " ")
-                      .split(/\s+/)
-                      .filter(Boolean);
-                    const initials = nameParts.length >= 2
-                      ? `${nameParts[0][0] ?? ""}${nameParts[1][0] ?? ""}`.toUpperCase()
-                      : (nameParts[0] ?? "U")
-                          .replace(/[^\p{L}\p{N}]/gu, "")
-                          .slice(0, 2)
-                          .toUpperCase();
 
                     return (
                       <tr
@@ -2961,7 +2933,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           }
                         }}
                         tabIndex={0}
-                      >
+                        >
                         <td className="buyer-v2-check-col">
                           <input
                             type="checkbox"
@@ -2975,13 +2947,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             onClick={(event) => event.stopPropagation()}
                           />
                         </td>
+                        <td>{toDisplayId(row.id)}</td>
                         <td>
                           <div className="buyer-user-cell">
-                            <span className="name-avatar">{initials || "U"}</span>
-                            <div>
-                              <strong className="buyer-user-name" title={displayNameRaw}>{normalizedDisplayName}</strong>
-                              <span className="buyer-user-email" title={`Son Online: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)} • ${emailRaw}`}>{normalizedEmail}</span>
-                            </div>
+                            <strong className="buyer-user-name" title={displayNameRaw}>{normalizedDisplayName}</strong>
                           </div>
                         </td>
                         <td>
@@ -3400,6 +3369,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <tr>
                 {isBuyerPage ? (
                   <>
+                    <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                     <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
                     <th>{language === "tr" ? "Risk" : "Risk"}</th>
                     <th>{language === "tr" ? "Şikayet" : "Complaints"}</th>
@@ -3420,7 +3390,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </thead>
             <tbody>
               {(() => {
-                const tableColSpan = isBuyerPage ? 7 : tableColumns.length + 1;
+                const tableColSpan = isBuyerPage ? 8 : tableColumns.length + 1;
                 return loading ? Array.from({ length: 5 }).map((_, index) => (
                   <tr key={`skeleton-${index}`}>
                     <td colSpan={tableColSpan} className="table-skeleton">
@@ -3439,12 +3409,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       const spendTrendMeta = trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
                       const unresolved = Number(row.complaintUnresolved ?? 0);
                       const totalComplaints = Number(row.complaintTotal ?? 0);
-                      const initials = String(row.displayName ?? row.email ?? "U")
-                        .split(" ")
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((p: string) => p[0]?.toUpperCase() ?? "")
-                        .join("");
 
                       return (
                         <tr
@@ -3459,18 +3423,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           }}
                           tabIndex={0}
                         >
+                          <td>{toDisplayId(row.id)}</td>
                           <td>
                             <div className="buyer-user-cell">
-                              <span className="name-avatar">{initials || "U"}</span>
-                              <div>
-                                <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
-                                <span>{String(row.email ?? "-")}</span>
-                                <span className="buyer-user-meta">
-                                  {`ID: ${compactUuidLabel(String(row.id ?? ""))} • ${
-                                    language === "tr" ? "Son Online" : "Last Online"
-                                  }: ${formatUiDate(String(row.lastOnlineAt ?? ""), language)}`}
-                                </span>
-                              </div>
+                              <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
                             </div>
                           </td>
                           <td>
@@ -3867,6 +3823,7 @@ function InvestigationPage({ language }: { language: Language }) {
           <table>
             <thead>
               <tr>
+                <th>Display ID</th>
                 <th>{language === "tr" ? "Sipariş Numarası" : "Order No"}</th>
                 <th>{language === "tr" ? "Alıcı Numarası" : "Buyer No"}</th>
                 <th>{language === "tr" ? "Konu" : "Subject"}</th>
@@ -3877,15 +3834,16 @@ function InvestigationPage({ language }: { language: Language }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5}>{dict.common.loading}</td>
+                  <td colSpan={6}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>{dict.common.noRecords}</td>
+                  <td colSpan={6}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
                   <tr key={row.id}>
+                    <td>{toDisplayId(row.id)}</td>
                     <td>{row.orderNo}</td>
                     <td>{row.complainantBuyerNo}</td>
                     <td>{row.subject}</td>
@@ -4120,6 +4078,7 @@ function FoodsLotsPage({ language }: { language: Language }) {
           <table className="foods-lots-main-table">
             <thead>
               <tr>
+                <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                 <th>{dict.detail.foodName}</th>
                 <th>{dict.detail.foodSeller}</th>
                 <th>{dict.detail.foodStatus}</th>
@@ -4132,11 +4091,11 @@ function FoodsLotsPage({ language }: { language: Language }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7}>{dict.common.loading}</td>
+                  <td colSpan={8}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>{dict.common.noRecords}</td>
+                  <td colSpan={8}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((food) => {
@@ -4147,11 +4106,11 @@ function FoodsLotsPage({ language }: { language: Language }) {
                   return (
                     <Fragment key={food.id}>
                       <tr>
+                        <td>{toDisplayId(food.id)}</td>
                         <td>
                           <strong>{food.name}</strong>
-                          <div className="panel-meta">{`FD-${food.id.slice(0, 10).toUpperCase()}`}</div>
                         </td>
-                        <td>{sellerNameById[food.sellerId] ?? food.sellerId}</td>
+                        <td>{sellerNameById[food.sellerId] ?? toDisplayId(food.sellerId)}</td>
                         <td>
                           <span className={`status-pill ${food.isActive ? "is-active" : "is-disabled"}`}>
                             {food.isActive ? dict.common.active : dict.common.disabled}
@@ -4184,7 +4143,7 @@ function FoodsLotsPage({ language }: { language: Language }) {
                       </tr>
                       {foodExpanded ? (
                         <tr className="foods-lots-expanded-row">
-                          <td colSpan={7}>
+                          <td colSpan={8}>
                             {lotsLoadingByFoodId[food.id] ? (
                               <p className="panel-meta">{dict.common.loading}</p>
                             ) : lotsErrorByFoodId[food.id] ? (
@@ -4384,6 +4343,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
   }, [columns, tableKey]);
 
   const orderColumnLabel = (column: string): string => {
+    if (column === "__display_id") return language === "tr" ? "Display ID" : "Display ID";
     if (column === "created_at") return language === "tr" ? "Tarih" : "Date";
     if (column === "buyer_id") return language === "tr" ? "Alıcı" : "Buyer";
     if (column === "seller_id") return language === "tr" ? "Satıcı" : "Seller";
@@ -4473,6 +4433,10 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
   const renderRecordsCell = (column: string, value: unknown): ReactNode => {
     if (tableKey !== "orders") return renderCell(value, column);
 
+    if (column === "__display_id") {
+      return toDisplayId(value);
+    }
+
     if (column === "created_at") {
       return formatOrderCreatedAt(value);
     }
@@ -4485,12 +4449,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
 
     if (column === "status") {
       const meta = orderStatusMeta(value);
-      return (
-        <div className="order-status-cell">
-          <span className={`status-pill order-status-pill ${meta.toneClass}`}>{meta.label}</span>
-          <small className="order-status-note">{meta.note}</small>
-        </div>
-      );
+      return <span className={`status-pill order-status-pill ${meta.toneClass}`}>{meta.label}</span>;
     }
 
     if (column === "payment_completed") {
@@ -4632,7 +4591,7 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
           <table>
             <thead>
               <tr>
-                {orderColumns.map((column) => (
+                {(tableKey === "orders" ? ["__display_id", ...orderColumns] : orderColumns).map((column) => (
                   <th key={column}>{tableKey === "orders" ? orderColumnLabel(column) : formatTableHeader(column)}</th>
                 ))}
               </tr>
@@ -4640,17 +4599,19 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={Math.max(orderColumns.length, 1)}>{dict.common.loading}</td>
+                  <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 1 : orderColumns.length), 1)}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={Math.max(orderColumns.length, 1)}>{dict.common.noRecords}</td>
+                  <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 1 : orderColumns.length), 1)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((row, index) => (
                   <tr key={`${tableKey}-${index}`}>
-                    {orderColumns.map((column) => (
-                      <td key={`${index}-${column}`}>{renderRecordsCell(column, row[column])}</td>
+                    {(tableKey === "orders" ? ["__display_id", ...orderColumns] : orderColumns).map((column) => (
+                      <td key={`${index}-${column}`}>
+                        {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
+                      </td>
                     ))}
                   </tr>
                 ))
@@ -4835,6 +4796,7 @@ function EntitiesPage({ language }: { language: Language }) {
             <table>
               <thead>
                 <tr>
+                  <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                   {columns.map((column) => (
                     <th key={column}>{formatTableHeader(column)}</th>
                   ))}
@@ -4843,15 +4805,16 @@ function EntitiesPage({ language }: { language: Language }) {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={Math.max(columns.length, 1)}>{dict.common.loading}</td>
+                    <td colSpan={Math.max(columns.length + 1, 1)}>{dict.common.loading}</td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={Math.max(columns.length, 1)}>{dict.common.noRecords}</td>
+                    <td colSpan={Math.max(columns.length + 1, 1)}>{dict.common.noRecords}</td>
                   </tr>
                 ) : (
                   rows.map((row, index) => (
                     <tr key={`${selectedTableKey}-${index}`}>
+                      <td>{toDisplayId(row.id ?? row.order_id ?? row.food_id ?? "")}</td>
                       {columns.map((column) => (
                         <td key={`${index}-${column}`}>{renderCell(row[column], column)}</td>
                       ))}
@@ -4889,13 +4852,6 @@ function EntitiesPage({ language }: { language: Language }) {
   );
 }
 
-function resolveImageCellSrc(raw: string): string {
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("//")) return `https:${raw}`;
-  if (raw.startsWith("/")) return `${API_BASE}${raw}`;
-  return raw;
-}
-
 function renderCell(value: unknown, columnName?: string): ReactNode {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") {
@@ -4904,8 +4860,7 @@ function renderCell(value: unknown, columnName?: string): ReactNode {
     const imageColumn = normalizedColumn === "image_url" || normalizedColumn === "imageurl";
     const imageUrlPattern = /^(https?:\/\/\S+|\/\S+)\.(?:png|jpe?g|gif|webp|svg)(?:\?\S*)?$/i;
     if (imageColumn || imageUrlPattern.test(raw)) {
-      const src = resolveImageCellSrc(raw);
-      return <img src={src} alt="table image" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} loading="lazy" />;
+      return raw;
     }
   }
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -8538,6 +8493,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <table className="foods-lots-main-table">
                 <thead>
                   <tr>
+                    <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                     <th>{dict.detail.foodName}</th>
                     <th>{dict.detail.foodStatus}</th>
                     <th>{dict.detail.foodPrice}</th>
@@ -8556,10 +8512,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     return (
                       <Fragment key={food.id}>
                         <tr>
+                          <td>{toDisplayId(food.id)}</td>
                           <td>
                             <strong>{food.name}</strong>
-                            <div className="panel-meta">{food.code}</div>
-                            <div className="panel-meta">{sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}</div>
                           </td>
                           <td>
                             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
@@ -8587,7 +8542,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         </tr>
                         {foodExpanded ? (
                           <tr className="foods-lots-expanded-row">
-                            <td colSpan={6}>
+                            <td colSpan={7}>
                               {lotsLoading ? (
                                 <p className="panel-meta">{dict.common.loading}</p>
                               ) : foodLots.length === 0 ? (
@@ -8724,6 +8679,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <table>
                   <thead>
                     <tr>
+                      <th>Display ID</th>
                       <th>Tarih / Saat</th>
                       <th>Sipariş No</th>
                       <th>Alıcı</th>
@@ -8745,6 +8701,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         : "-";
                       return (
                         <tr key={order.orderId}>
+                          <td>{toDisplayId(order.orderId)}</td>
                           <td>{formatUiDate(order.createdAt, language)}</td>
                           <td>{order.orderNo}</td>
                           <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>

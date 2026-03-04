@@ -1032,9 +1032,16 @@ table {
 th,
 td {
   text-align: left;
-  padding: 10px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--color-border);
-  vertical-align: top;
+  vertical-align: middle;
+}
+
+.table-wrap table th,
+.table-wrap table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 th {
@@ -1047,7 +1054,7 @@ th {
 .cell-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .icon-btn {
@@ -1526,27 +1533,15 @@ textarea:focus {
 .buyer-user-cell {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-}
-
-.buyer-user-cell div {
-  display: grid;
-  gap: 2px;
+  min-width: 0;
 }
 
 .buyer-user-cell strong {
-  font-size: 1.32rem;
-  line-height: 1.1;
-}
-
-.buyer-user-cell span {
-  color: var(--color-secondary-text);
-  font-size: 1.02rem;
-}
-
-.buyer-user-cell .buyer-user-meta {
-  font-size: 0.82rem;
-  color: var(--color-tertiary-text);
+  font-size: 0.92rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .risk-pill {
@@ -3245,8 +3240,8 @@ textarea:focus {
   vertical-align: middle;
 }
 
-.buyer-v2-table-wrap thead th:not(:nth-child(2)),
-.buyer-v2-table-wrap tbody td:not(:nth-child(2)) {
+.buyer-v2-table-wrap thead th:not(:nth-child(3)),
+.buyer-v2-table-wrap tbody td:not(:nth-child(3)) {
   text-align: center;
 }
 
@@ -3261,28 +3256,13 @@ textarea:focus {
   accent-color: #7f8fb1;
 }
 
-.buyer-v2-table-wrap .name-avatar {
-  width: 65px;
-  height: 65px;
-  font-size: 1.65rem;
-}
-
 .buyer-v2-table-wrap .buyer-user-cell strong {
-  font-size: 1.25rem;
+  font-size: 0.9rem;
   line-height: 1.2;
-  font-weight: 700;
-}
-
-.buyer-v2-table-wrap .buyer-user-cell span {
-  font-size: 1.2rem;
-  line-height: 1.25;
+  font-weight: 600;
 }
 
 .buyer-v2-table-wrap .buyer-user-cell {
-  min-width: 0;
-}
-
-.buyer-v2-table-wrap .buyer-user-cell div {
   min-width: 0;
 }
 
@@ -3634,10 +3614,7 @@ textarea:focus {
 }
 
 .seller-v2-shop-cell {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
+  display: block;
   min-width: 0;
 }
 
@@ -3655,7 +3632,7 @@ textarea:focus {
 }
 
 .seller-v2-shop-cell strong {
-  font-size: 1.02rem;
+  font-size: 0.9rem;
   line-height: 1.2;
 }
 
