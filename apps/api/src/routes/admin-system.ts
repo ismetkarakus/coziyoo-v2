@@ -31,6 +31,11 @@ function demoFoodImageUrl(foodName: string): string {
   return "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80";
 }
 
+function demoComplianceFileUrl(code: string): string {
+  const safeCode = code.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+  return `https://example.com/demo/compliance/${safeCode}.pdf`;
+}
+
 export const adminSystemRouter = Router();
 
 adminSystemRouter.get("/system/version", requireAuth("admin"), async (_req, res) => {
@@ -93,6 +98,9 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
     const sellerEmail = "demo.seller@coziyoo.local";
     const buyerEmail = "demo.buyer@coziyoo.local";
     const defaultPassword = "Demo12345!";
+    let complianceFallbackTypesCreated = 0;
+    let complianceDocTypesActive = 0;
+    let complianceDocsUpserted = 0;
 
     async function ensureUser(args: {
       email: string;
@@ -178,6 +186,107 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       }
     }
 
+    const existingComplianceTypes = await client.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM compliance_documents_list WHERE is_active = TRUE"
+    );
+    if (Number(existingComplianceTypes.rows[0]?.count ?? "0") === 0) {
+      const fallbackTypes = [
+        {
+          code: "gida_isletme_kaydi",
+          name: "Gida Isletme Kayit Belgesi",
+          description: "TR gida mevzuatina uygun kayit belgesi",
+          sourceInfo: "Demo seed fallback",
+          details: "Demo amacli olusturulmustur",
+          isRequiredDefault: true,
+        },
+        {
+          code: "vergi_levhasi",
+          name: "Vergi Levhasi",
+          description: "Guncel vergi levhasi",
+          sourceInfo: "Demo seed fallback",
+          details: "Demo amacli olusturulmustur",
+          isRequiredDefault: true,
+        },
+        {
+          code: "kvkk_taahhut",
+          name: "KVKK Taahhut",
+          description: "KVKK sureclerine uyum taahhudu",
+          sourceInfo: "Demo seed fallback",
+          details: "Demo amacli olusturulmustur",
+          isRequiredDefault: false,
+        },
+      ];
+
+      for (const type of fallbackTypes) {
+        const inserted = await client.query(
+          `INSERT INTO compliance_documents_list (
+             code,
+             name,
+             description,
+             source_info,
+             details,
+             is_active,
+             is_required_default,
+             created_at,
+             updated_at
+           )
+           VALUES ($1, $2, $3, $4, $5, TRUE, $6, now(), now())
+           ON CONFLICT (code)
+           DO UPDATE SET
+             name = EXCLUDED.name,
+             description = EXCLUDED.description,
+             source_info = EXCLUDED.source_info,
+             details = EXCLUDED.details,
+             is_active = TRUE,
+             is_required_default = EXCLUDED.is_required_default,
+             updated_at = now()`,
+          [type.code, type.name, type.description, type.sourceInfo, type.details, type.isRequiredDefault]
+        );
+        complianceFallbackTypesCreated += inserted.rowCount ?? 0;
+      }
+    }
+
+    const activeComplianceTypes = await client.query<{ id: string; code: string; is_required_default: boolean }>(
+      `SELECT id::text, code, is_required_default
+       FROM compliance_documents_list
+       WHERE is_active = TRUE
+       ORDER BY code ASC`
+    );
+    complianceDocTypesActive = activeComplianceTypes.rowCount ?? 0;
+
+    for (const type of activeComplianceTypes.rows) {
+      const upserted = await client.query(
+        `INSERT INTO seller_compliance_documents (
+           seller_id,
+           document_list_id,
+           is_required,
+           status,
+           file_url,
+           uploaded_at,
+           reviewed_at,
+           reviewed_by_admin_id,
+           rejection_reason,
+           notes,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', now(), now())
+         ON CONFLICT (seller_id, document_list_id)
+         DO UPDATE SET
+           is_required = EXCLUDED.is_required,
+           status = 'uploaded',
+           file_url = EXCLUDED.file_url,
+           uploaded_at = now(),
+           reviewed_at = NULL,
+           reviewed_by_admin_id = NULL,
+           rejection_reason = NULL,
+           notes = 'admin_demo_seed',
+           updated_at = now()`,
+        [sellerId, type.id, type.is_required_default, demoComplianceFileUrl(type.code)]
+      );
+      complianceDocsUpserted += upserted.rowCount ?? 0;
+    }
+
     await client.query("COMMIT");
 
     return res.json({
@@ -188,6 +297,9 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
         defaultPassword,
         foodsCreated: (existingFoods.rowCount ?? 0) === 0 ? foodNames.length : 0,
         ordersCreated: count === 0 ? foods.rows.length : 0,
+        complianceDocTypesActive,
+        complianceDocsUpserted,
+        complianceFallbackTypesCreated,
       },
     });
   } catch (error) {
