@@ -6310,30 +6310,38 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
             {language === "tr" ? "Henüz profil yok. Bir tane oluşturun." : "No profiles yet. Create one above."}
           </p>
         ) : (
-          <div className="table">
+          <div className="table-wrap" style={{ padding: "0 1rem 0.75rem" }}>
+            <div className="table">
+              <div className="table-row table-head">
+                <span>{language === "tr" ? "Profil ID" : "Profile ID"}</span>
+                <span>{language === "tr" ? "Ajan Adı" : "Agent Name"}</span>
+                <span>{language === "tr" ? "Dil" : "Language"}</span>
+                <span>TTS</span>
+                <span>{language === "tr" ? "Güncellendi" : "Updated"}</span>
+                <span>{language === "tr" ? "İşlemler" : "Actions"}</span>
+              </div>
             {devices.map((d) => {
               const isSelected = currentDeviceId === d.device_id;
               return (
                 <div
                   key={d.device_id}
                   className={`table-row${isSelected ? " table-row--selected" : ""}`}
-                  style={{ alignItems: "center", gap: "0.75rem" }}
                 >
-                  <span style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontFamily: "monospace", fontSize: "0.85em", fontWeight: isSelected ? 700 : 500 }}>{d.device_id}</span>
-                      {d.is_active ? (
-                        <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", flexShrink: 0 }}>
-                          {language === "tr" ? "Aktif" : "Active"}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="panel-meta" style={{ fontSize: "0.78em" }}>{d.agent_name || "—"} · {d.voice_language} · {d.tts_engine}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "monospace", fontSize: "0.85em", fontWeight: isSelected ? 700 : 500 }}>
+                    {d.device_id}
+                    {d.is_active ? (
+                      <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", flexShrink: 0 }}>
+                        {language === "tr" ? "Aktif" : "Active"}
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="panel-meta" style={{ marginLeft: "auto", fontSize: "0.8em", flexShrink: 0 }}>
+                  <span>{d.agent_name || "—"}</span>
+                  <span>{d.voice_language || "—"}</span>
+                  <span>{d.tts_engine || "—"}</span>
+                  <span className="panel-meta" style={{ fontSize: "0.85em" }}>
                     {new Date(d.updated_at).toLocaleDateString()}
                   </span>
-                  <span style={{ display: "inline-flex", gap: "0.4rem", flexShrink: 0 }}>
+                  <span style={{ display: "inline-flex", gap: "0.4rem" }}>
                     <button
                       className={isSelected ? "primary" : "ghost"}
                       type="button"
@@ -6364,6 +6372,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
 
