@@ -122,7 +122,7 @@
   "investigation": {
     "title": "Şikayet İnceleme",
     "subtitle": "Şikayet kayıtlarını sipariş ve alıcı bazında izleyin.",
-    "searchPlaceholder": "Yemek kodu girin (örn: FD-F0150781)",
+    "searchPlaceholder": "Yemek kodu girin (örn: FD-F0150781AB)",
     "searchHint": "Arama için en az 2 karakter girin.",
     "requestFailed": "Şikayet kayıtları yüklenemedi",
     "orders": "Siparişler",

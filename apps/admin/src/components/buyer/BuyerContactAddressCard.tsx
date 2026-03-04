@@ -17,7 +17,7 @@ export function BuyerContactAddressCard({ contactInfo }: { contactInfo: BuyerCon
   const office = contactInfo?.addresses.office?.addressLine ?? "Yok";
   const other = contactInfo?.addresses.other[0]?.addressLine ?? "Yok";
   const phone = contactInfo?.contact.phone ?? "Yok";
-  const id = contactInfo?.identity.id ? `${contactInfo.identity.id.slice(0, 8)}...` : "-";
+  const id = contactInfo?.identity.id ? `${contactInfo.identity.id.slice(0, 10)}...` : "-";
 
   return (
     <aside className="panel buyer-contact-card">

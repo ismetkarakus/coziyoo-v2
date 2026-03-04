@@ -2038,7 +2038,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   function compactUuidLabel(id: string): string {
     if (!id) return "-";
-    return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+    return id.length > 12 ? `${id.slice(0, 10)}…` : id;
   }
 
   function openCustomerIdPreview(rawId: unknown) {
@@ -4149,7 +4149,7 @@ function FoodsLotsPage({ language }: { language: Language }) {
                       <tr>
                         <td>
                           <strong>{food.name}</strong>
-                          <div className="panel-meta">{`FD-${food.id.slice(0, 8).toUpperCase()}`}</div>
+                          <div className="panel-meta">{`FD-${food.id.slice(0, 10).toUpperCase()}`}</div>
                         </td>
                         <td>{sellerNameById[food.sellerId] ?? food.sellerId}</td>
                         <td>
@@ -4278,7 +4278,7 @@ function FoodsLotsPage({ language }: { language: Language }) {
                                                       <tbody>
                                                         {lotOrders.map((order) => (
                                                           <tr key={`${lot.id}-${order.order_id}`}>
-                                                            <td>{`#${order.order_id.slice(0, 8).toUpperCase()}`}</td>
+                                                            <td>{`#${order.order_id.slice(0, 10).toUpperCase()}`}</td>
                                                             <td>{order.status}</td>
                                                             <td>{order.buyer_id}</td>
                                                             <td>{order.quantity_allocated}</td>
@@ -7051,7 +7051,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
                             <td>{formatDate(order.createdAt)}</td>
                             <td className="buyer-order-no">{order.orderNo}</td>
-                            <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId.slice(0, 8)}</td>
+                            <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId.slice(0, 10)}</td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
                             <td>{formatCurrency(order.totalAmount)}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
@@ -8677,7 +8677,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                         <tbody>
                                                           {lotOrders.map((order) => (
                                                             <tr key={`${lot.id}-${order.order_id}`}>
-                                                              <td>{`#${order.order_id.slice(0, 8).toUpperCase()}`}</td>
+                                                              <td>{`#${order.order_id.slice(0, 10).toUpperCase()}`}</td>
                                                               <td>{order.status}</td>
                                                               <td>{order.buyer_id}</td>
                                                               <td>{order.quantity_allocated}</td>

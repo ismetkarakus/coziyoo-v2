@@ -152,6 +152,8 @@ const BuyerNotesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
 });
 
+const DISPLAY_ID_LENGTH = 10;
+
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
   createdAt: "u.created_at",
   updatedAt: "u.updated_at",
@@ -514,7 +516,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   return res.json({
     data: rows.rows.map((row) => ({
       id: row.id,
-      orderNo: `#${row.order_id.slice(0, 8).toUpperCase()}`,
+      orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       complainantBuyerNo: row.complainant_buyer_id,
       subject: row.subject,
       description: row.description,
@@ -790,7 +792,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
      ) pa ON TRUE
      WHERE
        lower(f.name) LIKE $1
-       OR lower('FD-' || substring(f.id::text, 1, 8)) LIKE $1
+       OR lower('FD-' || substring(f.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $1
        OR lower('FD-' || f.id::text) LIKE $1
      ORDER BY o.created_at DESC NULLS LAST, f.updated_at DESC
      LIMIT $2`,
@@ -845,7 +847,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
       entry = {
         food: {
           id: foodId,
-          code: `FD-${foodId.slice(0, 8).toUpperCase()}`,
+          code: `FD-${foodId.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
           name: row.food_name,
           imageUrl: row.food_image_url,
           ingredients: ingredientsTextFromJson(row.ingredients_json),
@@ -879,7 +881,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
       .filter(Boolean);
     entry.incidents.push({
       orderId: row.order_id,
-      orderNo: `#${row.order_id.slice(0, 8).toUpperCase()}`,
+      orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       orderStatus: row.order_status ?? "-",
       orderTotal: Number(row.order_total_price ?? 0),
       orderCreatedAt: row.order_created_at ?? row.order_updated_at ?? "",
@@ -950,7 +952,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
         OR lower(u.display_name) LIKE $${searchParamIndex}
         OR lower(u.id::text) LIKE $${searchParamIndex}
         OR lower('cust-' || u.id::text) LIKE $${searchParamIndex}
-        OR lower('cust-' || substring(u.id::text, 1, 8)) LIKE $${searchParamIndex}
+        OR lower('cust-' || substring(u.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $${searchParamIndex}
         OR EXISTS (
           SELECT 1
           FROM foods seller_food
@@ -959,7 +961,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
               lower(seller_food.name) LIKE $${searchParamIndex}
               OR lower(seller_food.id::text) LIKE $${searchParamIndex}
               OR lower('FD-' || seller_food.id::text) LIKE $${searchParamIndex}
-              OR lower('FD-' || substring(seller_food.id::text, 1, 8)) LIKE $${searchParamIndex}
+              OR lower('FD-' || substring(seller_food.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $${searchParamIndex}
             )
         )
         OR EXISTS (
@@ -972,7 +974,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
               lower(buyer_food.name) LIKE $${searchParamIndex}
               OR lower(buyer_food.id::text) LIKE $${searchParamIndex}
               OR lower('FD-' || buyer_food.id::text) LIKE $${searchParamIndex}
-              OR lower('FD-' || substring(buyer_food.id::text, 1, 8)) LIKE $${searchParamIndex}
+              OR lower('FD-' || substring(buyer_food.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $${searchParamIndex}
             )
         ))`
     );
@@ -1285,7 +1287,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     data: rows.rows.map((row) => ({
       id: row.id,
       name: row.name,
-      code: `FD-${row.id.slice(0, 8).toUpperCase()}`,
+      code: `FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       cardSummary: row.card_summary,
       description: row.description,
       recipe: row.recipe,
@@ -1373,7 +1375,7 @@ adminUserManagementRouter.get("/buyers/:id", requireAuth("admin"), async (req, r
       contact_phone: null,
       last_orders: latestOrders.rows.map((row) => ({
         orderId: row.id,
-        orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+        orderNo: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
         status: row.status,
         totalAmount: Number(row.total_price),
         createdAt: row.created_at,
@@ -1672,7 +1674,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
   return res.json({
     data: rows.rows.map((row) => ({
       orderId: row.id,
-      orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      orderNo: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       sellerId: row.seller_id,
       sellerName: row.seller_name,
       sellerEmail: row.seller_email,
@@ -1785,7 +1787,7 @@ adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), 
   return res.json({
     data: rows.rows.map((row) => ({
       orderId: row.id,
-      orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      orderNo: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       buyerId: row.buyer_id,
       buyerName: row.buyer_name,
       buyerEmail: row.buyer_email,
@@ -2023,7 +2025,7 @@ adminUserManagementRouter.get("/users/:id/buyer-cancellations", requireAuth("adm
   return res.json({
     data: rows.rows.map((row) => ({
       orderId: row.id,
-      orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      orderNo: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       totalAmount: Number(row.total_price),
       cancelledAt: row.cancelled_at,
       reason: row.cancel_reason,
