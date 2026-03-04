@@ -107,6 +107,10 @@ const InvestigationSearchQuerySchema = z.object({
   q: z.string().min(2).max(120),
   limit: z.coerce.number().int().positive().max(100).default(40),
 });
+const GlobalAdminSearchQuerySchema = z.object({
+  q: z.string().trim().min(1).max(120),
+  limit: z.coerce.number().int().positive().max(30).default(12),
+});
 const InvestigationComplaintsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
@@ -792,7 +796,7 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
      ) pa ON TRUE
      WHERE
        lower(f.name) LIKE $1
-       OR lower('FD-' || substring(f.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $1
+       OR lower('FD-' || substring(f.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
        OR lower('FD-' || f.id::text) LIKE $1
      ORDER BY o.created_at DESC NULLS LAST, f.updated_at DESC
      LIMIT $2`,
@@ -911,6 +915,227 @@ adminUserManagementRouter.get("/investigations/search", requireAuth("admin"), as
   });
 });
 
+adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req, res) => {
+  const parsed = GlobalAdminSearchQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const needle = `%${input.q.toLowerCase()}%`;
+  const perKindLimit = Math.min(8, input.limit);
+
+  const [sellers, buyers, foods, orders, lots, complaints] = await Promise.all([
+    pool.query<{
+      id: string;
+      display_name: string | null;
+      email: string;
+      is_active: boolean;
+    }>(
+      `SELECT u.id::text, u.display_name, u.email, u.is_active
+       FROM users u
+       WHERE u.user_type IN ('seller', 'both')
+         AND (
+           lower(u.display_name) LIKE $1
+           OR lower(u.email) LIKE $1
+           OR lower(u.id::text) LIKE $1
+           OR lower('cust-' || substring(u.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+         )
+       ORDER BY u.updated_at DESC
+       LIMIT $2`,
+      [needle, perKindLimit]
+    ),
+    pool.query<{
+      id: string;
+      display_name: string | null;
+      email: string;
+      is_active: boolean;
+    }>(
+      `SELECT u.id::text, u.display_name, u.email, u.is_active
+       FROM users u
+       WHERE u.user_type IN ('buyer', 'both')
+         AND (
+           lower(u.display_name) LIKE $1
+           OR lower(u.email) LIKE $1
+           OR lower(u.id::text) LIKE $1
+           OR lower('cust-' || substring(u.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+         )
+       ORDER BY u.updated_at DESC
+       LIMIT $2`,
+      [needle, perKindLimit]
+    ),
+    pool.query<{
+      id: string;
+      name: string;
+      seller_id: string;
+      seller_name: string | null;
+      seller_email: string;
+      is_active: boolean;
+    }>(
+      `SELECT
+         f.id::text,
+         f.name,
+         s.id::text AS seller_id,
+         s.display_name AS seller_name,
+         s.email AS seller_email,
+         f.is_active
+       FROM foods f
+       JOIN users s ON s.id = f.seller_id
+       WHERE
+         lower(f.name) LIKE $1
+         OR lower(f.id::text) LIKE $1
+         OR lower('FD-' || substring(f.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+       ORDER BY f.updated_at DESC
+       LIMIT $2`,
+      [needle, perKindLimit]
+    ),
+    pool.query<{
+      id: string;
+      status: string;
+      buyer_id: string;
+      seller_id: string;
+      buyer_name: string | null;
+      buyer_email: string | null;
+      seller_name: string | null;
+      seller_email: string | null;
+      created_at: string;
+    }>(
+      `SELECT
+         o.id::text,
+         o.status,
+         o.buyer_id::text,
+         o.seller_id::text,
+         b.display_name AS buyer_name,
+         b.email AS buyer_email,
+         s.display_name AS seller_name,
+         s.email AS seller_email,
+         o.created_at::text
+       FROM orders o
+       JOIN users b ON b.id = o.buyer_id
+       JOIN users s ON s.id = o.seller_id
+       WHERE
+         lower(o.id::text) LIKE $1
+         OR lower(o.status) LIKE $1
+         OR lower(coalesce(b.display_name, '')) LIKE $1
+         OR lower(coalesce(b.email, '')) LIKE $1
+         OR lower(coalesce(s.display_name, '')) LIKE $1
+         OR lower(coalesce(s.email, '')) LIKE $1
+       ORDER BY o.created_at DESC
+       LIMIT $2`,
+      [needle, perKindLimit]
+    ),
+    pool.query<{
+      id: string;
+      lot_number: string;
+      food_id: string;
+      food_name: string | null;
+      seller_id: string;
+      seller_name: string | null;
+      seller_email: string | null;
+      status: string;
+      created_at: string;
+    }>(
+      `SELECT
+         l.id::text,
+         l.lot_number,
+         l.food_id::text,
+         f.name AS food_name,
+         l.seller_id::text,
+         s.display_name AS seller_name,
+         s.email AS seller_email,
+         l.status,
+         l.created_at::text
+       FROM production_lots l
+       LEFT JOIN foods f ON f.id = l.food_id
+       LEFT JOIN users s ON s.id = l.seller_id
+       WHERE
+         lower(l.lot_number) LIKE $1
+         OR lower(l.id::text) LIKE $1
+         OR lower(coalesce(f.name, '')) LIKE $1
+       ORDER BY l.created_at DESC
+       LIMIT $2`,
+      [needle, perKindLimit]
+    ),
+    pool.query<{
+      id: string;
+      subject: string;
+      status: string;
+      order_id: string;
+      buyer_id: string;
+      buyer_name: string | null;
+      buyer_email: string | null;
+      created_at: string;
+    }>(
+      `SELECT
+         c.id::text,
+         c.subject,
+         c.status,
+         c.order_id::text,
+         c.complainant_buyer_id::text AS buyer_id,
+         b.display_name AS buyer_name,
+         b.email AS buyer_email,
+         c.created_at::text
+       FROM complaints c
+       LEFT JOIN users b ON b.id = c.complainant_buyer_id
+       WHERE
+         lower(c.id::text) LIKE $1
+         OR lower(c.order_id::text) LIKE $1
+         OR lower(c.subject) LIKE $1
+         OR lower(coalesce(c.description, '')) LIKE $1
+       ORDER BY c.created_at DESC
+       LIMIT $2`,
+      [needle, perKindLimit]
+    ),
+  ]);
+
+  const data = [
+    ...sellers.rows.map((row) => ({
+      kind: "seller",
+      id: row.id,
+      primaryText: row.display_name || row.email,
+      secondaryText: `${row.email} • ${row.is_active ? "active" : "disabled"} • CUST-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      targetPath: `/app/sellers/${row.id}`,
+    })),
+    ...buyers.rows.map((row) => ({
+      kind: "buyer",
+      id: row.id,
+      primaryText: row.display_name || row.email,
+      secondaryText: `${row.email} • ${row.is_active ? "active" : "disabled"} • CUST-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      targetPath: `/app/buyers/${row.id}`,
+    })),
+    ...foods.rows.map((row) => ({
+      kind: "food",
+      id: row.id,
+      primaryText: row.name,
+      secondaryText: `${row.seller_name || row.seller_email} • ${row.is_active ? "active" : "disabled"} • FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      targetPath: `/app/sellers/${row.seller_id}?tab=foods`,
+    })),
+    ...orders.rows.map((row) => ({
+      kind: "order",
+      id: row.id,
+      primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}`,
+      targetPath: `/app/buyers/${row.buyer_id}?tab=orders`,
+    })),
+    ...lots.rows.map((row) => ({
+      kind: "lot",
+      id: row.id,
+      primaryText: row.lot_number,
+      secondaryText: `${row.food_name || "food"} • ${row.seller_name || row.seller_email || "seller"} • ${row.status}`,
+      targetPath: `/app/sellers/${row.seller_id}?tab=foods`,
+    })),
+    ...complaints.rows.map((row) => ({
+      kind: "complaint",
+      id: row.id,
+      primaryText: row.subject,
+      secondaryText: `${row.status} • order #${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()} • ${row.buyer_name || row.buyer_email || "buyer"}`,
+      targetPath: `/app/buyers/${row.buyer_id}?tab=complaints`,
+    })),
+  ].slice(0, input.limit);
+
+  return res.json({ data });
+});
+
 adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) => {
   const parsed = AppUserListQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -952,7 +1177,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
         OR lower(u.display_name) LIKE $${searchParamIndex}
         OR lower(u.id::text) LIKE $${searchParamIndex}
         OR lower('cust-' || u.id::text) LIKE $${searchParamIndex}
-        OR lower('cust-' || substring(u.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $${searchParamIndex}
+        OR lower('cust-' || substring(u.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $${searchParamIndex}
         OR EXISTS (
           SELECT 1
           FROM foods seller_food
@@ -961,7 +1186,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
               lower(seller_food.name) LIKE $${searchParamIndex}
               OR lower(seller_food.id::text) LIKE $${searchParamIndex}
               OR lower('FD-' || seller_food.id::text) LIKE $${searchParamIndex}
-              OR lower('FD-' || substring(seller_food.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $${searchParamIndex}
+              OR lower('FD-' || substring(seller_food.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $${searchParamIndex}
             )
         )
         OR EXISTS (
@@ -974,7 +1199,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
               lower(buyer_food.name) LIKE $${searchParamIndex}
               OR lower(buyer_food.id::text) LIKE $${searchParamIndex}
               OR lower('FD-' || buyer_food.id::text) LIKE $${searchParamIndex}
-              OR lower('FD-' || substring(buyer_food.id::text, 1, DISPLAY_ID_LENGTH)) LIKE $${searchParamIndex}
+              OR lower('FD-' || substring(buyer_food.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $${searchParamIndex}
             )
         ))`
     );

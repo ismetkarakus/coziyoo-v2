@@ -87,6 +87,15 @@ type SellerFoodRow = {
   updatedAt: string;
 };
 
+type GlobalSearchResultKind = "seller" | "buyer" | "food" | "order" | "lot" | "complaint";
+type GlobalSearchResultItem = {
+  kind: GlobalSearchResultKind;
+  id: string;
+  primaryText: string;
+  secondaryText: string;
+  targetPath: string;
+};
+
 type AdminLotLifecycleStatus = "on_sale" | "planned" | "expired" | "depleted" | "recalled" | "discarded" | "open";
 type AdminLotStatus = "open" | "locked" | "depleted" | "recalled" | "discarded" | "expired";
 
@@ -624,6 +633,12 @@ function AppShell({
   const location = useLocation();
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
+  const [globalSearchInput, setGlobalSearchInput] = useState("");
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+  const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
+  const globalSearchWrapRef = useRef<HTMLDivElement | null>(null);
+  const globalSearchReqIdRef = useRef(0);
 
   async function logout() {
     const tokens = getTokens();
@@ -639,6 +654,87 @@ function AppShell({
   }
 
   const isSuperAdmin = admin.role === "super_admin";
+  const globalSearchMinChars = 2;
+  const globalSearchQuery = globalSearchInput.trim();
+
+  useEffect(() => {
+    setGlobalSearchOpen(false);
+    setGlobalSearchInput("");
+    setGlobalSearchResults([]);
+    setGlobalSearchLoading(false);
+    globalSearchReqIdRef.current += 1;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!globalSearchWrapRef.current) return;
+      if (!globalSearchWrapRef.current.contains(event.target as Node)) {
+        setGlobalSearchOpen(false);
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
+  useEffect(() => {
+    const query = globalSearchQuery;
+    if (query.length < globalSearchMinChars) {
+      setGlobalSearchLoading(false);
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    const reqId = ++globalSearchReqIdRef.current;
+    setGlobalSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      request(`/v1/admin/search/global?q=${encodeURIComponent(query)}&limit=12`)
+        .then(async (response) => {
+          if (reqId !== globalSearchReqIdRef.current) return;
+          if (response.status !== 200) {
+            setGlobalSearchResults([]);
+            return;
+          }
+          const body = await parseJson<{ data?: GlobalSearchResultItem[] }>(response);
+          if (reqId !== globalSearchReqIdRef.current) return;
+          setGlobalSearchResults(Array.isArray(body.data) ? body.data : []);
+        })
+        .catch(() => {
+          if (reqId !== globalSearchReqIdRef.current) return;
+          setGlobalSearchResults([]);
+        })
+        .finally(() => {
+          if (reqId === globalSearchReqIdRef.current) setGlobalSearchLoading(false);
+        });
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [globalSearchQuery]);
+
+  function globalKindLabel(kind: GlobalSearchResultKind): string {
+    if (language === "tr") {
+      if (kind === "seller") return "Satıcı";
+      if (kind === "buyer") return "Alıcı";
+      if (kind === "food") return "Yemek";
+      if (kind === "order") return "Sipariş";
+      if (kind === "lot") return "Lot";
+      return "Şikayet";
+    }
+    if (kind === "seller") return "Seller";
+    if (kind === "buyer") return "Buyer";
+    if (kind === "food") return "Food";
+    if (kind === "order") return "Order";
+    if (kind === "lot") return "Lot";
+    return "Complaint";
+  }
+
+  function onSelectGlobalResult(item: GlobalSearchResultItem) {
+    setGlobalSearchOpen(false);
+    setGlobalSearchInput("");
+    setGlobalSearchResults([]);
+    navigate(item.targetPath);
+  }
 
   return (
     <main className="shell">
@@ -660,6 +756,71 @@ function AppShell({
             onToggleLanguage={onToggleLanguage}
             onLogout={logout}
           />
+        </div>
+        <div className="navbar-global-search" ref={globalSearchWrapRef}>
+          <label className="navbar-global-search-input-wrap">
+            <span className="navbar-global-search-icon" aria-hidden="true">⌕</span>
+            <input
+              className="navbar-global-search-input"
+              value={globalSearchInput}
+              onChange={(event) => setGlobalSearchInput(event.target.value)}
+              onFocus={() => setGlobalSearchOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setGlobalSearchOpen(false);
+                if (event.key === "Enter" && globalSearchResults[0]) {
+                  event.preventDefault();
+                  onSelectGlobalResult(globalSearchResults[0]);
+                }
+              }}
+              placeholder={language === "tr"
+                ? "Global ara: satıcı, alıcı, yemek, sipariş, lot, şikayet"
+                : "Global search: seller, buyer, food, order, lot, complaint"}
+            />
+            {globalSearchInput.trim().length > 0 ? (
+              <button
+                type="button"
+                className="navbar-global-search-clear"
+                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                onClick={() => {
+                  setGlobalSearchInput("");
+                  setGlobalSearchResults([]);
+                  setGlobalSearchLoading(false);
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+          </label>
+          {globalSearchOpen ? (
+            <div className="navbar-global-search-dropdown" role="listbox" aria-label={language === "tr" ? "Arama sonuçları" : "Search results"}>
+              {globalSearchQuery.length < globalSearchMinChars ? (
+                <p className="navbar-global-search-empty">
+                  {language === "tr" ? "Aramak için en az 2 karakter yazın." : "Type at least 2 characters to search."}
+                </p>
+              ) : globalSearchLoading ? (
+                <p className="navbar-global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
+              ) : globalSearchResults.length === 0 ? (
+                <p className="navbar-global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>
+              ) : (
+                <div className="navbar-global-search-list">
+                  {globalSearchResults.map((item) => (
+                    <button
+                      key={`${item.kind}-${item.id}`}
+                      type="button"
+                      className="navbar-global-search-item"
+                      onClick={() => onSelectGlobalResult(item)}
+                    >
+                      <span className={`navbar-global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
+                      <span className="navbar-global-search-texts">
+                        <strong>{item.primaryText}</strong>
+                        <small>{item.secondaryText}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
         <div className="navbar-actions">
           <ApiHealthBadge />

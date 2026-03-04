@@ -42,3 +42,9 @@ Unless explicitly requested by the user, do not modify:
 
 ## 6) Delivery Preference
 - Avoid over-engineering. Prefer direct, minimal, maintainable implementations unless deeper architecture is explicitly requested.
+
+## 7) Git Workflow Preference (User)
+- Unless the user explicitly says otherwise, after completing requested code changes always run:
+  - `git pull --rebase --autostash`
+  - commit with a clear message
+  - `git push`
