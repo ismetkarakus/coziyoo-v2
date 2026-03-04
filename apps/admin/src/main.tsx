@@ -5927,10 +5927,14 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setNewProfileIdInput("");
   }
 
-  async function loadDeviceList() {
+  async function loadDeviceList(): Promise<DeviceRow[]> {
     const res = await request("/v1/admin/livekit/agent-settings");
     const body = await parseJson<{ data?: DeviceRow[] } & ApiError>(res);
-    if (res.status === 200 && body.data) setDevices(body.data);
+    if (res.status === 200 && body.data) {
+      setDevices(body.data);
+      return body.data;
+    }
+    return [];
   }
 
   async function loadSettings(
@@ -6155,8 +6159,13 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   }
 
   useEffect(() => {
-    loadDeviceList().catch(() => undefined);
-    loadSettings("default").catch(() => setCurrentDeviceId("default"));
+    loadDeviceList()
+      .then((list) => {
+        if (list.length === 0) return;
+        const first = list.find((d) => d.is_active) ?? list[0];
+        loadSettings(first.device_id, { runTestsAfterLoad: true }).catch(() => undefined);
+      })
+      .catch(() => undefined);
   }, []);
 
   function StatusDot({ status }: { status: TestStatus }) {
