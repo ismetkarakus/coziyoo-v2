@@ -5,7 +5,8 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { pool } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
-import { askOllamaChat } from "../services/ollama.js";
+import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
+import { getN8nStatus } from "../services/n8n.js";
 import {
   buildRoomScopedAgentIdentity,
   dispatchAgentJoin,
@@ -506,5 +507,80 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
     return res.json({ data: settings });
   } catch (err) {
     return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
+  }
+});
+
+// ── Connection Tests ──────────────────────────────────────────────────────────
+
+adminLiveKitRouter.post("/test/livekit", async (_req, res) => {
+  try {
+    const configured = isLiveKitConfigured();
+    if (!configured) {
+      return res.json({ data: { ok: false, reason: "LIVEKIT_NOT_CONFIGURED" } });
+    }
+    const { RoomServiceClient } = await import("livekit-server-sdk");
+    const client = new RoomServiceClient(
+      env.LIVEKIT_URL!.replace(/^wss?:\/\//, "https://"),
+      env.LIVEKIT_API_KEY!,
+      env.LIVEKIT_API_SECRET!,
+    );
+    await client.listRooms();
+    return res.json({ data: { ok: true, wsUrl: env.LIVEKIT_URL } });
+  } catch (err) {
+    return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Connection failed" } });
+  }
+});
+
+const TestSttSchema = z.object({
+  baseUrl: z.string().min(1),
+  transcribePath: z.string().optional(),
+});
+
+adminLiveKitRouter.post("/test/stt", async (req, res) => {
+  const parsed = TestSttSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const { baseUrl, transcribePath = "/v1/transcribe" } = parsed.data;
+  try {
+    const url = `${baseUrl.replace(/\/$/, "")}${transcribePath}`;
+    const response = await fetch(url, { method: "OPTIONS", signal: AbortSignal.timeout(5_000) });
+    return res.json({ data: { ok: true, status: response.status, url } });
+  } catch (err) {
+    return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
+  }
+});
+
+const TestOllamaSchema = z.object({
+  baseUrl: z.string().optional(),
+});
+
+adminLiveKitRouter.post("/test/ollama", async (req, res) => {
+  const parsed = TestOllamaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  try {
+    const result = await listOllamaModels({ baseUrl: parsed.data.baseUrl || undefined });
+    return res.json({ data: { ok: true, models: result.models } });
+  } catch (err) {
+    return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
+  }
+});
+
+const TestN8nSchema = z.object({
+  baseUrl: z.string().optional(),
+});
+
+adminLiveKitRouter.post("/test/n8n", async (req, res) => {
+  const parsed = TestN8nSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  try {
+    const status = await getN8nStatus({ baseUrl: parsed.data.baseUrl || undefined });
+    return res.json({ data: { ok: status.reachable, status } });
+  } catch (err) {
+    return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
   }
 });

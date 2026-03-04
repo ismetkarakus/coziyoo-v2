@@ -421,6 +421,18 @@
     "greetingInstruction": "Karşılama Mesajı",
     "saveSuccess": "Ayarlar kaydedildi.",
     "saveError": "Ayarlar kaydedilemedi.",
-    "loadError": "Ayarlar yüklenemedi."
+    "loadError": "Ayarlar yüklenemedi.",
+    "sectionConnection": "Bağlantı Testleri",
+    "testLiveKit": "LiveKit Test",
+    "testStt": "STT Test",
+    "testOllama": "Ollama Test",
+    "testN8n": "N8N Test",
+    "testAll": "Tümünü Test Et",
+    "testing": "Test ediliyor...",
+    "statusOk": "OK",
+    "statusFail": "HATA",
+    "statusUnknown": "—",
+    "loadSettings": "Ayarları Yükle",
+    "newDevice": "Yeni / Cihaz ID"
   }
 }

@@ -10,7 +10,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { z } from "zod";
-import { Room, RoomEvent, Track } from "livekit-client";
 import en from "./i18n/en.json";
 import tr from "./i18n/tr.json";
 import type {
@@ -685,7 +684,6 @@ function AppShell({
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
-        {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
         {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
         {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
@@ -730,7 +728,6 @@ function TopNavTabs({
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
     { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
-    { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
     { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
     { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
@@ -5247,19 +5244,6 @@ function AuditPage({ language }: { language: Language }) {
   );
 }
 
-type LiveKitTokenResponse = {
-  data?: {
-    roomName: string;
-    participantIdentity: string;
-    wsUrl: string;
-    token: string;
-    preview: {
-      iat: string | null;
-      exp: string | null;
-      claims: Record<string, unknown>;
-    } | null;
-  };
-} & ApiError;
 
 type AdminApiTokenResponse = {
   data?: {
@@ -5829,277 +5813,6 @@ function ComplianceDocumentsPage({ language, isSuperAdmin }: { language: Languag
   );
 }
 
-type LiveKitSessionStartResponse = {
-  data?: {
-    roomName: string;
-    wsUrl: string;
-    user: {
-      participantIdentity: string;
-      token: string;
-    };
-    agent: {
-      participantIdentity: string;
-      dispatched: boolean;
-      dispatch: {
-        endpoint: string;
-        ok: boolean;
-        status: number;
-        body: unknown;
-      } | null;
-      preview?: {
-        iat: string | null;
-        exp: string | null;
-        claims: Record<string, unknown>;
-      } | null;
-    };
-  };
-} & ApiError;
-
-function LiveKitPage({ language }: { language: Language }) {
-  const dict = DICTIONARIES[language];
-  const roomRef = useRef<Room | null>(null);
-  const chatInputRef = useRef<HTMLInputElement | null>(null);
-  const remoteMediaRef = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState<{
-    configured: boolean;
-    wsUrl: string | null;
-    aiServerUrl: string | null;
-    aiServerJoinPath: string;
-    hasApiKey: boolean;
-    hasApiSecret: boolean;
-    hasAiSharedSecret: boolean;
-    defaultTtlSeconds: number;
-    agentIdentityDefault: string;
-  } | null>(null);
-  const [statusError, setStatusError] = useState<string | null>(null);
-  const [roomName, setRoomName] = useState("coziyoo-room");
-  const [participantIdentity, setParticipantIdentity] = useState("");
-  const [participantName, setParticipantName] = useState("");
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [connecting, setConnecting] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [remoteCount, setRemoteCount] = useState(0);
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatMessages, setChatMessages] = useState<Array<{ at: string; from: string; text: string }>>([]);
-
-  async function loadStatus() {
-    setStatusError(null);
-    const response = await request("/v1/admin/livekit/status");
-    const body = await parseJson<{ data?: typeof status } & ApiError>(response);
-    if (response.status !== 200 || !body.data) {
-      setStatusError(body.error?.message ?? dict.livekit.statusLoadFailed);
-      return;
-    }
-    setStatus(body.data);
-  }
-
-  useEffect(() => {
-    loadStatus().catch(() => setStatusError(dict.livekit.statusRequestFailed));
-  }, [dict.livekit.statusRequestFailed]);
-
-  function clearRemoteMedia() {
-    if (remoteMediaRef.current) remoteMediaRef.current.innerHTML = "";
-    setRemoteCount(0);
-  }
-
-  async function disconnectRoom() {
-    const room = roomRef.current;
-    if (!room) return;
-    room.disconnect();
-    roomRef.current = null;
-    clearRemoteMedia();
-    setConnected(false);
-    setChatMessages([]);
-  }
-
-  useEffect(() => {
-    return () => { disconnectRoom().catch(() => undefined); };
-  }, []);
-
-  async function connectRoom() {
-    if (!roomName.trim()) { setError(dict.livekit.roomRequired); return; }
-    setError(null);
-    setConnecting(true);
-    try {
-      if (roomRef.current) await disconnectRoom();
-      const response = await request("/v1/admin/livekit/session/start", {
-        method: "POST",
-        body: JSON.stringify({
-          roomName: roomName.trim(),
-          ...(participantIdentity.trim() ? { participantIdentity: participantIdentity.trim() } : {}),
-          ...(participantName.trim() ? { participantName: participantName.trim() } : {}),
-        }),
-      });
-      const body = await parseJson<LiveKitSessionStartResponse>(response);
-      if (response.status !== 201 || !body.data) {
-        setError(body.error?.message ?? dict.livekit.tokenCreateFailed);
-        return;
-      }
-      const room = new Room();
-      roomRef.current = room;
-      room.on(RoomEvent.ParticipantConnected, () => setRemoteCount(room.remoteParticipants.size));
-      room.on(RoomEvent.ParticipantDisconnected, () => setRemoteCount(room.remoteParticipants.size));
-      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        const holder = remoteMediaRef.current;
-        if (!holder) return;
-        const key = `${participant.sid}:${publication.trackSid}`;
-        const card = document.createElement("article");
-        card.className = "livekit-remote-card";
-        card.dataset.trackKey = key;
-        const label = document.createElement("p");
-        label.className = "panel-meta";
-        label.textContent = `${participant.identity} (${track.kind})`;
-        card.appendChild(label);
-        if (track.kind === Track.Kind.Video) {
-          const video = document.createElement("video");
-          video.autoplay = true;
-          video.playsInline = true;
-          video.className = "livekit-video";
-          track.attach(video);
-          card.appendChild(video);
-        } else if (track.kind === Track.Kind.Audio) {
-          const audio = document.createElement("audio");
-          audio.autoplay = true;
-          track.attach(audio);
-          card.appendChild(audio);
-        }
-        holder.appendChild(card);
-      });
-      room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-        const holder = remoteMediaRef.current;
-        if (!holder) return;
-        const key = `${participant.sid}:${publication.trackSid}`;
-        holder.querySelector(`[data-track-key="${key}"]`)?.remove();
-        track.detach();
-      });
-      room.on(RoomEvent.Disconnected, () => setConnected(false));
-      room.on(RoomEvent.DataReceived, (payload, participant) => {
-        try {
-          const parsed = JSON.parse(new TextDecoder().decode(payload)) as { text?: string; ts?: string };
-          const text = String(parsed.text ?? "").trim();
-          if (!text) return;
-          setChatMessages((prev) => [...prev, { at: parsed.ts ?? new Date().toISOString(), from: participant?.identity ?? "unknown", text }]);
-        } catch {
-          const fallback = new TextDecoder().decode(payload).trim();
-          if (fallback) setChatMessages((prev) => [...prev, { at: new Date().toISOString(), from: participant?.identity ?? "unknown", text: fallback }]);
-        }
-      });
-      await room.connect(normalizeLiveKitWsUrl(body.data.wsUrl), body.data.user.token);
-      setConnected(true);
-      setRemoteCount(room.remoteParticipants.size);
-      await room.localParticipant.setMicrophoneEnabled(micEnabled);
-      chatInputRef.current?.focus();
-    } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : dict.livekit.demoConnectFailed);
-    } finally {
-      setConnecting(false);
-    }
-  }
-
-  async function sendChatMessage(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const room = roomRef.current;
-    if (!room || !connected) return;
-    const text = chatMessage.trim();
-    if (!text) return;
-    const payload = { text, ts: new Date().toISOString() };
-    await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true });
-    setChatMessages((prev) => [...prev, { at: payload.ts, from: room.localParticipant.identity, text }]);
-    setChatMessage("");
-    chatInputRef.current?.focus();
-  }
-
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">{dict.livekit.eyebrow}</p>
-          <h1>{dict.livekit.title}</h1>
-          <p className="subtext">{dict.livekit.subtitle}</p>
-        </div>
-        <div className="topbar-actions">
-          <span className="panel-meta">{connected ? dict.livekit.connected : dict.livekit.notConnected}</span>
-          <span className="panel-meta">{`${dict.livekit.remoteParticipants}: ${remoteCount}`}</span>
-          <button className="ghost" type="button" onClick={() => loadStatus()}>{dict.actions.refresh}</button>
-        </div>
-      </header>
-
-      {statusError ? <div className="alert">{statusError}</div> : null}
-
-      <section className="panel">
-        <div className="panel-header"><h2>{dict.livekit.statusTitle}</h2></div>
-        <div className="table">
-          <div className="table-row table-row-kpi"><span>{dict.livekit.configured}</span><span>{status?.configured ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.wsUrl}</span><span>{status?.wsUrl ?? "-"}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.aiServerUrl}</span><span>{status?.aiServerUrl ?? "-"}</span></div>
-          <div className="table-row table-row-kpi"><span>LIVEKIT_API_KEY</span><span>{status?.hasApiKey ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>LIVEKIT_API_SECRET</span><span>{status?.hasApiSecret ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>AI_SERVER_SHARED_SECRET</span><span>{status?.hasAiSharedSecret ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.defaultAgentIdentity}</span><span>{status?.agentIdentityDefault ?? "-"}</span></div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="form-grid">
-          <label>{dict.livekit.roomName}<input value={roomName} onChange={(e) => setRoomName(e.target.value)} /></label>
-          <label>{dict.livekit.participantIdentity}<input value={participantIdentity} onChange={(e) => setParticipantIdentity(e.target.value)} /></label>
-          <label>{dict.livekit.participantName}<input value={participantName} onChange={(e) => setParticipantName(e.target.value)} /></label>
-        </div>
-        <div className="checkbox-grid">
-          <label><input type="checkbox" checked={micEnabled} onChange={(e) => setMicEnabled(e.target.checked)} />{dict.livekit.microphone}</label>
-        </div>
-        {error ? <div className="alert">{error}</div> : null}
-        <div className="topbar-actions">
-          <button className="primary" type="button" onClick={() => connectRoom()} disabled={connecting || connected}>
-            {connecting ? dict.livekit.connecting : dict.livekit.connectDemo}
-          </button>
-          <button className="ghost" type="button" onClick={() => disconnectRoom()} disabled={!connected && !connecting}>
-            {dict.livekit.disconnectDemo}
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header"><h2>{dict.livekit.remoteParticipants}</h2></div>
-        <div ref={remoteMediaRef} className="livekit-remote-grid" />
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.chatTitle}</h2>
-          <span className="panel-meta">{connected ? dict.livekit.chatConnected : dict.livekit.chatDisconnected}</span>
-        </div>
-        <div className="livekit-chat-log">
-          {chatMessages.length === 0 ? (
-            <p className="panel-meta">{dict.livekit.chatEmpty}</p>
-          ) : (
-            chatMessages.map((msg, i) => (
-              <article key={`${msg.at}-${i}`} className="livekit-chat-item">
-                <p className="panel-meta">{`${msg.from} • ${msg.at}`}</p>
-                <p>{msg.text}</p>
-              </article>
-            ))
-          )}
-        </div>
-        <form className="livekit-chat-form" onSubmit={sendChatMessage}>
-          <input ref={chatInputRef} value={chatMessage} onChange={(e) => setChatMessage(e.target.value)}
-            placeholder={dict.livekit.chatPlaceholder} disabled={!connected} />
-          <button className="primary" type="submit" disabled={!connected || !chatMessage.trim()}>{dict.livekit.chatSend}</button>
-        </form>
-      </section>
-    </div>
-  );
-}
-
-function normalizeLiveKitWsUrl(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("wss://") || trimmed.startsWith("ws://")) return trimmed;
-  if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length).replace(/\/+$/, "")}`;
-  if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length).replace(/\/+$/, "")}`;
-  return trimmed;
-}
-
 type DeviceRow = {
   device_id: string;
   agent_name: string;
@@ -6139,16 +5852,16 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [full, setFull] = useState<AgentSettingsFull | null>(null);
+  const [deviceIdInput, setDeviceIdInput] = useState("default");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
 
   // form state
   const [agentName, setAgentName] = useState("");
-  const [voiceLanguage, setVoiceLanguage] = useState("");
-  const [ollamaModel, setOllamaModel] = useState("");
+  const [voiceLanguage, setVoiceLanguage] = useState("en");
+  const [ollamaModel, setOllamaModel] = useState("llama3.1:8b");
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
   const [ttsEngine, setTtsEngine] = useState("f5-tts");
   const [ttsEnabled, setTtsEnabled] = useState(true);
@@ -6156,62 +5869,76 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [sttEnabled, setSttEnabled] = useState(true);
   const [sttProvider, setSttProvider] = useState("");
   const [sttBaseUrl, setSttBaseUrl] = useState("");
-  const [sttTranscribePath, setSttTranscribePath] = useState("");
+  const [sttTranscribePath, setSttTranscribePath] = useState("/v1/transcribe");
   const [sttModel, setSttModel] = useState("");
   const [n8nBaseUrl, setN8nBaseUrl] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [greetingEnabled, setGreetingEnabled] = useState(true);
   const [greetingInstruction, setGreetingInstruction] = useState("");
 
-  async function loadDevices() {
-    setLoadError(null);
+  // connection test state: null = untested, true = ok, false = fail
+  type TestStatus = { ok: boolean; detail?: string } | null;
+  const [testLiveKit, setTestLiveKit] = useState<TestStatus>(null);
+  const [testStt, setTestStt] = useState<TestStatus>(null);
+  const [testOllama, setTestOllama] = useState<TestStatus>(null);
+  const [testN8n, setTestN8n] = useState<TestStatus>(null);
+  const [testing, setTesting] = useState(false);
+
+  async function loadDeviceList() {
     const res = await request("/v1/admin/livekit/agent-settings");
     const body = await parseJson<{ data?: DeviceRow[] } & ApiError>(res);
-    if (res.status !== 200 || !body.data) {
-      setLoadError(body.error?.message ?? dict.voiceAgentSettings.loadError);
-      return;
-    }
-    setDevices(body.data);
+    if (res.status === 200 && body.data) setDevices(body.data);
   }
 
-  async function selectDevice(id: string) {
-    setSelectedId(id);
+  async function loadSettings(id: string) {
+    setLoadError(null);
     setSaveMsg(null);
     setSaveError(null);
     const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(id)}`);
     const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
-    if (res.status !== 200 || !body.data) {
-      setSaveError(body.error?.message ?? dict.voiceAgentSettings.loadError);
-      return;
+    if (res.status === 200 && body.data) {
+      const s = body.data;
+      setCurrentDeviceId(id);
+      setAgentName(s.agentName ?? "");
+      setVoiceLanguage(s.voiceLanguage ?? "en");
+      setOllamaModel(s.ollamaModel ?? "llama3.1:8b");
+      setOllamaBaseUrl(readNestedStr(s.ttsConfig, "llm", "ollamaBaseUrl"));
+      setTtsEngine(s.ttsEngine ?? "f5-tts");
+      setTtsEnabled(s.ttsEnabled ?? true);
+      setTtsBaseUrl(readNestedStr(s.ttsConfig, "baseUrl"));
+      setSttEnabled(s.sttEnabled ?? true);
+      setSttProvider(readNestedStr(s.ttsConfig, "stt", "provider"));
+      setSttBaseUrl(readNestedStr(s.ttsConfig, "stt", "baseUrl"));
+      setSttTranscribePath(readNestedStr(s.ttsConfig, "stt", "transcribePath") || "/v1/transcribe");
+      setSttModel(readNestedStr(s.ttsConfig, "stt", "model"));
+      setN8nBaseUrl(readNestedStr(s.ttsConfig, "n8n", "baseUrl"));
+      setSystemPrompt(s.systemPrompt ?? "");
+      setGreetingEnabled(s.greetingEnabled ?? true);
+      setGreetingInstruction(s.greetingInstruction ?? "");
+    } else if (res.status === 404) {
+      // New device — just set the deviceId, form keeps defaults
+      setCurrentDeviceId(id);
+    } else {
+      setLoadError(body.error?.message ?? dict.voiceAgentSettings.loadError);
     }
-    const s = body.data;
-    setFull(s);
-    setAgentName(s.agentName ?? "");
-    setVoiceLanguage(s.voiceLanguage ?? "");
-    setOllamaModel(s.ollamaModel ?? "");
-    setOllamaBaseUrl(readNestedStr(s.ttsConfig, "llm", "ollamaBaseUrl"));
-    setTtsEngine(s.ttsEngine ?? "f5-tts");
-    setTtsEnabled(s.ttsEnabled ?? true);
-    setTtsBaseUrl(readNestedStr(s.ttsConfig, "baseUrl"));
-    setSttEnabled(s.sttEnabled ?? true);
-    setSttProvider(readNestedStr(s.ttsConfig, "stt", "provider"));
-    setSttBaseUrl(readNestedStr(s.ttsConfig, "stt", "baseUrl"));
-    setSttTranscribePath(readNestedStr(s.ttsConfig, "stt", "transcribePath"));
-    setSttModel(readNestedStr(s.ttsConfig, "stt", "model"));
-    setN8nBaseUrl(readNestedStr(s.ttsConfig, "n8n", "baseUrl"));
-    setSystemPrompt(s.systemPrompt ?? "");
-    setGreetingEnabled(s.greetingEnabled ?? true);
-    setGreetingInstruction(s.greetingInstruction ?? "");
+  }
+
+  async function onLoad(event: FormEvent) {
+    event.preventDefault();
+    const id = deviceIdInput.trim();
+    if (!id) return;
+    await loadSettings(id);
   }
 
   async function onSave(event: FormEvent) {
     event.preventDefault();
-    if (!selectedId) return;
+    const id = currentDeviceId ?? deviceIdInput.trim();
+    if (!id) return;
     setSaving(true);
     setSaveMsg(null);
     setSaveError(null);
     try {
-      const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(selectedId)}`, {
+      const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(id)}`, {
         method: "PUT",
         body: JSON.stringify({
           agentName: agentName.trim() || undefined,
@@ -6237,8 +5964,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
         setSaveError(body.error?.message ?? dict.voiceAgentSettings.saveError);
         return;
       }
+      setCurrentDeviceId(id);
       setSaveMsg(dict.voiceAgentSettings.saveSuccess);
-      await loadDevices();
+      await loadDeviceList();
     } catch {
       setSaveError(dict.voiceAgentSettings.saveError);
     } finally {
@@ -6246,9 +5974,71 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     }
   }
 
+  async function runTestLiveKit() {
+    setTestLiveKit(null);
+    const res = await request("/v1/admin/livekit/test/livekit", { method: "POST", body: "{}" });
+    const body = await parseJson<{ data?: { ok: boolean; reason?: string; wsUrl?: string } } & ApiError>(res);
+    setTestLiveKit({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? body.data?.wsUrl });
+  }
+
+  async function runTestStt() {
+    setTestStt(null);
+    const url = sttBaseUrl.trim();
+    if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
+    const res = await request("/v1/admin/livekit/test/stt", {
+      method: "POST",
+      body: JSON.stringify({ baseUrl: url, transcribePath: sttTranscribePath.trim() || "/v1/transcribe" }),
+    });
+    const body = await parseJson<{ data?: { ok: boolean; reason?: string; status?: number } } & ApiError>(res);
+    setTestStt({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? (body.data?.status ? `HTTP ${body.data.status}` : undefined) });
+  }
+
+  async function runTestOllama() {
+    setTestOllama(null);
+    const res = await request("/v1/admin/livekit/test/ollama", {
+      method: "POST",
+      body: JSON.stringify({ baseUrl: ollamaBaseUrl.trim() || undefined }),
+    });
+    const body = await parseJson<{ data?: { ok: boolean; reason?: string; models?: string[] } } & ApiError>(res);
+    setTestOllama({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? (body.data?.models ? body.data.models.slice(0, 3).join(", ") : undefined) });
+  }
+
+  async function runTestN8n() {
+    setTestN8n(null);
+    const res = await request("/v1/admin/livekit/test/n8n", {
+      method: "POST",
+      body: JSON.stringify({ baseUrl: n8nBaseUrl.trim() || undefined }),
+    });
+    const body = await parseJson<{ data?: { ok: boolean; reason?: string } } & ApiError>(res);
+    setTestN8n({ ok: body.data?.ok ?? false, detail: body.data?.reason });
+  }
+
+  async function runTestAll() {
+    setTesting(true);
+    setTestLiveKit(null);
+    setTestStt(null);
+    setTestOllama(null);
+    setTestN8n(null);
+    await Promise.allSettled([runTestLiveKit(), runTestStt(), runTestOllama(), runTestN8n()]);
+    setTesting(false);
+  }
+
   useEffect(() => {
-    loadDevices().catch(() => setLoadError(dict.voiceAgentSettings.loadError));
+    loadDeviceList().catch(() => undefined);
+    loadSettings("default").catch(() => setCurrentDeviceId("default"));
   }, []);
+
+  function StatusDot({ status }: { status: TestStatus }) {
+    const color = status === null ? "#999" : status.ok ? "#22c55e" : "#ef4444";
+    const label = status === null ? dict.voiceAgentSettings.statusUnknown : status.ok ? dict.voiceAgentSettings.statusOk : dict.voiceAgentSettings.statusFail;
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+        <span style={{ fontSize: "0.8em", color, fontWeight: 600 }}>{label}</span>
+        {status?.detail ? <span style={{ fontSize: "0.75em", color: "var(--text-muted, #888)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status.detail}</span> : null}
+      </span>
+    );
+  }
 
   return (
     <div className="app">
@@ -6259,24 +6049,64 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           <p className="subtext">{dict.voiceAgentSettings.subtitle}</p>
         </div>
         <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => loadDevices()}>{dict.actions.refresh}</button>
+          <button className="ghost" type="button" onClick={() => { loadDeviceList().catch(() => undefined); }}>{dict.actions.refresh}</button>
         </div>
       </header>
 
       {loadError ? <div className="alert">{loadError}</div> : null}
 
       <section className="panel">
-        <div className="panel-header"><h2>{dict.voiceAgentSettings.deviceId}</h2></div>
-        {devices.length === 0 ? (
-          <p className="subtext" style={{ padding: "1rem" }}>{dict.voiceAgentSettings.noDevices}</p>
-        ) : (
-          <div className="table">
+        <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionConnection}</h2></div>
+        <div className="table">
+          <div className="table-row table-row-kpi">
+            <span>LiveKit</span>
+            <StatusDot status={testLiveKit} />
+            <span style={{ marginLeft: "auto" }}>
+              <button className="ghost" type="button" onClick={runTestLiveKit}>{dict.voiceAgentSettings.testLiveKit}</button>
+            </span>
+          </div>
+          <div className="table-row table-row-kpi">
+            <span>STT</span>
+            <StatusDot status={testStt} />
+            <span style={{ marginLeft: "auto" }}>
+              <button className="ghost" type="button" onClick={runTestStt}>{dict.voiceAgentSettings.testStt}</button>
+            </span>
+          </div>
+          <div className="table-row table-row-kpi">
+            <span>Ollama / LLM</span>
+            <StatusDot status={testOllama} />
+            <span style={{ marginLeft: "auto" }}>
+              <button className="ghost" type="button" onClick={runTestOllama}>{dict.voiceAgentSettings.testOllama}</button>
+            </span>
+          </div>
+          <div className="table-row table-row-kpi">
+            <span>N8N</span>
+            <StatusDot status={testN8n} />
+            <span style={{ marginLeft: "auto" }}>
+              <button className="ghost" type="button" onClick={runTestN8n}>{dict.voiceAgentSettings.testN8n}</button>
+            </span>
+          </div>
+        </div>
+        <div style={{ padding: "0.75rem 1.5rem" }}>
+          <button className="primary" type="button" onClick={runTestAll} disabled={testing}>
+            {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{dict.voiceAgentSettings.deviceId}</h2>
+          {currentDeviceId ? <span className="panel-meta" style={{ fontFamily: "monospace" }}>{currentDeviceId}</span> : null}
+        </div>
+        {devices.length > 0 ? (
+          <div className="table" style={{ marginBottom: "1rem" }}>
             {devices.map((d) => (
               <div
                 key={d.device_id}
-                className={`table-row${selectedId === d.device_id ? " table-row--selected" : ""}`}
+                className={`table-row${currentDeviceId === d.device_id ? " table-row--selected" : ""}`}
                 style={{ cursor: "pointer" }}
-                onClick={() => selectDevice(d.device_id)}
+                onClick={() => { setDeviceIdInput(d.device_id); loadSettings(d.device_id).catch(() => undefined); }}
               >
                 <span style={{ fontFamily: "monospace", fontSize: "0.85em" }}>{d.device_id}</span>
                 <span>{d.agent_name}</span>
@@ -6286,98 +6116,103 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
+        <form onSubmit={onLoad} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", padding: "0 1.5rem 1.5rem" }}>
+          <label style={{ flex: 1, margin: 0 }}>
+            {dict.voiceAgentSettings.newDevice}
+            <input value={deviceIdInput} onChange={(e) => setDeviceIdInput(e.target.value)} placeholder="default" />
+          </label>
+          <button className="ghost" type="submit">{dict.voiceAgentSettings.loadSettings}</button>
+        </form>
       </section>
 
-      {selectedId && full ? (
-        <form onSubmit={onSave}>
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionGeneral}</h2></div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} /></label>
-              <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionStt}</h2></div>
-            <div className="checkbox-grid">
-              <label>
-                <input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />
-                {dict.voiceAgentSettings.sttEnabled}
-              </label>
-            </div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
-              <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
-              <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
-              <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionTts}</h2></div>
-            <div className="checkbox-grid">
-              <label>
-                <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
-                {dict.voiceAgentSettings.ttsEnabled}
-              </label>
-            </div>
-            <div className="form-grid">
-              <label>
-                {dict.voiceAgentSettings.ttsEngine}
-                <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
-                  <option value="f5-tts">f5-tts</option>
-                  <option value="xtts">xtts</option>
-                  <option value="chatterbox">chatterbox</option>
-                </select>
-              </label>
-              <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionLlm}</h2></div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
-              <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionN8n}</h2></div>
-            <div className="form-grid">
-              <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionBehaviour}</h2></div>
-            <div className="checkbox-grid">
-              <label>
-                <input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />
-                {dict.voiceAgentSettings.greetingEnabled}
-              </label>
-            </div>
-            <div className="form-grid">
-              <label style={{ gridColumn: "1 / -1" }}>
-                {dict.voiceAgentSettings.greetingInstruction}
-                <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
-              </label>
-              <label style={{ gridColumn: "1 / -1" }}>
-                {dict.voiceAgentSettings.systemPrompt}
-                <textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
-              </label>
-            </div>
-          </section>
-
-          {saveMsg ? <div className="alert alert--success">{saveMsg}</div> : null}
-          {saveError ? <div className="alert">{saveError}</div> : null}
-          <div style={{ padding: "0 1.5rem 1.5rem" }}>
-            <button className="primary" type="submit" disabled={saving}>{dict.actions.save}</button>
+      <form onSubmit={onSave}>
+        <section className="panel">
+          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionGeneral}</h2></div>
+          <div className="form-grid">
+            <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} /></label>
+            <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
           </div>
-        </form>
-      ) : null}
+        </section>
+
+        <section className="panel">
+          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionStt}</h2></div>
+          <div className="checkbox-grid">
+            <label>
+              <input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />
+              {dict.voiceAgentSettings.sttEnabled}
+            </label>
+          </div>
+          <div className="form-grid">
+            <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
+            <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
+            <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
+            <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionTts}</h2></div>
+          <div className="checkbox-grid">
+            <label>
+              <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
+              {dict.voiceAgentSettings.ttsEnabled}
+            </label>
+          </div>
+          <div className="form-grid">
+            <label>
+              {dict.voiceAgentSettings.ttsEngine}
+              <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
+                <option value="f5-tts">f5-tts</option>
+                <option value="xtts">xtts</option>
+                <option value="chatterbox">chatterbox</option>
+              </select>
+            </label>
+            <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionLlm}</h2></div>
+          <div className="form-grid">
+            <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
+            <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionN8n}</h2></div>
+          <div className="form-grid">
+            <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionBehaviour}</h2></div>
+          <div className="checkbox-grid">
+            <label>
+              <input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />
+              {dict.voiceAgentSettings.greetingEnabled}
+            </label>
+          </div>
+          <div className="form-grid">
+            <label style={{ gridColumn: "1 / -1" }}>
+              {dict.voiceAgentSettings.greetingInstruction}
+              <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>
+              {dict.voiceAgentSettings.systemPrompt}
+              <textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
+            </label>
+          </div>
+        </section>
+
+        {saveMsg ? <div className="alert alert--success">{saveMsg}</div> : null}
+        {saveError ? <div className="alert">{saveError}</div> : null}
+        <div style={{ padding: "0 1.5rem 1.5rem" }}>
+          <button className="primary" type="submit" disabled={saving}>{dict.actions.save}</button>
+        </div>
+      </form>
     </div>
   );
 }

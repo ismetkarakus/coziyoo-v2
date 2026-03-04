@@ -421,6 +421,18 @@
     "greetingInstruction": "Greeting Instruction",
     "saveSuccess": "Settings saved.",
     "saveError": "Failed to save settings.",
-    "loadError": "Failed to load settings."
+    "loadError": "Failed to load settings.",
+    "sectionConnection": "Connection Tests",
+    "testLiveKit": "Test LiveKit",
+    "testStt": "Test STT",
+    "testOllama": "Test Ollama",
+    "testN8n": "Test N8N",
+    "testAll": "Test All",
+    "testing": "Testing...",
+    "statusOk": "OK",
+    "statusFail": "FAIL",
+    "statusUnknown": "—",
+    "loadSettings": "Load Settings",
+    "newDevice": "New / Device ID"
   }
 }
