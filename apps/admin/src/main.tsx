@@ -5837,6 +5837,8 @@ type AgentSettingsFull = {
   updatedAt: string;
 };
 
+type VoiceSettingsTab = "summary" | "general" | "stt" | "tts" | "llm" | "n8n" | "behaviour";
+
 function readNestedStr(config: Record<string, unknown> | null, ...path: string[]): string {
   let cur: unknown = config;
   for (const key of path) {
@@ -5855,6 +5857,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<VoiceSettingsTab>("summary");
 
   // form state
   const [agentName, setAgentName] = useState("");
@@ -6081,6 +6084,16 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     );
   }
 
+  const voiceTabs: Array<{ key: VoiceSettingsTab; label: string }> = [
+    { key: "summary", label: "Summary" },
+    { key: "general", label: dict.voiceAgentSettings.sectionGeneral },
+    { key: "stt", label: dict.voiceAgentSettings.sectionStt },
+    { key: "tts", label: dict.voiceAgentSettings.sectionTts },
+    { key: "llm", label: dict.voiceAgentSettings.sectionLlm },
+    { key: "n8n", label: dict.voiceAgentSettings.sectionN8n },
+    { key: "behaviour", label: dict.voiceAgentSettings.sectionBehaviour },
+  ];
+
   return (
     <div className="app">
       <header className="topbar">
@@ -6095,45 +6108,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       </header>
 
       {loadError ? <div className="alert">{loadError}</div> : null}
-
-      <section className="panel">
-        <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionConnection}</h2></div>
-        <div className="table">
-          <div className="table-row table-row-kpi">
-            <span>LiveKit</span>
-            <StatusDot status={testLiveKit} />
-            <span style={{ marginLeft: "auto" }}>
-              <button className="ghost" type="button" onClick={runTestLiveKit}>{dict.voiceAgentSettings.testLiveKit}</button>
-            </span>
-          </div>
-          <div className="table-row table-row-kpi">
-            <span>STT</span>
-            <StatusDot status={testStt} />
-            <span style={{ marginLeft: "auto" }}>
-              <button className="ghost" type="button" onClick={runTestStt}>{dict.voiceAgentSettings.testStt}</button>
-            </span>
-          </div>
-          <div className="table-row table-row-kpi">
-            <span>Ollama / LLM</span>
-            <StatusDot status={testOllama} />
-            <span style={{ marginLeft: "auto" }}>
-              <button className="ghost" type="button" onClick={runTestOllama}>{dict.voiceAgentSettings.testOllama}</button>
-            </span>
-          </div>
-          <div className="table-row table-row-kpi">
-            <span>N8N</span>
-            <StatusDot status={testN8n} />
-            <span style={{ marginLeft: "auto" }}>
-              <button className="ghost" type="button" onClick={runTestN8n}>{dict.voiceAgentSettings.testN8n}</button>
-            </span>
-          </div>
-        </div>
-        <div style={{ padding: "0.75rem 1.5rem" }}>
-          <button className="primary" type="button" onClick={runTestAll} disabled={testing}>
-            {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
-          </button>
-        </div>
-      </section>
 
       <section className="panel">
         <div className="panel-header">
@@ -6167,108 +6141,192 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
         </form>
       </section>
 
+      <section className="panel" style={{ paddingTop: "1rem" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {voiceTabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`chip ${activeTab === tab.key ? "is-active" : ""}`}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <form onSubmit={onSave}>
-        <section className="panel">
-          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionGeneral}</h2></div>
-          <div className="form-grid">
-            <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} /></label>
-            <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionStt}</h2></div>
-          <div className="checkbox-grid">
-            <label>
-              <input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />
-              {dict.voiceAgentSettings.sttEnabled}
-            </label>
-          </div>
-          <div className="form-grid">
-            <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
-            <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
-            <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
-            <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionTts}</h2></div>
-          <div className="checkbox-grid">
-            <label>
-              <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
-              {dict.voiceAgentSettings.ttsEnabled}
-            </label>
-          </div>
-          <div className="form-grid">
-            <label>
-              {dict.voiceAgentSettings.ttsEngine}
-              <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
-                <option value="f5-tts">f5-tts</option>
-                <option value="xtts">xtts</option>
-                <option value="chatterbox">chatterbox</option>
-              </select>
-            </label>
-            <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
-          </div>
-          <div style={{ borderTop: "1px solid var(--border, #e5e7eb)", margin: "1rem 0 0", paddingTop: "1rem", paddingLeft: "1.5rem", paddingRight: "1.5rem", paddingBottom: "0.5rem" }}>
-            <p className="panel-meta" style={{ marginBottom: "0.5rem" }}>{dict.voiceAgentSettings.testTts}</p>
-            <form onSubmit={runTestTts} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <div style={{ display: "flex", gap: "0.75rem" }}>
-                <input
-                  style={{ flex: 1 }}
-                  value={ttsTestText}
-                  onChange={(e) => setTtsTestText(e.target.value)}
-                  placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
-                />
-                <button className="ghost" type="submit" disabled={ttsSynthesizing}>
-                  {ttsSynthesizing ? dict.voiceAgentSettings.testTtsSynthesizing : dict.voiceAgentSettings.testTtsPlay}
+        {activeTab === "summary" ? (
+          <>
+            <section className="panel">
+              <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionConnection}</h2></div>
+              <div className="table">
+                <div className="table-row table-row-kpi">
+                  <span>LiveKit</span>
+                  <StatusDot status={testLiveKit} />
+                  <span style={{ marginLeft: "auto" }}>
+                    <button className="ghost" type="button" onClick={runTestLiveKit}>{dict.voiceAgentSettings.testLiveKit}</button>
+                  </span>
+                </div>
+                <div className="table-row table-row-kpi">
+                  <span>STT</span>
+                  <StatusDot status={testStt} />
+                  <span style={{ marginLeft: "auto" }}>
+                    <button className="ghost" type="button" onClick={runTestStt}>{dict.voiceAgentSettings.testStt}</button>
+                  </span>
+                </div>
+                <div className="table-row table-row-kpi">
+                  <span>Ollama / LLM</span>
+                  <StatusDot status={testOllama} />
+                  <span style={{ marginLeft: "auto" }}>
+                    <button className="ghost" type="button" onClick={runTestOllama}>{dict.voiceAgentSettings.testOllama}</button>
+                  </span>
+                </div>
+                <div className="table-row table-row-kpi">
+                  <span>N8N</span>
+                  <StatusDot status={testN8n} />
+                  <span style={{ marginLeft: "auto" }}>
+                    <button className="ghost" type="button" onClick={runTestN8n}>{dict.voiceAgentSettings.testN8n}</button>
+                  </span>
+                </div>
+              </div>
+              <div style={{ padding: "0.75rem 1.5rem" }}>
+                <button className="primary" type="button" onClick={runTestAll} disabled={testing}>
+                  {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
                 </button>
               </div>
-              {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444" }}>{ttsSynthError}</p> : null}
-              {ttsAudioUrl ? (
-                <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", marginTop: "0.25rem" }} />
-              ) : (
-                <audio ref={ttsAudioRef} style={{ display: "none" }} />
-              )}
-            </form>
-          </div>
-        </section>
+            </section>
+            <section className="panel">
+              <div className="panel-header"><h2>Summary</h2></div>
+              <div className="table">
+                <div className="table-row table-row-kpi"><span>Device ID</span><span>{currentDeviceId ?? "-"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.agentName}</span><span>{agentName || "-"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.voiceLanguage}</span><span>{voiceLanguage || "-"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.sttEnabled}</span><span>{sttEnabled ? "ON" : "OFF"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.ttsEnabled}</span><span>{ttsEnabled ? "ON" : "OFF"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.sttBaseUrl}</span><span>{sttBaseUrl || "-"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.ttsBaseUrl}</span><span>{ttsBaseUrl || "-"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.ollamaBaseUrl}</span><span>{ollamaBaseUrl || "-"}</span></div>
+                <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.n8nBaseUrl}</span><span>{n8nBaseUrl || "-"}</span></div>
+              </div>
+            </section>
+          </>
+        ) : null}
 
-        <section className="panel">
-          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionLlm}</h2></div>
-          <div className="form-grid">
-            <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
-            <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
-          </div>
-        </section>
+        {activeTab === "general" ? (
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionGeneral}</h2></div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} /></label>
+              <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
+            </div>
+          </section>
+        ) : null}
 
-        <section className="panel">
-          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionN8n}</h2></div>
-          <div className="form-grid">
-            <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
-          </div>
-        </section>
+        {activeTab === "stt" ? (
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionStt}</h2></div>
+            <div className="checkbox-grid">
+              <label>
+                <input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />
+                {dict.voiceAgentSettings.sttEnabled}
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
+              <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
+              <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
+              <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
+            </div>
+          </section>
+        ) : null}
 
-        <section className="panel">
-          <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionBehaviour}</h2></div>
-          <div className="checkbox-grid">
-            <label>
-              <input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />
-              {dict.voiceAgentSettings.greetingEnabled}
-            </label>
-          </div>
-          <div className="form-grid">
-            <label style={{ gridColumn: "1 / -1" }}>
-              {dict.voiceAgentSettings.greetingInstruction}
-              <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
-            </label>
-            <label style={{ gridColumn: "1 / -1" }}>
-              {dict.voiceAgentSettings.systemPrompt}
-              <textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
-            </label>
-          </div>
-        </section>
+        {activeTab === "tts" ? (
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionTts}</h2></div>
+            <div className="checkbox-grid">
+              <label>
+                <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
+                {dict.voiceAgentSettings.ttsEnabled}
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                {dict.voiceAgentSettings.ttsEngine}
+                <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
+                  <option value="f5-tts">f5-tts</option>
+                  <option value="xtts">xtts</option>
+                  <option value="chatterbox">chatterbox</option>
+                </select>
+              </label>
+              <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
+            </div>
+            <div style={{ borderTop: "1px solid var(--border, #e5e7eb)", margin: "1rem 0 0", paddingTop: "1rem", paddingLeft: "1.5rem", paddingRight: "1.5rem", paddingBottom: "0.5rem" }}>
+              <p className="panel-meta" style={{ marginBottom: "0.5rem" }}>{dict.voiceAgentSettings.testTts}</p>
+              <form onSubmit={runTestTts} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <input
+                    style={{ flex: 1 }}
+                    value={ttsTestText}
+                    onChange={(e) => setTtsTestText(e.target.value)}
+                    placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
+                  />
+                  <button className="ghost" type="submit" disabled={ttsSynthesizing}>
+                    {ttsSynthesizing ? dict.voiceAgentSettings.testTtsSynthesizing : dict.voiceAgentSettings.testTtsPlay}
+                  </button>
+                </div>
+                {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444" }}>{ttsSynthError}</p> : null}
+                {ttsAudioUrl ? (
+                  <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", marginTop: "0.25rem" }} />
+                ) : (
+                  <audio ref={ttsAudioRef} style={{ display: "none" }} />
+                )}
+              </form>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "llm" ? (
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionLlm}</h2></div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
+              <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "n8n" ? (
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionN8n}</h2></div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "behaviour" ? (
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionBehaviour}</h2></div>
+            <div className="checkbox-grid">
+              <label>
+                <input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />
+                {dict.voiceAgentSettings.greetingEnabled}
+              </label>
+            </div>
+            <div className="form-grid">
+              <label style={{ gridColumn: "1 / -1" }}>
+                {dict.voiceAgentSettings.greetingInstruction}
+                <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
+              </label>
+              <label style={{ gridColumn: "1 / -1" }}>
+                {dict.voiceAgentSettings.systemPrompt}
+                <textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
+              </label>
+            </div>
+          </section>
+        ) : null}
 
         {saveMsg ? <div className="alert alert--success">{saveMsg}</div> : null}
         {saveError ? <div className="alert">{saveError}</div> : null}
