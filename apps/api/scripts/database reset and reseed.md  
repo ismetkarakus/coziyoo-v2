@@ -1,7 +1,7 @@
 cd /root/coziyoo-v2
 git pull
 
-# 1) migrate schema (adds latitude/longitude + short_id columns)
+# 1) migrate schema
 npm run db:migrate
 
 # 2) clean users/foods/orders (and dependent rows via CASCADE)
