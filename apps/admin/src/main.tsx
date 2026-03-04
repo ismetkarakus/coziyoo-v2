@@ -6427,7 +6427,31 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
               <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                 <div className="form-grid">
                   <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder="coziyoo-agent" /></label>
-                  <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
+                  <label style={{ gap: "0.5rem" }}>
+                    {dict.voiceAgentSettings.voiceLanguage}
+                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                      {["tr", "en", "de", "fr", "es", "ar"].map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => setVoiceLanguage(lang)}
+                          style={{
+                            padding: "3px 12px",
+                            borderRadius: 20,
+                            fontSize: "0.82em",
+                            fontWeight: 600,
+                            border: "1px solid",
+                            cursor: "pointer",
+                            borderColor: voiceLanguage === lang ? "var(--color-primary)" : "var(--color-border)",
+                            background: voiceLanguage === lang ? "var(--color-primary)" : "transparent",
+                            color: voiceLanguage === lang ? "#fff" : "var(--color-text)",
+                          }}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                  </label>
                 </div>
               </div>
             ) : null}
