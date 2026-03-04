@@ -16,7 +16,11 @@ import {
   mintLiveKitToken,
   sendRoomData,
 } from "../services/livekit.js";
-import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
+import {
+  getStarterAgentSettings,
+  hasStarterAgentIsActiveColumn,
+  upsertStarterAgentSettings,
+} from "../services/starter-agent-settings.js";
 import { normalizeTtsEngine } from "../services/tts-engines.js";
 
 const UserTokenSchema = z.object({
@@ -433,11 +437,18 @@ const AdminAgentSettingsSchema = z.object({
 
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled,
-              COALESCE(is_active, FALSE) AS is_active, updated_at
-       FROM starter_agent_settings ORDER BY is_active DESC, updated_at DESC`,
-    );
+    const hasIsActive = await hasStarterAgentIsActiveColumn();
+    const result = hasIsActive
+      ? await pool.query(
+          `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled,
+                  COALESCE(is_active, FALSE) AS is_active, updated_at
+           FROM starter_agent_settings ORDER BY is_active DESC, updated_at DESC`,
+        )
+      : await pool.query(
+          `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled,
+                  FALSE AS is_active, updated_at
+           FROM starter_agent_settings ORDER BY updated_at DESC`,
+        );
     return res.json({ data: result.rows });
   } catch (err) {
     return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
@@ -461,6 +472,16 @@ adminLiveKitRouter.delete("/agent-settings/:deviceId", async (req, res) => {
 
 adminLiveKitRouter.post("/agent-settings/:deviceId/activate", async (req, res) => {
   try {
+    const hasIsActive = await hasStarterAgentIsActiveColumn();
+    if (!hasIsActive) {
+      return res.status(409).json({
+        error: {
+          code: "SCHEMA_OUTDATED",
+          message: "starter_agent_settings.is_active column is missing. Apply migration 0024_starter_agent_profile_active.sql.",
+        },
+      });
+    }
+
     // Clear any existing active flag, then set the new one — in a transaction
     await pool.query("BEGIN");
     await pool.query(`UPDATE starter_agent_settings SET is_active = FALSE WHERE is_active = TRUE`);

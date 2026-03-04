@@ -44,6 +44,7 @@ type UpsertStarterAgentSettingsInput = {
 type StarterSettingsSchemaCapabilities = {
   hasTtsServersJson: boolean;
   hasActiveTtsServerId: boolean;
+  hasIsActive: boolean;
 };
 
 let schemaCapabilitiesPromise: Promise<StarterSettingsSchemaCapabilities> | null = null;
@@ -286,13 +287,14 @@ async function getSchemaCapabilities(): Promise<StarterSettingsSchemaCapabilitie
          FROM information_schema.columns
          WHERE table_schema = current_schema()
            AND table_name = 'starter_agent_settings'
-           AND column_name IN ('tts_servers_json', 'active_tts_server_id')`
+           AND column_name IN ('tts_servers_json', 'active_tts_server_id', 'is_active')`
       )
       .then((result) => {
         const names = new Set(result.rows.map((row) => row.column_name));
         return {
           hasTtsServersJson: names.has("tts_servers_json"),
           hasActiveTtsServerId: names.has("active_tts_server_id"),
+          hasIsActive: names.has("is_active"),
         };
       })
       .catch((error) => {
@@ -301,6 +303,11 @@ async function getSchemaCapabilities(): Promise<StarterSettingsSchemaCapabilitie
       });
   }
   return schemaCapabilitiesPromise;
+}
+
+export async function hasStarterAgentIsActiveColumn(): Promise<boolean> {
+  const capabilities = await getSchemaCapabilities();
+  return capabilities.hasIsActive;
 }
 
 function toJsonbParam(value: unknown): string | null {
