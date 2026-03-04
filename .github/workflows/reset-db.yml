@@ -83,7 +83,7 @@ jobs:
                 printf "%s\n" "${KEYSCAN_OUTPUT}" >> "${HOME}/.ssh/known_hosts"
                 break
               fi
-              [[ "${attempt}" -eq 3 ]] && { echo "ERROR: ssh-keyscan failed for ${HOST}:${PORT}" >&2; exit 1; }
+              [[ "${attempt}" -eq 3 ]] && { echo "WARNING: ssh-keyscan failed for ${HOST}:${PORT}; SSH will use StrictHostKeyChecking=accept-new" >&2; break; }
               sleep 5
             done
           done <<< "${DEPLOY_TARGETS}"
@@ -114,7 +114,7 @@ jobs:
             if ssh \
                 -i "${HOME}/.ssh/id_ed25519" \
                 -p "${PORT}" \
-                -o StrictHostKeyChecking=yes \
+                -o StrictHostKeyChecking=accept-new \
                 -o BatchMode=yes \
                 -o ConnectTimeout=30 \
                 -o ServerAliveInterval=15 \

@@ -103,8 +103,8 @@ jobs:
                 break
               fi
               if [[ "${attempt}" -eq 3 ]]; then
-                echo "ssh-keyscan failed for ${HOST}:${PORT}" >&2
-                exit 1
+                echo "WARNING: ssh-keyscan failed for ${HOST}:${PORT}; SSH will use StrictHostKeyChecking=accept-new" >&2
+                break
               fi
               sleep 5
             done
@@ -159,7 +159,7 @@ jobs:
 
             ssh -i "${HOME}/.ssh/id_ed25519" \
               -p "${PORT}" \
-              -o StrictHostKeyChecking=yes \
+              -o StrictHostKeyChecking=accept-new \
               -o BatchMode=yes \
               "${USER}@${HOST}" \
               "set -euo pipefail; cd '${REPO_PATH}'; GIT_UPDATE=true DEPLOY_BRANCH='${DEPLOY_BRANCH}' RUN_DB_MIGRATIONS_ON_UPDATE=true DEMO_DB_REBUILD_ON_UPDATE='${DEPLOY_DEMO_DB_REBUILD}' DEMO_DB_REBUILD_ON_SCHEMA_CHANGE='${DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE}' DEMO_DB_RESEED_ON_UPDATE='${DEPLOY_DEMO_DB_RESEED}' ADMIN_SYNC_ON_UPDATE='${DEPLOY_ADMIN_SYNC_ON_UPDATE}' ADMIN_SYNC_EMAIL='${DEPLOY_ADMIN_EMAIL}' ADMIN_SYNC_PASSWORD='${DEPLOY_ADMIN_PASSWORD}' bash installation/scripts/update_all.sh"
