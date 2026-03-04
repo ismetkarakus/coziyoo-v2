@@ -14,7 +14,8 @@
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
     "dataExplorer": "Veri Gezgini",
-    "management": "Yönetim"
+    "management": "Yönetim",
+    "voiceAgentSettings": "Sesli Ajan Ayarları"
   },
   "actions": {
     "logout": "Çıkış",
@@ -386,5 +387,40 @@
     "loadFailed": "Detay yüklenemedi",
     "requestFailed": "Detay isteği başarısız",
     "updateFailed": "Güncelleme başarısız"
+  },
+  "voiceAgentSettings": {
+    "eyebrow": "Sesli Yapay Zeka",
+    "title": "Sesli Ajan Ayarları",
+    "subtitle": "Cihaz başına STT, TTS, LLM ve davranış ayarları.",
+    "noDevices": "Kayıtlı cihaz ayarı bulunamadı.",
+    "deviceId": "Cihaz ID",
+    "agentName": "Ajan Adı",
+    "language": "Dil",
+    "updatedAt": "Güncelleme",
+    "editTitle": "Ayarları Düzenle",
+    "sectionGeneral": "Genel",
+    "sectionStt": "Konuşma Tanıma (STT)",
+    "sectionTts": "Ses Sentezi (TTS)",
+    "sectionLlm": "LLM",
+    "sectionN8n": "N8N",
+    "sectionBehaviour": "Davranış",
+    "voiceLanguage": "Ses Dili",
+    "ollamaModel": "Ollama Modeli",
+    "ollamaBaseUrl": "Ollama Base URL",
+    "ttsEngine": "TTS Motoru",
+    "ttsBaseUrl": "TTS Sunucu Base URL",
+    "ttsEnabled": "TTS Aktif",
+    "sttEnabled": "STT Aktif",
+    "sttProvider": "STT Sağlayıcı",
+    "sttBaseUrl": "STT Base URL",
+    "sttTranscribePath": "Transkripsiyon Yolu",
+    "sttModel": "STT Modeli",
+    "n8nBaseUrl": "N8N Base URL",
+    "systemPrompt": "Sistem Mesajı",
+    "greetingEnabled": "Karşılama Aktif",
+    "greetingInstruction": "Karşılama Mesajı",
+    "saveSuccess": "Ayarlar kaydedildi.",
+    "saveError": "Ayarlar kaydedilemedi.",
+    "loadError": "Ayarlar yüklenemedi."
   }
 }

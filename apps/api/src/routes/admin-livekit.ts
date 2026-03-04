@@ -3,6 +3,7 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { pool } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
 import { askOllamaChat } from "../services/ollama.js";
 import {
@@ -14,6 +15,8 @@ import {
   mintLiveKitToken,
   sendRoomData,
 } from "../services/livekit.js";
+import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
+import { normalizeTtsEngine } from "../services/tts-engines.js";
 
 const UserTokenSchema = z.object({
   roomName: z.string().min(1).max(128),
@@ -404,4 +407,93 @@ adminLiveKitRouter.post("/agent/chat", async (req, res) => {
       },
     });
   }
+});
+
+// ── Voice Agent Settings ─────────────────────────────────────────────────────
+
+const AdminAgentSettingsSchema = z.object({
+  agentName: z.string().max(128).optional(),
+  voiceLanguage: z.string().min(2).max(16).optional(),
+  ollamaModel: z.string().max(128).optional(),
+  ollamaBaseUrl: z.string().optional(),
+  ttsEngine: z.enum(["f5-tts", "xtts", "chatterbox"]).optional(),
+  ttsEnabled: z.boolean().optional(),
+  ttsBaseUrl: z.string().optional(),
+  sttEnabled: z.boolean().optional(),
+  sttProvider: z.string().max(64).optional(),
+  sttBaseUrl: z.string().optional(),
+  sttTranscribePath: z.string().max(256).optional(),
+  sttModel: z.string().max(128).optional(),
+  n8nBaseUrl: z.string().optional(),
+  systemPrompt: z.string().max(4_000).optional(),
+  greetingEnabled: z.boolean().optional(),
+  greetingInstruction: z.string().max(2_000).optional(),
+});
+
+adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
+  const result = await pool.query(
+    `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled, updated_at
+     FROM starter_agent_settings ORDER BY updated_at DESC`,
+  );
+  return res.json({ data: result.rows });
+});
+
+adminLiveKitRouter.get("/agent-settings/:deviceId", async (req, res) => {
+  const settings = await getStarterAgentSettings(req.params.deviceId);
+  if (!settings) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "No settings found for this device" } });
+  }
+  return res.json({ data: settings });
+});
+
+adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
+  const parsed = AdminAgentSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { deviceId } = req.params;
+  const input = parsed.data;
+  const existing = await getStarterAgentSettings(deviceId);
+
+  const existingTtsConfig = (existing?.ttsConfig ?? {}) as Record<string, unknown>;
+  const existingStt = (typeof existingTtsConfig.stt === "object" && existingTtsConfig.stt !== null ? existingTtsConfig.stt : {}) as Record<string, unknown>;
+  const existingLlm = (typeof existingTtsConfig.llm === "object" && existingTtsConfig.llm !== null ? existingTtsConfig.llm : {}) as Record<string, unknown>;
+  const existingN8n = (typeof existingTtsConfig.n8n === "object" && existingTtsConfig.n8n !== null ? existingTtsConfig.n8n : {}) as Record<string, unknown>;
+
+  const mergedTtsConfig = {
+    ...existingTtsConfig,
+    ...(input.ttsBaseUrl !== undefined ? { baseUrl: input.ttsBaseUrl || null } : {}),
+    stt: {
+      ...existingStt,
+      ...(input.sttProvider !== undefined ? { provider: input.sttProvider } : {}),
+      ...(input.sttBaseUrl !== undefined ? { baseUrl: input.sttBaseUrl || null } : {}),
+      ...(input.sttTranscribePath !== undefined ? { transcribePath: input.sttTranscribePath } : {}),
+      ...(input.sttModel !== undefined ? { model: input.sttModel } : {}),
+    },
+    llm: {
+      ...existingLlm,
+      ...(input.ollamaBaseUrl !== undefined ? { ollamaBaseUrl: input.ollamaBaseUrl || null } : {}),
+    },
+    n8n: {
+      ...existingN8n,
+      ...(input.n8nBaseUrl !== undefined ? { baseUrl: input.n8nBaseUrl || null } : {}),
+    },
+  };
+
+  const settings = await upsertStarterAgentSettings({
+    deviceId,
+    agentName: input.agentName ?? existing?.agentName ?? "coziyoo-agent",
+    voiceLanguage: input.voiceLanguage ?? existing?.voiceLanguage ?? "en",
+    ollamaModel: input.ollamaModel ?? existing?.ollamaModel ?? "llama3.1:8b",
+    ttsEngine: normalizeTtsEngine(input.ttsEngine ?? existing?.ttsEngine),
+    ttsEnabled: input.ttsEnabled ?? existing?.ttsEnabled ?? true,
+    sttEnabled: input.sttEnabled ?? existing?.sttEnabled ?? true,
+    ttsConfig: mergedTtsConfig,
+    systemPrompt: input.systemPrompt ?? existing?.systemPrompt ?? undefined,
+    greetingEnabled: input.greetingEnabled ?? existing?.greetingEnabled ?? true,
+    greetingInstruction: input.greetingInstruction ?? existing?.greetingInstruction ?? undefined,
+  });
+
+  return res.json({ data: settings });
 });

@@ -686,7 +686,7 @@ function AppShell({
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/livekit" ? <LiveKitPage language={language} /> : null}
-        {location.pathname === "/app/livekit-demo" ? <LiveKitDemoPage language={language} /> : null}
+        {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
         {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
@@ -731,7 +731,7 @@ function TopNavTabs({
     { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
     { to: "/app/livekit", active: pathname === "/app/livekit", label: dict.menu.livekit },
-    { to: "/app/livekit-demo", active: pathname === "/app/livekit-demo", label: dict.menu.livekitDemo },
+    { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
     { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
   ];
@@ -5857,6 +5857,9 @@ type LiveKitSessionStartResponse = {
 
 function LiveKitPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
+  const roomRef = useRef<Room | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const remoteMediaRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<{
     configured: boolean;
     wsUrl: string | null;
@@ -5869,24 +5872,21 @@ function LiveKitPage({ language }: { language: Language }) {
     agentIdentityDefault: string;
   } | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<LiveKitTokenResponse["data"] | null>(null);
-  const [history, setHistory] = useState<Array<{ kind: "user" | "agent" | "dispatch-agent"; at: string; room: string; identity: string }>>([]);
-
   const [roomName, setRoomName] = useState("coziyoo-room");
   const [participantIdentity, setParticipantIdentity] = useState("");
   const [participantName, setParticipantName] = useState("");
-  const [metadata, setMetadata] = useState("");
-  const [ttlSeconds, setTtlSeconds] = useState("3600");
-  const [canPublish, setCanPublish] = useState(true);
-  const [canSubscribe, setCanSubscribe] = useState(true);
-  const [canPublishData, setCanPublishData] = useState(true);
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [remoteCount, setRemoteCount] = useState(0);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatMessages, setChatMessages] = useState<Array<{ at: string; from: string; text: string }>>([]);
 
   async function loadStatus() {
     setStatusError(null);
     const response = await request("/v1/admin/livekit/status");
-    const body = await parseJson<{ data?: LiveKitPageStatus } & ApiError>(response);
+    const body = await parseJson<{ data?: typeof status } & ApiError>(response);
     if (response.status !== 200 || !body.data) {
       setStatusError(body.error?.message ?? dict.livekit.statusLoadFailed);
       return;
@@ -5894,272 +5894,35 @@ function LiveKitPage({ language }: { language: Language }) {
     setStatus(body.data);
   }
 
-  type LiveKitPageStatus = {
-    configured: boolean;
-    wsUrl: string | null;
-    aiServerUrl: string | null;
-    aiServerJoinPath: string;
-    hasApiKey: boolean;
-    hasApiSecret: boolean;
-    hasAiSharedSecret: boolean;
-    defaultTtlSeconds: number;
-    agentIdentityDefault: string;
-  };
-
   useEffect(() => {
     loadStatus().catch(() => setStatusError(dict.livekit.statusRequestFailed));
   }, [dict.livekit.statusRequestFailed]);
 
-  async function createToken(kind: "user" | "agent" | "dispatch-agent") {
-    if (!roomName.trim()) {
-      setFormError(dict.livekit.roomRequired);
-      return;
-    }
-
-    setSaving(true);
-    setFormError(null);
-
-    const endpoint =
-      kind === "user"
-        ? "/v1/admin/livekit/token/user"
-        : kind === "agent"
-          ? "/v1/admin/livekit/token/agent"
-          : "/v1/admin/livekit/dispatch/agent";
-    const payload: Record<string, unknown> = {
-      roomName: roomName.trim(),
-      ...(participantIdentity.trim() ? { participantIdentity: participantIdentity.trim() } : {}),
-      ...(participantName.trim() ? { participantName: participantName.trim() } : {}),
-      ...(metadata.trim() ? { metadata: metadata.trim() } : {}),
-      ...(ttlSeconds.trim() ? { ttlSeconds: Number(ttlSeconds) } : {}),
-    };
-
-    if (kind === "user") {
-      payload.canPublish = canPublish;
-      payload.canSubscribe = canSubscribe;
-      payload.canPublishData = canPublishData;
-    }
-
-    try {
-      const response = await request(endpoint, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      const body = await parseJson<LiveKitTokenResponse>(response);
-      if (response.status !== 201 || !body.data) {
-        setFormError(body.error?.message ?? dict.livekit.tokenCreateFailed);
-        return;
-      }
-
-      setResult(body.data);
-      setHistory((prev) => [
-        { kind, at: new Date().toISOString(), room: body.data!.roomName, identity: body.data!.participantIdentity },
-        ...prev.slice(0, 9),
-      ]);
-    } catch {
-      setFormError(dict.livekit.tokenRequestFailed);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function copyToken() {
-    if (!result?.token) return;
-    await navigator.clipboard.writeText(result.token);
-  }
-
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">{dict.livekit.eyebrow}</p>
-          <h1>{dict.livekit.title}</h1>
-          <p className="subtext">{dict.livekit.subtitle}</p>
-        </div>
-        <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => loadStatus()}>{dict.actions.refresh}</button>
-        </div>
-      </header>
-
-      {statusError ? <div className="alert">{statusError}</div> : null}
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.statusTitle}</h2>
-        </div>
-        <div className="table">
-          <div className="table-row table-row-kpi"><span>{dict.livekit.configured}</span><span>{status?.configured ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.wsUrl}</span><span>{status?.wsUrl ?? "-"}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.aiServerUrl}</span><span>{status?.aiServerUrl ?? "-"}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.aiServerJoinPath}</span><span>{status?.aiServerJoinPath ?? "-"}</span></div>
-          <div className="table-row table-row-kpi"><span>LIVEKIT_API_KEY</span><span>{status?.hasApiKey ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>LIVEKIT_API_SECRET</span><span>{status?.hasApiSecret ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>AI_SERVER_SHARED_SECRET</span><span>{status?.hasAiSharedSecret ? dict.common.yes : dict.common.no}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.defaultTtl}</span><span>{String(status?.defaultTtlSeconds ?? "-")}</span></div>
-          <div className="table-row table-row-kpi"><span>{dict.livekit.defaultAgentIdentity}</span><span>{status?.agentIdentityDefault ?? "-"}</span></div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.tokenBuilder}</h2>
-        </div>
-        <div className="form-grid">
-          <label>
-            {dict.livekit.roomName}
-            <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
-          </label>
-          <label>
-            {dict.livekit.participantIdentity}
-            <input value={participantIdentity} onChange={(event) => setParticipantIdentity(event.target.value)} />
-          </label>
-          <label>
-            {dict.livekit.participantName}
-            <input value={participantName} onChange={(event) => setParticipantName(event.target.value)} />
-          </label>
-          <label>
-            {dict.livekit.ttlSeconds}
-            <input value={ttlSeconds} onChange={(event) => setTtlSeconds(event.target.value)} />
-          </label>
-        </div>
-        <label>
-          {dict.livekit.metadata}
-          <textarea rows={3} value={metadata} onChange={(event) => setMetadata(event.target.value)} />
-        </label>
-        <div className="checkbox-grid">
-          <label>
-            <input type="checkbox" checked={canPublish} onChange={(event) => setCanPublish(event.target.checked)} />
-            canPublish
-          </label>
-          <label>
-            <input type="checkbox" checked={canSubscribe} onChange={(event) => setCanSubscribe(event.target.checked)} />
-            canSubscribe
-          </label>
-          <label>
-            <input type="checkbox" checked={canPublishData} onChange={(event) => setCanPublishData(event.target.checked)} />
-            canPublishData
-          </label>
-        </div>
-        {formError ? <div className="alert">{formError}</div> : null}
-        <div className="topbar-actions">
-          <button className="primary" type="button" disabled={saving} onClick={() => createToken("user")}>
-            {dict.livekit.createUserToken}
-          </button>
-          <button className="ghost" type="button" disabled={saving} onClick={() => createToken("agent")}>
-            {dict.livekit.createAgentToken}
-          </button>
-          <button className="ghost" type="button" disabled={saving} onClick={() => createToken("dispatch-agent")}>
-            {dict.livekit.dispatchAgentToken}
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.lastResult}</h2>
-          <button className="ghost" type="button" onClick={() => copyToken()} disabled={!result?.token}>
-            {dict.livekit.copyToken}
-          </button>
-        </div>
-        <pre className="json-box">{result ? JSON.stringify(result, null, 2) : dict.livekit.noResult}</pre>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.history}</h2>
-        </div>
-        {history.length === 0 ? (
-          <p className="panel-meta">{dict.livekit.noHistory}</p>
-        ) : (
-          <div className="table">
-            <div className="table-row table-head table-row-kpi">
-              <span>{dict.livekit.tokenType}</span>
-              <span>{dict.livekit.historyDetail}</span>
-            </div>
-            {history.map((item, index) => (
-              <div className="table-row table-row-kpi" key={`${item.at}-${index}`}>
-                <span>{item.kind}</span>
-                <span>{`${item.at} | room=${item.room} | identity=${item.identity}`}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function normalizeLiveKitWsUrl(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("wss://") || trimmed.startsWith("ws://")) return trimmed;
-  if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length).replace(/\/+$/, "")}`;
-  if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length).replace(/\/+$/, "")}`;
-  return trimmed;
-}
-
-function LiveKitDemoPage({ language }: { language: Language }) {
-  const dict = DICTIONARIES[language];
-  const roomRef = useRef<Room | null>(null);
-  const chatInputRef = useRef<HTMLInputElement | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteMediaRef = useRef<HTMLDivElement | null>(null);
-  const [roomName, setRoomName] = useState("coziyoo-room");
-  const [participantIdentity, setParticipantIdentity] = useState("");
-  const [participantName, setParticipantName] = useState("");
-  const [cameraEnabled, setCameraEnabled] = useState(true);
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [connecting, setConnecting] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<LiveKitSessionStartResponse["data"] | null>(null);
-  const [remoteCount, setRemoteCount] = useState(0);
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatMessages, setChatMessages] = useState<Array<{ at: string; from: string; text: string }>>([]);
-
   function clearRemoteMedia() {
-    const holder = remoteMediaRef.current;
-    if (!holder) return;
-    holder.innerHTML = "";
+    if (remoteMediaRef.current) remoteMediaRef.current.innerHTML = "";
     setRemoteCount(0);
-  }
-
-  function detachLocalVideo() {
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
-    }
   }
 
   async function disconnectRoom() {
     const room = roomRef.current;
     if (!room) return;
-
     room.disconnect();
     roomRef.current = null;
-    detachLocalVideo();
     clearRemoteMedia();
     setConnected(false);
     setChatMessages([]);
   }
 
   useEffect(() => {
-    return () => {
-      disconnectRoom().catch(() => undefined);
-    };
+    return () => { disconnectRoom().catch(() => undefined); };
   }, []);
 
   async function connectRoom() {
-    if (!roomName.trim()) {
-      setError(dict.livekit.roomRequired);
-      return;
-    }
-
+    if (!roomName.trim()) { setError(dict.livekit.roomRequired); return; }
     setError(null);
     setConnecting(true);
-
     try {
-      if (roomRef.current) {
-        await disconnectRoom();
-      }
-
+      if (roomRef.current) await disconnectRoom();
       const response = await request("/v1/admin/livekit/session/start", {
         method: "POST",
         body: JSON.stringify({
@@ -6168,38 +5931,26 @@ function LiveKitDemoPage({ language }: { language: Language }) {
           ...(participantName.trim() ? { participantName: participantName.trim() } : {}),
         }),
       });
-
       const body = await parseJson<LiveKitSessionStartResponse>(response);
       if (response.status !== 201 || !body.data) {
         setError(body.error?.message ?? dict.livekit.tokenCreateFailed);
         return;
       }
-      setLastResult(body.data);
-
       const room = new Room();
       roomRef.current = room;
-
-      room.on(RoomEvent.ParticipantConnected, () => {
-        setRemoteCount(room.remoteParticipants.size);
-      });
-      room.on(RoomEvent.ParticipantDisconnected, () => {
-        setRemoteCount(room.remoteParticipants.size);
-      });
-
+      room.on(RoomEvent.ParticipantConnected, () => setRemoteCount(room.remoteParticipants.size));
+      room.on(RoomEvent.ParticipantDisconnected, () => setRemoteCount(room.remoteParticipants.size));
       room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
         const holder = remoteMediaRef.current;
         if (!holder) return;
         const key = `${participant.sid}:${publication.trackSid}`;
-
         const card = document.createElement("article");
         card.className = "livekit-remote-card";
         card.dataset.trackKey = key;
-
         const label = document.createElement("p");
         label.className = "panel-meta";
         label.textContent = `${participant.identity} (${track.kind})`;
         card.appendChild(label);
-
         if (track.kind === Track.Kind.Video) {
           const video = document.createElement("video");
           video.autoplay = true;
@@ -6213,64 +5964,31 @@ function LiveKitDemoPage({ language }: { language: Language }) {
           track.attach(audio);
           card.appendChild(audio);
         }
-
         holder.appendChild(card);
       });
-
       room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
         const holder = remoteMediaRef.current;
         if (!holder) return;
         const key = `${participant.sid}:${publication.trackSid}`;
-        const card = holder.querySelector(`[data-track-key="${key}"]`);
-        if (card) card.remove();
+        holder.querySelector(`[data-track-key="${key}"]`)?.remove();
         track.detach();
       });
-
-      room.on(RoomEvent.Disconnected, () => {
-        setConnected(false);
-      });
+      room.on(RoomEvent.Disconnected, () => setConnected(false));
       room.on(RoomEvent.DataReceived, (payload, participant) => {
         try {
-          const raw = new TextDecoder().decode(payload);
-          const parsed = JSON.parse(raw) as { text?: string; ts?: string };
+          const parsed = JSON.parse(new TextDecoder().decode(payload)) as { text?: string; ts?: string };
           const text = String(parsed.text ?? "").trim();
           if (!text) return;
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              at: parsed.ts ?? new Date().toISOString(),
-              from: participant?.identity ?? "unknown",
-              text,
-            },
-          ]);
+          setChatMessages((prev) => [...prev, { at: parsed.ts ?? new Date().toISOString(), from: participant?.identity ?? "unknown", text }]);
         } catch {
-          const fallback = new TextDecoder().decode(payload);
-          if (!fallback.trim()) return;
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              at: new Date().toISOString(),
-              from: participant?.identity ?? "unknown",
-              text: fallback,
-            },
-          ]);
+          const fallback = new TextDecoder().decode(payload).trim();
+          if (fallback) setChatMessages((prev) => [...prev, { at: new Date().toISOString(), from: participant?.identity ?? "unknown", text: fallback }]);
         }
       });
-
-      const wsUrl = normalizeLiveKitWsUrl(body.data.wsUrl);
-      await room.connect(wsUrl, body.data.user.token);
-
+      await room.connect(normalizeLiveKitWsUrl(body.data.wsUrl), body.data.user.token);
       setConnected(true);
       setRemoteCount(room.remoteParticipants.size);
-
-      await room.localParticipant.setCameraEnabled(cameraEnabled);
       await room.localParticipant.setMicrophoneEnabled(micEnabled);
-
-      const localVideoPublication = [...room.localParticipant.videoTrackPublications.values()].find((pub) => Boolean(pub.track));
-      if (localVideoPublication?.track && localVideoRef.current) {
-        localVideoPublication.track.attach(localVideoRef.current);
-      }
-
       chatInputRef.current?.focus();
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : dict.livekit.demoConnectFailed);
@@ -6283,25 +6001,11 @@ function LiveKitDemoPage({ language }: { language: Language }) {
     event.preventDefault();
     const room = roomRef.current;
     if (!room || !connected) return;
-
     const text = chatMessage.trim();
     if (!text) return;
-
-    const payload = {
-      text,
-      ts: new Date().toISOString(),
-    };
-    const encoded = new TextEncoder().encode(JSON.stringify(payload));
-    await room.localParticipant.publishData(encoded, { reliable: true });
-
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        at: payload.ts,
-        from: room.localParticipant.identity,
-        text,
-      },
-    ]);
+    const payload = { text, ts: new Date().toISOString() };
+    await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true });
+    setChatMessages((prev) => [...prev, { at: payload.ts, from: room.localParticipant.identity, text }]);
     setChatMessage("");
     chatInputRef.current?.focus();
   }
@@ -6310,43 +6014,41 @@ function LiveKitDemoPage({ language }: { language: Language }) {
     <div className="app">
       <header className="topbar">
         <div>
-          <p className="eyebrow">{dict.livekit.demoEyebrow}</p>
-          <h1>{dict.livekit.demoTitle}</h1>
-          <p className="subtext">{dict.livekit.demoSubtitle}</p>
+          <p className="eyebrow">{dict.livekit.eyebrow}</p>
+          <h1>{dict.livekit.title}</h1>
+          <p className="subtext">{dict.livekit.subtitle}</p>
         </div>
         <div className="topbar-actions">
           <span className="panel-meta">{connected ? dict.livekit.connected : dict.livekit.notConnected}</span>
           <span className="panel-meta">{`${dict.livekit.remoteParticipants}: ${remoteCount}`}</span>
+          <button className="ghost" type="button" onClick={() => loadStatus()}>{dict.actions.refresh}</button>
         </div>
       </header>
 
+      {statusError ? <div className="alert">{statusError}</div> : null}
+
+      <section className="panel">
+        <div className="panel-header"><h2>{dict.livekit.statusTitle}</h2></div>
+        <div className="table">
+          <div className="table-row table-row-kpi"><span>{dict.livekit.configured}</span><span>{status?.configured ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.wsUrl}</span><span>{status?.wsUrl ?? "-"}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.aiServerUrl}</span><span>{status?.aiServerUrl ?? "-"}</span></div>
+          <div className="table-row table-row-kpi"><span>LIVEKIT_API_KEY</span><span>{status?.hasApiKey ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>LIVEKIT_API_SECRET</span><span>{status?.hasApiSecret ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>AI_SERVER_SHARED_SECRET</span><span>{status?.hasAiSharedSecret ? dict.common.yes : dict.common.no}</span></div>
+          <div className="table-row table-row-kpi"><span>{dict.livekit.defaultAgentIdentity}</span><span>{status?.agentIdentityDefault ?? "-"}</span></div>
+        </div>
+      </section>
+
       <section className="panel">
         <div className="form-grid">
-          <label>
-            {dict.livekit.roomName}
-            <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
-          </label>
-          <label>
-            {dict.livekit.participantIdentity}
-            <input value={participantIdentity} onChange={(event) => setParticipantIdentity(event.target.value)} />
-          </label>
-          <label>
-            {dict.livekit.participantName}
-            <input value={participantName} onChange={(event) => setParticipantName(event.target.value)} />
-          </label>
+          <label>{dict.livekit.roomName}<input value={roomName} onChange={(e) => setRoomName(e.target.value)} /></label>
+          <label>{dict.livekit.participantIdentity}<input value={participantIdentity} onChange={(e) => setParticipantIdentity(e.target.value)} /></label>
+          <label>{dict.livekit.participantName}<input value={participantName} onChange={(e) => setParticipantName(e.target.value)} /></label>
         </div>
-
         <div className="checkbox-grid">
-          <label>
-            <input type="checkbox" checked={cameraEnabled} onChange={(event) => setCameraEnabled(event.target.checked)} />
-            {dict.livekit.camera}
-          </label>
-          <label>
-            <input type="checkbox" checked={micEnabled} onChange={(event) => setMicEnabled(event.target.checked)} />
-            {dict.livekit.microphone}
-          </label>
+          <label><input type="checkbox" checked={micEnabled} onChange={(e) => setMicEnabled(e.target.checked)} />{dict.livekit.microphone}</label>
         </div>
-
         {error ? <div className="alert">{error}</div> : null}
         <div className="topbar-actions">
           <button className="primary" type="button" onClick={() => connectRoom()} disabled={connecting || connected}>
@@ -6359,16 +6061,7 @@ function LiveKitDemoPage({ language }: { language: Language }) {
       </section>
 
       <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.localPreview}</h2>
-        </div>
-        <video ref={localVideoRef} className="livekit-video" autoPlay playsInline muted />
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.remoteParticipants}</h2>
-        </div>
+        <div className="panel-header"><h2>{dict.livekit.remoteParticipants}</h2></div>
         <div ref={remoteMediaRef} className="livekit-remote-grid" />
       </section>
 
@@ -6381,34 +6074,310 @@ function LiveKitDemoPage({ language }: { language: Language }) {
           {chatMessages.length === 0 ? (
             <p className="panel-meta">{dict.livekit.chatEmpty}</p>
           ) : (
-            chatMessages.map((message, index) => (
-              <article key={`${message.at}-${index}`} className="livekit-chat-item">
-                <p className="panel-meta">{`${message.from} • ${message.at}`}</p>
-                <p>{message.text}</p>
+            chatMessages.map((msg, i) => (
+              <article key={`${msg.at}-${i}`} className="livekit-chat-item">
+                <p className="panel-meta">{`${msg.from} • ${msg.at}`}</p>
+                <p>{msg.text}</p>
               </article>
             ))
           )}
         </div>
         <form className="livekit-chat-form" onSubmit={sendChatMessage}>
-          <input
-            ref={chatInputRef}
-            value={chatMessage}
-            onChange={(e) => setChatMessage(e.target.value)}
-            placeholder={dict.livekit.chatPlaceholder}
-            disabled={!connected}
-          />
-          <button className="primary" type="submit" disabled={!connected || !chatMessage.trim()}>
-            {dict.livekit.chatSend}
-          </button>
+          <input ref={chatInputRef} value={chatMessage} onChange={(e) => setChatMessage(e.target.value)}
+            placeholder={dict.livekit.chatPlaceholder} disabled={!connected} />
+          <button className="primary" type="submit" disabled={!connected || !chatMessage.trim()}>{dict.livekit.chatSend}</button>
         </form>
       </section>
+    </div>
+  );
+}
+
+function normalizeLiveKitWsUrl(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("wss://") || trimmed.startsWith("ws://")) return trimmed;
+  if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length).replace(/\/+$/, "")}`;
+  if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length).replace(/\/+$/, "")}`;
+  return trimmed;
+}
+
+type DeviceRow = {
+  device_id: string;
+  agent_name: string;
+  voice_language: string;
+  ollama_model: string;
+  tts_engine: string;
+  tts_enabled: boolean;
+  stt_enabled: boolean;
+  updated_at: string;
+};
+
+type AgentSettingsFull = {
+  deviceId: string;
+  agentName: string;
+  voiceLanguage: string;
+  ollamaModel: string;
+  ttsEngine: string;
+  ttsConfig: Record<string, unknown> | null;
+  ttsEnabled: boolean;
+  sttEnabled: boolean;
+  systemPrompt: string | null;
+  greetingEnabled: boolean;
+  greetingInstruction: string | null;
+  updatedAt: string;
+};
+
+function readNestedStr(config: Record<string, unknown> | null, ...path: string[]): string {
+  let cur: unknown = config;
+  for (const key of path) {
+    if (cur == null || typeof cur !== "object") return "";
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return typeof cur === "string" ? cur : "";
+}
+
+function VoiceAgentSettingsPage({ language }: { language: Language }) {
+  const dict = DICTIONARIES[language];
+  const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [full, setFull] = useState<AgentSettingsFull | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // form state
+  const [agentName, setAgentName] = useState("");
+  const [voiceLanguage, setVoiceLanguage] = useState("");
+  const [ollamaModel, setOllamaModel] = useState("");
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
+  const [ttsEngine, setTtsEngine] = useState("f5-tts");
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [ttsBaseUrl, setTtsBaseUrl] = useState("");
+  const [sttEnabled, setSttEnabled] = useState(true);
+  const [sttProvider, setSttProvider] = useState("");
+  const [sttBaseUrl, setSttBaseUrl] = useState("");
+  const [sttTranscribePath, setSttTranscribePath] = useState("");
+  const [sttModel, setSttModel] = useState("");
+  const [n8nBaseUrl, setN8nBaseUrl] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [greetingEnabled, setGreetingEnabled] = useState(true);
+  const [greetingInstruction, setGreetingInstruction] = useState("");
+
+  async function loadDevices() {
+    setLoadError(null);
+    const res = await request("/v1/admin/livekit/agent-settings");
+    const body = await parseJson<{ data?: DeviceRow[] } & ApiError>(res);
+    if (res.status !== 200 || !body.data) {
+      setLoadError(body.error?.message ?? dict.voiceAgentSettings.loadError);
+      return;
+    }
+    setDevices(body.data);
+  }
+
+  async function selectDevice(id: string) {
+    setSelectedId(id);
+    setSaveMsg(null);
+    setSaveError(null);
+    const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(id)}`);
+    const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
+    if (res.status !== 200 || !body.data) {
+      setSaveError(body.error?.message ?? dict.voiceAgentSettings.loadError);
+      return;
+    }
+    const s = body.data;
+    setFull(s);
+    setAgentName(s.agentName ?? "");
+    setVoiceLanguage(s.voiceLanguage ?? "");
+    setOllamaModel(s.ollamaModel ?? "");
+    setOllamaBaseUrl(readNestedStr(s.ttsConfig, "llm", "ollamaBaseUrl"));
+    setTtsEngine(s.ttsEngine ?? "f5-tts");
+    setTtsEnabled(s.ttsEnabled ?? true);
+    setTtsBaseUrl(readNestedStr(s.ttsConfig, "baseUrl"));
+    setSttEnabled(s.sttEnabled ?? true);
+    setSttProvider(readNestedStr(s.ttsConfig, "stt", "provider"));
+    setSttBaseUrl(readNestedStr(s.ttsConfig, "stt", "baseUrl"));
+    setSttTranscribePath(readNestedStr(s.ttsConfig, "stt", "transcribePath"));
+    setSttModel(readNestedStr(s.ttsConfig, "stt", "model"));
+    setN8nBaseUrl(readNestedStr(s.ttsConfig, "n8n", "baseUrl"));
+    setSystemPrompt(s.systemPrompt ?? "");
+    setGreetingEnabled(s.greetingEnabled ?? true);
+    setGreetingInstruction(s.greetingInstruction ?? "");
+  }
+
+  async function onSave(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    setSaving(true);
+    setSaveMsg(null);
+    setSaveError(null);
+    try {
+      const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(selectedId)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          agentName: agentName.trim() || undefined,
+          voiceLanguage: voiceLanguage.trim() || undefined,
+          ollamaModel: ollamaModel.trim() || undefined,
+          ollamaBaseUrl: ollamaBaseUrl.trim() || undefined,
+          ttsEngine: ttsEngine || undefined,
+          ttsEnabled,
+          ttsBaseUrl: ttsBaseUrl.trim() || undefined,
+          sttEnabled,
+          sttProvider: sttProvider.trim() || undefined,
+          sttBaseUrl: sttBaseUrl.trim() || undefined,
+          sttTranscribePath: sttTranscribePath.trim() || undefined,
+          sttModel: sttModel.trim() || undefined,
+          n8nBaseUrl: n8nBaseUrl.trim() || undefined,
+          systemPrompt: systemPrompt.trim() || undefined,
+          greetingEnabled,
+          greetingInstruction: greetingInstruction.trim() || undefined,
+        }),
+      });
+      const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
+      if (res.status !== 200 || !body.data) {
+        setSaveError(body.error?.message ?? dict.voiceAgentSettings.saveError);
+        return;
+      }
+      setSaveMsg(dict.voiceAgentSettings.saveSuccess);
+      await loadDevices();
+    } catch {
+      setSaveError(dict.voiceAgentSettings.saveError);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDevices().catch(() => setLoadError(dict.voiceAgentSettings.loadError));
+  }, []);
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">{dict.voiceAgentSettings.eyebrow}</p>
+          <h1>{dict.voiceAgentSettings.title}</h1>
+          <p className="subtext">{dict.voiceAgentSettings.subtitle}</p>
+        </div>
+        <div className="topbar-actions">
+          <button className="ghost" type="button" onClick={() => loadDevices()}>{dict.actions.refresh}</button>
+        </div>
+      </header>
+
+      {loadError ? <div className="alert">{loadError}</div> : null}
 
       <section className="panel">
-        <div className="panel-header">
-          <h2>{dict.livekit.lastResult}</h2>
-        </div>
-        <pre className="json-box">{lastResult ? JSON.stringify(lastResult, null, 2) : dict.livekit.noResult}</pre>
+        <div className="panel-header"><h2>{dict.voiceAgentSettings.deviceId}</h2></div>
+        {devices.length === 0 ? (
+          <p className="subtext" style={{ padding: "1rem" }}>{dict.voiceAgentSettings.noDevices}</p>
+        ) : (
+          <div className="table">
+            {devices.map((d) => (
+              <div
+                key={d.device_id}
+                className={`table-row${selectedId === d.device_id ? " table-row--selected" : ""}`}
+                style={{ cursor: "pointer" }}
+                onClick={() => selectDevice(d.device_id)}
+              >
+                <span style={{ fontFamily: "monospace", fontSize: "0.85em" }}>{d.device_id}</span>
+                <span>{d.agent_name}</span>
+                <span>{d.voice_language}</span>
+                <span>{d.tts_engine}</span>
+                <span>{new Date(d.updated_at).toLocaleDateString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
+
+      {selectedId && full ? (
+        <form onSubmit={onSave}>
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionGeneral}</h2></div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} /></label>
+              <label>{dict.voiceAgentSettings.voiceLanguage}<input value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} placeholder="en" /></label>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionStt}</h2></div>
+            <div className="checkbox-grid">
+              <label>
+                <input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />
+                {dict.voiceAgentSettings.sttEnabled}
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
+              <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
+              <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
+              <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionTts}</h2></div>
+            <div className="checkbox-grid">
+              <label>
+                <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
+                {dict.voiceAgentSettings.ttsEnabled}
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                {dict.voiceAgentSettings.ttsEngine}
+                <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
+                  <option value="f5-tts">f5-tts</option>
+                  <option value="xtts">xtts</option>
+                  <option value="chatterbox">chatterbox</option>
+                </select>
+              </label>
+              <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionLlm}</h2></div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
+              <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionN8n}</h2></div>
+            <div className="form-grid">
+              <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header"><h2>{dict.voiceAgentSettings.sectionBehaviour}</h2></div>
+            <div className="checkbox-grid">
+              <label>
+                <input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />
+                {dict.voiceAgentSettings.greetingEnabled}
+              </label>
+            </div>
+            <div className="form-grid">
+              <label style={{ gridColumn: "1 / -1" }}>
+                {dict.voiceAgentSettings.greetingInstruction}
+                <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
+              </label>
+              <label style={{ gridColumn: "1 / -1" }}>
+                {dict.voiceAgentSettings.systemPrompt}
+                <textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
+              </label>
+            </div>
+          </section>
+
+          {saveMsg ? <div className="alert alert--success">{saveMsg}</div> : null}
+          {saveError ? <div className="alert">{saveError}</div> : null}
+          <div style={{ padding: "0 1.5rem 1.5rem" }}>
+            <button className="primary" type="submit" disabled={saving}>{dict.actions.save}</button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

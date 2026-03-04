@@ -14,7 +14,8 @@
     "livekit": "LiveKit",
     "livekitDemo": "LiveKit Demo",
     "dataExplorer": "Data Explorer",
-    "management": "Management"
+    "management": "Management",
+    "voiceAgentSettings": "Voice Agent Settings"
   },
   "actions": {
     "logout": "Logout",
@@ -386,5 +387,40 @@
     "loadFailed": "Detail load failed",
     "requestFailed": "Detail request failed",
     "updateFailed": "Update failed"
+  },
+  "voiceAgentSettings": {
+    "eyebrow": "Voice AI",
+    "title": "Voice Agent Settings",
+    "subtitle": "Configure STT, TTS, LLM and behaviour per device.",
+    "noDevices": "No device settings found.",
+    "deviceId": "Device ID",
+    "agentName": "Agent Name",
+    "language": "Language",
+    "updatedAt": "Updated",
+    "editTitle": "Edit Settings",
+    "sectionGeneral": "General",
+    "sectionStt": "Speech-to-Text (STT)",
+    "sectionTts": "Text-to-Speech (TTS)",
+    "sectionLlm": "LLM",
+    "sectionN8n": "N8N",
+    "sectionBehaviour": "Behaviour",
+    "voiceLanguage": "Voice Language",
+    "ollamaModel": "Ollama Model",
+    "ollamaBaseUrl": "Ollama Base URL",
+    "ttsEngine": "TTS Engine",
+    "ttsBaseUrl": "TTS Server Base URL",
+    "ttsEnabled": "TTS Enabled",
+    "sttEnabled": "STT Enabled",
+    "sttProvider": "STT Provider",
+    "sttBaseUrl": "STT Base URL",
+    "sttTranscribePath": "Transcribe Path",
+    "sttModel": "STT Model",
+    "n8nBaseUrl": "N8N Base URL",
+    "systemPrompt": "System Prompt",
+    "greetingEnabled": "Greeting Enabled",
+    "greetingInstruction": "Greeting Instruction",
+    "saveSuccess": "Settings saved.",
+    "saveError": "Failed to save settings.",
+    "loadError": "Failed to load settings."
   }
 }
