@@ -8334,8 +8334,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "foods", label: dict.detail.sellerTabs.foods },
     { key: "orders", label: dict.detail.sellerTabs.orders },
     { key: "wallet", label: dict.detail.sellerTabs.wallet },
-    { key: "identity", label: dict.detail.sellerTabs.identity },
-    { key: "legal", label: dict.detail.sellerTabs.legal },
+    { key: "identity", label: language === "tr" ? "Uygunluk" : "Compliance" },
     { key: "retention", label: dict.detail.sellerTabs.retention },
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "raw", label: dict.detail.sellerTabs.raw },
@@ -8374,8 +8373,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
             <p>{maskedEmail}</p>
             <p className="panel-meta">
-              <span>{roleLabel}</span>
-              <span className="seller-country-badge">{row.countryCode ?? "-"}</span>
               <span>{`${language === "tr" ? "Kayıt" : "Created"}: ${formatUiDate(row.createdAt, language)}`}</span>
             </p>
           </div>
@@ -8427,34 +8424,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       </section>
 
       {activeTab === "identity" ? (
-        <section className="seller-detail-grid seller-identity-layout">
-          <article className="panel seller-identity-card">
-            <div className="panel-header">
-              <h2>{dict.detail.basicAccountEdit}</h2>
-            </div>
-            <form className="form-grid" onSubmit={onSave}>
-              <label>
-                {dict.auth.email}
-                <input name="email" defaultValue={row.email} disabled={!isSuperAdmin} />
-              </label>
-              <label>
-                {dict.detail.passwordOptional}
-                <input name="password" type="password" disabled={!isSuperAdmin} placeholder={dict.detail.passwordPlaceholder} />
-              </label>
-              <div className="seller-actions-row">
-                <span className="panel-meta">{`${dict.detail.saveChanges}: ${isSuperAdmin ? dict.common.yes : dict.common.no}`}</span>
-                <button className="primary" disabled={!isSuperAdmin} type="submit">
-                  {dict.actions.save}
-                </button>
-              </div>
-            </form>
-            <div className="seller-meta-chips">
-              <span className="retention-chip">{`${dict.detail.updatedAtLabel}: ${formatUiDate(row.updatedAt, language)}`}</span>
-              <span className="retention-chip">{`${dict.detail.legalHoldStateLabel}: ${Boolean(row.legalHoldState)}`}</span>
-            </div>
-            {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
-          </article>
-          <article className="panel seller-identity-compliance">
+        <section className="panel seller-identity-compliance">
             <div className="seller-compliance-header">
               <div className="seller-compliance-title">
                 <span className="seller-compliance-flag" aria-hidden="true">🇹🇷</span>
@@ -8476,7 +8446,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </article>
               ))}
             </div>
-          </article>
+          {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
         </section>
       ) : null}
 
