@@ -2610,7 +2610,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         <header className="topbar topbar-with-centered-search">
           <div>
             <p className="eyebrow">Coziyoo v2</p>
-            <h1>Operasyon Paneli</h1>
+            <h1>{language === "tr" ? "Alıcı Yönetimi" : "Buyer Management"}</h1>
             <p className="subtext">Kullanıcı, sipariş, uygunluk ve itiraz metriklerini gerçek zamanlı izleyin.</p>
           </div>
           <div className="topbar-search-center">{renderUnifiedSearch(true)}</div>
