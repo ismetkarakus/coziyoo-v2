@@ -655,8 +655,6 @@ function AppShell({
         </div>
         <div className="navbar-actions">
           <ApiHealthBadge />
-          <span className="role-chip">{adminRoleLabel(dict, admin.role)}</span>
-          <span className="navbar-email">{admin.email}</span>
           <button className="ghost" onClick={onToggleLanguage} type="button">
             {dict.actions.language}
           </button>
@@ -928,11 +926,10 @@ function ApiHealthBadge() {
     };
   }, []);
 
-  const text = status === "up" ? "API up" : status === "down" ? "API down" : "API check";
+  const label = status === "up" ? "API up" : status === "down" ? "API down" : "API check";
   return (
-    <span className={`health-chip is-${status}`} title="API health">
-      <span className="health-dot" />
-      {text}
+    <span className={`health-chip health-chip-icon is-${status}`} title={label} aria-label={label}>
+      <span className="wifi-icon" aria-hidden="true">📶</span>
     </span>
   );
 }
