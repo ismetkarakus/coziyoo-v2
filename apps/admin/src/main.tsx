@@ -5819,6 +5819,7 @@ type DeviceRow = {
   tts_engine: string;
   tts_enabled: boolean;
   stt_enabled: boolean;
+  is_active: boolean;
   updated_at: string;
 };
 
@@ -6038,6 +6039,31 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     }
   }
 
+  async function deleteProfile(profileId: string) {
+    if (!window.confirm(language === "tr" ? `"${profileId}" profilini silmek istediğinizden emin misiniz?` : `Delete profile "${profileId}"?`)) return;
+    const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(profileId)}`, { method: "DELETE" });
+    if (res.status === 200) {
+      if (currentDeviceId === profileId) {
+        setCurrentDeviceId(null);
+        resetSettingsFormToDefaults();
+      }
+      await loadDeviceList();
+    } else {
+      const body = await parseJson<ApiError>(res);
+      setSaveError(body.error?.message ?? "Delete failed");
+    }
+  }
+
+  async function activateProfile(profileId: string) {
+    const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(profileId)}/activate`, { method: "POST", body: "{}" });
+    if (res.status === 200) {
+      await loadDeviceList();
+    } else {
+      const body = await parseJson<ApiError>(res);
+      setSaveError(body.error?.message ?? "Activate failed");
+    }
+  }
+
   async function runTestLiveKit() {
     setTestLiveKit(null);
     const res = await request("/v1/admin/livekit/test/livekit", { method: "POST", body: "{}" });
@@ -6189,7 +6215,14 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                 className={`table-row${currentDeviceId === d.device_id ? " table-row--selected" : ""}`}
                 style={{ alignItems: "center" }}
               >
-                <span style={{ fontFamily: "monospace", fontSize: "0.85em", fontWeight: currentDeviceId === d.device_id ? 700 : 500 }}>{d.device_id}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span style={{ fontFamily: "monospace", fontSize: "0.85em", fontWeight: currentDeviceId === d.device_id ? 700 : 500 }}>{d.device_id}</span>
+                  {d.is_active ? (
+                    <span style={{ fontSize: "0.7em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase" }}>
+                      {language === "tr" ? "Aktif" : "Active"}
+                    </span>
+                  ) : null}
+                </span>
                 <span>{d.agent_name}</span>
                 <span>{d.voice_language}</span>
                 <span>{d.tts_engine}</span>
@@ -6215,6 +6248,19 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                     }}
                   >
                     {language === "tr" ? "Düzenle" : "Edit"}
+                  </button>
+                  {!d.is_active ? (
+                    <button className="ghost" type="button" onClick={() => activateProfile(d.device_id).catch(() => undefined)}>
+                      {language === "tr" ? "Aktif Yap" : "Set Active"}
+                    </button>
+                  ) : null}
+                  <button
+                    className="ghost"
+                    type="button"
+                    style={{ color: "#ef4444" }}
+                    onClick={() => deleteProfile(d.device_id).catch(() => undefined)}
+                  >
+                    {language === "tr" ? "Sil" : "Delete"}
                   </button>
                 </span>
               </div>
@@ -6319,7 +6365,17 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
             <section className="panel">
               <div className="panel-header"><h2>Summary</h2></div>
               <div className="table">
-                <div className="table-row table-row-kpi"><span>Device ID</span><span>{currentDeviceId ?? "-"}</span></div>
+                <div className="table-row table-row-kpi">
+                  <span>{language === "tr" ? "Profil ID" : "Profile ID"}</span>
+                  <span style={{ fontFamily: "monospace" }}>
+                    {currentDeviceId ?? "-"}
+                    {devices.find((d) => d.device_id === currentDeviceId)?.is_active ? (
+                      <span style={{ fontSize: "0.7em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", marginLeft: "0.5rem", textTransform: "uppercase" }}>
+                        {language === "tr" ? "Aktif" : "Active"}
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
                 <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.agentName}</span><span>{agentName || "-"}</span></div>
                 <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.voiceLanguage}</span><span>{voiceLanguage || "-"}</span></div>
                 <div className="table-row table-row-kpi"><span>{dict.voiceAgentSettings.sttEnabled}</span><span>{sttEnabled ? "ON" : "OFF"}</span></div>

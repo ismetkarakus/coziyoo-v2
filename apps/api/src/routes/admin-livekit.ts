@@ -434,11 +434,48 @@ const AdminAgentSettingsSchema = z.object({
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
   try {
     const result = await pool.query(
-      `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled, updated_at
-       FROM starter_agent_settings ORDER BY updated_at DESC`,
+      `SELECT device_id, agent_name, voice_language, ollama_model, tts_engine, tts_enabled, stt_enabled,
+              COALESCE(is_active, FALSE) AS is_active, updated_at
+       FROM starter_agent_settings ORDER BY is_active DESC, updated_at DESC`,
     );
     return res.json({ data: result.rows });
   } catch (err) {
+    return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
+  }
+});
+
+adminLiveKitRouter.delete("/agent-settings/:deviceId", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM starter_agent_settings WHERE device_id = $1 RETURNING device_id`,
+      [req.params.deviceId],
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Profile not found" } });
+    }
+    return res.json({ data: { deleted: req.params.deviceId } });
+  } catch (err) {
+    return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
+  }
+});
+
+adminLiveKitRouter.post("/agent-settings/:deviceId/activate", async (req, res) => {
+  try {
+    // Clear any existing active flag, then set the new one — in a transaction
+    await pool.query("BEGIN");
+    await pool.query(`UPDATE starter_agent_settings SET is_active = FALSE WHERE is_active = TRUE`);
+    const result = await pool.query(
+      `UPDATE starter_agent_settings SET is_active = TRUE WHERE device_id = $1 RETURNING device_id`,
+      [req.params.deviceId],
+    );
+    if (result.rowCount === 0) {
+      await pool.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Profile not found" } });
+    }
+    await pool.query("COMMIT");
+    return res.json({ data: { active: req.params.deviceId } });
+  } catch (err) {
+    await pool.query("ROLLBACK").catch(() => undefined);
     return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
   }
 });
