@@ -6475,34 +6475,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           </div>
         )}
 
-        {/* Selected profile details */}
-        {currentDeviceId !== null ? (
-          <div style={{ padding: "0.5rem 1rem 0.75rem", borderTop: "1px solid var(--color-border)" }}>
-            <div className="table-row table-head" style={{ minWidth: 0 }}>
-              <span>{language === "tr" ? "Profil ID" : "Profile ID"}</span>
-              <span>{dict.voiceAgentSettings.agentName}</span>
-              <span>{dict.voiceAgentSettings.voiceLanguage}</span>
-              <span>STT</span>
-              <span>TTS</span>
-              <span>LLM</span>
-            </div>
-            <div className="table-row" style={{ minWidth: 0 }}>
-              <span style={{ fontFamily: "monospace", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                {currentDeviceId}
-                {devices.find((d) => d.device_id === currentDeviceId)?.is_active ? (
-                  <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", flexShrink: 0 }}>
-                    {language === "tr" ? "Aktif" : "Active"}
-                  </span>
-                ) : null}
-              </span>
-              <span>{agentName || "—"}</span>
-              <span>{voiceLanguage || "—"}</span>
-              <span>{sttEnabled ? "ON" : "OFF"}</span>
-              <span>{ttsEnabled ? "ON" : "OFF"} · {ttsEngine}</span>
-              <span>{ollamaModel || "—"}</span>
-            </div>
-          </div>
-        ) : null}
       </section>
 
       {/* ── Card 2: Tabbed Settings ────────────────────────────── */}
