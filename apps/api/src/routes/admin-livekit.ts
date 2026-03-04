@@ -433,8 +433,8 @@ const AdminAgentSettingsSchema = z.object({
   systemPrompt: z.string().max(4_000).optional(),
   greetingEnabled: z.boolean().optional(),
   greetingInstruction: z.string().max(2_000).optional(),
-  sttQueryParams: z.record(z.string()).optional(),
-  ttsQueryParams: z.record(z.string()).optional(),
+  sttQueryParams: z.record(z.string(), z.string()).optional(),
+  ttsQueryParams: z.record(z.string(), z.string()).optional(),
 });
 
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
