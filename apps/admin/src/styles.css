@@ -357,6 +357,10 @@ a {
   align-items: center;
 }
 
+.seller-v2-page .topbar-with-centered-search {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 640px) minmax(0, 1fr);
+}
+
 .topbar-search-center {
   width: 100%;
   display: flex;
@@ -366,6 +370,11 @@ a {
 .topbar-search-center .users-search-wrap {
   margin: 0;
   max-width: 460px;
+}
+
+.seller-v2-page .topbar-search-center .users-search-wrap {
+  min-width: 420px;
+  max-width: 640px;
 }
 
 .topbar-with-centered-search .topbar-actions {
@@ -3567,13 +3576,13 @@ textarea:focus {
 }
 
 .seller-daily-sales-icon {
-  font-size: 1.18rem;
+  font-size: 1.42rem;
   line-height: 1;
   color: color-mix(in srgb, #93e6cf 84%, #ffffff);
 }
 
 .seller-daily-sales-inline strong {
-  font-size: 1.24rem;
+  font-size: 1.58rem;
   font-weight: 800;
   letter-spacing: 0.01em;
 }

@@ -2276,6 +2276,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <span className="seller-daily-sales-icon" aria-hidden="true">₺</span>
               <strong>{sellerDailySales == null ? "-" : formatTry(sellerDailySales).replace("₺", "").trim()}</strong>
             </div>
+            <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
           </div>
         </header>
 
@@ -2386,7 +2387,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 >
                   Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
                 </button>
-                <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
               </div>
             </div>
 
