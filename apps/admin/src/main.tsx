@@ -5927,7 +5927,12 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     if (res.status === 200 && body.data) setDevices(body.data);
   }
 
-  async function loadSettings(id: string) {
+  async function loadSettings(
+    id: string,
+    options?: {
+      runTestsAfterLoad?: boolean;
+    }
+  ) {
     setLoadError(null);
     setSaveMsg(null);
     setSaveError(null);
@@ -5935,23 +5940,39 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
     if (res.status === 200 && body.data) {
       const s = body.data;
+      const loadedOllamaBaseUrl = readNestedStr(s.ttsConfig, "llm", "ollamaBaseUrl");
+      const loadedTtsBaseUrl = readNestedStr(s.ttsConfig, "baseUrl");
+      const loadedSttProvider = readNestedStr(s.ttsConfig, "stt", "provider");
+      const loadedSttBaseUrl = readNestedStr(s.ttsConfig, "stt", "baseUrl");
+      const loadedSttTranscribePath = readNestedStr(s.ttsConfig, "stt", "transcribePath") || "/v1/transcribe";
+      const loadedSttModel = readNestedStr(s.ttsConfig, "stt", "model");
+      const loadedN8nBaseUrl = readNestedStr(s.ttsConfig, "n8n", "baseUrl");
       setCurrentDeviceId(id);
       setAgentName(s.agentName ?? "");
       setVoiceLanguage(s.voiceLanguage ?? "en");
       setOllamaModel(s.ollamaModel ?? "llama3.1:8b");
-      setOllamaBaseUrl(readNestedStr(s.ttsConfig, "llm", "ollamaBaseUrl"));
+      setOllamaBaseUrl(loadedOllamaBaseUrl);
       setTtsEngine(s.ttsEngine ?? "f5-tts");
       setTtsEnabled(s.ttsEnabled ?? true);
-      setTtsBaseUrl(readNestedStr(s.ttsConfig, "baseUrl"));
+      setTtsBaseUrl(loadedTtsBaseUrl);
       setSttEnabled(s.sttEnabled ?? true);
-      setSttProvider(readNestedStr(s.ttsConfig, "stt", "provider"));
-      setSttBaseUrl(readNestedStr(s.ttsConfig, "stt", "baseUrl"));
-      setSttTranscribePath(readNestedStr(s.ttsConfig, "stt", "transcribePath") || "/v1/transcribe");
-      setSttModel(readNestedStr(s.ttsConfig, "stt", "model"));
-      setN8nBaseUrl(readNestedStr(s.ttsConfig, "n8n", "baseUrl"));
+      setSttProvider(loadedSttProvider);
+      setSttBaseUrl(loadedSttBaseUrl);
+      setSttTranscribePath(loadedSttTranscribePath);
+      setSttModel(loadedSttModel);
+      setN8nBaseUrl(loadedN8nBaseUrl);
       setSystemPrompt(s.systemPrompt ?? "");
       setGreetingEnabled(s.greetingEnabled ?? true);
       setGreetingInstruction(s.greetingInstruction ?? "");
+      if (options?.runTestsAfterLoad) {
+        setActiveTab("summary");
+        await runTestAll({
+          sttBaseUrl: loadedSttBaseUrl,
+          sttTranscribePath: loadedSttTranscribePath,
+          ollamaBaseUrl: loadedOllamaBaseUrl,
+          n8nBaseUrl: loadedN8nBaseUrl,
+        });
+      }
     } else if (res.status === 404) {
       // New profile draft
       setCurrentDeviceId(id);
@@ -5965,7 +5986,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     event.preventDefault();
     const id = deviceIdInput.trim();
     if (!id) return;
-    await loadSettings(id);
+    await loadSettings(id, { runTestsAfterLoad: true });
   }
 
   async function onSave(event: FormEvent) {
@@ -6019,45 +6040,51 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setTestLiveKit({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? body.data?.wsUrl });
   }
 
-  async function runTestStt() {
+  async function runTestStt(sttBaseUrlOverride?: string, sttTranscribePathOverride?: string) {
     setTestStt(null);
-    const url = sttBaseUrl.trim();
+    const url = (sttBaseUrlOverride ?? sttBaseUrl).trim();
+    const transcribePath = (sttTranscribePathOverride ?? sttTranscribePath).trim() || "/v1/transcribe";
     if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
     const res = await request("/v1/admin/livekit/test/stt", {
       method: "POST",
-      body: JSON.stringify({ baseUrl: url, transcribePath: sttTranscribePath.trim() || "/v1/transcribe" }),
+      body: JSON.stringify({ baseUrl: url, transcribePath }),
     });
     const body = await parseJson<{ data?: { ok: boolean; reason?: string; status?: number } } & ApiError>(res);
     setTestStt({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? (body.data?.status ? `HTTP ${body.data.status}` : undefined) });
   }
 
-  async function runTestOllama() {
+  async function runTestOllama(baseUrlOverride?: string) {
     setTestOllama(null);
     const res = await request("/v1/admin/livekit/test/ollama", {
       method: "POST",
-      body: JSON.stringify({ baseUrl: ollamaBaseUrl.trim() || undefined }),
+      body: JSON.stringify({ baseUrl: (baseUrlOverride ?? ollamaBaseUrl).trim() || undefined }),
     });
     const body = await parseJson<{ data?: { ok: boolean; reason?: string; models?: string[] } } & ApiError>(res);
     setTestOllama({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? (body.data?.models ? body.data.models.slice(0, 3).join(", ") : undefined) });
   }
 
-  async function runTestN8n() {
+  async function runTestN8n(baseUrlOverride?: string) {
     setTestN8n(null);
     const res = await request("/v1/admin/livekit/test/n8n", {
       method: "POST",
-      body: JSON.stringify({ baseUrl: n8nBaseUrl.trim() || undefined }),
+      body: JSON.stringify({ baseUrl: (baseUrlOverride ?? n8nBaseUrl).trim() || undefined }),
     });
     const body = await parseJson<{ data?: { ok: boolean; reason?: string } } & ApiError>(res);
     setTestN8n({ ok: body.data?.ok ?? false, detail: body.data?.reason });
   }
 
-  async function runTestAll() {
+  async function runTestAll(overrides?: { sttBaseUrl?: string; sttTranscribePath?: string; ollamaBaseUrl?: string; n8nBaseUrl?: string }) {
     setTesting(true);
     setTestLiveKit(null);
     setTestStt(null);
     setTestOllama(null);
     setTestN8n(null);
-    await Promise.allSettled([runTestLiveKit(), runTestStt(), runTestOllama(), runTestN8n()]);
+    await Promise.allSettled([
+      runTestLiveKit(),
+      runTestStt(overrides?.sttBaseUrl, overrides?.sttTranscribePath),
+      runTestOllama(overrides?.ollamaBaseUrl),
+      runTestN8n(overrides?.n8nBaseUrl),
+    ]);
     setTesting(false);
   }
 
@@ -6168,7 +6195,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                     type="button"
                     onClick={() => {
                       setDeviceIdInput(d.device_id);
-                      loadSettings(d.device_id).catch(() => undefined);
+                      loadSettings(d.device_id, { runTestsAfterLoad: true }).catch(() => undefined);
                     }}
                   >
                     {language === "tr" ? "Yükle" : "Load"}
@@ -6230,33 +6257,33 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <span>LiveKit</span>
                   <StatusDot status={testLiveKit} />
                   <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={runTestLiveKit}>{dict.voiceAgentSettings.testLiveKit}</button>
+                    <button className="ghost" type="button" onClick={() => { void runTestLiveKit(); }}>{dict.voiceAgentSettings.testLiveKit}</button>
                   </span>
                 </div>
                 <div className="table-row table-row-kpi">
                   <span>STT</span>
                   <StatusDot status={testStt} />
                   <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={runTestStt}>{dict.voiceAgentSettings.testStt}</button>
+                    <button className="ghost" type="button" onClick={() => { void runTestStt(); }}>{dict.voiceAgentSettings.testStt}</button>
                   </span>
                 </div>
                 <div className="table-row table-row-kpi">
                   <span>Ollama / LLM</span>
                   <StatusDot status={testOllama} />
                   <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={runTestOllama}>{dict.voiceAgentSettings.testOllama}</button>
+                    <button className="ghost" type="button" onClick={() => { void runTestOllama(); }}>{dict.voiceAgentSettings.testOllama}</button>
                   </span>
                 </div>
                 <div className="table-row table-row-kpi">
                   <span>N8N</span>
                   <StatusDot status={testN8n} />
                   <span style={{ marginLeft: "auto" }}>
-                    <button className="ghost" type="button" onClick={runTestN8n}>{dict.voiceAgentSettings.testN8n}</button>
+                    <button className="ghost" type="button" onClick={() => { void runTestN8n(); }}>{dict.voiceAgentSettings.testN8n}</button>
                   </span>
                 </div>
               </div>
               <div style={{ padding: "0.75rem 1.5rem" }}>
-                <button className="primary" type="button" onClick={runTestAll} disabled={testing}>
+                <button className="primary" type="button" onClick={() => { void runTestAll(); }} disabled={testing}>
                   {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
                 </button>
               </div>
