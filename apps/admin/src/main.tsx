@@ -6287,6 +6287,43 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
             })}
           </div>
         )}
+
+        {/* Selected profile details */}
+        {currentDeviceId !== null ? (
+          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center", padding: "0.75rem 1.5rem", borderTop: "1px solid var(--color-border)", background: "var(--color-card-bg)" }}>
+            <div>
+              <p className="panel-meta" style={{ marginBottom: 2 }}>{language === "tr" ? "Profil ID" : "Profile ID"}</p>
+              <p style={{ fontFamily: "monospace", fontWeight: 700, margin: 0 }}>
+                {currentDeviceId}
+                {devices.find((d) => d.device_id === currentDeviceId)?.is_active ? (
+                  <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", marginLeft: 8, textTransform: "uppercase" }}>
+                    {language === "tr" ? "Aktif" : "Active"}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+            <div>
+              <p className="panel-meta" style={{ marginBottom: 2 }}>{dict.voiceAgentSettings.agentName}</p>
+              <p style={{ margin: 0, fontWeight: 500 }}>{agentName || "—"}</p>
+            </div>
+            <div>
+              <p className="panel-meta" style={{ marginBottom: 2 }}>{dict.voiceAgentSettings.voiceLanguage}</p>
+              <p style={{ margin: 0 }}>{voiceLanguage || "—"}</p>
+            </div>
+            <div>
+              <p className="panel-meta" style={{ marginBottom: 2 }}>STT</p>
+              <p style={{ margin: 0 }}>{sttEnabled ? "ON" : "OFF"}{sttBaseUrl ? ` · ${sttBaseUrl}` : ""}</p>
+            </div>
+            <div>
+              <p className="panel-meta" style={{ marginBottom: 2 }}>TTS</p>
+              <p style={{ margin: 0 }}>{ttsEnabled ? "ON" : "OFF"} · {ttsEngine}</p>
+            </div>
+            <div>
+              <p className="panel-meta" style={{ marginBottom: 2 }}>LLM</p>
+              <p style={{ margin: 0 }}>{ollamaModel}{ollamaBaseUrl ? ` · ${ollamaBaseUrl}` : ""}</p>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {/* ── Card 2: Tabbed Settings ────────────────────────────── */}
@@ -6331,41 +6368,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
             {/* ── Summary tab ─────────────────────────── */}
             {activeTab === "summary" ? (
               <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                {/* Profile info row */}
-                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-                  <div>
-                    <p className="panel-meta" style={{ marginBottom: 2 }}>{language === "tr" ? "Profil ID" : "Profile ID"}</p>
-                    <p style={{ fontFamily: "monospace", fontWeight: 700, margin: 0 }}>
-                      {currentDeviceId}
-                      {devices.find((d) => d.device_id === currentDeviceId)?.is_active ? (
-                        <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", marginLeft: 8, textTransform: "uppercase" }}>
-                          {language === "tr" ? "Aktif" : "Active"}
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="panel-meta" style={{ marginBottom: 2 }}>{dict.voiceAgentSettings.agentName}</p>
-                    <p style={{ margin: 0, fontWeight: 500 }}>{agentName || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="panel-meta" style={{ marginBottom: 2 }}>{dict.voiceAgentSettings.voiceLanguage}</p>
-                    <p style={{ margin: 0 }}>{voiceLanguage || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="panel-meta" style={{ marginBottom: 2 }}>STT</p>
-                    <p style={{ margin: 0 }}>{sttEnabled ? "ON" : "OFF"}{sttBaseUrl ? ` · ${sttBaseUrl}` : ""}</p>
-                  </div>
-                  <div>
-                    <p className="panel-meta" style={{ marginBottom: 2 }}>TTS</p>
-                    <p style={{ margin: 0 }}>{ttsEnabled ? "ON" : "OFF"}{ttsBaseUrl ? ` · ${ttsEngine}` : ` · ${ttsEngine}`}</p>
-                  </div>
-                  <div>
-                    <p className="panel-meta" style={{ marginBottom: 2 }}>LLM</p>
-                    <p style={{ margin: 0 }}>{ollamaModel}{ollamaBaseUrl ? ` · ${ollamaBaseUrl}` : ""}</p>
-                  </div>
-                </div>
-
                 {/* Connection tests */}
                 <div>
                   <p style={{ fontWeight: 600, fontSize: "0.85em", marginBottom: "0.6rem", color: "var(--color-secondary-text)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
