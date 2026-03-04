@@ -1312,7 +1312,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [searchTerm, setSearchTerm] = useState("");
   const [last7DaysOnly, setLast7DaysOnly] = useState(false);
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "active" | "disabled">("all");
-  const [activeSellerKpiFilter, setActiveSellerKpiFilter] = useState<"active" | "disabled" | "new_today" | null>(null);
+  const [activeSellerKpiFilter, setActiveSellerKpiFilter] = useState<"all" | "active" | "disabled" | "new_today" | null>(null);
   const [sellerDailySales, setSellerDailySales] = useState<number | null>(null);
   const [isSellerTableOpen, setIsSellerTableOpen] = useState(false);
   const [buyerFilters, setBuyerFilters] = useState<{
@@ -1602,7 +1602,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       setFilters((prev) => ({ ...prev, page: 1 }));
       return;
     }
-    if (trimmed.length < 3) return;
+    const minSearchLength = isSellerPage ? 1 : 3;
+    if (trimmed.length < minSearchLength) return;
 
     const timer = window.setTimeout(() => {
       setSearchTerm(trimmed);
@@ -1610,7 +1611,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [searchInput]);
+  }, [isSellerPage, searchInput]);
 
   async function savePreferences() {
     const defaultColumns = (isSellerPage ? sellerDefaultColumns : coreColumns).filter((column) => fields.some((f) => f.name === column));
@@ -1907,6 +1908,34 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       if (activeSellerSmartFilter) {
         scopedRows = scopedRows.filter((row) => matchSellerSmartFilter(row, activeSellerSmartFilter));
       }
+
+      const sellerQuery = searchInput.trim().toLocaleLowerCase("tr-TR");
+      if (sellerQuery.length > 0) {
+        const queryCompact = sellerQuery.replace(/\s+/g, "");
+        const rankText = (raw: unknown): number => {
+          const text = String(raw ?? "").trim().toLocaleLowerCase("tr-TR");
+          if (!text) return 0;
+          const compact = text.replace(/\s+/g, "");
+          if (text === sellerQuery || compact === queryCompact) return 120;
+          if (text.startsWith(sellerQuery) || compact.startsWith(queryCompact)) return 95;
+          const index = text.indexOf(sellerQuery);
+          if (index >= 0) return Math.max(55 - index * 2, 12);
+          const compactIndex = compact.indexOf(queryCompact);
+          if (compactIndex >= 0) return Math.max(38 - compactIndex, 10);
+          return 0;
+        };
+        const rankSeller = (row: any): number => {
+          const nameScore = rankText(row.displayName);
+          const emailScore = rankText(row.email);
+          const idScore = rankText(row.id);
+          const phoneScore = rankText(row.phone ?? row.phoneNumber ?? row.contactPhone);
+          return Math.max(nameScore, emailScore, idScore, phoneScore);
+        };
+        scopedRows = [...scopedRows]
+          .map((row, index) => ({ row, score: rankSeller(row), index }))
+          .sort((a, b) => (b.score - a.score) || (a.index - b.index))
+          .map((item) => item.row);
+      }
     }
 
     if (isBuyerPage) {
@@ -1948,7 +1977,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [activeSellerKpiFilter, activeSellerSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, sellerStatusFilter, todayKey]);
+  }, [activeSellerKpiFilter, activeSellerSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, searchInput, sellerStatusFilter, todayKey]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -2251,10 +2280,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "complainer_sellers",
     ];
 
-    const applySellerKpiFilter = (mode: "active" | "disabled" | "new_today") => {
-      setActiveSellerSmartFilter(null);
+    const applySellerKpiFilter = (mode: "all" | "active" | "disabled" | "new_today") => {
       setFilters((prev) => ({ ...prev, page: 1 }));
       setIsSellerTableOpen(true);
+      if (mode === "all") {
+        setSellerStatusFilter("all");
+        setActiveSellerSmartFilter(null);
+        setActiveSellerKpiFilter("all");
+        return;
+      }
+      setActiveSellerSmartFilter(null);
       if (mode === "active") {
         setSellerStatusFilter("active");
         setActiveSellerKpiFilter("active");
@@ -2287,7 +2322,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </header>
 
         <section className="buyer-v2-kpis seller-v2-kpis">
-          <article className="buyer-v2-kpi seller-v2-kpi">
+          <button
+            type="button"
+            className={`buyer-v2-kpi seller-v2-kpi is-clickable ${activeSellerKpiFilter === "all" ? "is-selected" : ""}`}
+            onClick={() => applySellerKpiFilter("all")}
+          >
             <div className="buyer-v2-kpi-icon">👥</div>
             <div>
               <p>Toplam Satıcı</p>
@@ -2300,7 +2339,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <span className="seller-v2-dot" />
               </div>
             </div>
-          </article>
+          </button>
           <button
             type="button"
             className={`buyer-v2-kpi seller-v2-kpi is-green is-clickable ${activeSellerKpiFilter === "active" ? "is-selected" : ""}`}
@@ -2351,22 +2390,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         <section className="buyer-v2-main-layout">
           <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
             <div className="buyer-v2-smart-list seller-v2-smart-primary">
-              <button
-                type="button"
-                className={`buyer-v2-smart-item ${sellerStatusFilter === "all" && !activeSellerSmartFilter && !activeSellerKpiFilter ? "is-active" : ""}`}
-                aria-pressed={sellerStatusFilter === "all" && !activeSellerSmartFilter && !activeSellerKpiFilter}
-                onClick={() => {
-                  setSellerStatusFilter("all");
-                  setActiveSellerKpiFilter(null);
-                  setActiveSellerSmartFilter(null);
-                  setIsSellerTableOpen(true);
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">☰</span>
-                <span className="buyer-v2-smart-item-label">Tüm Kayıtlar</span>
-                <span className="buyer-v2-smart-item-count">{totalTrSellers}</span>
-              </button>
               {primarySmartItems.map((key) => {
                 const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
                 if (!item) return null;
