@@ -5892,6 +5892,35 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [ttsSynthError, setTtsSynthError] = useState<string | null>(null);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
 
+  function resetSettingsFormToDefaults() {
+    setAgentName("");
+    setVoiceLanguage("en");
+    setOllamaModel("llama3.1:8b");
+    setOllamaBaseUrl("");
+    setTtsEngine("f5-tts");
+    setTtsEnabled(true);
+    setTtsBaseUrl("");
+    setSttEnabled(true);
+    setSttProvider("");
+    setSttBaseUrl("");
+    setSttTranscribePath("/v1/transcribe");
+    setSttModel("");
+    setN8nBaseUrl("");
+    setSystemPrompt("");
+    setGreetingEnabled(true);
+    setGreetingInstruction("");
+  }
+
+  function startNewProfileDraft(profileId: string) {
+    const normalized = profileId.trim();
+    if (!normalized) return;
+    setCurrentDeviceId(normalized);
+    setDeviceIdInput(normalized);
+    resetSettingsFormToDefaults();
+    setSaveMsg(language === "tr" ? `Yeni profil taslağı hazır: ${normalized}` : `New profile draft is ready: ${normalized}`);
+    setSaveError(null);
+  }
+
   async function loadDeviceList() {
     const res = await request("/v1/admin/livekit/agent-settings");
     const body = await parseJson<{ data?: DeviceRow[] } & ApiError>(res);
@@ -5924,8 +5953,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       setGreetingEnabled(s.greetingEnabled ?? true);
       setGreetingInstruction(s.greetingInstruction ?? "");
     } else if (res.status === 404) {
-      // New device — just set the deviceId, form keeps defaults
+      // New profile draft
       setCurrentDeviceId(id);
+      resetSettingsFormToDefaults();
     } else {
       setLoadError(body.error?.message ?? dict.voiceAgentSettings.loadError);
     }
@@ -6111,33 +6141,67 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>{dict.voiceAgentSettings.deviceId}</h2>
+          <h2>{language === "tr" ? "Profil Yönetimi" : "Profile Manager"}</h2>
           {currentDeviceId ? <span className="panel-meta" style={{ fontFamily: "monospace" }}>{currentDeviceId}</span> : null}
         </div>
+        <p className="panel-note" style={{ padding: "0 1.5rem" }}>
+          {language === "tr"
+            ? "Farklı STT/TTS kombinasyonları için profil oluşturun, düzenleyin ve aktif profili yükleyin."
+            : "Create, edit, and load profiles to test different STT/TTS combinations."}
+        </p>
         {devices.length > 0 ? (
           <div className="table" style={{ marginBottom: "1rem" }}>
             {devices.map((d) => (
               <div
                 key={d.device_id}
                 className={`table-row${currentDeviceId === d.device_id ? " table-row--selected" : ""}`}
-                style={{ cursor: "pointer" }}
-                onClick={() => { setDeviceIdInput(d.device_id); loadSettings(d.device_id).catch(() => undefined); }}
+                style={{ alignItems: "center" }}
               >
-                <span style={{ fontFamily: "monospace", fontSize: "0.85em" }}>{d.device_id}</span>
+                <span style={{ fontFamily: "monospace", fontSize: "0.85em", fontWeight: currentDeviceId === d.device_id ? 700 : 500 }}>{d.device_id}</span>
                 <span>{d.agent_name}</span>
                 <span>{d.voice_language}</span>
                 <span>{d.tts_engine}</span>
                 <span>{new Date(d.updated_at).toLocaleDateString()}</span>
+                <span style={{ marginLeft: "auto", display: "inline-flex", gap: "0.5rem" }}>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => {
+                      setDeviceIdInput(d.device_id);
+                      loadSettings(d.device_id).catch(() => undefined);
+                    }}
+                  >
+                    {language === "tr" ? "Yükle" : "Load"}
+                  </button>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => {
+                      setDeviceIdInput(d.device_id);
+                      loadSettings(d.device_id).catch(() => undefined);
+                      setActiveTab("general");
+                    }}
+                  >
+                    {language === "tr" ? "Düzenle" : "Edit"}
+                  </button>
+                </span>
               </div>
             ))}
           </div>
         ) : null}
-        <form onSubmit={onLoad} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", padding: "0 1.5rem 1.5rem" }}>
+        <form onSubmit={onLoad} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", padding: "0 1.5rem 1.5rem", flexWrap: "wrap" }}>
           <label style={{ flex: 1, margin: 0 }}>
-            {dict.voiceAgentSettings.newDevice}
+            {language === "tr" ? "Profil ID" : "Profile ID"}
             <input value={deviceIdInput} onChange={(e) => setDeviceIdInput(e.target.value)} placeholder="default" />
           </label>
-          <button className="ghost" type="submit">{dict.voiceAgentSettings.loadSettings}</button>
+          <button className="ghost" type="submit">{language === "tr" ? "Aktif Profili Yükle" : "Load Active Profile"}</button>
+          <button
+            className="primary"
+            type="button"
+            onClick={() => startNewProfileDraft(deviceIdInput)}
+          >
+            {language === "tr" ? "Yeni Profil Oluştur" : "Create Profile"}
+          </button>
         </form>
       </section>
 
@@ -6150,7 +6214,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
               type="button"
               onClick={() => setActiveTab(tab.key)}
             >
-              {tab.label}
+              {tab.label.toLocaleUpperCase(language === "tr" ? "tr-TR" : "en-US")}
             </button>
           ))}
         </div>
