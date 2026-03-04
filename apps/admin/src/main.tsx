@@ -827,8 +827,8 @@ function AppShell({
                     }
                   }}
                   placeholder={language === "tr"
-                    ? "Global ara: satıcı, alıcı, yemek, sipariş, lot, şikayet"
-                    : "Global search: seller, buyer, food, order, lot, complaint"}
+                    ? "Global Arama"
+                    : "Global Search"}
                 />
                 {globalSearchInput.trim().length > 0 ? (
                   <button
@@ -854,11 +854,7 @@ function AppShell({
               </label>
             </div>
             <div className="global-search-results-shell">
-              {globalSearchQuery.length < globalSearchMinChars ? (
-                <p className="global-search-empty">
-                  {language === "tr" ? "Aramak için en az 2 karakter yazın." : "Type at least 2 characters to search."}
-                </p>
-              ) : globalSearchLoading ? (
+              {globalSearchQuery.length < globalSearchMinChars ? null : globalSearchLoading ? (
                 <p className="global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
               ) : globalSearchResults.length === 0 ? (
                 <p className="global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>

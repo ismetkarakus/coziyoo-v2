@@ -432,7 +432,8 @@ a {
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   background: color-mix(in srgb, var(--color-card-bg) 82%, transparent);
   box-shadow: 0 14px 34px color-mix(in srgb, var(--color-shadow) 90%, transparent);
-  padding: 14px 16px;
+  padding: 18px 18px;
+  min-height: 72px;
 }
 
 .global-search-input-wrap:focus-within {
@@ -442,8 +443,13 @@ a {
 
 .global-search-input-icon {
   color: var(--color-tertiary-text);
-  font-size: 1rem;
+  font-size: 1.4rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
 .global-search-input {
