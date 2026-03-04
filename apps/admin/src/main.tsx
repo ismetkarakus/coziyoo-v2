@@ -4360,7 +4360,14 @@ function RecordsPage({ language, tableKey }: { language: Language; tableKey: "or
 
   const orderColumns = useMemo(() => {
     if (tableKey !== "orders") return columns;
-    const filtered = columns.filter((column) => column !== "delivery_address_json");
+    const hiddenOrderColumns = new Set([
+      "id",
+      "updated_at",
+      "requested_at",
+      "estimated_delivery_time",
+      "delivery_address_json",
+    ]);
+    const filtered = columns.filter((column) => !hiddenOrderColumns.has(column));
     const preferred = ["created_at", "buyer_id", "seller_id", "status", "payment_completed"];
     const used = new Set<string>();
     const ordered: string[] = [];
