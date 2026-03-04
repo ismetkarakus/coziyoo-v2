@@ -17,6 +17,7 @@ jobs:
     env:
       DEPLOY_TARGETS: ${{ secrets.DEPLOY_TARGETS }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH || 'main' }}
       DEPLOY_DEMO_DB_REBUILD: ${{ vars.DEPLOY_DEMO_DB_REBUILD || 'false' }}
       DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE: ${{ vars.DEPLOY_DEMO_DB_REBUILD_ON_SCHEMA_CHANGE || 'true' }}
@@ -65,6 +66,13 @@ jobs:
           touch "${HOME}/.ssh/known_hosts"
           chmod 600 "${HOME}/.ssh/known_hosts"
 
+          if [[ -n "${DEPLOY_KNOWN_HOSTS:-}" ]]; then
+            printf "%s\n" "${DEPLOY_KNOWN_HOSTS}" >> "${HOME}/.ssh/known_hosts"
+            sort -u "${HOME}/.ssh/known_hosts" -o "${HOME}/.ssh/known_hosts"
+            echo "Loaded host keys from DEPLOY_KNOWN_HOSTS secret."
+            exit 0
+          fi
+
           while IFS='|' read -r NAME HOST USER PORT REPO_PATH; do
             NAME="$(trim "${NAME:-}")"
             HOST="$(trim "${HOST:-}")"
@@ -89,7 +97,9 @@ jobs:
             fi
 
             for attempt in 1 2 3; do
-              if ssh-keyscan -p "${PORT}" -T 15 -H "${HOST}" >> "${HOME}/.ssh/known_hosts" 2>/dev/null; then
+              KEYSCAN_OUTPUT="$(ssh-keyscan -p "${PORT}" -T 15 -H "${HOST}" 2>/dev/null || true)"
+              if [[ -n "${KEYSCAN_OUTPUT}" ]]; then
+                printf "%s\n" "${KEYSCAN_OUTPUT}" >> "${HOME}/.ssh/known_hosts"
                 break
               fi
               if [[ "${attempt}" -eq 3 ]]; then
