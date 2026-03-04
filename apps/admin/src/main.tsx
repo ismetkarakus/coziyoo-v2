@@ -996,7 +996,6 @@ function DashboardPage({ language }: { language: Language }) {
     <div className="app dashboard-view">
       <header className="topbar">
         <div>
-          <p className="eyebrow">{dict.dashboard.eyebrow}</p>
           <h1>{dict.dashboard.title}</h1>
           <p className="subtext">{dict.dashboard.subtitle}</p>
         </div>
@@ -2308,7 +2307,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className="app buyer-v2-page seller-v2-page">
         <header className="topbar topbar-with-centered-search">
           <div>
-            <p className="eyebrow">Coziyoo v2</p>
             <h1>{pageTitleView}</h1>
             <p className="subtext">Satıcı, ürün ve operasyon metriklerini tek aramayla takip edin.</p>
           </div>
@@ -2609,7 +2607,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className="app buyer-v2-page">
         <header className="topbar topbar-with-centered-search">
           <div>
-            <p className="eyebrow">Coziyoo v2</p>
             <h1>{language === "tr" ? "Alıcı Yönetimi" : "Buyer Management"}</h1>
             <p className="subtext">Kullanıcı, sipariş, uygunluk ve itiraz metriklerini gerçek zamanlı izleyin.</p>
           </div>
