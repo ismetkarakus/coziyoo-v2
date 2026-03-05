@@ -2923,7 +2923,7 @@ textarea:focus {
 .buyer-ref-content {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: minmax(320px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
   gap: 10px;
   align-items: start;
 }
@@ -2931,7 +2931,6 @@ textarea:focus {
 .buyer-ref-left {
   display: grid;
   gap: 8px;
-  min-width: 0;
 }
 
 .buyer-ref-main-panel,
@@ -3196,8 +3195,6 @@ textarea:focus {
 .buyer-ref-right {
   display: grid;
   gap: 8px;
-  width: auto;
-  min-width: 0;
 }
 
 .buyer-ref-right .buyer-ops-side-card {
