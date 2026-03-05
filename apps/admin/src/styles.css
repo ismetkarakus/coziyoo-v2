@@ -3130,8 +3130,8 @@ textarea:focus {
 
 .buyer-ref-contact-side {
   order: 2;
-  padding: 14px;
-  gap: 10px;
+  padding: 12px;
+  gap: 8px;
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, #6e81b8 28%, var(--ops-border-default));
   background:
@@ -3141,7 +3141,9 @@ textarea:focus {
 
 .buyer-ref-contact-side h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .buyer-ref-notes-card {
@@ -3155,7 +3157,7 @@ textarea:focus {
 .buyer-ref-contact-block {
   display: grid;
   gap: 4px;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid color-mix(in srgb, #5f73aa 24%, var(--ops-border-default));
 }
 
@@ -3167,19 +3169,21 @@ textarea:focus {
 .buyer-ref-contact-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   margin: 0;
   color: var(--ops-text-primary);
   font-weight: 400;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
 }
 
 .buyer-ref-contact-value {
   margin: 0;
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
-  line-height: 1.35;
+  line-height: 1.25;
   word-break: break-word;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
+  font-weight: 400;
 }
 
 .buyer-ref-contact-id-row {
@@ -3217,7 +3221,7 @@ textarea:focus {
   color: color-mix(in srgb, var(--ops-text-primary) 98%, white);
   letter-spacing: 0.01em;
   font-weight: 400;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
 }
 
 .buyer-ref-online-dot {
@@ -3230,33 +3234,37 @@ textarea:focus {
 
 .buyer-ref-activity-card .panel-header,
 .buyer-ref-notes-card .panel-header {
-  padding-bottom: 6px;
+  padding-bottom: 4px;
 }
 
 .buyer-ref-activity-card .panel-header h2,
 .buyer-ref-notes-card .panel-header h2 {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .buyer-ref-activity-top {
   margin: 0;
   color: var(--ops-text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 400;
+  line-height: 1.2;
 }
 
 .buyer-ref-activity-action {
-  margin: 2px 0 0;
+  margin: 1px 0 0;
   font-weight: 400;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .buyer-ref-activity-card .buyer-ops-activity-mini article {
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 0 0 6px;
+  padding: 0 0 5px;
   border-bottom: 1px solid color-mix(in srgb, #5f73aa 20%, var(--ops-border-default));
 }
 
@@ -3275,7 +3283,7 @@ textarea:focus {
 
 .buyer-ref-notes-card .buyer-ops-tag-list {
   margin-top: 2px;
-  gap: 6px;
+  gap: 5px;
 }
 
 .buyer-ref-notes-card .buyer-ops-note-form {
@@ -3283,17 +3291,23 @@ textarea:focus {
 }
 
 .buyer-ref-notes-card .buyer-ops-tag {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 400;
-  padding: 2px 8px;
+  padding: 2px 7px;
 }
 
 .buyer-ref-notes-card input,
 .buyer-ref-notes-card .panel-meta,
 .buyer-ref-activity-card .panel-meta,
 .buyer-ref-contact-side .panel-meta {
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 400;
+}
+
+.buyer-ref-notes-card .buyer-ops-note-form input {
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: 8px;
 }
 
 .buyer-ref-notes-card .buyer-ops-note-form .ghost {
