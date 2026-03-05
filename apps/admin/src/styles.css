@@ -2803,7 +2803,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric-head-order {
-  font-size: 1.2rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
   white-space: nowrap;
