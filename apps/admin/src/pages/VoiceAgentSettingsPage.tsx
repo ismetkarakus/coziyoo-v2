@@ -98,7 +98,6 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
 
   // TTS test
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [ttsTestText, setTtsTestText] = useState("Hello, this is a voice test.");
   const [ttsSynthesizing, setTtsSynthesizing] = useState(false);
   const [ttsSynthError, setTtsSynthError] = useState<string | null>(null);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
@@ -430,12 +429,13 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
       const path = ttsSynthPath.trim() || "/tts";
       const ttsUrl = `${baseUrlTrimmed.replace(/\/$/, "")}${path}`;
       const bodyParams = Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value]));
+      const textParam = (bodyParams.text as string | undefined)?.trim() || "Hello";
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (ttsAuthHeader.trim()) headers["Authorization"] = ttsAuthHeader.trim();
       const res = await fetch(ttsUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", ...bodyParams }),
+        body: JSON.stringify({ text: textParam, ...bodyParams }),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
@@ -765,20 +765,9 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
                 </label>
                 {/* ── TTS test ── */}
                 <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                  <p style={{ fontWeight: "var(--font-semibold)", fontSize: "var(--text-sm)", color: "var(--color-secondary-text)", textTransform: "uppercase", letterSpacing: "0.04em", margin: 0 }}>
-                    {language === "tr" ? "TTS Testi" : "TTS Test"}
-                  </p>
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <input
-                      style={{ flex: 1 }}
-                      value={ttsTestText}
-                      onChange={(e) => setTtsTestText(e.target.value)}
-                      placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
-                    />
-                    <button className="ghost" type="button" style={{ flexShrink: 0 }} disabled={ttsSynthesizing || !ttsBaseUrl.trim()} onClick={() => { void runTestTts(); }}>
-                      {ttsSynthesizing ? "…" : dict.voiceAgentSettings.testTtsPlay}
-                    </button>
-                  </div>
+                  <button className="ghost" type="button" disabled={ttsSynthesizing || !ttsBaseUrl.trim()} onClick={() => { void runTestTts(); }}>
+                    {ttsSynthesizing ? "…" : dict.voiceAgentSettings.testTtsPlay}
+                  </button>
                   {ttsSynthError ? <p style={{ color: "#ef4444", margin: 0 }}>{ttsSynthError}</p> : null}
                   {ttsAudioUrl
                     ? <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", height: 32 }} />
