@@ -2794,6 +2794,27 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.buyer-ref-metric-head-stack {
+  margin-left: auto;
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  min-width: 0;
+}
+
+.buyer-ref-metric-head-order {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
+  white-space: nowrap;
+}
+
+.buyer-ref-metric-head-balance {
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
+  white-space: nowrap;
+}
+
 .buyer-ref-metric-icon {
   width: 24px;
   height: 24px;
