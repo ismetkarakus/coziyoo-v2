@@ -50,7 +50,7 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 -- Name: prevent_production_lot_mutating_delete(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.prevent_production_lot_mutating_delete() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.prevent_production_lot_mutating_delete() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -63,7 +63,7 @@ $$;
 -- Name: seed_seller_compliance_documents_on_user_upsert(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.seed_seller_compliance_documents_on_user_upsert() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.seed_seller_compliance_documents_on_user_upsert() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
