@@ -6188,7 +6188,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       setOllamaBaseUrl(loadedOllamaBaseUrl);
       setTtsEnabled(s.ttsEnabled ?? true);
       setTtsBaseUrl(loadedTtsBaseUrl);
-      setTtsSynthPath(readNestedStr(s.ttsConfig, "synthPath"));
+      setTtsSynthPath(readNestedStr(s.ttsConfig, "path"));
       setSttEnabled(s.sttEnabled ?? true);
       setSttProvider(loadedSttProvider);
       setSttBaseUrl(loadedSttBaseUrl);

@@ -533,7 +533,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
   const mergedTtsConfig = {
     ...existingTtsConfig,
     ...(input.ttsBaseUrl !== undefined ? { baseUrl: input.ttsBaseUrl || null } : {}),
-    ...(input.ttsSynthPath !== undefined ? { synthPath: input.ttsSynthPath || null } : {}),
+    ...(input.ttsSynthPath !== undefined ? { path: input.ttsSynthPath || null } : {}),
     ...(input.ttsQueryParams !== undefined ? { queryParams: input.ttsQueryParams } : {}),
     ...(input.ttsAuthHeader !== undefined ? { authHeader: input.ttsAuthHeader || null } : {}),
     stt: {
