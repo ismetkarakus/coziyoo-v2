@@ -746,7 +746,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
 
         <aside className="buyer-ref-right">
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
-            <h2>Iletisim & Adres</h2>
+            <h2>Profil Bilgileri</h2>
             <div className="buyer-ref-contact-block">
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
               <p className="buyer-ref-contact-value">{email}</p>
