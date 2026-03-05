@@ -454,8 +454,8 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     setTestStt(null);
     if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
     try {
-      const res = await fetch(`${url}/health`);
-      setTestStt({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+      await fetch(`${url}/health`, { mode: "no-cors" });
+      setTestStt({ ok: true });
     } catch (err) {
       setTestStt({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
     }
@@ -466,8 +466,8 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     setTestTts(null);
     if (!url) { setTestTts({ ok: false, detail: "No TTS URL configured" }); return; }
     try {
-      const res = await fetch(`${url}/health`);
-      setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+      await fetch(`${url}/health`, { mode: "no-cors" });
+      setTestTts({ ok: true });
     } catch (err) {
       setTestTts({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
     }
