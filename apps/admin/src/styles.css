@@ -2821,7 +2821,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric-head-balance {
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
   white-space: nowrap;
 }
