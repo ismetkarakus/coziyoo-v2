@@ -57,6 +57,8 @@ export type LlmServer = {
   enabled: boolean;
   baseUrl: string;
   model: string;
+  /** Path used to list available models (default: /api/tags for Ollama) */
+  modelsPath?: string;
   authHeader: string;
 };
 

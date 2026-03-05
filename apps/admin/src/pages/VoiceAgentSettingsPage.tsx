@@ -164,6 +164,8 @@ type ServerDraft = {
   /** Field name used to send speech text in the JSON body ("text" or "input" for OpenAI-compatible) */
   textFieldName: string;
   model: string;
+  /** Path to fetch available models from (e.g. /api/tags for Ollama) */
+  modelsPath: string;
   queryParams: Array<{ key: string; value: string }>;
   /** Extra key-value pairs merged into the JSON request body (model, voice, temperature, etc.) */
   bodyParams: Array<{ key: string; value: string }>;
@@ -171,23 +173,23 @@ type ServerDraft = {
 };
 
 function emptyDraft(): ServerDraft {
-  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", textFieldName: "text", model: "", queryParams: [], bodyParams: [], authHeader: "" };
+  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", textFieldName: "text", model: "", modelsPath: "", queryParams: [], bodyParams: [], authHeader: "" };
 }
 
 function sttToDraft(s: SttServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", textFieldName: "text", model: s.model, queryParams: objToParams(s.queryParams), bodyParams: [], authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", textFieldName: "text", model: s.model, modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: [], authHeader: s.authHeader };
 }
 
 function ttsToDraft(s: TtsServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, textFieldName: s.textFieldName || "text", model: "", queryParams: objToParams(s.queryParams), bodyParams: objToParams(s.bodyParams ?? {}), authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, textFieldName: s.textFieldName || "text", model: "", modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: objToParams(s.bodyParams ?? {}), authHeader: s.authHeader };
 }
 
 function llmToDraft(s: LlmServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: s.model, queryParams: [], bodyParams: [], authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: s.model, modelsPath: s.modelsPath ?? "", queryParams: [], bodyParams: [], authHeader: s.authHeader };
 }
 
 function n8nToDraft(s: N8nServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: "", queryParams: [], bodyParams: [], authHeader: "" };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: "", modelsPath: "", queryParams: [], bodyParams: [], authHeader: "" };
 }
 
 function draftToStt(id: string, d: ServerDraft): SttServer {
@@ -199,7 +201,7 @@ function draftToTts(id: string, d: ServerDraft): TtsServer {
 }
 
 function draftToLlm(id: string, d: ServerDraft): LlmServer {
-  return { id, name: d.name || "LLM Server", enabled: d.enabled, baseUrl: d.baseUrl, model: d.model, authHeader: d.authHeader };
+  return { id, name: d.name || "LLM Server", enabled: d.enabled, baseUrl: d.baseUrl, model: d.model, modelsPath: d.modelsPath || undefined, authHeader: d.authHeader };
 }
 
 function draftToN8n(id: string, d: ServerDraft): N8nServer {
@@ -244,6 +246,35 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
   const inp = { width: "100%", fontSize: "0.88em", padding: "5px 10px", boxSizing: "border-box" as const };
   const lbl = { fontSize: "0.8em", fontWeight: 600, color: "var(--color-secondary-text)", marginBottom: "3px", display: "block" } as const;
 
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [modelsFetching, setModelsFetching] = useState(false);
+  const [modelsFetchError, setModelsFetchError] = useState<string | null>(null);
+
+  const fetchModels = async () => {
+    if (!draft.baseUrl) return;
+    setModelsFetching(true);
+    setModelsFetchError(null);
+    try {
+      const res = await request("/v1/admin/livekit/test/ollama", {
+        method: "POST",
+        body: JSON.stringify({ baseUrl: draft.baseUrl, modelsPath: draft.modelsPath || undefined }),
+      });
+      const json = await parseJson<{ data?: { ok?: boolean; models?: string[] }; error?: { message?: string } }>(res);
+      if (json.data?.ok && Array.isArray(json.data.models)) {
+        setFetchedModels(json.data.models);
+        if (json.data.models.length > 0 && !draft.model) {
+          set("model", json.data.models[0]);
+        }
+      } else {
+        setModelsFetchError(json.error?.message ?? "Could not fetch models");
+      }
+    } catch {
+      setModelsFetchError("Request failed");
+    } finally {
+      setModelsFetching(false);
+    }
+  };
+
   const field = (label: string, node: React.ReactNode) => (
     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
       <label style={lbl}>{label}</label>
@@ -269,7 +300,31 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
           <span style={{ fontSize: "0.76em", color: "var(--color-secondary-text)" }}>Field that carries the speech text in the body. Use <code>text</code> (default) or <code>input</code> for OpenAI-compatible servers.</span>
         </div>
       )}
-      {(type === "stt" || type === "llm") && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder={type === "stt" ? "whisper-large-v3" : "llama3.1:8b"} />)}
+      {type === "stt" && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder="whisper-large-v3" />)}
+      {type === "llm" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <label style={lbl}>Model</label>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {fetchedModels.length > 0 ? (
+                <select style={{ ...inp, flex: 1 }} value={draft.model} onChange={(e) => set("model", e.target.value)}>
+                  {fetchedModels.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <input style={{ ...inp, flex: 1 }} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder="llama3.1:8b" />
+              )}
+              <button className="ghost" type="button" style={{ fontSize: "0.82em", padding: "4px 12px", flexShrink: 0 }} onClick={fetchModels} disabled={!draft.baseUrl || modelsFetching}>
+                {modelsFetching ? "…" : fetchedModels.length > 0 ? "↻ Refresh" : "Fetch Models"}
+              </button>
+            </div>
+            {modelsFetchError && <span style={{ fontSize: "0.78em", color: "#ef4444", marginTop: "2px" }}>{modelsFetchError}</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <label style={{ ...lbl, fontWeight: 400 }}>Models endpoint <span style={{ opacity: 0.6 }}>(optional)</span></label>
+            <input style={{ ...inp, fontSize: "0.82em" }} value={draft.modelsPath} onChange={(e) => set("modelsPath", e.target.value)} placeholder="/api/tags  (Ollama default)" />
+          </div>
+        </div>
+      )}
       {type === "stt" && <QueryParamsEditor label="Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
       {type === "tts" && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
       {type === "tts" && (
