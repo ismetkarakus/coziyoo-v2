@@ -48,3 +48,4 @@ Unless explicitly requested by the user, do not modify:
   - `git pull --rebase --autostash`
   - commit with a clear message
   - `git push`
+- Apply this as the default order (`pull -> commit -> push`) without requiring repeated reminders in each request.
