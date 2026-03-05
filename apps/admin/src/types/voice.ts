@@ -25,4 +25,42 @@ export type AgentSettingsFull = {
   updatedAt: string;
 };
 
-export type VoiceSettingsTab = "summary" | "general" | "stt" | "tts" | "llm" | "n8n" | "behaviour";
+export type SttServer = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  provider: string;
+  baseUrl: string;
+  transcribePath: string;
+  model: string;
+  queryParams: Record<string, string>;
+  authHeader: string;
+};
+
+export type TtsServer = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  baseUrl: string;
+  synthPath: string;
+  queryParams: Record<string, string>;
+  authHeader: string;
+};
+
+export type LlmServer = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  baseUrl: string;
+  model: string;
+  authHeader: string;
+};
+
+export type N8nServer = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  baseUrl: string;
+};
+
+export type VoiceSettingsTab = "summary" | "stt" | "tts" | "llm" | "n8n" | "general";

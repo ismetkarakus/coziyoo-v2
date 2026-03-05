@@ -1,8 +1,10 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import type { Language, ApiError } from "../types/core";
-import type { DeviceRow, AgentSettingsFull, VoiceSettingsTab } from "../types/voice";
+import type { AgentSettingsFull, SttServer, TtsServer, LlmServer, N8nServer, VoiceSettingsTab } from "../types/voice";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function readNestedStr(config: Record<string, unknown> | null, ...path: string[]): string {
   let cur: unknown = config;
@@ -13,82 +15,242 @@ function readNestedStr(config: Record<string, unknown> | null, ...path: string[]
   return typeof cur === "string" ? cur : "";
 }
 
-function QueryParamsEditor({
-  label,
-  params,
-  onChange,
-}: {
-  label: string;
-  params: Array<{ key: string; value: string }>;
-  onChange: (p: Array<{ key: string; value: string }>) => void;
-}) {
+function newId(): string {
+  return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+}
+
+function objToParams(obj: Record<string, string>): Array<{ key: string; value: string }> {
+  return Object.entries(obj).map(([key, value]) => ({ key, value }));
+}
+
+function paramsToObj(params: Array<{ key: string; value: string }>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const p of params) {
+    if (p.key.trim()) result[p.key.trim()] = p.value;
+  }
+  return result;
+}
+
+// ── Server draft (unified form state for all server types) ────────────────────
+
+type ServerDraft = {
+  name: string;
+  enabled: boolean;
+  provider: string;
+  baseUrl: string;
+  transcribePath: string;
+  synthPath: string;
+  model: string;
+  queryParams: Array<{ key: string; value: string }>;
+  authHeader: string;
+};
+
+function emptyDraft(): ServerDraft {
+  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", model: "", queryParams: [], authHeader: "" };
+}
+
+function sttToDraft(s: SttServer): ServerDraft {
+  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", model: s.model, queryParams: objToParams(s.queryParams), authHeader: s.authHeader };
+}
+
+function ttsToDraft(s: TtsServer): ServerDraft {
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, model: "", queryParams: objToParams(s.queryParams), authHeader: s.authHeader };
+}
+
+function llmToDraft(s: LlmServer): ServerDraft {
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", model: s.model, queryParams: [], authHeader: s.authHeader };
+}
+
+function n8nToDraft(s: N8nServer): ServerDraft {
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", model: "", queryParams: [], authHeader: "" };
+}
+
+function draftToStt(id: string, d: ServerDraft): SttServer {
+  return { id, name: d.name || "STT Server", enabled: d.enabled, provider: d.provider || "remote-speech-server", baseUrl: d.baseUrl, transcribePath: d.transcribePath || "/v1/audio/transcriptions", model: d.model, queryParams: paramsToObj(d.queryParams), authHeader: d.authHeader };
+}
+
+function draftToTts(id: string, d: ServerDraft): TtsServer {
+  return { id, name: d.name || "TTS Server", enabled: d.enabled, baseUrl: d.baseUrl, synthPath: d.synthPath || "/tts", queryParams: paramsToObj(d.queryParams), authHeader: d.authHeader };
+}
+
+function draftToLlm(id: string, d: ServerDraft): LlmServer {
+  return { id, name: d.name || "LLM Server", enabled: d.enabled, baseUrl: d.baseUrl, model: d.model, authHeader: d.authHeader };
+}
+
+function draftToN8n(id: string, d: ServerDraft): N8nServer {
+  return { id, name: d.name || "N8N Server", enabled: d.enabled, baseUrl: d.baseUrl };
+}
+
+// ── QueryParamsEditor ─────────────────────────────────────────────────────────
+
+function QueryParamsEditor({ params, onChange }: { params: Array<{ key: string; value: string }>; onChange: (p: Array<{ key: string; value: string }>) => void }) {
   const add = () => onChange([...params, { key: "", value: "" }]);
   const remove = (i: number) => onChange(params.filter((_, idx) => idx !== i));
-  const update = (i: number, field: "key" | "value", val: string) =>
-    onChange(params.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)));
+  const update = (i: number, field: "key" | "value", val: string) => onChange(params.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)));
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "0.82em", fontWeight: 600, color: "var(--color-secondary-text)" }}>{label}</span>
+        <span style={{ fontSize: "0.82em", fontWeight: 600, color: "var(--color-secondary-text)" }}>Query Params</span>
         <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 10px" }} onClick={add}>+ Add</button>
       </div>
-      {params.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-          {params.map((p, i) => (
-            <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-              <input style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }} value={p.key} onChange={(e) => update(i, "key", e.target.value)} placeholder="key" />
-              <input style={{ flex: 2, fontSize: "0.82em", padding: "4px 8px" }} value={p.value} onChange={(e) => update(i, "value", e.target.value)} placeholder="value" />
-              <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 8px", color: "#ef4444", flexShrink: 0 }} onClick={() => remove(i)}>✕</button>
-            </div>
-          ))}
+      {params.map((p, i) => (
+        <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+          <input style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }} value={p.key} onChange={(e) => update(i, "key", e.target.value)} placeholder="key" />
+          <input style={{ flex: 2, fontSize: "0.82em", padding: "4px 8px" }} value={p.value} onChange={(e) => update(i, "value", e.target.value)} placeholder="value" />
+          <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 8px", color: "#ef4444" }} onClick={() => remove(i)}>✕</button>
         </div>
+      ))}
+    </div>
+  );
+}
+
+// ── ServerInlineForm ──────────────────────────────────────────────────────────
+
+function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }: {
+  type: "stt" | "tts" | "llm" | "n8n";
+  draft: ServerDraft;
+  onChange: (d: ServerDraft) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  isSaving: boolean;
+}) {
+  const set = (field: keyof ServerDraft, val: unknown) => onChange({ ...draft, [field]: val } as ServerDraft);
+  const inp = { width: "100%", fontSize: "0.88em", padding: "5px 10px", boxSizing: "border-box" as const };
+  const lbl = { fontSize: "0.8em", fontWeight: 600, color: "var(--color-secondary-text)", marginBottom: "3px", display: "block" } as const;
+
+  const field = (label: string, node: React.ReactNode) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+      <label style={lbl}>{label}</label>
+      {node}
+    </div>
+  );
+
+  return (
+    <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "8px", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
+      {field("Name", <input style={inp} value={draft.name} onChange={(e) => set("name", e.target.value)} placeholder="Server name" />)}
+      <label style={{ fontSize: "0.88em", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+        <input type="checkbox" checked={draft.enabled} onChange={(e) => set("enabled", e.target.checked)} />
+        Enabled
+      </label>
+      {type === "stt" && field("Provider", <input style={inp} value={draft.provider} onChange={(e) => set("provider", e.target.value)} placeholder="remote-speech-server" />)}
+      {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} placeholder="https://..." />)}
+      {type === "stt" && field("Transcribe Path", <input style={inp} value={draft.transcribePath} onChange={(e) => set("transcribePath", e.target.value)} placeholder="/v1/audio/transcriptions" />)}
+      {type === "tts" && field("Synth Path", <input style={inp} value={draft.synthPath} onChange={(e) => set("synthPath", e.target.value)} placeholder="/tts" />)}
+      {(type === "stt" || type === "llm") && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder={type === "stt" ? "whisper-large-v3" : "llama3.1:8b"} />)}
+      {(type === "stt" || type === "tts") && <QueryParamsEditor params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
+      {(type === "stt" || type === "tts" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
+      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", borderTop: "1px solid var(--color-border)", paddingTop: "0.75rem" }}>
+        <button className="ghost" type="button" onClick={onCancel}>Cancel</button>
+        <button className="primary" type="button" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ── StatusDot ─────────────────────────────────────────────────────────────────
+
+type TestStatus = { ok: boolean; detail?: string } | null;
+
+function StatusDot({ status, label }: { status: TestStatus; label: string }) {
+  const color = status === null ? "var(--color-secondary-text)" : status.ok ? "#22c55e" : "#ef4444";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0" }}>
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+      <span style={{ fontSize: "0.88em" }}>{label}</span>
+      {status && !status.ok && status.detail && (
+        <span style={{ fontSize: "0.78em", color: "#ef4444", marginLeft: "4px" }}>{status.detail.slice(0, 100)}</span>
       )}
     </div>
   );
 }
 
+// ── Legacy migration ──────────────────────────────────────────────────────────
+
+function migrateLegacy(cfg: Record<string, unknown>, ollamaModel: string) {
+  let sttList: SttServer[] = Array.isArray(cfg.sttServers) ? (cfg.sttServers as SttServer[]) : [];
+  let defaultSttId = typeof cfg.defaultSttServerId === "string" ? cfg.defaultSttServerId : "";
+  if (sttList.length === 0) {
+    const legacyUrl = readNestedStr(cfg, "stt", "baseUrl");
+    if (legacyUrl) {
+      const id = newId();
+      sttList = [{ id, name: "Default", enabled: true, provider: readNestedStr(cfg, "stt", "provider") || "remote-speech-server", baseUrl: legacyUrl, transcribePath: readNestedStr(cfg, "stt", "transcribePath") || "/v1/audio/transcriptions", model: readNestedStr(cfg, "stt", "model"), queryParams: ((cfg.stt as Record<string, unknown>)?.queryParams ?? {}) as Record<string, string>, authHeader: readNestedStr(cfg, "stt", "authHeader") }];
+      defaultSttId = id;
+    }
+  }
+
+  let ttsList: TtsServer[] = Array.isArray(cfg.ttsServers) ? (cfg.ttsServers as TtsServer[]) : [];
+  let defaultTtsId = typeof cfg.defaultTtsServerId === "string" ? cfg.defaultTtsServerId : "";
+  if (ttsList.length === 0) {
+    const legacyUrl = readNestedStr(cfg, "baseUrl");
+    if (legacyUrl) {
+      const id = newId();
+      ttsList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl, synthPath: readNestedStr(cfg, "path") || "/tts", queryParams: (cfg.queryParams as Record<string, string>) ?? {}, authHeader: readNestedStr(cfg, "authHeader") }];
+      defaultTtsId = id;
+    }
+  }
+
+  let llmList: LlmServer[] = Array.isArray(cfg.llmServers) ? (cfg.llmServers as LlmServer[]) : [];
+  let defaultLlmId = typeof cfg.defaultLlmServerId === "string" ? cfg.defaultLlmServerId : "";
+  if (llmList.length === 0) {
+    const legacyUrl = readNestedStr(cfg, "llm", "ollamaBaseUrl");
+    if (legacyUrl) {
+      const id = newId();
+      llmList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl, model: ollamaModel, authHeader: readNestedStr(cfg, "llm", "authHeader") }];
+      defaultLlmId = id;
+    }
+  }
+
+  let n8nList: N8nServer[] = Array.isArray(cfg.n8nServers) ? (cfg.n8nServers as N8nServer[]) : [];
+  let defaultN8nId = typeof cfg.defaultN8nServerId === "string" ? cfg.defaultN8nServerId : "";
+  if (n8nList.length === 0) {
+    const legacyUrl = readNestedStr(cfg, "n8n", "baseUrl");
+    if (legacyUrl) {
+      const id = newId();
+      n8nList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl }];
+      defaultN8nId = id;
+    }
+  }
+
+  return { sttList, defaultSttId, ttsList, defaultTtsId, llmList, defaultLlmId, n8nList, defaultN8nId };
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
 export default function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
-  const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [deviceIdInput, setDeviceIdInput] = useState("default");
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<VoiceSettingsTab>("summary");
-  const [isCreateProfileOpen, setIsCreateProfileOpen] = useState(false);
-  const [newProfileIdInput, setNewProfileIdInput] = useState("");
 
-  // form state
+  // Server lists
+  const [sttServers, setSttServers] = useState<SttServer[]>([]);
+  const [defaultSttServerId, setDefaultSttServerId] = useState("");
+  const [ttsServers, setTtsServers] = useState<TtsServer[]>([]);
+  const [defaultTtsServerId, setDefaultTtsServerId] = useState("");
+  const [llmServers, setLlmServers] = useState<LlmServer[]>([]);
+  const [defaultLlmServerId, setDefaultLlmServerId] = useState("");
+  const [n8nServers, setN8nServers] = useState<N8nServer[]>([]);
+  const [defaultN8nServerId, setDefaultN8nServerId] = useState("");
+
+  // General settings
   const [agentName, setAgentName] = useState("");
   const [voiceLanguage, setVoiceLanguage] = useState("en");
-  const [ollamaModel, setOllamaModel] = useState("llama3.1:8b");
-  const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
-  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
-  const [ollamaModelsFetching, setOllamaModelsFetching] = useState(false);
-  const [ollamaModelsError, setOllamaModelsError] = useState<string | null>(null);
-  const [ollamaModelsPath, setOllamaModelsPath] = useState("");
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [ttsBaseUrl, setTtsBaseUrl] = useState("");
-  const [ttsSynthPath, setTtsSynthPath] = useState("");
-  const [sttEnabled, setSttEnabled] = useState(true);
-  const [sttProvider, setSttProvider] = useState("");
-  const [sttBaseUrl, setSttBaseUrl] = useState("");
-  const [sttTranscribePath, setSttTranscribePath] = useState("/v1/transcribe");
-  const [sttModel, setSttModel] = useState("");
-  const [sttQueryParams, setSttQueryParams] = useState<Array<{ key: string; value: string }>>([]);
-  const [ttsQueryParams, setTtsQueryParams] = useState<Array<{ key: string; value: string }>>([]);
-  const [sttAuthHeader, setSttAuthHeader] = useState("");
-  const [ttsAuthHeader, setTtsAuthHeader] = useState("");
-  const [llmAuthHeader, setLlmAuthHeader] = useState("");
-  const [n8nBaseUrl, setN8nBaseUrl] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [greetingEnabled, setGreetingEnabled] = useState(true);
   const [greetingInstruction, setGreetingInstruction] = useState("");
 
-  // connection test state: null = untested, true = ok, false = fail
-  type TestStatus = { ok: boolean; detail?: string } | null;
+  // Inline edit state
+  type EditTarget = { type: "stt" | "tts" | "llm" | "n8n"; id: string | null };
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [serverDraft, setServerDraft] = useState<ServerDraft>(emptyDraft());
+  const [serverSaving, setServerSaving] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  // General save state
+  const [generalSaving, setGeneralSaving] = useState(false);
+  const [generalMsg, setGeneralMsg] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+
+  // Connection test state
   const [testLiveKit, setTestLiveKit] = useState<TestStatus>(null);
   const [testStt, setTestStt] = useState<TestStatus>(null);
   const [testOllama, setTestOllama] = useState<TestStatus>(null);
@@ -96,912 +258,508 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   const [testTts, setTestTts] = useState<TestStatus>(null);
   const [testing, setTesting] = useState(false);
 
-  // TTS test
+  // TTS audio test
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [ttsSynthesizing, setTtsSynthesizing] = useState(false);
-  const [ttsSynthError, setTtsSynthError] = useState<string | null>(null);
-  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
+  const [ttsTestBusy, setTtsTestBusy] = useState(false);
+  const [ttsTestError, setTtsTestError] = useState<string | null>(null);
 
-  // STT record test
-  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const sttChunksRef = useRef<Blob[]>([]);
-  const [sttRecording, setSttRecording] = useState(false);
-  const [sttTranscribing, setSttTranscribing] = useState(false);
-  const [sttTranscript, setSttTranscript] = useState<string | null>(null);
-  const [sttTestError, setSttTestError] = useState<string | null>(null);
-  const [sttDebugInfo, setSttDebugInfo] = useState<string | null>(null);
+  // ── Load ────────────────────────────────────────────────────────────────────
 
-  function resetSettingsFormToDefaults() {
-    setAgentName("");
-    setVoiceLanguage("en");
-    setOllamaModel("llama3.1:8b");
-    setOllamaBaseUrl("");
-    setOllamaModels([]);
-    setOllamaModelsError(null);
-    setOllamaModelsPath("");
-    setTtsEnabled(true);
-    setTtsBaseUrl("");
-    setTtsSynthPath("");
-    setSttEnabled(true);
-    setSttProvider("");
-    setSttBaseUrl("");
-    setSttTranscribePath("/v1/transcribe");
-    setSttModel("");
-    setSttQueryParams([]);
-    setTtsQueryParams([]);
-    setSttAuthHeader("");
-    setTtsAuthHeader("");
-    setLlmAuthHeader("");
-    setN8nBaseUrl("");
-    setSystemPrompt("");
-    setGreetingEnabled(true);
-    setGreetingInstruction("");
-  }
-
-  async function startNewProfileDraft(profileId: string) {
-    const normalized = profileId.trim();
-    if (!normalized) return;
-    setSaving(true);
-    setSaveMsg(null);
-    setSaveError(null);
-    try {
-      const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(normalized)}`, {
-        method: "PUT",
-        body: JSON.stringify({}),
-      });
-      const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
-      if (res.status !== 200 || !body.data) {
-        setSaveError(body.error?.message ?? dict.voiceAgentSettings.saveError);
-        return;
-      }
-      setIsCreateProfileOpen(false);
-      setNewProfileIdInput("");
-      await loadDeviceList();
-      await loadSettings(normalized);
-      setActiveTab("general");
-    } catch {
-      setSaveError(dict.voiceAgentSettings.saveError);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function loadDeviceList(): Promise<DeviceRow[]> {
-    const res = await request("/v1/admin/livekit/agent-settings");
-    const body = await parseJson<{ data?: DeviceRow[] } & ApiError>(res);
-    if (res.status === 200 && body.data) {
-      setDevices(body.data);
-      return body.data;
-    }
-    return [];
-  }
-
-  async function loadSettings(
-    id: string,
-    options?: {
-      runTestsAfterLoad?: boolean;
-    }
-  ) {
+  const loadSettings = useCallback(async () => {
     setLoadError(null);
-    setSaveMsg(null);
-    setSaveError(null);
-    const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(id)}`);
-    const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
-    if (res.status === 200 && body.data) {
-      const s = body.data;
-      const loadedOllamaBaseUrl = readNestedStr(s.ttsConfig, "llm", "ollamaBaseUrl");
-      const loadedTtsBaseUrl = readNestedStr(s.ttsConfig, "baseUrl");
-      const loadedSttProvider = readNestedStr(s.ttsConfig, "stt", "provider");
-      const loadedSttBaseUrl = readNestedStr(s.ttsConfig, "stt", "baseUrl");
-      const loadedSttTranscribePath = readNestedStr(s.ttsConfig, "stt", "transcribePath") || "/v1/transcribe";
-      const loadedSttModel = readNestedStr(s.ttsConfig, "stt", "model");
-      const loadedN8nBaseUrl = readNestedStr(s.ttsConfig, "n8n", "baseUrl");
-      setCurrentDeviceId(id);
-      setAgentName(s.agentName ?? "");
-      setVoiceLanguage(s.voiceLanguage ?? "en");
-      setOllamaModel(s.ollamaModel ?? "llama3.1:8b");
-      setOllamaBaseUrl(loadedOllamaBaseUrl);
-      setTtsEnabled(s.ttsEnabled ?? true);
-      setTtsBaseUrl(loadedTtsBaseUrl);
-      setTtsSynthPath(readNestedStr(s.ttsConfig, "path"));
-      setSttEnabled(s.sttEnabled ?? true);
-      setSttProvider(loadedSttProvider);
-      setSttBaseUrl(loadedSttBaseUrl);
-      setSttTranscribePath(loadedSttTranscribePath);
-      setSttModel(loadedSttModel);
-      const rawSttQP = (typeof s.ttsConfig?.stt === "object" && s.ttsConfig.stt !== null ? (s.ttsConfig.stt as Record<string, unknown>).queryParams : null) ?? {};
-      setSttQueryParams(Object.entries(typeof rawSttQP === "object" && rawSttQP !== null ? rawSttQP as Record<string, string> : {}).map(([k, v]) => ({ key: k, value: String(v) })));
-      const rawTtsQP = s.ttsConfig?.queryParams ?? {};
-      setTtsQueryParams(Object.entries(typeof rawTtsQP === "object" && rawTtsQP !== null ? rawTtsQP as Record<string, string> : {}).map(([k, v]) => ({ key: k, value: String(v) })));
-      setSttAuthHeader(readNestedStr(s.ttsConfig, "stt", "authHeader"));
-      setTtsAuthHeader(readNestedStr(s.ttsConfig, "authHeader"));
-      setLlmAuthHeader(readNestedStr(s.ttsConfig, "llm", "authHeader"));
-      setN8nBaseUrl(loadedN8nBaseUrl);
-      setSystemPrompt(s.systemPrompt ?? "");
-      setGreetingEnabled(s.greetingEnabled ?? true);
-      setGreetingInstruction(s.greetingInstruction ?? "");
-      if (options?.runTestsAfterLoad) {
-        setActiveTab("summary");
-        await runTestAll({
-          sttBaseUrl: loadedSttBaseUrl,
-          sttTranscribePath: loadedSttTranscribePath,
-          ollamaBaseUrl: loadedOllamaBaseUrl,
-          n8nBaseUrl: loadedN8nBaseUrl,
-          ttsBaseUrl: loadedTtsBaseUrl,
-        });
-      }
-    } else if (res.status === 404) {
-      // New profile draft
-      setCurrentDeviceId(id);
-      resetSettingsFormToDefaults();
-    } else {
-      setLoadError(body.error?.message ?? dict.voiceAgentSettings.loadError);
-    }
-  }
-
-  async function onLoad(event: FormEvent) {
-    event.preventDefault();
-    const id = deviceIdInput.trim();
-    if (!id) return;
-    await loadSettings(id, { runTestsAfterLoad: true });
-  }
-
-  async function onSave(event: FormEvent) {
-    event.preventDefault();
-    const id = currentDeviceId ?? deviceIdInput.trim();
-    if (!id) return;
-    setSaving(true);
-    setSaveMsg(null);
-    setSaveError(null);
     try {
-      const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          agentName: agentName.trim() || undefined,
-          voiceLanguage: voiceLanguage.trim() || undefined,
-          ollamaModel: ollamaModel.trim() || undefined,
-          ollamaBaseUrl: ollamaBaseUrl.trim() || undefined,
-          ttsEnabled,
-          ttsBaseUrl: ttsBaseUrl.trim() || undefined,
-          ttsSynthPath: ttsSynthPath.trim() || undefined,
-          sttEnabled,
-          sttProvider: sttProvider.trim() || undefined,
-          sttBaseUrl: sttBaseUrl.trim() || undefined,
-          sttTranscribePath: sttTranscribePath.trim() || undefined,
-          sttModel: sttModel.trim() || undefined,
-          sttQueryParams: Object.fromEntries(sttQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])),
-          ttsQueryParams: Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])),
-          sttAuthHeader: sttAuthHeader.trim() || undefined,
-          ttsAuthHeader: ttsAuthHeader.trim() || undefined,
-          llmAuthHeader: llmAuthHeader.trim() || undefined,
-          n8nBaseUrl: n8nBaseUrl.trim() || undefined,
-          systemPrompt: systemPrompt.trim() || undefined,
-          greetingEnabled,
-          greetingInstruction: greetingInstruction.trim() || undefined,
-        }),
-      });
-      const body = await parseJson<{ data?: AgentSettingsFull } & ApiError>(res);
-      if (res.status !== 200 || !body.data) {
-        setSaveError(body.error?.message ?? dict.voiceAgentSettings.saveError);
+      const res = await request("GET", "/v1/admin/livekit/agent-settings/default");
+      if (res.status === 404) {
+        await request("PUT", "/v1/admin/livekit/agent-settings/default", { agentName: "coziyoo-agent", voiceLanguage: "en" });
         return;
       }
-      setCurrentDeviceId(id);
-      setSaveMsg(dict.voiceAgentSettings.saveSuccess);
-      await loadDeviceList();
-    } catch {
-      setSaveError(dict.voiceAgentSettings.saveError);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function deleteProfile(profileId: string) {
-    if (!window.confirm(language === "tr" ? `"${profileId}" profilini silmek istediğinizden emin misiniz?` : `Delete profile "${profileId}"?`)) return;
-    const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(profileId)}`, { method: "DELETE" });
-    if (res.status === 200) {
-      if (currentDeviceId === profileId) {
-        setCurrentDeviceId(null);
-        resetSettingsFormToDefaults();
-      }
-      await loadDeviceList();
-    } else {
-      const body = await parseJson<ApiError>(res);
-      setSaveError(body.error?.message ?? "Delete failed");
-    }
-  }
-
-  async function activateProfile(profileId: string) {
-    const res = await request(`/v1/admin/livekit/agent-settings/${encodeURIComponent(profileId)}/activate`, { method: "POST", body: "{}" });
-    if (res.status === 200) {
-      await loadDeviceList();
-    } else {
-      const body = await parseJson<ApiError>(res);
-      setSaveError(body.error?.message ?? "Activate failed");
-    }
-  }
-
-  async function runTestLiveKit() {
-    setTestLiveKit(null);
-    const res = await request("/v1/admin/livekit/test/livekit", { method: "POST", body: "{}" });
-    const body = await parseJson<{ data?: { ok: boolean; reason?: string; wsUrl?: string } } & ApiError>(res);
-    setTestLiveKit({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? body.data?.wsUrl });
-  }
-
-  async function startSttRecording() {
-    setSttTranscript(null);
-    setSttTestError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      sttChunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) sttChunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        // ondataavailable fires before onstop completes in all browsers,
-        // so chunks are fully collected by the time we reach here.
-        void sendSttRecording();
-      };
-      recorder.start();
-      sttMediaRecorderRef.current = recorder;
-      setSttRecording(true);
-    } catch (err) {
-      setSttTestError(err instanceof Error ? err.message : "Microphone access denied");
-    }
-  }
-
-  function stopSttRecording() {
-    const recorder = sttMediaRecorderRef.current;
-    if (!recorder) return;
-    // requestData() flushes any buffered audio before stop() fires onstop
-    recorder.requestData();
-    recorder.stop();
-    sttMediaRecorderRef.current = null;
-    setSttRecording(false);
-  }
-
-  async function sendSttRecording() {
-    const url = sttBaseUrl.trim();
-    const transcribePath = sttTranscribePath.trim() || "/v1/transcribe";
-    if (!url) { setSttTestError("No STT URL configured"); return; }
-    setSttTranscribing(true);
-    setSttTestError(null);
-    setSttDebugInfo(null);
-    try {
-      const mimeType = sttChunksRef.current[0]?.type || "audio/webm";
-      const blob = new Blob(sttChunksRef.current, { type: mimeType });
-      if (blob.size === 0) { setSttTestError("Recording is empty — try again"); setSttTranscribing(false); return; }
-      const form = new FormData();
-      form.append("file", blob, "recording.webm");
-      if (sttModel.trim()) form.append("model", sttModel.trim());
-      const extraFields: string[] = [];
-      for (const { key, value } of sttQueryParams) {
-        if (key.trim()) { form.append(key.trim(), value); extraFields.push(`${key.trim()}=${value}`); }
-      }
-      const headers: Record<string, string> = {};
-      if (sttAuthHeader.trim()) headers["Authorization"] = sttAuthHeader.trim();
-      const fullUrl = `${url.replace(/\/$/, "")}${transcribePath}`;
-
-      const debugLines = [
-        `POST ${fullUrl}`,
-        `file: recording.webm  type=${mimeType}  size=${blob.size} bytes`,
-        sttModel.trim() ? `model: ${sttModel.trim()}` : null,
-        ...extraFields.map((f) => f),
-        sttAuthHeader.trim() ? `Authorization: ${sttAuthHeader.trim().slice(0, 16)}…` : null,
-      ].filter(Boolean).join("\n");
-      setSttDebugInfo(debugLines);
-
-      const res = await fetch(fullUrl, { method: "POST", headers, body: form });
-      const text = await res.text();
-      setSttDebugInfo(`${debugLines}\n\n→ HTTP ${res.status}\n${text.slice(0, 400)}`);
-      if (!res.ok) {
-        setSttTestError(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+      const json = await parseJson(res);
+      if (json.error) {
+        setLoadError((json.error as ApiError).message ?? "Load failed");
         return;
       }
-      try {
-        const json = JSON.parse(text) as Record<string, unknown>;
-        const transcript = (json.text ?? json.transcript ?? json.transcription ?? text) as string;
-        setSttTranscript(String(transcript));
-      } catch {
-        setSttTranscript(text);
-      }
+      const data = json.data as AgentSettingsFull;
+      const cfg = (data.ttsConfig ?? {}) as Record<string, unknown>;
+
+      setAgentName(data.agentName ?? "");
+      setVoiceLanguage(data.voiceLanguage ?? "en");
+      setSystemPrompt(data.systemPrompt ?? "");
+      setGreetingEnabled(data.greetingEnabled ?? true);
+      setGreetingInstruction(data.greetingInstruction ?? "");
+
+      const { sttList, defaultSttId, ttsList, defaultTtsId, llmList, defaultLlmId, n8nList, defaultN8nId } = migrateLegacy(cfg, data.ollamaModel ?? "");
+
+      setSttServers(sttList);
+      setDefaultSttServerId(defaultSttId);
+      setTtsServers(ttsList);
+      setDefaultTtsServerId(defaultTtsId);
+      setLlmServers(llmList);
+      setDefaultLlmServerId(defaultLlmId);
+      setN8nServers(n8nList);
+      setDefaultN8nServerId(defaultN8nId);
     } catch (err) {
-      setSttTestError(err instanceof Error ? err.message : "STT request failed");
-    } finally {
-      setSttTranscribing(false);
+      setLoadError(err instanceof Error ? err.message : "Load failed");
     }
-  }
-
-  async function runTestStt(sttBaseUrlOverride?: string, sttTranscribePathOverride?: string) {
-    setTestStt(null);
-    const url = (sttBaseUrlOverride ?? sttBaseUrl).trim();
-    const transcribePath = (sttTranscribePathOverride ?? sttTranscribePath).trim() || "/v1/transcribe";
-    if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
-    const res = await request("/v1/admin/livekit/test/stt", {
-      method: "POST",
-      body: JSON.stringify({ baseUrl: url, transcribePath }),
-    });
-    const body = await parseJson<{ data?: { ok: boolean; reason?: string; status?: number } } & ApiError>(res);
-    setTestStt({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? (body.data?.status ? `HTTP ${body.data.status}` : undefined) });
-  }
-
-  async function runTestOllama(baseUrlOverride?: string) {
-    setTestOllama(null);
-    const res = await request("/v1/admin/livekit/test/ollama", {
-      method: "POST",
-      body: JSON.stringify({ baseUrl: (baseUrlOverride ?? ollamaBaseUrl).trim() || undefined }),
-    });
-    const body = await parseJson<{ data?: { ok: boolean; reason?: string; models?: string[] } } & ApiError>(res);
-    setTestOllama({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? (body.data?.models ? body.data.models.slice(0, 3).join(", ") : undefined) });
-  }
-
-  async function runTestN8n(baseUrlOverride?: string) {
-    setTestN8n(null);
-    const res = await request("/v1/admin/livekit/test/n8n", {
-      method: "POST",
-      body: JSON.stringify({ baseUrl: (baseUrlOverride ?? n8nBaseUrl).trim() || undefined }),
-    });
-    const body = await parseJson<{ data?: { ok: boolean; reason?: string } } & ApiError>(res);
-    setTestN8n({ ok: body.data?.ok ?? false, detail: body.data?.reason });
-  }
-
-  async function fetchOllamaModels(customPath?: string) {
-    const url = ollamaBaseUrl.trim();
-    if (!url) return;
-    setOllamaModelsFetching(true);
-    setOllamaModelsError(null);
-    try {
-      const body: Record<string, string> = { baseUrl: url };
-      if (customPath?.trim()) body.modelsPath = customPath.trim();
-      const res = await request("/v1/admin/livekit/test/ollama", { method: "POST", body: JSON.stringify(body) });
-      const data = await parseJson<{ data?: { ok: boolean; models?: string[]; reason?: string } }>(res);
-      const models = data.data?.models ?? [];
-      if (models.length === 0) {
-        setOllamaModelsError(language === "tr" ? "Model bulunamadı. API path'ini girin ve tekrar deneyin." : "No models found. Enter the API path and try again.");
-        setOllamaModels([]);
-      } else {
-        setOllamaModels(models);
-        setOllamaModelsError(null);
-        if (!models.includes(ollamaModel)) setOllamaModel(models[0]);
-      }
-    } catch {
-      setOllamaModelsError(language === "tr" ? "Sunucuya ulaşılamadı." : "Could not reach server.");
-      setOllamaModels([]);
-    } finally {
-      setOllamaModelsFetching(false);
-    }
-  }
-
-  async function runTestSttHealth(urlOverride?: string) {
-    const url = (urlOverride ?? sttBaseUrl).trim();
-    setTestStt(null);
-    if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
-    const healthUrl = `${url.replace(/\/$/, "")}/health`;
-    try {
-      const res = await fetch(healthUrl);
-      setTestStt({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
-    } catch {
-      try {
-        await fetch(healthUrl, { mode: "no-cors" });
-        setTestStt({ ok: true });
-      } catch (err) {
-        setTestStt({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
-      }
-    }
-  }
-
-  async function runTestTtsHealth(urlOverride?: string) {
-    const url = (urlOverride ?? ttsBaseUrl).trim();
-    setTestTts(null);
-    if (!url) { setTestTts({ ok: false, detail: "No TTS URL configured" }); return; }
-    const healthUrl = `${url.replace(/\/$/, "")}/health`;
-    try {
-      const res = await fetch(healthUrl);
-      setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
-    } catch {
-      try {
-        await fetch(healthUrl, { mode: "no-cors" });
-        setTestTts({ ok: true });
-      } catch (err) {
-        setTestTts({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
-      }
-    }
-  }
-
-  async function runTestAll(overrides?: { sttBaseUrl?: string; sttTranscribePath?: string; ollamaBaseUrl?: string; n8nBaseUrl?: string; ttsBaseUrl?: string }) {
-    setTesting(true);
-    setTestLiveKit(null);
-    setTestStt(null);
-    setTestOllama(null);
-    setTestN8n(null);
-    setTestTts(null);
-    await Promise.allSettled([
-      runTestLiveKit(),
-      runTestSttHealth(overrides?.sttBaseUrl),
-      runTestOllama(overrides?.ollamaBaseUrl),
-      runTestN8n(overrides?.n8nBaseUrl),
-      runTestTtsHealth(overrides?.ttsBaseUrl),
-    ]);
-    setTesting(false);
-  }
-
-  async function runTestTts() {
-    const baseUrlTrimmed = ttsBaseUrl.trim();
-    if (!baseUrlTrimmed) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); return; }
-    setTtsSynthesizing(true);
-    setTtsSynthError(null);
-    if (ttsAudioUrl) { URL.revokeObjectURL(ttsAudioUrl); setTtsAudioUrl(null); }
-    try {
-      const path = ttsSynthPath.trim() || "/tts";
-      const ttsUrl = `${baseUrlTrimmed.replace(/\/$/, "")}${path}`;
-      const bodyParams = Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value]));
-      const textParam = (bodyParams.text as string | undefined)?.trim() || "Hello";
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (ttsAuthHeader.trim()) headers["Authorization"] = ttsAuthHeader.trim();
-      const res = await fetch(ttsUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ text: textParam, ...bodyParams }),
-      });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        const msg = `TTS error ${res.status}${errText ? `: ${errText.slice(0, 200)}` : ""}`;
-        setTtsSynthError(msg);
-        return;
-      }
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      setTtsAudioUrl(objUrl);
-      if (ttsAudioRef.current) {
-        ttsAudioRef.current.src = objUrl;
-        ttsAudioRef.current.play().catch(() => undefined);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "TTS request failed";
-      setTtsSynthError(msg);
-    } finally {
-      setTtsSynthesizing(false);
-    }
-  }
-
-  useEffect(() => {
-    loadDeviceList()
-      .then((list) => {
-        if (list.length === 0) return;
-        const first = list.find((d) => d.is_active) ?? list[0];
-        loadSettings(first.device_id, { runTestsAfterLoad: true }).catch(() => undefined);
-      })
-      .catch(() => undefined);
   }, []);
 
-  function StatusDot({ status }: { status: TestStatus }) {
-    const color = status === null ? "#999" : status.ok ? "#22c55e" : "#ef4444";
-    const label = status === null ? dict.voiceAgentSettings.statusUnknown : status.ok ? dict.voiceAgentSettings.statusOk : dict.voiceAgentSettings.statusFail;
+  useEffect(() => { loadSettings(); }, [loadSettings]);
+
+  // ── Save servers (called after every server list mutation) ──────────────────
+
+  const saveServers = useCallback(async (opts: {
+    sttServers?: SttServer[]; defaultSttServerId?: string;
+    ttsServers?: TtsServer[]; defaultTtsServerId?: string;
+    llmServers?: LlmServer[]; defaultLlmServerId?: string;
+    n8nServers?: N8nServer[]; defaultN8nServerId?: string;
+  }) => {
+    const _stt = opts.sttServers ?? sttServers;
+    const _dStt = opts.defaultSttServerId ?? defaultSttServerId;
+    const _tts = opts.ttsServers ?? ttsServers;
+    const _dTts = opts.defaultTtsServerId ?? defaultTtsServerId;
+    const _llm = opts.llmServers ?? llmServers;
+    const _dLlm = opts.defaultLlmServerId ?? defaultLlmServerId;
+    const _n8n = opts.n8nServers ?? n8nServers;
+    const _dN8n = opts.defaultN8nServerId ?? defaultN8nServerId;
+
+    const defaultStt = _stt.find(s => s.id === _dStt);
+    const defaultTts = _tts.find(s => s.id === _dTts);
+    const defaultLlm = _llm.find(s => s.id === _dLlm);
+    const defaultN8n = _n8n.find(s => s.id === _dN8n);
+
+    const body: Record<string, unknown> = {
+      sttServers: _stt, defaultSttServerId: _dStt,
+      ttsServers: _tts, defaultTtsServerId: _dTts,
+      llmServers: _llm, defaultLlmServerId: _dLlm,
+      n8nServers: _n8n, defaultN8nServerId: _dN8n,
+    };
+
+    // Backward-compat: derive scalar fields from default servers
+    if (defaultStt) { body.sttBaseUrl = defaultStt.baseUrl; body.sttProvider = defaultStt.provider; body.sttTranscribePath = defaultStt.transcribePath; body.sttModel = defaultStt.model; body.sttQueryParams = defaultStt.queryParams; body.sttAuthHeader = defaultStt.authHeader; }
+    if (defaultTts) { body.ttsBaseUrl = defaultTts.baseUrl; body.ttsSynthPath = defaultTts.synthPath; body.ttsQueryParams = defaultTts.queryParams; body.ttsAuthHeader = defaultTts.authHeader; }
+    if (defaultLlm) { body.ollamaBaseUrl = defaultLlm.baseUrl; body.ollamaModel = defaultLlm.model; body.llmAuthHeader = defaultLlm.authHeader; }
+    if (defaultN8n) { body.n8nBaseUrl = defaultN8n.baseUrl; }
+
+    const res = await request("PUT", "/v1/admin/livekit/agent-settings/default", body);
+    const json = await parseJson(res);
+    if (json.error) throw new Error((json.error as ApiError).message ?? "Save failed");
+  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId]);
+
+  // ── Server mutations ────────────────────────────────────────────────────────
+
+  const handleAddServer = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", draft: ServerDraft) => {
+    const id = newId();
+    setServerSaving(true);
+    setServerError(null);
+    try {
+      if (type === "stt") {
+        const server = draftToStt(id, draft);
+        const newList = [...sttServers, server];
+        const newDefault = defaultSttServerId || id;
+        await saveServers({ sttServers: newList, defaultSttServerId: newDefault });
+        setSttServers(newList);
+        setDefaultSttServerId(newDefault);
+      } else if (type === "tts") {
+        const server = draftToTts(id, draft);
+        const newList = [...ttsServers, server];
+        const newDefault = defaultTtsServerId || id;
+        await saveServers({ ttsServers: newList, defaultTtsServerId: newDefault });
+        setTtsServers(newList);
+        setDefaultTtsServerId(newDefault);
+      } else if (type === "llm") {
+        const server = draftToLlm(id, draft);
+        const newList = [...llmServers, server];
+        const newDefault = defaultLlmServerId || id;
+        await saveServers({ llmServers: newList, defaultLlmServerId: newDefault });
+        setLlmServers(newList);
+        setDefaultLlmServerId(newDefault);
+      } else {
+        const server = draftToN8n(id, draft);
+        const newList = [...n8nServers, server];
+        const newDefault = defaultN8nServerId || id;
+        await saveServers({ n8nServers: newList, defaultN8nServerId: newDefault });
+        setN8nServers(newList);
+        setDefaultN8nServerId(newDefault);
+      }
+      setEditing(null);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setServerSaving(false);
+    }
+  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId, saveServers]);
+
+  const handleEditServer = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", id: string, draft: ServerDraft) => {
+    setServerSaving(true);
+    setServerError(null);
+    try {
+      if (type === "stt") {
+        const newList = sttServers.map(s => s.id === id ? draftToStt(id, draft) : s);
+        await saveServers({ sttServers: newList });
+        setSttServers(newList);
+      } else if (type === "tts") {
+        const newList = ttsServers.map(s => s.id === id ? draftToTts(id, draft) : s);
+        await saveServers({ ttsServers: newList });
+        setTtsServers(newList);
+      } else if (type === "llm") {
+        const newList = llmServers.map(s => s.id === id ? draftToLlm(id, draft) : s);
+        await saveServers({ llmServers: newList });
+        setLlmServers(newList);
+      } else {
+        const newList = n8nServers.map(s => s.id === id ? draftToN8n(id, draft) : s);
+        await saveServers({ n8nServers: newList });
+        setN8nServers(newList);
+      }
+      setEditing(null);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setServerSaving(false);
+    }
+  }, [sttServers, ttsServers, llmServers, n8nServers, saveServers]);
+
+  const handleDeleteServer = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", id: string) => {
+    setServerError(null);
+    try {
+      if (type === "stt") {
+        const newList = sttServers.filter(s => s.id !== id);
+        const newDefault = defaultSttServerId === id ? (newList[0]?.id ?? "") : defaultSttServerId;
+        await saveServers({ sttServers: newList, defaultSttServerId: newDefault });
+        setSttServers(newList);
+        setDefaultSttServerId(newDefault);
+      } else if (type === "tts") {
+        const newList = ttsServers.filter(s => s.id !== id);
+        const newDefault = defaultTtsServerId === id ? (newList[0]?.id ?? "") : defaultTtsServerId;
+        await saveServers({ ttsServers: newList, defaultTtsServerId: newDefault });
+        setTtsServers(newList);
+        setDefaultTtsServerId(newDefault);
+      } else if (type === "llm") {
+        const newList = llmServers.filter(s => s.id !== id);
+        const newDefault = defaultLlmServerId === id ? (newList[0]?.id ?? "") : defaultLlmServerId;
+        await saveServers({ llmServers: newList, defaultLlmServerId: newDefault });
+        setLlmServers(newList);
+        setDefaultLlmServerId(newDefault);
+      } else {
+        const newList = n8nServers.filter(s => s.id !== id);
+        const newDefault = defaultN8nServerId === id ? (newList[0]?.id ?? "") : defaultN8nServerId;
+        await saveServers({ n8nServers: newList, defaultN8nServerId: newDefault });
+        setN8nServers(newList);
+        setDefaultN8nServerId(newDefault);
+      }
+      if (editing?.id === id) setEditing(null);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId, saveServers, editing]);
+
+  const handleSetDefault = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", id: string) => {
+    setServerError(null);
+    try {
+      if (type === "stt") { await saveServers({ defaultSttServerId: id }); setDefaultSttServerId(id); }
+      else if (type === "tts") { await saveServers({ defaultTtsServerId: id }); setDefaultTtsServerId(id); }
+      else if (type === "llm") { await saveServers({ defaultLlmServerId: id }); setDefaultLlmServerId(id); }
+      else { await saveServers({ defaultN8nServerId: id }); setDefaultN8nServerId(id); }
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Save failed");
+    }
+  }, [saveServers]);
+
+  // ── General save ─────────────────────────────────────────────────────────────
+
+  const handleSaveGeneral = async () => {
+    setGeneralSaving(true);
+    setGeneralMsg(null);
+    setGeneralError(null);
+    try {
+      const res = await request("PUT", "/v1/admin/livekit/agent-settings/default", { agentName, voiceLanguage, systemPrompt, greetingEnabled, greetingInstruction });
+      const json = await parseJson(res);
+      if (json.error) throw new Error((json.error as ApiError).message ?? "Save failed");
+      setGeneralMsg("Saved");
+      setTimeout(() => setGeneralMsg(null), 3000);
+    } catch (err) {
+      setGeneralError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setGeneralSaving(false);
+    }
+  };
+
+  // ── Connection tests ──────────────────────────────────────────────────────────
+
+  const runTestLiveKit = async () => {
+    setTestLiveKit(null);
+    try {
+      const res = await request("POST", "/v1/admin/livekit/test/livekit");
+      const json = await parseJson(res);
+      setTestLiveKit({ ok: json.data?.ok === true, detail: json.data?.reason });
+    } catch { setTestLiveKit({ ok: false, detail: "Request failed" }); }
+  };
+
+  const runTestSttHealth = async () => {
+    const srv = sttServers.find(s => s.id === defaultSttServerId);
+    if (!srv) { setTestStt({ ok: false, detail: "No default STT server" }); return; }
+    setTestStt(null);
+    try {
+      const res = await request("POST", "/v1/admin/livekit/test/stt", { baseUrl: srv.baseUrl, transcribePath: srv.transcribePath });
+      const json = await parseJson(res);
+      setTestStt({ ok: json.data?.ok === true, detail: json.data?.reason });
+    } catch { setTestStt({ ok: false, detail: "Request failed" }); }
+  };
+
+  const runTestTtsHealth = async () => {
+    const srv = ttsServers.find(s => s.id === defaultTtsServerId);
+    if (!srv) { setTestTts({ ok: false, detail: "No default TTS server" }); return; }
+    setTestTts(null);
+    try {
+      const res = await request("POST", "/v1/admin/livekit/test/tts", { text: "test", baseUrl: srv.baseUrl, synthPath: srv.synthPath, queryParams: srv.queryParams, authHeader: srv.authHeader });
+      setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+    } catch { setTestTts({ ok: false, detail: "Request failed" }); }
+  };
+
+  const runTestOllama = async () => {
+    const srv = llmServers.find(s => s.id === defaultLlmServerId);
+    setTestOllama(null);
+    try {
+      const res = await request("POST", "/v1/admin/livekit/test/ollama", { baseUrl: srv?.baseUrl });
+      const json = await parseJson(res);
+      setTestOllama({ ok: json.data?.ok === true, detail: json.data?.reason });
+    } catch { setTestOllama({ ok: false, detail: "Request failed" }); }
+  };
+
+  const runTestN8n = async () => {
+    const srv = n8nServers.find(s => s.id === defaultN8nServerId);
+    setTestN8n(null);
+    try {
+      const res = await request("POST", "/v1/admin/livekit/test/n8n", { baseUrl: srv?.baseUrl });
+      const json = await parseJson(res);
+      setTestN8n({ ok: json.data?.ok === true, detail: json.data?.reason });
+    } catch { setTestN8n({ ok: false, detail: "Request failed" }); }
+  };
+
+  const handleTestAll = async () => {
+    setTesting(true);
+    await Promise.all([runTestLiveKit(), runTestSttHealth(), runTestTtsHealth(), runTestOllama(), runTestN8n()]);
+    setTesting(false);
+  };
+
+  // ── TTS audio play test ───────────────────────────────────────────────────────
+
+  const handleTtsPlay = async (server: TtsServer) => {
+    setTtsTestBusy(true);
+    setTtsTestError(null);
+    try {
+      const res = await request("POST", "/v1/admin/livekit/test/tts", { text: "Merhaba, nasıl yardımcı olabilirim?", baseUrl: server.baseUrl, synthPath: server.synthPath, queryParams: server.queryParams, authHeader: server.authHeader });
+      if (!res.ok) {
+        const json = await parseJson(res);
+        throw new Error((json.error as ApiError)?.message ?? `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (ttsAudioRef.current) { ttsAudioRef.current.pause(); URL.revokeObjectURL(ttsAudioRef.current.src); }
+      const audio = new Audio(url);
+      ttsAudioRef.current = audio;
+      await audio.play();
+    } catch (err) {
+      setTtsTestError(err instanceof Error ? err.message : "TTS test failed");
+    } finally {
+      setTtsTestBusy(false);
+    }
+  };
+
+  // ── Server list tab renderer ───────────────────────────────────────────────
+
+  function renderServerList(
+    type: "stt" | "tts" | "llm" | "n8n",
+    servers: Array<SttServer | TtsServer | LlmServer | N8nServer>,
+    defaultId: string,
+  ) {
+    const isEditingType = editing?.type === type;
+    const isAdding = isEditingType && editing?.id === null;
+
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-        <span style={{ fontSize: "0.8em", color, fontWeight: 600 }}>{label}</span>
-        {status?.detail ? <span style={{ fontSize: "0.75em", color: "var(--text-muted, #888)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status.detail}</span> : null}
-      </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ margin: 0, fontSize: "1em", fontWeight: 700 }}>{type.toUpperCase()} Servers</h3>
+          <button className="ghost" type="button" onClick={() => { setEditing({ type, id: null }); setServerDraft(emptyDraft()); setServerError(null); }}>+ Add</button>
+        </div>
+
+        {isEditingType && serverError && <div style={{ color: "#ef4444", fontSize: "0.85em" }}>{serverError}</div>}
+
+        {isAdding && (
+          <ServerInlineForm type={type} draft={serverDraft} onChange={setServerDraft}
+            onSave={() => handleAddServer(type, serverDraft)}
+            onCancel={() => setEditing(null)}
+            isSaving={serverSaving} />
+        )}
+
+        {servers.length === 0 && !isAdding && (
+          <div style={{ color: "var(--color-secondary-text)", fontSize: "0.88em", padding: "1rem 0" }}>
+            No servers configured. Click "+ Add" to add one.
+          </div>
+        )}
+
+        {servers.map(server => {
+          const isDefault = server.id === defaultId;
+          const isThisEditing = editing?.type === type && editing?.id === server.id;
+          const displayUrl = (server as { baseUrl?: string }).baseUrl ?? "";
+
+          return (
+            <div key={server.id}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem 1rem",
+                background: "var(--color-surface)",
+                border: `1px solid ${isDefault ? "var(--color-primary, #6366f1)" : "var(--color-border)"}`,
+                borderRadius: "8px",
+              }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: isDefault ? "#22c55e" : "var(--color-border)" }} title={isDefault ? "Default" : "Not default"} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.92em" }}>{server.name}</div>
+                  {displayUrl && <div style={{ fontSize: "0.78em", color: "var(--color-secondary-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayUrl}</div>}
+                </div>
+                <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
+                  {!isDefault && (
+                    <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }} onClick={() => handleSetDefault(type, server.id)}>
+                      Set Default
+                    </button>
+                  )}
+                  {type === "tts" && (
+                    <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }} onClick={() => handleTtsPlay(server as TtsServer)} disabled={ttsTestBusy}>
+                      {ttsTestBusy ? "…" : "▶ Test"}
+                    </button>
+                  )}
+                  <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }}
+                    onClick={() => {
+                      if (isThisEditing) { setEditing(null); return; }
+                      const draft = type === "stt" ? sttToDraft(server as SttServer)
+                        : type === "tts" ? ttsToDraft(server as TtsServer)
+                        : type === "llm" ? llmToDraft(server as LlmServer)
+                        : n8nToDraft(server as N8nServer);
+                      setEditing({ type, id: server.id });
+                      setServerDraft(draft);
+                      setServerError(null);
+                    }}>
+                    {isThisEditing ? "Close" : "Edit"}
+                  </button>
+                  <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px", color: "#ef4444" }}
+                    onClick={() => { if (confirm(`Delete "${server.name}"?`)) handleDeleteServer(type, server.id); }}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {isThisEditing && (
+                <ServerInlineForm type={type} draft={serverDraft} onChange={setServerDraft}
+                  onSave={() => handleEditServer(type, server.id, serverDraft)}
+                  onCancel={() => setEditing(null)}
+                  isSaving={serverSaving} />
+              )}
+            </div>
+          );
+        })}
+
+        {type === "tts" && ttsTestError && <div style={{ color: "#ef4444", fontSize: "0.85em" }}>{ttsTestError}</div>}
+      </div>
     );
   }
 
-  const voiceTabs: Array<{ key: VoiceSettingsTab; label: string }> = [
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (loadError) {
+    return (
+      <div style={{ padding: "2rem" }}>
+        <div style={{ color: "#ef4444", marginBottom: "1rem" }}>{loadError}</div>
+        <button className="ghost" type="button" onClick={loadSettings}>Retry</button>
+      </div>
+    );
+  }
+
+  const tabs: Array<{ key: VoiceSettingsTab; label: string }> = [
     { key: "summary", label: "Summary" },
-    { key: "general", label: dict.voiceAgentSettings.sectionGeneral },
-    { key: "stt", label: dict.voiceAgentSettings.sectionStt },
-    { key: "tts", label: dict.voiceAgentSettings.sectionTts },
-    { key: "llm", label: dict.voiceAgentSettings.sectionLlm },
-    { key: "n8n", label: dict.voiceAgentSettings.sectionN8n },
-    { key: "behaviour", label: dict.voiceAgentSettings.sectionBehaviour },
+    { key: "stt", label: "STT" },
+    { key: "tts", label: "TTS" },
+    { key: "llm", label: "LLM" },
+    { key: "n8n", label: "N8N" },
+    { key: "general", label: "General" },
   ];
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">{dict.voiceAgentSettings.eyebrow}</p>
-          <h1>{dict.voiceAgentSettings.title}</h1>
-          <p className="subtext">{dict.voiceAgentSettings.subtitle}</p>
-        </div>
-        <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => { loadDeviceList().catch(() => undefined); }}>{dict.actions.refresh}</button>
-        </div>
-      </header>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "1.5rem" }}>
+      <h2 style={{ margin: "0 0 1.5rem", fontSize: "1.25rem", fontWeight: 700 }}>Voice Agent Settings</h2>
 
-      {loadError ? <div className="alert">{loadError}</div> : null}
-      {saveError ? <div className="alert">{saveError}</div> : null}
-
-      {/* ── Card 1: Profile Manager ────────────────────────────── */}
-      <section className="panel">
-        <div className="panel-header">
-          <h2>{language === "tr" ? "Profil Yönetimi" : "Profile Manager"}</h2>
-          <button className="primary" type="button" onClick={() => setIsCreateProfileOpen((prev) => !prev)}>
-            {isCreateProfileOpen ? (language === "tr" ? "İptal" : "Cancel") : (language === "tr" ? "+ Yeni Profil" : "+ New Profile")}
+      {/* Tab Bar */}
+      <div style={{ display: "flex", gap: "0.25rem", borderBottom: "1px solid var(--color-border)", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+        {tabs.map(tab => (
+          <button key={tab.key} type="button" className="ghost"
+            onClick={() => { setActiveTab(tab.key); setEditing(null); setServerError(null); }}
+            style={{
+              padding: "0.5rem 1rem", fontSize: "0.88em",
+              fontWeight: activeTab === tab.key ? 700 : 400,
+              borderBottom: activeTab === tab.key ? "2px solid var(--color-primary, #6366f1)" : "2px solid transparent",
+              borderRadius: 0,
+              color: activeTab === tab.key ? "var(--color-primary, #6366f1)" : "inherit",
+            }}>
+            {tab.label}
           </button>
-        </div>
+        ))}
+      </div>
 
-        {isCreateProfileOpen ? (
-          <div style={{ padding: "0.6rem 1.5rem", borderBottom: "1px solid var(--color-border)" }}>
-            <form
-              onSubmit={(event) => { event.preventDefault(); void startNewProfileDraft(newProfileIdInput); }}
-              style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}
-            >
-              <div style={{ position: "relative", flex: 1 }}>
-                <span style={{ position: "absolute", top: "-0.45em", left: "0.6rem", fontSize: "0.72em", fontWeight: 600, color: "var(--color-secondary-text)", background: "var(--color-panel-bg, var(--color-bg))", padding: "0 4px", lineHeight: 1, pointerEvents: "none" }}>
-                  {language === "tr" ? "Profil ID" : "Profile ID"}
-                </span>
-                <input
-                  style={{ margin: 0, padding: "5px 10px", fontSize: "0.85em", width: "100%" }}
-                  value={newProfileIdInput}
-                  onChange={(e) => setNewProfileIdInput(e.target.value)}
-                  placeholder="default, english, production…"
-                  autoFocus
-                />
-              </div>
-              <button className="primary" type="submit" style={{ fontSize: "0.82em", padding: "5px 14px", flexShrink: 0 }}>
-                {language === "tr" ? "Oluştur" : "Create"}
-              </button>
-            </form>
-          </div>
-        ) : null}
-
-        {devices.length === 0 ? (
-          <p className="panel-meta" style={{ padding: "1.25rem 1.5rem" }}>
-            {language === "tr" ? "Henüz profil yok. Bir tane oluşturun." : "No profiles yet. Create one above."}
-          </p>
-        ) : (
-          <div className="table-wrap" style={{ padding: "0 1rem 0.75rem" }}>
-            <div className="table">
-              <div className="table-row table-head">
-                <span>{language === "tr" ? "Profil ID" : "Profile ID"}</span>
-                <span>{language === "tr" ? "Ajan Adı" : "Agent Name"}</span>
-                <span>{language === "tr" ? "Dil" : "Language"}</span>
-                <span>TTS</span>
-                <span>{language === "tr" ? "Güncellendi" : "Updated"}</span>
-                <span>{language === "tr" ? "İşlemler" : "Actions"}</span>
-              </div>
-            {devices.map((d) => {
-              const isSelected = currentDeviceId === d.device_id;
-              return (
-                <div
-                  key={d.device_id}
-                  className={`table-row${isSelected ? " table-row--selected" : ""}`}
-                >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "monospace", fontSize: "0.85em", fontWeight: isSelected ? 700 : 500 }}>
-                    {d.device_id}
-                    {d.is_active ? (
-                      <span style={{ fontSize: "0.65em", fontWeight: 700, color: "#fff", background: "#22c55e", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", flexShrink: 0 }}>
-                        {language === "tr" ? "Aktif" : "Active"}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span>{d.agent_name || "—"}</span>
-                  <span>{d.voice_language || "—"}</span>
-                  <span>{d.tts_enabled ? "ON" : "OFF"}</span>
-                  <span className="panel-meta" style={{ fontSize: "0.85em" }}>
-                    {new Date(d.updated_at).toLocaleDateString()}
-                  </span>
-                  <span style={{ display: "inline-flex", gap: "0.4rem" }}>
-                    <button
-                      className={isSelected ? "primary" : "ghost"}
-                      type="button"
-                      style={{ fontSize: "0.8em", padding: "4px 10px" }}
-                      onClick={() => { setDeviceIdInput(d.device_id); loadSettings(d.device_id, { runTestsAfterLoad: true }).catch(() => undefined); }}
-                    >
-                      {isSelected ? (language === "tr" ? "Yüklü" : "Loaded") : (language === "tr" ? "Yükle" : "Load")}
-                    </button>
-                    {!d.is_active ? (
-                      <button
-                        className="ghost"
-                        type="button"
-                        style={{ fontSize: "0.8em", padding: "4px 10px" }}
-                        onClick={() => activateProfile(d.device_id).catch(() => undefined)}
-                      >
-                        {language === "tr" ? "Aktif Yap" : "Set Active"}
-                      </button>
-                    ) : null}
-                    <button
-                      className="ghost"
-                      type="button"
-                      style={{ fontSize: "0.8em", padding: "4px 10px", color: "#ef4444" }}
-                      onClick={() => deleteProfile(d.device_id).catch(() => undefined)}
-                    >
-                      {language === "tr" ? "Sil" : "Delete"}
-                    </button>
-                  </span>
-                </div>
-              );
-            })}
-            </div>
-          </div>
-        )}
-
-      </section>
-
-      {/* ── Card 2: Tabbed Settings ────────────────────────────── */}
-      <section className="panel" style={{ paddingBottom: 0 }}>
-        {/* Tab bar */}
-        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--color-border)", overflowX: "auto" }}>
-          {voiceTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                padding: "0.65rem 1.1rem",
-                fontSize: "0.82em",
-                fontWeight: activeTab === tab.key ? 700 : 500,
-                color: activeTab === tab.key ? "var(--color-accent)" : "var(--color-secondary-text)",
-                borderRadius: 0,
-                background: "none",
-                border: "none",
-                borderBottom: activeTab === tab.key ? "2px solid var(--color-accent)" : "2px solid transparent",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-            >
-              {tab.label}
+      {/* Summary */}
+      {activeTab === "summary" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+          <h3 style={{ margin: "0 0 0.75rem", fontSize: "1em", fontWeight: 700 }}>Connection Status</h3>
+          <StatusDot status={testLiveKit} label="LiveKit" />
+          <StatusDot status={testStt} label={`STT — ${sttServers.find(s => s.id === defaultSttServerId)?.baseUrl ?? "no default"}`} />
+          <StatusDot status={testTts} label={`TTS — ${ttsServers.find(s => s.id === defaultTtsServerId)?.baseUrl ?? "no default"}`} />
+          <StatusDot status={testOllama} label={`LLM — ${llmServers.find(s => s.id === defaultLlmServerId)?.baseUrl ?? "no default"}`} />
+          <StatusDot status={testN8n} label={`N8N — ${n8nServers.find(s => s.id === defaultN8nServerId)?.baseUrl ?? "no default"}`} />
+          <div style={{ marginTop: "1rem" }}>
+            <button className="primary" type="button" onClick={handleTestAll} disabled={testing}>
+              {testing ? "Testing…" : "Test All"}
             </button>
-          ))}
-        </div>
-
-        {/* No-profile empty state */}
-        {currentDeviceId === null ? (
-          <div style={{ padding: "2rem 1.5rem", textAlign: "center" }}>
-            <p style={{ fontSize: "1em", color: "var(--color-secondary-text)" }}>
-              {language === "tr"
-                ? "Ayarları görmek için üstten bir profil yükleyin veya yeni oluşturun."
-                : "Load or create a profile above to view and edit settings."}
-            </p>
           </div>
-        ) : (
-          <form onSubmit={onSave} style={{ display: "flex", flexDirection: "column" }}>
-            {/* ── Summary tab ─────────────────────────── */}
-            {activeTab === "summary" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                {/* Connection tests */}
-                <div>
-                  <p style={{ fontWeight: 600, fontSize: "0.85em", marginBottom: "0.6rem", color: "var(--color-secondary-text)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    {dict.voiceAgentSettings.sectionConnection}
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {[
-                      { label: "LiveKit", status: testLiveKit, onTest: runTestLiveKit },
-                      { label: "STT", status: testStt, onTest: runTestSttHealth },
-                      { label: "Ollama / LLM", status: testOllama, onTest: runTestOllama },
-                      { label: "N8N", status: testN8n, onTest: runTestN8n },
-                      { label: "TTS", status: testTts, onTest: runTestTtsHealth },
-                    ].map(({ label, status, onTest }) => (
-                      <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)" }}>
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: status === null ? "#aaa" : status.ok ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
-                        <span style={{ fontSize: "0.85em", fontWeight: 600, width: 100, flexShrink: 0 }}>{label}</span>
-                        <span className="panel-meta" style={{ flex: 1, fontSize: "0.78em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status?.detail ?? ""}</span>
-                        <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 10px", flexShrink: 0 }} onClick={() => { void onTest(); }}>Test</button>
-                      </div>
-                    ))}
+        </div>
+      )}
 
-                  </div>
-                  <div style={{ marginTop: "0.75rem" }}>
-                    <button className="primary" type="button" onClick={() => { void runTestAll(); }} disabled={testing} style={{ fontSize: "0.85em" }}>
-                      {testing ? dict.voiceAgentSettings.testing : dict.voiceAgentSettings.testAll}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+      {activeTab === "stt" && renderServerList("stt", sttServers, defaultSttServerId)}
+      {activeTab === "tts" && renderServerList("tts", ttsServers, defaultTtsServerId)}
+      {activeTab === "llm" && renderServerList("llm", llmServers, defaultLlmServerId)}
+      {activeTab === "n8n" && renderServerList("n8n", n8nServers, defaultN8nServerId)}
 
-            {/* ── General tab ─────────────────────────── */}
-            {activeTab === "general" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                <div className="form-grid">
-                  <label>{dict.voiceAgentSettings.agentName}<input value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder="coziyoo-agent" /></label>
-                  <label style={{ gap: "0.5rem" }}>
-                    {dict.voiceAgentSettings.voiceLanguage}
-                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                      {["tr", "en"].map((lang) => (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() => setVoiceLanguage(lang)}
-                          style={{
-                            padding: "3px 12px",
-                            borderRadius: 20,
-                            fontSize: "0.82em",
-                            fontWeight: 600,
-                            border: "1px solid",
-                            cursor: "pointer",
-                            borderColor: voiceLanguage === lang ? "var(--color-primary)" : "var(--color-border)",
-                            background: voiceLanguage === lang ? "var(--color-primary)" : "transparent",
-                            color: voiceLanguage === lang ? "#fff" : "var(--color-text)",
-                          }}
-                        >
-                          {lang}
-                        </button>
-                      ))}
-                    </div>
-                  </label>
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── STT tab ─────────────────────────────── */}
-            {activeTab === "stt" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div className="checkbox-grid">
-                  <label><input type="checkbox" checked={sttEnabled} onChange={(e) => setSttEnabled(e.target.checked)} />{dict.voiceAgentSettings.sttEnabled}</label>
-                </div>
-                <div className="form-grid">
-                  <label>{dict.voiceAgentSettings.sttProvider}<input value={sttProvider} onChange={(e) => setSttProvider(e.target.value)} placeholder="remote-speech-server" /></label>
-                  <label>{dict.voiceAgentSettings.sttBaseUrl}<input value={sttBaseUrl} onChange={(e) => setSttBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7000" /></label>
-                  <label>{dict.voiceAgentSettings.sttTranscribePath}<input value={sttTranscribePath} onChange={(e) => setSttTranscribePath(e.target.value)} placeholder="/v1/transcribe" /></label>
-                  <label>{dict.voiceAgentSettings.sttModel}<input value={sttModel} onChange={(e) => setSttModel(e.target.value)} placeholder="whisper-large-v3" /></label>
-                </div>
-                <QueryParamsEditor
-                  label={language === "tr" ? "Query Parametreleri" : "Query Parameters"}
-                  params={sttQueryParams}
-                  onChange={setSttQueryParams}
-                />
-                <label>
-                  {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
-                  <input value={sttAuthHeader} onChange={(e) => setSttAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
-                </label>
-                {/* ── STT record test ── */}
-                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    {sttRecording ? (
-                      <button className="ghost" type="button" style={{ color: "#ef4444" }} onClick={stopSttRecording}>
-                        {language === "tr" ? "Durdur" : "Stop"}
-                      </button>
-                    ) : (
-                      <button className="ghost" type="button" disabled={sttTranscribing || !sttBaseUrl.trim()} onClick={() => { void startSttRecording(); }}>
-                        {sttTranscribing ? (language === "tr" ? "Çevriliyor…" : "Transcribing…") : (language === "tr" ? "Kaydet & Test Et" : "Record & Test")}
-                      </button>
-                    )}
-                    {sttRecording && (
-                      <span style={{ fontSize: "0.8em", color: "#ef4444", fontWeight: 600 }}>
-                        {language === "tr" ? "Kayıt yapılıyor…" : "Recording…"}
-                      </span>
-                    )}
-                  </div>
-                  {sttTestError ? <p style={{ color: "#ef4444", margin: 0, fontSize: "0.85em" }}>{sttTestError}</p> : null}
-                  {sttTranscript !== null ? (
-                    <div style={{ background: "var(--color-surface, #f5f5f5)", border: "1px solid var(--color-border)", borderRadius: 6, padding: "0.5rem 0.75rem", fontSize: "0.9em" }}>
-                      <span style={{ fontSize: "0.75em", fontWeight: 600, color: "var(--color-secondary-text)", display: "block", marginBottom: "0.25rem" }}>
-                        {language === "tr" ? "Transkripsiyon" : "Transcript"}
-                      </span>
-                      {sttTranscript}
-                    </div>
-                  ) : null}
-                  {sttDebugInfo ? (
-                    <details style={{ fontSize: "0.78em" }}>
-                      <summary style={{ cursor: "pointer", color: "var(--color-secondary-text)", userSelect: "none" }}>Request Details</summary>
-                      <pre style={{ margin: "0.4rem 0 0", padding: "0.5rem 0.75rem", background: "var(--color-surface, #f5f5f5)", border: "1px solid var(--color-border)", borderRadius: 6, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{sttDebugInfo}</pre>
-                    </details>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── TTS tab ─────────────────────────────── */}
-            {activeTab === "tts" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div className="checkbox-grid">
-                  <label><input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />{dict.voiceAgentSettings.ttsEnabled}</label>
-                </div>
-                <div className="form-grid">
-                  <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
-                  <label>{language === "tr" ? "Synth Path" : "Synth Path"}<input value={ttsSynthPath} onChange={(e) => setTtsSynthPath(e.target.value)} placeholder="/tts" /></label>
-                </div>
-                <QueryParamsEditor
-                  label={language === "tr" ? "Query Parametreleri" : "Query Parameters"}
-                  params={ttsQueryParams}
-                  onChange={setTtsQueryParams}
-                />
-                <label>
-                  {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
-                  <input value={ttsAuthHeader} onChange={(e) => setTtsAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
-                </label>
-                {/* ── TTS test ── */}
-                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                  <button className="ghost" type="button" disabled={ttsSynthesizing || !ttsBaseUrl.trim()} onClick={() => { void runTestTts(); }}>
-                    {ttsSynthesizing ? "…" : dict.voiceAgentSettings.testTtsPlay}
-                  </button>
-                  {ttsSynthError ? <p style={{ color: "#ef4444", margin: 0 }}>{ttsSynthError}</p> : null}
-                  {ttsAudioUrl
-                    ? <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", height: 32 }} />
-                    : <audio ref={ttsAudioRef} style={{ display: "none" }} />}
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── LLM tab ─────────────────────────────── */}
-            {activeTab === "llm" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div className="form-grid">
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    {dict.voiceAgentSettings.ollamaBaseUrl}
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <input style={{ flex: 1 }} value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" />
-                      <button className="ghost" type="button" style={{ flexShrink: 0 }} disabled={ollamaModelsFetching || !ollamaBaseUrl.trim()} onClick={() => { void fetchOllamaModels(); }}>
-                        {ollamaModelsFetching ? "…" : (language === "tr" ? "Modelleri Getir" : "Fetch Models")}
-                      </button>
-                    </div>
-                  </label>
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    {dict.voiceAgentSettings.ollamaModel}
-                    {ollamaModels.length > 0 ? (
-                      <select value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)}>
-                        {ollamaModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                    ) : (
-                      <input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" />
-                    )}
-                  </label>
-                </div>
-                {ollamaModelsError ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <p style={{ fontSize: "0.82em", color: "#ef4444", margin: 0 }}>{ollamaModelsError}</p>
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                      <input
-                        style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }}
-                        value={ollamaModelsPath}
-                        onChange={(e) => setOllamaModelsPath(e.target.value)}
-                        placeholder="/api/tags"
-                      />
-                      <button className="ghost" type="button" style={{ fontSize: "0.82em", flexShrink: 0 }} disabled={ollamaModelsFetching} onClick={() => { void fetchOllamaModels(ollamaModelsPath); }}>
-                        {language === "tr" ? "Tekrar Dene" : "Retry"}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                <label>
-                  {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
-                  <input value={llmAuthHeader} onChange={(e) => setLlmAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
-                </label>
-              </div>
-            ) : null}
-
-            {/* ── N8N tab ─────────────────────────────── */}
-            {activeTab === "n8n" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div className="form-grid">
-                  <label>{dict.voiceAgentSettings.n8nBaseUrl}<input value={n8nBaseUrl} onChange={(e) => setN8nBaseUrl(e.target.value)} placeholder="http://127.0.0.1:5678" /></label>
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── Behaviour tab ───────────────────────── */}
-            {activeTab === "behaviour" ? (
-              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div className="checkbox-grid">
-                  <label><input type="checkbox" checked={greetingEnabled} onChange={(e) => setGreetingEnabled(e.target.checked)} />{dict.voiceAgentSettings.greetingEnabled}</label>
-                </div>
-                <div className="form-grid">
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    {dict.voiceAgentSettings.greetingInstruction}
-                    <textarea rows={2} value={greetingInstruction} onChange={(e) => setGreetingInstruction(e.target.value)} />
-                  </label>
-                  <label style={{ gridColumn: "1 / -1" }}>
-                    {dict.voiceAgentSettings.systemPrompt}
-                    <textarea rows={6} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
-                  </label>
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── Footer: save (shown on all settings tabs) ── */}
-            {activeTab !== "summary" ? (
-              <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--color-border)", display: "flex", alignItems: "center", gap: "1rem" }}>
-                <button className="primary" type="submit" disabled={saving}>{saving ? (language === "tr" ? "Kaydediliyor..." : "Saving...") : dict.actions.save}</button>
-                {saveMsg ? <span style={{ fontSize: "0.85em", color: "#22c55e", fontWeight: 600 }}>{saveMsg}</span> : null}
-              </div>
-            ) : null}
-          </form>
-        )}
-      </section>
+      {/* General */}
+      {activeTab === "general" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+            <label style={{ fontSize: "0.85em", fontWeight: 600 }}>Agent Name</label>
+            <input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder="coziyoo-agent" style={{ fontSize: "0.9em", padding: "6px 10px" }} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+            <label style={{ fontSize: "0.85em", fontWeight: 600 }}>Voice Language</label>
+            <select value={voiceLanguage} onChange={e => setVoiceLanguage(e.target.value)} style={{ fontSize: "0.9em", padding: "6px 10px" }}>
+              <option value="tr">Turkish (tr)</option>
+              <option value="en">English (en)</option>
+              <option value="ar">Arabic (ar)</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+            <label style={{ fontSize: "0.85em", fontWeight: 600 }}>System Prompt</label>
+            <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={6} style={{ fontSize: "0.88em", padding: "8px 10px", resize: "vertical", fontFamily: "monospace" }} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ fontSize: "0.85em", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+              <input type="checkbox" checked={greetingEnabled} onChange={e => setGreetingEnabled(e.target.checked)} />
+              Greeting Enabled
+            </label>
+            {greetingEnabled && (
+              <textarea value={greetingInstruction} onChange={e => setGreetingInstruction(e.target.value)} rows={3} placeholder="Greeting instruction…" style={{ fontSize: "0.88em", padding: "8px 10px", resize: "vertical" }} />
+            )}
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <button className="primary" type="button" onClick={handleSaveGeneral} disabled={generalSaving}>
+              {generalSaving ? "Saving…" : (dict.save ?? "Save")}
+            </button>
+            {generalMsg && <span style={{ color: "#22c55e", fontSize: "0.85em" }}>{generalMsg}</span>}
+            {generalError && <span style={{ color: "#ef4444", fontSize: "0.85em" }}>{generalError}</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

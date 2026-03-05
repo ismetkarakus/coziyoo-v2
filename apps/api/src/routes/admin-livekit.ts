@@ -417,6 +417,8 @@ adminLiveKitRouter.post("/agent/chat", async (req, res) => {
 
 // ── Voice Agent Settings ─────────────────────────────────────────────────────
 
+const ServerRecordSchema = z.record(z.string(), z.unknown());
+
 const AdminAgentSettingsSchema = z.object({
   agentName: z.string().max(128).optional(),
   voiceLanguage: z.string().min(2).max(16).optional(),
@@ -439,6 +441,15 @@ const AdminAgentSettingsSchema = z.object({
   sttAuthHeader: z.string().max(512).optional(),
   ttsAuthHeader: z.string().max(512).optional(),
   llmAuthHeader: z.string().max(512).optional(),
+  // Multi-server arrays
+  sttServers: z.array(ServerRecordSchema).optional(),
+  defaultSttServerId: z.string().max(128).optional(),
+  ttsServers: z.array(ServerRecordSchema).optional(),
+  defaultTtsServerId: z.string().max(128).optional(),
+  llmServers: z.array(ServerRecordSchema).optional(),
+  defaultLlmServerId: z.string().max(128).optional(),
+  n8nServers: z.array(ServerRecordSchema).optional(),
+  defaultN8nServerId: z.string().max(128).optional(),
 });
 
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
@@ -554,6 +565,15 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
       ...existingN8n,
       ...(input.n8nBaseUrl !== undefined ? { baseUrl: input.n8nBaseUrl || null } : {}),
     },
+    // Multi-server arrays
+    ...(input.sttServers !== undefined ? { sttServers: input.sttServers } : {}),
+    ...(input.defaultSttServerId !== undefined ? { defaultSttServerId: input.defaultSttServerId } : {}),
+    ...(input.ttsServers !== undefined ? { ttsServers: input.ttsServers } : {}),
+    ...(input.defaultTtsServerId !== undefined ? { defaultTtsServerId: input.defaultTtsServerId } : {}),
+    ...(input.llmServers !== undefined ? { llmServers: input.llmServers } : {}),
+    ...(input.defaultLlmServerId !== undefined ? { defaultLlmServerId: input.defaultLlmServerId } : {}),
+    ...(input.n8nServers !== undefined ? { n8nServers: input.n8nServers } : {}),
+    ...(input.defaultN8nServerId !== undefined ? { defaultN8nServerId: input.defaultN8nServerId } : {}),
   };
 
     const settings = await upsertStarterAgentSettings({
