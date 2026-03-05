@@ -30,6 +30,115 @@ function paramsToObj(params: Array<{ key: string; value: string }>): Record<stri
   return result;
 }
 
+// ── cURL parser ───────────────────────────────────────────────────────────────
+
+function tokenizeCurl(raw: string): string[] {
+  // Normalize line continuations (\<newline>)
+  const src = raw.replace(/\\\r?\n/g, " ");
+  const tokens: string[] = [];
+  let i = 0;
+  while (i < src.length) {
+    while (i < src.length && /\s/.test(src[i])) i++;
+    if (i >= src.length) break;
+    if (src[i] === '"') {
+      i++;
+      let t = "";
+      while (i < src.length && src[i] !== '"') {
+        if (src[i] === "\\" && i + 1 < src.length) { t += src[i + 1]; i += 2; }
+        else t += src[i++];
+      }
+      i++;
+      tokens.push(t);
+    } else if (src[i] === "'") {
+      i++;
+      let t = "";
+      while (i < src.length && src[i] !== "'") t += src[i++];
+      i++;
+      tokens.push(t);
+    } else {
+      let t = "";
+      while (i < src.length && !/\s/.test(src[i])) t += src[i++];
+      tokens.push(t);
+    }
+  }
+  return tokens;
+}
+
+function parseCurlCommand(curlStr: string): Partial<ServerDraft> {
+  const tokens = tokenizeCurl(curlStr);
+  let url = "";
+  const headers: Record<string, string> = {};
+  const formFields: Array<{ key: string; value: string }> = [];
+  let bodyRaw = "";
+
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (tok === "curl" || tok === "-s" || tok === "-i" || tok === "-v" || tok === "-L" || tok === "--silent" || tok === "--compressed") continue;
+    if (tok === "-X" || tok === "--request") { i++; continue; }
+    if (tok === "-o" || tok === "--output" || tok === "--max-time" || tok === "--connect-timeout" || tok === "-m") { i++; continue; }
+    if (tok === "-H" || tok === "--header") {
+      const hdr = tokens[++i] ?? "";
+      const colon = hdr.indexOf(":");
+      if (colon > 0) {
+        const k = hdr.slice(0, colon).trim().toLowerCase();
+        const v = hdr.slice(colon + 1).trim();
+        headers[k] = v;
+      }
+    } else if (tok === "-F" || tok === "--form") {
+      const fv = tokens[++i] ?? "";
+      const eq = fv.indexOf("=");
+      if (eq > 0) {
+        const k = fv.slice(0, eq).trim();
+        const v = fv.slice(eq + 1).trim();
+        if (!v.startsWith("@")) formFields.push({ key: k, value: v });
+      }
+    } else if (tok === "-d" || tok === "--data" || tok === "--data-raw" || tok === "--data-binary" || tok === "--data-urlencode") {
+      bodyRaw = tokens[++i] ?? "";
+    } else if (!tok.startsWith("-") && (tok.startsWith("http://") || tok.startsWith("https://"))) {
+      url = tok;
+    }
+  }
+
+  if (!url) return {};
+
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return {}; }
+
+  const baseUrl = `${parsed.protocol}//${parsed.host}`;
+  const path = parsed.pathname;
+
+  // URL query params
+  const queryParams: Array<{ key: string; value: string }> = [];
+  parsed.searchParams.forEach((v, k) => queryParams.push({ key: k, value: v }));
+
+  // Auth header
+  const authHeader = headers["authorization"] ?? "";
+
+  // Try to parse JSON body
+  let bodyObj: Record<string, unknown> = {};
+  if (bodyRaw) {
+    try { bodyObj = JSON.parse(bodyRaw) as Record<string, unknown>; } catch { /* not JSON */ }
+  }
+
+  // Model: form > body > url param
+  const model =
+    (formFields.find(f => f.key === "model")?.value ?? "") ||
+    (typeof bodyObj["model"] === "string" ? bodyObj["model"] : "") ||
+    (parsed.searchParams.get("model") ?? "");
+
+  // Merge form fields (skip model/file) into queryParams
+  for (const { key, value } of formFields) {
+    if (key !== "model" && key !== "file" && !queryParams.find(p => p.key === key)) {
+      queryParams.push({ key, value });
+    }
+  }
+
+  // Derive a name from hostname
+  const name = parsed.hostname.split(".")[0]?.replace(/^(stt|tts|llm|n8n|api|www)-?/i, "") || "";
+
+  return { name, baseUrl, transcribePath: path, synthPath: path, authHeader, model, queryParams };
+}
+
 // ── Server draft (unified form state for all server types) ────────────────────
 
 type ServerDraft = {
@@ -146,6 +255,55 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
   );
 }
 
+// ── CurlImportModal ───────────────────────────────────────────────────────────
+
+function CurlImportModal({ type, onImport, onClose }: {
+  type: "stt" | "tts";
+  onImport: (draft: Partial<ServerDraft>) => void;
+  onClose: () => void;
+}) {
+  const [curlInput, setCurlInput] = useState("");
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const handleImport = () => {
+    setParseError(null);
+    if (!curlInput.trim()) { setParseError("Paste a cURL command first."); return; }
+    const result = parseCurlCommand(curlInput);
+    if (!result.baseUrl) { setParseError("Could not extract a URL from the cURL command. Make sure it starts with http:// or https://."); return; }
+    onImport(result);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={onClose}>
+      <div style={{ background: "var(--color-bg, #fff)", borderRadius: "10px", padding: "1.5rem", width: "100%", maxWidth: 560, display: "flex", flexDirection: "column", gap: "1rem", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ margin: 0, fontSize: "1em", fontWeight: 700 }}>Add {type.toUpperCase()} Server from cURL</h3>
+          <button className="ghost" type="button" style={{ padding: "2px 8px", fontSize: "1.1em" }} onClick={onClose}>✕</button>
+        </div>
+        <p style={{ margin: 0, fontSize: "0.85em", color: "var(--color-secondary-text)" }}>
+          Paste a cURL command below. The URL, auth header, path, model, and query params will be extracted and pre-filled in the form.
+        </p>
+        <textarea
+          value={curlInput}
+          onChange={e => { setCurlInput(e.target.value); setParseError(null); }}
+          rows={8}
+          placeholder={type === "stt"
+            ? `curl -X POST "https://stt.example.com/v1/audio/transcriptions" \\\n  -H "Authorization: Bearer sk-..." \\\n  -F "file=@audio.wav" \\\n  -F "model=whisper-large-v3" \\\n  -F "language=tr"`
+            : `curl -X POST "https://tts.example.com/tts?voice=tr-TR" \\\n  -H "Authorization: Bearer sk-..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"text":"hello"}'`
+          }
+          style={{ fontFamily: "monospace", fontSize: "0.82em", padding: "10px", resize: "vertical", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "6px" }}
+          autoFocus
+        />
+        {parseError && <div style={{ color: "#ef4444", fontSize: "0.85em" }}>{parseError}</div>}
+        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+          <button className="ghost" type="button" onClick={onClose}>Cancel</button>
+          <button className="primary" type="button" onClick={handleImport}>Parse &amp; Fill Form</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── StatusDot ─────────────────────────────────────────────────────────────────
 
 type TestStatus = { ok: boolean; detail?: string } | null;
@@ -235,6 +393,9 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const [systemPrompt, setSystemPrompt] = useState("");
   const [greetingEnabled, setGreetingEnabled] = useState(true);
   const [greetingInstruction, setGreetingInstruction] = useState("");
+
+  // cURL import modal state
+  const [curlModalType, setCurlModalType] = useState<"stt" | "tts" | null>(null);
 
   // Inline edit state
   type EditTarget = { type: "stt" | "tts" | "llm" | "n8n"; id: string | null };
@@ -578,7 +739,14 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h3 style={{ margin: 0, fontSize: "1em", fontWeight: 700 }}>{type.toUpperCase()} Servers</h3>
-          <button className="ghost" type="button" onClick={() => { setEditing({ type, id: null }); setServerDraft(emptyDraft()); setServerError(null); }}>+ Add</button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {(type === "stt" || type === "tts") && (
+              <button className="ghost" type="button" style={{ fontSize: "0.85em" }} onClick={() => setCurlModalType(type as "stt" | "tts")}>
+                + From cURL
+              </button>
+            )}
+            <button className="ghost" type="button" onClick={() => { setEditing({ type, id: null }); setServerDraft(emptyDraft()); setServerError(null); }}>+ Add</button>
+          </div>
         </div>
 
         {isEditingType && serverError && <div style={{ color: "#ef4444", fontSize: "0.85em" }}>{serverError}</div>}
@@ -680,6 +848,24 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     { key: "general", label: "General" },
   ];
 
+  const handleCurlImport = (type: "stt" | "tts", parsed: Partial<ServerDraft>) => {
+    const base = emptyDraft();
+    const draft: ServerDraft = {
+      ...base,
+      name: parsed.name ?? base.name,
+      baseUrl: parsed.baseUrl ?? base.baseUrl,
+      transcribePath: type === "stt" ? (parsed.transcribePath ?? base.transcribePath) : base.transcribePath,
+      synthPath: type === "tts" ? (parsed.synthPath ?? base.synthPath) : base.synthPath,
+      model: parsed.model ?? base.model,
+      queryParams: parsed.queryParams ?? base.queryParams,
+      authHeader: parsed.authHeader ?? base.authHeader,
+    };
+    setCurlModalType(null);
+    setEditing({ type, id: null });
+    setServerDraft(draft);
+    setServerError(null);
+  };
+
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "1.5rem" }}>
       <h2 style={{ margin: "0 0 1.5rem", fontSize: "1.25rem", fontWeight: 700 }}>Voice Agent Settings</h2>
@@ -759,6 +945,14 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
             {generalError && <span style={{ color: "#ef4444", fontSize: "0.85em" }}>{generalError}</span>}
           </div>
         </div>
+      )}
+
+      {curlModalType && (
+        <CurlImportModal
+          type={curlModalType}
+          onImport={(parsed) => handleCurlImport(curlModalType, parsed)}
+          onClose={() => setCurlModalType(null)}
+        />
       )}
     </div>
   );
