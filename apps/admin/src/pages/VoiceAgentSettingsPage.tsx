@@ -333,9 +333,13 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       sttChunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) sttChunksRef.current.push(e.data); };
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) sttChunksRef.current.push(e.data);
+      };
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        // ondataavailable fires before onstop completes in all browsers,
+        // so chunks are fully collected by the time we reach here.
         void sendSttRecording();
       };
       recorder.start();
@@ -347,7 +351,11 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   }
 
   function stopSttRecording() {
-    sttMediaRecorderRef.current?.stop();
+    const recorder = sttMediaRecorderRef.current;
+    if (!recorder) return;
+    // requestData() flushes any buffered audio before stop() fires onstop
+    recorder.requestData();
+    recorder.stop();
     sttMediaRecorderRef.current = null;
     setSttRecording(false);
   }
@@ -360,6 +368,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     setSttTestError(null);
     try {
       const blob = new Blob(sttChunksRef.current, { type: "audio/webm" });
+      if (blob.size === 0) { setSttTestError("Recording is empty — try again"); setSttTranscribing(false); return; }
       const form = new FormData();
       form.append("file", blob, "recording.webm");
       if (sttModel.trim()) form.append("model", sttModel.trim());
