@@ -48,6 +48,7 @@ type StarterSettingsSchemaCapabilities = {
 };
 
 let schemaCapabilitiesPromise: Promise<StarterSettingsSchemaCapabilities> | null = null;
+let ensureIsActivePromise: Promise<void> | null = null;
 
 export async function getStarterAgentSettings(deviceId: string): Promise<StarterAgentSettings | null> {
   const capabilities = await getSchemaCapabilities();
@@ -308,6 +309,36 @@ async function getSchemaCapabilities(): Promise<StarterSettingsSchemaCapabilitie
 export async function hasStarterAgentIsActiveColumn(): Promise<boolean> {
   const capabilities = await getSchemaCapabilities();
   return capabilities.hasIsActive;
+}
+
+export async function ensureStarterAgentIsActiveColumn(): Promise<void> {
+  const hasIsActive = await hasStarterAgentIsActiveColumn();
+  if (hasIsActive) return;
+
+  if (!ensureIsActivePromise) {
+    ensureIsActivePromise = (async () => {
+      await pool.query(`
+        ALTER TABLE starter_agent_settings
+        ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT FALSE
+      `);
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS starter_agent_settings_one_active_idx
+        ON starter_agent_settings (is_active)
+        WHERE is_active = TRUE
+      `);
+      // Reset cached capabilities so subsequent reads reflect the new column.
+      schemaCapabilitiesPromise = null;
+    })()
+      .catch((error) => {
+        ensureIsActivePromise = null;
+        throw error;
+      })
+      .finally(() => {
+        ensureIsActivePromise = null;
+      });
+  }
+
+  await ensureIsActivePromise;
 }
 
 function toJsonbParam(value: unknown): string | null {

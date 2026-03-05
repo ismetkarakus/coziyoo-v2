@@ -17,6 +17,7 @@ import {
   sendRoomData,
 } from "../services/livekit.js";
 import {
+  ensureStarterAgentIsActiveColumn,
   getStarterAgentSettings,
   hasStarterAgentIsActiveColumn,
   upsertStarterAgentSettings,
@@ -475,12 +476,7 @@ adminLiveKitRouter.post("/agent-settings/:deviceId/activate", async (req, res) =
   try {
     const hasIsActive = await hasStarterAgentIsActiveColumn();
     if (!hasIsActive) {
-      return res.status(409).json({
-        error: {
-          code: "SCHEMA_OUTDATED",
-          message: "starter_agent_settings.is_active column is missing. Apply migration 0024_starter_agent_profile_active.sql.",
-        },
-      });
+      await ensureStarterAgentIsActiveColumn();
     }
 
     // Clear any existing active flag, then set the new one — in a transaction
