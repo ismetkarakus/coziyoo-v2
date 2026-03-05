@@ -497,7 +497,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
-          <div className="buyer-ref-metric-head">
+          <div className="buyer-ref-metric-head buyer-ref-metric-head-payment">
             <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
             <p>Odeme Durumu</p>
             <span className="buyer-ref-metric-head-stack">

@@ -2773,6 +2773,10 @@ textarea:focus {
   margin-bottom: 2px;
   position: relative;
   min-height: 24px;
+  padding-right: 0;
+}
+
+.buyer-ref-metric-head-payment {
   padding-right: 116px;
 }
 
