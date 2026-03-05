@@ -372,7 +372,7 @@ function migrateLegacy(cfg: Record<string, unknown>, ollamaModel: string) {
     const legacyUrl = readNestedStr(cfg, "baseUrl");
     if (legacyUrl) {
       const id = newId();
-      ttsList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl, synthPath: readNestedStr(cfg, "path") || "/tts", queryParams: (cfg.queryParams as Record<string, string>) ?? {}, authHeader: readNestedStr(cfg, "authHeader") }];
+      ttsList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl, synthPath: readNestedStr(cfg, "path") || "/tts", textFieldName: "text", bodyParams: {}, queryParams: (cfg.queryParams as Record<string, string>) ?? {}, authHeader: readNestedStr(cfg, "authHeader") }];
       defaultTtsId = id;
     }
   }
