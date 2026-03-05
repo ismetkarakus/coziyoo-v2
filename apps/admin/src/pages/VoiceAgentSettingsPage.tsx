@@ -109,6 +109,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   const [sttTranscribing, setSttTranscribing] = useState(false);
   const [sttTranscript, setSttTranscript] = useState<string | null>(null);
   const [sttTestError, setSttTestError] = useState<string | null>(null);
+  const [sttDebugInfo, setSttDebugInfo] = useState<string | null>(null);
 
   function resetSettingsFormToDefaults() {
     setAgentName("");
@@ -366,20 +367,34 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     if (!url) { setSttTestError("No STT URL configured"); return; }
     setSttTranscribing(true);
     setSttTestError(null);
+    setSttDebugInfo(null);
     try {
-      const blob = new Blob(sttChunksRef.current, { type: "audio/webm" });
+      const mimeType = sttChunksRef.current[0]?.type || "audio/webm";
+      const blob = new Blob(sttChunksRef.current, { type: mimeType });
       if (blob.size === 0) { setSttTestError("Recording is empty — try again"); setSttTranscribing(false); return; }
       const form = new FormData();
       form.append("file", blob, "recording.webm");
       if (sttModel.trim()) form.append("model", sttModel.trim());
+      const extraFields: string[] = [];
       for (const { key, value } of sttQueryParams) {
-        if (key.trim()) form.append(key.trim(), value);
+        if (key.trim()) { form.append(key.trim(), value); extraFields.push(`${key.trim()}=${value}`); }
       }
       const headers: Record<string, string> = {};
       if (sttAuthHeader.trim()) headers["Authorization"] = sttAuthHeader.trim();
       const fullUrl = `${url.replace(/\/$/, "")}${transcribePath}`;
+
+      const debugLines = [
+        `POST ${fullUrl}`,
+        `file: recording.webm  type=${mimeType}  size=${blob.size} bytes`,
+        sttModel.trim() ? `model: ${sttModel.trim()}` : null,
+        ...extraFields.map((f) => f),
+        sttAuthHeader.trim() ? `Authorization: ${sttAuthHeader.trim().slice(0, 16)}…` : null,
+      ].filter(Boolean).join("\n");
+      setSttDebugInfo(debugLines);
+
       const res = await fetch(fullUrl, { method: "POST", headers, body: form });
       const text = await res.text();
+      setSttDebugInfo(`${debugLines}\n\n→ HTTP ${res.status}\n${text.slice(0, 400)}`);
       if (!res.ok) {
         setSttTestError(`HTTP ${res.status}: ${text.slice(0, 200)}`);
         return;
@@ -859,6 +874,12 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
                       </span>
                       {sttTranscript}
                     </div>
+                  ) : null}
+                  {sttDebugInfo ? (
+                    <details style={{ fontSize: "0.78em" }}>
+                      <summary style={{ cursor: "pointer", color: "var(--color-secondary-text)", userSelect: "none" }}>Request Details</summary>
+                      <pre style={{ margin: "0.4rem 0 0", padding: "0.5rem 0.75rem", background: "var(--color-surface, #f5f5f5)", border: "1px solid var(--color-border)", borderRadius: 6, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{sttDebugInfo}</pre>
+                    </details>
                   ) : null}
                 </div>
               </div>
