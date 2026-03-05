@@ -395,6 +395,58 @@ function CurlImportModal({ type, onImport, onClose }: {
   );
 }
 
+// ── SttRecordPanel ────────────────────────────────────────────────────────────
+
+function SttRecordPanel({ server, recording, transcribing, transcript, error, debugInfo, onStart, onStop }: {
+  server: SttServer;
+  recording: boolean;
+  transcribing: boolean;
+  transcript: string | null;
+  error: string | null;
+  debugInfo: string | null;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  return (
+    <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "8px", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "0.88em", fontWeight: 600 }}>STT Test — {server.name}</span>
+        <span style={{ fontSize: "0.78em", color: "var(--color-secondary-text)" }}>{server.baseUrl}{server.transcribePath}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        {recording ? (
+          <button className="ghost" type="button" style={{ color: "#ef4444", fontWeight: 600 }} onClick={onStop}>
+            ⏹ Stop Recording
+          </button>
+        ) : (
+          <button className="primary" type="button" onClick={onStart} disabled={transcribing}>
+            {transcribing ? "Transcribing…" : "🎤 Record & Transcribe"}
+          </button>
+        )}
+        {recording && (
+          <span style={{ fontSize: "0.85em", color: "#ef4444", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "pulse 1s infinite" }} />
+            Recording…
+          </span>
+        )}
+      </div>
+      {transcript !== null && (
+        <div style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
+          <div style={{ fontSize: "0.78em", fontWeight: 600, color: "var(--color-secondary-text)", marginBottom: "4px" }}>TRANSCRIPT</div>
+          <div style={{ fontSize: "0.92em" }}>{transcript || <em style={{ opacity: 0.5 }}>empty</em>}</div>
+        </div>
+      )}
+      {error && <div style={{ color: "#ef4444", fontSize: "0.85em" }}>{error}</div>}
+      {debugInfo && (
+        <details style={{ fontSize: "0.78em" }}>
+          <summary style={{ cursor: "pointer", color: "var(--color-secondary-text)", userSelect: "none" }}>Request debug</summary>
+          <pre style={{ marginTop: "0.5rem", background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "4px", padding: "0.5rem", overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{debugInfo}</pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
 // ── StatusDot ─────────────────────────────────────────────────────────────────
 
 type TestStatus = { ok: boolean; detail?: string } | null;
@@ -512,6 +564,16 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [ttsTestBusy, setTtsTestBusy] = useState(false);
   const [ttsTestError, setTtsTestError] = useState<string | null>(null);
+
+  // STT record test
+  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const sttChunksRef = useRef<Blob[]>([]);
+  const [sttTestingServerId, setSttTestingServerId] = useState<string | null>(null);
+  const [sttRecording, setSttRecording] = useState(false);
+  const [sttTranscribing, setSttTranscribing] = useState(false);
+  const [sttTranscript, setSttTranscript] = useState<string | null>(null);
+  const [sttTestError, setSttTestError] = useState<string | null>(null);
+  const [sttDebugInfo, setSttDebugInfo] = useState<string | null>(null);
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
@@ -816,6 +878,87 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     }
   };
 
+  // ── STT record & transcribe ────────────────────────────────────────────────
+
+  const startSttRecording = async (server: SttServer) => {
+    setSttTranscript(null);
+    setSttTestError(null);
+    setSttDebugInfo(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      sttChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) sttChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        void sendSttRecording(server);
+      };
+      recorder.start();
+      sttMediaRecorderRef.current = recorder;
+      setSttRecording(true);
+    } catch (err) {
+      setSttTestError(err instanceof Error ? err.message : "Microphone access denied");
+    }
+  };
+
+  const stopSttRecording = () => {
+    const recorder = sttMediaRecorderRef.current;
+    if (!recorder) return;
+    recorder.requestData();
+    recorder.stop();
+    sttMediaRecorderRef.current = null;
+    setSttRecording(false);
+  };
+
+  const sendSttRecording = async (server: SttServer) => {
+    const fullUrl = `${server.baseUrl.replace(/\/$/, "")}${server.transcribePath}`;
+    setSttTranscribing(true);
+    setSttTestError(null);
+    setSttDebugInfo(null);
+    try {
+      const mimeType = sttChunksRef.current[0]?.type || "audio/webm";
+      const blob = new Blob(sttChunksRef.current, { type: mimeType });
+      if (blob.size === 0) { setSttTestError("Recording is empty — try again"); setSttTranscribing(false); return; }
+
+      const form = new FormData();
+      form.append("file", blob, "recording.webm");
+      if (server.model.trim()) form.append("model", server.model.trim());
+      const extraLines: string[] = [];
+      for (const [key, value] of Object.entries(server.queryParams)) {
+        if (key.trim()) { form.append(key.trim(), value); extraLines.push(`${key}=${value}`); }
+      }
+
+      const headers: Record<string, string> = {};
+      if (server.authHeader.trim()) headers["Authorization"] = server.authHeader.trim();
+
+      const debugLines = [
+        `POST ${fullUrl}`,
+        `file: recording.webm  type=${mimeType}  size=${blob.size} bytes`,
+        server.model.trim() ? `model: ${server.model}` : null,
+        ...extraLines,
+        server.authHeader.trim() ? `Authorization: ${server.authHeader.slice(0, 16)}…` : null,
+      ].filter(Boolean).join("\n");
+      setSttDebugInfo(debugLines);
+
+      const res = await fetch(fullUrl, { method: "POST", headers, body: form });
+      const text = await res.text();
+      setSttDebugInfo(`${debugLines}\n\n→ HTTP ${res.status}\n${text.slice(0, 400)}`);
+
+      if (!res.ok) { setSttTestError(`HTTP ${res.status}: ${text.slice(0, 200)}`); return; }
+
+      try {
+        const json = JSON.parse(text) as Record<string, unknown>;
+        setSttTranscript(String(json.text ?? json.transcript ?? json.transcription ?? text));
+      } catch {
+        setSttTranscript(text);
+      }
+    } catch (err) {
+      setSttTestError(err instanceof Error ? err.message : "STT request failed");
+    } finally {
+      setSttTranscribing(false);
+    }
+  };
+
   // ── Server list tab renderer ───────────────────────────────────────────────
 
   function renderServerList(
@@ -879,6 +1022,15 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                       Set Default
                     </button>
                   )}
+                  {type === "stt" && (
+                    <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }}
+                      onClick={() => {
+                        if (sttTestingServerId === server.id) { setSttTestingServerId(null); }
+                        else { setSttTestingServerId(server.id); setSttTranscript(null); setSttTestError(null); setSttDebugInfo(null); }
+                      }}>
+                      {sttTestingServerId === server.id ? "Close Test" : "🎤 Test"}
+                    </button>
+                  )}
                   {type === "tts" && (
                     <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }} onClick={() => handleTtsPlay(server as TtsServer)} disabled={ttsTestBusy}>
                       {ttsTestBusy ? "…" : "▶ Test"}
@@ -909,6 +1061,18 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                   onSave={() => handleEditServer(type, server.id, serverDraft)}
                   onCancel={() => setEditing(null)}
                   isSaving={serverSaving} />
+              )}
+              {type === "stt" && sttTestingServerId === server.id && !isThisEditing && (
+                <SttRecordPanel
+                  server={server as SttServer}
+                  recording={sttRecording}
+                  transcribing={sttTranscribing}
+                  transcript={sttTranscript}
+                  error={sttTestError}
+                  debugInfo={sttDebugInfo}
+                  onStart={() => startSttRecording(server as SttServer)}
+                  onStop={stopSttRecording}
+                />
               )}
             </div>
           );
