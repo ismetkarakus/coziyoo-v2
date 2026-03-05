@@ -675,16 +675,30 @@ const TestTtsSchema = z.object({
   text: z.string().min(1).max(500),
   baseUrl: z.string().min(1),
   synthPath: z.string().optional(),
+  textFieldName: z.string().max(64).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
+  bodyParams: z.record(z.string(), z.string()).optional(),
   authHeader: z.string().optional(),
 });
+
+/** Try to coerce string values to numbers/booleans so servers don't reject them. */
+function coerceBodyParamValues(params: Record<string, string>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v === "true") result[k] = true;
+    else if (v === "false") result[k] = false;
+    else if (/^-?\d+(\.\d+)?$/.test(v.trim())) result[k] = parseFloat(v);
+    else result[k] = v;
+  }
+  return result;
+}
 
 adminLiveKitRouter.post("/test/tts", async (req, res) => {
   const parsed = TestTtsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
-  const { text, baseUrl, synthPath, queryParams, authHeader } = parsed.data;
+  const { text, baseUrl, synthPath, textFieldName, queryParams, bodyParams, authHeader } = parsed.data;
 
   const path = synthPath?.trim() || "/tts";
   let url = `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -699,11 +713,17 @@ adminLiveKitRouter.post("/test/tts", async (req, res) => {
     headers["Authorization"] = authHeader.trim();
   }
 
+  const textField = textFieldName?.trim() || "text";
+  const requestBody: Record<string, unknown> = {
+    ...(bodyParams ? coerceBodyParamValues(bodyParams) : {}),
+    [textField]: text,
+  };
+
   try {
     const upstream = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(30_000),
     });
 

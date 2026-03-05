@@ -43,6 +43,10 @@ export type TtsServer = {
   enabled: boolean;
   baseUrl: string;
   synthPath: string;
+  /** Field name used to send the speech text in the JSON body (default: "text"; use "input" for OpenAI-compatible servers) */
+  textFieldName: string;
+  /** Static key-value pairs merged into the JSON request body (e.g. model, voice, temperature) */
+  bodyParams: Record<string, string>;
   queryParams: Record<string, string>;
   authHeader: string;
 };

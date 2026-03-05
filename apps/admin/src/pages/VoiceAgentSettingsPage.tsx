@@ -126,17 +126,30 @@ function parseCurlCommand(curlStr: string): Partial<ServerDraft> {
     (typeof bodyObj["model"] === "string" ? bodyObj["model"] : "") ||
     (parsed.searchParams.get("model") ?? "");
 
-  // Merge form fields (skip model/file) into queryParams
+  // Merge form fields (skip model/file) into queryParams (for STT multipart forms)
   for (const { key, value } of formFields) {
     if (key !== "model" && key !== "file" && !queryParams.find(p => p.key === key)) {
       queryParams.push({ key, value });
     }
   }
 
+  // Detect text field name (OpenAI-compatible servers use "input" instead of "text")
+  let textFieldName = "text";
+  if (typeof bodyObj["input"] === "string" && typeof bodyObj["text"] !== "string") {
+    textFieldName = "input";
+  }
+
+  // Extract body params: all JSON body fields except the text field itself
+  const bodyParams: Array<{ key: string; value: string }> = [];
+  for (const [k, v] of Object.entries(bodyObj)) {
+    if (k === "text" || k === "input") continue; // skip the dynamic text field
+    bodyParams.push({ key: k, value: String(v) });
+  }
+
   // Derive a name from hostname
   const name = parsed.hostname.split(".")[0]?.replace(/^(stt|tts|llm|n8n|api|www)-?/i, "") || "";
 
-  return { name, baseUrl, transcribePath: path, synthPath: path, authHeader, model, queryParams };
+  return { name, baseUrl, transcribePath: path, synthPath: path, authHeader, model, textFieldName, bodyParams, queryParams };
 }
 
 // ── Server draft (unified form state for all server types) ────────────────────
@@ -148,29 +161,33 @@ type ServerDraft = {
   baseUrl: string;
   transcribePath: string;
   synthPath: string;
+  /** Field name used to send speech text in the JSON body ("text" or "input" for OpenAI-compatible) */
+  textFieldName: string;
   model: string;
   queryParams: Array<{ key: string; value: string }>;
+  /** Extra key-value pairs merged into the JSON request body (model, voice, temperature, etc.) */
+  bodyParams: Array<{ key: string; value: string }>;
   authHeader: string;
 };
 
 function emptyDraft(): ServerDraft {
-  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", model: "", queryParams: [], authHeader: "" };
+  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", textFieldName: "text", model: "", queryParams: [], bodyParams: [], authHeader: "" };
 }
 
 function sttToDraft(s: SttServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", model: s.model, queryParams: objToParams(s.queryParams), authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", textFieldName: "text", model: s.model, queryParams: objToParams(s.queryParams), bodyParams: [], authHeader: s.authHeader };
 }
 
 function ttsToDraft(s: TtsServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, model: "", queryParams: objToParams(s.queryParams), authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, textFieldName: s.textFieldName || "text", model: "", queryParams: objToParams(s.queryParams), bodyParams: objToParams(s.bodyParams ?? {}), authHeader: s.authHeader };
 }
 
 function llmToDraft(s: LlmServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", model: s.model, queryParams: [], authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: s.model, queryParams: [], bodyParams: [], authHeader: s.authHeader };
 }
 
 function n8nToDraft(s: N8nServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", model: "", queryParams: [], authHeader: "" };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: "", queryParams: [], bodyParams: [], authHeader: "" };
 }
 
 function draftToStt(id: string, d: ServerDraft): SttServer {
@@ -178,7 +195,7 @@ function draftToStt(id: string, d: ServerDraft): SttServer {
 }
 
 function draftToTts(id: string, d: ServerDraft): TtsServer {
-  return { id, name: d.name || "TTS Server", enabled: d.enabled, baseUrl: d.baseUrl, synthPath: d.synthPath || "/tts", queryParams: paramsToObj(d.queryParams), authHeader: d.authHeader };
+  return { id, name: d.name || "TTS Server", enabled: d.enabled, baseUrl: d.baseUrl, synthPath: d.synthPath || "/tts", textFieldName: d.textFieldName || "text", bodyParams: paramsToObj(d.bodyParams), queryParams: paramsToObj(d.queryParams), authHeader: d.authHeader };
 }
 
 function draftToLlm(id: string, d: ServerDraft): LlmServer {
@@ -191,16 +208,17 @@ function draftToN8n(id: string, d: ServerDraft): N8nServer {
 
 // ── QueryParamsEditor ─────────────────────────────────────────────────────────
 
-function QueryParamsEditor({ params, onChange }: { params: Array<{ key: string; value: string }>; onChange: (p: Array<{ key: string; value: string }>) => void }) {
+function QueryParamsEditor({ label = "Query Params", hint, params, onChange }: { label?: string; hint?: string; params: Array<{ key: string; value: string }>; onChange: (p: Array<{ key: string; value: string }>) => void }) {
   const add = () => onChange([...params, { key: "", value: "" }]);
   const remove = (i: number) => onChange(params.filter((_, idx) => idx !== i));
   const update = (i: number, field: "key" | "value", val: string) => onChange(params.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "0.82em", fontWeight: 600, color: "var(--color-secondary-text)" }}>Query Params</span>
+        <span style={{ fontSize: "0.82em", fontWeight: 600, color: "var(--color-secondary-text)" }}>{label}</span>
         <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 10px" }} onClick={add}>+ Add</button>
       </div>
+      {hint && <span style={{ fontSize: "0.76em", color: "var(--color-secondary-text)" }}>{hint}</span>}
       {params.map((p, i) => (
         <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
           <input style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }} value={p.key} onChange={(e) => update(i, "key", e.target.value)} placeholder="key" />
@@ -244,8 +262,21 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
       {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} placeholder="https://..." />)}
       {type === "stt" && field("Transcribe Path", <input style={inp} value={draft.transcribePath} onChange={(e) => set("transcribePath", e.target.value)} placeholder="/v1/audio/transcriptions" />)}
       {type === "tts" && field("Synth Path", <input style={inp} value={draft.synthPath} onChange={(e) => set("synthPath", e.target.value)} placeholder="/tts" />)}
+      {type === "tts" && field(
+        "Text Field Name",
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <input style={inp} value={draft.textFieldName} onChange={(e) => set("textFieldName", e.target.value)} placeholder="text" />
+          <span style={{ fontSize: "0.76em", color: "var(--color-secondary-text)" }}>Field that carries the speech text in the body. Use <code>text</code> (default) or <code>input</code> for OpenAI-compatible servers.</span>
+        </div>
+      )}
       {(type === "stt" || type === "llm") && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder={type === "stt" ? "whisper-large-v3" : "llama3.1:8b"} />)}
-      {(type === "stt" || type === "tts") && <QueryParamsEditor params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
+      {type === "stt" && <QueryParamsEditor label="Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
+      {type === "tts" && (
+        <>
+          <QueryParamsEditor label="Body Params" params={draft.bodyParams} onChange={(p) => set("bodyParams", p)} hint="Static fields merged into the JSON body (e.g. model, voice, temperature). Values that look like numbers or booleans are coerced automatically." />
+          <QueryParamsEditor label="URL Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />
+        </>
+      )}
       {(type === "stt" || type === "tts" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
       <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", borderTop: "1px solid var(--color-border)", paddingTop: "0.75rem" }}>
         <button className="ghost" type="button" onClick={onCancel}>Cancel</button>
@@ -670,7 +701,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     if (!srv) { setTestTts({ ok: false, detail: "No default TTS server" }); return; }
     setTestTts(null);
     try {
-      const res = await request("/v1/admin/livekit/test/tts", { method: "POST", body: JSON.stringify({ text: "test", baseUrl: srv.baseUrl, synthPath: srv.synthPath, queryParams: srv.queryParams, authHeader: srv.authHeader }) });
+      const res = await request("/v1/admin/livekit/test/tts", { method: "POST", body: JSON.stringify({ text: "test", baseUrl: srv.baseUrl, synthPath: srv.synthPath, textFieldName: srv.textFieldName || "text", bodyParams: srv.bodyParams ?? {}, queryParams: srv.queryParams, authHeader: srv.authHeader }) });
       setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
     } catch { setTestTts({ ok: false, detail: "Request failed" }); }
   };
@@ -707,7 +738,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     setTtsTestBusy(true);
     setTtsTestError(null);
     try {
-      const res = await request("/v1/admin/livekit/test/tts", { method: "POST", body: JSON.stringify({ text: "Merhaba, nasıl yardımcı olabilirim?", baseUrl: server.baseUrl, synthPath: server.synthPath, queryParams: server.queryParams, authHeader: server.authHeader }) });
+      const res = await request("/v1/admin/livekit/test/tts", { method: "POST", body: JSON.stringify({ text: "Merhaba, nasıl yardımcı olabilirim?", baseUrl: server.baseUrl, synthPath: server.synthPath, textFieldName: server.textFieldName || "text", bodyParams: server.bodyParams ?? {}, queryParams: server.queryParams, authHeader: server.authHeader }) });
       if (!res.ok) {
         const json = await parseJson<ApiError>(res);
         throw new Error(json.error?.message ?? `HTTP ${res.status}`);
@@ -856,8 +887,10 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
       baseUrl: parsed.baseUrl ?? base.baseUrl,
       transcribePath: type === "stt" ? (parsed.transcribePath ?? base.transcribePath) : base.transcribePath,
       synthPath: type === "tts" ? (parsed.synthPath ?? base.synthPath) : base.synthPath,
+      textFieldName: type === "tts" ? (parsed.textFieldName ?? base.textFieldName) : base.textFieldName,
       model: parsed.model ?? base.model,
       queryParams: parsed.queryParams ?? base.queryParams,
+      bodyParams: type === "tts" ? (parsed.bodyParams ?? base.bodyParams) : base.bodyParams,
       authHeader: parsed.authHeader ?? base.authHeader,
     };
     setCurlModalType(null);
