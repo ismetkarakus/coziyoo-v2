@@ -453,11 +453,17 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     const url = (urlOverride ?? sttBaseUrl).trim();
     setTestStt(null);
     if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
+    const healthUrl = `${url.replace(/\/$/, "")}/health`;
     try {
-      await fetch(`${url}/health`, { mode: "no-cors" });
-      setTestStt({ ok: true });
-    } catch (err) {
-      setTestStt({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
+      const res = await fetch(healthUrl);
+      setTestStt({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+    } catch {
+      try {
+        await fetch(healthUrl, { mode: "no-cors" });
+        setTestStt({ ok: true });
+      } catch (err) {
+        setTestStt({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
+      }
     }
   }
 
@@ -465,11 +471,17 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     const url = (urlOverride ?? ttsBaseUrl).trim();
     setTestTts(null);
     if (!url) { setTestTts({ ok: false, detail: "No TTS URL configured" }); return; }
+    const healthUrl = `${url.replace(/\/$/, "")}/health`;
     try {
-      await fetch(`${url}/health`, { mode: "no-cors" });
-      setTestTts({ ok: true });
-    } catch (err) {
-      setTestTts({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
+      const res = await fetch(healthUrl);
+      setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+    } catch {
+      try {
+        await fetch(healthUrl, { mode: "no-cors" });
+        setTestTts({ ok: true });
+      } catch (err) {
+        setTestTts({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
+      }
     }
   }
 
