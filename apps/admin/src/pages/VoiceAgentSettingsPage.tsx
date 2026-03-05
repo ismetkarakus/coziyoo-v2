@@ -94,6 +94,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   const [testStt, setTestStt] = useState<TestStatus>(null);
   const [testOllama, setTestOllama] = useState<TestStatus>(null);
   const [testN8n, setTestN8n] = useState<TestStatus>(null);
+  const [testTts, setTestTts] = useState<TestStatus>(null);
   const [testing, setTesting] = useState(false);
 
   // TTS test
@@ -219,6 +220,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
           sttTranscribePath: loadedSttTranscribePath,
           ollamaBaseUrl: loadedOllamaBaseUrl,
           n8nBaseUrl: loadedN8nBaseUrl,
+          ttsBaseUrl: loadedTtsBaseUrl,
         });
       }
     } else if (res.status === 404) {
@@ -378,26 +380,53 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     }
   }
 
-  async function runTestAll(overrides?: { sttBaseUrl?: string; sttTranscribePath?: string; ollamaBaseUrl?: string; n8nBaseUrl?: string }) {
+  async function runTestSttHealth(urlOverride?: string) {
+    const url = (urlOverride ?? sttBaseUrl).trim();
+    setTestStt(null);
+    if (!url) { setTestStt({ ok: false, detail: "No STT URL configured" }); return; }
+    try {
+      const res = await fetch(`${url}/health`);
+      setTestStt({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+    } catch (err) {
+      setTestStt({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
+    }
+  }
+
+  async function runTestTtsHealth(urlOverride?: string) {
+    const url = (urlOverride ?? ttsBaseUrl).trim();
+    setTestTts(null);
+    if (!url) { setTestTts({ ok: false, detail: "No TTS URL configured" }); return; }
+    try {
+      const res = await fetch(`${url}/health`);
+      setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
+    } catch (err) {
+      setTestTts({ ok: false, detail: err instanceof Error ? err.message : "Unreachable" });
+    }
+  }
+
+  async function runTestAll(overrides?: { sttBaseUrl?: string; sttTranscribePath?: string; ollamaBaseUrl?: string; n8nBaseUrl?: string; ttsBaseUrl?: string }) {
     setTesting(true);
     setTestLiveKit(null);
     setTestStt(null);
     setTestOllama(null);
     setTestN8n(null);
+    setTestTts(null);
     await Promise.allSettled([
       runTestLiveKit(),
-      runTestStt(overrides?.sttBaseUrl, overrides?.sttTranscribePath),
+      runTestSttHealth(overrides?.sttBaseUrl),
       runTestOllama(overrides?.ollamaBaseUrl),
       runTestN8n(overrides?.n8nBaseUrl),
+      runTestTtsHealth(overrides?.ttsBaseUrl),
     ]);
     setTesting(false);
   }
 
   async function runTestTts() {
     const url = ttsBaseUrl.trim();
-    if (!url) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); return; }
+    if (!url) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); setTestTts({ ok: false, detail: "No TTS URL configured" }); return; }
     setTtsSynthesizing(true);
     setTtsSynthError(null);
+    setTestTts(null);
     if (ttsAudioUrl) { URL.revokeObjectURL(ttsAudioUrl); setTtsAudioUrl(null); }
     try {
       const tokens = getTokens();
@@ -419,18 +448,23 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as ApiError;
-        setTtsSynthError(body.error?.message ?? `TTS error ${res.status}`);
+        const msg = body.error?.message ?? `TTS error ${res.status}`;
+        setTtsSynthError(msg);
+        setTestTts({ ok: false, detail: msg });
         return;
       }
       const blob = await res.blob();
       const objUrl = URL.createObjectURL(blob);
       setTtsAudioUrl(objUrl);
+      setTestTts({ ok: true });
       if (ttsAudioRef.current) {
         ttsAudioRef.current.src = objUrl;
         ttsAudioRef.current.play().catch(() => undefined);
       }
     } catch (err) {
-      setTtsSynthError(err instanceof Error ? err.message : "TTS request failed");
+      const msg = err instanceof Error ? err.message : "TTS request failed";
+      setTtsSynthError(msg);
+      setTestTts({ ok: false, detail: msg });
     } finally {
       setTtsSynthesizing(false);
     }
@@ -641,9 +675,10 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     {[
                       { label: "LiveKit", status: testLiveKit, onTest: runTestLiveKit },
-                      { label: "STT", status: testStt, onTest: runTestStt },
+                      { label: "STT", status: testStt, onTest: runTestSttHealth },
                       { label: "Ollama / LLM", status: testOllama, onTest: runTestOllama },
                       { label: "N8N", status: testN8n, onTest: runTestN8n },
+                      { label: "TTS", status: testTts, onTest: runTestTtsHealth },
                     ].map(({ label, status, onTest }) => (
                       <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)" }}>
                         <span style={{ width: 9, height: 9, borderRadius: "50%", background: status === null ? "#aaa" : status.ok ? "#22c55e" : "#ef4444", flexShrink: 0 }} />
@@ -652,24 +687,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
                         <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 10px", flexShrink: 0 }} onClick={() => { void onTest(); }}>Test</button>
                       </div>
                     ))}
-                    {/* TTS — expanded with synthesize & play */}
-                    <div style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-card-bg)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#aaa", flexShrink: 0 }} />
-                        <span style={{ fontSize: "0.85em", fontWeight: 600, width: 100, flexShrink: 0 }}>TTS</span>
-                        <input
-                          style={{ flex: 1, fontSize: "0.82em", padding: "3px 8px" }}
-                          value={ttsTestText}
-                          onChange={(e) => setTtsTestText(e.target.value)}
-                          placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
-                        />
-                        <button className="ghost" type="button" style={{ fontSize: "0.75em", padding: "2px 10px", flexShrink: 0 }} disabled={ttsSynthesizing} onClick={() => { void runTestTts(); }}>
-                          {ttsSynthesizing ? "…" : dict.voiceAgentSettings.testTtsPlay}
-                        </button>
-                      </div>
-                      {ttsSynthError ? <p className="panel-meta" style={{ color: "#ef4444", fontSize: "0.78em", margin: 0 }}>{ttsSynthError}</p> : null}
-                      {ttsAudioUrl ? <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", height: 32 }} /> : <audio ref={ttsAudioRef} style={{ display: "none" }} />}
-                    </div>
+
                   </div>
                   <div style={{ marginTop: "0.75rem" }}>
                     <button className="primary" type="button" onClick={() => { void runTestAll(); }} disabled={testing} style={{ fontSize: "0.85em" }}>
@@ -757,6 +775,27 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
                   {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
                   <input value={ttsAuthHeader} onChange={(e) => setTtsAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
                 </label>
+                {/* ── TTS test ── */}
+                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                  <p style={{ fontWeight: "var(--font-semibold)", fontSize: "var(--text-sm)", color: "var(--color-secondary-text)", textTransform: "uppercase", letterSpacing: "0.04em", margin: 0 }}>
+                    {language === "tr" ? "TTS Testi" : "TTS Test"}
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <input
+                      style={{ flex: 1 }}
+                      value={ttsTestText}
+                      onChange={(e) => setTtsTestText(e.target.value)}
+                      placeholder={dict.voiceAgentSettings.testTtsPlaceholder}
+                    />
+                    <button className="ghost" type="button" style={{ flexShrink: 0 }} disabled={ttsSynthesizing || !ttsBaseUrl.trim()} onClick={() => { void runTestTts(); }}>
+                      {ttsSynthesizing ? "…" : dict.voiceAgentSettings.testTtsPlay}
+                    </button>
+                  </div>
+                  {ttsSynthError ? <p style={{ color: "#ef4444", margin: 0 }}>{ttsSynthError}</p> : null}
+                  {ttsAudioUrl
+                    ? <audio ref={ttsAudioRef} controls src={ttsAudioUrl} style={{ width: "100%", height: 32 }} />
+                    : <audio ref={ttsAudioRef} style={{ display: "none" }} />}
+                </div>
               </div>
             ) : null}
 
