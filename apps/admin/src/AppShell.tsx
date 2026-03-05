@@ -1,0 +1,561 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { request, parseJson } from "./lib/api";
+import { setTokens, setAdmin, getTokens } from "./lib/auth";
+import { DICTIONARIES } from "./lib/i18n";
+import ApiHealthBadge from "./components/ApiHealthBadge";
+import DashboardPage from "./pages/DashboardPage";
+import UsersPage from "./pages/UsersPage";
+import InvestigationPage from "./pages/InvestigationPage";
+import FoodsLotsPage from "./pages/FoodsLotsPage";
+import RecordsPage from "./pages/RecordsPage";
+import EntitiesPage from "./pages/EntitiesPage";
+import AuditPage from "./pages/AuditPage";
+import ApiTokensPage from "./pages/ApiTokensPage";
+import ComplianceDocumentsPage from "./pages/ComplianceDocumentsPage";
+import VoiceAgentSettingsPage from "./pages/VoiceAgentSettingsPage";
+import { UserDetail } from "./pages/users/DefaultUserDetailScreen";
+import type { AdminUser, Language, Dictionary, ApiError, GlobalSearchResultItem, GlobalSearchResultKind } from "./types/core";
+
+function AppShell({
+  admin,
+  onLoggedOut,
+  isDarkMode,
+  onToggleDarkMode,
+  language,
+  onToggleLanguage,
+}: {
+  admin: AdminUser;
+  onLoggedOut: () => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  language: Language;
+  onToggleLanguage: () => void;
+}) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const dict = DICTIONARIES[language];
+  const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const [globalSearchInput, setGlobalSearchInput] = useState("");
+  const [isGlobalSearchModalOpen, setIsGlobalSearchModalOpen] = useState(false);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+  const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
+  const globalSearchReqIdRef = useRef(0);
+
+  async function logout() {
+    const tokens = getTokens();
+    await request("/v1/admin/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: tokens?.refreshToken }),
+    }).catch(() => undefined);
+
+    setTokens(null);
+    setAdmin(null);
+    onLoggedOut();
+    navigate("/login", { replace: true });
+  }
+
+  const isSuperAdmin = admin.role === "super_admin";
+  const globalSearchMinChars = 2;
+  const globalSearchQuery = globalSearchInput.trim();
+
+  useEffect(() => {
+    setIsGlobalSearchModalOpen(false);
+    setGlobalSearchInput("");
+    setGlobalSearchResults([]);
+    setGlobalSearchLoading(false);
+    globalSearchReqIdRef.current += 1;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isGlobalSearchModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsGlobalSearchModalOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isGlobalSearchModalOpen]);
+
+  useEffect(() => {
+    if (!isGlobalSearchModalOpen) return;
+    const timer = window.setTimeout(() => {
+      globalSearchInputRef.current?.focus();
+    }, 20);
+    return () => window.clearTimeout(timer);
+  }, [isGlobalSearchModalOpen]);
+
+  useEffect(() => {
+    const query = globalSearchQuery;
+    if (query.length < globalSearchMinChars) {
+      setGlobalSearchLoading(false);
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    const reqId = ++globalSearchReqIdRef.current;
+    setGlobalSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      request(`/v1/admin/search/global?q=${encodeURIComponent(query)}&limit=12`)
+        .then(async (response) => {
+          if (reqId !== globalSearchReqIdRef.current) return;
+          if (response.status !== 200) {
+            setGlobalSearchResults([]);
+            return;
+          }
+          const body = await parseJson<{ data?: GlobalSearchResultItem[] }>(response);
+          if (reqId !== globalSearchReqIdRef.current) return;
+          setGlobalSearchResults(Array.isArray(body.data) ? body.data : []);
+        })
+        .catch(() => {
+          if (reqId !== globalSearchReqIdRef.current) return;
+          setGlobalSearchResults([]);
+        })
+        .finally(() => {
+          if (reqId === globalSearchReqIdRef.current) setGlobalSearchLoading(false);
+        });
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [globalSearchQuery]);
+
+  function globalKindLabel(kind: GlobalSearchResultKind): string {
+    if (language === "tr") {
+      if (kind === "seller") return "Satıcı";
+      if (kind === "buyer") return "Alıcı";
+      if (kind === "food") return "Yemek";
+      if (kind === "order") return "Sipariş";
+      if (kind === "lot") return "Lot";
+      return "Şikayet";
+    }
+    if (kind === "seller") return "Seller";
+    if (kind === "buyer") return "Buyer";
+    if (kind === "food") return "Food";
+    if (kind === "order") return "Order";
+    if (kind === "lot") return "Lot";
+    return "Complaint";
+  }
+
+  function onSelectGlobalResult(item: GlobalSearchResultItem) {
+    setIsGlobalSearchModalOpen(false);
+    setGlobalSearchInput("");
+    setGlobalSearchResults([]);
+    navigate(item.targetPath);
+  }
+
+  const shouldDockSearchInput = globalSearchQuery.length >= globalSearchMinChars;
+
+  return (
+    <main className="shell">
+      <header className="navbar">
+        <div className="navbar-left">
+          <div className="brand">
+            <span className="brand-dot" />
+            <div>
+              <p className="brand-title">{dict.navbar.title}</p>
+            </div>
+          </div>
+          <TopNavTabs
+            pathname={location.pathname}
+            dict={dict}
+            isSuperAdmin={isSuperAdmin}
+            language={language}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={onToggleDarkMode}
+            onToggleLanguage={onToggleLanguage}
+            onLogout={logout}
+          />
+        </div>
+        <button
+          type="button"
+          className="navbar-search-launch"
+          aria-label={language === "tr" ? "Global aramayı aç" : "Open global search"}
+          onClick={() => setIsGlobalSearchModalOpen(true)}
+        >
+          <span className="navbar-search-launch-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <circle cx="11" cy="11" r="6.8" />
+              <path d="M16.5 16.5 21 21" />
+            </svg>
+          </span>
+        </button>
+        <div className="navbar-actions">
+          <ApiHealthBadge />
+          <button className="ghost" onClick={onToggleLanguage} type="button">
+            {dict.actions.language}
+          </button>
+          <button className="theme-toggle" onClick={onToggleDarkMode} type="button">
+            {isDarkMode ? "☀" : "☾"}
+          </button>
+          <button className="ghost" onClick={logout} type="button">{dict.actions.logout}</button>
+        </div>
+      </header>
+      <section className="main">
+        {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
+        {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
+        {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
+        {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
+        {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
+        {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+        {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+        {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
+        {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
+        {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname.startsWith("/app/sellers/") ? <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        {location.pathname.startsWith("/app/admins/") ? <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+      </section>
+      {isGlobalSearchModalOpen ? (
+        <div className={`global-search-modal ${shouldDockSearchInput ? "is-docked" : ""}`} role="dialog" aria-modal="true" onClick={() => setIsGlobalSearchModalOpen(false)}>
+          <div className="global-search-modal-shell" onClick={(event) => event.stopPropagation()}>
+            <div className="global-search-input-shell">
+              <label className="global-search-input-wrap">
+                <span className="global-search-input-icon" aria-hidden="true">⌕</span>
+                <input
+                  ref={globalSearchInputRef}
+                  className="global-search-input"
+                  value={globalSearchInput}
+                  onChange={(event) => setGlobalSearchInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setIsGlobalSearchModalOpen(false);
+                    if (event.key === "Enter" && globalSearchResults[0]) {
+                      event.preventDefault();
+                      onSelectGlobalResult(globalSearchResults[0]);
+                    }
+                  }}
+                  placeholder={language === "tr"
+                    ? "Global Arama"
+                    : "Global Search"}
+                />
+                {globalSearchInput.trim().length > 0 ? (
+                  <button
+                    type="button"
+                    className="global-search-clear"
+                    aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                    onClick={() => {
+                      setGlobalSearchInput("");
+                      setGlobalSearchResults([]);
+                      setGlobalSearchLoading(false);
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="global-search-cancel"
+                  onClick={() => setIsGlobalSearchModalOpen(false)}
+                >
+                  {language === "tr" ? "İptal" : "Cancel"}
+                </button>
+              </label>
+            </div>
+            <div className="global-search-results-shell">
+              {globalSearchQuery.length < globalSearchMinChars ? null : globalSearchLoading ? (
+                <p className="global-search-empty">{language === "tr" ? "Aranıyor..." : "Searching..."}</p>
+              ) : globalSearchResults.length === 0 ? (
+                <p className="global-search-empty">{language === "tr" ? "Sonuç bulunamadı." : "No results found."}</p>
+              ) : (
+                <div className="global-search-list">
+                  {globalSearchResults.map((item) => (
+                    <button
+                      key={`${item.kind}-${item.id}`}
+                      type="button"
+                      className="global-search-item"
+                      onClick={() => onSelectGlobalResult(item)}
+                    >
+                      <span className={`global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
+                      <span className="global-search-texts">
+                        <strong>{item.primaryText}</strong>
+                        <small>{item.secondaryText}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <Outlet />
+    </main>
+  );
+}
+
+function TopNavTabs({
+  pathname,
+  dict,
+  isSuperAdmin,
+  language,
+  isDarkMode,
+  onToggleDarkMode,
+  onToggleLanguage,
+  onLogout,
+}: {
+  pathname: string;
+  dict: Dictionary;
+  isSuperAdmin: boolean;
+  language: Language;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  onToggleLanguage: () => void;
+  onLogout: () => void;
+}) {
+  const items = [
+    { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
+    { to: "/app/buyers", active: pathname.startsWith("/app/buyers"), label: dict.menu.buyers },
+    { to: "/app/sellers", active: pathname.startsWith("/app/sellers"), label: dict.menu.sellers },
+    { to: "/app/orders", active: pathname.startsWith("/app/orders"), label: dict.menu.orders },
+    { to: "/app/foods", active: pathname.startsWith("/app/foods"), label: dict.menu.foods },
+    { to: "/app/investigation", active: pathname.startsWith("/app/investigation"), label: dict.menu.investigation },
+  ];
+  const managementItems = [
+    { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
+    { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
+    { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
+    { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
+    { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },
+    { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
+    { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
+  ];
+  const isManagementActive = managementItems.some((item) => item.active);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [isCompactNavOpen, setIsCompactNavOpen] = useState(false);
+  const [isResettingDb, setIsResettingDb] = useState(false);
+  const [isSeedingDemoData, setIsSeedingDemoData] = useState(false);
+  const [gitCommit, setGitCommit] = useState<string>("unknown");
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setIsCompactNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    request("/v1/admin/system/version")
+      .then(async (response) => {
+        if (response.status !== 200) return;
+        const body = await parseJson<{ data?: { commit?: string } }>(response);
+        const commit = body.data?.commit?.trim();
+        if (commit) setGitCommit(commit);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!menuRef.current.contains(target)) {
+        setIsManagementOpen(false);
+        setIsCompactNavOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsManagementOpen(false);
+        setIsCompactNavOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  async function resetDatabaseFromAdminMenu() {
+    if (!isSuperAdmin || isResettingDb) return;
+
+    const firstConfirm = window.confirm(
+      language === "tr"
+        ? "Bu işlem veritabanındaki tüm kayıtları siler ve şemayı baştan kurar. Devam edilsin mi?"
+        : "This action deletes all records and reinitializes the schema. Continue?"
+    );
+    if (!firstConfirm) return;
+
+    const promptText = window.prompt(
+      language === "tr" ? 'Onaylamak için "RESET DATABASE" yazın:' : 'Type "RESET DATABASE" to confirm:'
+    );
+    if (promptText !== "RESET DATABASE") {
+      window.alert(language === "tr" ? "Doğrulama metni eşleşmedi. İşlem iptal edildi." : "Confirmation text mismatch. Operation cancelled.");
+      return;
+    }
+
+    try {
+      setIsResettingDb(true);
+      const response = await request("/v1/admin/system/reset-database", {
+        method: "POST",
+        body: JSON.stringify({ confirmText: "RESET DATABASE" }),
+      });
+      const body = await parseJson<ApiError & { data?: { message?: string } }>(response);
+      if (response.status !== 200) {
+        window.alert(body.error?.message ?? (language === "tr" ? "Veritabanı sıfırlama başarısız." : "Database reset failed."));
+        return;
+      }
+      window.alert(body.data?.message ?? (language === "tr" ? "Veritabanı sıfırlandı." : "Database reset complete."));
+      window.location.reload();
+    } catch {
+      window.alert(language === "tr" ? "Veritabanı sıfırlama isteği başarısız." : "Database reset request failed.");
+    } finally {
+      setIsResettingDb(false);
+      setIsManagementOpen(false);
+    }
+  }
+
+  async function seedDemoDataFromAdminMenu() {
+    if (!isSuperAdmin || isSeedingDemoData) return;
+
+    const firstConfirm = window.confirm(
+      language === "tr"
+        ? "Bu işlem demo alıcı, satıcı, yemek ve sipariş verisi ekler. Devam edilsin mi?"
+        : "This action seeds demo buyer, seller, food, and order data. Continue?"
+    );
+    if (!firstConfirm) return;
+
+    const promptText = window.prompt(
+      language === "tr" ? 'Onaylamak için "SEED DEMO DATA" yazın:' : 'Type "SEED DEMO DATA" to confirm:'
+    );
+    if (promptText !== "SEED DEMO DATA") {
+      window.alert(language === "tr" ? "Doğrulama metni eşleşmedi. İşlem iptal edildi." : "Confirmation text mismatch. Operation cancelled.");
+      return;
+    }
+
+    try {
+      setIsSeedingDemoData(true);
+      const response = await request("/v1/admin/system/seed-demo-data", {
+        method: "POST",
+        body: JSON.stringify({ confirmText: "SEED DEMO DATA" }),
+      });
+      const body = await parseJson<ApiError & { data?: { message?: string; sellerEmail?: string; buyerEmail?: string; defaultPassword?: string } }>(response);
+      if (response.status !== 200) {
+        window.alert(body.error?.message ?? (language === "tr" ? "Demo veri ekleme başarısız." : "Demo data seed failed."));
+        return;
+      }
+
+      const sellerEmail = body.data?.sellerEmail ?? "demo.seller@coziyoo.local";
+      const buyerEmail = body.data?.buyerEmail ?? "demo.buyer@coziyoo.local";
+      const password = body.data?.defaultPassword ?? "Demo12345!";
+      window.alert(
+        language === "tr"
+          ? `Demo veriler eklendi.\nSatici: ${sellerEmail}\nAlici: ${buyerEmail}\nSifre: ${password}`
+          : `Demo data seeded.\nSeller: ${sellerEmail}\nBuyer: ${buyerEmail}\nPassword: ${password}`
+      );
+      window.location.reload();
+    } catch {
+      window.alert(language === "tr" ? "Demo veri isteği başarısız." : "Demo seed request failed.");
+    } finally {
+      setIsSeedingDemoData(false);
+      setIsManagementOpen(false);
+    }
+  }
+
+  return (
+    <div className="nav-wrap" ref={menuRef}>
+      <button
+        className={`nav-hamburger ${isCompactNavOpen ? "is-active" : ""}`}
+        type="button"
+        aria-label={language === "tr" ? "Menüyü aç/kapat" : "Toggle menu"}
+        aria-expanded={isCompactNavOpen}
+        onClick={() => setIsCompactNavOpen((open) => !open)}
+      >
+        <span aria-hidden="true">{isCompactNavOpen ? "✕" : "☰"}</span>
+      </button>
+      <nav className={`nav ${isCompactNavOpen ? "is-open" : ""}`}>
+        {items.map((item) => (
+          <Link
+            key={item.to}
+            className={`nav-link ${item.active ? "is-active" : ""}`}
+            to={item.to}
+            onClick={() => {
+              setIsManagementOpen(false);
+              setIsCompactNavOpen(false);
+            }}
+          >
+            {item.label}
+          </Link>
+        ))}
+        <button
+          className={`nav-link nav-link-button ${isManagementActive ? "is-active" : ""}`}
+          onClick={() => {
+            setIsManagementOpen((open) => !open);
+            setIsCompactNavOpen(true);
+          }}
+          type="button"
+        >
+          {dict.menu.management}
+        </button>
+        <div className="nav-mobile-actions">
+          <ApiHealthBadge />
+          <button
+            className="ghost"
+            onClick={() => {
+              onToggleLanguage();
+              setIsCompactNavOpen(false);
+            }}
+            type="button"
+          >
+            {dict.actions.language}
+          </button>
+          <button
+            className="theme-toggle"
+            onClick={() => {
+              onToggleDarkMode();
+              setIsCompactNavOpen(false);
+            }}
+            type="button"
+          >
+            {isDarkMode ? "☀" : "☾"}
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              setIsCompactNavOpen(false);
+              void onLogout();
+            }}
+            type="button"
+          >
+            {dict.actions.logout}
+          </button>
+        </div>
+      </nav>
+      {isManagementOpen ? (
+        <div className="nav-submenu">
+          {managementItems.map((item) => (
+            <Link
+              key={item.to}
+              className={`nav-link ${item.active ? "is-active" : ""}`}
+              to={item.to}
+              onClick={() => setIsManagementOpen(false)}
+            >
+              {item.label}
+            </Link>
+          ))}
+          {isSuperAdmin ? (
+            <button className="nav-link nav-link-button" type="button" onClick={() => seedDemoDataFromAdminMenu()}>
+              {isSeedingDemoData ? (language === "tr" ? "Ekleniyor..." : "Seeding...") : (language === "tr" ? "Demo Veri Ekle" : "Seed Demo Data")}
+            </button>
+          ) : null}
+          {isSuperAdmin ? (
+            <button className="nav-link nav-link-button nav-link-danger" type="button" onClick={() => resetDatabaseFromAdminMenu()}>
+              {isResettingDb ? (language === "tr" ? "Sıfırlanıyor..." : "Resetting...") : dict.actions.resetDatabase}
+            </button>
+          ) : null}
+          <div className="nav-submenu-meta" title={language === "tr" ? "Mevcut commit" : "Current commit"}>
+            {`Commit: ${gitCommit}`}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default AppShell;

@@ -655,6 +655,8 @@ const TestTtsSchema = z.object({
   text: z.string().min(1).max(500),
   baseUrl: z.string().min(1),
   synthPath: z.string().optional(),
+  queryParams: z.record(z.string()).optional(),
+  authHeader: z.string().optional(),
 });
 
 adminLiveKitRouter.post("/test/tts", async (req, res) => {
@@ -662,15 +664,25 @@ adminLiveKitRouter.post("/test/tts", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
-  const { text, baseUrl, synthPath } = parsed.data;
+  const { text, baseUrl, synthPath, queryParams, authHeader } = parsed.data;
 
   const path = synthPath?.trim() || "/tts";
-  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+  let url = `${baseUrl.replace(/\/$/, "")}${path}`;
+
+  if (queryParams && Object.keys(queryParams).length > 0) {
+    const qs = new URLSearchParams(queryParams).toString();
+    url = `${url}?${qs}`;
+  }
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authHeader?.trim()) {
+    headers["Authorization"] = authHeader.trim();
+  }
 
   try {
     const upstream = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ text }),
       signal: AbortSignal.timeout(30_000),
     });
