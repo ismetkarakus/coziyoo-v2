@@ -74,13 +74,14 @@ export type BuyerContactInfo = {
   };
   contact: {
     phone: string | null;
+    dob: string | null;
     countryCode: string | null;
     language: string | null;
   };
   addresses: {
-    home: { id: string; title: string; addressLine: string } | null;
-    office: { id: string; title: string; addressLine: string } | null;
-    other: Array<{ id: string; title: string; addressLine: string }>;
+    home: { id: string; title: string; addressLine: string; isDefault: boolean } | null;
+    office: { id: string; title: string; addressLine: string; isDefault: boolean } | null;
+    other: Array<{ id: string; title: string; addressLine: string; isDefault: boolean }>;
   };
 };
 

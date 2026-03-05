@@ -42,6 +42,7 @@ const CreateAppUserSchema = z.object({
   displayName: z.string().min(3).max(40),
   fullName: z.string().min(1).max(120).optional(),
   phone: z.string().min(3).max(40).optional(),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   profileImageUrl: z.string().url().max(2048).optional(),
   userType: z.enum(["buyer", "seller", "both"]),
   countryCode: z.string().min(2).max(3).optional(),
@@ -55,6 +56,7 @@ const UpdateAppUserSchema = z.object({
   displayName: z.string().min(3).max(40).optional(),
   fullName: z.string().min(1).max(120).nullable().optional(),
   phone: z.string().min(3).max(40).nullable().optional(),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   profileImageUrl: z.string().url().max(2048).nullable().optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
   countryCode: z.string().min(2).max(3).nullable().optional(),
@@ -1222,6 +1224,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     display_name: string;
     full_name: string | null;
     phone: string | null;
+    dob: string | null;
     profile_image_url: string | null;
     user_type: "buyer" | "seller" | "both";
     is_active: boolean;
@@ -1246,6 +1249,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.display_name,
        u.full_name,
        u.phone,
+       u.dob::text,
        u.profile_image_url,
        u.user_type,
        u.is_active,
@@ -1313,6 +1317,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       displayName: row.display_name,
       fullName: row.full_name,
       phone: row.phone,
+      dob: row.dob,
       profileImageUrl: row.profile_image_url,
       role: row.user_type,
       status: row.is_active ? "active" : "disabled",
@@ -1392,6 +1397,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
     display_name: string;
     full_name: string | null;
     phone: string | null;
+    dob: string | null;
     profile_image_url: string | null;
     user_type: "buyer" | "seller" | "both";
     is_active: boolean;
@@ -1408,6 +1414,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
        display_name,
        full_name,
        phone,
+       dob::text,
        profile_image_url,
        user_type,
        is_active,
@@ -1438,6 +1445,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       displayName: row.display_name,
       fullName: row.full_name,
       phone: row.phone,
+      dob: row.dob,
       profileImageUrl: row.profile_image_url,
       role: row.user_type,
       status: row.is_active ? "active" : "disabled",
@@ -2286,6 +2294,8 @@ adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), 
     is_active: boolean;
     country_code: string | null;
     language: string | null;
+    phone: string | null;
+    dob: string | null;
     created_at: string;
     updated_at: string;
     last_login_at: string | null;
@@ -2299,6 +2309,8 @@ adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), 
        u.is_active,
        u.country_code,
        u.language,
+       u.phone,
+       u.dob::text,
        u.created_at::text,
        u.updated_at::text,
        COALESCE(
@@ -2333,7 +2345,11 @@ adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), 
     [params.data.id]
   );
 
-  const grouped = { home: null as null | { id: string; title: string; addressLine: string }, office: null as null | { id: string; title: string; addressLine: string }, other: [] as Array<{ id: string; title: string; addressLine: string }> };
+  const grouped = {
+    home: null as null | { id: string; title: string; addressLine: string; isDefault: boolean },
+    office: null as null | { id: string; title: string; addressLine: string; isDefault: boolean },
+    other: [] as Array<{ id: string; title: string; addressLine: string; isDefault: boolean }>,
+  };
   for (const item of addresses.rows) {
     const normalized = item.title.toLowerCase().trim();
     const mapped =
@@ -2342,7 +2358,7 @@ adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), 
         : normalized.includes("ofis") || normalized.includes("office") || normalized.includes("iş")
           ? "office"
           : "other";
-    const payload = { id: item.id, title: item.title, addressLine: item.address_line };
+    const payload = { id: item.id, title: item.title, addressLine: item.address_line, isDefault: item.is_default };
     if (mapped === "home" && !grouped.home) grouped.home = payload;
     else if (mapped === "office" && !grouped.office) grouped.office = payload;
     else grouped.other.push(payload);
@@ -2363,7 +2379,8 @@ adminUserManagementRouter.get("/users/:id/buyer-contact", requireAuth("admin"), 
         lastLoginAt: base.last_login_at,
       },
       contact: {
-        phone: null,
+        phone: base.phone,
+        dob: base.dob,
         countryCode: base.country_code,
         language: base.language,
       },
@@ -2461,9 +2478,9 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
   try {
     await client.query("BEGIN");
     const created = await client.query(
-      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, phone, profile_image_url, user_type, is_active, country_code, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, phone, dob, profile_image_url, user_type, is_active, country_code, language)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12)
+       RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
          COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [
@@ -2473,6 +2490,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         displayNameNormalized,
         input.fullName ?? null,
         input.phone ?? null,
+        input.dob ?? null,
         input.profileImageUrl ?? null,
         input.userType,
         input.isActive ?? true,
@@ -2491,6 +2509,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         email: row.email,
         displayName: row.display_name,
         phone: row.phone,
+        dob: row.dob,
         userType: row.user_type,
         isActive: row.is_active,
       },
@@ -2504,6 +2523,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         displayName: row.display_name,
         fullName: row.full_name,
         phone: row.phone,
+        dob: row.dob,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
@@ -2538,7 +2558,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
   try {
     await client.query("BEGIN");
     const existing = await client.query(
-      `SELECT id, email, display_name, full_name, phone, profile_image_url, user_type, is_active, country_code, language
+      `SELECT id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active, country_code, language
        FROM users
        WHERE id = $1
        FOR UPDATE`,
@@ -2563,13 +2583,14 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
          display_name_normalized = coalesce($5, display_name_normalized),
          full_name = CASE WHEN $6::boolean THEN $7 ELSE full_name END,
          phone = CASE WHEN $8::boolean THEN $9 ELSE phone END,
-         profile_image_url = CASE WHEN $10::boolean THEN $11 ELSE profile_image_url END,
-         user_type = coalesce($12, user_type),
-         country_code = CASE WHEN $13::boolean THEN $14 ELSE country_code END,
-         language = CASE WHEN $15::boolean THEN $16 ELSE language END,
+         dob = CASE WHEN $10::boolean THEN $11::date ELSE dob END,
+         profile_image_url = CASE WHEN $12::boolean THEN $13 ELSE profile_image_url END,
+         user_type = coalesce($14, user_type),
+         country_code = CASE WHEN $15::boolean THEN $16 ELSE country_code END,
+         language = CASE WHEN $17::boolean THEN $18 ELSE language END,
          updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+       RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
          COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [
@@ -2582,6 +2603,8 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         input.fullName ?? null,
         Object.hasOwn(input, "phone"),
         input.phone ?? null,
+        Object.hasOwn(input, "dob"),
+        input.dob ?? null,
         Object.hasOwn(input, "profileImageUrl"),
         input.profileImageUrl ?? null,
         input.userType ?? null,
@@ -2604,6 +2627,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         displayName: row.display_name,
         fullName: row.full_name,
         phone: row.phone,
+        dob: row.dob,
         profileImageUrl: row.profile_image_url,
         userType: row.user_type,
         isActive: row.is_active,
@@ -2620,6 +2644,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
         displayName: row.display_name,
         fullName: row.full_name,
         phone: row.phone,
+        dob: row.dob,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
@@ -2666,7 +2691,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
       `UPDATE users
        SET is_active = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+       RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
          COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [params.data.id, nextActive]
@@ -2690,6 +2715,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
         displayName: row.display_name,
         fullName: row.full_name,
         phone: row.phone,
+        dob: row.dob,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",
@@ -2736,7 +2762,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
       `UPDATE users
        SET user_type = $2, updated_at = now()
        WHERE id = $1
-       RETURNING id, email, display_name, full_name, phone, profile_image_url, user_type, is_active,
+       RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
          COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [params.data.id, parsed.data.role]
@@ -2760,6 +2786,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
         displayName: row.display_name,
         fullName: row.full_name,
         phone: row.phone,
+        dob: row.dob,
         profileImageUrl: row.profile_image_url,
         role: row.user_type,
         status: row.is_active ? "active" : "disabled",

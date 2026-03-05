@@ -955,6 +955,7 @@ CREATE TABLE public.users (
     longitude numeric(9,6),
     profile_image_url text,
     phone text,
+    dob date,
     legal_hold_state boolean DEFAULT false NOT NULL,
     CONSTRAINT users_latitude_range_check CHECK (((latitude >= ('-90'::integer)::numeric) AND (latitude <= (90)::numeric))),
     CONSTRAINT users_longitude_range_check CHECK (((longitude >= ('-180'::integer)::numeric) AND (longitude <= (180)::numeric))),
@@ -2379,10 +2380,123 @@ ALTER TABLE ONLY public.user_login_locations
 ALTER TABLE ONLY public.user_login_locations
     ADD CONSTRAINT user_login_locations_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
+CREATE OR REPLACE FUNCTION public.ensure_user_default_address_before_write()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.is_default THEN
+    UPDATE public.user_addresses
+       SET is_default = FALSE,
+           updated_at = now()
+     WHERE user_id = NEW.user_id
+       AND id IS DISTINCT FROM NEW.id
+       AND is_default = TRUE;
+  ELSE
+    IF TG_OP = 'INSERT' THEN
+      IF NOT EXISTS (
+        SELECT 1
+          FROM public.user_addresses
+         WHERE user_id = NEW.user_id
+           AND is_default = TRUE
+      ) THEN
+        NEW.is_default := TRUE;
+      END IF;
+    ELSE
+      IF NOT EXISTS (
+        SELECT 1
+          FROM public.user_addresses
+         WHERE user_id = NEW.user_id
+           AND is_default = TRUE
+           AND id <> NEW.id
+      ) THEN
+        NEW.is_default := TRUE;
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ensure_user_has_default_address(p_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.user_addresses WHERE user_id = p_user_id)
+     AND NOT EXISTS (SELECT 1 FROM public.user_addresses WHERE user_id = p_user_id AND is_default = TRUE) THEN
+    UPDATE public.user_addresses
+       SET is_default = TRUE,
+           updated_at = now()
+     WHERE id = (
+       SELECT id
+         FROM public.user_addresses
+        WHERE user_id = p_user_id
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+     );
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ensure_user_default_address_after_write()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    PERFORM public.ensure_user_has_default_address(OLD.user_id);
+    RETURN OLD;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.user_id IS DISTINCT FROM NEW.user_id THEN
+      PERFORM public.ensure_user_has_default_address(OLD.user_id);
+      PERFORM public.ensure_user_has_default_address(NEW.user_id);
+    ELSIF OLD.is_default = TRUE AND NEW.is_default = FALSE THEN
+      PERFORM public.ensure_user_has_default_address(NEW.user_id);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_user_addresses_default_before_write ON public.user_addresses;
+CREATE TRIGGER trg_user_addresses_default_before_write
+BEFORE INSERT OR UPDATE OF user_id, is_default ON public.user_addresses
+FOR EACH ROW
+EXECUTE FUNCTION public.ensure_user_default_address_before_write();
+
+DROP TRIGGER IF EXISTS trg_user_addresses_default_after_write ON public.user_addresses;
+CREATE TRIGGER trg_user_addresses_default_after_write
+AFTER UPDATE OF user_id, is_default OR DELETE ON public.user_addresses
+FOR EACH ROW
+EXECUTE FUNCTION public.ensure_user_default_address_after_write();
+
+WITH ranked AS (
+  SELECT
+    id,
+    row_number() OVER (PARTITION BY user_id ORDER BY created_at ASC, id ASC) AS rn,
+    bool_or(is_default) OVER (PARTITION BY user_id) AS has_default
+  FROM public.user_addresses
+)
+UPDATE public.user_addresses ua
+   SET is_default = TRUE,
+       updated_at = now()
+  FROM ranked r
+ WHERE ua.id = r.id
+   AND r.rn = 1
+   AND r.has_default = FALSE;
+
 
 --
 -- PostgreSQL database dump complete
 --
 
 \unrestrict 1qxUnALlESTKbYz6AdxVhwtuYSIKdaC0AbjzNRmEtWf0xxFm3tMK4dsSMblD1HT
-
