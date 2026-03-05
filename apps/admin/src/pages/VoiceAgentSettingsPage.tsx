@@ -929,14 +929,17 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
       }
 
       const headers: Record<string, string> = {};
-      if (server.authHeader.trim()) headers["Authorization"] = server.authHeader.trim();
+      if (server.authHeader.trim()) {
+        const raw = server.authHeader.trim();
+        headers["Authorization"] = /\s/.test(raw) ? raw : `Bearer ${raw}`;
+      }
 
       const debugLines = [
         `POST ${fullUrl}`,
         `file: recording.webm  type=${mimeType}  size=${blob.size} bytes`,
         server.model.trim() ? `model: ${server.model}` : null,
         ...extraLines,
-        server.authHeader.trim() ? `Authorization: ${server.authHeader.slice(0, 16)}…` : null,
+        server.authHeader.trim() ? `Authorization: ${headers["Authorization"]?.slice(0, 20)}…` : null,
       ].filter(Boolean).join("\n");
       setSttDebugInfo(debugLines);
 
