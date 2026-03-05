@@ -102,6 +102,14 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   const [ttsSynthError, setTtsSynthError] = useState<string | null>(null);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
 
+  // STT record test
+  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const sttChunksRef = useRef<Blob[]>([]);
+  const [sttRecording, setSttRecording] = useState(false);
+  const [sttTranscribing, setSttTranscribing] = useState(false);
+  const [sttTranscript, setSttTranscript] = useState<string | null>(null);
+  const [sttTestError, setSttTestError] = useState<string | null>(null);
+
   function resetSettingsFormToDefaults() {
     setAgentName("");
     setVoiceLanguage("en");
@@ -316,6 +324,69 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     const res = await request("/v1/admin/livekit/test/livekit", { method: "POST", body: "{}" });
     const body = await parseJson<{ data?: { ok: boolean; reason?: string; wsUrl?: string } } & ApiError>(res);
     setTestLiveKit({ ok: body.data?.ok ?? false, detail: body.data?.reason ?? body.data?.wsUrl });
+  }
+
+  async function startSttRecording() {
+    setSttTranscript(null);
+    setSttTestError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      sttChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) sttChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        void sendSttRecording();
+      };
+      recorder.start();
+      sttMediaRecorderRef.current = recorder;
+      setSttRecording(true);
+    } catch (err) {
+      setSttTestError(err instanceof Error ? err.message : "Microphone access denied");
+    }
+  }
+
+  function stopSttRecording() {
+    sttMediaRecorderRef.current?.stop();
+    sttMediaRecorderRef.current = null;
+    setSttRecording(false);
+  }
+
+  async function sendSttRecording() {
+    const url = sttBaseUrl.trim();
+    const transcribePath = sttTranscribePath.trim() || "/v1/transcribe";
+    if (!url) { setSttTestError("No STT URL configured"); return; }
+    setSttTranscribing(true);
+    setSttTestError(null);
+    try {
+      const blob = new Blob(sttChunksRef.current, { type: "audio/webm" });
+      const form = new FormData();
+      form.append("file", blob, "recording.webm");
+      if (sttModel.trim()) form.append("model", sttModel.trim());
+      for (const { key, value } of sttQueryParams) {
+        if (key.trim()) form.append(key.trim(), value);
+      }
+      const headers: Record<string, string> = {};
+      if (sttAuthHeader.trim()) headers["Authorization"] = sttAuthHeader.trim();
+      const fullUrl = `${url.replace(/\/$/, "")}${transcribePath}`;
+      const res = await fetch(fullUrl, { method: "POST", headers, body: form });
+      const text = await res.text();
+      if (!res.ok) {
+        setSttTestError(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+        return;
+      }
+      try {
+        const json = JSON.parse(text) as Record<string, unknown>;
+        const transcript = (json.text ?? json.transcript ?? json.transcription ?? text) as string;
+        setSttTranscript(String(transcript));
+      } catch {
+        setSttTranscript(text);
+      }
+    } catch (err) {
+      setSttTestError(err instanceof Error ? err.message : "STT request failed");
+    } finally {
+      setSttTranscribing(false);
+    }
   }
 
   async function runTestStt(sttBaseUrlOverride?: string, sttTranscribePathOverride?: string) {
@@ -741,6 +812,34 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
                   {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
                   <input value={sttAuthHeader} onChange={(e) => setSttAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
                 </label>
+                {/* ── STT record test ── */}
+                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    {sttRecording ? (
+                      <button className="ghost" type="button" style={{ color: "#ef4444" }} onClick={stopSttRecording}>
+                        {language === "tr" ? "Durdur" : "Stop"}
+                      </button>
+                    ) : (
+                      <button className="ghost" type="button" disabled={sttTranscribing || !sttBaseUrl.trim()} onClick={() => { void startSttRecording(); }}>
+                        {sttTranscribing ? (language === "tr" ? "Çevriliyor…" : "Transcribing…") : (language === "tr" ? "Kaydet & Test Et" : "Record & Test")}
+                      </button>
+                    )}
+                    {sttRecording && (
+                      <span style={{ fontSize: "0.8em", color: "#ef4444", fontWeight: 600 }}>
+                        {language === "tr" ? "Kayıt yapılıyor…" : "Recording…"}
+                      </span>
+                    )}
+                  </div>
+                  {sttTestError ? <p style={{ color: "#ef4444", margin: 0, fontSize: "0.85em" }}>{sttTestError}</p> : null}
+                  {sttTranscript !== null ? (
+                    <div style={{ background: "var(--color-surface, #f5f5f5)", border: "1px solid var(--color-border)", borderRadius: 6, padding: "0.5rem 0.75rem", fontSize: "0.9em" }}>
+                      <span style={{ fontSize: "0.75em", fontWeight: 600, color: "var(--color-secondary-text)", display: "block", marginBottom: "0.25rem" }}>
+                        {language === "tr" ? "Transkripsiyon" : "Transcript"}
+                      </span>
+                      {sttTranscript}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
