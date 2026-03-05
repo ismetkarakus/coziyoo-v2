@@ -2190,12 +2190,6 @@ textarea:focus {
   --ops-accent-warning: #f59e0b;
   --ops-accent-danger: #ef4444;
   --ops-accent-info: #3b82f6;
-  --heading-xl: 40px;
-  --heading-lg: 18px;
-  --heading-md: 16px;
-  --body-lg: 13px;
-  --body-md: 12px;
-  --body-sm: 11px;
   min-height: calc(100vh - 140px);
   background:
     radial-gradient(115% 90% at 0% 0%, rgba(33, 62, 132, 0.35), transparent 58%),
@@ -2286,18 +2280,18 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--body-lg);
+  font-size: var(--text-sm);
   font-weight: var(--font-bold);
 }
 
 .buyer-ops-identity h2 {
-  font-size: var(--heading-lg);
+  font-size: var(--text-lg);
 }
 
 .buyer-ops-identity p {
   margin-top: 2px;
   color: var(--ops-text-secondary);
-  font-size: var(--body-md);
+  font-size: var(--text-xs);
 }
 
 .buyer-ops-id-row {
@@ -2305,13 +2299,13 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
 }
 
 .buyer-ops-mini-btn {
   min-height: 30px;
   padding: 4px 10px;
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   border-radius: 10px;
 }
 
@@ -2319,7 +2313,7 @@ textarea:focus {
   border-radius: 999px;
   border: 1px solid var(--ops-border-default);
   padding: 6px 11px;
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
 }
 
@@ -2352,7 +2346,7 @@ textarea:focus {
 .buyer-ops-head-actions .ghost {
   min-height: 42px;
   border-radius: 12px;
-  font-size: var(--body-md);
+  font-size: var(--text-xs);
   font-weight: var(--font-medium);
 }
 
@@ -2381,7 +2375,7 @@ textarea:focus {
   text-align: left;
   background: transparent;
   padding: 8px 9px;
-  font-size: var(--body-md);
+  font-size: var(--text-xs);
 }
 
 .buyer-ops-menu button:hover {
@@ -2406,17 +2400,17 @@ textarea:focus {
 }
 
 .buyer-ops-kpi-card p {
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   color: var(--ops-text-secondary);
 }
 
 .buyer-ops-kpi-card strong {
-  font-size: var(--heading-md);
+  font-size: var(--text-md);
   font-weight: var(--font-semibold);
 }
 
 .buyer-ops-kpi-card small {
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   color: var(--ops-text-secondary);
 }
 
@@ -2447,7 +2441,7 @@ textarea:focus {
   border-radius: 0;
   background: transparent;
   padding: 10px 0;
-  font-size: var(--heading-md);
+  font-size: var(--text-md);
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
   color: var(--ops-text-secondary);
@@ -2480,13 +2474,13 @@ textarea:focus {
 
 .buyer-ops-table-wrap th {
   color: var(--ops-text-secondary);
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
 }
 
 .buyer-ops-table-wrap td {
   color: var(--ops-text-primary);
-  font-size: var(--body-md);
+  font-size: var(--text-xs);
   border-bottom-color: color-mix(in srgb, var(--ops-border-default) 80%, transparent);
 }
 
@@ -2494,7 +2488,7 @@ textarea:focus {
   display: inline-flex;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   border: 1px solid var(--ops-border-default);
 }
 
@@ -2525,7 +2519,7 @@ textarea:focus {
 }
 
 .buyer-ops-stars {
-  font-size: var(--body-lg);
+  font-size: var(--text-sm);
 }
 
 .buyer-ops-notes {
@@ -2559,7 +2553,7 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, var(--ops-accent-warning) 42%, var(--ops-border-default));
   background: color-mix(in srgb, var(--ops-accent-warning) 24%, transparent);
   padding: 3px 10px;
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-bold);
 }
 
@@ -2582,11 +2576,11 @@ textarea:focus {
 }
 
 .buyer-ops-side-card h2 {
-  font-size: var(--heading-md);
+  font-size: var(--text-md);
 }
 
 .buyer-ops-side-lines p {
-  font-size: var(--body-md);
+  font-size: var(--text-xs);
   color: var(--ops-text-secondary);
 }
 
@@ -2623,14 +2617,14 @@ textarea:focus {
 }
 
 .buyer-ops-modal h3 {
-  font-size: var(--heading-md);
+  font-size: var(--text-md);
 }
 
 .buyer-ops-modal label {
   display: grid;
   gap: 6px;
   color: var(--ops-text-secondary);
-  font-size: var(--body-sm);
+  font-size: var(--text-xs);
   border: 0;
   background: transparent;
   padding: 0;
@@ -3194,7 +3188,6 @@ textarea:focus {
   letter-spacing: 0.02em;
   font-weight: var(--font-bold);
   color: color-mix(in srgb, var(--ops-text-secondary) 96%, transparent);
-  font-size: var(--text-sm);
 }
 
 .buyer-ref-head-checkbox {
@@ -3844,14 +3837,12 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap thead th {
-  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--color-secondary-text) 95%, transparent);
 }
 
 .buyer-v2-table-wrap tbody td {
-  font-size: var(--text-sm);
   padding-top: 10px;
   padding-bottom: 10px;
   vertical-align: middle;
@@ -5139,7 +5130,6 @@ textarea:focus {
 .seller-food-lot-orders-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-sm);
 }
 
 .seller-food-lot-orders-table th,
