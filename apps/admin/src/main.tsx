@@ -2599,19 +2599,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     return (
       <div className="app buyer-v2-page seller-v2-page">
-        <header className="topbar">
-          <div>
-            <h1>{pageTitleView}</h1>
-            <p className="subtext">Satıcı, ürün ve operasyon metriklerini tek aramayla takip edin.</p>
-          </div>
-          <div className="topbar-actions">
-            <div className="seller-daily-sales-inline" aria-label="Günlük satış tutarı">
-              <span className="seller-daily-sales-icon" aria-hidden="true">₺</span>
-              <strong>{sellerDailySales == null ? "-" : formatTry(sellerDailySales).replace("₺", "").trim()}</strong>
-            </div>
-          </div>
-        </header>
-
         <section className="buyer-v2-kpis seller-v2-kpis">
           <button
             type="button"
@@ -2895,21 +2882,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
-        <header className="topbar">
-          <div>
-            <h1>{language === "tr" ? "Alıcı Yönetimi" : "Buyer Management"}</h1>
-            <p className="subtext">Kullanıcı, sipariş, uygunluk ve itiraz metriklerini gerçek zamanlı izleyin.</p>
-          </div>
-          <div className="topbar-actions">
-            <div className="buyer-v2-head-revenue" aria-label="Toplam Ciro">
-              <span>Toplam Ciro</span>
-              <strong>{formatTry(totalRevenue30d)}</strong>
-            </div>
-            <button className="ghost" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>Yenile</button>
-            <button className="primary" type="button" onClick={downloadBuyersAsExcel}>Bekleyen İşler</button>
-          </div>
-        </header>
-
         <section className="buyer-v2-kpis">
           <article className="buyer-v2-kpi">
             <div className="buyer-v2-kpi-icon">👥</div>
@@ -7305,62 +7277,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
 
   return (
     <div className="app buyer-ops-page">
-      <section className="buyer-ref-head">
-        <div>
-          <h1>Alici Detayi</h1>
-        </div>
-        <div className="buyer-ref-actions">
-          <button className="ghost" type="button" onClick={downloadBuyerOrdersAsExcel}>
-            <span className="buyer-ref-action-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M12 3.5v11.8" />
-                <path d="m7.9 11.8 4.1 4.1 4.1-4.1" />
-                <path d="M4.5 18.5h15" />
-              </svg>
-            </span>
-            Excel'e Dok
-          </button>
-          <div className="buyer-ops-menu-wrap" ref={quickContactWrapRef}>
-            <button className="ghost" type="button" onClick={() => setQuickContactMenuOpen((prev) => !prev)}>
-              <span className="buyer-ref-action-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M5 7.2h14v9.4H9l-4 3v-3z" />
-                  <path d="M9 10.8h6M9 13.5h4.2" />
-                </svg>
-              </span>
-              Hizli Iletisim
-            </button>
-            {quickContactMenuOpen ? (
-              <div className="buyer-ops-menu">
-                <button type="button" onClick={() => { setEmailOpen(true); setQuickContactMenuOpen(false); }}>Hizli E-posta</button>
-                <button type="button" onClick={() => { setSmsOpen(true); setQuickContactMenuOpen(false); }}>Hizli SMS</button>
-              </div>
-            ) : null}
-          </div>
-          <button className="ghost" type="button">
-            <span className="buyer-ref-action-icon is-warn" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M18.5 8.2A7 7 0 1 0 19 13" />
-                <path d="M19 5.8v4h-4" />
-              </svg>
-            </span>
-            {row.status === "active" ? "Pasif Yap" : "Aktif Yap"}
-          </button>
-          <div className="buyer-ops-menu-wrap" ref={actionMenuWrapRef}>
-            <button className="ghost" type="button" onClick={() => setActionMenuOpen((prev) => !prev)}>
-              <span className="buyer-ref-action-icon" aria-hidden="true">•••</span>
-              Diger
-            </button>
-            {actionMenuOpen ? (
-              <div className="buyer-ops-menu">
-                <button type="button" onClick={() => { loadBuyerDetail(); setActionMenuOpen(false); }}>Yenile</button>
-                <button type="button" onClick={() => { navigate("/app/dashboard"); setActionMenuOpen(false); }}>Bekleyen Isler</button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
       <section className="buyer-ref-top buyer-ref-hero-strip">
         <article className="buyer-ref-profile-card">
           <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
@@ -8649,68 +8565,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   return (
     <div className="app seller-detail-page">
-      <section className="panel seller-hero">
-        <article className="seller-hero-main">
-          <div className="seller-avatar-col">
-            <div className="seller-avatar">
-              {profileImageUrl ? (
-                <img
-                  src={profileImageUrl}
-                  alt={row.displayName ?? "seller"}
-                  onError={() => setProfileImageFailed(true)}
-                />
-              ) : (
-                <span>{initials}</span>
-              )}
-            </div>
-            <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
-              <span className="rating-value">{avgRating.toFixed(1)}</span>
-              <span className="rating-stars" aria-hidden="true">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
-                ))}
-              </span>
-            </div>
-          </div>
-          <div className="seller-hero-text">
-            <div className="seller-hero-title-row">
-              <h1>{row.displayName ?? row.email}</h1>
-              <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
-              <span className="seller-user-id">{`${dict.detail.userId}: ${row.id}`}</span>
-            </div>
-            <p>{maskedEmail}</p>
-            <p className="panel-meta">
-              <span>{`${language === "tr" ? "Kayıt" : "Created"}: ${formatUiDate(row.createdAt, language)}`}</span>
-            </p>
-          </div>
-        </article>
-        <div className="seller-hero-right">
-          <div className="topbar-actions">
-            <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
-              {dict.actions.refresh}
-            </button>
-            <button className="ghost seller-excel-btn" type="button" onClick={downloadSellerOrdersAsExcel}>
-              {language === "tr" ? "Excel" : "Excel"}
-            </button>
-            <button className="ghost" type="button" onClick={() => openQuickEmail(row.email, dict, setMessage)}>
-              {dict.detail.quickEmail}
-            </button>
-            <button className="primary" type="button" onClick={() => setActiveTab("legal")}>{complianceCta}</button>
-            <button className="ghost" type="button" onClick={() => navigate("/app/audit")}>{auditCta}</button>
-          </div>
-          <div className="seller-hero-stats">
-            <article>
-              <p>{dict.detail.sellerTabs.wallet}</p>
-              <strong>{walletAmount}</strong>
-            </article>
-            <article>
-              <p>{dict.detail.lastAction}</p>
-              <strong>{formatUiDate(row.updatedAt, language)}</strong>
-            </article>
-          </div>
-        </div>
-      </section>
-
       {message ? <div className="alert">{message}</div> : null}
 
       <section className="panel seller-tabs-panel">
