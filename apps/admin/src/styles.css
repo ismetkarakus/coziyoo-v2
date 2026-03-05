@@ -2749,6 +2749,7 @@ textarea:focus {
   margin: 0;
   color: color-mix(in srgb, var(--ops-text-primary) 90%, white);
   font-weight: 700;
+  font-size: 0.98rem;
 }
 
 .buyer-ref-metric-icon {
@@ -3775,15 +3776,15 @@ textarea:focus {
 
 .seller-v2-kpis {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .seller-v2-kpi {
   border-radius: 14px;
   background: var(--seller-v2-kpi-bg);
   border-color: color-mix(in srgb, #586c9e 40%, var(--color-border));
-  padding: 12px 14px;
+  padding: 9px 11px;
 }
 
 .seller-v2-kpi.is-green {
@@ -3813,25 +3814,25 @@ textarea:focus {
 }
 
 .seller-v2-kpi .buyer-v2-kpi-icon {
-  width: 36px;
-  height: 36px;
-  font-size: 1rem;
+  width: 30px;
+  height: 30px;
+  font-size: 0.88rem;
 }
 
 .seller-v2-kpi strong {
-  font-size: 2.25rem;
+  font-size: 1.85rem;
 }
 
 .seller-v2-kpi-dots {
-  margin-top: 6px;
+  margin-top: 4px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .seller-v2-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   background: color-mix(in srgb, #3e4f7f 74%, transparent);
   border: 1px solid color-mix(in srgb, #4d6198 58%, transparent);
