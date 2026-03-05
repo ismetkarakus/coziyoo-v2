@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request, parseJson } from "../lib/api";
-import { DICTIONARIES } from "../lib/i18n";
 import type { Language, ApiError } from "../types/core";
 import type { AgentSettingsFull, SttServer, TtsServer, LlmServer, N8nServer, VoiceSettingsTab } from "../types/voice";
 
@@ -216,8 +215,7 @@ function migrateLegacy(cfg: Record<string, unknown>, ollamaModel: string) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function VoiceAgentSettingsPage({ language }: { language: Language }) {
-  const dict = DICTIONARIES[language];
+export default function VoiceAgentSettingsPage({ language: _language }: { language: Language }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<VoiceSettingsTab>("summary");
 
@@ -268,14 +266,14 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   const loadSettings = useCallback(async () => {
     setLoadError(null);
     try {
-      const res = await request("GET", "/v1/admin/livekit/agent-settings/default");
+      const res = await request("/v1/admin/livekit/agent-settings/default");
       if (res.status === 404) {
-        await request("PUT", "/v1/admin/livekit/agent-settings/default", { agentName: "coziyoo-agent", voiceLanguage: "en" });
+        await request("/v1/admin/livekit/agent-settings/default", { method: "PUT", body: JSON.stringify({ agentName: "coziyoo-agent", voiceLanguage: "en" }) });
         return;
       }
-      const json = await parseJson(res);
+      const json = await parseJson<ApiError & { data?: AgentSettingsFull }>(res);
       if (json.error) {
-        setLoadError((json.error as ApiError).message ?? "Load failed");
+        setLoadError(json.error.message ?? "Load failed");
         return;
       }
       const data = json.data as AgentSettingsFull;
@@ -339,9 +337,9 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     if (defaultLlm) { body.ollamaBaseUrl = defaultLlm.baseUrl; body.ollamaModel = defaultLlm.model; body.llmAuthHeader = defaultLlm.authHeader; }
     if (defaultN8n) { body.n8nBaseUrl = defaultN8n.baseUrl; }
 
-    const res = await request("PUT", "/v1/admin/livekit/agent-settings/default", body);
-    const json = await parseJson(res);
-    if (json.error) throw new Error((json.error as ApiError).message ?? "Save failed");
+    const res = await request("/v1/admin/livekit/agent-settings/default", { method: "PUT", body: JSON.stringify(body) });
+    const json = await parseJson<ApiError>(res);
+    if (json.error) throw new Error(json.error.message ?? "Save failed");
   }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId]);
 
   // ── Server mutations ────────────────────────────────────────────────────────
@@ -470,9 +468,9 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     setGeneralMsg(null);
     setGeneralError(null);
     try {
-      const res = await request("PUT", "/v1/admin/livekit/agent-settings/default", { agentName, voiceLanguage, systemPrompt, greetingEnabled, greetingInstruction });
-      const json = await parseJson(res);
-      if (json.error) throw new Error((json.error as ApiError).message ?? "Save failed");
+      const res = await request("/v1/admin/livekit/agent-settings/default", { method: "PUT", body: JSON.stringify({ agentName, voiceLanguage, systemPrompt, greetingEnabled, greetingInstruction }) });
+      const json = await parseJson<ApiError>(res);
+      if (json.error) throw new Error(json.error.message ?? "Save failed");
       setGeneralMsg("Saved");
       setTimeout(() => setGeneralMsg(null), 3000);
     } catch (err) {
@@ -484,11 +482,13 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
 
   // ── Connection tests ──────────────────────────────────────────────────────────
 
+  type TestResponse = { data?: { ok?: boolean; reason?: string } };
+
   const runTestLiveKit = async () => {
     setTestLiveKit(null);
     try {
-      const res = await request("POST", "/v1/admin/livekit/test/livekit");
-      const json = await parseJson(res);
+      const res = await request("/v1/admin/livekit/test/livekit", { method: "POST" });
+      const json = await parseJson<TestResponse>(res);
       setTestLiveKit({ ok: json.data?.ok === true, detail: json.data?.reason });
     } catch { setTestLiveKit({ ok: false, detail: "Request failed" }); }
   };
@@ -498,8 +498,8 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     if (!srv) { setTestStt({ ok: false, detail: "No default STT server" }); return; }
     setTestStt(null);
     try {
-      const res = await request("POST", "/v1/admin/livekit/test/stt", { baseUrl: srv.baseUrl, transcribePath: srv.transcribePath });
-      const json = await parseJson(res);
+      const res = await request("/v1/admin/livekit/test/stt", { method: "POST", body: JSON.stringify({ baseUrl: srv.baseUrl, transcribePath: srv.transcribePath }) });
+      const json = await parseJson<TestResponse>(res);
       setTestStt({ ok: json.data?.ok === true, detail: json.data?.reason });
     } catch { setTestStt({ ok: false, detail: "Request failed" }); }
   };
@@ -509,7 +509,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     if (!srv) { setTestTts({ ok: false, detail: "No default TTS server" }); return; }
     setTestTts(null);
     try {
-      const res = await request("POST", "/v1/admin/livekit/test/tts", { text: "test", baseUrl: srv.baseUrl, synthPath: srv.synthPath, queryParams: srv.queryParams, authHeader: srv.authHeader });
+      const res = await request("/v1/admin/livekit/test/tts", { method: "POST", body: JSON.stringify({ text: "test", baseUrl: srv.baseUrl, synthPath: srv.synthPath, queryParams: srv.queryParams, authHeader: srv.authHeader }) });
       setTestTts({ ok: res.ok, detail: res.ok ? undefined : `HTTP ${res.status}` });
     } catch { setTestTts({ ok: false, detail: "Request failed" }); }
   };
@@ -518,8 +518,8 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     const srv = llmServers.find(s => s.id === defaultLlmServerId);
     setTestOllama(null);
     try {
-      const res = await request("POST", "/v1/admin/livekit/test/ollama", { baseUrl: srv?.baseUrl });
-      const json = await parseJson(res);
+      const res = await request("/v1/admin/livekit/test/ollama", { method: "POST", body: JSON.stringify({ baseUrl: srv?.baseUrl }) });
+      const json = await parseJson<TestResponse>(res);
       setTestOllama({ ok: json.data?.ok === true, detail: json.data?.reason });
     } catch { setTestOllama({ ok: false, detail: "Request failed" }); }
   };
@@ -528,8 +528,8 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     const srv = n8nServers.find(s => s.id === defaultN8nServerId);
     setTestN8n(null);
     try {
-      const res = await request("POST", "/v1/admin/livekit/test/n8n", { baseUrl: srv?.baseUrl });
-      const json = await parseJson(res);
+      const res = await request("/v1/admin/livekit/test/n8n", { method: "POST", body: JSON.stringify({ baseUrl: srv?.baseUrl }) });
+      const json = await parseJson<TestResponse>(res);
       setTestN8n({ ok: json.data?.ok === true, detail: json.data?.reason });
     } catch { setTestN8n({ ok: false, detail: "Request failed" }); }
   };
@@ -546,10 +546,10 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     setTtsTestBusy(true);
     setTtsTestError(null);
     try {
-      const res = await request("POST", "/v1/admin/livekit/test/tts", { text: "Merhaba, nasıl yardımcı olabilirim?", baseUrl: server.baseUrl, synthPath: server.synthPath, queryParams: server.queryParams, authHeader: server.authHeader });
+      const res = await request("/v1/admin/livekit/test/tts", { method: "POST", body: JSON.stringify({ text: "Merhaba, nasıl yardımcı olabilirim?", baseUrl: server.baseUrl, synthPath: server.synthPath, queryParams: server.queryParams, authHeader: server.authHeader }) });
       if (!res.ok) {
-        const json = await parseJson(res);
-        throw new Error((json.error as ApiError)?.message ?? `HTTP ${res.status}`);
+        const json = await parseJson<ApiError>(res);
+        throw new Error(json.error?.message ?? `HTTP ${res.status}`);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -753,7 +753,7 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
           </div>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
             <button className="primary" type="button" onClick={handleSaveGeneral} disabled={generalSaving}>
-              {generalSaving ? "Saving…" : (dict.save ?? "Save")}
+              {generalSaving ? "Saving…" : "Save"}
             </button>
             {generalMsg && <span style={{ color: "#22c55e", fontSize: "0.85em" }}>{generalMsg}</span>}
             {generalError && <span style={{ color: "#ef4444", fontSize: "0.85em" }}>{generalError}</span>}
