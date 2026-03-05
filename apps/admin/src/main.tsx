@@ -3149,7 +3149,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const hasPhone = phoneRaw.length > 0;
                     const phoneHref = phoneRaw.replace(/\s+/g, "");
                     const loginAtRaw = String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "");
-                    const loginAt = loginAtRaw ? formatUiDate(loginAtRaw, language) : "-";
+                    const loginAt = formatLoginRelativeDayMonth(loginAtRaw, language);
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
@@ -6857,7 +6857,7 @@ function openQuickEmail(email: string | null | undefined, dict: Dictionary, setM
   }, 700);
 }
 
-function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
+function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionary; language: Language }) {
   const navigate = useNavigate();
   const location = useLocation();
   const endpoint = `/v1/admin/users/${id}`;
@@ -7061,7 +7061,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const compactUserId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
-  const detailLastLoginAt = detailLastLoginAtRaw ? formatDate(detailLastLoginAtRaw) : "-";
+  const detailLastLoginAt = formatLoginRelativeDayMonth(detailLastLoginAtRaw, language);
 
   const failedPayments = useMemo(
     () => orders.filter((order) => paymentBadge(order.paymentStatus).cls === "is-failed").length,
@@ -7862,6 +7862,21 @@ function formatUiDate(value: string | null | undefined, language: Language): str
   const date = Date.parse(value);
   if (Number.isNaN(date)) return "-";
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
+}
+
+function formatLoginRelativeDayMonth(value: string | null | undefined, language: Language): string {
+  if (!value) return "-";
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return "-";
+  const diffMs = Math.max(0, Date.now() - date);
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days < 30) {
+    if (language === "tr") return `${days} gun`;
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+  const months = Math.max(1, Math.floor(days / 30));
+  if (language === "tr") return `${months} ay`;
+  return `${months} month${months === 1 ? "" : "s"}`;
 }
 
 function foodDateKey(value: string | null | undefined): string | null {
@@ -9291,7 +9306,7 @@ function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperA
   const dict = DICTIONARIES[language];
   const location = useLocation();
   const id = location.pathname.split("/").at(-1) ?? "";
-  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} />;
+  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} language={language} />;
   if (kind === "sellers") return <SellerDetailScreen id={id} isSuperAdmin={isSuperAdmin} dict={dict} language={language} />;
   return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;
 }
