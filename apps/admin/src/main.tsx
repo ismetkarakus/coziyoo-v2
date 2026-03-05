@@ -7319,24 +7319,30 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <span className="buyer-ref-metric-icon is-alert" aria-hidden="true">♡</span>
             <p>Acik Sikayet</p>
           </div>
-          <strong>{openComplaints} <span>Aktif sikayet</span></strong>
-          <small>Son sikayet: {cancellations[0] ? toRelative(cancellations[0].cancelledAt) : "4 ay once"}</small>
+          <div className="buyer-ref-metric-line">
+            <strong>{openComplaints} <span>Aktif sikayet</span></strong>
+            <small>Son sikayet: {cancellations[0] ? toRelative(cancellations[0].cancelledAt) : "4 ay once"}</small>
+          </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-trend" aria-hidden="true">⌁</span>
             <p>Son 30 Gun</p>
           </div>
-          <strong>{summary?.monthlyOrderCountCurrent ?? 0} <span className="is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</span></strong>
-          <small className={`buyer-trend ${orderTrend.cls}`}>Son siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
+          <div className="buyer-ref-metric-line">
+            <strong>{summary?.monthlyOrderCountCurrent ?? 0} <span className="is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</span></strong>
+            <small className={`buyer-trend ${orderTrend.cls}`}>Son siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
+          </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
             <p>Odeme Durumu</p>
           </div>
-          <strong>{orders.length - failedPayments} <span className="is-accent">{failedPayments} beklemede</span></strong>
-          <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
+          <div className="buyer-ref-metric-line">
+            <strong>{orders.length - failedPayments} <span className="is-accent">{failedPayments} beklemede</span></strong>
+            <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
+          </div>
         </article>
       </section>
 

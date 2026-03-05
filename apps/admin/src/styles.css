@@ -2642,7 +2642,7 @@ textarea:focus {
 .buyer-ref-top {
   margin-top: 0;
   display: grid;
-  grid-template-columns: minmax(520px, 2.35fr) minmax(250px, 1fr) minmax(250px, 1fr) minmax(250px, 1fr);
+  grid-template-columns: minmax(460px, 1.8fr) minmax(300px, 1.15fr) minmax(300px, 1.15fr) minmax(300px, 1.15fr);
   gap: 6px;
 }
 
@@ -2718,6 +2718,20 @@ textarea:focus {
   color: color-mix(in srgb, var(--ops-text-secondary) 88%, transparent);
 }
 
+.buyer-ref-metric-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.buyer-ref-metric-line small {
+  font-size: 0.74rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .buyer-ref-metric strong {
   font-size: clamp(0.9rem, 1.08vw, 1.15rem);
   white-space: nowrap;
@@ -2732,6 +2746,9 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, #6d82ba 20%, var(--ops-border-default));
   background: linear-gradient(180deg, rgba(31, 42, 74, 0.78), rgba(24, 34, 60, 0.74));
   padding: 7px 9px;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: center;
 }
 
 .buyer-ref-metric .is-accent {
