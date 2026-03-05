@@ -421,7 +421,6 @@ const AdminAgentSettingsSchema = z.object({
   voiceLanguage: z.string().min(2).max(16).optional(),
   ollamaModel: z.string().max(128).optional(),
   ollamaBaseUrl: z.string().optional(),
-  ttsEngine: z.enum(["f5-tts", "xtts", "chatterbox"]).optional(),
   ttsEnabled: z.boolean().optional(),
   ttsBaseUrl: z.string().optional(),
   sttEnabled: z.boolean().optional(),
@@ -558,7 +557,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
       agentName: input.agentName ?? existing?.agentName ?? "coziyoo-agent",
       voiceLanguage: input.voiceLanguage ?? existing?.voiceLanguage ?? "en",
       ollamaModel: input.ollamaModel ?? existing?.ollamaModel ?? "llama3.1:8b",
-      ttsEngine: normalizeTtsEngine(input.ttsEngine ?? existing?.ttsEngine),
+      ttsEngine: normalizeTtsEngine(existing?.ttsEngine),
       ttsEnabled: input.ttsEnabled ?? existing?.ttsEnabled ?? true,
       sttEnabled: input.sttEnabled ?? existing?.sttEnabled ?? true,
       ttsConfig: mergedTtsConfig,
@@ -650,7 +649,6 @@ adminLiveKitRouter.post("/test/n8n", async (req, res) => {
 const TestTtsSchema = z.object({
   text: z.string().min(1).max(500),
   baseUrl: z.string().min(1),
-  engine: z.enum(["f5-tts", "xtts", "chatterbox"]).default("f5-tts"),
   synthPath: z.string().optional(),
 });
 
@@ -659,10 +657,9 @@ adminLiveKitRouter.post("/test/tts", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
-  const { text, baseUrl, engine, synthPath } = parsed.data;
+  const { text, baseUrl, synthPath } = parsed.data;
 
-  const defaultPath = engine === "f5-tts" ? "/api/tts" : "/tts";
-  const path = synthPath?.trim() || defaultPath;
+  const path = synthPath?.trim() || "/tts";
   const url = `${baseUrl.replace(/\/$/, "")}${path}`;
 
   try {

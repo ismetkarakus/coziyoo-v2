@@ -6087,7 +6087,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [voiceLanguage, setVoiceLanguage] = useState("en");
   const [ollamaModel, setOllamaModel] = useState("llama3.1:8b");
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
-  const [ttsEngine, setTtsEngine] = useState("f5-tts");
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsBaseUrl, setTtsBaseUrl] = useState("");
   const [sttEnabled, setSttEnabled] = useState(true);
@@ -6122,7 +6121,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setVoiceLanguage("en");
     setOllamaModel("llama3.1:8b");
     setOllamaBaseUrl("");
-    setTtsEngine("f5-tts");
     setTtsEnabled(true);
     setTtsBaseUrl("");
     setSttEnabled(true);
@@ -6201,7 +6199,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       setVoiceLanguage(s.voiceLanguage ?? "en");
       setOllamaModel(s.ollamaModel ?? "llama3.1:8b");
       setOllamaBaseUrl(loadedOllamaBaseUrl);
-      setTtsEngine(s.ttsEngine ?? "f5-tts");
       setTtsEnabled(s.ttsEnabled ?? true);
       setTtsBaseUrl(loadedTtsBaseUrl);
       setSttEnabled(s.sttEnabled ?? true);
@@ -6257,7 +6254,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           voiceLanguage: voiceLanguage.trim() || undefined,
           ollamaModel: ollamaModel.trim() || undefined,
           ollamaBaseUrl: ollamaBaseUrl.trim() || undefined,
-          ttsEngine: ttsEngine || undefined,
           ttsEnabled,
           ttsBaseUrl: ttsBaseUrl.trim() || undefined,
           sttEnabled,
@@ -6382,7 +6378,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           "Content-Type": "application/json",
           ...(tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
         },
-        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", baseUrl: url, engine: ttsEngine }),
+        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", baseUrl: url }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as ApiError;
@@ -6517,7 +6513,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   </span>
                   <span>{d.agent_name || "—"}</span>
                   <span>{d.voice_language || "—"}</span>
-                  <span>{d.tts_engine || "—"}</span>
+                  <span>{d.tts_enabled ? "ON" : "OFF"}</span>
                   <span className="panel-meta" style={{ fontSize: "0.85em" }}>
                     {new Date(d.updated_at).toLocaleDateString()}
                   </span>
@@ -6709,14 +6705,6 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   <label><input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />{dict.voiceAgentSettings.ttsEnabled}</label>
                 </div>
                 <div className="form-grid">
-                  <label>
-                    {dict.voiceAgentSettings.ttsEngine}
-                    <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value)}>
-                      <option value="f5-tts">f5-tts</option>
-                      <option value="xtts">xtts</option>
-                      <option value="chatterbox">chatterbox</option>
-                    </select>
-                  </label>
                   <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
                 </div>
                 <QueryParamsEditor
