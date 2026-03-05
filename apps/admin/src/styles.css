@@ -2714,7 +2714,7 @@ textarea:focus {
 
 .buyer-ref-metric strong span {
   margin-left: 4px;
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 88%, transparent);
 }
 
@@ -2728,7 +2728,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric-line small {
-  font-size: 0.74rem;
+  font-size: 0.92rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2744,7 +2744,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric strong {
-  font-size: clamp(0.9rem, 1.08vw, 1.15rem);
+  font-size: clamp(1.12rem, 1.35vw, 1.42rem);
   white-space: nowrap;
   display: inline-flex;
   align-items: baseline;
@@ -2782,14 +2782,14 @@ textarea:focus {
 
 .buyer-ref-metric-head-value {
   margin-left: auto;
-  font-size: 1.02rem;
+  font-size: 1.28rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
 }
 
 .buyer-ref-metric-head-meta {
   margin-left: auto;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
   white-space: nowrap;
 }
