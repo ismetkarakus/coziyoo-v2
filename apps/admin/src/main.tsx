@@ -6072,6 +6072,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [sttModel, setSttModel] = useState("");
   const [sttQueryParams, setSttQueryParams] = useState<Array<{ key: string; value: string }>>([]);
   const [ttsQueryParams, setTtsQueryParams] = useState<Array<{ key: string; value: string }>>([]);
+  const [sttAuthHeader, setSttAuthHeader] = useState("");
+  const [ttsAuthHeader, setTtsAuthHeader] = useState("");
+  const [llmAuthHeader, setLlmAuthHeader] = useState("");
   const [n8nBaseUrl, setN8nBaseUrl] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [greetingEnabled, setGreetingEnabled] = useState(true);
@@ -6109,6 +6112,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setSttModel("");
     setSttQueryParams([]);
     setTtsQueryParams([]);
+    setSttAuthHeader("");
+    setTtsAuthHeader("");
+    setLlmAuthHeader("");
     setN8nBaseUrl("");
     setSystemPrompt("");
     setGreetingEnabled(true);
@@ -6189,6 +6195,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       setSttQueryParams(Object.entries(typeof rawSttQP === "object" && rawSttQP !== null ? rawSttQP as Record<string, string> : {}).map(([k, v]) => ({ key: k, value: String(v) })));
       const rawTtsQP = s.ttsConfig?.queryParams ?? {};
       setTtsQueryParams(Object.entries(typeof rawTtsQP === "object" && rawTtsQP !== null ? rawTtsQP as Record<string, string> : {}).map(([k, v]) => ({ key: k, value: String(v) })));
+      setSttAuthHeader(readNestedStr(s.ttsConfig, "stt", "authHeader"));
+      setTtsAuthHeader(readNestedStr(s.ttsConfig, "authHeader"));
+      setLlmAuthHeader(readNestedStr(s.ttsConfig, "llm", "authHeader"));
       setN8nBaseUrl(loadedN8nBaseUrl);
       setSystemPrompt(s.systemPrompt ?? "");
       setGreetingEnabled(s.greetingEnabled ?? true);
@@ -6242,6 +6251,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           sttModel: sttModel.trim() || undefined,
           sttQueryParams: Object.fromEntries(sttQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])),
           ttsQueryParams: Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])),
+          sttAuthHeader: sttAuthHeader.trim() || undefined,
+          ttsAuthHeader: ttsAuthHeader.trim() || undefined,
+          llmAuthHeader: llmAuthHeader.trim() || undefined,
           n8nBaseUrl: n8nBaseUrl.trim() || undefined,
           systemPrompt: systemPrompt.trim() || undefined,
           greetingEnabled,
@@ -6701,6 +6713,10 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   params={sttQueryParams}
                   onChange={setSttQueryParams}
                 />
+                <label>
+                  {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
+                  <input value={sttAuthHeader} onChange={(e) => setSttAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
+                </label>
               </div>
             ) : null}
 
@@ -6718,6 +6734,10 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                   params={ttsQueryParams}
                   onChange={setTtsQueryParams}
                 />
+                <label>
+                  {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
+                  <input value={ttsAuthHeader} onChange={(e) => setTtsAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
+                </label>
               </div>
             ) : null}
 
@@ -6761,6 +6781,10 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                     </div>
                   </div>
                 ) : null}
+                <label>
+                  {language === "tr" ? "Yetkilendirme (Authorization)" : "Authorization"}
+                  <input value={llmAuthHeader} onChange={(e) => setLlmAuthHeader(e.target.value)} placeholder="Bearer sk-..." />
+                </label>
               </div>
             ) : null}
 

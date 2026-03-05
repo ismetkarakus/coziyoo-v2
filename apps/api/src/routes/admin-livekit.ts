@@ -435,6 +435,9 @@ const AdminAgentSettingsSchema = z.object({
   greetingInstruction: z.string().max(2_000).optional(),
   sttQueryParams: z.record(z.string(), z.string()).optional(),
   ttsQueryParams: z.record(z.string(), z.string()).optional(),
+  sttAuthHeader: z.string().max(512).optional(),
+  ttsAuthHeader: z.string().max(512).optional(),
+  llmAuthHeader: z.string().max(512).optional(),
 });
 
 adminLiveKitRouter.get("/agent-settings", async (_req, res) => {
@@ -530,6 +533,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
     ...existingTtsConfig,
     ...(input.ttsBaseUrl !== undefined ? { baseUrl: input.ttsBaseUrl || null } : {}),
     ...(input.ttsQueryParams !== undefined ? { queryParams: input.ttsQueryParams } : {}),
+    ...(input.ttsAuthHeader !== undefined ? { authHeader: input.ttsAuthHeader || null } : {}),
     stt: {
       ...existingStt,
       ...(input.sttProvider !== undefined ? { provider: input.sttProvider } : {}),
@@ -537,10 +541,12 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
       ...(input.sttTranscribePath !== undefined ? { transcribePath: input.sttTranscribePath } : {}),
       ...(input.sttModel !== undefined ? { model: input.sttModel } : {}),
       ...(input.sttQueryParams !== undefined ? { queryParams: input.sttQueryParams } : {}),
+      ...(input.sttAuthHeader !== undefined ? { authHeader: input.sttAuthHeader || null } : {}),
     },
     llm: {
       ...existingLlm,
       ...(input.ollamaBaseUrl !== undefined ? { ollamaBaseUrl: input.ollamaBaseUrl || null } : {}),
+      ...(input.llmAuthHeader !== undefined ? { authHeader: input.llmAuthHeader || null } : {}),
     },
     n8n: {
       ...existingN8n,
