@@ -500,10 +500,10 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
             <p>Odeme Durumu</p>
-            <small className="buyer-ref-metric-head-meta">Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
           </div>
           <div className="buyer-ref-metric-line is-stacked">
             <strong><span>Siparis</span> <span>{`${orders.length - failedPayments} adet`}</span></strong>
+            <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
             <small>{failedPayments} bakiyede</small>
           </div>
         </article>
