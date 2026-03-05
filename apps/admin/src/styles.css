@@ -2828,6 +2828,14 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.buyer-ref-metric-line-payment {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+}
+
 .buyer-ref-metric-icon {
   width: 24px;
   height: 24px;
