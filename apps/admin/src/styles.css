@@ -2789,7 +2789,7 @@ textarea:focus {
 
 .buyer-ref-metric-head-meta {
   margin-left: auto;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
   white-space: nowrap;
 }
