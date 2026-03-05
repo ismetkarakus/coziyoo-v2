@@ -4724,6 +4724,7 @@ textarea:focus {
 
 .seller-hero-main {
   display: flex;
+  grid-column: 1;
   align-items: flex-start;
   gap: 14px;
 }
@@ -4816,6 +4817,8 @@ textarea:focus {
 
 .seller-hero-right {
   display: grid;
+  grid-column: 1;
+  justify-self: start;
   gap: 10px;
 }
 
