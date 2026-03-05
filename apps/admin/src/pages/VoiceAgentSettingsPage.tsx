@@ -1,6 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { request, parseJson, API_BASE } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import type { Language, ApiError } from "../types/core";
 import type { DeviceRow, AgentSettingsFull, VoiceSettingsTab } from "../types/voice";
@@ -422,41 +421,31 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
   }
 
   async function runTestTts() {
-    const url = ttsBaseUrl.trim();
-    if (!url) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); setTestTts({ ok: false, detail: "No TTS URL configured" }); return; }
+    const baseUrlTrimmed = ttsBaseUrl.trim();
+    if (!baseUrlTrimmed) { setTtsSynthError(dict.voiceAgentSettings.testTtsNoUrl); return; }
     setTtsSynthesizing(true);
     setTtsSynthError(null);
-    setTestTts(null);
     if (ttsAudioUrl) { URL.revokeObjectURL(ttsAudioUrl); setTtsAudioUrl(null); }
     try {
-      const tokens = getTokens();
-      const res = await fetch(`${API_BASE}/v1/admin/livekit/test/tts`, {
+      const path = ttsSynthPath.trim() || "/tts";
+      const ttsUrl = `${baseUrlTrimmed.replace(/\/$/, "")}${path}`;
+      const bodyParams = Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value]));
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (ttsAuthHeader.trim()) headers["Authorization"] = ttsAuthHeader.trim();
+      const res = await fetch(ttsUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
-        },
-        body: JSON.stringify({
-          text: ttsTestText.trim() || "Hello",
-          baseUrl: url,
-          ...(ttsSynthPath.trim() ? { synthPath: ttsSynthPath.trim() } : {}),
-          ...(ttsQueryParams.filter((p) => p.key.trim()).length > 0
-            ? { queryParams: Object.fromEntries(ttsQueryParams.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])) }
-            : {}),
-          ...(ttsAuthHeader.trim() ? { authHeader: ttsAuthHeader.trim() } : {}),
-        }),
+        headers,
+        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", ...bodyParams }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as ApiError;
-        const msg = body.error?.message ?? `TTS error ${res.status}`;
+        const errText = await res.text().catch(() => "");
+        const msg = `TTS error ${res.status}${errText ? `: ${errText.slice(0, 200)}` : ""}`;
         setTtsSynthError(msg);
-        setTestTts({ ok: false, detail: msg });
         return;
       }
       const blob = await res.blob();
       const objUrl = URL.createObjectURL(blob);
       setTtsAudioUrl(objUrl);
-      setTestTts({ ok: true });
       if (ttsAudioRef.current) {
         ttsAudioRef.current.src = objUrl;
         ttsAudioRef.current.play().catch(() => undefined);
@@ -464,7 +453,6 @@ export default function VoiceAgentSettingsPage({ language }: { language: Languag
     } catch (err) {
       const msg = err instanceof Error ? err.message : "TTS request failed";
       setTtsSynthError(msg);
-      setTestTts({ ok: false, detail: msg });
     } finally {
       setTtsSynthesizing(false);
     }
