@@ -2642,7 +2642,7 @@ textarea:focus {
 .buyer-ref-top {
   margin-top: 0;
   display: grid;
-  grid-template-columns: minmax(320px, 1.45fr) minmax(260px, 1fr) minmax(260px, 1fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(410px, 1.45fr) minmax(340px, 1.2fr) minmax(340px, 1.2fr) minmax(340px, 1.2fr);
   gap: 6px;
 }
 
@@ -2714,7 +2714,7 @@ textarea:focus {
 
 .buyer-ref-metric strong span {
   margin-left: 4px;
-  font-size: 1.24rem;
+  font-size: 1rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 88%, transparent);
 }
 
@@ -2728,7 +2728,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric-line small {
-  font-size: 1.12rem;
+  font-size: 0.92rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2744,7 +2744,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric strong {
-  font-size: clamp(1.36rem, 1.65vw, 1.78rem);
+  font-size: clamp(1.12rem, 1.35vw, 1.42rem);
   white-space: nowrap;
   display: inline-flex;
   align-items: baseline;
@@ -2760,7 +2760,6 @@ textarea:focus {
   display: grid;
   grid-template-rows: auto auto;
   align-content: center;
-  min-width: 0;
 }
 
 .buyer-ref-metric .is-accent {
@@ -2772,7 +2771,6 @@ textarea:focus {
   align-items: center;
   gap: 5px;
   margin-bottom: 2px;
-  min-width: 0;
 }
 
 .buyer-ref-metric-head p {
@@ -2784,20 +2782,16 @@ textarea:focus {
 
 .buyer-ref-metric-head-value {
   margin-left: auto;
-  font-size: 1.62rem;
+  font-size: 1.28rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
 }
 
 .buyer-ref-metric-head-meta {
   margin-left: auto;
-  font-size: 1.12rem;
+  font-size: 0.9rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
   white-space: nowrap;
-  max-width: 56%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: right;
 }
 
 .buyer-ref-metric-icon {
