@@ -27,9 +27,22 @@ export type StartSessionRequest = {
   settingsProfileId?: string;
 };
 
+export type ProviderConfigSnapshot = {
+  sttProvider?: string;
+  sttBaseUrl?: string;
+  ttsProvider?: string;
+  ttsBaseUrl?: string;
+  ttsVoiceProfile?: string;
+  llmProvider?: string;
+  llmBaseUrl?: string;
+  llmModel?: string;
+  n8nWorkflowEndpoint?: string;
+};
+
 export type StartSessionResponse = {
   roomName: string;
   wsUrl: string;
+  providerConfig?: ProviderConfigSnapshot;
   user: {
     participantIdentity: string;
     token: string;

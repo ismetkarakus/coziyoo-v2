@@ -1,177 +1,113 @@
-import type { NavigationContainerRef } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ConnectionState } from 'livekit-client';
-import { dispatchAgentAction } from '../actions/dispatcher';
-import { AgentActionEnvelopeSchema } from '../actions/schema';
-import { useVoiceSession } from '../voice/useVoiceSession';
-import { startLiveKitSession } from '../../services/api/livekit';
-import { clearStoredAuth } from '../../services/storage/authStorage';
-import { trackEvent } from '../../services/telemetry/client';
-import { useSessionStore } from '../../state/sessionStore';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { queryDishes } from '../../domains/catalog/catalogService';
+import type { Dish } from '../../domains/catalog/types';
+import { useOrderStore } from '../../domains/orders/orderStore';
+import { useScreenContextStore } from '../../domains/voice/screenContextStore';
 import type { RootStackParamList } from '../../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
+const CATEGORIES: Array<Dish['category'] | 'All'> = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Dessert'];
+
 export function HomeScreen({ navigation }: Props) {
-  const auth = useSessionStore((s) => s.auth);
-  const livekitSession = useSessionStore((s) => s.livekitSession);
-  const setLivekitSession = useSessionStore((s) => s.setLivekitSession);
-  const setAuth = useSessionStore((s) => s.setAuth);
-  const deviceId = useSessionStore((s) => s.selectedDeviceId);
-  const settingsProfileId = useSessionStore((s) => s.settingsProfileId);
-  const [notes, setNotes] = useState<string[]>([]);
-  const [settingsHint, setSettingsHint] = useState('');
-  const [events, setEvents] = useState<string[]>([]);
-  const autoStartedRef = useRef<string | null>(null);
-  const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>({
-    navigate: (screen: any, params?: any) => navigation.navigate(screen, params),
-  } as NavigationContainerRef<RootStackParamList>);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<Dish['category'] | 'All'>('All');
+  const highlighted = useOrderStore((s) => s.highlightedProductId);
+  const setContext = useScreenContextStore((s) => s.setContext);
 
-  const appendEvent = (line: string) => {
-    setEvents((prev) => [`${new Date().toISOString()} ${line}`, ...prev].slice(0, 25));
-  };
-
-  const track = async (level: 'info' | 'warn' | 'error', eventType: string, message: string, metadata?: Record<string, unknown>) => {
-    await trackEvent(auth?.tokens.accessToken, {
-      level,
-      eventType,
-      message,
-      roomName: livekitSession?.roomName,
-      metadata,
-    });
-  };
-
-  const voice = useVoiceSession({
-    wsUrl: livekitSession?.wsUrl,
-    token: livekitSession?.user.token,
-    onAction: (text) => {
-      appendEvent(`DataChannel <= ${text}`);
-      const parsed = AgentActionEnvelopeSchema.safeParse(JSON.parse(text));
-      if (!parsed.success) {
-        appendEvent('Rejected action schema');
-        void track('warn', 'action_rejected', 'Action schema rejected', {
-          error: parsed.error.flatten(),
-        });
-        return;
-      }
-      dispatchAgentAction(parsed.data, {
-        navigationRef,
-        onAppendNote: (textToAppend) => setNotes((prev) => [textToAppend, ...prev]),
-        onSettingsHint: (message) => setSettingsHint(message),
-      });
-      void track('info', 'action_accepted', 'Action accepted', {
-        actionName: parsed.data.action.name,
-        requestId: parsed.data.requestId,
-      });
-    },
-    onError: (message) => {
-      appendEvent(`Voice error: ${message}`);
-      void track('error', 'voice_error', message);
-    },
-    onStateChange: (state) => {
-      void track('info', 'voice_state', `State changed to ${state}`, { state });
-    },
-  });
-
-  const status = useMemo(() => {
-    if (!livekitSession) return 'Not connected';
-    if (voice.connectionState === ConnectionState.Connected) return 'Connected';
-    if (voice.connectionState === ConnectionState.Connecting) return 'Connecting';
-    return 'Disconnected';
-  }, [livekitSession, voice.connectionState]);
-
-  const startVoice = useCallback(async () => {
-    if (!auth?.tokens.accessToken) {
-      Alert.alert('Not authenticated', 'Please sign in first.');
-      return;
-    }
-    try {
-      const session = await startLiveKitSession(auth.tokens.accessToken, {
-        participantName: auth.user.email,
-        autoDispatchAgent: true,
-        channel: 'mobile',
-        deviceId,
-        settingsProfileId,
-      });
-      setLivekitSession(session);
-      appendEvent(`Session started room=${session.roomName}`);
-      await track('info', 'session_started', 'LiveKit voice session started', {
-        roomName: session.roomName,
-      });
-    } catch (error) {
-      Alert.alert('Session start failed', error instanceof Error ? error.message : 'Unknown error');
-      await track('error', 'session_start_failed', 'Failed to start LiveKit session');
-    }
-  }, [auth?.tokens.accessToken, auth?.user.email, deviceId, settingsProfileId, setLivekitSession]);
-
-  const stopVoice = useCallback(async () => {
-    await voice.disconnect();
-    setLivekitSession(null);
-    appendEvent('Session disconnected');
-    await track('info', 'session_stopped', 'LiveKit voice session disconnected');
-  }, [setLivekitSession, voice]);
+  const dishes = useMemo(() => queryDishes(search, category), [category, search]);
 
   useEffect(() => {
-    const authSessionKey = auth?.tokens.accessToken ?? null;
-    if (!authSessionKey) {
-      autoStartedRef.current = null;
-      return;
-    }
-
-    if (livekitSession) {
-      return;
-    }
-
-    if (autoStartedRef.current === authSessionKey) {
-      return;
-    }
-
-    autoStartedRef.current = authSessionKey;
-    void startVoice();
-  }, [auth?.tokens.accessToken, livekitSession, startVoice]);
-
-  const logout = async () => {
-    await stopVoice();
-    await clearStoredAuth();
-    setAuth(null);
-  };
+    setContext({
+      screenName: 'Home',
+      routeParams: {},
+      visibleProducts: dishes.slice(0, 10).map((dish) => ({ id: dish.id, title: dish.title })),
+      sessionCapabilities: {
+        canPlaceOrder: true,
+        hasAddress: false,
+        paymentAvailable: false,
+      },
+    });
+  }, [dishes, setContext]);
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Voice Assistant</Text>
-      <Text style={styles.label}>Connection: {status}</Text>
-      <View style={styles.buttons}>
-        <Button title="Start Voice" onPress={startVoice} />
-        <Button title="Stop Voice" onPress={stopVoice} />
+    <View style={styles.root}>
+      <Text style={styles.title}>Home-Made Dishes</Text>
+      <Text style={styles.subtitle}>Browse manually or talk to the assistant avatar.</Text>
+      <TextInput
+        style={styles.search}
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search dishes"
+        placeholderTextColor="#9CA3AF"
+      />
+      <View style={styles.categoryRow}>
+        {CATEGORIES.map((cat) => (
+          <Pressable
+            key={cat}
+            onPress={() => setCategory(cat)}
+            style={[styles.chip, category === cat && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>{cat}</Text>
+          </Pressable>
+        ))}
       </View>
-      <View style={styles.buttons}>
-        <Button title="Settings" onPress={() => navigation.navigate('Settings')} />
-        <Button title="Profile" onPress={() => navigation.navigate('Profile')} />
-        <Button title="Notes" onPress={() => navigation.navigate('Notes')} />
-      </View>
-      <View style={styles.buttons}>
-        <Button title="Logout" onPress={logout} />
-      </View>
-
-      <Text style={styles.sectionTitle}>Settings Hint</Text>
-      <Text>{settingsHint || 'No hints yet'}</Text>
-
-      <Text style={styles.sectionTitle}>Captured Notes</Text>
-      {notes.length === 0 ? <Text>No notes yet</Text> : notes.map((n, idx) => <Text key={`${n}-${idx}`}>- {n}</Text>)}
-
-      <Text style={styles.sectionTitle}>Event Log</Text>
-      {events.length === 0 ? <Text>Empty</Text> : events.map((e, idx) => <Text key={`${e}-${idx}`}>{e}</Text>)}
-    </ScrollView>
+      <FlatList
+        data={dishes}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
+          <Pressable
+            style={[styles.card, highlighted === item.id && styles.highlightedCard]}
+            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+          >
+            <View>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardMeta}>{item.category} • £{item.price.toFixed(2)}</Text>
+              <Text style={styles.cardDesc}>{item.description}</Text>
+            </View>
+            <Text style={[styles.availability, item.availability === 'sold_out' && styles.soldOut]}>{item.availability}</Text>
+          </Pressable>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 16, gap: 10 },
-  title: { fontSize: 24, fontWeight: '700' },
-  label: { fontSize: 16 },
-  sectionTitle: { marginTop: 16, fontSize: 18, fontWeight: '600' },
-  buttons: { flexDirection: 'row', gap: 10 },
+  root: { flex: 1, backgroundColor: '#F8FAFC', paddingHorizontal: 16, paddingTop: 16 },
+  title: { fontSize: 26, fontWeight: '800', color: '#0F172A' },
+  subtitle: { color: '#334155', marginTop: 4, marginBottom: 12 },
+  search: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: '#E2E8F0' },
+  chipActive: { backgroundColor: '#0F172A' },
+  chipText: { color: '#1E293B', fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
+  list: { paddingBottom: 100, gap: 10 },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  highlightedCard: { borderColor: '#F59E0B', borderWidth: 2 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: '#0F172A' },
+  cardMeta: { color: '#475569', marginTop: 2 },
+  cardDesc: { color: '#64748B', marginTop: 6, maxWidth: 240 },
+  availability: { textTransform: 'capitalize', color: '#059669', fontWeight: '700' },
+  soldOut: { color: '#B91C1C' },
 });

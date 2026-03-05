@@ -1,3 +1,5 @@
+import { ApiError } from '../../shared/network/apiError';
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.coziyoo.com';
 
 type RequestOptions = {
@@ -5,6 +7,10 @@ type RequestOptions = {
   accessToken?: string;
   body?: unknown;
 };
+
+function isRetriable(status: number) {
+  return status === 408 || status === 429 || status >= 500;
+}
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -21,11 +27,30 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  const json = await response.json();
-  if (!response.ok) {
-    const message = json?.error?.message ?? `Request failed with ${response.status}`;
-    throw new Error(message);
+  const bodyText = await response.text();
+  let parsedBody: unknown = null;
+
+  try {
+    parsedBody = bodyText ? JSON.parse(bodyText) : null;
+  } catch {
+    parsedBody = bodyText;
   }
 
-  return (json?.data ?? json) as T;
+  if (!response.ok) {
+    const bodyObj = (parsedBody ?? {}) as { error?: { code?: string; message?: string; details?: unknown } };
+    throw new ApiError({
+      status: response.status,
+      code: bodyObj.error?.code ?? 'REQUEST_FAILED',
+      message: bodyObj.error?.message ?? `Request failed with ${response.status}`,
+      details: bodyObj.error?.details,
+      retriable: isRetriable(response.status),
+      rawBody: parsedBody,
+    });
+  }
+
+  if (parsedBody && typeof parsedBody === 'object' && 'data' in parsedBody) {
+    return (parsedBody as { data: T }).data;
+  }
+
+  return parsedBody as T;
 }
