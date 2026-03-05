@@ -217,7 +217,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = formatLoginRelativeDayMonth(detailLastLoginAtRaw, language);
-  const birthDateText = contactInfo?.contact.dob ? formatUiDate(contactInfo.contact.dob, language) : "-";
+  const birthDateText = contactInfo?.contact?.dob ? formatUiDate(contactInfo.contact.dob, language) : "-";
 
   const failedPayments = useMemo(
     () => orders.filter((order) => paymentBadge(order.paymentStatus).cls === "is-failed").length,
@@ -491,20 +491,22 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             <p>Son 30 Gun</p>
             <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</small>
           </div>
-          <div className="buyer-ref-metric-line is-stacked">
-            <strong><span>Siparis</span> <span className="is-accent">{summary?.monthlyOrderCountCurrent ?? 0}</span></strong>
+          <div className="buyer-ref-metric-line buyer-ref-metric-line-30">
             <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
+            <strong><span>Siparis</span> <span className="is-accent">{`${summary?.monthlyOrderCountCurrent ?? 0} adet`}</span></strong>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
-          <div className="buyer-ref-metric-head">
+          <div className="buyer-ref-metric-head buyer-ref-metric-head-payment">
             <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
             <p>Odeme Durumu</p>
+            <span className="buyer-ref-metric-head-stack">
+              <span className="buyer-ref-metric-head-balance">{`${failedPayments} bakiyede`}</span>
+            </span>
           </div>
-          <div className="buyer-ref-metric-line is-stacked">
+          <div className="buyer-ref-metric-line buyer-ref-metric-line-payment">
             <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
-            <strong><span>Siparis</span> <span>{`${orders.length - failedPayments} adet`}</span></strong>
-            <small>{failedPayments} bakiye</small>
+            <small>{`Siparis ${orders.length - failedPayments} adet`}</small>
           </div>
         </article>
       </section>
@@ -744,7 +746,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
         <aside className="buyer-ref-right">
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
-            <h2>Iletisim & Adres</h2>
+            <h2>Profil Bilgileri</h2>
             <div className="buyer-ref-contact-block">
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
               <p className="buyer-ref-contact-value">{email}</p>
@@ -767,7 +769,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
             </button>
             <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Dogum Tarihi</p>
+              <p className="buyer-ref-contact-label">Dogum Tarihi</p>
               <p className="buyer-ref-contact-value">{birthDateText}</p>
             </div>
           </section>

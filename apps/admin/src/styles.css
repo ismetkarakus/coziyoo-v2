@@ -2714,7 +2714,7 @@ textarea:focus {
 
 .buyer-ref-metric strong span {
   margin-left: 4px;
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 88%, transparent);
 }
 
@@ -2728,7 +2728,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric-line small {
-  font-size: 0.74rem;
+  font-size: 0.92rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2744,7 +2744,7 @@ textarea:focus {
 }
 
 .buyer-ref-metric strong {
-  font-size: clamp(0.9rem, 1.08vw, 1.15rem);
+  font-size: clamp(1.12rem, 1.35vw, 1.42rem);
   white-space: nowrap;
   display: inline-flex;
   align-items: baseline;
@@ -2771,6 +2771,13 @@ textarea:focus {
   align-items: center;
   gap: 5px;
   margin-bottom: 2px;
+  position: relative;
+  min-height: 24px;
+  padding-right: 0;
+}
+
+.buyer-ref-metric-head-payment {
+  padding-right: 116px;
 }
 
 .buyer-ref-metric-head p {
@@ -2782,16 +2789,62 @@ textarea:focus {
 
 .buyer-ref-metric-head-value {
   margin-left: auto;
-  font-size: 1.02rem;
+  font-size: 1.28rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
 }
 
 .buyer-ref-metric-head-meta {
   margin-left: auto;
-  font-size: 0.72rem;
+  font-size: 1rem;
   color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
   white-space: nowrap;
+}
+
+.buyer-ref-metric-head-meta.is-accent {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.buyer-ref-metric-head-stack {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.buyer-ref-metric-head-order {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
+  white-space: nowrap;
+}
+
+.buyer-ref-metric-head-balance {
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--ops-text-secondary) 92%, transparent);
+  white-space: nowrap;
+}
+
+.buyer-ref-metric-line-30 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.buyer-ref-metric-line-payment {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+  margin-top: 0;
 }
 
 .buyer-ref-metric-icon {
@@ -4671,6 +4724,7 @@ textarea:focus {
 
 .seller-hero-main {
   display: flex;
+  grid-column: 1;
   align-items: flex-start;
   gap: 14px;
 }
@@ -4763,6 +4817,8 @@ textarea:focus {
 
 .seller-hero-right {
   display: grid;
+  grid-column: 1;
+  justify-self: start;
   gap: 10px;
 }
 

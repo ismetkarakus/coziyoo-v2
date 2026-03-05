@@ -4,6 +4,7 @@ import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
 import { fmt, toDisplayId, formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
+  openQuickEmail,
   initialsFromName,
   mapComplianceRows,
   profileBadgeFromStatus,
@@ -409,6 +410,67 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   return (
     <div className="app seller-detail-page">
       {message ? <div className="alert">{message}</div> : null}
+
+      <section className="panel seller-hero">
+        <article className="seller-hero-main">
+          <div className="seller-avatar-col">
+            <div className="seller-avatar">
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt={row.displayName ?? "seller"}
+                  onError={() => setProfileImageFailed(true)}
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
+            </div>
+            <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
+              <span className="rating-value">{avgRating.toFixed(1)}</span>
+              <span className="rating-stars" aria-hidden="true">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
+                ))}
+              </span>
+            </div>
+          </div>
+          <div className="seller-hero-text">
+            <div className="seller-hero-title-row">
+              <h1>{row.displayName ?? row.email}</h1>
+              <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
+              <span className="seller-user-id">{`${dict.detail.userId}: ${row.id}`}</span>
+            </div>
+            <p>{maskedEmail}</p>
+            <p className="panel-meta">
+              <span>{roleLabel}</span>
+              <span className="seller-country-badge">{row.countryCode ?? "-"}</span>
+              <span>{`${language === "tr" ? "Kayıt" : "Created"}: ${formatUiDate(row.createdAt, language)}`}</span>
+            </p>
+          </div>
+        </article>
+        <div className="seller-hero-right">
+          <div className="topbar-actions">
+            <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
+              {dict.actions.refresh}
+            </button>
+            <button className="ghost" type="button" onClick={() => openQuickEmail(row.email, dict, setMessage)}>
+              {dict.detail.quickEmail}
+            </button>
+            <button className="primary" type="button" onClick={() => setActiveTab("legal")}>{complianceCta}</button>
+            <button className="ghost" type="button" onClick={() => navigate("/app/audit")}>{auditCta}</button>
+          </div>
+          <div className="seller-hero-stats">
+            <article>
+              <p>{dict.detail.sellerTabs.wallet}</p>
+              <strong>{walletAmount}</strong>
+            </article>
+            <article>
+              <p>{dict.detail.lastAction}</p>
+              <strong>{formatUiDate(row.updatedAt, language)}</strong>
+            </article>
+          </div>
+        </div>
+      </section>
 
       <section className="panel seller-tabs-panel">
         <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
@@ -1021,4 +1083,3 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
 
 export default SellerDetailScreen;
-
