@@ -6065,6 +6065,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [ollamaModelsPath, setOllamaModelsPath] = useState("");
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsBaseUrl, setTtsBaseUrl] = useState("");
+  const [ttsSynthPath, setTtsSynthPath] = useState("");
   const [sttEnabled, setSttEnabled] = useState(true);
   const [sttProvider, setSttProvider] = useState("");
   const [sttBaseUrl, setSttBaseUrl] = useState("");
@@ -6105,6 +6106,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setOllamaModelsPath("");
     setTtsEnabled(true);
     setTtsBaseUrl("");
+    setTtsSynthPath("");
     setSttEnabled(true);
     setSttProvider("");
     setSttBaseUrl("");
@@ -6186,6 +6188,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
       setOllamaBaseUrl(loadedOllamaBaseUrl);
       setTtsEnabled(s.ttsEnabled ?? true);
       setTtsBaseUrl(loadedTtsBaseUrl);
+      setTtsSynthPath(readNestedStr(s.ttsConfig, "synthPath"));
       setSttEnabled(s.sttEnabled ?? true);
       setSttProvider(loadedSttProvider);
       setSttBaseUrl(loadedSttBaseUrl);
@@ -6244,6 +6247,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           ollamaBaseUrl: ollamaBaseUrl.trim() || undefined,
           ttsEnabled,
           ttsBaseUrl: ttsBaseUrl.trim() || undefined,
+          ttsSynthPath: ttsSynthPath.trim() || undefined,
           sttEnabled,
           sttProvider: sttProvider.trim() || undefined,
           sttBaseUrl: sttBaseUrl.trim() || undefined,
@@ -6396,7 +6400,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
           "Content-Type": "application/json",
           ...(tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
         },
-        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", baseUrl: url }),
+        body: JSON.stringify({ text: ttsTestText.trim() || "Hello", baseUrl: url, ...(ttsSynthPath.trim() ? { synthPath: ttsSynthPath.trim() } : {}) }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as ApiError;
@@ -6728,6 +6732,7 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
                 </div>
                 <div className="form-grid">
                   <label>{dict.voiceAgentSettings.ttsBaseUrl}<input value={ttsBaseUrl} onChange={(e) => setTtsBaseUrl(e.target.value)} placeholder="http://127.0.0.1:7100" /></label>
+                  <label>{language === "tr" ? "Synth Path" : "Synth Path"}<input value={ttsSynthPath} onChange={(e) => setTtsSynthPath(e.target.value)} placeholder="/tts" /></label>
                 </div>
                 <QueryParamsEditor
                   label={language === "tr" ? "Query Parametreleri" : "Query Parameters"}

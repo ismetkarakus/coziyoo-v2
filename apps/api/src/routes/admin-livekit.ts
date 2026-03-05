@@ -424,6 +424,7 @@ const AdminAgentSettingsSchema = z.object({
   ollamaBaseUrl: z.string().optional(),
   ttsEnabled: z.boolean().optional(),
   ttsBaseUrl: z.string().optional(),
+  ttsSynthPath: z.string().max(256).optional(),
   sttEnabled: z.boolean().optional(),
   sttProvider: z.string().max(64).optional(),
   sttBaseUrl: z.string().optional(),
@@ -532,6 +533,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
   const mergedTtsConfig = {
     ...existingTtsConfig,
     ...(input.ttsBaseUrl !== undefined ? { baseUrl: input.ttsBaseUrl || null } : {}),
+    ...(input.ttsSynthPath !== undefined ? { synthPath: input.ttsSynthPath || null } : {}),
     ...(input.ttsQueryParams !== undefined ? { queryParams: input.ttsQueryParams } : {}),
     ...(input.ttsAuthHeader !== undefined ? { authHeader: input.ttsAuthHeader || null } : {}),
     stt: {
