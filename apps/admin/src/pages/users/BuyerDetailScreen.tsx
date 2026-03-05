@@ -217,6 +217,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = detailLastLoginAtRaw ? formatDate(detailLastLoginAtRaw) : "-";
+  const birthDateText = contactInfo?.contact?.dob ? formatUiDate(contactInfo.contact.dob, "tr") : "-";
 
   const failedPayments = useMemo(
     () => orders.filter((order) => paymentBadge(order.paymentStatus).cls === "is-failed").length,
@@ -766,13 +767,8 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
             </button>
             <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Kimlik</p>
-              <div className="buyer-ref-contact-id-row">
-                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
-                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
-                  <span aria-hidden="true">□</span> <span aria-hidden="true">⌄</span>
-                </button>
-              </div>
+              <p className="buyer-ref-contact-label">Dogum Tarihi</p>
+              <p className="buyer-ref-contact-value">{birthDateText}</p>
             </div>
           </section>
 
