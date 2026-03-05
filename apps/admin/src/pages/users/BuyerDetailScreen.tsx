@@ -2,7 +2,7 @@ import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
-import { fmt, toDisplayId, formatUiDate, maskEmail, maskPhone, addTwoYears } from "../../lib/format";
+import { fmt, toDisplayId, formatUiDate, formatLoginRelativeDayMonth, maskEmail, maskPhone, addTwoYears } from "../../lib/format";
 import { openQuickEmail } from "../../lib/compliance";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../../lib/lots";
@@ -12,7 +12,7 @@ import type { BuyerDetailTab } from "../../types/users";
 import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerDetail, BuyerContactInfo, BuyerLoginLocation, BuyerOrderRow, BuyerCancellationRow, BuyerReviewRow, BuyerSummaryMetrics, BuyerPagination } from "../../types/buyer";
 
-function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
+function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionary; language: Language }) {
   const navigate = useNavigate();
   const location = useLocation();
   const endpoint = `/v1/admin/users/${id}`;
@@ -216,7 +216,8 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
   const compactUserId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
-  const detailLastLoginAt = detailLastLoginAtRaw ? formatDate(detailLastLoginAtRaw) : "-";
+  const detailLastLoginAt = formatLoginRelativeDayMonth(detailLastLoginAtRaw, language);
+  const birthDateText = contactInfo?.contact.dob ? formatUiDate(contactInfo.contact.dob, language) : "-";
 
   const failedPayments = useMemo(
     () => orders.filter((order) => paymentBadge(order.paymentStatus).cls === "is-failed").length,
@@ -499,11 +500,11 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
             <p>Odeme Durumu</p>
-            <small className="buyer-ref-metric-head-meta">Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
           </div>
           <div className="buyer-ref-metric-line is-stacked">
-            <strong><span>{orders.length - failedPayments}</span> <span>Siparis</span></strong>
-            <small>{failedPayments} bakiyede</small>
+            <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
+            <strong><span>Siparis</span> <span>{`${orders.length - failedPayments} adet`}</span></strong>
+            <small>{failedPayments} bakiye</small>
           </div>
         </article>
       </section>
@@ -766,13 +767,8 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
               {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
             </button>
             <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Kimlik</p>
-              <div className="buyer-ref-contact-id-row">
-                <p className="buyer-ref-contact-value">{contactInfo?.identity.id ?? "-"}</p>
-                <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
-                  <span aria-hidden="true">□</span> <span aria-hidden="true">⌄</span>
-                </button>
-              </div>
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">○</span> Dogum Tarihi</p>
+              <p className="buyer-ref-contact-value">{birthDateText}</p>
             </div>
           </section>
 

@@ -1,8 +1,9 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
+import { Pager, KpiCard } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
-import { fmt, toDisplayId, formatTableHeader, formatCurrency, formatUiDate, adminRoleLabel } from "../lib/format";
+import { fmt, toDisplayId, formatTableHeader, formatCurrency, formatUiDate, formatLoginRelativeDayMonth, adminRoleLabel } from "../lib/format";
 import { BUYER_SMART_FILTER_ITEMS, SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
 import type { Language, ApiError, Dictionary } from "../types/core";
@@ -1043,69 +1044,49 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return (
       <div className="app buyer-v2-page seller-v2-page">
         <section className="buyer-v2-kpis seller-v2-kpis">
-          <button
-            type="button"
-            className={`buyer-v2-kpi seller-v2-kpi is-clickable ${activeSellerKpiFilter === "all" ? "is-selected" : ""}`}
+          <KpiCard
+            icon="👥" label="Toplam Satıcı"
+            value={new Intl.NumberFormat("tr-TR").format(totalTrSellers)}
+            selected={activeSellerKpiFilter === "all"}
             onClick={() => applySellerKpiFilter("all")}
+            className="seller-v2-kpi"
           >
-            <div className="buyer-v2-kpi-icon">👥</div>
-            <div>
-              <p>Toplam Satıcı</p>
-              <strong>{new Intl.NumberFormat("tr-TR").format(totalTrSellers)}</strong>
-              <div className="seller-v2-kpi-dots">
-                <span className="seller-v2-dot is-red" />
-                <span className="seller-v2-dot is-blue" />
-                <span className="seller-v2-dot is-blue" />
-                <span className="seller-v2-dot" />
-                <span className="seller-v2-dot" />
-              </div>
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-blue" />
+              <span className="seller-v2-dot is-blue" /><span className="seller-v2-dot" /><span className="seller-v2-dot" />
             </div>
-          </button>
-          <button
-            type="button"
-            className={`buyer-v2-kpi seller-v2-kpi is-green is-clickable ${activeSellerKpiFilter === "active" ? "is-selected" : ""}`}
+          </KpiCard>
+          <KpiCard
+            icon="✓" iconVariant="good" colorVariant="green" label="Aktif Satıcı"
+            value={new Intl.NumberFormat("tr-TR").format(activeTrSellers)}
+            selected={activeSellerKpiFilter === "active"}
             onClick={() => applySellerKpiFilter("active")}
+            className="seller-v2-kpi"
           >
-            <div className="buyer-v2-kpi-icon is-good">✓</div>
-            <div>
-              <p>Aktif Satıcı</p>
-              <strong>{new Intl.NumberFormat("tr-TR").format(activeTrSellers)}</strong>
-              <div className="seller-v2-kpi-dots">
-                <span className="seller-v2-dot is-green" />
-                <span className="seller-v2-dot is-green" />
-                <span className="seller-v2-dot is-green" />
-                <span className="seller-v2-dot is-green" />
-              </div>
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
             </div>
-          </button>
-          <button
-            type="button"
-            className={`buyer-v2-kpi seller-v2-kpi is-orange is-clickable ${activeSellerKpiFilter === "disabled" ? "is-selected" : ""}`}
+          </KpiCard>
+          <KpiCard
+            icon="◔" iconVariant="warn" colorVariant="orange" label="Pasif Satıcı"
+            value={new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}
+            selected={activeSellerKpiFilter === "disabled"}
             onClick={() => applySellerKpiFilter("disabled")}
+            className="seller-v2-kpi"
           >
-            <div className="buyer-v2-kpi-icon is-warn">◔</div>
-            <div>
-              <p>Pasif Satıcı</p>
-              <strong>{new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}</strong>
-              <div className="seller-v2-kpi-dots">
-                <span className="seller-v2-dot is-orange" />
-                <span className="seller-v2-dot is-orange" />
-                <span className="seller-v2-dot is-orange" />
-                <span className="seller-v2-dot is-orange" />
-              </div>
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
+              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
             </div>
-          </button>
-          <button
-            type="button"
-            className={`buyer-v2-kpi seller-v2-kpi is-clickable ${activeSellerKpiFilter === "new_today" ? "is-selected" : ""}`}
+          </KpiCard>
+          <KpiCard
+            icon="☀" iconVariant="good" label="Bugün Yeni Satıcı"
+            value={new Intl.NumberFormat("tr-TR").format(todayTrSellers)}
+            selected={activeSellerKpiFilter === "new_today"}
             onClick={() => applySellerKpiFilter("new_today")}
-          >
-            <div className="buyer-v2-kpi-icon is-good">☀</div>
-            <div>
-              <p>Bugün Yeni Satıcı</p>
-              <strong>{new Intl.NumberFormat("tr-TR").format(todayTrSellers)}</strong>
-            </div>
-          </button>
+            className="seller-v2-kpi"
+          />
         </section>
 
         <section className="buyer-v2-main-layout">
@@ -1326,38 +1307,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return (
       <div className="app buyer-v2-page">
         <section className="buyer-v2-kpis">
-          <article className="buyer-v2-kpi">
-            <div className="buyer-v2-kpi-icon">👥</div>
-            <div>
-              <p>Toplam Alıcı</p>
-              <strong>{new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}</strong>
-              <small>%{activeRatio} Son 30n Aktif Oranı</small>
-            </div>
-          </article>
-          <article className="buyer-v2-kpi">
-            <div className="buyer-v2-kpi-icon is-good">✓</div>
-            <div>
-              <p>Aktif Oranı</p>
-              <strong>%{activeRatio}</strong>
-              <div className="buyer-v2-kpi-progress"><span style={{ width: `${activeRatio}%` }} /></div>
-            </div>
-          </article>
-          <article className="buyer-v2-kpi">
-            <div className="buyer-v2-kpi-icon is-warn">⚠</div>
-            <div>
-              <p>Şikayetli Alıcı</p>
-              <strong>{buyersWithOpenComplaints}</strong>
-              <small>{`%${buyersWithOpenComplaints} Son 30 Gün Aktif Oranı`}</small>
-            </div>
-          </article>
-          <article className="buyer-v2-kpi">
-            <div className="buyer-v2-kpi-icon is-danger">🛡</div>
-            <div>
-              <p>Riskli Alıcı</p>
-              <strong>{riskyBuyersCount}</strong>
-              <small>{`%${riskyBuyersCount} Son 30 Gün`}</small>
-            </div>
-          </article>
+          <KpiCard icon="👥" label="Toplam Alıcı" value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}>
+            <small>%{activeRatio} Son 30n Aktif Oranı</small>
+          </KpiCard>
+          <KpiCard icon="✓" iconVariant="good" label="Aktif Oranı" value={`%${activeRatio}`}>
+            <div className="buyer-v2-kpi-progress"><span style={{ width: `${activeRatio}%` }} /></div>
+          </KpiCard>
+          <KpiCard icon="⚠" iconVariant="warn" label="Şikayetli Alıcı" value={buyersWithOpenComplaints}>
+            <small>{`%${buyersWithOpenComplaints} Son 30 Gün Aktif Oranı`}</small>
+          </KpiCard>
+          <KpiCard icon="🛡" iconVariant="danger" label="Riskli Alıcı" value={riskyBuyersCount}>
+            <small>{`%${riskyBuyersCount} Son 30 Gün`}</small>
+          </KpiCard>
         </section>
 
         <section className="buyer-v2-main-layout">
@@ -1592,7 +1553,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const hasPhone = phoneRaw.length > 0;
                     const phoneHref = phoneRaw.replace(/\s+/g, "");
                     const loginAtRaw = String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "");
-                    const loginAt = loginAtRaw ? formatUiDate(loginAtRaw, language) : "-";
+                    const loginAt = formatLoginRelativeDayMonth(loginAtRaw, language);
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
@@ -2200,33 +2161,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       </section>
 
       <section className="panel">
-        <div className="pager">
-          <span className="panel-meta">
-            {fmt(dict.common.paginationSummary, {
-              total: pagination?.total ?? 0,
-              page: filters.page,
-              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
-            })}
-          </span>
-          <div className="topbar-actions">
-            <button
-              className="ghost"
-              type="button"
-              disabled={filters.page <= 1}
-              onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
-            >
-              {dict.actions.prev}
-            </button>
-            <button
-              className="ghost"
-              type="button"
-              disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
-              onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-            >
-              {dict.actions.next}
-            </button>
-          </div>
-        </div>
+        <Pager
+          page={filters.page}
+          totalPages={pagination?.totalPages ?? 1}
+          summary={fmt(dict.common.paginationSummary, { total: pagination?.total ?? 0, page: filters.page, totalPages: Math.max(pagination?.totalPages ?? 1, 1) })}
+          prevLabel={dict.actions.prev}
+          nextLabel={dict.actions.next}
+          onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
+          onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+        />
       </section>
 
       <div className={`drawer-overlay ${isDrawerOpen ? "is-open" : ""}`} onClick={closeDrawer}>

@@ -82,7 +82,7 @@ export function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; i
   const dict = DICTIONARIES[language];
   const location = useLocation();
   const id = location.pathname.split("/").at(-1) ?? "";
-  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} />;
+  if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} language={language} />;
   if (kind === "sellers") return <SellerDetailScreen id={id} isSuperAdmin={isSuperAdmin} dict={dict} language={language} />;
   return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;
 }

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { request, parseJson } from "../lib/api";
+import { Pager } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader } from "../lib/format";
 import { renderCell } from "../lib/table";
@@ -329,28 +330,15 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             </tbody>
           </table>
         </div>
-        <div className="pager">
-          <span className="panel-meta">
-            {fmt(dict.common.paginationSummary, {
-              total: pagination?.total ?? 0,
-              page,
-              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
-            })}
-          </span>
-          <div className="topbar-actions">
-            <button className="ghost" disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} type="button">
-              {dict.actions.prev}
-            </button>
-            <button
-              className="ghost"
-              disabled={page >= Math.max(pagination?.totalPages ?? 1, 1)}
-              onClick={() => setPage((prev) => prev + 1)}
-              type="button"
-            >
-              {dict.actions.next}
-            </button>
-          </div>
-        </div>
+        <Pager
+          page={page}
+          totalPages={pagination?.totalPages ?? 1}
+          summary={fmt(dict.common.paginationSummary, { total: pagination?.total ?? 0, page, totalPages: Math.max(pagination?.totalPages ?? 1, 1) })}
+          prevLabel={dict.actions.prev}
+          nextLabel={dict.actions.next}
+          onPrev={() => setPage((prev) => prev - 1)}
+          onNext={() => setPage((prev) => prev + 1)}
+        />
       </section>
     </div>
   );

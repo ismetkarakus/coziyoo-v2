@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
+import { Pager } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
@@ -278,28 +279,15 @@ export default function AuditPage({ language }: { language: Language }) {
       </section>
 
       <section className="panel">
-        <div className="pager">
-          <span className="panel-meta">
-            {fmt(dict.common.paginationSummary, {
-              total: pagination?.total ?? 0,
-              page: filters.page,
-              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
-            })}
-          </span>
-          <div className="topbar-actions">
-            <button className="ghost" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>
-              {dict.actions.prev}
-            </button>
-            <button
-              className="ghost"
-              type="button"
-              disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
-              onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-            >
-              {dict.actions.next}
-            </button>
-          </div>
-        </div>
+        <Pager
+          page={filters.page}
+          totalPages={pagination?.totalPages ?? 1}
+          summary={fmt(dict.common.paginationSummary, { total: pagination?.total ?? 0, page: filters.page, totalPages: Math.max(pagination?.totalPages ?? 1, 1) })}
+          prevLabel={dict.actions.prev}
+          nextLabel={dict.actions.next}
+          onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
+          onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+        />
       </section>
     </div>
   );
