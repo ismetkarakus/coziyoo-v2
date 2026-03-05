@@ -271,6 +271,7 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
       )}
       {(type === "stt" || type === "llm") && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder={type === "stt" ? "whisper-large-v3" : "llama3.1:8b"} />)}
       {type === "stt" && <QueryParamsEditor label="Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
+      {type === "tts" && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
       {type === "tts" && (
         <>
           <div style={{ border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
@@ -281,7 +282,7 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
           </div>
         </>
       )}
-      {(type === "stt" || type === "tts" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
+      {(type === "stt" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
       <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", borderTop: "1px solid var(--color-border)", paddingTop: "0.75rem" }}>
         <button className="ghost" type="button" onClick={onCancel}>Cancel</button>
         <button className="primary" type="button" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</button>
