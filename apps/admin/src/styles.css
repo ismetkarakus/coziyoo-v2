@@ -2127,12 +2127,12 @@ textarea:focus {
   --ops-accent-warning: #f59e0b;
   --ops-accent-danger: #ef4444;
   --ops-accent-info: #3b82f6;
-  --heading-xl: 64px;
-  --heading-lg: 24px;
-  --heading-md: 20px;
-  --body-lg: 16px;
-  --body-md: 14px;
-  --body-sm: 12px;
+  --heading-xl: 46px;
+  --heading-lg: 20px;
+  --heading-md: 17px;
+  --body-lg: 14px;
+  --body-md: 13px;
+  --body-sm: 11px;
   min-height: calc(100vh - 140px);
   background:
     radial-gradient(115% 90% at 0% 0%, rgba(33, 62, 132, 0.35), transparent 58%),
@@ -2153,6 +2153,14 @@ textarea:focus {
 .buyer-ops-page input,
 .buyer-ops-page textarea {
   color: var(--ops-text-primary);
+}
+
+.buyer-ops-page :where(p, span, small, strong, label, th, td, button, input, textarea, select, a) {
+  font-weight: 400;
+}
+
+.buyer-ops-page :where(h1, h2, h3) {
+  font-weight: 700;
 }
 
 .buyer-ops-sticky {
@@ -3276,6 +3284,7 @@ textarea:focus {
   width: calc(100% + 48px);
   margin: 0 0 0 -24px;
   padding: 0 24px;
+  font-size: 14px;
 }
 
 .buyer-v2-head {
@@ -3296,14 +3305,14 @@ textarea:focus {
 
 .buyer-v2-head h1 {
   margin: 0;
-  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  font-size: clamp(1.8rem, 3.2vw, 2.8rem);
   letter-spacing: -0.03em;
 }
 
 .buyer-v2-head p {
   margin: 8px 0 0;
   color: var(--color-secondary-text);
-  font-size: 1.12rem;
+  font-size: 0.96rem;
 }
 
 .buyer-v2-head-revenue {
@@ -3344,14 +3353,15 @@ textarea:focus {
 .buyer-v2-kpi p {
   margin: 0;
   color: color-mix(in srgb, var(--color-secondary-text) 96%, transparent);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 .buyer-v2-kpi strong {
   display: block;
   margin-top: 4px;
-  font-size: 2.9rem;
+  font-size: 2.2rem;
+  font-weight: 400;
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -3360,7 +3370,15 @@ textarea:focus {
   display: block;
   margin-top: 8px;
   color: var(--color-tertiary-text);
-  font-size: 0.95rem;
+  font-size: 0.84rem;
+}
+
+.buyer-v2-page :where(p, span, small, strong, label, th, td, button, input, textarea, select, a) {
+  font-weight: 400;
+}
+
+.buyer-v2-page :where(h1, h2, h3) {
+  font-weight: 700;
 }
 
 .buyer-v2-kpi-icon {
