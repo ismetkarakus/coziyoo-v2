@@ -74,9 +74,10 @@ export async function askOllamaChat(userText: string, options?: OllamaRequestOpt
   }
 }
 
-export async function listOllamaModels(options?: { baseUrl?: string }) {
+export async function listOllamaModels(options?: { baseUrl?: string; modelsPath?: string }) {
   const selectedBaseUrl = options?.baseUrl?.trim() || env.OLLAMA_BASE_URL;
-  const endpoint = new URL("/api/tags", selectedBaseUrl).toString();
+  const path = options?.modelsPath?.trim() || "/api/tags";
+  const endpoint = new URL(path, selectedBaseUrl).toString();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OLLAMA_TIMEOUT_MS);
   try {

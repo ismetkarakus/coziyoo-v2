@@ -6087,6 +6087,10 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
   const [voiceLanguage, setVoiceLanguage] = useState("en");
   const [ollamaModel, setOllamaModel] = useState("llama3.1:8b");
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [ollamaModelsFetching, setOllamaModelsFetching] = useState(false);
+  const [ollamaModelsError, setOllamaModelsError] = useState<string | null>(null);
+  const [ollamaModelsPath, setOllamaModelsPath] = useState("");
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [ttsBaseUrl, setTtsBaseUrl] = useState("");
   const [sttEnabled, setSttEnabled] = useState(true);
@@ -6121,6 +6125,9 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     setVoiceLanguage("en");
     setOllamaModel("llama3.1:8b");
     setOllamaBaseUrl("");
+    setOllamaModels([]);
+    setOllamaModelsError(null);
+    setOllamaModelsPath("");
     setTtsEnabled(true);
     setTtsBaseUrl("");
     setSttEnabled(true);
@@ -6347,6 +6354,33 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
     });
     const body = await parseJson<{ data?: { ok: boolean; reason?: string } } & ApiError>(res);
     setTestN8n({ ok: body.data?.ok ?? false, detail: body.data?.reason });
+  }
+
+  async function fetchOllamaModels(customPath?: string) {
+    const url = ollamaBaseUrl.trim();
+    if (!url) return;
+    setOllamaModelsFetching(true);
+    setOllamaModelsError(null);
+    try {
+      const body: Record<string, string> = { baseUrl: url };
+      if (customPath?.trim()) body.modelsPath = customPath.trim();
+      const res = await request("/v1/admin/livekit/test/ollama", { method: "POST", body: JSON.stringify(body) });
+      const data = await parseJson<{ data?: { ok: boolean; models?: string[]; reason?: string } }>(res);
+      const models = data.data?.models ?? [];
+      if (models.length === 0) {
+        setOllamaModelsError(language === "tr" ? "Model bulunamadı. API path'ini girin ve tekrar deneyin." : "No models found. Enter the API path and try again.");
+        setOllamaModels([]);
+      } else {
+        setOllamaModels(models);
+        setOllamaModelsError(null);
+        if (!models.includes(ollamaModel)) setOllamaModel(models[0]);
+      }
+    } catch {
+      setOllamaModelsError(language === "tr" ? "Sunucuya ulaşılamadı." : "Could not reach server.");
+      setOllamaModels([]);
+    } finally {
+      setOllamaModelsFetching(false);
+    }
   }
 
   async function runTestAll(overrides?: { sttBaseUrl?: string; sttTranscribePath?: string; ollamaBaseUrl?: string; n8nBaseUrl?: string }) {
@@ -6719,9 +6753,42 @@ function VoiceAgentSettingsPage({ language }: { language: Language }) {
             {activeTab === "llm" ? (
               <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div className="form-grid">
-                  <label>{dict.voiceAgentSettings.ollamaModel}<input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" /></label>
-                  <label>{dict.voiceAgentSettings.ollamaBaseUrl}<input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" /></label>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    {dict.voiceAgentSettings.ollamaBaseUrl}
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input style={{ flex: 1 }} value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434" />
+                      <button className="ghost" type="button" style={{ flexShrink: 0 }} disabled={ollamaModelsFetching || !ollamaBaseUrl.trim()} onClick={() => { void fetchOllamaModels(); }}>
+                        {ollamaModelsFetching ? "…" : (language === "tr" ? "Modelleri Getir" : "Fetch Models")}
+                      </button>
+                    </div>
+                  </label>
+                  <label style={{ gridColumn: "1 / -1" }}>
+                    {dict.voiceAgentSettings.ollamaModel}
+                    {ollamaModels.length > 0 ? (
+                      <select value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)}>
+                        {ollamaModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    ) : (
+                      <input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.1:8b" />
+                    )}
+                  </label>
                 </div>
+                {ollamaModelsError ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <p style={{ fontSize: "0.82em", color: "#ef4444", margin: 0 }}>{ollamaModelsError}</p>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <input
+                        style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }}
+                        value={ollamaModelsPath}
+                        onChange={(e) => setOllamaModelsPath(e.target.value)}
+                        placeholder="/api/tags"
+                      />
+                      <button className="ghost" type="button" style={{ fontSize: "0.82em", flexShrink: 0 }} disabled={ollamaModelsFetching} onClick={() => { void fetchOllamaModels(ollamaModelsPath); }}>
+                        {language === "tr" ? "Tekrar Dene" : "Retry"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

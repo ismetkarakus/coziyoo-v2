@@ -614,6 +614,7 @@ adminLiveKitRouter.post("/test/stt", async (req, res) => {
 
 const TestOllamaSchema = z.object({
   baseUrl: z.string().optional(),
+  modelsPath: z.string().optional(),
 });
 
 adminLiveKitRouter.post("/test/ollama", async (req, res) => {
@@ -622,7 +623,7 @@ adminLiveKitRouter.post("/test/ollama", async (req, res) => {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
   try {
-    const result = await listOllamaModels({ baseUrl: parsed.data.baseUrl || undefined });
+    const result = await listOllamaModels({ baseUrl: parsed.data.baseUrl || undefined, modelsPath: parsed.data.modelsPath || undefined });
     return res.json({ data: { ok: true, models: result.models } });
   } catch (err) {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
