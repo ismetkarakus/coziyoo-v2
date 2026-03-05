@@ -655,7 +655,7 @@ const TestTtsSchema = z.object({
   text: z.string().min(1).max(500),
   baseUrl: z.string().min(1),
   synthPath: z.string().optional(),
-  queryParams: z.record(z.string()).optional(),
+  queryParams: z.record(z.string(), z.string()).optional(),
   authHeader: z.string().optional(),
 });
 
