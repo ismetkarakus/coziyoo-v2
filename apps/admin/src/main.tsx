@@ -7306,7 +7306,6 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
           <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
           <div className="buyer-ref-profile-body">
             <h2 title={fullName}>{fullName}</h2>
-            <p title={email}>{email}</p>
             <div className="buyer-ops-id-row">
               <span>ID {compactUserId}</span>
               <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
@@ -7577,6 +7576,10 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         <aside className="buyer-ref-right">
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
             <h2>Iletisim & Adres</h2>
+            <div className="buyer-ref-contact-block">
+              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
+              <p className="buyer-ref-contact-value">{email}</p>
+            </div>
             <button type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(contactInfo?.addresses.home?.addressLine ?? null)}>
               <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
               <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
