@@ -1,6 +1,6 @@
 # Coziyoo
 
-Monorepo for Coziyoo platform with npm workspaces.
+Monorepo for Coziyoo v2 platform with npm workspaces.
 
 ## Project Structure
 
