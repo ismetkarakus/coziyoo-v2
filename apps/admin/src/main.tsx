@@ -7332,21 +7332,23 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
         <article className="buyer-ops-kpi-card buyer-ref-metric">
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-trend" aria-hidden="true">⌁</span>
-            <p>30 Gun</p>
-            <small className={`buyer-ref-metric-head-meta buyer-trend ${orderTrend.cls}`}>Siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
+            <p>Son 30 Gun</p>
+            <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</small>
           </div>
-          <div className="buyer-ref-metric-line">
-            <strong>{summary?.monthlyOrderCountCurrent ?? 0} <span className="is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</span></strong>
+          <div className="buyer-ref-metric-line is-stacked">
+            <strong><span>Siparis</span> <span className="is-accent">{summary?.monthlyOrderCountCurrent ?? 0}</span></strong>
+            <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-payment" aria-hidden="true">◔</span>
             <p>Odeme Durumu</p>
-            <small className="buyer-ref-metric-head-meta">Islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
+            <small className="buyer-ref-metric-head-meta">Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
           </div>
-          <div className="buyer-ref-metric-line">
-            <strong>{orders.length - failedPayments} <span className="is-accent">{failedPayments} beklemede</span></strong>
+          <div className="buyer-ref-metric-line is-stacked">
+            <strong><span>{orders.length - failedPayments}</span> <span>Siparis</span></strong>
+            <small>{failedPayments} bakiyede</small>
           </div>
         </article>
       </section>

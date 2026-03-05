@@ -2733,6 +2733,16 @@ textarea:focus {
   text-overflow: ellipsis;
 }
 
+.buyer-ref-metric-line.is-stacked {
+  display: grid;
+  gap: 2px;
+  white-space: normal;
+}
+
+.buyer-ref-metric-line.is-stacked small {
+  overflow: visible;
+}
+
 .buyer-ref-metric strong {
   font-size: clamp(0.9rem, 1.08vw, 1.15rem);
   white-space: nowrap;
