@@ -3483,6 +3483,8 @@ textarea:focus {
   margin: 0 0 0 -24px;
   padding: 0 24px;
   font-size: var(--text-md);
+  --buyer-v2-kpi-columns: 4;
+  --buyer-v2-kpi-gap: 14px;
 }
 
 .buyer-v2-head {
@@ -3533,8 +3535,8 @@ textarea:focus {
 
 .buyer-v2-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(var(--buyer-v2-kpi-columns), minmax(0, 1fr));
+  gap: var(--buyer-v2-kpi-gap);
   margin-bottom: 14px;
 }
 
@@ -3649,13 +3651,13 @@ textarea:focus {
 
 .buyer-v2-main-layout {
   display: grid;
-  grid-template-columns: 25vw minmax(0, 1fr);
+  grid-template-columns: calc((100% - ((var(--buyer-v2-kpi-columns) - 1) * var(--buyer-v2-kpi-gap))) / var(--buyer-v2-kpi-columns)) minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
 
 .seller-v2-page .buyer-v2-main-layout {
-  grid-template-columns: 25vw minmax(0, 1fr);
+  grid-template-columns: calc((100% - ((var(--buyer-v2-kpi-columns) - 1) * var(--buyer-v2-kpi-gap))) / var(--buyer-v2-kpi-columns)) minmax(0, 1fr);
   gap: 14px;
 }
 
