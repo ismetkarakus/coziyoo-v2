@@ -2930,6 +2930,7 @@ textarea:focus {
 
 .buyer-ref-left {
   display: grid;
+  order: 2;
   gap: 8px;
 }
 
@@ -3194,6 +3195,7 @@ textarea:focus {
 
 .buyer-ref-right {
   display: grid;
+  order: 1;
   gap: 8px;
 }
 
