@@ -492,7 +492,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</small>
           </div>
           <div className="buyer-ref-metric-line is-stacked">
-            <strong><span>Siparis</span> <span className="is-accent">{summary?.monthlyOrderCountCurrent ?? 0}</span></strong>
+            <strong><span>Siparis</span> <span className="is-accent">{`${summary?.monthlyOrderCountCurrent ?? 0} adet`}</span></strong>
             <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
           </div>
         </article>
@@ -503,7 +503,7 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <small className="buyer-ref-metric-head-meta">Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
           </div>
           <div className="buyer-ref-metric-line is-stacked">
-            <strong><span>{orders.length - failedPayments}</span> <span>Siparis</span></strong>
+            <strong><span>Siparis</span> <span>{`${orders.length - failedPayments} adet`}</span></strong>
             <small>{failedPayments} bakiyede</small>
           </div>
         </article>
