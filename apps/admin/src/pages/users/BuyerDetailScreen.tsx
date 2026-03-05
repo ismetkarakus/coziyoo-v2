@@ -491,9 +491,9 @@ function BuyerDetailScreen({ id, dict }: { id: string; dict: Dictionary }) {
             <p>Son 30 Gun</p>
             <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</small>
           </div>
-          <div className="buyer-ref-metric-line is-stacked">
-            <strong><span>Siparis</span> <span className="is-accent">{`${summary?.monthlyOrderCountCurrent ?? 0} adet`}</span></strong>
+          <div className="buyer-ref-metric-line buyer-ref-metric-line-30">
             <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
+            <strong><span>Siparis</span> <span className="is-accent">{`${summary?.monthlyOrderCountCurrent ?? 0} adet`}</span></strong>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
