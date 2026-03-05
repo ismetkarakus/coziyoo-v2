@@ -273,8 +273,12 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
       {type === "stt" && <QueryParamsEditor label="Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
       {type === "tts" && (
         <>
-          <QueryParamsEditor label="Body Params" params={draft.bodyParams} onChange={(p) => set("bodyParams", p)} hint="Static fields merged into the JSON body (e.g. model, voice, temperature). Values that look like numbers or booleans are coerced automatically." />
-          <QueryParamsEditor label="URL Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />
+          <div style={{ border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
+            <QueryParamsEditor label="Body Params" params={draft.bodyParams} onChange={(p) => set("bodyParams", p)} hint="Static fields merged into the JSON body (e.g. model, voice, temperature). Values that look like numbers or booleans are coerced automatically." />
+          </div>
+          <div style={{ border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
+            <QueryParamsEditor label="URL Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />
+          </div>
         </>
       )}
       {(type === "stt" || type === "tts" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
