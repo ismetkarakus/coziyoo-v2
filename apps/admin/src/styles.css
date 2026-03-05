@@ -2771,6 +2771,9 @@ textarea:focus {
   align-items: center;
   gap: 5px;
   margin-bottom: 2px;
+  position: relative;
+  min-height: 24px;
+  padding-right: 116px;
 }
 
 .buyer-ref-metric-head p {
@@ -2800,11 +2803,14 @@ textarea:focus {
 }
 
 .buyer-ref-metric-head-stack {
-  margin-left: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
   display: grid;
   justify-items: end;
   gap: 1px;
   min-width: 0;
+  line-height: 1.1;
 }
 
 .buyer-ref-metric-head-order {
@@ -2834,6 +2840,7 @@ textarea:focus {
   justify-content: space-between;
   gap: 10px;
   white-space: nowrap;
+  margin-top: 0;
 }
 
 .buyer-ref-metric-icon {
