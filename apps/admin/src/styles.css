@@ -2923,14 +2923,13 @@ textarea:focus {
 .buyer-ref-content {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
+  grid-template-columns: minmax(320px, 340px) minmax(0, 1fr);
   gap: 10px;
   align-items: start;
 }
 
 .buyer-ref-left {
   display: grid;
-  order: 2;
   gap: 8px;
 }
 
@@ -3195,7 +3194,6 @@ textarea:focus {
 
 .buyer-ref-right {
   display: grid;
-  order: 1;
   gap: 8px;
 }
 
