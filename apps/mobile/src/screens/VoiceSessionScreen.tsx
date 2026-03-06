@@ -167,7 +167,9 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
           onPress={toggleMic}
           activeOpacity={0.8}
         >
-          <Text style={styles.controlIcon}>{isMicrophoneEnabled ? '🎤' : '🔇'}</Text>
+          <View style={[styles.iconCircle, !isMicrophoneEnabled && styles.iconCircleMuted]}>
+            <Text style={styles.iconText}>{isMicrophoneEnabled ? 'MIC' : 'OFF'}</Text>
+          </View>
           <Text style={styles.controlLabel}>
             {isMicrophoneEnabled ? 'Mute' : 'Unmute'}
           </Text>
@@ -179,7 +181,9 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
           onPress={handleEnd}
           activeOpacity={0.8}
         >
-          <Text style={styles.controlIcon}>📵</Text>
+          <View style={[styles.iconCircle, styles.iconCircleEnd]}>
+            <Text style={styles.iconText}>END</Text>
+          </View>
           <Text style={styles.controlLabel}>End</Text>
         </TouchableOpacity>
       </View>
@@ -295,8 +299,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ff4444',
   },
-  controlIcon: {
-    fontSize: 24,
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconCircleMuted: {
+    backgroundColor: '#3a1a1a',
+  },
+  iconCircleEnd: {
+    backgroundColor: '#3a0a0a',
+  },
+  iconText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   controlLabel: {
     color: '#888',
