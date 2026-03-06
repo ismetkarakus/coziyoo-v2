@@ -3,12 +3,12 @@
 
 export type AppSettings = {
   apiUrl: string;
-  deviceProfile: string;
 };
+
+export const DEVICE_PROFILE = 'default';
 
 const defaults: AppSettings = {
   apiUrl: 'https://api.coziyoo.com',
-  deviceProfile: 'coziyoo-default',  // min 8 chars required by public API
 };
 
 let current: AppSettings = { ...defaults };
@@ -20,6 +20,5 @@ export async function loadSettings(): Promise<AppSettings> {
 export async function saveSettings(settings: AppSettings): Promise<void> {
   current = {
     apiUrl: settings.apiUrl.trim().replace(/\/$/, '') || defaults.apiUrl,
-    deviceProfile: settings.deviceProfile.trim() || defaults.deviceProfile,
   };
 }

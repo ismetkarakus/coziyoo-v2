@@ -36,7 +36,6 @@ type Props = {
 
 export default function SettingsScreen({ onBack }: Props) {
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
-  const [profileId, setProfileId] = useState('default');
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,12 +52,13 @@ export default function SettingsScreen({ onBack }: Props) {
 
   useEffect(() => {
     loadSettings().then((s) => {
-      setApiUrl(s.apiUrl);
-      setProfileId(s.deviceProfile);
+      const normalizedUrl = s.apiUrl.trim().replace(/\/$/, '');
+      setApiUrl(normalizedUrl);
+      void fetchServers(normalizedUrl);
     });
   }, []);
 
-  async function fetchServers(url: string, profile: string) {
+  async function fetchServers(url: string) {
     setLoading(true);
     setError(null);
     setAgentSettings(null);
@@ -66,7 +66,7 @@ export default function SettingsScreen({ onBack }: Props) {
     setTtsServers([]);
     setLlmServers([]);
     try {
-      const res = await fetch(`${url}/v1/livekit/starter/agent-settings/${profile}`);
+      const res = await fetch(`${url}/v1/livekit/starter/agent-settings/default`);
       const json = await res.json();
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Server error ${res.status}`);
@@ -109,10 +109,9 @@ export default function SettingsScreen({ onBack }: Props) {
     setSaved(false);
     setError(null);
     const trimUrl = apiUrl.trim().replace(/\/$/, '');
-    const trimProfile = profileId.trim() || 'default';
-    await saveSettings({ apiUrl: trimUrl, deviceProfile: trimProfile });
+    await saveSettings({ apiUrl: trimUrl });
     setApiUrl(trimUrl);
-    setProfileId(trimProfile);
+    await fetchServers(trimUrl);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     setSaving(false);
@@ -139,7 +138,7 @@ export default function SettingsScreen({ onBack }: Props) {
         greetingEnabled: true,
         ttsConfig: updatedCfg,
       };
-      const res = await fetch(`${apiUrl}/v1/livekit/starter/agent-settings/${profileId}`, {
+      const res = await fetch(`${apiUrl}/v1/livekit/starter/agent-settings/default`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -161,7 +160,7 @@ export default function SettingsScreen({ onBack }: Props) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>{'<'} Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
         <View style={{ width: 60 }} />
@@ -183,20 +182,6 @@ export default function SettingsScreen({ onBack }: Props) {
             autoCorrect={false}
             keyboardType="url"
           />
-          <Text style={styles.label}>Device Profile ID</Text>
-          <TextInput
-            style={styles.input}
-            value={profileId}
-            onChangeText={setProfileId}
-            placeholder="default"
-            placeholderTextColor="#555"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Text style={styles.hint}>
-            Matches a profile in Admin → Voice Agent Settings. Use{' '}
-            <Text style={styles.code}>default</Text> for the admin's default profile.
-          </Text>
           <TouchableOpacity style={styles.btnSecondary} onPress={handleSaveConnection} disabled={saving}>
             <Text style={styles.btnSecondaryText}>{saved ? 'Saved!' : 'Save Connection'}</Text>
           </TouchableOpacity>
@@ -205,16 +190,7 @@ export default function SettingsScreen({ onBack }: Props) {
         {/* ── Server Selection ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>AI Servers</Text>
-          <TouchableOpacity
-            style={styles.btnPrimary}
-            onPress={() => fetchServers(apiUrl.trim().replace(/\/$/, ''), profileId.trim() || 'default')}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={styles.btnPrimaryText}>Load Servers from Profile</Text>
-            }
-          </TouchableOpacity>
+          {loading && <ActivityIndicator color="#fff" size="small" />}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -269,7 +245,7 @@ export default function SettingsScreen({ onBack }: Props) {
 
           {sttServers.length === 0 && ttsServers.length === 0 && llmServers.length === 0 && !loading && !error && (
             <Text style={styles.emptyHint}>
-              Tap "Load Servers" to fetch the STT, TTS, and LLM servers configured in the admin panel for this profile.
+              No servers found in default profile. Configure STT/TTS/LLM in Admin Voice Agent Settings.
             </Text>
           )}
         </View>

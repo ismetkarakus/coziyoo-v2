@@ -11,7 +11,7 @@ import {
   StatusBar,
   SafeAreaView,
 } from 'react-native';
-import { loadSettings } from '../utils/settings';
+import { loadSettings, DEVICE_PROFILE } from '../utils/settings';
 
 export type SessionData = {
   wsUrl: string;
@@ -30,12 +30,10 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
-  const [profileId, setProfileId] = useState('default');
 
   useEffect(() => {
     loadSettings().then((s) => {
       setApiUrl(s.apiUrl);
-      setProfileId(s.deviceProfile);
     });
   }, []);
 
@@ -51,7 +49,7 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
       const response = await fetch(`${apiUrl}/v1/livekit/starter/session/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: name, deviceId: profileId }),
+        body: JSON.stringify({ username: name, deviceId: DEVICE_PROFILE }),
       });
       const json = await response.json();
       if (!response.ok || json.error) {
@@ -79,7 +77,7 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TouchableOpacity style={styles.settingsBtn} onPress={onOpenSettings}>
-          <Text style={styles.settingsIcon}>⚙</Text>
+          <Text style={styles.settingsIcon}>Settings</Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
@@ -115,7 +113,6 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
               : <Text style={styles.buttonText}>Start Voice Session</Text>
             }
           </TouchableOpacity>
-          <Text style={styles.hint}>Profile: <Text style={styles.profileId}>{profileId}</Text></Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -139,8 +136,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   settingsIcon: {
-    fontSize: 22,
+    fontSize: 13,
     color: '#888',
+    fontWeight: '500',
   },
   header: {
     alignItems: 'center',
@@ -205,13 +203,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  hint: {
-    color: '#444',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  profileId: {
-    color: '#6C63FF',
   },
 });
