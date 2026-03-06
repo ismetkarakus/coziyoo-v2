@@ -1050,28 +1050,48 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             selected={activeSellerKpiFilter === "all"}
             onClick={() => applySellerKpiFilter("all")}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-blue" />
+              <span className="seller-v2-dot is-blue" /><span className="seller-v2-dot" />
+            </div>
+          </KpiCard>
           <KpiCard
             icon="✓" iconVariant="good" colorVariant="green" label="Aktif Satıcı"
             value={new Intl.NumberFormat("tr-TR").format(activeTrSellers)}
             selected={activeSellerKpiFilter === "active"}
             onClick={() => applySellerKpiFilter("active")}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
+            </div>
+          </KpiCard>
           <KpiCard
             icon="◔" iconVariant="warn" colorVariant="orange" label="Pasif Satıcı"
             value={new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}
             selected={activeSellerKpiFilter === "disabled"}
             onClick={() => applySellerKpiFilter("disabled")}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
+              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
+            </div>
+          </KpiCard>
           <KpiCard
             icon="☀" iconVariant="good" label="Bugün Yeni Satıcı"
             value={new Intl.NumberFormat("tr-TR").format(todayTrSellers)}
             selected={activeSellerKpiFilter === "new_today"}
             onClick={() => applySellerKpiFilter("new_today")}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-blue" />
+              <span className="seller-v2-dot is-blue" /><span className="seller-v2-dot" />
+            </div>
+          </KpiCard>
         </section>
 
         <section className="buyer-v2-main-layout">
@@ -1297,7 +1317,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label="Toplam Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-blue" />
+              <span className="seller-v2-dot is-blue" /><span className="seller-v2-dot" />
+            </div>
+          </KpiCard>
           <KpiCard
             icon="✓"
             iconVariant="good"
@@ -1305,7 +1330,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label="Aktif Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(activeRows.length)}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
+              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
+            </div>
+          </KpiCard>
           <KpiCard
             icon="◔"
             iconVariant="warn"
@@ -1313,14 +1343,24 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label="Şikayetli Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(buyersWithOpenComplaints)}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
+              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
+            </div>
+          </KpiCard>
           <KpiCard
             icon="🛡"
             iconVariant="danger"
             label="Riskli Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(riskyBuyersCount)}
             className="seller-v2-kpi"
-          />
+          >
+            <div className="seller-v2-kpi-dots">
+              <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-red" />
+              <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-red" />
+            </div>
+          </KpiCard>
         </section>
 
         <section className="buyer-v2-main-layout">
