@@ -90,26 +90,26 @@ const MobileTelemetrySchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+const DeviceIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[a-zA-Z0-9_-]+$/)
+  .refine((value) => value === "default" || value.length >= 8, {
+    message: "deviceId must be 'default' or at least 8 characters",
+  });
+
 const StarterSessionSchema = z.object({
   roomName: z.string().min(1).max(128).optional(),
   username: z.string().min(2).max(64),
-  deviceId: z
-    .string()
-    .min(8)
-    .max(128)
-    .regex(/^[a-zA-Z0-9_-]+$/),
+  deviceId: DeviceIdSchema,
   ttlSeconds: z.coerce.number().int().positive().max(86_400).optional(),
 });
 
 const StarterAgentChatSchema = z.object({
   roomName: z.string().min(1).max(128),
   text: z.string().min(1).max(8_000),
-  deviceId: z
-    .string()
-    .min(8)
-    .max(128)
-    .regex(/^[a-zA-Z0-9_-]+$/)
-    .optional(),
+  deviceId: DeviceIdSchema.optional(),
 });
 
 const StarterToolRunSchema = z.object({
@@ -117,20 +117,11 @@ const StarterToolRunSchema = z.object({
   input: z.string().max(8_000).optional(),
   roomName: z.string().min(1).max(128).optional(),
   username: z.string().min(1).max(64).optional(),
-  deviceId: z
-    .string()
-    .min(8)
-    .max(128)
-    .regex(/^[a-zA-Z0-9_-]+$/)
-    .optional(),
+  deviceId: DeviceIdSchema.optional(),
 });
 
 const StarterAgentSettingsParamsSchema = z.object({
-  deviceId: z
-    .string()
-    .min(8)
-    .max(128)
-    .regex(/^[a-zA-Z0-9_-]+$/),
+  deviceId: DeviceIdSchema,
 });
 
 const StarterAgentSettingsSchema = z.object({
@@ -781,7 +772,10 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
   try {
     const headerDeviceId = String(req.headers["x-device-id"] ?? "").trim();
     const candidateDeviceId = input.deviceId?.trim() || headerDeviceId;
-    const validDeviceId = /^[a-zA-Z0-9_-]{8,128}$/.test(candidateDeviceId) ? candidateDeviceId : "";
+    const validDeviceId =
+      /^[a-zA-Z0-9_-]{1,128}$/.test(candidateDeviceId) && (candidateDeviceId === "default" || candidateDeviceId.length >= 8)
+        ? candidateDeviceId
+        : "";
     const settings = await getStarterAgentSettingsWithDefault(validDeviceId || undefined);
     const activeTtsServer =
       settings?.ttsServers?.find((server) => server.id === settings.activeTtsServerId) ??
@@ -1103,7 +1097,7 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res
 liveKitRouter.get("/starter/tools/status", async (_req, res) => {
   const rawDeviceId = String(_req.query.deviceId ?? "").trim();
   let n8nBaseUrlOverride: string | null = null;
-  if (/^[a-zA-Z0-9_-]{8,128}$/.test(rawDeviceId)) {
+  if (/^[a-zA-Z0-9_-]{1,128}$/.test(rawDeviceId) && (rawDeviceId === "default" || rawDeviceId.length >= 8)) {
     const settings = await getStarterAgentSettingsWithDefault(rawDeviceId);
     const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
     const n8nConfig =
