@@ -1001,6 +1001,15 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
   }, [buyerActionMenuId, buyerFilterMenuOpen, isBuyerPage]);
 
+  const renderQuadDots = (tone: "blue" | "green" | "orange" | "red" | "neutral") => (
+    <span className={`kpi-quad-dots is-${tone}`} aria-hidden="true">
+      <span />
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+
   if (isSellerPage) {
     const totalTrSellers = trRows.length;
     const activeTrSellers = trRows.filter((row) => row.status === "active").length;
@@ -1045,44 +1054,39 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className="app buyer-v2-page seller-v2-page">
         <section className="buyer-v2-kpis seller-v2-kpis">
           <KpiCard
-            icon="👥" label="Toplam Satıcı"
-            value={new Intl.NumberFormat("tr-TR").format(totalTrSellers)}
+            topLeft={<div className="kpi-quad-cell"><small>Toplam</small>{renderQuadDots("red")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Satıcı</p>{renderQuadDots("blue")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>TR</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{new Intl.NumberFormat("tr-TR").format(totalTrSellers)}</strong>{renderQuadDots("blue")}</div>}
             selected={activeSellerKpiFilter === "all"}
             onClick={() => applySellerKpiFilter("all")}
             className="seller-v2-kpi"
-          >
-            <div className="seller-v2-kpi-dots">
-              <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-blue" />
-              <span className="seller-v2-dot is-blue" /><span className="seller-v2-dot" /><span className="seller-v2-dot" />
-            </div>
-          </KpiCard>
+          />
           <KpiCard
-            icon="✓" iconVariant="good" colorVariant="green" label="Aktif Satıcı"
-            value={new Intl.NumberFormat("tr-TR").format(activeTrSellers)}
+            colorVariant="green"
+            topLeft={<div className="kpi-quad-cell"><small>Durum</small>{renderQuadDots("green")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Aktif</p>{renderQuadDots("green")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>Satıcı</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{new Intl.NumberFormat("tr-TR").format(activeTrSellers)}</strong>{renderQuadDots("green")}</div>}
             selected={activeSellerKpiFilter === "active"}
             onClick={() => applySellerKpiFilter("active")}
             className="seller-v2-kpi"
-          >
-            <div className="seller-v2-kpi-dots">
-              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
-              <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
-            </div>
-          </KpiCard>
+          />
           <KpiCard
-            icon="◔" iconVariant="warn" colorVariant="orange" label="Pasif Satıcı"
-            value={new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}
+            colorVariant="orange"
+            topLeft={<div className="kpi-quad-cell"><small>Durum</small>{renderQuadDots("orange")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Pasif</p>{renderQuadDots("orange")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>Satıcı</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}</strong>{renderQuadDots("orange")}</div>}
             selected={activeSellerKpiFilter === "disabled"}
             onClick={() => applySellerKpiFilter("disabled")}
             className="seller-v2-kpi"
-          >
-            <div className="seller-v2-kpi-dots">
-              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
-              <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
-            </div>
-          </KpiCard>
+          />
           <KpiCard
-            icon="☀" iconVariant="good" label="Bugün Yeni Satıcı"
-            value={new Intl.NumberFormat("tr-TR").format(todayTrSellers)}
+            topLeft={<div className="kpi-quad-cell"><small>Bugün</small>{renderQuadDots("green")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Yeni Satıcı</p>{renderQuadDots("blue")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>Günlük</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{new Intl.NumberFormat("tr-TR").format(todayTrSellers)}</strong>{renderQuadDots("blue")}</div>}
             selected={activeSellerKpiFilter === "new_today"}
             onClick={() => applySellerKpiFilter("new_today")}
             className="seller-v2-kpi"
@@ -1307,18 +1311,32 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return (
       <div className="app buyer-v2-page">
         <section className="buyer-v2-kpis">
-          <KpiCard icon="👥" label="Toplam Alıcı" value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}>
-            <small>%{activeRatio} Son 30n Aktif Oranı</small>
-          </KpiCard>
-          <KpiCard icon="✓" iconVariant="good" label="Aktif Oranı" value={`%${activeRatio}`}>
-            <div className="buyer-v2-kpi-progress"><span style={{ width: `${activeRatio}%` }} /></div>
-          </KpiCard>
-          <KpiCard icon="⚠" iconVariant="warn" label="Şikayetli Alıcı" value={buyersWithOpenComplaints}>
-            <small>{`%${buyersWithOpenComplaints} Son 30 Gün Aktif Oranı`}</small>
-          </KpiCard>
-          <KpiCard icon="🛡" iconVariant="danger" label="Riskli Alıcı" value={riskyBuyersCount}>
-            <small>{`%${riskyBuyersCount} Son 30 Gün`}</small>
-          </KpiCard>
+          <KpiCard
+            topLeft={<div className="kpi-quad-cell"><small>Toplam</small>{renderQuadDots("blue")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Alıcı</p>{renderQuadDots("blue")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>30 Gün</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}</strong>{renderQuadDots("blue")}</div>}
+          />
+          <KpiCard
+            colorVariant="green"
+            topLeft={<div className="kpi-quad-cell"><small>Oran</small>{renderQuadDots("green")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Aktif</p>{renderQuadDots("green")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>%</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{`%${activeRatio}`}</strong>{renderQuadDots("green")}</div>}
+          />
+          <KpiCard
+            colorVariant="orange"
+            topLeft={<div className="kpi-quad-cell"><small>Durum</small>{renderQuadDots("orange")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Şikayetli</p>{renderQuadDots("orange")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>Alıcı</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{buyersWithOpenComplaints}</strong>{renderQuadDots("orange")}</div>}
+          />
+          <KpiCard
+            topLeft={<div className="kpi-quad-cell"><small>Risk</small>{renderQuadDots("red")}</div>}
+            topRight={<div className="kpi-quad-cell"><p>Riskli Alıcı</p>{renderQuadDots("red")}</div>}
+            bottomLeft={<div className="kpi-quad-cell"><small>30 Gün</small>{renderQuadDots("neutral")}</div>}
+            bottomRight={<div className="kpi-quad-cell"><strong>{riskyBuyersCount}</strong>{renderQuadDots("red")}</div>}
+          />
         </section>
 
         <section className="buyer-v2-main-layout">

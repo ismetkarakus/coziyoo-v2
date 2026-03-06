@@ -3580,6 +3580,62 @@ textarea:focus {
 .kpi-card-bl { grid-column: 1; grid-row: 2; display: flex; align-items: flex-end; justify-content: center; }
 .kpi-card-br { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: flex-end; }
 
+.buyer-v2-kpi .kpi-card-tl,
+.buyer-v2-kpi .kpi-card-tr,
+.buyer-v2-kpi .kpi-card-bl,
+.buyer-v2-kpi .kpi-card-br {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.kpi-quad-cell {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.kpi-quad-cell p,
+.kpi-quad-cell small,
+.kpi-quad-cell strong {
+  margin: 0;
+  line-height: 1.08;
+}
+
+.kpi-quad-cell strong {
+  letter-spacing: -0.02em;
+}
+
+.kpi-quad-dots {
+  display: inline-grid;
+  grid-template-columns: repeat(4, 6px);
+  gap: 4px;
+  align-items: center;
+}
+
+.kpi-quad-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #4c5f95 72%, transparent);
+  border: 1px solid color-mix(in srgb, #5d75b2 58%, transparent);
+}
+
+.kpi-quad-dots.is-blue span {
+  background: color-mix(in srgb, #587bc7 75%, transparent);
+}
+
+.kpi-quad-dots.is-green span {
+  background: color-mix(in srgb, #37bb6d 72%, transparent);
+}
+
+.kpi-quad-dots.is-orange span {
+  background: color-mix(in srgb, #cb8445 72%, transparent);
+}
+
+.kpi-quad-dots.is-red span {
+  background: color-mix(in srgb, #d74f64 72%, transparent);
+}
+
 .buyer-v2-kpi p {
   margin: 0;
   color: color-mix(in srgb, var(--color-secondary-text) 96%, transparent);
