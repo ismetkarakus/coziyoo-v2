@@ -3975,11 +3975,11 @@ textarea:focus {
 }
 
 .seller-v2-kpi {
-  min-height: var(--kpi-card-min-height);
+  min-height: calc(var(--kpi-card-min-height) - 8px);
   border-radius: 14px;
   background: var(--seller-v2-kpi-bg);
   border-color: color-mix(in srgb, #586c9e 40%, var(--color-border));
-  padding: 9px 11px;
+  padding: 7px 10px;
 }
 
 .seller-v2-kpi.is-green {
