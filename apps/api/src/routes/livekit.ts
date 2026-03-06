@@ -5,6 +5,7 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
+import { resolveProviders } from "../services/resolve-providers.js";
 import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
 import { TTS_ENGINES } from "../services/tts-engines.js";
 import {
@@ -649,29 +650,13 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
   const settings = await getStarterAgentSettings(input.deviceId);
-  const providerConfig = readProviderConfigFromTtsConfig((settings?.ttsConfig as Record<string, unknown> | null) ?? null);
+  const resolved = resolveProviders(settings);
+
   const userMetadata = JSON.stringify({
     username,
     source: "agent",
     deviceId: input.deviceId,
-    providers: {
-      stt: {
-        provider: providerConfig.sttProvider,
-        baseUrl: providerConfig.sttBaseUrl,
-        transcribePath: providerConfig.sttTranscribePath,
-        model: providerConfig.sttModel,
-      },
-      tts: {
-        engine: settings?.ttsEngine ?? "f5-tts",
-      },
-      llm: {
-        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
-        baseUrl: providerConfig.ollamaBaseUrl,
-      },
-      n8n: {
-        baseUrl: providerConfig.n8nBaseUrl,
-      },
-    },
+    providers: resolved,
   });
 
   try {
@@ -706,24 +691,11 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
     source: "starter-session",
     roomName,
     deviceId: input.deviceId,
-    providers: {
-      stt: {
-        provider: providerConfig.sttProvider,
-        baseUrl: providerConfig.sttBaseUrl,
-        transcribePath: providerConfig.sttTranscribePath,
-        model: providerConfig.sttModel,
-      },
-      tts: {
-        engine: settings?.ttsEngine ?? "f5-tts",
-      },
-      llm: {
-        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
-        baseUrl: providerConfig.ollamaBaseUrl,
-      },
-      n8n: {
-        baseUrl: providerConfig.n8nBaseUrl,
-      },
-    },
+    providers: resolved,
+    systemPrompt: settings?.systemPrompt ?? null,
+    greetingEnabled: settings?.greetingEnabled ?? true,
+    greetingInstruction: settings?.greetingInstruction ?? null,
+    voiceLanguage: settings?.voiceLanguage ?? "en",
   });
   const agentToken = await mintLiveKitToken({
     identity: agentIdentity,
@@ -753,24 +725,7 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
         voiceMode: "assistant_native_audio",
         payload: {
           deviceId: input.deviceId,
-          providers: {
-            stt: {
-              provider: providerConfig.sttProvider,
-              baseUrl: providerConfig.sttBaseUrl,
-              transcribePath: providerConfig.sttTranscribePath,
-              model: providerConfig.sttModel,
-            },
-            tts: {
-              engine: settings?.ttsEngine ?? "f5-tts",
-            },
-            llm: {
-              model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
-              baseUrl: providerConfig.ollamaBaseUrl,
-            },
-            n8n: {
-              baseUrl: providerConfig.n8nBaseUrl,
-            },
-          },
+          providers: resolved,
         },
       });
     }

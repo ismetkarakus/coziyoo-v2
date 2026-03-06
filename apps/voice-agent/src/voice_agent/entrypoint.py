@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
+import os
 
 from livekit import rtc
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, inference, room_io
+from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, room_io
 from livekit.plugins import noise_cancellation, silero
 
 from .config.settings import get_settings
@@ -17,17 +17,35 @@ settings = get_settings()
 class VoiceSalesAgent(Agent):
     def __init__(self, metadata: str) -> None:
         self._metadata = metadata
-        super().__init__(
-            instructions=(
-                "You are a voice-first sales assistant. Keep responses concise for speech output. "
-                "Only produce allowlisted UI actions through tools or structured action channel. "
-                "Do not invent unsupported actions."
-            )
+        try:
+            meta = json.loads(metadata)
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+
+        system_prompt = meta.get("systemPrompt") or (
+            "You are a voice-first sales assistant. Keep responses concise for speech output. "
+            "Only produce allowlisted UI actions through tools or structured action channel. "
+            "Do not invent unsupported actions."
         )
 
+        super().__init__(instructions=system_prompt)
+
     async def on_enter(self) -> None:
+        try:
+            meta = json.loads(self._metadata)
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+
+        greeting_enabled = meta.get("greetingEnabled", True)
+        if not greeting_enabled:
+            return
+
+        greeting = meta.get("greetingInstruction") or (
+            "Greet the user briefly and ask their sales goal in one sentence."
+        )
+
         await self.session.generate_reply(
-            instructions="Greet the user briefly and ask their sales goal in one sentence.",
+            instructions=greeting,
             allow_interruptions=True,
         )
 
@@ -42,6 +60,116 @@ def prewarm(proc: JobProcess) -> None:
 server.setup_fnc = prewarm
 
 
+def _build_stt(providers: dict, language: str):
+    """Build an STT instance from provider config."""
+    stt_cfg = providers.get("stt", {})
+    base_url = stt_cfg.get("baseUrl")
+
+    if base_url:
+        from .providers.http_stt import HttpSTT
+
+        logger.info("Using HTTP STT: %s", base_url)
+        return HttpSTT(
+            base_url=base_url,
+            transcribe_path=stt_cfg.get("transcribePath", "/v1/audio/transcriptions"),
+            model=stt_cfg.get("model", "whisper-1"),
+            language=language,
+            auth_header=stt_cfg.get("authHeader"),
+            query_params=stt_cfg.get("queryParams") or None,
+        )
+
+    # Fallback: try livekit-plugins-openai with env-configured Whisper
+    try:
+        from livekit.plugins.openai import stt as openai_stt
+
+        whisper_base = os.getenv("SPEECH_TO_TEXT_BASE_URL", "")
+        if whisper_base:
+            logger.info("Using OpenAI-compatible STT plugin: %s", whisper_base)
+            return openai_stt.STT(
+                model="whisper-1",
+                base_url=whisper_base,
+                api_key=os.getenv("SPEECH_TO_TEXT_API_KEY", "no-key"),
+                language=language,
+            )
+    except ImportError:
+        pass
+
+    raise RuntimeError(
+        "No STT provider configured. Set stt.baseUrl in admin agent settings "
+        "or install livekit-plugins-openai and set SPEECH_TO_TEXT_BASE_URL."
+    )
+
+
+def _build_llm(providers: dict):
+    """Build an LLM instance from provider config."""
+    llm_cfg = providers.get("llm", {})
+    model = llm_cfg.get("model", os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b"))
+    base_url = llm_cfg.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    auth_header = llm_cfg.get("authHeader") or None
+
+    # Extract API key from auth header (strip "Bearer " prefix if present)
+    api_key = "ollama"
+    if auth_header:
+        api_key = auth_header.removeprefix("Bearer ").strip() or "ollama"
+
+    # Ollama exposes an OpenAI-compatible API at /v1
+    openai_base = f"{base_url.rstrip('/')}/v1"
+
+    try:
+        from livekit.plugins.openai import LLM
+
+        logger.info("Using OpenAI-compatible LLM (Ollama): %s model=%s", openai_base, model)
+        return LLM(
+            model=model,
+            base_url=openai_base,
+            api_key=api_key,
+        )
+    except ImportError:
+        raise RuntimeError(
+            "livekit-plugins-openai is required for LLM support. "
+            "Install it: pip install livekit-plugins-openai"
+        )
+
+
+def _build_tts(providers: dict, language: str):
+    """Build a TTS instance from provider config."""
+    tts_cfg = providers.get("tts", {})
+    base_url = tts_cfg.get("baseUrl")
+    engine = tts_cfg.get("engine", "f5-tts")
+
+    if base_url:
+        from .providers.http_tts import HttpTTS
+
+        logger.info("Using HTTP TTS (%s): %s", engine, base_url)
+        return HttpTTS(
+            base_url=base_url,
+            synth_path=tts_cfg.get("synthPath", "/tts"),
+            auth_header=tts_cfg.get("authHeader"),
+            engine=engine,
+            language=language,
+            text_field_name=tts_cfg.get("textFieldName", "text"),
+            body_params=tts_cfg.get("bodyParams") or None,
+            query_params=tts_cfg.get("queryParams") or None,
+        )
+
+    # Fallback: try OpenAI TTS plugin with env TTS_BASE_URL
+    tts_env_url = os.getenv("TTS_BASE_URL", "")
+    if tts_env_url:
+        from .providers.http_tts import HttpTTS
+
+        logger.info("Using HTTP TTS from env TTS_BASE_URL: %s", tts_env_url)
+        return HttpTTS(
+            base_url=tts_env_url,
+            engine=engine,
+            language=language,
+        )
+
+    raise RuntimeError(
+        "No TTS provider configured. Set tts.baseUrl in admin agent settings "
+        "or set TTS_BASE_URL environment variable."
+    )
+
+
 @server.rtc_session(agent_name="coziyoo-voice-agent")
 async def entrypoint(ctx: JobContext) -> None:
     metadata = ctx.job.metadata or "{}"
@@ -51,13 +179,29 @@ async def entrypoint(ctx: JobContext) -> None:
         metadata_data = {}
 
     language = "en"
+    providers = {}
+
     if isinstance(metadata_data, dict):
-        language = str(metadata_data.get("locale") or "en").split("-")[0]
+        language = str(metadata_data.get("voiceLanguage") or metadata_data.get("locale") or "en").split("-")[0]
+        providers = metadata_data.get("providers", {})
+
+    logger.info(
+        "Starting session deviceId=%s language=%s stt=%s llm=%s tts=%s",
+        metadata_data.get("deviceId", "?"),
+        language,
+        providers.get("stt", {}).get("baseUrl", "?"),
+        providers.get("llm", {}).get("baseUrl", "?"),
+        providers.get("tts", {}).get("baseUrl", "?"),
+    )
+
+    stt_instance = _build_stt(providers, language)
+    llm_instance = _build_llm(providers)
+    tts_instance = _build_tts(providers, language)
 
     session = AgentSession(
-        stt=inference.STT(model="cartesia/ink-whisper", language=language),
-        llm=inference.LLM(model="openai/gpt-4.1-mini"),
-        tts=inference.TTS(model="inworld/inworld-tts-1.5-mini", voice="Ashley", language=language),
+        stt=stt_instance,
+        llm=llm_instance,
+        tts=tts_instance,
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
