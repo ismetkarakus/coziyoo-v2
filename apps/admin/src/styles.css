@@ -3986,6 +3986,41 @@ textarea:focus {
   padding: 9px 11px;
 }
 
+.seller-v2-kpi.kpi-card-grid {
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  column-gap: 10px;
+  row-gap: 0;
+  align-items: center;
+}
+
+.seller-v2-kpi .kpi-card-tl {
+  grid-column: 1;
+  grid-row: 1;
+  padding-top: 0;
+}
+
+.seller-v2-kpi .kpi-card-tr {
+  grid-column: 2;
+  grid-row: 1;
+  align-items: center;
+}
+
+.seller-v2-kpi .kpi-card-bl {
+  display: none;
+}
+
+.seller-v2-kpi .kpi-card-br {
+  grid-column: 3;
+  grid-row: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.seller-v2-kpi .kpi-card-br strong {
+  margin-top: 0;
+}
+
 .seller-v2-kpi.is-green {
   background: var(--seller-v2-kpi-bg-green);
 }
