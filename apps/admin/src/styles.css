@@ -92,6 +92,7 @@
   --text-xl:   1.25rem;   /* card headings, h2                             */
   --text-2xl:  1.5rem;    /* page/panel headings, h1                       */
   --text-3xl:  2rem;      /* KPI values, metric numbers                    */
+  --kpi-card-min-height: 92px; /* Buyer detail KPI reference height */
   --text-4xl:  3rem;      /* hero/display numbers                          */
 
   /* ── Font weights ────────────────────────────────────────────────────── */
@@ -891,6 +892,11 @@ button {
   flex-direction: column;
   justify-content: flex-start;
   gap: 14px;
+}
+
+.stats .card,
+.kpi-grid .card {
+  min-height: var(--kpi-card-min-height);
 }
 
 .card-label {
@@ -2394,7 +2400,7 @@ textarea:focus {
   border: 1px solid var(--ops-border-default);
   border-radius: 14px;
   padding: 14px 16px;
-  min-height: 110px;
+  min-height: var(--kpi-card-min-height);
   display: grid;
   gap: 6px;
 }
@@ -2811,7 +2817,7 @@ textarea:focus {
 }
 
 .buyer-ref-top .buyer-ref-metric {
-  min-height: 92px;
+  min-height: var(--kpi-card-min-height);
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, #6d82ba 20%, var(--ops-border-default));
   background: linear-gradient(180deg, rgba(31, 42, 74, 0.78), rgba(24, 34, 60, 0.74));
@@ -3545,6 +3551,7 @@ textarea:focus {
   grid-template-columns: 48px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
+  min-height: var(--kpi-card-min-height);
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: 18px;
   background: var(--buyer-v2-kpi-bg);
@@ -3968,6 +3975,7 @@ textarea:focus {
 }
 
 .seller-v2-kpi {
+  min-height: var(--kpi-card-min-height);
   border-radius: 14px;
   background: var(--seller-v2-kpi-bg);
   border-color: color-mix(in srgb, #586c9e 40%, var(--color-border));
@@ -4413,6 +4421,7 @@ textarea:focus {
 }
 
 .users-kpi-grid article {
+  min-height: var(--kpi-card-min-height);
   border: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
   border-radius: 12px;
   padding: 10px 14px;

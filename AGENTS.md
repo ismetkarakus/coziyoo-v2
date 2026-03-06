@@ -48,3 +48,4 @@ Unless explicitly requested by the user, do not modify:
   - `git pull --rebase --autostash`
   - commit with a clear message
   - `git push`
+- Apply this by default without asking the user to repeat it in each task.
