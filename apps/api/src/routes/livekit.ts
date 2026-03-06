@@ -217,6 +217,16 @@ function isValidSharedSecret(providedSecret: string) {
   );
 }
 
+async function getStarterAgentSettingsWithDefault(deviceId: string | null | undefined) {
+  const normalized = typeof deviceId === "string" ? deviceId.trim() : "";
+  if (normalized.length > 0) {
+    const deviceSettings = await getStarterAgentSettings(normalized);
+    if (deviceSettings) return deviceSettings;
+    if (normalized === "default") return null;
+  }
+  return getStarterAgentSettings("default");
+}
+
 function readProviderConfigFromTtsConfig(raw: Record<string, unknown> | null | undefined) {
   const sttConfig =
     raw && typeof raw.stt === "object" && raw.stt !== null
@@ -389,7 +399,7 @@ liveKitRouter.post("/session/end", async (req, res) => {
   const input = parsed.data;
   let n8nBaseUrlOverride: string | null = null;
   if (input.deviceId) {
-    const settings = await getStarterAgentSettings(input.deviceId);
+    const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
     const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
     const n8nConfig =
       ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
@@ -649,7 +659,7 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
-  const settings = await getStarterAgentSettings(input.deviceId);
+  const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
   const resolved = resolveProviders(settings);
 
   const userMetadata = JSON.stringify({
@@ -772,7 +782,7 @@ liveKitRouter.post("/starter/agent/chat", async (req, res) => {
     const headerDeviceId = String(req.headers["x-device-id"] ?? "").trim();
     const candidateDeviceId = input.deviceId?.trim() || headerDeviceId;
     const validDeviceId = /^[a-zA-Z0-9_-]{8,128}$/.test(candidateDeviceId) ? candidateDeviceId : "";
-    const settings = validDeviceId ? await getStarterAgentSettings(validDeviceId) : null;
+    const settings = await getStarterAgentSettingsWithDefault(validDeviceId || undefined);
     const activeTtsServer =
       settings?.ttsServers?.find((server) => server.id === settings.activeTtsServerId) ??
       settings?.ttsServers?.[0] ??
@@ -867,7 +877,7 @@ liveKitRouter.get("/starter/agent-settings/:deviceId", async (req, res) => {
   }
 
   try {
-    const settings = await getStarterAgentSettings(parsed.data.deviceId);
+    const settings = await getStarterAgentSettingsWithDefault(parsed.data.deviceId);
     if (!settings) {
       return res.status(404).json({
         error: {
@@ -967,7 +977,7 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/stt", async (req, res
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  const settings = await getStarterAgentSettingsWithDefault(parsed.data.deviceId);
   const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
   const sttConfig =
     ttsConfig && typeof ttsConfig.stt === "object" && ttsConfig.stt !== null
@@ -1036,7 +1046,7 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/ollama", async (req, 
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  const settings = await getStarterAgentSettingsWithDefault(parsed.data.deviceId);
   const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
   const llmConfig =
     ttsConfig && typeof ttsConfig.llm === "object" && ttsConfig.llm !== null
@@ -1073,7 +1083,7 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const settings = await getStarterAgentSettings(parsed.data.deviceId);
+  const settings = await getStarterAgentSettingsWithDefault(parsed.data.deviceId);
   const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
   const n8nConfig =
     ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
@@ -1094,7 +1104,7 @@ liveKitRouter.get("/starter/tools/status", async (_req, res) => {
   const rawDeviceId = String(_req.query.deviceId ?? "").trim();
   let n8nBaseUrlOverride: string | null = null;
   if (/^[a-zA-Z0-9_-]{8,128}$/.test(rawDeviceId)) {
-    const settings = await getStarterAgentSettings(rawDeviceId);
+    const settings = await getStarterAgentSettingsWithDefault(rawDeviceId);
     const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
     const n8nConfig =
       ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null
@@ -1166,7 +1176,7 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
   const input = parsed.data;
   let n8nBaseUrlOverride: string | null = null;
   if (input.deviceId) {
-    const settings = await getStarterAgentSettings(input.deviceId);
+    const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
     const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
     const n8nConfig =
       ttsConfig && typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null

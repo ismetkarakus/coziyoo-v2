@@ -85,7 +85,7 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
   const stt: ResolvedProviders["stt"] = defaultSttServer
     ? {
         provider: str(defaultSttServer.provider, "remote-speech-server"),
-        baseUrl: strOrNull(defaultSttServer.baseUrl),
+        baseUrl: strOrNull(defaultSttServer.baseUrl) ?? env.SPEECH_TO_TEXT_BASE_URL ?? null,
         transcribePath: str(defaultSttServer.transcribePath, env.SPEECH_TO_TEXT_TRANSCRIBE_PATH),
         model: str(defaultSttServer.model, env.SPEECH_TO_TEXT_MODEL),
         queryParams: recordOf(defaultSttServer.queryParams),
@@ -93,7 +93,7 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
       }
     : {
         provider: str(legacyStt.provider, "remote-speech-server"),
-        baseUrl: strOrNull(legacyStt.baseUrl),
+        baseUrl: strOrNull(legacyStt.baseUrl) ?? env.SPEECH_TO_TEXT_BASE_URL ?? null,
         transcribePath: str(legacyStt.transcribePath, env.SPEECH_TO_TEXT_TRANSCRIBE_PATH),
         model: str(legacyStt.model, env.SPEECH_TO_TEXT_MODEL),
         queryParams: recordOf(legacyStt.queryParams),
