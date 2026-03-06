@@ -29,9 +29,9 @@ npm install
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env
-cp .env.local.example .env.local
-# Edit .env/.env.local with your values
+cp .env.example .env.local
+# Edit .env.local for local development
+# Keep .env for production runtime
 ```
 
 ### 3. Run Development
@@ -130,7 +130,13 @@ Nginx Proxy Manager routes external traffic:
 
 ## Environment Configuration
 
-Application configuration is centralized in the root `.env` file:
+Environment file policy:
+
+- `.env.local`: development runtime file
+- `.env.example`: sample template
+- `.env`: production/runtime file
+
+Application configuration values include:
 
 - **API settings:** `API_PORT`, `*_SECRET` keys
 - **Database:** `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`

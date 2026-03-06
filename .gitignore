@@ -28,11 +28,6 @@ vite.svg
 
 # Environment files (keep .env.example)
 .env
-.env.*
-!.env.example
-.env.local
-.env.*.local
-!.env.local.example
 
 # IDE
 .vscode
