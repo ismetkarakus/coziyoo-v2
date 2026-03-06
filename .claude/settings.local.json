@@ -32,7 +32,26 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(python3:*)",
       "Bash(.venv/bin/pip install:*)",
-      "Bash(.venv/bin/python3:*)"
+      "Bash(.venv/bin/python3:*)",
+      "Bash(grep:*)",
+      "Bash(npm run:*)",
+      "Bash(git push:*)",
+      "Bash(git:*)",
+      "Bash(sed -n '6868,7720p' /Users/drascom/Work/coziyoo-v2/apps/admin/src/main.tsx)",
+      "Read(//tmp/**)",
+      "Bash(sed -n '463,617p' apps/admin/src/main.tsx > /tmp/app_raw.txt\nsed -n '618,1157p' apps/admin/src/main.tsx > /tmp/appshell_raw.txt\nwc -l /tmp/app_raw.txt /tmp/appshell_raw.txt)",
+      "Bash(sed:*)",
+      "Bash(GIT_EDITOR=true git merge:*)",
+      "Bash(echo Remaining hardcoded font-size values::*)",
+      "Bash(gh run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(uv pip:*)",
+      "Bash(claude mcp:*)",
+      "mcp__jcodemunch-mcp__index_repo",
+      "mcp__jcodemunch-mcp__get_repo_outline",
+      "mcp__jcodemunch-mcp__get_file_outline",
+      "mcp__jcodemunch-mcp__search_symbols",
+      "mcp__jcodemunch-mcp__index_folder"
     ]
   }
 }
