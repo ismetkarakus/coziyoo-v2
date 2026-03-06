@@ -1,16 +1,31 @@
-import { registerGlobals } from '@livekit/react-native';
-import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppRoot } from './src/app/AppRoot';
+import React, { useState } from 'react';
+import HomeScreen, { SessionData } from './src/screens/HomeScreen';
+import VoiceSessionScreen from './src/screens/VoiceSessionScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
-registerGlobals();
+type Screen = 'home' | 'session' | 'settings';
 
 export default function App() {
+  const [screen, setScreen] = useState<Screen>('home');
+  const [session, setSession] = useState<SessionData | null>(null);
+
+  if (screen === 'settings') {
+    return <SettingsScreen onBack={() => setScreen('home')} />;
+  }
+
+  if (screen === 'session' && session) {
+    return (
+      <VoiceSessionScreen
+        session={session}
+        onEnd={() => { setSession(null); setScreen('home'); }}
+      />
+    );
+  }
+
   return (
-    <SafeAreaProvider>
-      <AppRoot />
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+    <HomeScreen
+      onSessionStart={(s) => { setSession(s); setScreen('session'); }}
+      onOpenSettings={() => setScreen('settings')}
+    />
   );
 }

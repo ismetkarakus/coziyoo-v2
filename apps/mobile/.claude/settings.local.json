@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.livekit.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(node:*)",
+      "Bash(xcode-select:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(npm install:*)",
+      "Bash(nvm:*)",
+      "Bash(brew list:*)",
+      "Bash(brew link:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(/Users/drascom/Work/coziyoo-v2/apps/voice-agent/.venv/bin/python:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc:*)",
+      "Bash(find:*)",
+      "Bash(for dir in actions config session tools)",
+      "Bash(do echo \"=== $dir ===\")",
+      "Read(//Users/drascom/Work/coziyoo-v2/apps/voice-agent/src/voice_agent/**)",
+      "Bash(done)"
+    ]
+  }
+}

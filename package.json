@@ -17,12 +17,19 @@
     "install:all": "bash installation/scripts/install_all.sh",
     "update:all": "bash installation/scripts/update_all.sh",
     "test": "npm run test --workspaces --if-present",
-    "test:api": "npm run test --workspace=apps/api"
+    "test:api": "npm run test --workspace=apps/api",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "expo": "~50.0.17",
+    "react": "18.2.0",
+    "react-native": "0.73.6"
   }
 }
