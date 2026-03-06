@@ -32,6 +32,7 @@ vite.svg
 !.env.example
 .env.local
 .env.*.local
+!.env.local.example
 
 # IDE
 .vscode

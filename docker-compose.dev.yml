@@ -1,14 +1,25 @@
 services:
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env.local
+    ports:
+      - "5432:5432"
+    volumes:
+      - coziyoo_postgres_data:/var/lib/postgresql/data
+
   api:
     image: node:20-bookworm
     working_dir: /workspace
     env_file:
-      - .env
+      - .env.local
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "1"
       WATCHPACK_POLLING: "true"
-      AI_SERVER_URL: ${DEV_AI_SERVER_URL:-http://voice-agent-api:9000}
+      PGHOST: postgres
+      PGPORT: "5432"
+      AI_SERVER_URL: http://voice-agent-api:9000
     volumes:
       - ./:/workspace
       - coziyoo_npm_cache:/root/.npm
@@ -19,17 +30,19 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      - postgres
       - voice-agent-api
 
   admin:
     image: node:20-bookworm
     working_dir: /workspace
     env_file:
-      - .env
+      - .env.local
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "1"
       WATCHPACK_POLLING: "true"
+      VITE_API_BASE_URL: http://localhost:3000
     volumes:
       - ./:/workspace
       - coziyoo_npm_cache:/root/.npm
@@ -42,7 +55,7 @@ services:
     image: python:3.12-bookworm
     working_dir: /workspace/apps/voice-agent
     env_file:
-      - .env
+      - .env.local
     environment:
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
@@ -61,7 +74,7 @@ services:
     image: python:3.12-bookworm
     working_dir: /workspace/apps/voice-agent
     env_file:
-      - .env
+      - .env.local
     environment:
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
@@ -73,19 +86,6 @@ services:
       bash -lc "pip install -e . && python -m voice_agent.entrypoint"
     depends_on:
       - api
-
-  postgres:
-    image: postgres:16
-    profiles:
-      - local-db
-    environment:
-      POSTGRES_USER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
-      POSTGRES_DB: ${PGDATABASE:-coziyoo}
-    ports:
-      - "5432:5432"
-    volumes:
-      - coziyoo_postgres_data:/var/lib/postgresql/data
 
 volumes:
   coziyoo_npm_cache:
