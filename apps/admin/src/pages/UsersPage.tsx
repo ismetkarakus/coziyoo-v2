@@ -1306,19 +1306,36 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   if (isBuyerPage) {
     return (
       <div className="app buyer-v2-page">
-        <section className="buyer-v2-kpis">
-          <KpiCard icon="👥" label="Toplam Alıcı" value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}>
-            <small>%{activeRatio} Son 30n Aktif Oranı</small>
-          </KpiCard>
-          <KpiCard icon="✓" iconVariant="good" label="Aktif Oranı" value={`%${activeRatio}`}>
-            <div className="buyer-v2-kpi-progress"><span style={{ width: `${activeRatio}%` }} /></div>
-          </KpiCard>
-          <KpiCard icon="⚠" iconVariant="warn" label="Şikayetli Alıcı" value={buyersWithOpenComplaints}>
-            <small>{`%${buyersWithOpenComplaints} Son 30 Gün Aktif Oranı`}</small>
-          </KpiCard>
-          <KpiCard icon="🛡" iconVariant="danger" label="Riskli Alıcı" value={riskyBuyersCount}>
-            <small>{`%${riskyBuyersCount} Son 30 Gün`}</small>
-          </KpiCard>
+        <section className="buyer-v2-kpis seller-v2-kpis">
+          <KpiCard
+            icon="👥"
+            label="Toplam Alıcı"
+            value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}
+            className="seller-v2-kpi"
+          />
+          <KpiCard
+            icon="✓"
+            iconVariant="good"
+            colorVariant="green"
+            label="Aktif Alıcı"
+            value={new Intl.NumberFormat("tr-TR").format(activeRows.length)}
+            className="seller-v2-kpi"
+          />
+          <KpiCard
+            icon="◔"
+            iconVariant="warn"
+            colorVariant="orange"
+            label="Şikayetli Alıcı"
+            value={new Intl.NumberFormat("tr-TR").format(buyersWithOpenComplaints)}
+            className="seller-v2-kpi"
+          />
+          <KpiCard
+            icon="🛡"
+            iconVariant="danger"
+            label="Riskli Alıcı"
+            value={new Intl.NumberFormat("tr-TR").format(riskyBuyersCount)}
+            className="seller-v2-kpi"
+          />
         </section>
 
         <section className="buyer-v2-main-layout">
