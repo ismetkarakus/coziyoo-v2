@@ -46,6 +46,35 @@ npm run dev:admin
 npm run dev:web
 ```
 
+## Docker Dev Stack (No System-Wide Node/Python)
+
+Use this when you want API/Admin/Voice Agent to run fully in containers while keeping LiveKit remote.
+
+```bash
+# Start API + Admin + Voice Agent API + Voice Agent worker
+docker compose -f docker-compose.dev.yml up -d
+
+# Follow logs
+docker compose -f docker-compose.dev.yml logs -f
+```
+
+Optional local Postgres (if not using remote DB):
+
+```bash
+docker compose -f docker-compose.dev.yml --profile local-db up -d
+```
+
+Stop stack:
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
+
+Notes:
+- Mobile app can continue running on simulator from host as usual.
+- `docker-compose.dev.yml` sets `AI_SERVER_URL` in API service to `http://voice-agent-api:9000` by default.
+- Ensure root `.env` has valid `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` for your remote LiveKit server.
+
 ## Available Scripts
 
 | Script | Description |
