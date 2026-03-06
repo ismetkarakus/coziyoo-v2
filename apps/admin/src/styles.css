@@ -2707,8 +2707,12 @@ textarea:focus {
 .buyer-ref-top {
   margin-top: 0;
   display: grid;
-  grid-template-columns: minmax(410px, 1.45fr) minmax(340px, 1.2fr) minmax(340px, 1.2fr) minmax(340px, 1.2fr);
+  grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+
+.buyer-ref-top > * {
+  min-width: 0;
 }
 
 .buyer-ref-profile-card,
