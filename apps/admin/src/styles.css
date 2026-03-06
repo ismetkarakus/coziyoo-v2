@@ -3559,7 +3559,7 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: 18px;
   background: var(--buyer-v2-kpi-bg);
-  padding: 8px 16px;
+  padding: 9px 11px;
 }
 
 /* KpiCard 4-area grid layout
