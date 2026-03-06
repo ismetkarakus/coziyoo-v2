@@ -3555,11 +3555,11 @@ textarea:focus {
   grid-template-columns: 48px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
-  min-height: calc(var(--kpi-card-min-height) - 8px);
+  min-height: calc(var(--kpi-card-min-height) - 14px);
   border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   border-radius: 18px;
   background: var(--buyer-v2-kpi-bg);
-  padding: 10px 16px;
+  padding: 8px 16px;
 }
 
 /* KpiCard 4-area grid layout
