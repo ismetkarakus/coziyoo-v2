@@ -84,7 +84,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
   }, [dict.investigation.requestFailed, page, searchInput, statusFilter]);
 
   return (
-    <div className="app">
+    <div className="app investigation-page">
       <header className="topbar topbar-with-centered-search">
         <div>
           <p className="eyebrow">{dict.menu.investigation}</p>
