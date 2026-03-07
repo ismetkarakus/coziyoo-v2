@@ -49,7 +49,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     orderTrend: "all",
     spendTrend: "all",
   });
-  const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend" | null>(null);
+  const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "active" | "risky" | "open_complaint" | "down_spend" | null>(null);
   const [activeSmartFilter, setActiveSmartFilter] = useState<BuyerSmartFilterKey | null>(null);
   const [activeSellerSmartFilter, setActiveSellerSmartFilter] = useState<SellerSmartFilterKey | null>(null);
   const [smartFilterCounts, setSmartFilterCounts] = useState<Record<BuyerSmartFilterKey, number>>({
@@ -721,6 +721,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       }
       if (buyerQuickFilter === "risky") {
         scopedRows = scopedRows.filter((row) => computeBuyerRisk(row).level !== "low");
+      } else if (buyerQuickFilter === "active") {
+        scopedRows = scopedRows.filter((row) => row.status === "active");
       } else if (buyerQuickFilter === "open_complaint") {
         scopedRows = scopedRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0);
       } else if (buyerQuickFilter === "down_spend") {
@@ -1348,6 +1350,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label="Aktif Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(activeRows.length)}
             className="seller-v2-kpi"
+            selected={buyerQuickFilter === "active" && activeSmartFilter === null}
+            onClick={() => {
+              if (buyerQuickFilter === "active" && activeSmartFilter === null) {
+                setBuyerQuickFilter(null);
+              } else {
+                setActiveSmartFilter(null);
+                setBuyerQuickFilter("active");
+              }
+              setFilters((prev) => ({ ...prev, page: 1 }));
+            }}
           >
             <div className="seller-v2-kpi-dots">
               <span className="seller-v2-dot is-green" /><span className="seller-v2-dot is-green" />
