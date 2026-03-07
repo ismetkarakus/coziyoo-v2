@@ -2640,18 +2640,24 @@ textarea:focus {
   border-radius: 9px;
   border: 1px solid color-mix(in srgb, var(--ops-accent-warning) 42%, var(--ops-border-default));
   background: color-mix(in srgb, var(--ops-accent-warning) 24%, transparent);
-  padding: 3px 10px;
+  padding: 3px 18px 3px 10px;
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  position: relative;
 }
 
 .buyer-ops-tag-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
   border: 0;
-  background: transparent;
-  color: inherit;
+  background: color-mix(in srgb, #8b132f 86%, transparent);
+  color: #ffe4ea;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ff647c 55%, transparent);
   cursor: pointer;
   width: 20px;
   height: 20px;
