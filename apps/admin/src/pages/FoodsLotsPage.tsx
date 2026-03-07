@@ -598,10 +598,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Ham Alerjen Verisi" : "Raw Allergen Data"}</h4>
-              <pre>{toPrettyJson(selectedFood.allergensJson)}</pre>
-            </div>
-            <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Lot Özeti" : "Lots Summary"}</h4>
               {(lotsByFoodId[selectedFood.id] ?? []).length === 0 ? (
                 <p className="panel-meta">{dict.detail.noLotsForFood}</p>
