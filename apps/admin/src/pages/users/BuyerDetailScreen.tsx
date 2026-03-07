@@ -590,18 +590,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             </div>
           </div>
         </article>
-        <article
-          className="buyer-ops-kpi-card buyer-ref-metric buyer-ref-click-item"
-          role="button"
-          tabIndex={0}
-          onClick={() => switchBuyerTab("complaints")}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              switchBuyerTab("complaints");
-            }
-          }}
-        >
+        <article className="buyer-ops-kpi-card buyer-ref-metric">
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-alert" aria-hidden="true">♡</span>
             <p>Acik Sikayet</p>
