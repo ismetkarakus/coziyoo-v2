@@ -8,7 +8,7 @@ export type AppSettings = {
 export const DEVICE_PROFILE = 'default';
 
 const defaults: AppSettings = {
-  apiUrl: 'https://api.coziyoo.com',
+  apiUrl: (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').trim().replace(/\/$/, ''),
 };
 
 let current: AppSettings = { ...defaults };

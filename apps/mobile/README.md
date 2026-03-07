@@ -1,3 +1,27 @@
-# Mobile App (Reset)
+# Coziyoo Mobile (Standalone)
 
-This folder was intentionally reset to a clean state to restart mobile app implementation.
+Run the mobile app fully from inside `apps/mobile` without root workspace commands.
+
+## Setup
+
+```bash
+cd /Users/drascom/Work/coziyoo-v2/apps/mobile
+cp .env.example .env
+npm install
+```
+
+## Run
+
+```bash
+npm run ios
+# or
+npm run android
+```
+
+## Environment
+
+Only one runtime variable is required:
+
+- `EXPO_PUBLIC_API_URL` (example: `http://localhost:3000`)
+
+STT/TTS/LLM server details are loaded from API profile settings, not mobile env.

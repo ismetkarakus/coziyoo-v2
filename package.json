@@ -3,33 +3,29 @@
   "version": "2.0.0",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/api",
+    "apps/admin",
     "packages/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:admin": "npm run dev --workspace=apps/admin",
-    "dev:mobile": "npm run dev --workspace=apps/mobile",
+    "dev:mobile": "npm --prefix apps/mobile run start",
     "build:api": "npm run build --workspace=apps/api",
     "build:admin": "npm run build --workspace=apps/admin",
-    "build:mobile": "npm run typecheck --workspace=apps/mobile",
+    "build:mobile": "echo \"Standalone mobile app: run from apps/mobile (npm run ios|android)\"",
     "install:all": "bash installation/scripts/install_all.sh",
     "update:all": "bash installation/scripts/update_all.sh",
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace=apps/api",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "android": "npm --prefix apps/mobile run android",
+    "ios": "npm --prefix apps/mobile run ios"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "dependencies": {
-    "expo": "~50.0.17",
-    "react": "18.2.0",
-    "react-native": "0.73.6"
   }
 }
