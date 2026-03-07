@@ -276,6 +276,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const updated = await parseJson<{ data: any }>(update);
     setRow(updated.data);
     setMessage(dict.common.saved);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   }
 
   async function createAddress(event: FormEvent<HTMLFormElement>) {
@@ -319,6 +320,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setAddressDirty(false);
       await loadSellerDetail();
       setMessage(dict.common.saved);
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
