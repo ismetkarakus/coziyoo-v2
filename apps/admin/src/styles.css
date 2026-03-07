@@ -5036,9 +5036,9 @@ textarea:focus {
 .seller-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 14px;
   align-items: center;
-  padding: 18px 20px;
+  padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, #6e86b7 28%, var(--color-border));
   background:
@@ -5051,7 +5051,7 @@ textarea:focus {
   display: flex;
   grid-column: 1;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .seller-hero-text {
@@ -5063,7 +5063,7 @@ textarea:focus {
 .seller-hero-title-stack {
   display: grid;
   align-content: center;
-  gap: 5px;
+  gap: 2px;
 }
 
 .seller-avatar-col {
@@ -5092,7 +5092,7 @@ textarea:focus {
 
 .seller-hero-text h1 {
   margin: 0;
-  font-size: clamp(2rem, 2.6vw, 3rem);
+  font-size: clamp(1.7rem, 2.1vw, 2.35rem);
   font-weight: var(--font-bold);
   letter-spacing: -0.03em;
 }
@@ -5100,40 +5100,38 @@ textarea:focus {
 .seller-hero-title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .seller-account-status {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 0.95rem;
+  display: inline;
+  padding: 0;
+  font-size: 1.9rem;
   font-weight: var(--font-semibold);
-  line-height: 1;
-  border: 1px solid color-mix(in srgb, #2e976f 54%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  line-height: 1.05;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .seller-account-status.is-active {
   color: #94f7d5;
-  background: linear-gradient(180deg, rgba(49, 196, 141, 0.26), rgba(21, 118, 84, 0.3));
+  background: transparent;
 }
 
 .seller-account-status.is-disabled {
-  color: #d8deea;
-  border-color: color-mix(in srgb, #8391aa 55%, transparent);
-  background: color-mix(in srgb, #7f8ba3 16%, transparent);
+  color: #c4cee2;
+  background: transparent;
 }
 
 .seller-rating-row {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   color: #f0c66d;
   font-weight: var(--font-bold);
-  font-size: clamp(1.4rem, 1.8vw, 2rem);
+  font-size: clamp(1.2rem, 1.45vw, 1.6rem);
 }
 
 .rating-value {
@@ -5160,7 +5158,7 @@ textarea:focus {
   flex-wrap: wrap;
   grid-column: 2;
   justify-self: end;
-  gap: 16px;
+  gap: 12px;
 }
 
 .seller-quick-access {
@@ -5173,7 +5171,7 @@ textarea:focus {
   cursor: pointer;
   border: 0;
   border-radius: 12px;
-  padding: 11px 22px;
+  padding: 9px 18px;
   color: #062033;
   font-weight: var(--font-bold);
   background: linear-gradient(180deg, #84d1ff, #63b9eb);
@@ -5225,7 +5223,7 @@ textarea:focus {
 .seller-hero-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .seller-hero-stats article {
@@ -5238,30 +5236,30 @@ textarea:focus {
   justify-content: flex-start;
   gap: 2px;
   min-height: unset;
-  min-width: 160px;
+  min-width: 140px;
 }
 
 .seller-hero-stats p {
   margin: 0;
   color: color-mix(in srgb, var(--color-text) 64%, #becce6);
-  font-size: clamp(1rem, 1.15vw, 1.45rem);
+  font-size: clamp(0.92rem, 1vw, 1.18rem);
 }
 
 .seller-hero-stats strong {
   display: block;
   margin-top: 0;
-  font-size: clamp(2rem, 2.2vw, 2.8rem);
+  font-size: clamp(1.5rem, 1.9vw, 2.15rem);
   font-weight: var(--font-bold);
   line-height: 1.05;
 }
 
 .seller-hero-stats article:first-child strong {
-  font-size: clamp(2rem, 2.2vw, 2.8rem);
+  font-size: clamp(1.5rem, 1.9vw, 2.15rem);
   line-height: 1.05;
 }
 
 .seller-hero-stats article:last-child strong {
-  font-size: clamp(2rem, 2.2vw, 2.8rem);
+  font-size: clamp(1.5rem, 1.9vw, 2.15rem);
   font-weight: var(--font-bold);
   line-height: 1.05;
 }
