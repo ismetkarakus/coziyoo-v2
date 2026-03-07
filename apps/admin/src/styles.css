@@ -3523,7 +3523,7 @@ textarea:focus {
 }
 
 .buyer-ref-notes-card .buyer-ops-note-form {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .buyer-ref-notes-card .buyer-ops-tag {

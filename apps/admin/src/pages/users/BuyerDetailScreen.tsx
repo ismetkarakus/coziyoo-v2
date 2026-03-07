@@ -645,6 +645,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   if (event.key === "Enter") addNote();
                 }}
               />
+              <button className="ghost" type="button" onClick={addNote}>Not</button>
+              <button className="ghost" type="button" onClick={addTag}>Etiket</button>
             </div>
             <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etikes</p>
           </section>
