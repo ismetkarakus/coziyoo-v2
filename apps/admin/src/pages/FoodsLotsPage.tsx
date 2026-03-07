@@ -568,7 +568,11 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             </div>
             <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>
-              {selectedFoodAllergenSummary.length === 0 ? null : (
+              {selectedFoodAllergenSummary.length === 0 ? (
+                <p className="panel-meta">
+                  {language === "tr" ? "Alerjen durumu: Bilinmiyor." : "Allergen status: Unknown."}
+                </p>
+              ) : (
                 <div className="foods-allergen-status-list">
                   {selectedFoodAllergenSummary.map((row) => {
                     const tone = row.status === "contains" ? "is-danger" : row.status === "may" ? "is-warning" : "is-neutral";
