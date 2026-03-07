@@ -1,10 +1,9 @@
 import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
 import { fmt, toDisplayId, formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
-  openQuickEmail,
   initialsFromName,
   mapComplianceRows,
   profileBadgeFromStatus,
@@ -26,7 +25,6 @@ import type { BuyerPagination } from "../../types/buyer";
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
@@ -305,8 +303,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     !profileImageFailed
       ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
       : null;
-  const complianceCta = language === "tr" ? "Uygunluğa Git" : "Go to Compliance";
-  const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
   const walletAmount = formatCurrency(
     filteredSellerEarnings
       .filter((order) => paymentStateKey(order.paymentStatus) === "successful")
@@ -557,16 +553,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           </div>
         </article>
         <div className="seller-hero-right">
-          <div className="topbar-actions">
-            <button className="ghost" type="button" onClick={() => loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed))}>
-              {dict.actions.refresh}
-            </button>
-            <button className="ghost" type="button" onClick={() => openQuickEmail(row.email, dict, setMessage)}>
-              {dict.detail.quickEmail}
-            </button>
-            <button className="primary" type="button" onClick={() => setActiveTab("legal")}>{complianceCta}</button>
-            <button className="ghost" type="button" onClick={() => navigate("/app/audit")}>{auditCta}</button>
-          </div>
           <div className="seller-hero-stats">
             <article>
               <p>{dict.detail.sellerTabs.wallet}</p>
