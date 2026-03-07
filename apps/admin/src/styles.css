@@ -3637,6 +3637,20 @@ textarea:focus {
   display: block;
 }
 
+.buyer-ref-note-edit-row textarea {
+  width: 100%;
+  border: 0 !important;
+  outline: none;
+  background: transparent !important;
+  color: color-mix(in srgb, var(--ops-text-primary) 92%, white);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  padding: 0;
+  margin: 0;
+  resize: vertical;
+  min-height: 44px;
+}
+
 .buyer-ref-note-actions .ghost,
 .buyer-ref-note-edit-row .ghost {
   min-height: 32px;
