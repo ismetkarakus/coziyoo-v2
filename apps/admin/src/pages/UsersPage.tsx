@@ -63,6 +63,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerFilterMenuOpen, setBuyerFilterMenuOpen] = useState(false);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
+  const [buyerTotalCountAll, setBuyerTotalCountAll] = useState<number | null>(null);
   const buyerFilterWrapRef = useRef<HTMLDivElement | null>(null);
   const buyerBoardRef = useRef<HTMLDivElement | null>(null);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
@@ -199,7 +200,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       orderTrend: "all",
       spendTrend: "all",
     });
-    setBuyerQuickFilter("all");
+    setBuyerQuickFilter(null);
+    setBuyerTotalCountAll(null);
     setActiveSmartFilter(null);
     setActiveSellerSmartFilter(null);
     setBuyerActionMenuId(null);
@@ -263,6 +265,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     setRows(body.data);
     if (body.pagination) setPagination({ total: body.pagination.total, totalPages: body.pagination.totalPages });
+    if (isBuyerPage && body.pagination && !activeSmartFilter && !searchTerm) {
+      setBuyerTotalCountAll(body.pagination.total);
+    }
     setLastUpdatedAt(new Date().toISOString());
     setLoading(false);
   }
@@ -531,7 +536,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   };
   const buyersWithOpenComplaints = rows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0).length;
   const riskyBuyersCount = rows.filter((row) => computeBuyerRisk(row).level !== "low").length;
-  const totalBuyersCount = pagination?.total ?? rows.length;
+  const totalBuyersCount = buyerTotalCountAll ?? pagination?.total ?? rows.length;
   const totalRevenue30d = rows.reduce((acc, row) => acc + Number(row.monthlySpentCurrent ?? 0), 0);
   const activeRatio = totalBuyersCount > 0 ? Math.round((activeRows.length / totalBuyersCount) * 100) : 0;
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
