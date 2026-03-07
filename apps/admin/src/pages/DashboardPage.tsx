@@ -10,21 +10,24 @@ function DataTableCard({
   valueLabel,
   rows,
   updatedAt,
+  language,
 }: {
   title: string;
   metricLabel: string;
   valueLabel: string;
   rows: Array<{ label: string; value: string }>;
   updatedAt: string;
+  language: Language;
 }) {
+  const isTr = language === "tr";
   const axisLabels = ["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30"];
   const queuePoints = [6, 4.5, 6, 5, 4, 4.1, 6.5];
   const sparkPoints = [6.2, 6.1, 5.8, 6.3, 6.2, 6, 5.9, 5.7];
   const queueRows = [
-    { name: "Yazdırma", count: 14, tone: "dot-blue" },
-    { name: "İndirme", count: 26, tone: "dot-cyan" },
-    { name: "Mesaj / İş", count: 36, tone: "dot-teal" },
-    { name: "Medya", count: 24, tone: "dot-red" },
+    { name: isTr ? "Yazdırma" : "Print", count: 14, tone: "dot-blue" },
+    { name: isTr ? "İndirme" : "Download", count: 26, tone: "dot-cyan" },
+    { name: isTr ? "Mesaj / İş" : "Message / Job", count: 36, tone: "dot-teal" },
+    { name: isTr ? "Medya" : "Media", count: 24, tone: "dot-red" },
   ];
 
   return (
@@ -46,21 +49,21 @@ function DataTableCard({
               </div>
             ))}
           </div>
-          <p className="kpi-updated">Son Güncelleme: {updatedAt}</p>
+          <p className="kpi-updated">{isTr ? "Son Güncelleme" : "Last Updated"}: {updatedAt}</p>
         </div>
         <div className="kpi-right">
-          <h3>Job Queue Test</h3>
+          <h3>{isTr ? "İş Kuyruğu Testi" : "Job Queue Test"}</h3>
           <LineChart labels={axisLabels} points={queuePoints} max={10} />
           <div className="chart-legend">
-            <span><i className="dot dot-blue" /> Bekliyor</span>
-            <span><i className="dot dot-teal" /> İşleniyor</span>
-            <span><i className="dot dot-red" /> Hata Verdi</span>
+            <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
+            <span><i className="dot dot-teal" />{isTr ? "İşleniyor" : "Processing"}</span>
+            <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
           </div>
           <div className="queue-list">
             {queueRows.map((row) => (
               <div className="queue-row" key={row.name}>
                 <span className="queue-name"><i className={`dot ${row.tone}`} />{row.name}</span>
-                <span className="queue-status">{row.count} Dosya</span>
+                <span className="queue-status">{row.count} {isTr ? "Dosya" : "Files"}</span>
               </div>
             ))}
           </div>
@@ -69,9 +72,9 @@ function DataTableCard({
       <div className="line-chart-wrap">
         <SparklineChart labels={["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30", "13:30"]} points={sparkPoints} />
         <div className="chart-legend compact">
-          <span><i className="dot dot-blue" /> Bekliyor</span>
-          <span><i className="dot dot-cyan" /> İşleniyor</span>
-          <span><i className="dot dot-red" /> Hata Verdi</span>
+          <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
+          <span><i className="dot dot-cyan" />{isTr ? "İşleniyor" : "Processing"}</span>
+          <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
         </div>
       </div>
     </article>
@@ -83,12 +86,15 @@ function ActionCard({
   dict,
   updatedAt,
   queueSummary,
+  language,
 }: {
   title: string;
   dict: Dictionary;
   updatedAt: string;
   queueSummary: { waiting: number; processing: number; failed: number };
+  language: Language;
 }) {
+  const isTr = language === "tr";
   const total = Math.max(queueSummary.waiting + queueSummary.processing + queueSummary.failed, 1);
   const radius = 64;
   const circumference = 2 * Math.PI * radius;
@@ -109,15 +115,15 @@ function ActionCard({
       </div>
       <div className="queue-state-card">
         <div className="queue-state-header">
-          <h3>Kuyruk Durumu</h3>
+          <h3>{isTr ? "Kuyruk Durumu" : "Queue Status"}</h3>
           <span>{updatedAt}</span>
         </div>
         <div className="queue-state-content">
           <div className="queue-state-labels">
-            <p>Yazdırma Kuyruğu</p>
-            <p>İndirme Kuyruğu</p>
-            <p>Mesaj / İş Kuyruğu</p>
-            <p>Medya Kuyruğu</p>
+            <p>{isTr ? "Yazdırma Kuyruğu" : "Print Queue"}</p>
+            <p>{isTr ? "İndirme Kuyruğu" : "Download Queue"}</p>
+            <p>{isTr ? "Mesaj / İş Kuyruğu" : "Message / Job Queue"}</p>
+            <p>{isTr ? "Medya Kuyruğu" : "Media Queue"}</p>
           </div>
           <div className="donut-wrap">
             <svg className="donut-chart" viewBox="0 0 160 160" role="presentation" aria-hidden="true">
@@ -151,11 +157,11 @@ function ActionCard({
           </div>
         </div>
         <div className="chart-legend compact">
-          <span><i className="dot dot-blue" /> Bekliyor</span>
-          <span><i className="dot dot-cyan" /> İşleniyor</span>
-          <span><i className="dot dot-red" /> Hata Verdi</span>
+          <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
+          <span><i className="dot dot-cyan" />{isTr ? "İşleniyor" : "Processing"}</span>
+          <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
         </div>
-        <p className="queue-foot">Son Güncelleme: {updatedAt}</p>
+        <p className="queue-foot">{isTr ? "Son Güncelleme" : "Last Updated"}: {updatedAt}</p>
       </div>
     </article>
   );
@@ -203,22 +209,22 @@ export default function DashboardPage({ language }: { language: Language }) {
     value: string | number;
     trailingIcon?: "refresh";
   }> = [
-    { key: "totalUsers", label: "Toplam Kullanıcı", icon: "users", value: metricValueOrMissing(data.totalUsers) },
-    { key: "activeUsers", label: "Aktif Kullanıcı", icon: "users", value: metricValueOrMissing(data.activeUsers) },
-    { key: "disabledUsers", label: "Pasif Kullanıcı", icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
-    { key: "activeOrders", label: "Aktif Sipariş", icon: "orders", value: metricValueOrMissing(data.activeOrders) },
-    { key: "paymentPendingOrders", label: "Ödeme Bekleyen", icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
-    { key: "updatedAt", label: "Son Güncelleme", icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
+    { key: "totalUsers", label: language === "tr" ? "Toplam Kullanıcı" : "Total Users", icon: "users", value: metricValueOrMissing(data.totalUsers) },
+    { key: "activeUsers", label: language === "tr" ? "Aktif Kullanıcı" : "Active Users", icon: "users", value: metricValueOrMissing(data.activeUsers) },
+    { key: "disabledUsers", label: language === "tr" ? "Pasif Kullanıcı" : "Disabled Users", icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
+    { key: "activeOrders", label: language === "tr" ? "Aktif Sipariş" : "Active Orders", icon: "orders", value: metricValueOrMissing(data.activeOrders) },
+    { key: "paymentPendingOrders", label: language === "tr" ? "Ödeme Bekleyen" : "Pending Payments", icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
+    { key: "updatedAt", label: language === "tr" ? "Son Güncelleme" : "Last Updated", icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
   ];
 
   const tableRows = [
-    { label: "Toplam Kullanıcı", value: String(metrics[0].value) },
-    { label: "Aktif Kullanıcı", value: String(metrics[1].value) },
-    { label: "Pasif Kullanıcı", value: String(metrics[2].value) },
-    { label: "Aktif Sipariş", value: String(metrics[3].value) },
-    { label: "Ödeme Bekleyen Sipariş", value: String(metrics[4].value) },
-    { label: "Uygunluk Kuyruğu", value: String(metricValueOrMissing(data.complianceQueueCount)) },
-    { label: "Açık İtiraz", value: String(metricValueOrMissing(data.openDisputeCount)) },
+    { label: language === "tr" ? "Toplam Kullanıcı" : "Total Users", value: String(metrics[0].value) },
+    { label: language === "tr" ? "Aktif Kullanıcı" : "Active Users", value: String(metrics[1].value) },
+    { label: language === "tr" ? "Pasif Kullanıcı" : "Disabled Users", value: String(metrics[2].value) },
+    { label: language === "tr" ? "Aktif Sipariş" : "Active Orders", value: String(metrics[3].value) },
+    { label: language === "tr" ? "Ödeme Bekleyen Sipariş" : "Pending Payment Orders", value: String(metrics[4].value) },
+    { label: language === "tr" ? "Uygunluk Kuyruğu" : "Compliance Queue", value: String(metricValueOrMissing(data.complianceQueueCount)) },
+    { label: language === "tr" ? "Açık İtiraz" : "Open Dispute Count", value: String(metricValueOrMissing(data.openDisputeCount)) },
   ];
 
   return (
@@ -245,12 +251,14 @@ export default function DashboardPage({ language }: { language: Language }) {
           valueLabel={dict.dashboard.value}
           rows={tableRows}
           updatedAt={updatedAtDisplay}
+          language={language}
         />
         <ActionCard
           title={dict.dashboard.quickActions}
           dict={dict}
           updatedAt={updatedAtDisplay}
           queueSummary={{ waiting: 24, processing: 7, failed: 3 }}
+          language={language}
         />
       </section>
     </div>

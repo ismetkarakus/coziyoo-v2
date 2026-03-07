@@ -182,8 +182,13 @@ function AppShell({
         </button>
         <div className="navbar-actions">
           <ApiHealthBadge />
-          <button className="ghost" onClick={onToggleLanguage} type="button">
-            {dict.actions.language}
+          <button
+            className="ghost"
+            onClick={onToggleLanguage}
+            type="button"
+            aria-label={language === "tr" ? "Dili değiştir (TR/EN)" : "Toggle language (EN/TR)"}
+          >
+            {language === "tr" ? "TR / EN" : "EN / TR"}
           </button>
           <button className="theme-toggle" onClick={onToggleDarkMode} type="button">
             {isDarkMode ? "☀" : "☾"}

@@ -4,7 +4,7 @@
     "appUsers": "Uygulama Kullanıcıları",
     "buyers": "Alıcılar",
     "sellers": "Satıcılar",
-    "orders": "Orderler",
+    "orders": "Siparişler",
     "foods": "Yemekler",
     "admins": "Yönetici Kullanıcılar",
     "investigation": "Şikayet İnceleme",
@@ -235,7 +235,7 @@
   },
   "complianceDocuments": {
     "eyebrow": "Uygunluk Yönetimi",
-    "title": "Compliance Documents List",
+    "title": "Uygunluk Doküman Listesi",
     "subtitle": "Satıcılardan istenecek doküman türlerini ekleyin, düzenleyin ve silin.",
     "createDocument": "Yeni Doküman Türü",
     "editDocument": "Doküman Türü Düzenle",
