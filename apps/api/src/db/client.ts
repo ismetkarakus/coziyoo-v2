@@ -27,6 +27,11 @@ export const pool = new Pool({
   ssl: resolveSslOption(),
 });
 
+// Prevent process crashes when postgres restarts and idle clients emit errors.
+pool.on("error", (err: Error) => {
+  console.error("Postgres pool idle client error:", err.message);
+});
+
 export async function pingDatabase() {
   const result = await pool.query<{ now: string }>("SELECT now()::text AS now");
   return result.rows[0];
