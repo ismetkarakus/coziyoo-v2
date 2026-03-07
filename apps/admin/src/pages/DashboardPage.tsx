@@ -219,7 +219,6 @@ export default function DashboardPage({ language }: { language: Language }) {
     { label: "Payment Pending Orders", value: String(metrics[4].value) },
     { label: "Compliance Queue Count", value: String(metricValueOrMissing(data.complianceQueueCount)) },
     { label: "Open Dispute Count", value: String(metricValueOrMissing(data.openDisputeCount)) },
-    { label: "Updated At", value: updatedAtRaw ?? counterpartNotFound },
   ];
 
   return (
