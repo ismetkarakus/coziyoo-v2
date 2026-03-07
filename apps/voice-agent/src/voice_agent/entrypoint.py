@@ -110,6 +110,7 @@ def _build_stt(providers: dict, language: str):
             transcribe_path=stt_cfg.get("transcribePath", "/v1/audio/transcriptions"),
             model=stt_cfg.get("model", "whisper-1"),
             language=language,
+            response_format=stt_cfg.get("responseFormat", "verbose_json"),
             auth_header=stt_cfg.get("authHeader"),
             query_params=stt_cfg.get("queryParams") or None,
         )

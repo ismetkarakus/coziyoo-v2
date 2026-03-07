@@ -35,6 +35,7 @@ class HttpSTT(STT):
         transcribe_path: str = "/v1/audio/transcriptions",
         model: str = "whisper-1",
         language: str = "en",
+        response_format: str = "verbose_json",
         auth_header: str | None = None,
         query_params: dict | None = None,
     ) -> None:
@@ -48,6 +49,7 @@ class HttpSTT(STT):
         self._transcribe_path = transcribe_path
         self._model_name = model
         self._language = language
+        self._response_format = response_format
         self._auth_header = auth_header
         self._query_params = query_params
         self._session: aiohttp.ClientSession | None = None
@@ -96,7 +98,7 @@ class HttpSTT(STT):
         form.add_field("model", self._model_name)
         if self._language:
             form.add_field("language", self._language)
-        form.add_field("response_format", "json")
+        form.add_field("response_format", self._response_format)
         form.add_field("stream", "false")
 
         session = self._get_session()
