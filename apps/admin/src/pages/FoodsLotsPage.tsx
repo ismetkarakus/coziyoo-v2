@@ -48,6 +48,18 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     ingredientsJson: unknown;
     allergensJson: unknown;
   } | null>(null);
+  const [selectedFoodMap, setSelectedFoodMap] = useState<Record<string, {
+    id: string;
+    name: string;
+    sellerId: string;
+    isActive: boolean;
+    price: number;
+    updatedAt: string;
+    recipe: string | null;
+    description: string | null;
+    ingredientsJson: unknown;
+    allergensJson: unknown;
+  }>>({});
   const pageSize = 20;
 
   const toPrettyJson = (value: unknown) => {
@@ -289,6 +301,80 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
 
   const selectedFoodAllergenSummary = selectedFood ? explainAllergens(selectedFood) : [];
   const selectedFoodLots = selectedFood ? (lotsByFoodId[selectedFood.id] ?? []) : [];
+  const selectedFoods = Object.values(selectedFoodMap);
+  const allFoodsSelected =
+    rows.length > 0 &&
+    rows.every((row) => {
+      const id = String(row.id ?? "").trim();
+      return id.length > 0 && Boolean(selectedFoodMap[id]);
+    });
+
+  function toggleFoodSelection(food: {
+    id: string;
+    name: string;
+    sellerId: string;
+    isActive: boolean;
+    price: number;
+    updatedAt: string;
+    recipe: string | null;
+    description: string | null;
+    ingredientsJson: unknown;
+    allergensJson: unknown;
+  }, checked: boolean) {
+    const id = String(food.id ?? "").trim();
+    if (!id) return;
+    setSelectedFoodMap((prev) => {
+      if (checked) return { ...prev, [id]: food };
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function toggleAllFoods(checked: boolean) {
+    setSelectedFoodMap((prev) => {
+      const next = { ...prev };
+      for (const food of rows) {
+        const id = String(food.id ?? "").trim();
+        if (!id) continue;
+        if (checked) next[id] = food;
+        else delete next[id];
+      }
+      return next;
+    });
+  }
+
+  function downloadSelectedFoodsAsExcel() {
+    if (selectedFoods.length === 0) {
+      setError(language === "tr" ? "Lütfen en az bir yemek seçin." : "Please select at least one food.");
+      return;
+    }
+    const headers = [
+      language === "tr" ? "Yemek ID" : "Food ID",
+      language === "tr" ? "Yemek Adı" : "Food Name",
+      language === "tr" ? "Satıcı" : "Seller",
+      language === "tr" ? "Durum" : "Status",
+      language === "tr" ? "Fiyat" : "Price",
+      language === "tr" ? "Güncelleme" : "Updated",
+    ];
+    const rowsForExport = selectedFoods.map((food) => [
+      food.id,
+      food.name,
+      sellerNameById[food.sellerId] ?? toDisplayId(food.sellerId),
+      food.isActive ? dict.common.active : dict.common.disabled,
+      formatCurrency(food.price, language),
+      formatUiDate(food.updatedAt, language),
+    ]);
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `foods-selected-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   function downloadSelectedFoodDetailAsExcel() {
     if (!selectedFood) return;
@@ -401,6 +487,9 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           </div>
         </div>
         <div className="topbar-actions">
+          <button className="primary" type="button" onClick={downloadSelectedFoodsAsExcel}>
+            {language === "tr" ? `Excel'e Aktar (${selectedFoods.length})` : `Export to Excel (${selectedFoods.length})`}
+          </button>
         </div>
       </header>
 
@@ -410,6 +499,14 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           <table className="foods-lots-main-table">
             <thead>
               <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    checked={allFoodsSelected}
+                    aria-label={language === "tr" ? "Tümünü seç" : "Select all"}
+                    onChange={(event) => toggleAllFoods(event.target.checked)}
+                  />
+                </th>
                 <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                 <th>{dict.detail.foodName}</th>
                 <th>{dict.detail.foodSeller}</th>
@@ -423,11 +520,11 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8}>{dict.common.loading}</td>
+                  <td colSpan={9}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>{dict.common.noRecords}</td>
+                  <td colSpan={9}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((food) => {
@@ -444,6 +541,15 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                           if (!lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) void loadFoodLots(food.id);
                         }}
                       >
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selectedFoodMap[String(food.id ?? "").trim()])}
+                            aria-label={language === "tr" ? "Yemeği seç" : "Select food"}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) => toggleFoodSelection(food, event.target.checked)}
+                          />
+                        </td>
                         <td>{toDisplayId(food.id)}</td>
                         <td>
                           <strong>{food.name}</strong>
@@ -482,7 +588,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                       </tr>
                       {foodExpanded ? (
                         <tr className="foods-lots-expanded-row">
-                          <td colSpan={8}>
+                          <td colSpan={9}>
                             {lotsLoadingByFoodId[food.id] ? (
                               <p className="panel-meta">{dict.common.loading}</p>
                             ) : lotsErrorByFoodId[food.id] ? (
