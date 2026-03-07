@@ -75,6 +75,16 @@ def _audio_input_options() -> room_io.AudioInputOptions:
     if not enable_noise_filter:
         return room_io.AudioInputOptions()
 
+    # Guard against enabling cloud-only filters on self-hosted LiveKit.
+    parsed = urlparse(settings.LIVEKIT_URL)
+    host = (parsed.hostname or "").lower()
+    if "livekit.cloud" not in host:
+        logger.warning(
+            "LIVEKIT_ENABLE_NOISE_CANCELLATION is enabled but LIVEKIT_URL=%s is not LiveKit Cloud; disabling filter",
+            settings.LIVEKIT_URL,
+        )
+        return room_io.AudioInputOptions()
+
     return room_io.AudioInputOptions(
         noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
         if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
