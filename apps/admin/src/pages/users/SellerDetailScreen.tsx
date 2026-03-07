@@ -64,10 +64,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [ordersStatusFilter, setOrdersStatusFilter] = useState("all");
   const [ordersPaymentFilter, setOrdersPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("all");
   const [ordersSearch, setOrdersSearch] = useState("");
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [earningsDateFilter, setEarningsDateFilter] = useState<"all" | "last7" | "last30" | "custom">("all");
   const [earningsSelectedDate, setEarningsSelectedDate] = useState("");
   const [earningsPaymentFilter, setEarningsPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("successful");
   const [earningsSearch, setEarningsSearch] = useState("");
+  const [selectedEarningIds, setSelectedEarningIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [legalSaving, setLegalSaving] = useState(false);
@@ -443,6 +445,28 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     });
   }, [sellerOrders, earningsDateFilter, earningsSelectedDate, earningsPaymentFilter, earningsSearch, language]);
 
+  const selectedFilteredOrders = useMemo(
+    () => filteredSellerOrders.filter((order) => selectedOrderIds.includes(order.orderId)),
+    [filteredSellerOrders, selectedOrderIds]
+  );
+  const selectedFilteredEarnings = useMemo(
+    () => filteredSellerEarnings.filter((order) => selectedEarningIds.includes(order.orderId)),
+    [filteredSellerEarnings, selectedEarningIds]
+  );
+
+  const allFilteredOrdersSelected = filteredSellerOrders.length > 0 && filteredSellerOrders.every((order) => selectedOrderIds.includes(order.orderId));
+  const allFilteredEarningsSelected = filteredSellerEarnings.length > 0 && filteredSellerEarnings.every((order) => selectedEarningIds.includes(order.orderId));
+
+  useEffect(() => {
+    const visible = new Set(filteredSellerOrders.map((order) => order.orderId));
+    setSelectedOrderIds((prev) => prev.filter((id) => visible.has(id)));
+  }, [filteredSellerOrders]);
+
+  useEffect(() => {
+    const visible = new Set(filteredSellerEarnings.map((order) => order.orderId));
+    setSelectedEarningIds((prev) => prev.filter((id) => visible.has(id)));
+  }, [filteredSellerEarnings]);
+
   if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
   if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
 
@@ -587,7 +611,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   function downloadSellerOrdersAsExcel() {
-    if (filteredSellerOrders.length === 0) {
+    if (selectedFilteredOrders.length === 0) {
       setMessage(language === "tr" ? "Disa aktarilacak siparis bulunamadi." : "No orders to export.");
       return;
     }
@@ -601,7 +625,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Odeme" : "Payment",
       language === "tr" ? "Durum" : "Status",
     ];
-    const rowsForExport = filteredSellerOrders.map((order) => {
+    const rowsForExport = selectedFilteredOrders.map((order) => {
       const paymentText = paymentStateText(order.paymentStatus);
       const foods = Array.isArray(order.items)
         ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
@@ -629,7 +653,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   function downloadSellerEarningsAsExcel() {
-    if (filteredSellerEarnings.length === 0) {
+    if (selectedFilteredEarnings.length === 0) {
       setMessage(language === "tr" ? "Disa aktarilacak kazanc kaydi bulunamadi." : "No earnings to export.");
       return;
     }
@@ -640,7 +664,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Odeme" : "Payment",
       language === "tr" ? "Kazanc" : "Earning",
     ];
-    const rowsForExport = filteredSellerEarnings.map((order) => [
+    const rowsForExport = selectedFilteredEarnings.map((order) => [
       formatUiDate(order.createdAt, language),
       order.orderNo,
       order.buyerName ?? order.buyerEmail ?? order.buyerId,
@@ -1514,7 +1538,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               />
             </label>
             <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerOrdersAsExcel}>
-              {language === "tr" ? "Excel'e Aktar" : "Export Excel"}
+              {language === "tr" ? "Seçileni Excel'e Aktar" : "Export Selected"}
             </button>
           </div>
           {filteredSellerOrders.length === 0 ? (
@@ -1525,6 +1549,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <table>
                   <thead>
                     <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={allFilteredOrdersSelected}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setSelectedOrderIds(filteredSellerOrders.map((order) => order.orderId));
+                            } else {
+                              setSelectedOrderIds([]);
+                            }
+                          }}
+                          aria-label={language === "tr" ? "Tum siparisleri sec" : "Select all orders"}
+                        />
+                      </th>
                       <th>Tarih / Saat</th>
                       <th>Sipariş No</th>
                       <th>Alıcı</th>
@@ -1542,6 +1580,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         : "-";
                       return (
                         <tr key={order.orderId}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedOrderIds.includes(order.orderId)}
+                              onChange={(event) => {
+                                setSelectedOrderIds((prev) => {
+                                  if (event.target.checked) return [...new Set([...prev, order.orderId])];
+                                  return prev.filter((id) => id !== order.orderId);
+                                });
+                              }}
+                              aria-label={language === "tr" ? "Siparisi sec" : "Select order"}
+                            />
+                          </td>
                           <td>{formatUiDate(order.createdAt, language)}</td>
                           <td>{order.orderNo}</td>
                           <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
@@ -1556,7 +1607,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </table>
               </div>
               <p className="panel-meta">
-                {`${filteredSellerOrders.length} ${language === "tr" ? "sipariş" : "orders"}`}
+                {`${filteredSellerOrders.length} ${language === "tr" ? "sipariş" : "orders"} • ${selectedFilteredOrders.length} ${language === "tr" ? "seçili" : "selected"}`}
               </p>
             </>
           )}
@@ -1606,7 +1657,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               />
             </label>
             <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerEarningsAsExcel}>
-              {language === "tr" ? "Excel'e Aktar" : "Export Excel"}
+              {language === "tr" ? "Seçileni Excel'e Aktar" : "Export Selected"}
             </button>
           </div>
           {filteredSellerEarnings.length === 0 ? (
@@ -1617,6 +1668,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <table>
                   <thead>
                     <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={allFilteredEarningsSelected}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setSelectedEarningIds(filteredSellerEarnings.map((order) => order.orderId));
+                            } else {
+                              setSelectedEarningIds([]);
+                            }
+                          }}
+                          aria-label={language === "tr" ? "Tum kazanc kayitlarini sec" : "Select all earnings"}
+                        />
+                      </th>
                       <th>{language === "tr" ? "Tarih / Saat" : "Date / Time"}</th>
                       <th>{language === "tr" ? "Sipariş No" : "Order No"}</th>
                       <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
@@ -1627,6 +1692,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <tbody>
                     {filteredSellerEarnings.map((order) => (
                       <tr key={`earning-${order.orderId}`}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedEarningIds.includes(order.orderId)}
+                            onChange={(event) => {
+                              setSelectedEarningIds((prev) => {
+                                if (event.target.checked) return [...new Set([...prev, order.orderId])];
+                                return prev.filter((id) => id !== order.orderId);
+                              });
+                            }}
+                            aria-label={language === "tr" ? "Kazanc kaydini sec" : "Select earning"}
+                          />
+                        </td>
                         <td>{formatUiDate(order.createdAt, language)}</td>
                         <td>{order.orderNo}</td>
                         <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
@@ -1637,7 +1715,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   </tbody>
                 </table>
               </div>
-              <p className="panel-meta">{`${filteredSellerEarnings.length} ${language === "tr" ? "kayıt" : "records"}`}</p>
+              <p className="panel-meta">{`${filteredSellerEarnings.length} ${language === "tr" ? "kayıt" : "records"} • ${selectedFilteredEarnings.length} ${language === "tr" ? "seçili" : "selected"}`}</p>
             </>
           )}
         </section>
