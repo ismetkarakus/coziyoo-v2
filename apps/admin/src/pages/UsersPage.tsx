@@ -696,7 +696,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
 
     if (isBuyerPage) {
-      if (buyerQuickFilter === null) {
+      if (buyerQuickFilter === null && activeSmartFilter === null) {
         return [];
       }
       if (buyerFilters.status !== "all") {
@@ -737,7 +737,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [activeSellerKpiFilter, activeSellerSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, searchInput, sellerStatusFilter, todayKey]);
+  }, [activeSellerKpiFilter, activeSellerSmartFilter, activeSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, searchInput, sellerStatusFilter, todayKey]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -979,7 +979,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }
 
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
-  const isBuyerTableOpen = buyerQuickFilter !== null;
+  const isBuyerTableOpen = buyerQuickFilter !== null || activeSmartFilter !== null;
   const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
 
   useEffect(() => {
@@ -1325,9 +1325,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label="Toplam Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}
             className="seller-v2-kpi"
-            selected={buyerQuickFilter === "all"}
+            selected={buyerQuickFilter === "all" && activeSmartFilter === null}
             onClick={() => {
-              setBuyerQuickFilter("all");
+              if (buyerQuickFilter === "all" && activeSmartFilter === null) {
+                setBuyerQuickFilter(null);
+              } else {
+                setActiveSmartFilter(null);
+                setBuyerQuickFilter("all");
+              }
               setFilters((prev) => ({ ...prev, page: 1 }));
             }}
           >
@@ -1387,6 +1392,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   className={`buyer-v2-smart-item ${activeSmartFilter === item.key ? "is-active" : ""}`}
                   aria-pressed={activeSmartFilter === item.key}
                   onClick={() => {
+                    setBuyerQuickFilter(null);
                     setActiveSmartFilter((prev) => (prev === item.key ? null : item.key));
                     setFilters((prev) => ({ ...prev, page: 1 }));
                   }}
@@ -1396,13 +1402,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <span className="buyer-v2-smart-item-count">{smartFilterCounts[item.key] ?? 0}</span>
                 </button>
               ))}
-            </div>
-            <div className="buyer-v2-smart-list buyer-v2-quick-filter-list">
               <button
                 type="button"
                 className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "risky" ? "is-active" : ""}`}
                 onClick={() => {
-                  setBuyerQuickFilter("risky");
+                  setActiveSmartFilter(null);
+                  setBuyerQuickFilter((prev) => (prev === "risky" ? null : "risky"));
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
@@ -1414,7 +1419,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 type="button"
                 className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`}
                 onClick={() => {
-                  setBuyerQuickFilter("open_complaint");
+                  setActiveSmartFilter(null);
+                  setBuyerQuickFilter((prev) => (prev === "open_complaint" ? null : "open_complaint"));
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
@@ -1426,7 +1432,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 type="button"
                 className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`}
                 onClick={() => {
-                  setBuyerQuickFilter("down_spend");
+                  setActiveSmartFilter(null);
+                  setBuyerQuickFilter((prev) => (prev === "down_spend" ? null : "down_spend"));
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
@@ -1501,7 +1508,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         onClick={() => {
                           setBuyerFilterDraft({ status: "all", complaint: "all", orderTrend: "all", spendTrend: "all" });
                           setBuyerFilters({ status: "all", complaint: "all", orderTrend: "all", spendTrend: "all" });
-                          setBuyerQuickFilter((prev) => prev ?? "all");
                           setFilters((prev) => ({ ...prev, page: 1 }));
                           setBuyerFilterMenuOpen(false);
                         }}
@@ -1513,7 +1519,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         type="button"
                         onClick={() => {
                           setBuyerFilters(buyerFilterDraft);
-                          setBuyerQuickFilter((prev) => prev ?? "all");
                           setFilters((prev) => ({ ...prev, page: 1 }));
                           setBuyerFilterMenuOpen(false);
                         }}
