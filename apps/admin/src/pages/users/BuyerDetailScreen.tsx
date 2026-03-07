@@ -569,6 +569,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
             </div>
             <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
+            <div className="buyer-ref-note-list">
+              {noteItems.slice(0, 2).map((note, index) => (
+                <article key={`side-note-${index}`} className="buyer-ref-note-item">
+                  <p>{note}</p>
+                </article>
+              ))}
+            </div>
             <div className="buyer-ops-note-form">
               <input
                 value={noteInput}
@@ -783,6 +790,17 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             {activeTab === "notes" ? (
               <div className="buyer-ref-main-notes">
                 <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={`main-${tag}`} className="buyer-ops-tag">{tag}</span>)}</div>
+                <div className="buyer-ref-note-list">
+                  {noteItems.length === 0 ? (
+                    <p className="panel-meta">Henüz not yok.</p>
+                  ) : (
+                    noteItems.map((note, index) => (
+                      <article key={`main-note-${index}`} className="buyer-ref-note-item">
+                        <p>{note}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
                 <div className="buyer-ops-note-form">
                   <input
                     value={noteInput}

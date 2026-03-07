@@ -3580,6 +3580,25 @@ textarea:focus {
   gap: 10px;
 }
 
+.buyer-ref-note-list {
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-ref-note-item {
+  border: 1px solid color-mix(in srgb, #6f84bf 26%, var(--ops-border-default));
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, #111a34 84%, transparent);
+}
+
+.buyer-ref-note-item p {
+  margin: 0;
+  color: color-mix(in srgb, var(--ops-text-primary) 92%, white);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
 .buyer-v2-page {
   width: calc(100% + 48px);
   margin: 0 0 0 -24px;
