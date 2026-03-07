@@ -576,7 +576,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     <div className="app">
       <header className="topbar topbar-with-centered-search">
         <div>
-          <p className="eyebrow">{dict.entities.eyebrow}</p>
           <h1>{pageTitle}</h1>
           <p className="subtext">{subtitle}</p>
         </div>

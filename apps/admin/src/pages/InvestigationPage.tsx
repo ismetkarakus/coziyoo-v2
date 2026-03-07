@@ -146,7 +146,6 @@ export default function InvestigationPage({ language }: { language: Language }) 
     <div className="app investigation-page">
       <header className="topbar topbar-with-centered-search">
         <div>
-          <p className="eyebrow">{dict.menu.investigation}</p>
           <h1>{dict.investigation.title}</h1>
           <p className="subtext">{dict.investigation.subtitle}</p>
         </div>

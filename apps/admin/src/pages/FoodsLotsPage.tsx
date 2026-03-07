@@ -452,7 +452,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     <div className="app">
       <header className="topbar topbar-with-centered-search">
         <div>
-          <p className="eyebrow">{dict.menu.foods}</p>
           <h1>{dict.menu.foods}</h1>
           <p className="subtext">{dict.detail.foodsLotsSubtitle}</p>
         </div>

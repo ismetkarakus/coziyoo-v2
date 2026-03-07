@@ -88,7 +88,6 @@ export default function EntitiesPage({ language }: { language: Language }) {
     <div className="app">
       <header className="topbar topbar-with-centered-search">
         <div>
-          <p className="eyebrow">{dict.entities.eyebrow}</p>
           <h1>{selectedEntity ? selectedEntity.tableName : dict.entities.titleAll}</h1>
           <p className="subtext">{dict.entities.subtitle}</p>
         </div>
