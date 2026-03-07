@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { request, parseJson } from "../lib/api";
-import { Pager } from "../components/ui";
+import { Pager, ExcelExportButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
 import { renderCell } from "../lib/table";
@@ -613,9 +613,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         </div>
         <div className="topbar-actions">
           {tableKey === "orders" ? (
-            <button className="primary" type="button" onClick={downloadSelectedOrdersAsExcel}>
+            <ExcelExportButton className="primary" type="button" onClick={downloadSelectedOrdersAsExcel} language={language}>
               {language === "tr" ? `Excel'e Aktar (${selectedOrders.length})` : `Export to Excel (${selectedOrders.length})`}
-            </button>
+            </ExcelExportButton>
           ) : null}
         </div>
       </header>
@@ -788,9 +788,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               )}
             </section>
             <div className="buyer-ops-modal-actions">
-              <button className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel}>
-                {language === "tr" ? "Bu Detayı Excel'e Aktar" : "Export This Detail"}
-              </button>
+              <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language={language} labelTr="Bu Detayı Excel'e Aktar" labelEn="Export This Detail" />
               <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>

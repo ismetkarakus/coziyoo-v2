@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
+import { ExcelExportButton } from "../components/ui";
 import { fmt, toDisplayId, formatCurrency, formatUiDate } from "../lib/format";
 import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../lib/lots";
 import type { Language, ApiError } from "../types/core";
@@ -487,9 +488,9 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           </div>
         </div>
         <div className="topbar-actions">
-          <button className="primary" type="button" onClick={downloadSelectedFoodsAsExcel}>
+          <ExcelExportButton className="primary" type="button" onClick={downloadSelectedFoodsAsExcel} language={language}>
             {language === "tr" ? `Excel'e Aktar (${selectedFoods.length})` : `Export to Excel (${selectedFoods.length})`}
-          </button>
+          </ExcelExportButton>
         </div>
       </header>
 
@@ -835,9 +836,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="buyer-ops-modal-actions">
-              <button className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel}>
-                {language === "tr" ? "Excel'e Aktar" : "Export to Excel"}
-              </button>
+              <ExcelExportButton className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
               <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>

@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
-import { Pager, KpiCard } from "../components/ui";
+import { Pager, KpiCard, ExcelExportButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency, formatUiDate, formatLoginRelativeDayMonth, adminRoleLabel } from "../lib/format";
 import { BUYER_SMART_FILTER_ITEMS, SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
@@ -1156,7 +1156,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   </button>
                 </div>
                 <div className="seller-v2-toolbar-right">
-                  <button className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel}>Excel'e Aktar</button>
+                  <ExcelExportButton className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel} language={language} />
                 </div>
               </div>
             ) : null}
@@ -1544,7 +1544,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
             </div>
             <div className="buyer-v2-toolbar-actions-right">
-              <button className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel}>Excel'e Aktar</button>
+              <ExcelExportButton className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel} language={language} />
             </div>
           </div>
 
@@ -1818,9 +1818,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               {dict.users.visibleColumns}
             </button>
             {isBuyerPage ? (
-              <button className="primary" type="button" onClick={downloadBuyersAsExcel}>
+              <ExcelExportButton className="primary" type="button" onClick={downloadBuyersAsExcel} language={language}>
                 {dict.actions.exportExcel}
-              </button>
+              </ExcelExportButton>
             ) : null}
             {!isSellerPage && !isBuyerPage ? (
               <>

@@ -2,6 +2,7 @@ import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
+import { ExcelExportButton } from "../../components/ui";
 import { fmt, toDisplayId, formatUiDate, formatLoginRelativeDayMonth, maskEmail, maskPhone, addTwoYears } from "../../lib/format";
 import { openQuickEmail } from "../../lib/compliance";
 import { resolveBuyerDetailTab } from "../../lib/routing";
@@ -811,9 +812,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       aria-label="Siparis veya isim ara"
                     />
                   </label>
-                  <button className="primary buyer-ref-export-btn" type="button" onClick={downloadBuyerOrdersAsExcel}>
-                    Excel'e Aktar
-                  </button>
+                  <ExcelExportButton className="primary buyer-ref-export-btn" type="button" onClick={downloadBuyerOrdersAsExcel} language={language} />
                 </div>
 
                 <div className="buyer-ops-table-wrap">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
+import { ExcelExportButton } from "../components/ui";
 import { fmt, toDisplayId } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
@@ -194,9 +195,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
             <option value="resolved">{statusText("resolved")}</option>
             <option value="closed">{statusText("closed")}</option>
           </select>
-          <button className="primary" type="button" onClick={() => void downloadComplaintsAsExcel()}>
-            {language === "tr" ? "Excel'e Aktar" : "Export to Excel"}
-          </button>
+          <ExcelExportButton className="primary" type="button" onClick={() => void downloadComplaintsAsExcel()} language={language} />
         </div>
       </header>
 

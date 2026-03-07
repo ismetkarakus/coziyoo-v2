@@ -2,6 +2,7 @@ import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, use
 import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
+import { ExcelExportButton } from "../../components/ui";
 import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
@@ -1531,9 +1532,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 onChange={(event) => setOrdersSearch(event.target.value)}
               />
             </label>
-            <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerOrdersAsExcel}>
-              {language === "tr" ? "Seçileni Excel'e Aktar" : "Export Selected"}
-            </button>
+            <ExcelExportButton className="primary seller-detail-export-btn" type="button" onClick={downloadSellerOrdersAsExcel} language={language} labelTr="Seçileni Excel'e Aktar" labelEn="Export Selected" />
           </div>
           {filteredSellerOrders.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
@@ -1650,9 +1649,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 onChange={(event) => setEarningsSearch(event.target.value)}
               />
             </label>
-            <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerEarningsAsExcel}>
-              {language === "tr" ? "Seçileni Excel'e Aktar" : "Export Selected"}
-            </button>
+            <ExcelExportButton className="primary seller-detail-export-btn" type="button" onClick={downloadSellerEarningsAsExcel} language={language} labelTr="Seçileni Excel'e Aktar" labelEn="Export Selected" />
           </div>
           {filteredSellerEarnings.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
