@@ -845,29 +845,37 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <div className="panel-header">
                 <h2>{language === "tr" ? "Kimlik Kartı" : "Identity Card"}</h2>
               </div>
+              <div className="seller-id-lines">
+                <button
+                  className="seller-id-line"
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
+                  title={language === "tr" ? "Customer ID kopyala" : "Copy customer ID"}
+                >
+                  <span>{language === "tr" ? "Customer ID" : "Customer ID"}: <strong>{toDisplayId(row.id)}</strong></span>
+                  <span aria-hidden="true">⧉</span>
+                </button>
+                <button
+                  className="seller-id-line"
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
+                  title={language === "tr" ? "UUID kopyala" : "Copy UUID"}
+                >
+                  <span>{language === "tr" ? "Kullanıcı UUID" : "User UUID"}: <strong>{String(row.id ?? "-")}</strong></span>
+                  <span aria-hidden="true">⧉</span>
+                </button>
+              </div>
               <div className="seller-general-kv">
-                <div>
-                  <span>{language === "tr" ? "Customer ID" : "Customer ID"}</span>
-                  <strong>{toDisplayId(row.id)}</strong>
-                  <button
-                    className="ghost"
-                    type="button"
-                    onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
-                  >
-                    {language === "tr" ? "Kopyala" : "Copy"}
-                  </button>
-                </div>
-                <div>
-                  <span>{language === "tr" ? "Kullanıcı UUID" : "User UUID"}</span>
-                  <strong>{String(row.id ?? "-")}</strong>
-                </div>
                 <div>
                   <span>{language === "tr" ? "Rol" : "Role"}</span>
                   <strong>{roleLabel}</strong>
                 </div>
                 <div>
                   <span>{language === "tr" ? "Durum" : "Status"}</span>
-                  <strong>{accountStatusLabel}</strong>
+                  <strong className="seller-inline-status">
+                    <span className={`seller-status-dot ${isActive ? "is-active" : "is-disabled"}`} aria-hidden="true" />
+                    {accountStatusLabel}
+                  </strong>
                 </div>
                 <div>
                   <span>{language === "tr" ? "Kayıt" : "Created"}</span>
@@ -883,6 +891,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <article className="seller-general-card">
               <div className="panel-header">
                 <h2>{language === "tr" ? "Profil ve İletişim" : "Profile & Contact"}</h2>
+              </div>
+              <div className="seller-profile-head">
+                <div className="seller-profile-avatar">{initials}</div>
+                <div className="seller-profile-title">
+                  <span>{language === "tr" ? "Ad Soyad" : "Full Name"}:</span>
+                  <strong>{String(row.fullName ?? row.displayName ?? "-")}</strong>
+                </div>
               </div>
               <form className="form-grid seller-general-form" onSubmit={onSave}>
                 <label>
@@ -933,7 +948,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <h2>{language === "tr" ? "Adresler" : "Addresses"}</h2>
               </div>
               {addresses.length === 0 ? (
-                <p className="panel-meta">{language === "tr" ? "Henüz adres kaydı yok." : "No addresses yet."}</p>
+                <p className="panel-meta">{`⌁ ${language === "tr" ? "Henüz adres kaydı yok." : "No addresses yet."}`}</p>
               ) : (
                 <div className="seller-address-list">
                   {addresses.map((address) => {
