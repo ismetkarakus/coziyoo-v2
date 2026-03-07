@@ -49,7 +49,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     orderTrend: "all",
     spendTrend: "all",
   });
-  const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend">("all");
+  const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "risky" | "open_complaint" | "down_spend" | null>(null);
   const [activeSmartFilter, setActiveSmartFilter] = useState<BuyerSmartFilterKey | null>(null);
   const [activeSellerSmartFilter, setActiveSellerSmartFilter] = useState<SellerSmartFilterKey | null>(null);
   const [smartFilterCounts, setSmartFilterCounts] = useState<Record<BuyerSmartFilterKey, number>>({
@@ -691,6 +691,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
 
     if (isBuyerPage) {
+      if (buyerQuickFilter === null) {
+        return [];
+      }
       if (buyerFilters.status !== "all") {
         scopedRows = scopedRows.filter((row) => row.status === buyerFilters.status);
       }
@@ -971,6 +974,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }
 
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
+  const isBuyerTableOpen = buyerQuickFilter !== null;
   const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
 
   useEffect(() => {
@@ -1492,6 +1496,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         onClick={() => {
                           setBuyerFilterDraft({ status: "all", complaint: "all", orderTrend: "all", spendTrend: "all" });
                           setBuyerFilters({ status: "all", complaint: "all", orderTrend: "all", spendTrend: "all" });
+                          setBuyerQuickFilter((prev) => prev ?? "all");
                           setFilters((prev) => ({ ...prev, page: 1 }));
                           setBuyerFilterMenuOpen(false);
                         }}
@@ -1503,6 +1508,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         type="button"
                         onClick={() => {
                           setBuyerFilters(buyerFilterDraft);
+                          setBuyerQuickFilter((prev) => prev ?? "all");
                           setFilters((prev) => ({ ...prev, page: 1 }));
                           setBuyerFilterMenuOpen(false);
                         }}
@@ -1520,59 +1526,61 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           </div>
 
-          <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal" ref={buyerBoardRef}>
-            <table>
-              <colgroup>
-                <col style={{ width: "40px" }} />
-                <col style={{ width: "110px" }} />
-                <col style={{ width: "27%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "54px" }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="buyer-v2-check-col">
-                    <input
-                      type="checkbox"
-                      checked={allVisibleBuyerRowsSelected}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setBuyerSelectedIds(filteredRows.map((row) => row.id));
-                          return;
-                        }
-                        setBuyerSelectedIds([]);
-                      }}
-                    />
-                  </th>
-                  <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
-                  <th>Alıcı</th>
-                  <th>Risk</th>
-                  <th>Şikayet</th>
-                  <th>Sipariş (1 Ay)</th>
-                  <th>Harcama (1 Ay)</th>
-                  <th>Son Giris</th>
-                  <th>Durum</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, index) => (
-                    <tr key={`skeleton-buyer-${index}`}>
-                      <td colSpan={10} className="table-skeleton"><span /></td>
-                    </tr>
-                  ))
-                ) : filteredRows.length === 0 ? (
+          {isBuyerTableOpen ? (
+            <>
+            <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal" ref={buyerBoardRef}>
+              <table>
+                <colgroup>
+                  <col style={{ width: "40px" }} />
+                  <col style={{ width: "110px" }} />
+                  <col style={{ width: "27%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "54px" }} />
+                </colgroup>
+                <thead>
                   <tr>
-                    <td colSpan={10}>{dict.common.noRecords}</td>
+                    <th className="buyer-v2-check-col">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleBuyerRowsSelected}
+                        onChange={(event) => {
+                          if (event.target.checked) {
+                            setBuyerSelectedIds(filteredRows.map((row) => row.id));
+                            return;
+                          }
+                          setBuyerSelectedIds([]);
+                        }}
+                      />
+                    </th>
+                    <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
+                    <th>Alıcı</th>
+                    <th>Risk</th>
+                    <th>Şikayet</th>
+                    <th>Sipariş (1 Ay)</th>
+                    <th>Harcama (1 Ay)</th>
+                    <th>Son Giris</th>
+                    <th>Durum</th>
+                    <th />
                   </tr>
-                ) : (
-                  filteredRows.map((row) => {
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, index) => (
+                      <tr key={`skeleton-buyer-${index}`}>
+                        <td colSpan={10} className="table-skeleton"><span /></td>
+                      </tr>
+                    ))
+                  ) : filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10}>{dict.common.noRecords}</td>
+                    </tr>
+                  ) : (
+                    filteredRows.map((row) => {
                     const risk = computeBuyerRisk(row);
                     const orderTrendMeta = trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0));
                     const spendTrendMeta = trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0));
@@ -1719,36 +1727,42 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          <div className="buyer-v2-footer">
-            <div className="buyer-v2-pager-left">
-              <button className="ghost buyer-v2-page-btn" type="button">‹</button>
-              <button className="ghost buyer-v2-page-btn" type="button">›</button>
-              <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-              <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-              <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-              <span className="panel-meta">/ 110+ Kullanıcı</span>
+            <div className="buyer-v2-footer">
+              <div className="buyer-v2-pager-left">
+                <button className="ghost buyer-v2-page-btn" type="button">‹</button>
+                <button className="ghost buyer-v2-page-btn" type="button">›</button>
+                <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
+                <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                <span className="panel-meta">/ 110+ Kullanıcı</span>
+              </div>
+              <div className="buyer-v2-pager-right">
+                <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>‹</button>
+                <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
+                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
+                <button
+                  className="ghost buyer-v2-page-btn"
+                  type="button"
+                  disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
+                  onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+                >
+                  ›
+                </button>
+              </div>
             </div>
-            <div className="buyer-v2-pager-right">
-              <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>‹</button>
-              <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-              <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-              <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-              <button
-                className="ghost buyer-v2-page-btn"
-                type="button"
-                disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
-                onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-              >
-                ›
-              </button>
+            </>
+          ) : (
+            <div className="seller-table-placeholder">
+              KPI veya soldaki filtrelerden birine tıklayınca tablo açılır.
             </div>
-          </div>
+          )}
           </section>
         </section>
       </div>
