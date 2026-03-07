@@ -1190,7 +1190,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <p className="panel-meta">{dict.common.noRecords}</p>
           ) : (
             <>
-              <div className="buyer-ops-table-wrap">
+              <div className="buyer-ops-table-wrap seller-wallet-table-wrap">
                 <table>
                   <thead>
                     <tr>
