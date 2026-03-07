@@ -1316,6 +1316,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label="Toplam Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}
             className="seller-v2-kpi"
+            selected={buyerQuickFilter === "all"}
+            onClick={() => {
+              setBuyerQuickFilter("all");
+              setFilters((prev) => ({ ...prev, page: 1 }));
+            }}
           >
             <div className="seller-v2-kpi-dots">
               <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-blue" />
@@ -1383,20 +1388,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 </button>
               ))}
             </div>
-            <h2>Hızlı Filtreler</h2>
             <div className="buyer-v2-smart-list buyer-v2-quick-filter-list">
-              <button
-                type="button"
-                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "all" ? "is-active" : ""}`}
-                onClick={() => {
-                  setBuyerQuickFilter("all");
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">◉</span>
-                <span className="buyer-v2-smart-item-label">Tümü</span>
-                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.all}</span>
-              </button>
               <button
                 type="button"
                 className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "risky" ? "is-active" : ""}`}
@@ -1438,7 +1430,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
           <section className="panel buyer-v2-board">
           <div className="buyer-v2-toolbar">
-            <div className="buyer-v2-toolbar-actions">
+            <div className="buyer-v2-toolbar-actions-left">
               <div className="buyer-v2-filter-wrap" ref={buyerFilterWrapRef}>
                 <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerFilterMenuOpen((prev) => !prev)}>
                   <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
@@ -1522,6 +1514,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 ) : null}
               </div>
               <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
+            </div>
+            <div className="buyer-v2-toolbar-actions-right">
               <button className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel}>Excel'e Aktar</button>
             </div>
           </div>

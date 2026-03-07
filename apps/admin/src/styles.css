@@ -3959,6 +3959,18 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.buyer-v2-toolbar-actions-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.buyer-v2-toolbar-actions-right {
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
 .buyer-v2-filter-wrap {
   position: relative;
 }
