@@ -60,6 +60,27 @@ def prewarm(proc: JobProcess) -> None:
 server.setup_fnc = prewarm
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _audio_input_options() -> room_io.AudioInputOptions:
+    # LiveKit BVC/BVCTelephony filters require LiveKit Cloud features.
+    # Keep this off by default for self-hosted deployments to avoid noisy errors.
+    enable_noise_filter = _env_bool("LIVEKIT_ENABLE_NOISE_CANCELLATION", False)
+    if not enable_noise_filter:
+        return room_io.AudioInputOptions()
+
+    return room_io.AudioInputOptions(
+        noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
+        if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+        else noise_cancellation.BVC(),
+    )
+
+
 def _build_stt(providers: dict, language: str):
     """Build an STT instance from provider config."""
     stt_cfg = providers.get("stt", {})
@@ -210,11 +231,7 @@ async def entrypoint(ctx: JobContext) -> None:
         agent=VoiceSalesAgent(metadata=metadata),
         room=ctx.room,
         room_options=room_io.RoomOptions(
-            audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
-                if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
-                else noise_cancellation.BVC(),
-            ),
+            audio_input=_audio_input_options(),
         ),
     )
 
