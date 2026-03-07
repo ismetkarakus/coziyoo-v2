@@ -30,17 +30,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [foodRows, setFoodRows] = useState<SellerFoodRow[]>([]);
   const [addresses, setAddresses] = useState<SellerAddressRow[]>([]);
   const [addressSaving, setAddressSaving] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
-  const [addressDraft, setAddressDraft] = useState<{ title: string; addressLine: string; isDefault: boolean }>({
-    title: "",
-    addressLine: "",
-    isDefault: false,
-  });
-  const [newAddress, setNewAddress] = useState<{ title: string; addressLine: string; isDefault: boolean }>({
-    title: "",
-    addressLine: "",
-    isDefault: false,
-  });
+  const [newAddressLine, setNewAddressLine] = useState("");
   const [sellerOrders, setSellerOrders] = useState<
     Array<{
       orderId: string;
@@ -204,9 +194,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setLotsError(null);
     setAddresses([]);
     setAddressSaving(false);
-    setEditingAddressId(null);
-    setAddressDraft({ title: "", addressLine: "", isDefault: false });
-    setNewAddress({ title: "", addressLine: "", isDefault: false });
+    setNewAddressLine("");
   }, [id]);
 
   useEffect(() => {
@@ -276,10 +264,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   async function createAddress(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isSuperAdmin || addressSaving) return;
-    const title = newAddress.title.trim();
-    const addressLine = newAddress.addressLine.trim();
-    if (!title || !addressLine) {
-      setMessage(language === "tr" ? "Adres başlığı ve adres satırı zorunludur." : "Address title and line are required.");
+    const addressLine = newAddressLine.trim();
+    if (!addressLine) {
+      setMessage(language === "tr" ? "Adres zorunludur." : "Address is required.");
       return;
     }
     setAddressSaving(true);
@@ -287,102 +274,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     try {
       const response = await request(`/v1/admin/users/${id}/addresses`, {
         method: "POST",
-        body: JSON.stringify({ title, addressLine, isDefault: newAddress.isDefault }),
+        body: JSON.stringify({
+          title: language === "tr" ? "Adres" : "Address",
+          addressLine,
+          isDefault: false,
+        }),
       });
       if (response.status !== 201) {
         const body = await parseJson<ApiError>(response);
         setMessage(body.error?.message ?? dict.detail.requestFailed);
         return;
       }
-      setNewAddress({ title: "", addressLine: "", isDefault: false });
-      await loadSellerDetail();
-      setMessage(dict.common.saved);
-    } catch {
-      setMessage(dict.detail.requestFailed);
-    } finally {
-      setAddressSaving(false);
-    }
-  }
-
-  function beginAddressEdit(address: SellerAddressRow) {
-    setEditingAddressId(address.id);
-    setAddressDraft({
-      title: address.title,
-      addressLine: address.addressLine,
-      isDefault: address.isDefault,
-    });
-  }
-
-  async function saveAddressEdit(addressId: string) {
-    if (!isSuperAdmin || addressSaving) return;
-    const title = addressDraft.title.trim();
-    const addressLine = addressDraft.addressLine.trim();
-    if (!title || !addressLine) {
-      setMessage(language === "tr" ? "Adres başlığı ve adres satırı zorunludur." : "Address title and line are required.");
-      return;
-    }
-    setAddressSaving(true);
-    setMessage(null);
-    try {
-      const response = await request(`/v1/admin/users/${id}/addresses/${addressId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ title, addressLine, isDefault: addressDraft.isDefault }),
-      });
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
-        setMessage(body.error?.message ?? dict.detail.requestFailed);
-        return;
-      }
-      setEditingAddressId(null);
-      setAddressDraft({ title: "", addressLine: "", isDefault: false });
-      await loadSellerDetail();
-      setMessage(dict.common.saved);
-    } catch {
-      setMessage(dict.detail.requestFailed);
-    } finally {
-      setAddressSaving(false);
-    }
-  }
-
-  async function makeAddressDefault(addressId: string) {
-    if (!isSuperAdmin || addressSaving) return;
-    setAddressSaving(true);
-    setMessage(null);
-    try {
-      const response = await request(`/v1/admin/users/${id}/addresses/${addressId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isDefault: true }),
-      });
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
-        setMessage(body.error?.message ?? dict.detail.requestFailed);
-        return;
-      }
-      await loadSellerDetail();
-      setMessage(dict.common.saved);
-    } catch {
-      setMessage(dict.detail.requestFailed);
-    } finally {
-      setAddressSaving(false);
-    }
-  }
-
-  async function deleteAddress(addressId: string) {
-    if (!isSuperAdmin || addressSaving) return;
-    if (!window.confirm(language === "tr" ? "Bu adres silinsin mi?" : "Delete this address?")) return;
-    setAddressSaving(true);
-    setMessage(null);
-    try {
-      const response = await request(`/v1/admin/users/${id}/addresses/${addressId}`, { method: "DELETE" });
-      if (response.status !== 204) {
-        const body = await parseJson<ApiError>(response);
-        setMessage(body.error?.message ?? dict.detail.requestFailed);
-        return;
-      }
-      if (editingAddressId === addressId) {
-        setEditingAddressId(null);
-        setAddressDraft({ title: "", addressLine: "", isDefault: false });
-      }
+      setNewAddressLine("");
       await loadSellerDetail();
       setMessage(dict.common.saved);
     } catch {
@@ -892,6 +795,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <strong>{formatUiDate(row.updatedAt, language)}</strong>
                 </div>
               </div>
+              <form className="seller-address-create-form seller-address-inline-create" onSubmit={createAddress}>
+                <h3>{language === "tr" ? "Yeni Adres" : "New Address"}</h3>
+                <label>
+                  {language === "tr" ? "Adres" : "Address"}
+                  <input
+                    value={newAddressLine}
+                    onChange={(event) => setNewAddressLine(event.target.value)}
+                    disabled={!isSuperAdmin || addressSaving}
+                  />
+                </label>
+                <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
+                  {language === "tr" ? "Adres Ekle" : "Add Address"}
+                </button>
+              </form>
             </article>
 
             <article className="seller-general-card">
@@ -942,124 +859,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
             </article>
 
-            <article className="seller-general-card is-wide">
-              <div className="panel-header">
-                <h2>{language === "tr" ? "Adresler" : "Addresses"}</h2>
-              </div>
-              {addresses.length === 0 ? (
-                <p className="panel-meta">{`⌁ ${language === "tr" ? "Henüz adres kaydı yok." : "No addresses yet."}`}</p>
-              ) : (
-                <div className="seller-address-list">
-                  {addresses.map((address) => {
-                    const isEditing = editingAddressId === address.id;
-                    return (
-                      <article key={address.id} className="seller-address-item">
-                        {isEditing ? (
-                          <div className="seller-address-edit-grid">
-                            <label>
-                              {language === "tr" ? "Başlık" : "Title"}
-                              <input
-                                value={addressDraft.title}
-                                onChange={(event) => setAddressDraft((prev) => ({ ...prev, title: event.target.value }))}
-                                disabled={!isSuperAdmin || addressSaving}
-                              />
-                            </label>
-                            <label>
-                              {language === "tr" ? "Adres" : "Address"}
-                              <input
-                                value={addressDraft.addressLine}
-                                onChange={(event) => setAddressDraft((prev) => ({ ...prev, addressLine: event.target.value }))}
-                                disabled={!isSuperAdmin || addressSaving}
-                              />
-                            </label>
-                            <label className="seller-address-default-toggle">
-                              <input
-                                type="checkbox"
-                                checked={addressDraft.isDefault}
-                                onChange={(event) => setAddressDraft((prev) => ({ ...prev, isDefault: event.target.checked }))}
-                                disabled={!isSuperAdmin || addressSaving}
-                              />
-                              <span>{language === "tr" ? "Varsayılan" : "Default"}</span>
-                            </label>
-                          </div>
-                        ) : (
-                          <div className="seller-address-view">
-                            <strong>{address.title}</strong>
-                            <p>{address.addressLine}</p>
-                            <p className="panel-meta">
-                              {address.isDefault ? (language === "tr" ? "Varsayılan adres" : "Default address") : "-"}
-                            </p>
-                          </div>
-                        )}
-                        <div className="seller-address-actions">
-                          {isEditing ? (
-                            <>
-                              <button className="primary" type="button" disabled={!isSuperAdmin || addressSaving} onClick={() => void saveAddressEdit(address.id)}>
-                                {dict.actions.save}
-                              </button>
-                              <button
-                                className="ghost"
-                                type="button"
-                                disabled={addressSaving}
-                                onClick={() => {
-                                  setEditingAddressId(null);
-                                  setAddressDraft({ title: "", addressLine: "", isDefault: false });
-                                }}
-                              >
-                                {dict.common.cancel}
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button className="ghost" type="button" disabled={!isSuperAdmin || addressSaving} onClick={() => beginAddressEdit(address)}>
-                                {language === "tr" ? "Düzenle" : "Edit"}
-                              </button>
-                              <button className="ghost" type="button" disabled={!isSuperAdmin || addressSaving || address.isDefault} onClick={() => void makeAddressDefault(address.id)}>
-                                {language === "tr" ? "Varsayılan Yap" : "Set Default"}
-                              </button>
-                              <button className="ghost" type="button" disabled={!isSuperAdmin || addressSaving} onClick={() => void deleteAddress(address.id)}>
-                                {language === "tr" ? "Sil" : "Delete"}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              <form className="seller-address-create-form" onSubmit={createAddress}>
-                <label>
-                  {language === "tr" ? "Yeni Adres Başlığı" : "New Address Title"}
-                  <input
-                    value={newAddress.title}
-                    onChange={(event) => setNewAddress((prev) => ({ ...prev, title: event.target.value }))}
-                    disabled={!isSuperAdmin || addressSaving}
-                  />
-                </label>
-                <label>
-                  {language === "tr" ? "Yeni Adres" : "New Address"}
-                  <input
-                    value={newAddress.addressLine}
-                    onChange={(event) => setNewAddress((prev) => ({ ...prev, addressLine: event.target.value }))}
-                    disabled={!isSuperAdmin || addressSaving}
-                  />
-                </label>
-                <label className="seller-address-default-toggle">
-                  <input
-                    type="checkbox"
-                    checked={newAddress.isDefault}
-                    onChange={(event) => setNewAddress((prev) => ({ ...prev, isDefault: event.target.checked }))}
-                    disabled={!isSuperAdmin || addressSaving}
-                  />
-                  <span>{language === "tr" ? "Varsayılan olarak ekle" : "Add as default"}</span>
-                </label>
-                <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
-                  {language === "tr" ? "Adres Ekle" : "Add Address"}
-                </button>
-              </form>
-            </article>
           </div>
         </section>
       ) : null}

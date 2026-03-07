@@ -5616,6 +5616,19 @@ textarea:focus {
   gap: 8px;
 }
 
+.seller-address-inline-create {
+  margin-top: 16px;
+}
+
+.seller-address-inline-create h3 {
+  margin: 0 0 2px;
+  font-size: clamp(1rem, 1.05vw, 1.15rem);
+}
+
+.seller-address-inline-create .primary {
+  justify-self: start;
+}
+
 .seller-food-grid {
   margin-top: 12px;
   display: grid;
