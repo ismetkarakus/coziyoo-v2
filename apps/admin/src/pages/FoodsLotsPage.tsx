@@ -767,14 +767,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               </div>
             </div>
             <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Yemek Açıklaması" : "Food Description"}</h4>
-              <p className="foods-detail-paragraph">{toReadableText(selectedFood.description)}</p>
-            </div>
-            <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
-              <p className="foods-detail-paragraph">{toReadableText(selectedFood.recipe)}</p>
-            </div>
-            <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "İçerikler" : "Ingredients"}</h4>
               <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
             </div>
