@@ -20,6 +20,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrderItems, setSelectedOrderItems] = useState<Record<string, unknown>[]>([]);
   const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
+  const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const pageSize = 20;
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
@@ -56,6 +57,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
     return ordered;
   }, [columns, tableKey]);
+  const selectedOrders = useMemo(() => Object.values(selectedOrderMap), [selectedOrderMap]);
+  const allRowsSelected =
+    tableKey === "orders" &&
+    rows.length > 0 &&
+    rows.every((row) => {
+      const id = String(row.id ?? "").trim();
+      return id.length > 0 && Boolean(selectedOrderMap[id]);
+    });
 
   const orderColumnLabel = (column: string): string => {
     if (language === "tr") {
@@ -274,6 +283,52 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
   }
 
+  function toggleOrderSelection(row: Record<string, unknown>, checked: boolean) {
+    const id = String(row.id ?? "").trim();
+    if (!id) return;
+    setSelectedOrderMap((prev) => {
+      if (checked) return { ...prev, [id]: row };
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function toggleAllVisibleOrders(checked: boolean) {
+    if (tableKey !== "orders") return;
+    setSelectedOrderMap((prev) => {
+      const next = { ...prev };
+      for (const row of rows) {
+        const id = String(row.id ?? "").trim();
+        if (!id) continue;
+        if (checked) next[id] = row;
+        else delete next[id];
+      }
+      return next;
+    });
+  }
+
+  function downloadSelectedOrdersAsExcel() {
+    if (selectedOrders.length === 0) {
+      setError(language === "tr" ? "Lutfen en az bir siparis secin." : "Please select at least one order.");
+      return;
+    }
+    const exportColumns = ["__display_id", ...orderColumns];
+    const headers = exportColumns.map((column) => orderColumnLabel(column));
+    const rowsForExport = selectedOrders.map((row) =>
+      exportColumns.map((column) => orderCellText(column, column === "__display_id" ? row.id : row[column]))
+    );
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `orders-selected-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -392,6 +447,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
           </div>
         </div>
         <div className="topbar-actions">
+          {tableKey === "orders" ? (
+            <button className="primary" type="button" onClick={downloadSelectedOrdersAsExcel}>
+              {language === "tr" ? `Excel'e Aktar (${selectedOrders.length})` : `Export to Excel (${selectedOrders.length})`}
+            </button>
+          ) : null}
         </div>
       </header>
       <section className="panel">
@@ -400,6 +460,16 @@ export default function RecordsPage({ language, tableKey }: { language: Language
           <table>
             <thead>
               <tr>
+                {tableKey === "orders" ? (
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={allRowsSelected}
+                      aria-label={language === "tr" ? "Tumunu sec" : "Select all"}
+                      onChange={(event) => toggleAllVisibleOrders(event.target.checked)}
+                    />
+                  </th>
+                ) : null}
                 {(tableKey === "orders" ? ["__display_id", ...orderColumns] : orderColumns).map((column) => (
                   <th key={column}>{tableKey === "orders" ? orderColumnLabel(column) : formatTableHeader(column)}</th>
                 ))}
@@ -408,11 +478,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 1 : orderColumns.length), 1)}>{dict.common.loading}</td>
+                  <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 2 : orderColumns.length), 1)}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 1 : orderColumns.length), 1)}>{dict.common.noRecords}</td>
+                  <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 2 : orderColumns.length), 1)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((row, index) => (
@@ -421,6 +491,17 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     className={tableKey === "orders" ? "records-order-row" : undefined}
                     onClick={tableKey === "orders" ? () => void openOrderDetails(row) : undefined}
                   >
+                    {tableKey === "orders" ? (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedOrderMap[String(row.id ?? "").trim()])}
+                          aria-label={language === "tr" ? "Siparisi sec" : "Select order"}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => toggleOrderSelection(row, event.target.checked)}
+                        />
+                      </td>
+                    ) : null}
                     {(tableKey === "orders" ? ["__display_id", ...orderColumns] : orderColumns).map((column) => (
                       <td key={`${index}-${column}`}>
                         {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
