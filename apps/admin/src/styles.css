@@ -2909,6 +2909,19 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.buyer-ref-quick-access-wrap {
+  margin-top: 6px;
+}
+
+.buyer-ref-quick-access {
+  justify-self: start;
+}
+
+.buyer-ref-quick-access summary {
+  padding: 5px 10px;
+  font-size: var(--text-xs);
+}
+
 .buyer-ref-metric strong span {
   margin-left: 4px;
   font-size: var(--text-md);

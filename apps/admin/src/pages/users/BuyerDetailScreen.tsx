@@ -262,6 +262,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
+  const contactPhoneHrefValue = String(phone).replace(/[^\d+]/g, "");
+  const contactHasPhone = contactPhoneHrefValue.length > 0 && phone.toLowerCase() !== "bilinmiyor";
+  const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
   const compactUserId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
@@ -614,6 +617,28 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
                 <span aria-hidden="true">◌</span>
               </button>
+            </div>
+            <div className="buyer-ref-quick-access-wrap">
+              <details className="seller-quick-access buyer-ref-quick-access">
+                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
+                <div className="seller-quick-access-menu">
+                  {String(email).includes("@") ? (
+                    <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
+                  )}
+                  {contactHasPhone ? (
+                    <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
+                  )}
+                  {contactHasPhone ? (
+                    <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
+                  )}
+                </div>
+              </details>
             </div>
           </div>
         </article>
