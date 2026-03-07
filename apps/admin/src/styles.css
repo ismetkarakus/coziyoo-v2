@@ -5048,6 +5048,12 @@ textarea:focus {
   gap: 14px;
 }
 
+.seller-hero-text {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+}
+
 .seller-avatar-col {
   display: grid;
   gap: 8px;
@@ -6113,6 +6119,10 @@ textarea:focus {
   .seller-avatar {
     width: 68px;
     height: 68px;
+  }
+
+  .seller-hero-text {
+    min-height: 68px;
   }
 
   .seller-hero-stats {
