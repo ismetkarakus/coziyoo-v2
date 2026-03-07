@@ -5081,22 +5081,11 @@ textarea:focus {
   letter-spacing: -0.02em;
 }
 
-.seller-hero-text p {
-  margin: 4px 0 0;
-  font-size: clamp(1.1rem, 1.3vw, 1.5rem);
-}
-
 .seller-hero-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.seller-user-id {
-  color: var(--color-secondary-text);
-  font-weight: var(--font-semibold);
-  font-size: clamp(1rem, 1.2vw, 1.35rem);
 }
 
 .seller-rating-row {
@@ -5124,16 +5113,6 @@ textarea:focus {
   color: #f3c86a;
 }
 
-.seller-country-badge {
-  display: inline-flex;
-  margin: 0 6px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, #e1606f 55%, var(--color-border));
-  background: color-mix(in srgb, #cf304a 34%, transparent);
-  color: #ffe8eb;
-  font-weight: var(--font-bold);
-  padding: 2px 7px;
-}
 
 .seller-hero-right {
   display: grid;
@@ -6129,10 +6108,6 @@ textarea:focus {
   .seller-hero-right {
     grid-column: 1;
     justify-self: start;
-  }
-
-  .seller-user-id {
-    width: 100%;
   }
 
   .seller-avatar {

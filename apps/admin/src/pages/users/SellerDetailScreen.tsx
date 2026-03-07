@@ -553,14 +553,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <div className="seller-hero-title-row">
               <h1>{row.displayName ?? row.email}</h1>
               <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
-              <span className="seller-user-id">{`${dict.detail.userId}: ${row.id}`}</span>
             </div>
-            <p>{maskedEmail}</p>
-            <p className="panel-meta">
-              <span>{roleLabel}</span>
-              <span className="seller-country-badge">{row.countryCode ?? "-"}</span>
-              <span>{`${language === "tr" ? "Kayıt" : "Created"}: ${formatUiDate(row.createdAt, language)}`}</span>
-            </p>
           </div>
         </article>
         <div className="seller-hero-right">
