@@ -124,12 +124,12 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
   // --- LLM ---
   const llm: ResolvedProviders["llm"] = defaultLlmServer
     ? {
-        baseUrl: strOrNull(defaultLlmServer.baseUrl ?? defaultLlmServer.ollamaBaseUrl),
+        baseUrl: strOrNull(defaultLlmServer.baseUrl ?? defaultLlmServer.ollamaBaseUrl) ?? env.OLLAMA_BASE_URL,
         model: str(defaultLlmServer.model, settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL),
         authHeader: strOrNull(defaultLlmServer.authHeader),
       }
     : {
-        baseUrl: strOrNull(legacyLlm.ollamaBaseUrl),
+        baseUrl: strOrNull(legacyLlm.ollamaBaseUrl) ?? env.OLLAMA_BASE_URL,
         model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
         authHeader: strOrNull(legacyLlm.authHeader),
       };
