@@ -797,6 +797,14 @@ a {
   align-items: center;
 }
 
+.topbar-with-centered-search .topbar-search-center {
+  display: none;
+}
+
+.topbar-with-centered-search {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .topbar-search-center {
   width: 100%;
   display: flex;
