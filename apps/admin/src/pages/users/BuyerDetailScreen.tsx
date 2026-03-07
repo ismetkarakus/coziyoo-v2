@@ -357,6 +357,14 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
   }
 
+  function openNoteCard(noteId: string) {
+    if (editingNoteId && editingNoteId !== noteId) {
+      setEditingNoteId(null);
+      setEditingNoteValue("");
+    }
+    setOpenNoteMenuId(noteId);
+  }
+
   async function sendSms() {
     if (!smsMessage.trim()) {
       setMessage("SMS icerigi bos olamaz.");
@@ -949,13 +957,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <article
                         key={`main-note-${note.id}`}
                         className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
-                        onClick={() => setOpenNoteMenuId(note.id)}
+                        onClick={() => openNoteCard(note.id)}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            setOpenNoteMenuId(note.id);
+                            openNoteCard(note.id);
                           }
                         }}
                       >

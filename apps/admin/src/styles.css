@@ -3627,6 +3627,13 @@ textarea:focus {
   border-color: transparent;
   background: transparent;
   padding: 0;
+  box-shadow: none;
+}
+
+.buyer-ref-note-item.is-editing.is-open {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .buyer-ref-note-item p {
