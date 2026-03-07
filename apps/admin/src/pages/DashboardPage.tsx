@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { StatCard, LineChart, SparklineChart } from "../components/dashboard";
@@ -52,11 +53,11 @@ function DataTableCard({
           <p className="kpi-updated">{isTr ? "Son Güncelleme" : "Last Updated"}: {updatedAt}</p>
         </div>
         <div className="kpi-right">
-          <h3>{isTr ? "İş Kuyruğu Testi" : "Job Queue Test"}</h3>
+          <h3>{isTr ? "İşlem Yoğunluğu Testi" : "Job Load Test"}</h3>
           <LineChart labels={axisLabels} points={queuePoints} max={10} />
           <div className="chart-legend">
             <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
-            <span><i className="dot dot-teal" />{isTr ? "İşleniyor" : "Processing"}</span>
+            <span><i className="dot dot-teal" />{isTr ? "İşlemde" : "Processing"}</span>
             <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
           </div>
           <div className="queue-list">
@@ -73,7 +74,7 @@ function DataTableCard({
         <SparklineChart labels={["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30", "13:30"]} points={sparkPoints} />
         <div className="chart-legend compact">
           <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
-          <span><i className="dot dot-cyan" />{isTr ? "İşleniyor" : "Processing"}</span>
+          <span><i className="dot dot-cyan" />{isTr ? "İşlemde" : "Processing"}</span>
           <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
         </div>
       </div>
@@ -87,12 +88,20 @@ function ActionCard({
   updatedAt,
   queueSummary,
   language,
+  onOpenCompliance,
+  onViewDisputes,
+  onInspectAppUsers,
+  onInspectAdminUsers,
 }: {
   title: string;
   dict: Dictionary;
   updatedAt: string;
   queueSummary: { waiting: number; processing: number; failed: number };
   language: Language;
+  onOpenCompliance: () => void;
+  onViewDisputes: () => void;
+  onInspectAppUsers: () => void;
+  onInspectAdminUsers: () => void;
 }) {
   const isTr = language === "tr";
   const total = Math.max(queueSummary.waiting + queueSummary.processing + queueSummary.failed, 1);
@@ -108,22 +117,22 @@ function ActionCard({
         <h2>{title}</h2>
       </div>
       <div className="actions">
-        <button className="primary" type="button">{dict.actions.openComplianceQueue}</button>
-        <button className="ghost has-arrow" type="button">{dict.actions.viewPaymentDisputes}</button>
-        <button className="ghost has-arrow" type="button">{dict.actions.inspectAppUsers}</button>
-        <button className="ghost has-arrow" type="button">{dict.actions.inspectAdminUsers}</button>
+        <button className="primary" type="button" onClick={onOpenCompliance}>{dict.actions.openComplianceQueue}</button>
+        <button className="ghost has-arrow" type="button" onClick={onViewDisputes}>{dict.actions.viewPaymentDisputes}</button>
+        <button className="ghost has-arrow" type="button" onClick={onInspectAppUsers}>{dict.actions.inspectAppUsers}</button>
+        <button className="ghost has-arrow" type="button" onClick={onInspectAdminUsers}>{dict.actions.inspectAdminUsers}</button>
       </div>
       <div className="queue-state-card">
         <div className="queue-state-header">
-          <h3>{isTr ? "Kuyruk Durumu" : "Queue Status"}</h3>
+          <h3>{isTr ? "İşlem Durumu" : "Processing Status"}</h3>
           <span>{updatedAt}</span>
         </div>
         <div className="queue-state-content">
           <div className="queue-state-labels">
-            <p>{isTr ? "Yazdırma Kuyruğu" : "Print Queue"}</p>
-            <p>{isTr ? "İndirme Kuyruğu" : "Download Queue"}</p>
-            <p>{isTr ? "Mesaj / İş Kuyruğu" : "Message / Job Queue"}</p>
-            <p>{isTr ? "Medya Kuyruğu" : "Media Queue"}</p>
+            <p>{isTr ? "Yazdırma İşleri" : "Print Jobs"}</p>
+            <p>{isTr ? "İndirme İşleri" : "Download Jobs"}</p>
+            <p>{isTr ? "Mesaj / Görev İşleri" : "Message / Task Jobs"}</p>
+            <p>{isTr ? "Medya İşleri" : "Media Jobs"}</p>
           </div>
           <div className="donut-wrap">
             <svg className="donut-chart" viewBox="0 0 160 160" role="presentation" aria-hidden="true">
@@ -158,7 +167,7 @@ function ActionCard({
         </div>
         <div className="chart-legend compact">
           <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
-          <span><i className="dot dot-cyan" />{isTr ? "İşleniyor" : "Processing"}</span>
+          <span><i className="dot dot-cyan" />{isTr ? "İşlemde" : "Processing"}</span>
           <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
         </div>
         <p className="queue-foot">{isTr ? "Son Güncelleme" : "Last Updated"}: {updatedAt}</p>
@@ -168,6 +177,7 @@ function ActionCard({
 }
 
 export default function DashboardPage({ language }: { language: Language }) {
+  const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const [data, setData] = useState<Record<string, number | string> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -223,7 +233,7 @@ export default function DashboardPage({ language }: { language: Language }) {
     { label: language === "tr" ? "Pasif Kullanıcı" : "Disabled Users", value: String(metrics[2].value) },
     { label: language === "tr" ? "Aktif Sipariş" : "Active Orders", value: String(metrics[3].value) },
     { label: language === "tr" ? "Ödeme Bekleyen Sipariş" : "Pending Payment Orders", value: String(metrics[4].value) },
-    { label: language === "tr" ? "Uygunluk Kuyruğu" : "Compliance Queue", value: String(metricValueOrMissing(data.complianceQueueCount)) },
+    { label: language === "tr" ? "Bekleyen Uygunluk" : "Pending Compliance", value: String(metricValueOrMissing(data.complianceQueueCount)) },
     { label: language === "tr" ? "Açık İtiraz" : "Open Dispute Count", value: String(metricValueOrMissing(data.openDisputeCount)) },
   ];
 
@@ -259,6 +269,10 @@ export default function DashboardPage({ language }: { language: Language }) {
           updatedAt={updatedAtDisplay}
           queueSummary={{ waiting: 24, processing: 7, failed: 3 }}
           language={language}
+          onOpenCompliance={() => navigate("/app/compliance-documents")}
+          onViewDisputes={() => navigate("/app/investigation")}
+          onInspectAppUsers={() => navigate("/app/users")}
+          onInspectAdminUsers={() => navigate("/app/admins")}
         />
       </section>
     </div>

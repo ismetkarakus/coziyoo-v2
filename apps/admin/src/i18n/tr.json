@@ -33,10 +33,10 @@
     "exportCsv": "CSV Dışa Aktar",
     "exportExcel": "Excel'e Aktar",
     "reviewQueue": "Bekleyen İşler",
-    "openComplianceQueue": "Bekleyen Uygunluk İşlerini Aç",
-    "viewPaymentDisputes": "Ödeme İtirazlarını Gör",
-    "inspectAppUsers": "Uygulama Kullanıcılarını İncele",
-    "inspectAdminUsers": "Yönetici Kullanıcıları İncele",
+    "openComplianceQueue": "Bekleyen Uygunluk Kayıtlarını Aç",
+    "viewPaymentDisputes": "Ödeme İtirazlarına Git",
+    "inspectAppUsers": "Uygulama Kullanıcılarına Git",
+    "inspectAdminUsers": "Yönetici Kullanıcılarına Git",
     "resetDatabase": "Veritabanını Sıfırla"
   },
   "common": {
