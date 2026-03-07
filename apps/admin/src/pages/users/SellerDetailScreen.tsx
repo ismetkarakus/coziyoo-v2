@@ -85,6 +85,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
   const [flashFoodId, setFlashFoodId] = useState<string | null>(null);
   const [flashLotId, setFlashLotId] = useState<string | null>(null);
+  const [pinnedFoodId, setPinnedFoodId] = useState<string | null>(null);
+  const [pinnedLotId, setPinnedLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
 
   async function loadSellerDetail() {
@@ -200,6 +202,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setLotOrdersLoadingByLotId({});
     setLotOrdersErrorByLotId({});
     setLotsError(null);
+    setFlashFoodId(null);
+    setFlashLotId(null);
+    setPinnedFoodId(null);
+    setPinnedLotId(null);
     setAddresses([]);
     setAddressSaving(false);
     setNewAddressLine("");
@@ -275,7 +281,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
 
     setFlashFoodId(resolvedFoodId);
+    setPinnedFoodId(resolvedFoodId);
     if (focusLotId) setFlashLotId(focusLotId);
+    if (focusLotId) setPinnedLotId(focusLotId);
 
     const timer = window.setTimeout(() => {
       const lotElement = focusLotId ? document.querySelector<HTMLElement>(`[data-lot-row-id="${focusLotId}"]`) : null;
@@ -1420,7 +1428,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     const foodExpanded = Boolean(expandedFoodIds[food.id]);
                     return (
                       <Fragment key={food.id}>
-                        <tr data-food-row-id={food.id} className={flashFoodId === food.id ? "search-focus-flash" : undefined}>
+                        <tr
+                          data-food-row-id={food.id}
+                          className={[
+                            flashFoodId === food.id ? "search-focus-flash" : "",
+                            pinnedFoodId === food.id ? "search-focus-pinned" : "",
+                          ].filter(Boolean).join(" ") || undefined}
+                        >
                           <td>
                             <strong>{food.name}</strong>
                             <div className="panel-meta">{food.code}</div>
@@ -1483,7 +1497,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                         const lotOrders = lotOrdersByLotId[lot.id] ?? [];
                                         return (
                                           <Fragment key={lot.id}>
-                                            <tr data-lot-row-id={lot.id} className={flashLotId === lot.id ? "search-focus-flash" : undefined}>
+                                            <tr
+                                              data-lot-row-id={lot.id}
+                                              className={[
+                                                flashLotId === lot.id ? "search-focus-flash" : "",
+                                                pinnedLotId === lot.id ? "search-focus-pinned" : "",
+                                              ].filter(Boolean).join(" ") || undefined}
+                                            >
                                               <td>{lot.lot_number}</td>
                                               <td>
                                                 <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>

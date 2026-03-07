@@ -6219,6 +6219,11 @@ textarea:focus {
   animation: search-focus-pulse 1.9s ease;
 }
 
+.search-focus-pinned td {
+  background: color-mix(in srgb, #2d7dff 14%, var(--color-card-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #78aaff 48%, transparent);
+}
+
 @keyframes search-focus-pulse {
   0% {
     background: color-mix(in srgb, #2d7dff 40%, var(--color-card-bg));
