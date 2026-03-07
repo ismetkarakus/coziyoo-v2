@@ -223,8 +223,8 @@ function QueryParamsEditor({ label = "Query Params", hint, params, onChange }: {
       {hint && <span style={{ fontSize: "0.76em", color: "var(--color-secondary-text)" }}>{hint}</span>}
       {params.map((p, i) => (
         <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-          <input style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }} value={p.key} onChange={(e) => update(i, "key", e.target.value)} placeholder="key" />
-          <input style={{ flex: 2, fontSize: "0.82em", padding: "4px 8px" }} value={p.value} onChange={(e) => update(i, "value", e.target.value)} placeholder="value" />
+          <input style={{ flex: 1, fontSize: "0.82em", padding: "4px 8px" }} value={p.key} onChange={(e) => update(i, "key", e.target.value)} />
+          <input style={{ flex: 2, fontSize: "0.82em", padding: "4px 8px" }} value={p.value} onChange={(e) => update(i, "value", e.target.value)} />
           <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "2px 8px", color: "#ef4444" }} onClick={() => remove(i)}>✕</button>
         </div>
       ))}
@@ -284,23 +284,23 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
 
   return (
     <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "8px", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
-      {field("Name", <input style={inp} value={draft.name} onChange={(e) => set("name", e.target.value)} placeholder="Server name" />)}
+      {field("Name", <input style={inp} value={draft.name} onChange={(e) => set("name", e.target.value)} />)}
       <label style={{ fontSize: "0.88em", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
         <input type="checkbox" checked={draft.enabled} onChange={(e) => set("enabled", e.target.checked)} />
         Enabled
       </label>
-      {type === "stt" && field("Provider", <input style={inp} value={draft.provider} onChange={(e) => set("provider", e.target.value)} placeholder="remote-speech-server" />)}
-      {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} placeholder="https://..." />)}
-      {type === "stt" && field("Transcribe Path", <input style={inp} value={draft.transcribePath} onChange={(e) => set("transcribePath", e.target.value)} placeholder="/v1/audio/transcriptions" />)}
-      {type === "tts" && field("Synth Path", <input style={inp} value={draft.synthPath} onChange={(e) => set("synthPath", e.target.value)} placeholder="/tts" />)}
+      {type === "stt" && field("Provider", <input style={inp} value={draft.provider} onChange={(e) => set("provider", e.target.value)} />)}
+      {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} />)}
+      {type === "stt" && field("Transcribe Path", <input style={inp} value={draft.transcribePath} onChange={(e) => set("transcribePath", e.target.value)} />)}
+      {type === "tts" && field("Synth Path", <input style={inp} value={draft.synthPath} onChange={(e) => set("synthPath", e.target.value)} />)}
       {type === "tts" && field(
         "Text Field Name",
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <input style={inp} value={draft.textFieldName} onChange={(e) => set("textFieldName", e.target.value)} placeholder="text" />
+          <input style={inp} value={draft.textFieldName} onChange={(e) => set("textFieldName", e.target.value)} />
           <span style={{ fontSize: "0.76em", color: "var(--color-secondary-text)" }}>Field that carries the speech text in the body. Use <code>text</code> (default) or <code>input</code> for OpenAI-compatible servers.</span>
         </div>
       )}
-      {type === "stt" && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder="whisper-large-v3" />)}
+      {type === "stt" && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} />)}
       {type === "llm" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -311,7 +311,7 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
                   {fetchedModels.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               ) : (
-                <input style={{ ...inp, flex: 1 }} value={draft.model} onChange={(e) => set("model", e.target.value)} placeholder="llama3.1:8b" />
+                <input style={{ ...inp, flex: 1 }} value={draft.model} onChange={(e) => set("model", e.target.value)} />
               )}
               <button className="ghost" type="button" style={{ fontSize: "0.82em", padding: "4px 12px", flexShrink: 0 }} onClick={fetchModels} disabled={!draft.baseUrl || modelsFetching}>
                 {modelsFetching ? "…" : fetchedModels.length > 0 ? "↻ Refresh" : "Fetch Models"}
@@ -321,12 +321,12 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             <label style={{ ...lbl, fontWeight: 400 }}>Models endpoint <span style={{ opacity: 0.6 }}>(optional)</span></label>
-            <input style={{ ...inp, fontSize: "0.82em" }} value={draft.modelsPath} onChange={(e) => set("modelsPath", e.target.value)} placeholder="/api/tags  (Ollama default)" />
+            <input style={{ ...inp, fontSize: "0.82em" }} value={draft.modelsPath} onChange={(e) => set("modelsPath", e.target.value)} />
           </div>
         </div>
       )}
       {type === "stt" && <QueryParamsEditor label="Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
-      {type === "tts" && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
+      {type === "tts" && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} />)}
       {type === "tts" && (
         <>
           <div style={{ border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
@@ -337,7 +337,7 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
           </div>
         </>
       )}
-      {(type === "stt" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} placeholder="Bearer sk-..." />)}
+      {(type === "stt" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} />)}
       <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", borderTop: "1px solid var(--color-border)", paddingTop: "0.75rem" }}>
         <button className="ghost" type="button" onClick={onCancel}>Cancel</button>
         <button className="primary" type="button" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</button>
@@ -378,10 +378,6 @@ function CurlImportModal({ type, onImport, onClose }: {
           value={curlInput}
           onChange={e => { setCurlInput(e.target.value); setParseError(null); }}
           rows={8}
-          placeholder={type === "stt"
-            ? `curl -X POST "https://stt.example.com/v1/audio/transcriptions" \\\n  -H "Authorization: Bearer sk-..." \\\n  -F "file=@audio.wav" \\\n  -F "model=whisper-large-v3" \\\n  -F "language=tr"`
-            : `curl -X POST "https://tts.example.com/tts?voice=tr-TR" \\\n  -H "Authorization: Bearer sk-..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"text":"hello"}'`
-          }
           style={{ fontFamily: "monospace", fontSize: "0.82em", padding: "10px", resize: "vertical", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "6px" }}
           autoFocus
         />
@@ -1174,7 +1170,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
             <label style={{ fontSize: "0.85em", fontWeight: 600 }}>Agent Name</label>
-            <input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder="coziyoo-agent" style={{ fontSize: "0.9em", padding: "6px 10px" }} />
+            <input value={agentName} onChange={e => setAgentName(e.target.value)} style={{ fontSize: "0.9em", padding: "6px 10px" }} />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
             <label style={{ fontSize: "0.85em", fontWeight: 600 }}>Voice Language</label>
@@ -1194,7 +1190,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
               Greeting Enabled
             </label>
             {greetingEnabled && (
-              <textarea value={greetingInstruction} onChange={e => setGreetingInstruction(e.target.value)} rows={3} placeholder="Greeting instruction…" style={{ fontSize: "0.88em", padding: "8px 10px", resize: "vertical" }} />
+              <textarea value={greetingInstruction} onChange={e => setGreetingInstruction(e.target.value)} rows={3} style={{ fontSize: "0.88em", padding: "8px 10px", resize: "vertical" }} />
             )}
           </div>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>

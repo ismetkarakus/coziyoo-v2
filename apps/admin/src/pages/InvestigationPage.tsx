@@ -101,7 +101,6 @@ export default function InvestigationPage({ language }: { language: Language }) 
             </span>
             <input
               className="users-search-input users-search-input--compact"
-              placeholder={language === "tr" ? "Sipariş no / alıcı no / konu ara" : "Search order no / buyer no / subject"}
               value={searchInput}
               onChange={(event) => {
                 setPage(1);

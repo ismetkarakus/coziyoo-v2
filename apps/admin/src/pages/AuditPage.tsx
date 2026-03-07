@@ -180,7 +180,6 @@ export default function AuditPage({ language }: { language: Language }) {
               </span>
               <input
                 className="users-search-input users-search-input--compact"
-                placeholder={dict.audit.search}
                 value={filters.search}
                 onChange={(event) => setFilters((prev) => ({ ...prev, page: 1, search: event.target.value }))}
               />

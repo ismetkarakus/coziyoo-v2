@@ -84,7 +84,7 @@ export default function ApiTokensPage({ language, isSuperAdmin }: { language: La
         <div className="form-grid">
           <label>
             {dict.apiTokens.label}
-            <input value={label} placeholder={dict.apiTokens.labelPlaceholder} onChange={(event) => setLabel(event.target.value)} />
+            <input value={label} onChange={(event) => setLabel(event.target.value)} />
           </label>
           <label>
             {dict.apiTokens.role}

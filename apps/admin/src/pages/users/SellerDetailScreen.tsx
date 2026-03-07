@@ -1098,7 +1098,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <input
                 value={ordersSearch}
                 onChange={(event) => setOrdersSearch(event.target.value)}
-                placeholder={language === "tr" ? "Sipariş / Alıcı ara" : "Search order / buyer"}
               />
             </label>
             <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerOrdersAsExcel}>
@@ -1179,7 +1178,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <input
                 value={earningsSearch}
                 onChange={(event) => setEarningsSearch(event.target.value)}
-                placeholder={language === "tr" ? "Sipariş / Alıcı ara" : "Search order / buyer"}
               />
             </label>
             <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerEarningsAsExcel}>

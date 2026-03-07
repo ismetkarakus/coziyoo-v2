@@ -576,7 +576,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 onKeyDown={(event) => {
                   if (event.key === "Enter") addNote();
                 }}
-                placeholder="Not Ekle veya Etiketle"
               />
             </div>
             <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etikes</p>
@@ -650,7 +649,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       className="buyer-ref-search-input"
                       value={orderSearch}
                       onChange={(event) => setOrderSearch(event.target.value)}
-                      placeholder="Siparis No veya isim ile ara..."
                       aria-label="Siparis veya isim ara"
                     />
                   </label>
@@ -789,7 +787,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   <input
                     value={noteInput}
                     onChange={(event) => setNoteInput(event.target.value)}
-                    placeholder="Not Ekle veya Etiketle"
                   />
                   <button className="ghost" type="button" onClick={addNote}>Not</button>
                   <button className="ghost" type="button" onClick={addTag}>Etiket</button>
@@ -829,7 +826,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             </label>
             <label>
               Mesaj
-              <textarea value={smsMessage} onChange={(event) => setSmsMessage(event.target.value)} rows={5} placeholder="Mesajinizi yazin" />
+              <textarea value={smsMessage} onChange={(event) => setSmsMessage(event.target.value)} rows={5} />
             </label>
             <div className="buyer-ops-modal-actions">
               <button className="ghost" type="button" onClick={() => setSmsOpen(false)}>Vazgec</button>

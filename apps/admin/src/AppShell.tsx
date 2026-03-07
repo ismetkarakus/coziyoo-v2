@@ -228,9 +228,6 @@ function AppShell({
                       onSelectGlobalResult(globalSearchResults[0]);
                     }
                   }}
-                  placeholder={language === "tr"
-                    ? "Global Arama"
-                    : "Global Search"}
                 />
                 {globalSearchInput.trim().length > 0 ? (
                   <button

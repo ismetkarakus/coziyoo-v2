@@ -271,7 +271,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             </span>
             <input
               className="users-search-input users-search-input--compact"
-              placeholder={dict.entities.searchPlaceholder}
               value={search}
               onChange={(event) => {
                 setPage(1);

@@ -153,7 +153,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       </span>
       <input
         className={`users-search-input ${compact ? "users-search-input--compact" : ""}`.trim()}
-        placeholder={unifiedSearchPlaceholder}
         value={searchInput}
         onChange={(event) => setSearchInput(event.target.value)}
       />
