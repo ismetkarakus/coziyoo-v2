@@ -895,15 +895,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </article>
 
             <article className="seller-general-card">
-              <div className="panel-header">
-                <h2>{language === "tr" ? "Profil ve İletişim" : "Profile & Contact"}</h2>
-              </div>
               <div className="seller-profile-head">
                 <div className="seller-profile-avatar">{initials}</div>
-                <div className="seller-profile-title">
-                  <span>{language === "tr" ? "Ad Soyad" : "Full Name"}:</span>
-                  <strong>{String(row.fullName ?? row.displayName ?? "-")}</strong>
-                </div>
               </div>
               <form className="form-grid seller-general-form" onSubmit={onSave}>
                 <label>
