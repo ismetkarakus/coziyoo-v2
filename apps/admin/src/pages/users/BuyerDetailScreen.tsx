@@ -350,6 +350,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     notes: noteItems.map((item) => item.note),
     tags: tagItems,
   };
+  const canExportActiveBuyerTab = activeTab === "orders" || activeTab === "payments";
 
   function switchBuyerTab(tab: BuyerDetailTab) {
     setActiveTab(tab);
@@ -733,14 +734,23 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
         <div className="buyer-ref-left">
           <section className="panel buyer-ref-main-panel">
-            <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
-              <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => switchBuyerTab("orders")} type="button">Siparisler</button>
-              <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => switchBuyerTab("payments")} type="button">Odemeler</button>
-              <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => switchBuyerTab("complaints")} type="button">Sikayetler</button>
-              <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => switchBuyerTab("reviews")} type="button">Yorumlar & Puanlar</button>
-              <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
-              <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
-              <button className={activeTab === "raw" ? "is-active" : ""} onClick={() => switchBuyerTab("raw")} type="button">Ham Veri</button>
+            <div className="buyer-ops-tabs-head">
+              <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
+                <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => switchBuyerTab("orders")} type="button">Siparisler</button>
+                <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => switchBuyerTab("payments")} type="button">Odemeler</button>
+                <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => switchBuyerTab("complaints")} type="button">Sikayetler</button>
+                <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => switchBuyerTab("reviews")} type="button">Yorumlar & Puanlar</button>
+                <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
+                <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
+                <button className={activeTab === "raw" ? "is-active" : ""} onClick={() => switchBuyerTab("raw")} type="button">Ham Veri</button>
+              </div>
+              <ExcelExportButton
+                className="primary buyer-ref-export-btn buyer-tabs-export-btn"
+                type="button"
+                onClick={downloadBuyerOrdersAsExcel}
+                disabled={!canExportActiveBuyerTab}
+                language={language}
+              />
             </div>
             {activeTab === "orders" || activeTab === "payments" ? (
               <>
@@ -812,7 +822,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       aria-label="Siparis veya isim ara"
                     />
                   </label>
-                  <ExcelExportButton className="primary buyer-ref-export-btn" type="button" onClick={downloadBuyerOrdersAsExcel} language={language} />
                 </div>
 
                 <div className="buyer-ops-table-wrap">

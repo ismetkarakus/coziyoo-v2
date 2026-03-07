@@ -3134,6 +3134,22 @@ textarea:focus {
   overflow: auto;
 }
 
+.buyer-ops-tabs-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.buyer-ops-tabs-head .buyer-ops-tabs {
+  flex: 1;
+}
+
+.buyer-tabs-export-btn {
+  flex: 0 0 auto;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+
 .buyer-ref-main-panel .buyer-ops-tabs button {
   position: relative;
   border: 0;
@@ -5461,6 +5477,23 @@ textarea:focus {
   gap: 22px;
   min-width: max-content;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+}
+
+.seller-tabs-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.seller-tabs-head .seller-tabs {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.seller-tabs-export-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .seller-tabs button {

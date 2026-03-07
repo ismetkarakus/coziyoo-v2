@@ -729,6 +729,16 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "raw", label: dict.detail.sellerTabs.raw },
   ] as const;
+  const canExportActiveSellerTab = activeTab === "orders" || activeTab === "wallet";
+  const exportActiveSellerTabAsExcel = () => {
+    if (activeTab === "orders") {
+      downloadSellerOrdersAsExcel();
+      return;
+    }
+    if (activeTab === "wallet") {
+      downloadSellerEarningsAsExcel();
+    }
+  };
 
   return (
     <div className="app seller-detail-page">
@@ -801,19 +811,30 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       </section>
 
       <section className="panel seller-tabs-panel">
-        <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.key}
-              className={activeTab === tab.key ? "is-active" : ""}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="seller-tabs-head">
+          <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                className={activeTab === tab.key ? "is-active" : ""}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <ExcelExportButton
+            className="primary seller-detail-export-btn seller-tabs-export-btn"
+            type="button"
+            onClick={exportActiveSellerTabAsExcel}
+            disabled={!canExportActiveSellerTab}
+            language={language}
+            labelTr="Seçileni Excel'e Aktar"
+            labelEn="Export Selected"
+          />
         </div>
       </section>
 
@@ -1532,7 +1553,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 onChange={(event) => setOrdersSearch(event.target.value)}
               />
             </label>
-            <ExcelExportButton className="primary seller-detail-export-btn" type="button" onClick={downloadSellerOrdersAsExcel} language={language} labelTr="Seçileni Excel'e Aktar" labelEn="Export Selected" />
           </div>
           {filteredSellerOrders.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
@@ -1649,7 +1669,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 onChange={(event) => setEarningsSearch(event.target.value)}
               />
             </label>
-            <ExcelExportButton className="primary seller-detail-export-btn" type="button" onClick={downloadSellerEarningsAsExcel} language={language} labelTr="Seçileni Excel'e Aktar" labelEn="Export Selected" />
           </div>
           {filteredSellerEarnings.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
