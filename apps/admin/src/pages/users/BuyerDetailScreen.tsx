@@ -51,6 +51,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const noteListRef = useRef<HTMLDivElement | null>(null);
+  const nativeDatePickerRef = useRef<HTMLInputElement | null>(null);
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
   const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
@@ -131,6 +132,25 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     const date = new Date(year, month - 1, day);
     if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return "";
     return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  function formatDateKeyToCustom(value: string) {
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return "";
+    const [, year, month, day] = match;
+    return `${day}.${month}.${year}`;
+  }
+
+  function openNativeDatePicker() {
+    const picker = nativeDatePickerRef.current;
+    if (!picker) return;
+    const pickerWithOptionalShow = picker as HTMLInputElement & { showPicker?: () => void };
+    if (typeof pickerWithOptionalShow.showPicker === "function") {
+      pickerWithOptionalShow.showPicker();
+      return;
+    }
+    picker.focus();
+    picker.click();
   }
 
   async function loadBuyerDetail() {
@@ -825,6 +845,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   </label>
                   {dateFilter === "custom" ? (
                     <label className="ghost buyer-ref-filter-btn buyer-ref-date-input-wrap">
+                      <span className="buyer-ref-filter-leading" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                          <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+                          <path d="M8 2.8v3.4M16 2.8v3.4M3.5 9.5h17" />
+                        </svg>
+                      </span>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -833,6 +859,24 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         aria-label="Secilen tarih"
                         value={selectedDate}
                         onChange={(event) => setSelectedDate(formatCustomDateInput(event.target.value))}
+                      />
+                      <button
+                        className="buyer-ref-date-picker-btn"
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          openNativeDatePicker();
+                        }}
+                      >
+                        {language === "tr" ? "Takvim" : "Calendar"}
+                      </button>
+                      <input
+                        ref={nativeDatePickerRef}
+                        type="date"
+                        className="buyer-ref-native-date-picker"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        onChange={(event) => setSelectedDate(formatDateKeyToCustom(event.target.value))}
                       />
                     </label>
                   ) : null}
