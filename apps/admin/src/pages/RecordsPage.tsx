@@ -20,6 +20,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrderItems, setSelectedOrderItems] = useState<Record<string, unknown>[]>([]);
   const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
+  const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const pageSize = 20;
 
@@ -371,6 +372,56 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     URL.revokeObjectURL(url);
   }
 
+  function downloadOpenOrderDetailAsExcel() {
+    if (!selectedOrder) return;
+    const baseFields = [
+      "__display_id",
+      "buyer_id",
+      "seller_id",
+      "status",
+      "delivery_type",
+      "payment_completed",
+      "total_price",
+      "created_at",
+      "requested_at",
+      "delivery_address_json",
+    ] as const;
+    const baseHeader = baseFields.map((key) => orderColumnLabel(key));
+    const baseRow = baseFields.map((key) => orderCellText(key, key === "__display_id" ? selectedOrder.id : selectedOrder[key]));
+
+    const itemHeaders = selectedOrderItemsColumns.map((column) => orderColumnLabel(column));
+    const itemRows = selectedOrderItems.map((item) => selectedOrderItemsColumns.map((column) => orderCellText(column, item[column])));
+
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+    const lines: string[] = [];
+    lines.push(baseHeader.map(escapeCsv).join(","));
+    lines.push(baseRow.map(escapeCsv).join(","));
+    lines.push("");
+    lines.push((language === "tr" ? "Sipariş Kalemleri" : "Order Items"));
+    if (itemHeaders.length > 0) {
+      lines.push(itemHeaders.map(escapeCsv).join(","));
+      for (const row of itemRows) lines.push(row.map((cell) => escapeCsv(String(cell))).join(","));
+    }
+
+    const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `order-detail-${String(selectedOrder.id ?? "export").slice(0, 12)}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function copyWithFeedback(text: string, key: "order-id" | "uuid") {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopyFeedbackKey(key);
+        window.setTimeout(() => setCopyFeedbackKey((prev) => (prev === key ? "" : prev)), 1100);
+      })
+      .catch(() => undefined);
+  }
+
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -584,12 +635,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                 <div className="records-order-title-wrap">
                   <h3>{language === "tr" ? `Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}` : `Active Order Details: #${toDisplayId(selectedOrderId)}`}</h3>
                   <button
-                    className="ghost records-copy-btn"
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
                     type="button"
-                    onClick={() => navigator.clipboard.writeText(selectedOrderId).catch(() => undefined)}
+                    onClick={() => copyWithFeedback(selectedOrderId, "order-id")}
                     title={language === "tr" ? "Sipariş ID kopyala" : "Copy order ID"}
                   >
-                    ⧉
+                    {copyFeedbackKey === "order-id" ? "✓" : "⧉"}
                   </button>
                 </div>
                 <div className="records-order-status-wrap">
@@ -636,12 +687,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                 <div className="records-order-uuid-row">
                   <span>{language === "tr" ? "UUID" : "UUID"}: {shortUuid(selectedOrderId)}</span>
                   <button
-                    className="ghost records-copy-btn"
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
                     type="button"
-                    onClick={() => navigator.clipboard.writeText(selectedOrderId).catch(() => undefined)}
+                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
                     title={language === "tr" ? "UUID kopyala" : "Copy UUID"}
                   >
-                    ⧉
+                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
                   </button>
                 </div>
               </div>
@@ -676,6 +727,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               )}
             </section>
             <div className="buyer-ops-modal-actions">
+              <button className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel}>
+                {language === "tr" ? "Bu Detayı Excel'e Aktar" : "Export This Detail"}
+              </button>
               <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>
