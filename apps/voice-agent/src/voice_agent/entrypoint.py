@@ -144,6 +144,12 @@ def _build_llm(providers: dict):
     if auth_header:
         api_key = auth_header.removeprefix("Bearer ").strip() or "ollama"
 
+    if not base_url:
+        raise RuntimeError(
+            "No LLM base URL configured. Set llm.baseUrl in admin agent settings "
+            "or set OLLAMA_BASE_URL."
+        )
+
     # Ollama exposes an OpenAI-compatible API at /v1
     openai_base = f"{base_url.rstrip('/')}/v1"
 
