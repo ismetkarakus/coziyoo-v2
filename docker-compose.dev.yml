@@ -83,7 +83,7 @@ services:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip
     command: >
-      bash -lc "pip install -e . && python -m voice_agent.entrypoint"
+      bash -lc "pip install -e . && python -m voice_agent.entrypoint start"
     depends_on:
       - api
 
