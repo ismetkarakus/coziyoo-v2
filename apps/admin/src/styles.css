@@ -5582,6 +5582,21 @@ textarea:focus {
   border-color: color-mix(in srgb, #7d94bc 24%, var(--color-input-border));
 }
 
+.seller-general-filter-item {
+  min-height: 56px;
+}
+
+.seller-general-filter-item > span {
+  background: color-mix(in srgb, #17233f 90%, var(--color-input-bg));
+}
+
+.seller-general-filter-item:has(> input[type="date"]) > span {
+  top: -8px;
+  transform: none;
+  font-size: var(--text-xs);
+  color: var(--color-tertiary-text);
+}
+
 .seller-profile-actions-grid {
   display: flex;
   align-items: center;

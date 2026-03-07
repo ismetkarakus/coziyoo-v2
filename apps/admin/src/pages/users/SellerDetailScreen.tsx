@@ -897,14 +897,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     </button>
                   </div>
                 ) : null}
-                <label>
-                  {language === "tr" ? "Adres" : "Address"}
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{language === "tr" ? "Adres" : "Address"}</span>
                   <input
                     value={newAddressLine}
                     onChange={(event) => {
                       setNewAddressLine(event.target.value);
                       setAddressDirty(true);
                     }}
+                    placeholder=" "
                     disabled={!isSuperAdmin || addressSaving}
                   />
                 </label>
@@ -923,34 +924,34 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </span>
               </div>
               <form className="form-grid seller-general-form" onSubmit={onSave} onKeyDown={onEnterSubmit}>
-                <label>
-                  {language === "tr" ? "Görünen Ad" : "Display Name"}
-                  <input name="displayName" defaultValue={String(row.displayName ?? "")} disabled={!isSuperAdmin} required minLength={3} />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{language === "tr" ? "Görünen Ad" : "Display Name"}</span>
+                  <input name="displayName" defaultValue={String(row.displayName ?? "")} placeholder=" " disabled={!isSuperAdmin} required minLength={3} />
                 </label>
-                <label>
-                  {dict.auth.email}
-                  <input name="email" type="email" defaultValue={String(row.email ?? "")} disabled={!isSuperAdmin} required />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{dict.auth.email}</span>
+                  <input name="email" type="email" defaultValue={String(row.email ?? "")} placeholder=" " disabled={!isSuperAdmin} required />
                 </label>
-                <label>
-                  {language === "tr" ? "Ad Soyad" : "Full Name"}
-                  <input name="fullName" defaultValue={String(row.fullName ?? "")} disabled={!isSuperAdmin} />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{language === "tr" ? "Ad Soyad" : "Full Name"}</span>
+                  <input name="fullName" defaultValue={String(row.fullName ?? "")} placeholder=" " disabled={!isSuperAdmin} />
                 </label>
-                <label>
-                  {language === "tr" ? "Telefon" : "Phone"}
-                  <input name="phone" defaultValue={String(row.phone ?? "")} disabled={!isSuperAdmin} />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{language === "tr" ? "Telefon" : "Phone"}</span>
+                  <input name="phone" defaultValue={String(row.phone ?? "")} placeholder=" " disabled={!isSuperAdmin} />
                 </label>
-                <label>
-                  {language === "tr" ? "Doğum Tarihi" : "Date of Birth"}
-                  <input name="dob" type="date" defaultValue={String(row.dob ?? "").slice(0, 10)} disabled={!isSuperAdmin} />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{language === "tr" ? "Doğum Tarihi" : "Date of Birth"}</span>
+                  <input name="dob" type="date" defaultValue={String(row.dob ?? "").slice(0, 10)} placeholder=" " disabled={!isSuperAdmin} />
                 </label>
-                <label>
-                  {language === "tr" ? "Ülke Kodu" : "Country Code"}
-                  <input name="countryCode" maxLength={3} defaultValue={String(row.countryCode ?? "")} disabled={!isSuperAdmin} />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{language === "tr" ? "Ülke Kodu" : "Country Code"}</span>
+                  <input name="countryCode" maxLength={3} defaultValue={String(row.countryCode ?? "")} placeholder=" " disabled={!isSuperAdmin} />
                 </label>
                 <input type="hidden" name="profileImageUrl" value={String(row.profileImageUrl ?? row.profile_image_url ?? "")} />
-                <label>
-                  {dict.detail.passwordOptional}
-                  <input name="password" type="password" disabled={!isSuperAdmin} />
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                  <span>{dict.detail.passwordOptional}</span>
+                  <input name="password" type="password" placeholder=" " disabled={!isSuperAdmin} />
                 </label>
                 <div className="seller-profile-actions-grid">
                   <button
