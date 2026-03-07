@@ -31,6 +31,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [addresses, setAddresses] = useState<SellerAddressRow[]>([]);
   const [addressSaving, setAddressSaving] = useState(false);
   const [newAddressLine, setNewAddressLine] = useState("");
+  const [addressDirty, setAddressDirty] = useState(false);
+  const [identityViewerOpen, setIdentityViewerOpen] = useState(false);
+  const [identityViewerUrl, setIdentityViewerUrl] = useState<string | null>(null);
   const [sellerOrders, setSellerOrders] = useState<
     Array<{
       orderId: string;
@@ -195,7 +198,16 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setAddresses([]);
     setAddressSaving(false);
     setNewAddressLine("");
+    setAddressDirty(false);
+    setIdentityViewerOpen(false);
+    setIdentityViewerUrl(null);
   }, [id]);
+
+  useEffect(() => {
+    if (addressDirty) return;
+    const selected = addresses.find((item) => item.isDefault) ?? addresses[0] ?? null;
+    setNewAddressLine(String(selected?.addressLine ?? ""));
+  }, [addresses, addressDirty]);
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -271,21 +283,32 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
     setAddressSaving(true);
     setMessage(null);
+    const currentAddress = addresses.find((item) => item.isDefault) ?? addresses[0] ?? null;
     try {
-      const response = await request(`/v1/admin/users/${id}/addresses`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: language === "tr" ? "Adres" : "Address",
-          addressLine,
-          isDefault: false,
-        }),
-      });
-      if (response.status !== 201) {
+      const response = currentAddress
+        ? await request(`/v1/admin/users/${id}/addresses/${currentAddress.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              title: currentAddress.title || (language === "tr" ? "Adres" : "Address"),
+              addressLine,
+              isDefault: currentAddress.isDefault,
+            }),
+          })
+        : await request(`/v1/admin/users/${id}/addresses`, {
+            method: "POST",
+            body: JSON.stringify({
+              title: language === "tr" ? "Adres" : "Address",
+              addressLine,
+              isDefault: false,
+            }),
+          });
+      const successCode = currentAddress ? 200 : 201;
+      if (response.status !== successCode) {
         const body = await parseJson<ApiError>(response);
         setMessage(body.error?.message ?? dict.detail.requestFailed);
         return;
       }
-      setNewAddressLine("");
+      setAddressDirty(false);
       await loadSellerDetail();
       setMessage(dict.common.saved);
     } catch {
@@ -458,6 +481,41 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return Array.from(map.values());
   })();
   const optionalUploads = [...(compliance?.optionalUploads ?? [])].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const identityDocuments = (() => {
+    const isIdentityCode = (value: string) => {
+      const code = value.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+      return (
+        code.includes("kimlik") ||
+        code.includes("identity") ||
+        code.includes("id_card") ||
+        code.includes("idcard") ||
+        code.includes("passport") ||
+        code.includes("selfie")
+      );
+    };
+    const fromLegal = legalDocuments
+      .filter((row) => Boolean(row.file_url) && (isIdentityCode(row.code) || isIdentityCode(row.name)))
+      .map((row) => ({
+        id: row.id,
+        label: row.name,
+        url: String(row.file_url),
+      }));
+    const fromOptional = optionalUploads
+      .filter((row) => {
+        const title = `${row.catalog_doc_name ?? ""} ${row.custom_title ?? ""} ${row.catalog_doc_code ?? ""}`;
+        return Boolean(row.file_url) && isIdentityCode(title);
+      })
+      .map((row) => ({
+        id: `optional-${row.id}`,
+        label: row.catalog_doc_name ?? row.custom_title ?? (language === "tr" ? "Kimlik Dosyası" : "Identity File"),
+        url: row.file_url,
+      }));
+    return [...fromLegal, ...fromOptional];
+  })();
+  const selectedIdentityDocument =
+    identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
+  const profileImageUrlValue = String(row.profileImageUrl ?? row.profile_image_url ?? "").trim();
+  const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSaving(true);
@@ -801,12 +859,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {language === "tr" ? "Adres" : "Address"}
                   <input
                     value={newAddressLine}
-                    onChange={(event) => setNewAddressLine(event.target.value)}
+                    onChange={(event) => {
+                      setNewAddressLine(event.target.value);
+                      setAddressDirty(true);
+                    }}
                     disabled={!isSuperAdmin || addressSaving}
                   />
                 </label>
                 <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
-                  {language === "tr" ? "Adres Ekle" : "Add Address"}
+                  {addresses.length > 0 ? (language === "tr" ? "Adresi Güncelle" : "Update Address") : language === "tr" ? "Adres Ekle" : "Add Address"}
                 </button>
               </form>
             </article>
@@ -848,6 +909,23 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {language === "tr" ? "Profil Görsel URL" : "Profile Image URL"}
                   <input name="profileImageUrl" defaultValue={String(row.profileImageUrl ?? row.profile_image_url ?? "")} disabled={!isSuperAdmin} />
                 </label>
+                {profileImageUrlValue ? (
+                  <div className="seller-link-actions">
+                    <a href={profileImageUrlValue} target="_blank" rel="noreferrer">
+                      {language === "tr" ? "Profil Görselini Aç" : "Open Profile Image"}
+                    </a>
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() => {
+                        setIdentityViewerUrl(identityDocuments[0]?.url ?? null);
+                        setIdentityViewerOpen(true);
+                      }}
+                    >
+                      {language === "tr" ? "Kimlik Dosyalarını Gör" : "View Identity Files"}
+                    </button>
+                  </div>
+                ) : null}
                 <label>
                   {dict.detail.passwordOptional}
                   <input name="password" type="password" disabled={!isSuperAdmin} />
@@ -861,6 +939,52 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
           </div>
         </section>
+      ) : null}
+      {identityViewerOpen ? (
+        <div className="buyer-ops-modal-backdrop">
+          <div className="buyer-ops-modal seller-doc-viewer-modal">
+            <h3>{language === "tr" ? "Kimlik Dosyaları" : "Identity Files"}</h3>
+            {identityDocuments.length === 0 ? (
+              <p className="panel-meta">{language === "tr" ? "Kimlik dosyası bulunamadı." : "No identity files found."}</p>
+            ) : (
+              <div className="seller-doc-viewer-grid">
+                <div className="seller-doc-viewer-list">
+                  {identityDocuments.map((doc) => (
+                    <button
+                      key={doc.id}
+                      className={`ghost ${doc.url === selectedIdentityDocument?.url ? "is-active" : ""}`}
+                      type="button"
+                      onClick={() => setIdentityViewerUrl(doc.url)}
+                    >
+                      {doc.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="seller-doc-viewer-preview">
+                  {selectedIdentityDocument ? (
+                    selectedIdentityDocumentIsPdf ? (
+                      <iframe src={selectedIdentityDocument.url} title={selectedIdentityDocument.label} />
+                    ) : (
+                      <img src={selectedIdentityDocument.url} alt={selectedIdentityDocument.label} />
+                    )
+                  ) : (
+                    <p className="panel-meta">{language === "tr" ? "Görüntülenecek dosya yok." : "No file to preview."}</p>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="buyer-ops-modal-actions">
+              {selectedIdentityDocument ? (
+                <a className="ghost" href={selectedIdentityDocument.url} target="_blank" rel="noreferrer">
+                  {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
+                </a>
+              ) : null}
+              <button className="primary" type="button" onClick={() => setIdentityViewerOpen(false)}>
+                {language === "tr" ? "Kapat" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {activeTab === "identity" ? (

@@ -5573,6 +5573,20 @@ textarea:focus {
   border-color: color-mix(in srgb, #7d94bc 24%, var(--color-input-border));
 }
 
+.seller-link-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -2px;
+}
+
+.seller-link-actions a {
+  color: #9fd6ff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 0.9rem;
+}
+
 .seller-address-list {
   display: grid;
   gap: 10px;
@@ -5627,6 +5641,70 @@ textarea:focus {
 
 .seller-address-inline-create .primary {
   justify-self: start;
+}
+
+.seller-doc-viewer-modal {
+  width: min(980px, 92vw);
+}
+
+.seller-doc-viewer-grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.seller-doc-viewer-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.seller-doc-viewer-list .ghost {
+  width: 100%;
+  text-align: left;
+}
+
+.seller-doc-viewer-list .ghost.is-active {
+  border-color: color-mix(in srgb, #70beff 55%, var(--color-border));
+  background: color-mix(in srgb, #70beff 18%, transparent);
+}
+
+.seller-doc-viewer-preview {
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 12px;
+  min-height: 420px;
+  overflow: hidden;
+  background: color-mix(in srgb, #0a1327 86%, transparent);
+  display: grid;
+  place-items: center;
+}
+
+.seller-doc-viewer-preview iframe {
+  width: 100%;
+  min-height: 420px;
+  border: 0;
+}
+
+.seller-doc-viewer-preview img {
+  width: 100%;
+  height: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .seller-doc-viewer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .seller-doc-viewer-list {
+    max-height: 220px;
+  }
 }
 
 .seller-food-grid {
