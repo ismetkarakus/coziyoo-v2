@@ -852,7 +852,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
                   title={language === "tr" ? "Customer ID kopyala" : "Copy customer ID"}
                 >
-                  <span>{language === "tr" ? "Customer ID" : "Customer ID"}: <strong>{toDisplayId(row.id)}</strong></span>
+                  <span className="seller-id-line-text">
+                    <span className="seller-id-line-label">{language === "tr" ? "Customer ID" : "Customer ID"}:</span>
+                    <strong className="seller-id-line-value">{toDisplayId(row.id)}</strong>
+                  </span>
                   <span aria-hidden="true">⧉</span>
                 </button>
                 <button
@@ -861,7 +864,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
                   title={language === "tr" ? "UUID kopyala" : "Copy UUID"}
                 >
-                  <span>{language === "tr" ? "Kullanıcı UUID" : "User UUID"}: <strong>{String(row.id ?? "-")}</strong></span>
+                  <span className="seller-id-line-text">
+                    <span className="seller-id-line-label">{language === "tr" ? "Kullanıcı UUID" : "User UUID"}:</span>
+                    <strong className="seller-id-line-value">{String(row.id ?? "-")}</strong>
+                  </span>
                   <span aria-hidden="true">⧉</span>
                 </button>
               </div>

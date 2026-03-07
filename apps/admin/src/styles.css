@@ -5445,12 +5445,12 @@ textarea:focus {
 
 .seller-general-kv span {
   color: color-mix(in srgb, var(--color-text) 66%, #b8c7e1);
-  font-size: clamp(0.95rem, 1vw, 1.22rem);
+  font-size: clamp(0.98rem, 1.02vw, 1.1rem);
 }
 
 .seller-general-kv strong {
   word-break: break-word;
-  font-size: clamp(1.35rem, 1.5vw, 2rem);
+  font-size: clamp(1.18rem, 1.25vw, 1.45rem);
   line-height: 1.1;
 }
 
@@ -5473,8 +5473,21 @@ textarea:focus {
   text-align: left;
 }
 
-.seller-id-line strong {
-  font-size: clamp(1.5rem, 1.8vw, 2.2rem);
+.seller-id-line-text {
+  display: inline-grid;
+  gap: 2px;
+}
+
+.seller-id-line-label {
+  font-size: clamp(1rem, 1.04vw, 1.12rem);
+  color: color-mix(in srgb, var(--color-text) 78%, #c4d0e7);
+  font-weight: var(--font-semibold);
+}
+
+.seller-id-line-value {
+  font-size: clamp(1.22rem, 1.3vw, 1.45rem);
+  line-height: 1.15;
+  word-break: break-word;
 }
 
 .seller-inline-status {
