@@ -157,6 +157,13 @@ const BuyerTagBodySchema = z.object({
 const BuyerNotesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
 });
+const BuyerNoteParamsSchema = z.object({
+  id: z.string().uuid(),
+  noteId: z.string().uuid(),
+});
+const BuyerNoteUpdateBodySchema = z.object({
+  note: z.string().min(1).max(2000),
+});
 
 const DISPLAY_ID_LENGTH = 10;
 
@@ -1756,6 +1763,67 @@ adminUserManagementRouter.post("/buyers/:id/notes", requireAuth("admin"), async 
       createdAt: inserted.rows[0]?.created_at,
     },
   });
+});
+
+adminUserManagementRouter.patch("/buyers/:id/notes/:noteId", requireAuth("admin"), async (req, res) => {
+  const params = BuyerNoteParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerNoteUpdateBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const updated = await pool.query<{ id: string; note: string; created_at: string }>(
+    `UPDATE buyer_notes
+     SET note = $3
+     WHERE buyer_id = $1 AND id = $2
+     RETURNING id, note, created_at::text`,
+    [params.data.id, params.data.noteId, parsed.data.note.trim()]
+  );
+
+  if (updated.rowCount === 0) {
+    return res.status(404).json({ error: { code: "NOTE_NOT_FOUND", message: "Note not found" } });
+  }
+
+  return res.json({
+    data: {
+      id: updated.rows[0]?.id,
+      note: updated.rows[0]?.note,
+      createdAt: updated.rows[0]?.created_at,
+    },
+  });
+});
+
+adminUserManagementRouter.delete("/buyers/:id/notes/:noteId", requireAuth("admin"), async (req, res) => {
+  const params = BuyerNoteParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const deleted = await pool.query<{ id: string }>(
+    `DELETE FROM buyer_notes
+     WHERE buyer_id = $1 AND id = $2
+     RETURNING id`,
+    [params.data.id, params.data.noteId]
+  );
+
+  if (deleted.rowCount === 0) {
+    return res.status(404).json({ error: { code: "NOTE_NOT_FOUND", message: "Note not found" } });
+  }
+
+  return res.status(204).send();
 });
 
 adminUserManagementRouter.get("/buyers/:id/tags", requireAuth("admin"), async (req, res) => {

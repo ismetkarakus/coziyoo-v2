@@ -12,6 +12,12 @@ import type { BuyerDetailTab } from "../../types/users";
 import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerDetail, BuyerContactInfo, BuyerLoginLocation, BuyerOrderRow, BuyerCancellationRow, BuyerReviewRow, BuyerSummaryMetrics, BuyerPagination } from "../../types/buyer";
 
+type BuyerNoteItem = {
+  id: string;
+  note: string;
+  createdAt: string;
+};
+
 function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionary; language: Language }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,11 +47,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [orderSearch, setOrderSearch] = useState("");
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
-  const [noteItems, setNoteItems] = useState<string[]>([
-    "Alıcıyla son ödeme konusunda iletişime geçildi.",
-    "Siparişlerde teslimat notu: kapı zili bozuk.",
-  ]);
+  const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
+  const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteValue, setEditingNoteValue] = useState("");
 
   function paymentBadge(status: string) {
     const normalized = status.toLowerCase();
@@ -169,7 +175,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       if (notesResponse.status === 200) {
         const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string }> }>(notesResponse);
-        setNoteItems(body.data.map((item) => item.note));
+        setNoteItems(body.data);
       } else {
         setNoteItems([]);
       }
@@ -318,7 +324,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     reviews,
     cancellations,
     loginLocations: locations,
-    notes: noteItems,
+    notes: noteItems.map((item) => item.note),
     tags: tagItems,
   };
 
@@ -426,7 +432,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         body: JSON.stringify({ note: trimmed }),
       });
       if (response.status >= 200 && response.status < 300) {
-        setNoteItems((prev) => [trimmed, ...prev]);
+        const body = await parseJson<{ data?: BuyerNoteItem } & ApiError>(response);
+        if (body.data?.id) {
+          setNoteItems((prev) => [body.data as BuyerNoteItem, ...prev]);
+        } else {
+          await loadBuyerDetail();
+        }
         setNoteInput("");
       } else {
         setMessage("Not kaydedilemedi.");
@@ -454,6 +465,51 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       }
     } catch {
       setMessage("Etiket kaydedilemedi.");
+    }
+  }
+
+  async function deleteNote(noteId: string) {
+    try {
+      const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, { method: "DELETE" });
+      if (response.status === 204) {
+        setNoteItems((prev) => prev.filter((item) => item.id !== noteId));
+        setOpenNoteMenuId(null);
+        if (editingNoteId === noteId) {
+          setEditingNoteId(null);
+          setEditingNoteValue("");
+        }
+        return;
+      }
+      setMessage("Not silinemedi.");
+    } catch {
+      setMessage("Not silinemedi.");
+    }
+  }
+
+  async function saveEditedNote(noteId: string) {
+    const trimmed = editingNoteValue.trim();
+    if (!trimmed) {
+      setMessage("Not bos olamaz.");
+      return;
+    }
+    try {
+      const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ note: trimmed }),
+      });
+      if (response.status === 200) {
+        const body = await parseJson<{ data?: BuyerNoteItem } & ApiError>(response);
+        if (body.data?.id) {
+          setNoteItems((prev) => prev.map((item) => (item.id === noteId ? (body.data as BuyerNoteItem) : item)));
+        }
+        setEditingNoteId(null);
+        setEditingNoteValue("");
+        setOpenNoteMenuId(null);
+        return;
+      }
+      setMessage("Not guncellenemedi.");
+    } catch {
+      setMessage("Not guncellenemedi.");
     }
   }
 
@@ -787,9 +843,56 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   {noteItems.length === 0 ? (
                     <p className="panel-meta">Henüz not yok.</p>
                   ) : (
-                    noteItems.map((note, index) => (
-                      <article key={`main-note-${index}`} className="buyer-ref-note-item">
-                        <p>{note}</p>
+                    noteItems.map((note) => (
+                      <article
+                        key={`main-note-${note.id}`}
+                        className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""}`}
+                        onClick={() => setOpenNoteMenuId((prev) => (prev === note.id ? null : note.id))}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setOpenNoteMenuId((prev) => (prev === note.id ? null : note.id));
+                          }
+                        }}
+                      >
+                        {editingNoteId === note.id ? (
+                          <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
+                            <input
+                              value={editingNoteValue}
+                              onChange={(event) => setEditingNoteValue(event.target.value)}
+                            />
+                            <button className="ghost" type="button" onClick={() => saveEditedNote(note.id)}>Kaydet</button>
+                            <button
+                              className="ghost"
+                              type="button"
+                              onClick={() => {
+                                setEditingNoteId(null);
+                                setEditingNoteValue("");
+                              }}
+                            >
+                              Vazgec
+                            </button>
+                          </div>
+                        ) : (
+                          <p>{note.note}</p>
+                        )}
+                        {editingNoteId !== note.id && openNoteMenuId === note.id ? (
+                          <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
+                            <button
+                              className="ghost"
+                              type="button"
+                              onClick={() => {
+                                setEditingNoteId(note.id);
+                                setEditingNoteValue(note.note);
+                              }}
+                            >
+                              Duzenle
+                            </button>
+                            <button className="ghost is-danger" type="button" onClick={() => deleteNote(note.id)}>Sil</button>
+                          </div>
+                        ) : null}
                       </article>
                     ))
                   )}
