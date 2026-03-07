@@ -3577,6 +3577,13 @@ textarea:focus {
   padding-inline: 10px;
 }
 
+.buyer-ref-notes-card .buyer-ops-note-form .ghost.is-active {
+  color: #eaf1ff;
+  border-color: color-mix(in srgb, #7fa2ff 62%, var(--ops-border-default));
+  background: color-mix(in srgb, #2b4680 62%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
 .buyer-ref-notes-card .buyer-ops-note-form input {
   min-height: 48px;
   border-radius: 12px;

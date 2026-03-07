@@ -42,6 +42,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
   const [emailBody, setEmailBody] = useState("Merhaba,");
   const [noteInput, setNoteInput] = useState("");
+  const [sidebarNoteMode, setSidebarNoteMode] = useState<"note" | "tag">("note");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState("");
@@ -687,11 +688,35 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 value={noteInput}
                 onChange={(event) => setNoteInput(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") addNote();
+                  if (event.key === "Enter") {
+                    if (sidebarNoteMode === "tag") {
+                      addTag();
+                    } else {
+                      addNote();
+                    }
+                  }
                 }}
               />
-              <button className="ghost" type="button" onClick={addNote}>Not</button>
-              <button className="ghost" type="button" onClick={addTag}>Etiket</button>
+              <button
+                className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
+                type="button"
+                onClick={() => {
+                  setSidebarNoteMode("note");
+                  addNote();
+                }}
+              >
+                Not
+              </button>
+              <button
+                className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
+                type="button"
+                onClick={() => {
+                  setSidebarNoteMode("tag");
+                  addTag();
+                }}
+              >
+                Etiket
+              </button>
             </div>
             <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etikes</p>
           </section>
