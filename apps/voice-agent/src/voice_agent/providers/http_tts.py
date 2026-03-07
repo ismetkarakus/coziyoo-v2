@@ -14,7 +14,7 @@ import wave
 
 import aiohttp
 from livekit import rtc
-from livekit.agents.tts import ChunkedStream, SynthesizedAudio, TTS, TTSCapabilities
+from livekit.agents.tts import ChunkedStream, TTS, TTSCapabilities
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS, APIConnectOptions
 
 logger = logging.getLogger("coziyoo-voice-agent.http-tts")
@@ -87,7 +87,7 @@ class HttpTTSChunkedStream(ChunkedStream):
         super().__init__(tts=tts, input_text=input_text, conn_options=conn_options)
         self._tts = tts
 
-    async def _main_task(self) -> None:
+    async def _run(self, output_emitter) -> None:
         request_id = str(uuid.uuid4())
         url = f"{self._tts._base_url}{self._tts._synth_path}"
         if self._tts._query_params:
@@ -111,14 +111,15 @@ class HttpTTSChunkedStream(ChunkedStream):
 
                 audio_bytes = await resp.read()
                 frame = _decode_audio(audio_bytes, self._tts._sample_rate, self._tts._num_channels)
-
-                self._event_ch.send_nowait(
-                    SynthesizedAudio(
-                        frame=frame,
-                        request_id=request_id,
-                        is_final=True,
-                    )
+                output_emitter.initialize(
+                    request_id=request_id,
+                    sample_rate=frame.sample_rate,
+                    num_channels=frame.num_channels,
+                    mime_type="audio/pcm",
+                    stream=False,
                 )
+                output_emitter.push(frame.data.tobytes())
+                output_emitter.flush()
         except Exception:
             logger.exception("TTS synthesis failed for url=%s", url)
             raise

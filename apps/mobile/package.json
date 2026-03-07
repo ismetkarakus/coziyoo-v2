@@ -10,8 +10,8 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
-    "@livekit/react-native": "^2.3.2",
-    "@livekit/react-native-webrtc": "^125.0.10",
+    "@livekit/react-native": "2.9.6",
+    "@livekit/react-native-webrtc": "137.0.2",
     "expo": "~52.0.46",
     "fast-text-encoding": "^1.0.6",
     "livekit-client": "^2.9.4",
