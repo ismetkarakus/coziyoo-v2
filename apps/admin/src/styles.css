@@ -5084,6 +5084,12 @@ textarea:focus {
   line-height: 1.2;
 }
 
+.seller-hero-stats article:last-child strong {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: 1.2;
+}
+
 .seller-tabs-panel {
   overflow-x: auto;
   overflow-y: hidden;
