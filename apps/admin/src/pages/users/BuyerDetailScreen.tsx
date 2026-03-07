@@ -48,11 +48,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [orderSearch, setOrderSearch] = useState("");
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
+  const noteListRef = useRef<HTMLDivElement | null>(null);
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
   const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
 
   function paymentBadge(status: string) {
     const normalized = status.toLowerCase();
@@ -221,10 +223,17 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       if (actionMenuOpen && actionMenuWrapRef.current && !actionMenuWrapRef.current.contains(target)) {
         setActionMenuOpen(false);
       }
+      if (openNoteMenuId && noteListRef.current && !noteListRef.current.contains(target)) {
+        if (editingNoteId) {
+          saveEditedNote(editingNoteId).catch(() => undefined);
+        } else {
+          setOpenNoteMenuId(null);
+        }
+      }
     };
     document.addEventListener("mousedown", onDocumentMouseDown);
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [quickContactMenuOpen, actionMenuOpen]);
+  }, [quickContactMenuOpen, actionMenuOpen, openNoteMenuId, editingNoteId]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
@@ -499,11 +508,20 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }
 
   async function saveEditedNote(noteId: string) {
+    if (savingNoteId === noteId) return;
     const trimmed = editingNoteValue.trim();
     if (!trimmed) {
       setMessage("Not bos olamaz.");
       return;
     }
+    const current = noteItems.find((item) => item.id === noteId);
+    if (current && current.note.trim() === trimmed) {
+      setEditingNoteId(null);
+      setEditingNoteValue("");
+      setOpenNoteMenuId(null);
+      return;
+    }
+    setSavingNoteId(noteId);
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, {
         method: "PATCH",
@@ -522,6 +540,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       setMessage("Not guncellenemedi.");
     } catch {
       setMessage("Not guncellenemedi.");
+    } finally {
+      setSavingNoteId(null);
     }
   }
 
@@ -864,7 +884,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             {activeTab === "notes" ? (
               <div className="buyer-ref-main-notes">
                 <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={`main-${tag}`} className="buyer-ops-tag">{tag}</span>)}</div>
-                <div className="buyer-ref-note-list">
+                <div className="buyer-ref-note-list" ref={noteListRef}>
                   {noteItems.length === 0 ? (
                     <p className="panel-meta">Henüz not yok.</p>
                   ) : (
@@ -872,13 +892,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <article
                         key={`main-note-${note.id}`}
                         className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""}`}
-                        onClick={() => setOpenNoteMenuId((prev) => (prev === note.id ? null : note.id))}
+                        onClick={() => setOpenNoteMenuId(note.id)}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            setOpenNoteMenuId((prev) => (prev === note.id ? null : note.id));
+                            setOpenNoteMenuId(note.id);
                           }
                         }}
                       >
@@ -887,18 +907,16 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                             <input
                               value={editingNoteValue}
                               onChange={(event) => setEditingNoteValue(event.target.value)}
-                            />
-                            <button className="ghost" type="button" onClick={() => saveEditedNote(note.id)}>Kaydet</button>
-                            <button
-                              className="ghost"
-                              type="button"
-                              onClick={() => {
-                                setEditingNoteId(null);
-                                setEditingNoteValue("");
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  saveEditedNote(note.id).catch(() => undefined);
+                                }
                               }}
-                            >
-                              Vazgec
-                            </button>
+                              onBlur={() => {
+                                saveEditedNote(note.id).catch(() => undefined);
+                              }}
+                            />
                           </div>
                         ) : (
                           <p>{note.note}</p>

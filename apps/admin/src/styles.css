@@ -3608,9 +3608,7 @@ textarea:focus {
 }
 
 .buyer-ref-note-edit-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  display: block;
 }
 
 .buyer-ref-note-actions .ghost,
