@@ -35,7 +35,39 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
   const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
   const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
+  const [selectedFood, setSelectedFood] = useState<{
+    id: string;
+    name: string;
+    sellerId: string;
+    isActive: boolean;
+    price: number;
+    updatedAt: string;
+    recipe: string | null;
+    ingredientsJson: unknown;
+    allergensJson: unknown;
+  } | null>(null);
   const pageSize = 20;
+
+  const toPrettyJson = (value: unknown) => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "string") {
+      const text = value.trim();
+      if (!text) return "-";
+      if (text.startsWith("{") || text.startsWith("[")) {
+        try {
+          return JSON.stringify(JSON.parse(text), null, 2);
+        } catch {
+          return text;
+        }
+      }
+      return text;
+    }
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -226,7 +258,13 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   const foodExpanded = Boolean(expandedFoodIds[food.id]);
                   return (
                     <Fragment key={food.id}>
-                      <tr>
+                      <tr
+                        className="foods-main-row"
+                        onClick={() => {
+                          setSelectedFood(food);
+                          if (!lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) void loadFoodLots(food.id);
+                        }}
+                      >
                         <td>{toDisplayId(food.id)}</td>
                         <td>
                           <strong>{food.name}</strong>
@@ -250,7 +288,8 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                           <button
                             className="ghost"
                             type="button"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
                               const next = !foodExpanded;
                               setExpandedFoodIds((prev) => ({ ...prev, [food.id]: next }));
                               if (next && !lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) {
@@ -412,6 +451,85 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           </div>
         </div>
       </section>
+      {selectedFood ? (
+        <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedFood(null)}>
+          <div className="buyer-ops-modal foods-detail-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{language === "tr" ? "Yemek Detayı" : "Food Details"}</h3>
+            <div className="foods-detail-grid">
+              <div>
+                <span className="panel-meta">ID</span>
+                <strong>{selectedFood.id}</strong>
+              </div>
+              <div>
+                <span className="panel-meta">{dict.detail.foodName}</span>
+                <strong>{selectedFood.name}</strong>
+              </div>
+              <div>
+                <span className="panel-meta">{dict.detail.foodSeller}</span>
+                <strong>{sellerNameById[selectedFood.sellerId] ?? toDisplayId(selectedFood.sellerId)}</strong>
+              </div>
+              <div>
+                <span className="panel-meta">{dict.detail.foodStatus}</span>
+                <strong>{selectedFood.isActive ? dict.common.active : dict.common.disabled}</strong>
+              </div>
+              <div>
+                <span className="panel-meta">{dict.detail.foodPrice}</span>
+                <strong>{formatCurrency(selectedFood.price, language)}</strong>
+              </div>
+              <div>
+                <span className="panel-meta">{dict.detail.updatedAtLabel}</span>
+                <strong>{formatUiDate(selectedFood.updatedAt, language)}</strong>
+              </div>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
+              <pre>{toPrettyJson(selectedFood.recipe)}</pre>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "İçerikler" : "Ingredients"}</h4>
+              <pre>{toPrettyJson(selectedFood.ingredientsJson)}</pre>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Alerjenler" : "Allergens"}</h4>
+              <pre>{toPrettyJson(selectedFood.allergensJson)}</pre>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Lot Özeti" : "Lots Summary"}</h4>
+              {(lotsByFoodId[selectedFood.id] ?? []).length === 0 ? (
+                <p className="panel-meta">{dict.detail.noLotsForFood}</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{dict.detail.lotNumber}</th>
+                        <th>{dict.detail.lotLifecycle}</th>
+                        <th>{dict.detail.lotQuantity}</th>
+                        <th>{dict.detail.lotProducedAt}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(lotsByFoodId[selectedFood.id] ?? []).map((lot) => (
+                        <tr key={`modal-lot-${lot.id}`}>
+                          <td>{lot.lot_number}</td>
+                          <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
+                          <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
+                          <td>{formatUiDate(lot.produced_at, language)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="buyer-ops-modal-actions">
+              <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
+                {language === "tr" ? "Kapat" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -6093,8 +6093,62 @@ textarea:focus {
   vertical-align: top;
 }
 
+.foods-main-row {
+  cursor: pointer;
+}
+
+.foods-main-row:hover td {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-card-bg));
+}
+
 .foods-lots-expanded-row td {
   background: color-mix(in srgb, var(--color-card-bg) 76%, transparent);
+}
+
+.foods-detail-modal {
+  width: min(940px, calc(100vw - 72px));
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+}
+
+.foods-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.foods-detail-grid > div {
+  border: 1px solid color-mix(in srgb, #6f84b4 22%, var(--color-border));
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.foods-detail-grid strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.foods-detail-text-block {
+  display: grid;
+  gap: 8px;
+}
+
+.foods-detail-text-block h4 {
+  margin: 0;
+}
+
+.foods-detail-text-block pre {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, #0f1a34 80%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow: auto;
 }
 
 .lot-summary-cell {
