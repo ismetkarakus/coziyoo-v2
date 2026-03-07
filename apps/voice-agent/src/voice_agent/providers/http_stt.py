@@ -124,6 +124,8 @@ class HttpSTT(STT):
                     type(parsed).__name__,
                     payload[:200],
                 )
+            else:
+                logger.info("STT transcript received chars=%d preview=%s", len(text), text[:120])
 
         return SpeechEvent(
             type=SpeechEventType.FINAL_TRANSCRIPT,
