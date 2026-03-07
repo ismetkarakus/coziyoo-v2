@@ -1157,7 +1157,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <h2>{dict.detail.sellerTabs.wallet}</h2>
           </div>
           <div className="seller-detail-filter-row">
-            <label className="ghost seller-detail-filter-item">
+            <label className="ghost seller-detail-filter-item seller-detail-date-field">
               <span>{language === "tr" ? "Dönem" : "Period"}</span>
               <select value={earningsDateFilter} onChange={(event) => setEarningsDateFilter(event.target.value as typeof earningsDateFilter)}>
                 <option value="all">{language === "tr" ? "Tüm Zamanlar" : "All Time"}</option>
