@@ -3325,10 +3325,13 @@ textarea:focus {
 }
 
 .buyer-ref-export-btn {
-  min-height: 46px;
-  border-radius: 12px;
-  padding-inline: 16px;
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+  line-height: 1.15;
   white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .buyer-ref-main-panel th {
@@ -5607,10 +5610,13 @@ textarea:focus {
 }
 
 .seller-detail-export-btn {
-  min-height: 44px;
-  border-radius: 12px;
-  padding-inline: 16px;
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+  line-height: 1.15;
   white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .seller-wallet-table-wrap tbody td:nth-child(5) {
