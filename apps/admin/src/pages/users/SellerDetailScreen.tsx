@@ -2021,7 +2021,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 }}
               />
               <button
-                className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
+                className={`ghost seller-note-mode-btn ${sidebarNoteMode === "note" ? "is-active" : ""}`}
                 type="button"
                 onClick={() => {
                   setSidebarNoteMode("note");
@@ -2031,7 +2031,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 {language === "tr" ? "Not Ekle" : "Add Note"}
               </button>
               <button
-                className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
+                className={`ghost seller-note-mode-btn is-tag-mode ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
                 type="button"
                 onClick={() => {
                   setSidebarNoteMode("tag");

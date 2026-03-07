@@ -3725,31 +3725,54 @@ textarea:focus {
 }
 
 .seller-notes-panel .buyer-ops-note-form input {
-  min-height: 48px;
-  border-radius: 12px;
-  border-color: color-mix(in srgb, #6f84bf 32%, var(--ops-border-default));
-  background: color-mix(in srgb, #111a34 86%, transparent);
+  min-height: 42px;
+  border-radius: 10px;
+  border-color: color-mix(in srgb, #6f84bf 38%, var(--ops-border-default));
+  background: color-mix(in srgb, #0f1831 92%, transparent);
+  color: color-mix(in srgb, var(--ops-text-primary) 96%, white);
+}
+
+.seller-notes-panel .buyer-ops-note-form input::placeholder {
+  color: color-mix(in srgb, #8ea3d3 78%, transparent);
 }
 
 .seller-notes-panel .buyer-ops-note-form .ghost {
   min-height: 36px;
-  padding-inline: 10px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  font-size: var(--text-sm);
 }
 
-.seller-notes-panel .buyer-ops-note-form .ghost.is-active {
+.seller-notes-panel .buyer-ops-note-form .seller-note-mode-btn {
+  border-color: color-mix(in srgb, #5f76ad 30%, var(--ops-border-default));
+  background: color-mix(in srgb, #1a2748 55%, transparent);
+}
+
+.seller-notes-panel .buyer-ops-note-form .seller-note-mode-btn.is-tag-mode {
+  border-color: color-mix(in srgb, #9f7b3c 34%, var(--ops-border-default));
+  background: color-mix(in srgb, #4f3b1d 44%, transparent);
+}
+
+.seller-notes-panel .buyer-ops-note-form .seller-note-mode-btn.is-active {
   color: #eaf1ff;
   border-color: color-mix(in srgb, #7fa2ff 62%, var(--ops-border-default));
   background: color-mix(in srgb, #2b4680 62%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+.seller-notes-panel .buyer-ops-note-form .seller-note-mode-btn.is-tag-mode.is-active {
+  color: #f6ead2;
+  border-color: color-mix(in srgb, #d3ab6c 62%, var(--ops-border-default));
+  background: color-mix(in srgb, #6a4d22 66%, transparent);
+}
+
 .seller-notes-panel .buyer-ops-tag {
   background: linear-gradient(180deg, rgba(172, 130, 52, 0.88), rgba(123, 88, 29, 0.9));
   border-color: color-mix(in srgb, #d0aa6a 58%, #6c5626);
   color: #f2dfbc;
-  min-width: 64px;
+  min-width: 72px;
   text-align: center;
-  padding: 6px 14px;
+  padding: 7px 14px;
   border-radius: 12px;
 }
 
@@ -3757,6 +3780,29 @@ textarea:focus {
   border-color: color-mix(in srgb, #86a0de 58%, var(--ops-border-default));
   background: color-mix(in srgb, #1a294d 62%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #88a9e8 42%, transparent);
+}
+
+.seller-notes-panel .buyer-ref-main-notes {
+  padding: 16px 18px 18px;
+  gap: 12px;
+}
+
+.seller-notes-panel .buyer-ops-note-form {
+  border: 1px solid color-mix(in srgb, #6179b4 30%, var(--ops-border-default));
+  border-radius: 14px;
+  padding: 10px;
+  background:
+    radial-gradient(140% 120% at 0% 0%, rgba(67, 97, 168, 0.18), transparent 66%),
+    color-mix(in srgb, #101a36 92%, transparent);
+}
+
+.seller-notes-panel .buyer-ref-note-list {
+  gap: 10px;
+}
+
+.seller-notes-panel .buyer-ref-note-item {
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
 .buyer-ref-note-actions {
