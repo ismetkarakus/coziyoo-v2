@@ -3148,6 +3148,12 @@ textarea:focus {
   flex: 0 0 auto;
   margin-right: 12px;
   white-space: nowrap;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: var(--text-sm);
+  line-height: 1.15;
+  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .buyer-ref-main-panel .buyer-ops-tabs button {
@@ -5494,6 +5500,12 @@ textarea:focus {
 .seller-tabs-export-btn {
   flex: 0 0 auto;
   white-space: nowrap;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: var(--text-sm);
+  line-height: 1.15;
+  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .seller-tabs button {
