@@ -3644,6 +3644,7 @@ textarea:focus {
   display: block;
 }
 
+.buyer-ref-note-edit-row input,
 .buyer-ref-note-edit-row textarea {
   display: block;
   width: 100%;
