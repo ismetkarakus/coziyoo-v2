@@ -87,6 +87,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [lotsError, setLotsError] = useState<string | null>(null);
   const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
   const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
+  const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
 
   async function loadSellerDetail() {
     setLoading(true);
@@ -207,6 +208,29 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setAddressDraft({ title: "", addressLine: "", isDefault: false });
     setNewAddress({ title: "", addressLine: "", isDefault: false });
   }, [id]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const node = quickAccessRef.current;
+      if (!node?.open) return;
+      const target = event.target;
+      if (target instanceof Node && !node.contains(target)) {
+        node.open = false;
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const node = quickAccessRef.current;
+      if (!node?.open) return;
+      node.open = false;
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     setActiveTab(resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
@@ -774,7 +798,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <strong>{formatUiDate(row.updatedAt, language)}</strong>
             </article>
           </div>
-          <details className="seller-quick-access">
+          <details className="seller-quick-access" ref={quickAccessRef}>
             <summary>{quickAccessLabel}</summary>
             <div className="seller-quick-access-menu">
               {contactEmail ? (
