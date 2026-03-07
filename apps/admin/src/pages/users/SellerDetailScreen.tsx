@@ -1,4 +1,4 @@
-import { Fragment, type FormEvent, useEffect, useRef, useState } from "react";
+import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
@@ -51,6 +51,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   >([]);
   const [sellerOrdersPagination, setSellerOrdersPagination] = useState<BuyerPagination | null>(null);
   const [activeTab, setActiveTab] = useState<SellerDetailTab>(() => resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState("all");
+  const [ordersPaymentFilter, setOrdersPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("all");
+  const [ordersSearch, setOrdersSearch] = useState("");
+  const [earningsDateFilter, setEarningsDateFilter] = useState<"all" | "last7" | "last30">("all");
+  const [earningsPaymentFilter, setEarningsPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("successful");
+  const [earningsSearch, setEarningsSearch] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [legalSaving, setLegalSaving] = useState(false);
@@ -223,7 +229,77 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       : null;
   const complianceCta = language === "tr" ? "Uygunluğa Git" : "Go to Compliance";
   const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
-  const walletAmount = "—";
+  const paymentStateKey = (value: string | null | undefined): "successful" | "pending" | "failed" => {
+    const lower = String(value ?? "").toLowerCase();
+    if (lower.includes("fail")) return "failed";
+    if (lower.includes("pending")) return "pending";
+    return "successful";
+  };
+
+  const paymentStateText = (value: string | null | undefined) => {
+    const key = paymentStateKey(value);
+    if (language === "tr") {
+      if (key === "failed") return "Başarısız";
+      if (key === "pending") return "Bekliyor";
+      return "Başarılı";
+    }
+    if (key === "failed") return "Failed";
+    if (key === "pending") return "Pending";
+    return "Successful";
+  };
+
+  const filteredSellerOrders = useMemo(() => {
+    const query = ordersSearch.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    return sellerOrders.filter((order) => {
+      const statusMatches = ordersStatusFilter === "all" || String(order.status ?? "").toLowerCase() === ordersStatusFilter;
+      const paymentMatches = ordersPaymentFilter === "all" || paymentStateKey(order.paymentStatus) === ordersPaymentFilter;
+      if (!statusMatches || !paymentMatches) return false;
+      if (!query) return true;
+      const foods = Array.isArray(order.items)
+        ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
+        : "";
+      const haystack = [
+        order.orderNo,
+        order.buyerName ?? "",
+        order.buyerEmail ?? "",
+        order.buyerId ?? "",
+        foods,
+      ].join(" ").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+      return haystack.includes(query);
+    });
+  }, [sellerOrders, ordersStatusFilter, ordersPaymentFilter, ordersSearch, language]);
+
+  const filteredSellerEarnings = useMemo(() => {
+    const now = Date.now();
+    const query = earningsSearch.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    return sellerOrders.filter((order) => {
+      const paymentKey = paymentStateKey(order.paymentStatus);
+      if (earningsPaymentFilter !== "all" && paymentKey !== earningsPaymentFilter) return false;
+      if (earningsDateFilter !== "all") {
+        const created = Date.parse(String(order.createdAt ?? ""));
+        if (Number.isFinite(created)) {
+          const diffDays = (now - created) / (1000 * 60 * 60 * 24);
+          if (earningsDateFilter === "last7" && diffDays > 7) return false;
+          if (earningsDateFilter === "last30" && diffDays > 30) return false;
+        }
+      }
+      if (!query) return true;
+      const haystack = [
+        order.orderNo,
+        order.buyerName ?? "",
+        order.buyerEmail ?? "",
+        order.buyerId ?? "",
+      ].join(" ").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+      return haystack.includes(query);
+    });
+  }, [sellerOrders, earningsDateFilter, earningsPaymentFilter, earningsSearch, language]);
+
+  const walletAmount = formatCurrency(
+    filteredSellerEarnings
+      .filter((order) => paymentStateKey(order.paymentStatus) === "successful")
+      .reduce((sum, order) => sum + Number(order.totalAmount ?? 0), 0),
+    language
+  );
   const roleLabel =
     row.role === "seller"
       ? dict.users.userTypeSeller
@@ -333,7 +409,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   function downloadSellerOrdersAsExcel() {
-    if (sellerOrders.length === 0) {
+    if (filteredSellerOrders.length === 0) {
       setMessage(language === "tr" ? "Disa aktarilacak siparis bulunamadi." : "No orders to export.");
       return;
     }
@@ -347,12 +423,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Odeme" : "Payment",
       language === "tr" ? "Durum" : "Status",
     ];
-    const rowsForExport = sellerOrders.map((order) => {
-      const paymentText = String(order.paymentStatus ?? "").toLowerCase().includes("fail")
-        ? language === "tr" ? "Basarisiz" : "Failed"
-        : String(order.paymentStatus ?? "").toLowerCase().includes("pending")
-          ? language === "tr" ? "Bekliyor" : "Pending"
-          : language === "tr" ? "Basarili" : "Successful";
+    const rowsForExport = filteredSellerOrders.map((order) => {
+      const paymentText = paymentStateText(order.paymentStatus);
       const foods = Array.isArray(order.items)
         ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
         : "-";
@@ -374,6 +446,36 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `seller-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadSellerEarningsAsExcel() {
+    if (filteredSellerEarnings.length === 0) {
+      setMessage(language === "tr" ? "Disa aktarilacak kazanc kaydi bulunamadi." : "No earnings to export.");
+      return;
+    }
+    const headers = [
+      language === "tr" ? "Tarih / Saat" : "Date / Time",
+      language === "tr" ? "Siparis No" : "Order No",
+      language === "tr" ? "Alici" : "Buyer",
+      language === "tr" ? "Odeme" : "Payment",
+      language === "tr" ? "Kazanc" : "Earning",
+    ];
+    const rowsForExport = filteredSellerEarnings.map((order) => [
+      formatUiDate(order.createdAt, language),
+      order.orderNo,
+      order.buyerName ?? order.buyerEmail ?? order.buyerId,
+      paymentStateText(order.paymentStatus),
+      formatCurrency(Number(order.totalAmount ?? 0), language),
+    ]);
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+    const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `seller-earnings-${new Date().toISOString().slice(0, 10)}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -971,7 +1073,39 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           <div className="panel-header">
             <h2>{dict.detail.sellerTabs.orders}</h2>
           </div>
-          {sellerOrders.length === 0 ? (
+          <div className="seller-detail-filter-row">
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Durum" : "Status"}</span>
+              <select value={ordersStatusFilter} onChange={(event) => setOrdersStatusFilter(event.target.value)}>
+                <option value="all">{language === "tr" ? "Hepsi" : "All"}</option>
+                <option value="pending">{language === "tr" ? "Bekliyor" : "Pending"}</option>
+                <option value="confirmed">{language === "tr" ? "Onaylandı" : "Confirmed"}</option>
+                <option value="delivered">{language === "tr" ? "Teslim Edildi" : "Delivered"}</option>
+                <option value="cancelled">{language === "tr" ? "İptal" : "Cancelled"}</option>
+              </select>
+            </label>
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Ödeme" : "Payment"}</span>
+              <select value={ordersPaymentFilter} onChange={(event) => setOrdersPaymentFilter(event.target.value as typeof ordersPaymentFilter)}>
+                <option value="all">{language === "tr" ? "Hepsi" : "All"}</option>
+                <option value="successful">{language === "tr" ? "Başarılı" : "Successful"}</option>
+                <option value="pending">{language === "tr" ? "Bekliyor" : "Pending"}</option>
+                <option value="failed">{language === "tr" ? "Başarısız" : "Failed"}</option>
+              </select>
+            </label>
+            <label className="ghost seller-detail-filter-item seller-detail-filter-search">
+              <span>{language === "tr" ? "Ara" : "Search"}</span>
+              <input
+                value={ordersSearch}
+                onChange={(event) => setOrdersSearch(event.target.value)}
+                placeholder={language === "tr" ? "Sipariş / Alıcı ara" : "Search order / buyer"}
+              />
+            </label>
+            <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerOrdersAsExcel}>
+              {language === "tr" ? "Excel'e Aktar" : "Export Excel"}
+            </button>
+          </div>
+          {filteredSellerOrders.length === 0 ? (
             <p className="panel-meta">{dict.common.noRecords}</p>
           ) : (
             <>
@@ -989,12 +1123,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     </tr>
                   </thead>
                   <tbody>
-                    {sellerOrders.map((order) => {
-                      const paymentText = String(order.paymentStatus ?? "").toLowerCase().includes("fail")
-                        ? "Başarısız"
-                        : String(order.paymentStatus ?? "").toLowerCase().includes("pending")
-                          ? "Bekliyor"
-                          : "Başarılı";
+                    {filteredSellerOrders.map((order) => {
+                      const paymentText = paymentStateText(order.paymentStatus);
                       const foods = Array.isArray(order.items)
                         ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
                         : "-";
@@ -1014,8 +1144,77 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </table>
               </div>
               <p className="panel-meta">
-                {`${sellerOrdersPagination?.total ?? sellerOrders.length} sipariş`}
+                {`${filteredSellerOrders.length} ${language === "tr" ? "sipariş" : "orders"}`}
               </p>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {activeTab === "wallet" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.wallet}</h2>
+          </div>
+          <div className="seller-detail-filter-row">
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Dönem" : "Period"}</span>
+              <select value={earningsDateFilter} onChange={(event) => setEarningsDateFilter(event.target.value as typeof earningsDateFilter)}>
+                <option value="all">{language === "tr" ? "Tüm Zamanlar" : "All Time"}</option>
+                <option value="last7">{language === "tr" ? "Son 7 Gün" : "Last 7 Days"}</option>
+                <option value="last30">{language === "tr" ? "Son 30 Gün" : "Last 30 Days"}</option>
+              </select>
+            </label>
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Ödeme" : "Payment"}</span>
+              <select value={earningsPaymentFilter} onChange={(event) => setEarningsPaymentFilter(event.target.value as typeof earningsPaymentFilter)}>
+                <option value="all">{language === "tr" ? "Hepsi" : "All"}</option>
+                <option value="successful">{language === "tr" ? "Başarılı" : "Successful"}</option>
+                <option value="pending">{language === "tr" ? "Bekliyor" : "Pending"}</option>
+                <option value="failed">{language === "tr" ? "Başarısız" : "Failed"}</option>
+              </select>
+            </label>
+            <label className="ghost seller-detail-filter-item seller-detail-filter-search">
+              <span>{language === "tr" ? "Ara" : "Search"}</span>
+              <input
+                value={earningsSearch}
+                onChange={(event) => setEarningsSearch(event.target.value)}
+                placeholder={language === "tr" ? "Sipariş / Alıcı ara" : "Search order / buyer"}
+              />
+            </label>
+            <button className="primary seller-detail-export-btn" type="button" onClick={downloadSellerEarningsAsExcel}>
+              {language === "tr" ? "Excel'e Aktar" : "Export Excel"}
+            </button>
+          </div>
+          {filteredSellerEarnings.length === 0 ? (
+            <p className="panel-meta">{dict.common.noRecords}</p>
+          ) : (
+            <>
+              <div className="buyer-ops-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{language === "tr" ? "Tarih / Saat" : "Date / Time"}</th>
+                      <th>{language === "tr" ? "Sipariş No" : "Order No"}</th>
+                      <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                      <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
+                      <th>{language === "tr" ? "Kazanç" : "Earning"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSellerEarnings.map((order) => (
+                      <tr key={`earning-${order.orderId}`}>
+                        <td>{formatUiDate(order.createdAt, language)}</td>
+                        <td>{order.orderNo}</td>
+                        <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
+                        <td>{paymentStateText(order.paymentStatus)}</td>
+                        <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="panel-meta">{`${filteredSellerEarnings.length} ${language === "tr" ? "kayıt" : "records"}`}</p>
             </>
           )}
         </section>
@@ -1072,7 +1271,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
+      {activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>

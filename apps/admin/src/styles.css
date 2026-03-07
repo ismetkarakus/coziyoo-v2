@@ -5088,6 +5088,54 @@ textarea:focus {
   box-shadow: 0 0 10px rgba(62, 137, 255, 0.45);
 }
 
+.seller-detail-filter-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) minmax(260px, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.seller-detail-filter-item {
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 6px 10px !important;
+  display: grid;
+  gap: 3px;
+  align-content: center;
+}
+
+.seller-detail-filter-item > span {
+  font-size: var(--text-xs);
+  color: var(--color-secondary-text);
+}
+
+.seller-detail-filter-item select,
+.seller-detail-filter-item input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.seller-detail-filter-item select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.seller-detail-filter-search {
+  min-width: 0;
+}
+
+.seller-detail-export-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  padding-inline: 16px;
+  white-space: nowrap;
+}
+
 .seller-detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -5914,6 +5962,10 @@ textarea:focus {
   }
 
   .seller-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-detail-filter-row {
     grid-template-columns: 1fr;
   }
 
