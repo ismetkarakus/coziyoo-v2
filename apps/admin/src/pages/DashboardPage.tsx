@@ -203,22 +203,22 @@ export default function DashboardPage({ language }: { language: Language }) {
     value: string | number;
     trailingIcon?: "refresh";
   }> = [
-    { key: "totalUsers", label: "Total Users", icon: "users", value: metricValueOrMissing(data.totalUsers) },
-    { key: "activeUsers", label: "Active Users", icon: "users", value: metricValueOrMissing(data.activeUsers) },
-    { key: "disabledUsers", label: "Disabled Users", icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
-    { key: "activeOrders", label: "Active Orders", icon: "orders", value: metricValueOrMissing(data.activeOrders) },
-    { key: "paymentPendingOrders", label: "Pending Payments", icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
+    { key: "totalUsers", label: "Toplam Kullanıcı", icon: "users", value: metricValueOrMissing(data.totalUsers) },
+    { key: "activeUsers", label: "Aktif Kullanıcı", icon: "users", value: metricValueOrMissing(data.activeUsers) },
+    { key: "disabledUsers", label: "Pasif Kullanıcı", icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
+    { key: "activeOrders", label: "Aktif Sipariş", icon: "orders", value: metricValueOrMissing(data.activeOrders) },
+    { key: "paymentPendingOrders", label: "Ödeme Bekleyen", icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
     { key: "updatedAt", label: "Son Güncelleme", icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
   ];
 
   const tableRows = [
-    { label: "Total Users", value: String(metrics[0].value) },
-    { label: "Active Users", value: String(metrics[1].value) },
-    { label: "Disabled Users", value: String(metrics[2].value) },
-    { label: "Active Orders", value: String(metrics[3].value) },
-    { label: "Payment Pending Orders", value: String(metrics[4].value) },
-    { label: "Compliance Queue Count", value: String(metricValueOrMissing(data.complianceQueueCount)) },
-    { label: "Open Dispute Count", value: String(metricValueOrMissing(data.openDisputeCount)) },
+    { label: "Toplam Kullanıcı", value: String(metrics[0].value) },
+    { label: "Aktif Kullanıcı", value: String(metrics[1].value) },
+    { label: "Pasif Kullanıcı", value: String(metrics[2].value) },
+    { label: "Aktif Sipariş", value: String(metrics[3].value) },
+    { label: "Ödeme Bekleyen Sipariş", value: String(metrics[4].value) },
+    { label: "Uygunluk Kuyruğu", value: String(metricValueOrMissing(data.complianceQueueCount)) },
+    { label: "Açık İtiraz", value: String(metricValueOrMissing(data.openDisputeCount)) },
   ];
 
   return (
