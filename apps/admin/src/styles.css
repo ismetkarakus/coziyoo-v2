@@ -1108,6 +1108,24 @@ button {
   line-height: 1;
 }
 
+.actions .quick-action-btn {
+  transition: transform 0.18s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.actions .quick-action-btn:hover,
+.actions .quick-action-btn:focus-visible {
+  background: linear-gradient(135deg, #4c95ff 0%, #2d7dff 60%, #2a72f0 100%);
+  border-color: rgba(122, 178, 255, 0.36);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(45, 125, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+.actions .quick-action-btn:hover::after,
+.actions .quick-action-btn:focus-visible::after {
+  color: #ffffff;
+}
+
 .kpi-table {
   display: grid;
   width: 100%;

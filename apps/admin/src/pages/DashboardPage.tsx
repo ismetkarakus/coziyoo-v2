@@ -117,10 +117,10 @@ function ActionCard({
         <h2>{title}</h2>
       </div>
       <div className="actions">
-        <button className="primary" type="button" onClick={onOpenCompliance}>{dict.actions.openComplianceQueue}</button>
-        <button className="ghost has-arrow" type="button" onClick={onViewDisputes}>{dict.actions.viewPaymentDisputes}</button>
-        <button className="ghost has-arrow" type="button" onClick={onInspectAppUsers}>{dict.actions.inspectAppUsers}</button>
-        <button className="ghost has-arrow" type="button" onClick={onInspectAdminUsers}>{dict.actions.inspectAdminUsers}</button>
+        <button className="ghost has-arrow quick-action-btn" type="button" onClick={onOpenCompliance}>{dict.actions.openComplianceQueue}</button>
+        <button className="ghost has-arrow quick-action-btn" type="button" onClick={onViewDisputes}>{dict.actions.viewPaymentDisputes}</button>
+        <button className="ghost has-arrow quick-action-btn" type="button" onClick={onInspectAppUsers}>{dict.actions.inspectAppUsers}</button>
+        <button className="ghost has-arrow quick-action-btn" type="button" onClick={onInspectAdminUsers}>{dict.actions.inspectAdminUsers}</button>
       </div>
       <div className="queue-state-card">
         <div className="queue-state-header">
