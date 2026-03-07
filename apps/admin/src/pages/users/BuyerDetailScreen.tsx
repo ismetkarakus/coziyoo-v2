@@ -948,7 +948,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                     noteItems.map((note) => (
                       <article
                         key={`main-note-${note.id}`}
-                        className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""}`}
+                        className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
                         onClick={() => setOpenNoteMenuId(note.id)}
                         role="button"
                         tabIndex={0}
