@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from urllib.parse import urlparse
 
 from livekit import rtc
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, room_io
@@ -81,10 +82,20 @@ def _audio_input_options() -> room_io.AudioInputOptions:
     )
 
 
+def _normalize_base_url(value: str) -> str:
+    candidate = (value or "").strip()
+    if not candidate:
+        return ""
+    parsed = urlparse(candidate)
+    if parsed.scheme:
+        return candidate
+    return f"http://{candidate}"
+
+
 def _build_stt(providers: dict, language: str):
     """Build an STT instance from provider config."""
     stt_cfg = providers.get("stt", {})
-    base_url = stt_cfg.get("baseUrl")
+    base_url = _normalize_base_url(str(stt_cfg.get("baseUrl") or ""))
 
     if base_url:
         from .providers.http_stt import HttpSTT
@@ -103,7 +114,7 @@ def _build_stt(providers: dict, language: str):
     try:
         from livekit.plugins.openai import stt as openai_stt
 
-        whisper_base = os.getenv("SPEECH_TO_TEXT_BASE_URL", "")
+        whisper_base = _normalize_base_url(os.getenv("SPEECH_TO_TEXT_BASE_URL", ""))
         if whisper_base:
             logger.info("Using OpenAI-compatible STT plugin: %s", whisper_base)
             return openai_stt.STT(
@@ -125,7 +136,7 @@ def _build_llm(providers: dict):
     """Build an LLM instance from provider config."""
     llm_cfg = providers.get("llm", {})
     model = llm_cfg.get("model", os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b"))
-    base_url = llm_cfg.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    base_url = _normalize_base_url(str(llm_cfg.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")))
     auth_header = llm_cfg.get("authHeader") or None
 
     # Extract API key from auth header (strip "Bearer " prefix if present)
@@ -155,7 +166,7 @@ def _build_llm(providers: dict):
 def _build_tts(providers: dict, language: str):
     """Build a TTS instance from provider config."""
     tts_cfg = providers.get("tts", {})
-    base_url = tts_cfg.get("baseUrl")
+    base_url = _normalize_base_url(str(tts_cfg.get("baseUrl") or ""))
     engine = tts_cfg.get("engine", "f5-tts")
 
     if base_url:
@@ -174,7 +185,7 @@ def _build_tts(providers: dict, language: str):
         )
 
     # Fallback: try OpenAI TTS plugin with env TTS_BASE_URL
-    tts_env_url = os.getenv("TTS_BASE_URL", "")
+    tts_env_url = _normalize_base_url(os.getenv("TTS_BASE_URL", ""))
     if tts_env_url:
         from .providers.http_tts import HttpTTS
 
