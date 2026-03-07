@@ -44,6 +44,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [noteInput, setNoteInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [selectedDate, setSelectedDate] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +96,15 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     if (hours < 24) return `${hours} saat once`;
     const days = Math.floor(hours / 24);
     return `${days} gun once`;
+  }
+
+  function toLocalDateKey(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   async function loadBuyerDetail() {
@@ -292,6 +302,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       next = next.filter((order) => new Date(order.createdAt).getTime() >= sevenDaysAgo);
     } else if (dateFilter === "last30") {
       next = next.filter((order) => new Date(order.createdAt).getTime() >= thirtyDaysAgo);
+    } else if (dateFilter === "custom" && selectedDate) {
+      next = next.filter((order) => toLocalDateKey(order.createdAt) === selectedDate);
     }
 
     const search = orderSearch.trim().toLowerCase();
@@ -306,7 +318,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     next.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return next;
-  }, [orders, statusFilter, dateFilter, orderSearch]);
+  }, [orders, statusFilter, dateFilter, selectedDate, orderSearch]);
 
   const visibleOrders = useMemo(() => {
     if (filteredOrders.length === 0 && orders.length > 0) return orders;
@@ -687,6 +699,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <option value="all">27.01.2028 - 27.02.2028</option>
                       <option value="last7">Son 7 gun</option>
                       <option value="last30">Son 30 gun</option>
+                      <option value="custom">Tarih Sec</option>
                     </select>
                     <span className="buyer-ref-filter-trailing" aria-hidden="true">
                       <svg viewBox="0 0 24 24" focusable="false">
@@ -694,6 +707,16 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       </svg>
                     </span>
                   </label>
+                  {dateFilter === "custom" ? (
+                    <label className="ghost buyer-ref-filter-btn buyer-ref-date-input-wrap">
+                      <input
+                        type="date"
+                        aria-label="Secilen tarih"
+                        value={selectedDate}
+                        onChange={(event) => setSelectedDate(event.target.value)}
+                      />
+                    </label>
+                  ) : null}
                   <label className="ghost buyer-ref-search-btn">
                     <span className="buyer-ref-filter-leading" aria-hidden="true">
                       <svg viewBox="0 0 24 24" focusable="false">

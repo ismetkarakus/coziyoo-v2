@@ -54,7 +54,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [ordersStatusFilter, setOrdersStatusFilter] = useState("all");
   const [ordersPaymentFilter, setOrdersPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("all");
   const [ordersSearch, setOrdersSearch] = useState("");
-  const [earningsDateFilter, setEarningsDateFilter] = useState<"all" | "last7" | "last30">("all");
+  const [earningsDateFilter, setEarningsDateFilter] = useState<"all" | "last7" | "last30" | "custom">("all");
+  const [earningsSelectedDate, setEarningsSelectedDate] = useState("");
   const [earningsPaymentFilter, setEarningsPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("successful");
   const [earningsSearch, setEarningsSearch] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -223,6 +224,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return "Successful";
   };
 
+  const toLocalDateKey = (value: string | null | undefined) => {
+    const date = new Date(String(value ?? ""));
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const filteredSellerOrders = useMemo(() => {
     const query = ordersSearch.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
     return sellerOrders.filter((order) => {
@@ -257,6 +267,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           if (earningsDateFilter === "last7" && diffDays > 7) return false;
           if (earningsDateFilter === "last30" && diffDays > 30) return false;
         }
+        if (earningsDateFilter === "custom" && earningsSelectedDate) {
+          if (toLocalDateKey(order.createdAt) !== earningsSelectedDate) return false;
+        }
       }
       if (!query) return true;
       const haystack = [
@@ -267,7 +280,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ].join(" ").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
       return haystack.includes(query);
     });
-  }, [sellerOrders, earningsDateFilter, earningsPaymentFilter, earningsSearch, language]);
+  }, [sellerOrders, earningsDateFilter, earningsSelectedDate, earningsPaymentFilter, earningsSearch, language]);
 
   if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
   if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
@@ -1162,8 +1175,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <option value="all">{language === "tr" ? "Tüm Zamanlar" : "All Time"}</option>
                 <option value="last7">{language === "tr" ? "Son 7 Gün" : "Last 7 Days"}</option>
                 <option value="last30">{language === "tr" ? "Son 30 Gün" : "Last 30 Days"}</option>
+                <option value="custom">{language === "tr" ? "Tarih Seç" : "Pick Date"}</option>
               </select>
             </label>
+            {earningsDateFilter === "custom" ? (
+              <label className="ghost seller-detail-filter-item">
+                <span>{language === "tr" ? "Tarih" : "Date"}</span>
+                <input
+                  type="date"
+                  value={earningsSelectedDate}
+                  onChange={(event) => setEarningsSelectedDate(event.target.value)}
+                  aria-label={language === "tr" ? "Tarih seç" : "Select date"}
+                />
+              </label>
+            ) : null}
             <label className="ghost seller-detail-filter-item">
               <span>{language === "tr" ? "Ödeme" : "Payment"}</span>
               <select value={earningsPaymentFilter} onChange={(event) => setEarningsPaymentFilter(event.target.value as typeof earningsPaymentFilter)}>
