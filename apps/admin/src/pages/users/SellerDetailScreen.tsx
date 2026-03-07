@@ -745,27 +745,35 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <span>{initials}</span>
               )}
             </div>
-            <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
-              <span className="rating-value">{avgRating.toFixed(1)}</span>
-              <span className="rating-stars" aria-hidden="true">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
-                ))}
-              </span>
-            </div>
           </div>
           <div className="seller-hero-text">
             <div className="seller-hero-title-stack">
               <div className="seller-hero-title-row">
                 <h1>{row.displayName ?? row.email}</h1>
-              </div>
-              <div className="seller-hero-status-row">
                 <span className={`seller-account-status ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
+              </div>
+              <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
+                <span className="rating-value">{avgRating.toFixed(1)}</span>
+                <span className="rating-stars" aria-hidden="true">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
+                  ))}
+                </span>
               </div>
             </div>
           </div>
         </article>
         <div className="seller-hero-right">
+          <div className="seller-hero-stats">
+            <article>
+              <p>{dict.detail.sellerTabs.wallet}</p>
+              <strong>{walletAmount}</strong>
+            </article>
+            <article>
+              <p>{dict.detail.lastAction}</p>
+              <strong>{formatUiDate(row.updatedAt, language)}</strong>
+            </article>
+          </div>
           <details className="seller-quick-access">
             <summary>{quickAccessLabel}</summary>
             <div className="seller-quick-access-menu">
@@ -786,16 +794,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               )}
             </div>
           </details>
-          <div className="seller-hero-stats">
-            <article>
-              <p>{dict.detail.sellerTabs.wallet}</p>
-              <strong>{walletAmount}</strong>
-            </article>
-            <article>
-              <p>{dict.detail.lastAction}</p>
-              <strong>{formatUiDate(row.updatedAt, language)}</strong>
-            </article>
-          </div>
         </div>
       </section>
 
