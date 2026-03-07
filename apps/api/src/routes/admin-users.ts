@@ -952,16 +952,29 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
   }
 
   const input = parsed.data;
-  const needle = `%${input.q.toLowerCase()}%`;
+  const normalized = input.q.trim().toLowerCase();
+  const compact = normalized.replace(/[^a-z0-9]/g, "");
+  const needle = `%${normalized}%`;
+  const compactNeedle = `%${compact}%`;
   const perKindLimit = Math.min(8, input.limit);
 
+  const safeQuery = async <T extends Record<string, unknown>>(label: string, sql: string, params: unknown[]) => {
+    try {
+      return await pool.query<T>(sql, params);
+    } catch (error) {
+      console.error(`[admin.search.global] ${label} query failed`, error);
+      return { rows: [] as T[] };
+    }
+  };
+
   const [sellers, buyers, foods, orders, lots, complaints] = await Promise.all([
-    pool.query<{
+    safeQuery<{
       id: string;
       display_name: string | null;
       email: string;
       is_active: boolean;
     }>(
+      "sellers",
       `SELECT u.id::text, u.display_name, u.email, u.is_active
        FROM users u
        WHERE u.user_type IN ('seller', 'both')
@@ -970,17 +983,19 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
            OR lower(u.email) LIKE $1
            OR lower(u.id::text) LIKE $1
            OR lower('cust-' || substring(u.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+           OR regexp_replace(lower(u.id::text), '[^a-z0-9]', '', 'g') LIKE $2
          )
        ORDER BY u.updated_at DESC
-       LIMIT $2`,
-      [needle, perKindLimit]
+       LIMIT $3`,
+      [needle, compactNeedle, perKindLimit]
     ),
-    pool.query<{
+    safeQuery<{
       id: string;
       display_name: string | null;
       email: string;
       is_active: boolean;
     }>(
+      "buyers",
       `SELECT u.id::text, u.display_name, u.email, u.is_active
        FROM users u
        WHERE u.user_type IN ('buyer', 'both')
@@ -989,12 +1004,13 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
            OR lower(u.email) LIKE $1
            OR lower(u.id::text) LIKE $1
            OR lower('cust-' || substring(u.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+           OR regexp_replace(lower(u.id::text), '[^a-z0-9]', '', 'g') LIKE $2
          )
        ORDER BY u.updated_at DESC
-       LIMIT $2`,
-      [needle, perKindLimit]
+       LIMIT $3`,
+      [needle, compactNeedle, perKindLimit]
     ),
-    pool.query<{
+    safeQuery<{
       id: string;
       name: string;
       seller_id: string;
@@ -1002,6 +1018,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       seller_email: string;
       is_active: boolean;
     }>(
+      "foods",
       `SELECT
          f.id::text,
          f.name,
@@ -1015,11 +1032,12 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
          lower(f.name) LIKE $1
          OR lower(f.id::text) LIKE $1
          OR lower('FD-' || substring(f.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+         OR regexp_replace(lower(f.id::text), '[^a-z0-9]', '', 'g') LIKE $2
        ORDER BY f.updated_at DESC
-       LIMIT $2`,
-      [needle, perKindLimit]
+       LIMIT $3`,
+      [needle, compactNeedle, perKindLimit]
     ),
-    pool.query<{
+    safeQuery<{
       id: string;
       status: string;
       buyer_id: string;
@@ -1030,6 +1048,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       seller_email: string | null;
       created_at: string;
     }>(
+      "orders",
       `SELECT
          o.id::text,
          o.status,
@@ -1045,16 +1064,20 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
        JOIN users s ON s.id = o.seller_id
        WHERE
          lower(o.id::text) LIKE $1
+         OR lower('#' || substring(o.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+         OR lower('ord-' || substring(o.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
+         OR lower('order-' || substring(o.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
          OR lower(o.status) LIKE $1
          OR lower(coalesce(b.display_name, '')) LIKE $1
          OR lower(coalesce(b.email, '')) LIKE $1
          OR lower(coalesce(s.display_name, '')) LIKE $1
          OR lower(coalesce(s.email, '')) LIKE $1
+         OR regexp_replace(lower(o.id::text), '[^a-z0-9]', '', 'g') LIKE $2
        ORDER BY o.created_at DESC
-       LIMIT $2`,
-      [needle, perKindLimit]
+       LIMIT $3`,
+      [needle, compactNeedle, perKindLimit]
     ),
-    pool.query<{
+    safeQuery<{
       id: string;
       lot_number: string;
       food_id: string;
@@ -1065,6 +1088,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       status: string;
       created_at: string;
     }>(
+      "lots",
       `SELECT
          l.id::text,
          l.lot_number,
@@ -1080,13 +1104,16 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
        LEFT JOIN users s ON s.id = l.seller_id
        WHERE
          lower(l.lot_number) LIKE $1
+         OR lower('lot-' || l.lot_number) LIKE $1
          OR lower(l.id::text) LIKE $1
          OR lower(coalesce(f.name, '')) LIKE $1
+         OR regexp_replace(lower(l.lot_number), '[^a-z0-9]', '', 'g') LIKE $2
+         OR regexp_replace(lower(l.id::text), '[^a-z0-9]', '', 'g') LIKE $2
        ORDER BY l.created_at DESC
-       LIMIT $2`,
-      [needle, perKindLimit]
+       LIMIT $3`,
+      [needle, compactNeedle, perKindLimit]
     ),
-    pool.query<{
+    safeQuery<{
       id: string;
       subject: string;
       status: string;
@@ -1096,6 +1123,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       buyer_email: string | null;
       created_at: string;
     }>(
+      "complaints",
       `SELECT
          c.id::text,
          c.subject,
@@ -1110,11 +1138,14 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
        WHERE
          lower(c.id::text) LIKE $1
          OR lower(c.order_id::text) LIKE $1
+         OR lower('#' || substring(c.order_id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
          OR lower(c.subject) LIKE $1
          OR lower(coalesce(c.description, '')) LIKE $1
+         OR regexp_replace(lower(c.id::text), '[^a-z0-9]', '', 'g') LIKE $2
+         OR regexp_replace(lower(c.order_id::text), '[^a-z0-9]', '', 'g') LIKE $2
        ORDER BY c.created_at DESC
-       LIMIT $2`,
-      [needle, perKindLimit]
+       LIMIT $3`,
+      [needle, compactNeedle, perKindLimit]
     ),
   ]);
 

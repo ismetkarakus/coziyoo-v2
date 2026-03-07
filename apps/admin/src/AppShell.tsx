@@ -225,6 +225,11 @@ function AppShell({
                   ref={globalSearchInputRef}
                   className="global-search-input"
                   value={globalSearchInput}
+                  placeholder={
+                    language === "tr"
+                      ? "İsim, e-posta, lot no, sipariş no, müşteri ID ara..."
+                      : "Search name, e-mail, lot no, order no, customer ID..."
+                  }
                   onChange={(event) => setGlobalSearchInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") setIsGlobalSearchModalOpen(false);
