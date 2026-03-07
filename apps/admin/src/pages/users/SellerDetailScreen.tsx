@@ -32,6 +32,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [addressSaving, setAddressSaving] = useState(false);
   const [newAddressLine, setNewAddressLine] = useState("");
   const [addressDirty, setAddressDirty] = useState(false);
+  const [addressEditorId, setAddressEditorId] = useState<string | null>(null);
+  const [addressHistoryOpen, setAddressHistoryOpen] = useState(false);
   const [identityViewerOpen, setIdentityViewerOpen] = useState(false);
   const [identityViewerUrl, setIdentityViewerUrl] = useState<string | null>(null);
   const [sellerOrders, setSellerOrders] = useState<
@@ -199,6 +201,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setAddressSaving(false);
     setNewAddressLine("");
     setAddressDirty(false);
+    setAddressEditorId(null);
+    setAddressHistoryOpen(false);
     setIdentityViewerOpen(false);
     setIdentityViewerUrl(null);
   }, [id]);
@@ -207,6 +211,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     if (addressDirty) return;
     const selected = addresses.find((item) => item.isDefault) ?? addresses[0] ?? null;
     setNewAddressLine(String(selected?.addressLine ?? ""));
+    setAddressEditorId(selected?.id ?? null);
   }, [addresses, addressDirty]);
 
   useEffect(() => {
@@ -283,7 +288,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
     setAddressSaving(true);
     setMessage(null);
-    const currentAddress = addresses.find((item) => item.isDefault) ?? addresses[0] ?? null;
+    const currentAddress = (addressEditorId ? addresses.find((item) => item.id === addressEditorId) : null)
+      ?? addresses.find((item) => item.isDefault)
+      ?? addresses[0]
+      ?? null;
     try {
       const response = currentAddress
         ? await request(`/v1/admin/users/${id}/addresses/${currentAddress.id}`, {
@@ -845,23 +853,60 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <strong>{roleLabel}</strong>
                 </div>
                 <div>
-                  <span>{language === "tr" ? "Durum" : "Status"}</span>
-                  <strong className="seller-inline-status">
-                    <span className={`seller-status-dot ${isActive ? "is-active" : "is-disabled"}`} aria-hidden="true" />
-                    {accountStatusLabel}
-                  </strong>
-                </div>
-                <div>
                   <span>{language === "tr" ? "Kayıt" : "Created"}</span>
                   <strong>{formatUiDate(row.createdAt, language)}</strong>
                 </div>
-                <div>
-                  <span>{language === "tr" ? "Son Güncelleme" : "Updated"}</span>
-                  <strong>{formatUiDate(row.updatedAt, language)}</strong>
-                </div>
               </div>
               <form className="seller-address-create-form seller-address-inline-create" onSubmit={createAddress} onKeyDown={onEnterSubmit}>
-                <h3>{language === "tr" ? "Yeni Adres" : "New Address"}</h3>
+                <div className="seller-address-title-row">
+                  <h3>{language === "tr" ? "Yeni Adres" : "New Address"}</h3>
+                  <button
+                    className="ghost seller-address-plus"
+                    type="button"
+                    onClick={() => setAddressHistoryOpen((prev) => !prev)}
+                    title={language === "tr" ? "Eski adresleri göster" : "Show saved addresses"}
+                  >
+                    +
+                  </button>
+                </div>
+                {addresses[0]?.addressLine ? (
+                  <p className="panel-meta seller-address-preview">
+                    {language === "tr" ? "Son kayıtlı adres" : "Last saved address"}: {addresses[0].addressLine}
+                  </p>
+                ) : null}
+                {addressHistoryOpen ? (
+                  <div className="seller-address-history-list">
+                    {addresses.length === 0 ? (
+                      <p className="panel-meta">{language === "tr" ? "Kayıtlı adres yok." : "No saved addresses."}</p>
+                    ) : (
+                      addresses.map((address) => (
+                        <button
+                          key={address.id}
+                          type="button"
+                          className={`ghost seller-address-history-item ${addressEditorId === address.id ? "is-active" : ""}`}
+                          onClick={() => {
+                            setAddressEditorId(address.id);
+                            setNewAddressLine(address.addressLine);
+                            setAddressDirty(true);
+                          }}
+                        >
+                          {address.addressLine}
+                        </button>
+                      ))
+                    )}
+                    <button
+                      type="button"
+                      className="ghost seller-address-history-item"
+                      onClick={() => {
+                        setAddressEditorId(null);
+                        setNewAddressLine("");
+                        setAddressDirty(true);
+                      }}
+                    >
+                      {language === "tr" ? "Yeni adres girişi" : "New address entry"}
+                    </button>
+                  </div>
+                ) : null}
                 <label>
                   {language === "tr" ? "Adres" : "Address"}
                   <input
@@ -874,14 +919,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   />
                 </label>
                 <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
-                  {addresses.length > 0 ? (language === "tr" ? "Adresi Güncelle" : "Update Address") : language === "tr" ? "Adres Ekle" : "Add Address"}
+                  {addressEditorId ? (language === "tr" ? "Adresi Güncelle" : "Update Address") : language === "tr" ? "Adres Ekle" : "Add Address"}
                 </button>
               </form>
             </article>
 
             <article className="seller-general-card">
-              <div className="seller-profile-head">
-                <div className="seller-profile-avatar">{initials}</div>
+              <div className="seller-profile-head compact">
+                <strong>{String(row.displayName ?? "-")}</strong>
+                <span className="seller-inline-status">
+                  <span className={`seller-status-dot ${isActive ? "is-active" : "is-disabled"}`} aria-hidden="true" />
+                  {accountStatusLabel}
+                </span>
               </div>
               <form className="form-grid seller-general-form" onSubmit={onSave} onKeyDown={onEnterSubmit}>
                 <label>
