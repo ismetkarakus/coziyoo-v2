@@ -111,6 +111,28 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     return `${year}-${month}-${day}`;
   }
 
+  function formatCustomDateInput(value: string) {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    const day = digits.slice(0, 2);
+    const month = digits.slice(2, 4);
+    const year = digits.slice(4, 8);
+    if (digits.length <= 2) return day;
+    if (digits.length <= 4) return `${day}.${month}`;
+    return `${day}.${month}.${year}`;
+  }
+
+  function parseCustomDateToKey(value: string) {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length !== 8) return "";
+    const day = Number(digits.slice(0, 2));
+    const month = Number(digits.slice(2, 4));
+    const year = Number(digits.slice(4, 8));
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return "";
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return "";
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
   async function loadBuyerDetail() {
     setLoading(true);
     setMessage(null);
@@ -314,7 +336,10 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     } else if (dateFilter === "last30") {
       next = next.filter((order) => new Date(order.createdAt).getTime() >= thirtyDaysAgo);
     } else if (dateFilter === "custom" && selectedDate) {
-      next = next.filter((order) => toLocalDateKey(order.createdAt) === selectedDate);
+      const selectedDateKey = parseCustomDateToKey(selectedDate);
+      if (selectedDateKey) {
+        next = next.filter((order) => toLocalDateKey(order.createdAt) === selectedDateKey);
+      }
     }
 
     const search = orderSearch.trim().toLowerCase();
@@ -801,10 +826,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   {dateFilter === "custom" ? (
                     <label className="ghost buyer-ref-filter-btn buyer-ref-date-input-wrap">
                       <input
-                        type="date"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={10}
+                        placeholder="GG.AA.YYYY"
                         aria-label="Secilen tarih"
                         value={selectedDate}
-                        onChange={(event) => setSelectedDate(event.target.value)}
+                        onChange={(event) => setSelectedDate(formatCustomDateInput(event.target.value))}
                       />
                     </label>
                   ) : null}

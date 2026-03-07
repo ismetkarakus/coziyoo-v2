@@ -3324,6 +3324,20 @@ textarea:focus {
   margin-left: 4px;
 }
 
+.buyer-ref-date-input-wrap {
+  justify-content: flex-start;
+}
+
+.buyer-ref-date-input-wrap input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ops-text-secondary) 94%, white);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+}
+
 .buyer-ref-export-btn {
   min-height: 36px;
   border-radius: 10px;
