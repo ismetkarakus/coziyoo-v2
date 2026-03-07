@@ -658,29 +658,39 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
             <h2>Profil Bilgileri</h2>
             <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
-              <p className="buyer-ref-contact-value">{email}</p>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{email}</p>
+              </div>
             </div>
             <button type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(contactInfo?.addresses.home?.addressLine ?? null)}>
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
-              <p className="buyer-ref-contact-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+              </div>
             </button>
             <button type="button" className="buyer-ref-link-block" onClick={() => openDialer(phone)}>
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
-              <p className="buyer-ref-contact-value buyer-ref-phone-row">
-                <strong>{phone}</strong>
-                <span className="buyer-ref-online-dot" aria-hidden="true" />
-              </p>
-              <p className="panel-meta">{locations.length} segilones</p>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
+                <p className="buyer-ref-contact-value buyer-ref-phone-row buyer-ref-info-value">
+                  <strong>{phone}</strong>
+                  <span className="buyer-ref-online-dot" aria-hidden="true" />
+                </p>
+              </div>
+              <p className="panel-meta">{`${locations.length} lokasyon`}</p>
             </button>
             <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
-              <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
-              <p className="buyer-ref-contact-value">{detailLastLoginAt}</p>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{detailLastLoginAt}</p>
+              </div>
               {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
             </button>
             <div className="buyer-ref-contact-block">
-              <p className="buyer-ref-contact-label">Dogum Tarihi</p>
-              <p className="buyer-ref-contact-value">{birthDateText}</p>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label">Dogum Tarihi</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{birthDateText}</p>
+              </div>
             </div>
           </section>
 

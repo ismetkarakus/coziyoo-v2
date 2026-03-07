@@ -3468,6 +3468,17 @@ textarea:focus {
   border-bottom: 1px solid color-mix(in srgb, #5f73aa 24%, var(--ops-border-default));
 }
 
+.buyer-ref-info-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 38%) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.buyer-ref-info-value {
+  text-align: right;
+}
+
 .buyer-ref-contact-block:last-child {
   border-bottom: 0;
   padding-bottom: 0;
@@ -3522,6 +3533,8 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .buyer-ref-phone-row strong {
@@ -6921,6 +6934,19 @@ textarea:focus {
 
   .buyer-ref-filter-row {
     grid-template-columns: 1fr;
+  }
+
+  .buyer-ref-info-row {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .buyer-ref-info-value {
+    text-align: left;
+  }
+
+  .buyer-ref-phone-row {
+    justify-content: flex-start;
   }
 
   .buyer-ref-main-panel .buyer-ops-tabs button {
