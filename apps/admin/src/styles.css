@@ -3326,7 +3326,6 @@ textarea:focus {
 
 .buyer-ref-date-input-wrap {
   justify-content: flex-start;
-  gap: 8px;
 }
 
 .buyer-ref-date-input-wrap input {
@@ -3342,32 +3341,6 @@ textarea:focus {
 .buyer-ref-date-input-wrap input::placeholder {
   color: color-mix(in srgb, #9bb0df 92%, white);
   font-weight: var(--font-medium);
-}
-
-.buyer-ref-date-picker-btn {
-  border: 1px solid color-mix(in srgb, #6b87c8 42%, var(--ops-border-default));
-  background: color-mix(in srgb, #162449 86%, transparent);
-  color: color-mix(in srgb, #c3d2f5 94%, white);
-  border-radius: 8px;
-  min-height: 28px;
-  padding: 0 8px;
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.buyer-ref-date-picker-btn:hover {
-  border-color: color-mix(in srgb, #7ca2f0 58%, var(--ops-border-default));
-  color: color-mix(in srgb, #e3ebff 96%, white);
-}
-
-.buyer-ref-native-date-picker {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .buyer-ref-export-btn {
