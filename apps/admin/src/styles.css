@@ -2716,8 +2716,8 @@ textarea:focus {
   backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
-  z-index: 200;
-  padding: 16px;
+  z-index: 9999;
+  padding: 20px 28px;
 }
 
 .buyer-ops-modal {
@@ -4969,15 +4969,18 @@ textarea:focus {
 }
 
 .records-order-modal {
-  width: min(920px, calc(100vw - 88px));
+  width: min(900px, calc(100vw - 140px));
   max-height: calc(100vh - 72px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin-right: 18px;
 }
 
 .records-order-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  overflow: hidden;
 }
 
 .records-order-grid > div {
@@ -4997,10 +5000,18 @@ textarea:focus {
   overflow: auto;
 }
 
+.records-order-modal .buyer-ops-modal-actions {
+  position: sticky;
+  bottom: -2px;
+  background: color-mix(in srgb, var(--ops-bg-card) 98%, transparent);
+  padding-top: 10px;
+}
+
 @media (max-width: 900px) {
   .records-order-modal {
     width: min(100%, calc(100vw - 28px));
     max-height: calc(100vh - 28px);
+    margin-right: 0;
   }
 
   .records-order-grid {
