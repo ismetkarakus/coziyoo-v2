@@ -1,8 +1,8 @@
-import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
-import { toDisplayId, formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
+import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
   mapComplianceRows,
@@ -316,6 +316,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     } finally {
       setAddressSaving(false);
     }
+  }
+
+  function onEnterSubmit(event: ReactKeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter") return;
+    if (event.target instanceof HTMLTextAreaElement) return;
+    event.preventDefault();
+    event.currentTarget.requestSubmit();
   }
 
   const paymentStateKey = (value: string | null | undefined): "successful" | "pending" | "failed" => {
@@ -815,7 +822,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 >
                   <span className="seller-id-line-text">
                     <span className="seller-id-line-label">{language === "tr" ? "Customer ID" : "Customer ID"}:</span>
-                    <strong className="seller-id-line-value">{toDisplayId(row.id)}</strong>
+                    <strong className="seller-id-line-value">{String(row.id ?? "-")}</strong>
                   </span>
                   <span aria-hidden="true">⧉</span>
                 </button>
@@ -853,7 +860,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <strong>{formatUiDate(row.updatedAt, language)}</strong>
                 </div>
               </div>
-              <form className="seller-address-create-form seller-address-inline-create" onSubmit={createAddress}>
+              <form className="seller-address-create-form seller-address-inline-create" onSubmit={createAddress} onKeyDown={onEnterSubmit}>
                 <h3>{language === "tr" ? "Yeni Adres" : "New Address"}</h3>
                 <label>
                   {language === "tr" ? "Adres" : "Address"}
@@ -876,7 +883,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <div className="seller-profile-head">
                 <div className="seller-profile-avatar">{initials}</div>
               </div>
-              <form className="form-grid seller-general-form" onSubmit={onSave}>
+              <form className="form-grid seller-general-form" onSubmit={onSave} onKeyDown={onEnterSubmit}>
                 <label>
                   {language === "tr" ? "Görünen Ad" : "Display Name"}
                   <input name="displayName" defaultValue={String(row.displayName ?? "")} disabled={!isSuperAdmin} required minLength={3} />
