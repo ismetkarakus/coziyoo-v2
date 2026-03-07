@@ -82,6 +82,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         total_price: "Toplam Tutar",
         estimated_delivery_time: "Tahmini Teslimat",
         delivery_address_json: "Teslimat Adresi",
+        order_id: "Order ID",
+        lot_id: "Lot ID",
+        food_id: "Yemek ID",
+        quantity: "Adet",
+        unit_price: "Birim Fiyat",
+        line_total: "Satır Toplamı",
       };
       if (trLabels[column]) return trLabels[column];
     }
@@ -256,6 +262,42 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(value);
   };
 
+  const formatDeliveryAddress = (value: unknown): string => {
+    if (!value) return "-";
+    const normalize = (input: unknown) => {
+      if (!input || typeof input !== "object") return null;
+      const row = input as Record<string, unknown>;
+      const line = String(row.line ?? row.addressLine ?? "").trim();
+      const district = String(row.district ?? "").trim();
+      const city = String(row.city ?? "").trim();
+      const postalCode = String(row.postalCode ?? row.postal_code ?? "").trim();
+      const left = [line, district].filter(Boolean).join(", ");
+      const right = [city, postalCode].filter(Boolean).join(", ");
+      return [left, right].filter(Boolean).join(" / ").trim();
+    };
+    if (typeof value === "object") {
+      return normalize(value) || "-";
+    }
+    const text = String(value).trim();
+    if (!text) return "-";
+    if (text.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        return normalize(parsed) || text;
+      } catch {
+        return text;
+      }
+    }
+    return text;
+  };
+
+  const shortUuid = (value: unknown): string => {
+    const text = String(value ?? "").trim();
+    if (!text) return "-";
+    if (text.length <= 18) return text;
+    return `${text.slice(0, 8)}...${text.slice(-6)}`;
+  };
+
   async function openOrderDetails(row: Record<string, unknown>) {
     const orderId = String(row.id ?? "").trim();
     if (!orderId) return;
@@ -407,6 +449,17 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     };
   }, [rows, tableKey, userNameById]);
 
+  const selectedOrderId = String(selectedOrder?.id ?? "").trim();
+  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
+  const selectedBuyerText = orderCellText("buyer_id", selectedOrder?.buyer_id);
+  const selectedSellerText = orderCellText("seller_id", selectedOrder?.seller_id);
+  const selectedDeliveryAddress = formatDeliveryAddress(selectedOrder?.delivery_address_json);
+  const selectedDeliveryType = orderCellText("delivery_type", selectedOrder?.delivery_type);
+  const selectedCreatedAt = orderCellText("created_at", selectedOrder?.created_at);
+  const selectedRequestedAt = orderCellText("requested_at", selectedOrder?.requested_at);
+  const selectedPaymentStatus = orderCellText("payment_completed", selectedOrder?.payment_completed);
+  const selectedTotal = orderCellText("total_price", selectedOrder?.total_price);
+
   return (
     <div className="app">
       <header className="topbar topbar-with-centered-search">
@@ -526,16 +579,74 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       {selectedOrder ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedOrder(null)}>
           <div className="buyer-ops-modal records-order-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>{language === "tr" ? "Sipariş Detayı" : "Order Details"}</h3>
-            <div className="records-order-grid">
-              {Object.entries(selectedOrder).map(([key, value]) => (
-                <div key={key}>
-                  <span className="panel-meta">{orderColumnLabel(key)}</span>
-                  <strong>{orderCellText(key, value)}</strong>
+            <section className="records-order-section">
+              <header className="records-order-head">
+                <div className="records-order-title-wrap">
+                  <h3>{language === "tr" ? `Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}` : `Active Order Details: #${toDisplayId(selectedOrderId)}`}</h3>
+                  <button
+                    className="ghost records-copy-btn"
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(selectedOrderId).catch(() => undefined)}
+                    title={language === "tr" ? "Sipariş ID kopyala" : "Copy order ID"}
+                  >
+                    ⧉
+                  </button>
                 </div>
-              ))}
-            </div>
-            <div>
+                <div className="records-order-status-wrap">
+                  <span>{language === "tr" ? "Durumu" : "Status"}</span>
+                  <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusMeta.label}</span>
+                </div>
+              </header>
+
+              <div className="records-order-grid">
+                <article className="records-order-info-card">
+                  <span>{language === "tr" ? "Alıcı" : "Buyer"}</span>
+                  <strong>{selectedBuyerText}</strong>
+                </article>
+                <article className="records-order-info-card">
+                  <span>{language === "tr" ? "Teslimat Adresi" : "Delivery Address"}</span>
+                  <strong>{selectedDeliveryAddress}</strong>
+                </article>
+                <article className="records-order-info-card">
+                  <span>{language === "tr" ? "Satıcı" : "Seller"}</span>
+                  <strong>{selectedSellerText}</strong>
+                  <p className="panel-meta">{`${language === "tr" ? "Teslimat Tipi" : "Delivery Type"}: ${selectedDeliveryType}`}</p>
+                </article>
+                <article className="records-order-info-meta">
+                  <div>
+                    <span>{language === "tr" ? "Sipariş Tarihi" : "Order Date"}</span>
+                    <strong>{selectedCreatedAt}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "Talep Tarihi" : "Requested Date"}</span>
+                    <strong>{selectedRequestedAt}</strong>
+                  </div>
+                </article>
+              </div>
+
+              <div className="records-order-kpi-grid">
+                <div>
+                  <span>{language === "tr" ? "Total" : "Total"}</span>
+                  <strong>{selectedTotal}</strong>
+                </div>
+                <div>
+                  <span>{language === "tr" ? "Ödeme Durumu" : "Payment Status"}</span>
+                  <strong>{selectedPaymentStatus}</strong>
+                </div>
+                <div className="records-order-uuid-row">
+                  <span>{language === "tr" ? "UUID" : "UUID"}: {shortUuid(selectedOrderId)}</span>
+                  <button
+                    className="ghost records-copy-btn"
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(selectedOrderId).catch(() => undefined)}
+                    title={language === "tr" ? "UUID kopyala" : "Copy UUID"}
+                  >
+                    ⧉
+                  </button>
+                </div>
+              </div>
+            </section>
+            <section className="records-order-section">
               <h4>{language === "tr" ? "Sipariş Kalemleri" : "Order Items"}</h4>
               {orderItemsLoading ? (
                 <p className="panel-meta">{dict.common.loading}</p>
@@ -563,7 +674,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   </table>
                 </div>
               )}
-            </div>
+            </section>
             <div className="buyer-ops-modal-actions">
               <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
                 {language === "tr" ? "Kapat" : "Close"}

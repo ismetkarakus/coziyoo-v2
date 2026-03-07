@@ -4974,30 +4974,118 @@ textarea:focus {
   overflow-x: hidden;
   overflow-y: auto;
   margin-right: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.records-order-section {
+  border: 1px solid color-mix(in srgb, #7287b8 18%, var(--color-border));
+  border-radius: 14px;
+  background: linear-gradient(116deg, rgba(24, 34, 58, 0.9), rgba(13, 22, 42, 0.9));
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.records-order-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.records-order-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.records-order-title-wrap h3 {
+  margin: 0;
+  font-size: clamp(1.1rem, 1.28vw, 1.42rem);
+  min-width: 0;
+}
+
+.records-copy-btn {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 0;
+}
+
+.records-order-status-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(1rem, 1.02vw, 1.1rem);
 }
 
 .records-order-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   overflow: hidden;
 }
 
-.records-order-grid > div {
+.records-order-info-card,
+.records-order-info-meta {
+  border: 1px solid color-mix(in srgb, #758aba 20%, var(--color-border));
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, #0f1e3d 72%, transparent);
   display: grid;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
-.records-order-grid strong {
+.records-order-info-card span,
+.records-order-info-meta span,
+.records-order-kpi-grid span {
+  color: var(--color-secondary-text);
+  font-size: clamp(0.95rem, 0.96vw, 1rem);
+}
+
+.records-order-info-card strong,
+.records-order-info-meta strong,
+.records-order-kpi-grid strong {
   min-width: 0;
+  font-size: clamp(1.08rem, 1.2vw, 1.36rem);
+  line-height: 1.2;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.records-order-info-meta {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+}
+
+.records-order-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.records-order-uuid-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .records-order-modal .table-wrap {
   max-width: 100%;
   overflow: auto;
+}
+
+.records-order-modal h4 {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.34vw, 1.45rem);
 }
 
 .records-order-modal .buyer-ops-modal-actions {
@@ -5015,6 +5103,15 @@ textarea:focus {
   }
 
   .records-order-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-order-head {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .records-order-kpi-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
