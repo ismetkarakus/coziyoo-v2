@@ -49,7 +49,7 @@ services:
       - coziyoo_npm_cache:/root/.npm
       - coziyoo_admin_node_modules:/workspace/node_modules
     command: >
-      bash -lc "npm ci --workspace=apps/admin --include-workspace-root && npm run dev:admin -- --host 0.0.0.0 --port 5173"
+      bash -lc "npm ci --workspace=apps/admin --include-workspace-root && npm run dev --workspace=apps/admin -- --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
 
