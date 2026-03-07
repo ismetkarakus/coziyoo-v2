@@ -79,6 +79,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
   const [expandedFoodIds, setExpandedFoodIds] = useState<Record<string, boolean>>({});
   const [expandedLotIds, setExpandedLotIds] = useState<Record<string, boolean>>({});
+  const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string }>>([]);
+  const [tagItems, setTagItems] = useState<string[]>([]);
+  const [noteInput, setNoteInput] = useState("");
+  const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteValue, setEditingNoteValue] = useState("");
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [lotsLoading, setLotsLoading] = useState(false);
   const [lotsError, setLotsError] = useState<string | null>(null);
   const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
@@ -94,12 +101,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setMessage(null);
     setLotsError(null);
     try {
-      const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse, addressesResponse] = await Promise.all([
+      const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse, addressesResponse, notesResponse, tagsResponse] = await Promise.all([
         request(endpoint),
         request(`/v1/admin/compliance/${id}`),
         request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`),
         request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`),
         request(`/v1/admin/users/${id}/addresses`),
+        request(`/v1/admin/sellers/${id}/notes?limit=50`),
+        request(`/v1/admin/sellers/${id}/tags`),
       ]);
 
       if (detailResponse.status !== 200) {
@@ -140,6 +149,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setAddresses(Array.isArray(addressesBody.data) ? addressesBody.data : []);
       } else {
         setAddresses([]);
+      }
+
+      if (notesResponse.status === 200) {
+        const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string }> }>(notesResponse);
+        setNoteItems(Array.isArray(body.data) ? body.data : []);
+      } else {
+        setNoteItems([]);
+      }
+
+      if (tagsResponse.status === 200) {
+        const body = await parseJson<{ data: Array<{ id: string; tag: string }> }>(tagsResponse);
+        setTagItems(Array.isArray(body.data) ? body.data.map((item) => item.tag) : []);
+      } else {
+        setTagItems([]);
       }
 
       setLotsLoading(true);
@@ -199,6 +222,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setLotOrdersByLotId({});
     setExpandedFoodIds({});
     setExpandedLotIds({});
+    setNoteItems([]);
+    setTagItems([]);
+    setNoteInput("");
+    setOpenNoteMenuId(null);
+    setEditingNoteId(null);
+    setEditingNoteValue("");
+    setSavingNoteId(null);
     setLotOrdersLoadingByLotId({});
     setLotOrdersErrorByLotId({});
     setLotsError(null);
@@ -748,6 +778,133 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     URL.revokeObjectURL(url);
   }
 
+  function openNoteCard(noteId: string) {
+    if (editingNoteId && editingNoteId !== noteId) {
+      setEditingNoteId(null);
+      setEditingNoteValue("");
+    }
+    setOpenNoteMenuId(noteId);
+  }
+
+  async function addSellerNote() {
+    const trimmed = noteInput.trim();
+    if (!trimmed) return;
+    try {
+      const response = await request(`/v1/admin/sellers/${id}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ note: trimmed }),
+      });
+      if (response.status >= 200 && response.status < 300) {
+        const body = await parseJson<{ data?: { id: string; note: string; createdAt: string } } & ApiError>(response);
+        if (body.data?.id) {
+          setNoteItems((prev) => [body.data as { id: string; note: string; createdAt: string }, ...prev]);
+        } else {
+          await loadSellerDetail();
+        }
+        setNoteInput("");
+        return;
+      }
+      setMessage(language === "tr" ? "Not kaydedilemedi." : "Failed to save note.");
+    } catch {
+      setMessage(language === "tr" ? "Not kaydedilemedi." : "Failed to save note.");
+    }
+  }
+
+  async function addSellerTag() {
+    const trimmed = noteInput.trim();
+    if (!trimmed) return;
+    try {
+      const response = await request(`/v1/admin/sellers/${id}/tags`, {
+        method: "POST",
+        body: JSON.stringify({ tag: trimmed }),
+      });
+      if (response.status >= 200 && response.status < 300) {
+        if (!tagItems.includes(trimmed)) {
+          setTagItems((prev) => [trimmed, ...prev].slice(0, 16));
+        }
+        setNoteInput("");
+        return;
+      }
+      setMessage(language === "tr" ? "Etiket kaydedilemedi." : "Failed to save tag.");
+    } catch {
+      setMessage(language === "tr" ? "Etiket kaydedilemedi." : "Failed to save tag.");
+    }
+  }
+
+  async function deleteSellerTag(tag: string) {
+    const value = String(tag ?? "").trim();
+    if (!value) return;
+    try {
+      const response = await request(`/v1/admin/sellers/${id}/tags`, {
+        method: "DELETE",
+        body: JSON.stringify({ tag: value }),
+      });
+      if (response.status === 204) {
+        setTagItems((prev) => prev.filter((item) => item !== value));
+        return;
+      }
+      setMessage(language === "tr" ? "Etiket silinemedi." : "Failed to delete tag.");
+    } catch {
+      setMessage(language === "tr" ? "Etiket silinemedi." : "Failed to delete tag.");
+    }
+  }
+
+  async function deleteSellerNote(noteId: string) {
+    try {
+      const response = await request(`/v1/admin/sellers/${id}/notes/${noteId}`, { method: "DELETE" });
+      if (response.status === 204) {
+        setNoteItems((prev) => prev.filter((item) => item.id !== noteId));
+        setOpenNoteMenuId(null);
+        if (editingNoteId === noteId) {
+          setEditingNoteId(null);
+          setEditingNoteValue("");
+        }
+        return;
+      }
+      setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
+    } catch {
+      setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
+    }
+  }
+
+  async function saveEditedSellerNote(noteId: string) {
+    if (savingNoteId === noteId) return;
+    const trimmed = editingNoteValue.trim();
+    if (!trimmed) {
+      setMessage(language === "tr" ? "Not bos olamaz." : "Note cannot be empty.");
+      return;
+    }
+    const current = noteItems.find((item) => item.id === noteId);
+    if (current && current.note.trim() === trimmed) {
+      setEditingNoteId(null);
+      setEditingNoteValue("");
+      setOpenNoteMenuId(null);
+      return;
+    }
+    setSavingNoteId(noteId);
+    try {
+      const response = await request(`/v1/admin/sellers/${id}/notes/${noteId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ note: trimmed }),
+      });
+      if (response.status === 200) {
+        const body = await parseJson<{ data?: { id: string; note: string; createdAt: string } } & ApiError>(response);
+        if (body.data?.id) {
+          setNoteItems((prev) => prev.map((item) => (item.id === noteId ? (body.data as { id: string; note: string; createdAt: string }) : item)));
+        }
+        setEditingNoteId(null);
+        setEditingNoteValue("");
+        setOpenNoteMenuId(null);
+        return;
+      }
+      setMessage(language === "tr" ? "Not guncellenemedi." : "Failed to update note.");
+    } catch {
+      setMessage(language === "tr" ? "Not guncellenemedi." : "Failed to update note.");
+    } finally {
+      setSavingNoteId(null);
+    }
+  }
+
   const sellerRawPayload = {
     id: row.id,
     user: row,
@@ -790,6 +947,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "identity", label: language === "tr" ? "Uygunluk" : "Compliance" },
     { key: "retention", label: dict.detail.sellerTabs.retention },
     { key: "security", label: dict.detail.sellerTabs.security },
+    { key: "notes", label: dict.detail.sellerTabs.notes },
     { key: "raw", label: dict.detail.sellerTabs.raw },
   ] as const;
   const canExportActiveSellerTab = activeTab === "orders" || activeTab === "wallet";
@@ -1839,6 +1997,96 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
+      {activeTab === "notes" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.notes}</h2>
+          </div>
+          <div className="buyer-ref-main-notes">
+            <div className="buyer-ops-note-form">
+              <input
+                value={noteInput}
+                onChange={(event) => setNoteInput(event.target.value)}
+                placeholder={language === "tr" ? "Not veya etiket yaz..." : "Type note or tag..."}
+              />
+              <button className="ghost" type="button" onClick={() => void addSellerNote()}>
+                {language === "tr" ? "Not Ekle" : "Add Note"}
+              </button>
+              <button className="ghost" type="button" onClick={() => void addSellerTag()}>
+                {language === "tr" ? "Etiket Ekle" : "Add Tag"}
+              </button>
+            </div>
+            <div className="buyer-ops-tag-list">
+              {tagItems.map((tag) => (
+                <span key={`seller-tag-${tag}`} className="buyer-ops-tag">
+                  <span>{tag}</span>
+                  <button className="buyer-ops-tag-remove" type="button" onClick={() => void deleteSellerTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                </span>
+              ))}
+            </div>
+            <div className="buyer-ref-note-list">
+              {noteItems.length === 0 ? (
+                <p className="panel-meta">{language === "tr" ? "Henüz not yok." : "No notes yet."}</p>
+              ) : (
+                noteItems.map((note) => (
+                  <article
+                    key={`seller-note-${note.id}`}
+                    className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
+                    onClick={() => openNoteCard(note.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openNoteCard(note.id);
+                      }
+                    }}
+                  >
+                    {editingNoteId === note.id ? (
+                      <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          value={editingNoteValue}
+                          onChange={(event) => setEditingNoteValue(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              void saveEditedSellerNote(note.id);
+                            }
+                          }}
+                          onBlur={() => {
+                            void saveEditedSellerNote(note.id);
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <p>{note.note}</p>
+                    )}
+                    {editingNoteId !== note.id && openNoteMenuId === note.id ? (
+                      <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
+                        <button
+                          className="ghost"
+                          type="button"
+                          onClick={() => {
+                            setEditingNoteId(note.id);
+                            setEditingNoteValue(note.note);
+                          }}
+                        >
+                          {language === "tr" ? "Duzenle" : "Edit"}
+                        </button>
+                        <button className="ghost is-danger" type="button" onClick={() => void deleteSellerNote(note.id)}>
+                          {language === "tr" ? "Sil" : "Delete"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                ))
+              )}
+            </div>
+            <p className="panel-meta">{noteItems.length} {language === "tr" ? "Not" : "Notes"}, {tagItems.length} {language === "tr" ? "Etiket" : "Tags"}</p>
+          </div>
+        </section>
+      ) : null}
+
       {activeTab === "raw" ? (
         <section className="panel">
           <section className="seller-json-card">
@@ -1857,7 +2105,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
+      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "notes" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>

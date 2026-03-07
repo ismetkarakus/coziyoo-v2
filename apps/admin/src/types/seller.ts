@@ -1,4 +1,4 @@
-export type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "raw";
+export type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "notes" | "raw";
 
 export type SellerSmartFilterKey =
   | "login_anomaly"

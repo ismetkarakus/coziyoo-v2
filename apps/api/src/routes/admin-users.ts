@@ -2242,6 +2242,257 @@ adminUserManagementRouter.delete("/buyers/:id/tags/:tagId", requireAuth("admin")
   return res.status(204).send();
 });
 
+adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const query = BuyerNotesQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: query.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const rows = await pool.query<{
+    id: string;
+    buyer_id: string;
+    admin_id: string;
+    note: string;
+    created_at: string;
+  }>(
+    `SELECT id, buyer_id, admin_id, note, created_at::text
+     FROM buyer_notes
+     WHERE buyer_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [params.data.id, query.data.limit]
+  );
+
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      buyerId: row.buyer_id,
+      adminId: row.admin_id,
+      note: row.note,
+      createdAt: row.created_at,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/sellers/:id/notes", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerNoteBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const inserted = await pool.query<{
+    id: string;
+    note: string;
+    created_at: string;
+  }>(
+    `INSERT INTO buyer_notes (buyer_id, admin_id, note)
+     VALUES ($1, $2, $3)
+     RETURNING id, note, created_at::text`,
+    [params.data.id, req.auth!.userId, parsed.data.note.trim()]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: inserted.rows[0]?.id,
+      note: inserted.rows[0]?.note,
+      createdAt: inserted.rows[0]?.created_at,
+    },
+  });
+});
+
+adminUserManagementRouter.patch("/sellers/:id/notes/:noteId", requireAuth("admin"), async (req, res) => {
+  const params = BuyerNoteParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerNoteUpdateBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const updated = await pool.query<{ id: string; note: string; created_at: string }>(
+    `UPDATE buyer_notes
+     SET note = $3
+     WHERE buyer_id = $1 AND id = $2
+     RETURNING id, note, created_at::text`,
+    [params.data.id, params.data.noteId, parsed.data.note.trim()]
+  );
+
+  if (updated.rowCount === 0) {
+    return res.status(404).json({ error: { code: "NOTE_NOT_FOUND", message: "Note not found" } });
+  }
+
+  return res.json({
+    data: {
+      id: updated.rows[0]?.id,
+      note: updated.rows[0]?.note,
+      createdAt: updated.rows[0]?.created_at,
+    },
+  });
+});
+
+adminUserManagementRouter.delete("/sellers/:id/notes/:noteId", requireAuth("admin"), async (req, res) => {
+  const params = BuyerNoteParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const deleted = await pool.query<{ id: string }>(
+    `DELETE FROM buyer_notes
+     WHERE buyer_id = $1 AND id = $2
+     RETURNING id`,
+    [params.data.id, params.data.noteId]
+  );
+
+  if (deleted.rowCount === 0) {
+    return res.status(404).json({ error: { code: "NOTE_NOT_FOUND", message: "Note not found" } });
+  }
+
+  return res.status(204).send();
+});
+
+adminUserManagementRouter.get("/sellers/:id/tags", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const rows = await pool.query<{ id: string; tag: string }>(
+    `SELECT id, tag
+     FROM buyer_tags
+     WHERE buyer_id = $1
+     ORDER BY tag ASC`,
+    [params.data.id]
+  );
+
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      tag: row.tag,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/sellers/:id/tags", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerTagBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const tagValue = parsed.data.tag.trim();
+  const inserted = await pool.query<{ id: string; tag: string }>(
+    `INSERT INTO buyer_tags (buyer_id, tag)
+     VALUES ($1, $2)
+     ON CONFLICT (buyer_id, tag) DO UPDATE
+     SET tag = EXCLUDED.tag
+     RETURNING id, tag`,
+    [params.data.id, tagValue]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: inserted.rows[0]?.id,
+      tag: inserted.rows[0]?.tag,
+    },
+  });
+});
+
+adminUserManagementRouter.delete("/sellers/:id/tags", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerTagDeleteBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const deleted = await pool.query<{ id: string }>(
+    `DELETE FROM buyer_tags
+     WHERE buyer_id = $1 AND tag = $2
+     RETURNING id`,
+    [params.data.id, parsed.data.tag.trim()]
+  );
+
+  if (deleted.rowCount === 0) {
+    return res.status(404).json({ error: { code: "TAG_NOT_FOUND", message: "Tag not found" } });
+  }
+
+  return res.status(204).send();
+});
+
+adminUserManagementRouter.delete("/sellers/:id/tags/:tagId", requireAuth("admin"), async (req, res) => {
+  const params = BuyerTagParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const deleted = await pool.query<{ id: string }>(
+    `DELETE FROM buyer_tags
+     WHERE buyer_id = $1 AND id = $2
+     RETURNING id`,
+    [params.data.id, params.data.tagId]
+  );
+
+  if (deleted.rowCount === 0) {
+    return res.status(404).json({ error: { code: "TAG_NOT_FOUND", message: "Tag not found" } });
+  }
+
+  return res.status(204).send();
+});
+
 adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), async (req, res) => {
   const params = UuidParamSchema.safeParse(req.params);
   if (!params.success) {
