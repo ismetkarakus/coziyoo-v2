@@ -3623,19 +3623,6 @@ textarea:focus {
   cursor: pointer;
 }
 
-.buyer-ref-note-item.is-editing {
-  border-color: transparent;
-  background: transparent;
-  padding: 0;
-  box-shadow: none;
-}
-
-.buyer-ref-note-item.is-editing.is-open {
-  border-color: transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
 .buyer-ref-note-item p {
   margin: 0;
   color: color-mix(in srgb, var(--ops-text-primary) 92%, white);
@@ -3658,6 +3645,7 @@ textarea:focus {
 }
 
 .buyer-ref-note-edit-row textarea {
+  display: block;
   width: 100%;
   border: 0 !important;
   outline: none;
@@ -3667,9 +3655,11 @@ textarea:focus {
   line-height: 1.4;
   padding: 0;
   margin: 0;
-  resize: vertical;
+  resize: none;
   min-height: 64px;
   box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .buyer-ref-note-actions .ghost,
