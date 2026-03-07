@@ -489,6 +489,24 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
+  async function deleteTag(tag: string) {
+    const value = String(tag ?? "").trim();
+    if (!value) return;
+    try {
+      const response = await request(`/v1/admin/buyers/${id}/tags`, {
+        method: "DELETE",
+        body: JSON.stringify({ tag: value }),
+      });
+      if (response.status === 204) {
+        setTagItems((prev) => prev.filter((item) => item !== value));
+        return;
+      }
+      setMessage("Etiket silinemedi.");
+    } catch {
+      setMessage("Etiket silinemedi.");
+    }
+  }
+
   async function deleteNote(noteId: string) {
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, { method: "DELETE" });
@@ -656,7 +674,14 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <h2>Notlar & Etiketler</h2>
               <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
             </div>
-            <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
+            <div className="buyer-ops-tag-list">
+              {tagItems.map((tag) => (
+                <span key={tag} className="buyer-ops-tag">
+                  <span>{tag}</span>
+                  <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                </span>
+              ))}
+            </div>
             <div className="buyer-ops-note-form">
               <input
                 value={noteInput}
@@ -883,7 +908,14 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
             {activeTab === "notes" ? (
               <div className="buyer-ref-main-notes">
-                <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={`main-${tag}`} className="buyer-ops-tag">{tag}</span>)}</div>
+                <div className="buyer-ops-tag-list">
+                  {tagItems.map((tag) => (
+                    <span key={`main-${tag}`} className="buyer-ops-tag">
+                      <span>{tag}</span>
+                      <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                    </span>
+                  ))}
+                </div>
                 <div className="buyer-ref-note-list" ref={noteListRef}>
                   {noteItems.length === 0 ? (
                     <p className="panel-meta">Henüz not yok.</p>

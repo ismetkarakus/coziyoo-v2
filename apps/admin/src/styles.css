@@ -2643,6 +2643,20 @@ textarea:focus {
   padding: 3px 10px;
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.buyer-ops-tag-remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.95em;
+  opacity: 0.9;
 }
 
 .buyer-ops-pagination {

@@ -154,6 +154,13 @@ const BuyerNoteBodySchema = z.object({
 const BuyerTagBodySchema = z.object({
   tag: z.string().min(1).max(80),
 });
+const BuyerTagDeleteBodySchema = z.object({
+  tag: z.string().min(1).max(80),
+});
+const BuyerTagParamsSchema = z.object({
+  id: z.string().uuid(),
+  tagId: z.string().uuid(),
+});
 const BuyerNotesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
 });
@@ -1884,6 +1891,60 @@ adminUserManagementRouter.post("/buyers/:id/tags", requireAuth("admin"), async (
       tag: inserted.rows[0]?.tag,
     },
   });
+});
+
+adminUserManagementRouter.delete("/buyers/:id/tags", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = BuyerTagDeleteBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const deleted = await pool.query<{ id: string }>(
+    `DELETE FROM buyer_tags
+     WHERE buyer_id = $1 AND tag = $2
+     RETURNING id`,
+    [params.data.id, parsed.data.tag.trim()]
+  );
+
+  if (deleted.rowCount === 0) {
+    return res.status(404).json({ error: { code: "TAG_NOT_FOUND", message: "Tag not found" } });
+  }
+
+  return res.status(204).send();
+});
+
+adminUserManagementRouter.delete("/buyers/:id/tags/:tagId", requireAuth("admin"), async (req, res) => {
+  const params = BuyerTagParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const deleted = await pool.query<{ id: string }>(
+    `DELETE FROM buyer_tags
+     WHERE buyer_id = $1 AND id = $2
+     RETURNING id`,
+    [params.data.id, params.data.tagId]
+  );
+
+  if (deleted.rowCount === 0) {
+    return res.status(404).json({ error: { code: "TAG_NOT_FOUND", message: "Tag not found" } });
+  }
+
+  return res.status(204).send();
 });
 
 adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), async (req, res) => {
