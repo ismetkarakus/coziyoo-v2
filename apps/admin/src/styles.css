@@ -5582,18 +5582,12 @@ textarea:focus {
   border-color: color-mix(in srgb, #7d94bc 24%, var(--color-input-border));
 }
 
-.seller-link-actions {
+.seller-profile-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  margin-top: -2px;
-}
-
-.seller-link-actions a {
-  color: #9fd6ff;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  font-size: 0.9rem;
+  margin-top: 2px;
 }
 
 .seller-address-list {

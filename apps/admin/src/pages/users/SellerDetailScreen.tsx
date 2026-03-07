@@ -529,7 +529,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   })();
   const selectedIdentityDocument =
     identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
-  const profileImageUrlValue = String(row.profileImageUrl ?? row.profile_image_url ?? "").trim();
   const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
@@ -961,34 +960,26 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {language === "tr" ? "Dil" : "Language"}
                   <input name="language" maxLength={10} defaultValue={String(row.language ?? "")} disabled={!isSuperAdmin} />
                 </label>
-                <label>
-                  {language === "tr" ? "Profil Görsel URL" : "Profile Image URL"}
-                  <input name="profileImageUrl" defaultValue={String(row.profileImageUrl ?? row.profile_image_url ?? "")} disabled={!isSuperAdmin} />
-                </label>
-                {profileImageUrlValue ? (
-                  <div className="seller-link-actions">
-                    <a href={profileImageUrlValue} target="_blank" rel="noreferrer">
-                      {language === "tr" ? "Profil Görselini Aç" : "Open Profile Image"}
-                    </a>
-                    <button
-                      className="ghost"
-                      type="button"
-                      onClick={() => {
-                        setIdentityViewerUrl(identityDocuments[0]?.url ?? null);
-                        setIdentityViewerOpen(true);
-                      }}
-                    >
-                      {language === "tr" ? "Kimlik Dosyalarını Gör" : "View Identity Files"}
-                    </button>
-                  </div>
-                ) : null}
+                <input type="hidden" name="profileImageUrl" value={String(row.profileImageUrl ?? row.profile_image_url ?? "")} />
                 <label>
                   {dict.detail.passwordOptional}
                   <input name="password" type="password" disabled={!isSuperAdmin} />
                 </label>
-                <button className="primary" type="submit" disabled={!isSuperAdmin}>
-                  {dict.actions.save}
-                </button>
+                <div className="seller-profile-actions">
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => {
+                      setIdentityViewerUrl(identityDocuments[0]?.url ?? null);
+                      setIdentityViewerOpen(true);
+                    }}
+                  >
+                    {language === "tr" ? "Kimlik Detayını Gör" : "View Identity Details"}
+                  </button>
+                  <button className="primary" type="submit" disabled={!isSuperAdmin}>
+                    {dict.actions.save}
+                  </button>
+                </div>
               </form>
               {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
             </article>
