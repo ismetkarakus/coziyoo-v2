@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { Pager } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
-import { fmt, toDisplayId, formatTableHeader } from "../lib/format";
+import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
 import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
@@ -16,6 +16,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
+  const [selectedOrderItems, setSelectedOrderItems] = useState<Record<string, unknown>[]>([]);
+  const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
+  const [orderItemsLoading, setOrderItemsLoading] = useState(false);
   const pageSize = 20;
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
@@ -54,11 +58,29 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }, [columns, tableKey]);
 
   const orderColumnLabel = (column: string): string => {
-    if (column === "__display_id") return language === "tr" ? "Display ID" : "Display ID";
-    if (column === "created_at") return language === "tr" ? "Tarih" : "Date";
-    if (column === "buyer_id") return language === "tr" ? "Alıcı" : "Buyer";
-    if (column === "seller_id") return language === "tr" ? "Satıcı" : "Seller";
-    if (column === "payment_completed") return language === "tr" ? "Ödeme" : "Payment";
+    if (language === "tr") {
+      const trLabels: Record<string, string> = {
+        __display_id: "Görünen ID",
+        id: "Sipariş ID",
+        created_at: "Tarih",
+        updated_at: "Güncelleme",
+        requested_at: "Talep Tarihi",
+        buyer_id: "Alıcı",
+        seller_id: "Satıcı",
+        status: "Durum",
+        payment_completed: "Ödeme",
+        delivery_type: "Teslimat Tipi",
+        total_price: "Toplam Tutar",
+        estimated_delivery_time: "Tahmini Teslimat",
+        delivery_address_json: "Teslimat Adresi",
+      };
+      if (trLabels[column]) return trLabels[column];
+    }
+    if (column === "__display_id") return "Display ID";
+    if (column === "created_at") return "Date";
+    if (column === "buyer_id") return "Buyer";
+    if (column === "seller_id") return "Seller";
+    if (column === "payment_completed") return "Payment";
     return formatTableHeader(column);
   };
 
@@ -172,8 +194,85 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       );
     }
 
+    if (column === "delivery_type") {
+      const raw = String(value ?? "").trim().toLowerCase();
+      if (language === "tr") {
+        if (raw === "delivery") return "Adrese Teslim";
+        if (raw === "pickup") return "Elden Teslim";
+      } else {
+        if (raw === "delivery") return "Home Delivery";
+        if (raw === "pickup") return "Pickup";
+      }
+      return raw || "-";
+    }
+
+    if (column === "total_price") {
+      const amount = Number(value ?? 0);
+      if (Number.isFinite(amount)) return formatCurrency(amount, language);
+    }
+
     return renderCell(value, column);
   };
+
+  const orderCellText = (column: string, value: unknown): string => {
+    if (column === "__display_id") return toDisplayId(value);
+    if (column === "created_at" || column.endsWith("_at")) return formatOrderCreatedAt(value);
+    if (column === "buyer_id" || column === "seller_id") {
+      const raw = String(value ?? "").trim();
+      if (!raw) return "-";
+      return userNameById[raw] ?? raw;
+    }
+    if (column === "status") return orderStatusMeta(value).label;
+    if (column === "payment_completed") {
+      const done = value === true || String(value).toLowerCase() === "true";
+      return done ? (language === "tr" ? "Tamamlandı" : "Completed") : language === "tr" ? "Bekliyor" : "Pending";
+    }
+    if (column === "delivery_type") {
+      const raw = String(value ?? "").trim().toLowerCase();
+      if (language === "tr") {
+        if (raw === "delivery") return "Adrese Teslim";
+        if (raw === "pickup") return "Elden Teslim";
+      } else {
+        if (raw === "delivery") return "Home Delivery";
+        if (raw === "pickup") return "Pickup";
+      }
+      return raw || "-";
+    }
+    if (column === "total_price") {
+      const amount = Number(value ?? 0);
+      if (Number.isFinite(amount)) return formatCurrency(amount, language);
+    }
+    if (value === null || value === undefined || value === "") return "-";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  };
+
+  async function openOrderDetails(row: Record<string, unknown>) {
+    const orderId = String(row.id ?? "").trim();
+    if (!orderId) return;
+    setSelectedOrder(row);
+    setSelectedOrderItems([]);
+    setSelectedOrderItemsColumns([]);
+    setOrderItemsLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: "1",
+        pageSize: "100",
+        sortDir: "desc",
+        search: orderId,
+      });
+      const response = await request(`/v1/admin/metadata/tables/orderItems/records?${query.toString()}`);
+      if (response.status !== 200) return;
+      const body = await parseJson<{
+        data: { rows: Array<Record<string, unknown>>; columns: string[] };
+      }>(response);
+      const rows = (body.data.rows ?? []).filter((item) => String(item.order_id ?? "") === orderId);
+      setSelectedOrderItems(rows);
+      setSelectedOrderItemsColumns(body.data.columns ?? []);
+    } finally {
+      setOrderItemsLoading(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -317,7 +416,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                 </tr>
               ) : (
                 rows.map((row, index) => (
-                  <tr key={`${tableKey}-${index}`}>
+                  <tr
+                    key={`${tableKey}-${index}`}
+                    className={tableKey === "orders" ? "records-order-row" : undefined}
+                    onClick={tableKey === "orders" ? () => void openOrderDetails(row) : undefined}
+                  >
                     {(tableKey === "orders" ? ["__display_id", ...orderColumns] : orderColumns).map((column) => (
                       <td key={`${index}-${column}`}>
                         {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
@@ -339,6 +442,55 @@ export default function RecordsPage({ language, tableKey }: { language: Language
           onNext={() => setPage((prev) => prev + 1)}
         />
       </section>
+      {selectedOrder ? (
+        <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedOrder(null)}>
+          <div className="buyer-ops-modal records-order-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{language === "tr" ? "Sipariş Detayı" : "Order Details"}</h3>
+            <div className="records-order-grid">
+              {Object.entries(selectedOrder).map(([key, value]) => (
+                <div key={key}>
+                  <span className="panel-meta">{orderColumnLabel(key)}</span>
+                  <strong>{orderCellText(key, value)}</strong>
+                </div>
+              ))}
+            </div>
+            <div>
+              <h4>{language === "tr" ? "Sipariş Kalemleri" : "Order Items"}</h4>
+              {orderItemsLoading ? (
+                <p className="panel-meta">{dict.common.loading}</p>
+              ) : selectedOrderItems.length === 0 ? (
+                <p className="panel-meta">{language === "tr" ? "Kalem bulunamadı." : "No items found."}</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        {selectedOrderItemsColumns.map((column) => (
+                          <th key={column}>{orderColumnLabel(column)}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrderItems.map((row, index) => (
+                        <tr key={`order-item-${index}`}>
+                          {selectedOrderItemsColumns.map((column) => (
+                            <td key={`${index}-${column}`}>{orderCellText(column, row[column])}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="buyer-ops-modal-actions">
+              <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
+                {language === "tr" ? "Kapat" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

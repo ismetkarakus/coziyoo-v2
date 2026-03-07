@@ -4959,6 +4959,29 @@ textarea:focus {
   color: var(--color-tertiary-text);
 }
 
+.records-order-row {
+  cursor: pointer;
+}
+
+.records-order-row:hover td {
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-card-bg));
+}
+
+.records-order-modal {
+  width: min(980px, 96vw);
+}
+
+.records-order-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.records-order-grid > div {
+  display: grid;
+  gap: 4px;
+}
+
 .status-pill.is-active {
   color: #9df7d4;
   border-color: color-mix(in srgb, #3dd598 45%, transparent);
