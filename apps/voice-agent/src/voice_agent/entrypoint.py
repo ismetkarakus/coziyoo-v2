@@ -87,8 +87,12 @@ def _normalize_base_url(value: str) -> str:
     if not candidate:
         return ""
     parsed = urlparse(candidate)
-    if parsed.scheme:
+    if parsed.scheme and parsed.netloc:
         return candidate
+    if parsed.scheme and not parsed.netloc:
+        # Handle malformed values like "https:ollama.example.com"
+        tail = candidate[len(parsed.scheme) + 1 :].lstrip("/")
+        return f"{parsed.scheme}://{tail}"
     return f"http://{candidate}"
 
 
