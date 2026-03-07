@@ -82,6 +82,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string }>>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState("");
+  const [sidebarNoteMode, setSidebarNoteMode] = useState<"note" | "tag">("note");
   const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
@@ -225,6 +226,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setNoteItems([]);
     setTagItems([]);
     setNoteInput("");
+    setSidebarNoteMode("note");
     setOpenNoteMenuId(null);
     setEditingNoteId(null);
     setEditingNoteValue("");
@@ -1998,7 +2000,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ) : null}
 
       {activeTab === "notes" ? (
-        <section className="panel">
+        <section className="panel buyer-ref-main-panel seller-notes-panel">
           <div className="panel-header">
             <h2>{dict.detail.sellerTabs.notes}</h2>
           </div>
@@ -2008,11 +2010,34 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 value={noteInput}
                 onChange={(event) => setNoteInput(event.target.value)}
                 placeholder={language === "tr" ? "Not veya etiket yaz..." : "Type note or tag..."}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  if (sidebarNoteMode === "note") {
+                    void addSellerNote();
+                  } else {
+                    void addSellerTag();
+                  }
+                }}
               />
-              <button className="ghost" type="button" onClick={() => void addSellerNote()}>
+              <button
+                className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
+                type="button"
+                onClick={() => {
+                  setSidebarNoteMode("note");
+                  void addSellerNote();
+                }}
+              >
                 {language === "tr" ? "Not Ekle" : "Add Note"}
               </button>
-              <button className="ghost" type="button" onClick={() => void addSellerTag()}>
+              <button
+                className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
+                type="button"
+                onClick={() => {
+                  setSidebarNoteMode("tag");
+                  void addSellerTag();
+                }}
+              >
                 {language === "tr" ? "Etiket Ekle" : "Add Tag"}
               </button>
             </div>
