@@ -3510,7 +3510,7 @@ textarea:focus {
 .buyer-ref-activity-top {
   margin: 0;
   color: var(--ops-text-secondary);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
   font-weight: var(--font-normal);
   line-height: 1.2;
 }
@@ -3518,7 +3518,7 @@ textarea:focus {
 .buyer-ref-activity-action {
   margin: 1px 0 0;
   font-weight: var(--font-normal);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
   line-height: 1.2;
 }
 
