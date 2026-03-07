@@ -19,6 +19,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
   const [selectedOrderItems, setSelectedOrderItems] = useState<Record<string, unknown>[]>([]);
   const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
+  const [foodNameById, setFoodNameById] = useState<Record<string, string>>({});
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
   const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
@@ -86,6 +87,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         order_id: "Order ID",
         lot_id: "Lot ID",
         food_id: "Yemek ID",
+        food_name: "Yemek Adı",
         quantity: "Adet",
         unit_price: "Birim Fiyat",
         line_total: "Satır Toplamı",
@@ -226,6 +228,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       const amount = Number(value ?? 0);
       if (Number.isFinite(amount)) return formatCurrency(amount, language);
     }
+    if (column === "food_name") {
+      const id = String(value ?? "").trim();
+      if (!id) return "-";
+      return foodNameById[id] ?? toDisplayId(id);
+    }
 
     return renderCell(value, column);
   };
@@ -257,6 +264,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (column === "total_price") {
       const amount = Number(value ?? 0);
       if (Number.isFinite(amount)) return formatCurrency(amount, language);
+    }
+    if (column === "food_name") {
+      const id = String(value ?? "").trim();
+      if (!id) return "-";
+      return foodNameById[id] ?? toDisplayId(id);
     }
     if (value === null || value === undefined || value === "") return "-";
     if (typeof value === "object") return JSON.stringify(value);
@@ -389,8 +401,13 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const baseHeader = baseFields.map((key) => orderColumnLabel(key));
     const baseRow = baseFields.map((key) => orderCellText(key, key === "__display_id" ? selectedOrder.id : selectedOrder[key]));
 
-    const itemHeaders = selectedOrderItemsColumns.map((column) => orderColumnLabel(column));
-    const itemRows = selectedOrderItems.map((item) => selectedOrderItemsColumns.map((column) => orderCellText(column, item[column])));
+    const itemColumnsForExport = selectedOrderItemsColumns.includes("food_id")
+      ? [...selectedOrderItemsColumns, "food_name"]
+      : selectedOrderItemsColumns;
+    const itemHeaders = itemColumnsForExport.map((column) => orderColumnLabel(column));
+    const itemRows = selectedOrderItems.map((item) =>
+      itemColumnsForExport.map((column) => orderCellText(column, column === "food_name" ? item.food_id : item[column]))
+    );
 
     const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
     const lines: string[] = [];
@@ -500,6 +517,43 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     };
   }, [rows, tableKey, userNameById]);
 
+  useEffect(() => {
+    if (selectedOrderItems.length === 0) return;
+    const missingFoodIds = Array.from(
+      new Set(
+        selectedOrderItems
+          .map((row) => String(row.food_id ?? "").trim())
+          .filter((id) => id.length > 0 && !foodNameById[id])
+      )
+    );
+    if (missingFoodIds.length === 0) return;
+    let active = true;
+    Promise.all(
+      missingFoodIds.map(async (id) => {
+        try {
+          const response = await request(`/v1/admin/metadata/tables/foods/records?page=1&pageSize=1&search=${encodeURIComponent(id)}`);
+          if (response.status !== 200) return [id, toDisplayId(id)] as const;
+          const body = await parseJson<{ data?: { rows?: Array<Record<string, unknown>> } }>(response);
+          const match = (body.data?.rows ?? []).find((row) => String(row.id ?? "") === id);
+          const name = String(match?.name ?? "").trim();
+          return [id, name || toDisplayId(id)] as const;
+        } catch {
+          return [id, toDisplayId(id)] as const;
+        }
+      })
+    ).then((pairs) => {
+      if (!active) return;
+      setFoodNameById((prev) => {
+        const next = { ...prev };
+        for (const [id, label] of pairs) next[id] = label;
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedOrderItems, foodNameById]);
+
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
   const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
   const selectedBuyerText = orderCellText("buyer_id", selectedOrder?.buyer_id);
@@ -510,6 +564,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const selectedRequestedAt = orderCellText("requested_at", selectedOrder?.requested_at);
   const selectedPaymentStatus = orderCellText("payment_completed", selectedOrder?.payment_completed);
   const selectedTotal = orderCellText("total_price", selectedOrder?.total_price);
+  const selectedOrderItemsColumnsWithFoodName = selectedOrderItemsColumns.includes("food_id")
+    ? [...selectedOrderItemsColumns, "food_name"]
+    : selectedOrderItemsColumns;
 
   return (
     <div className="app">
@@ -708,7 +765,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <table>
                     <thead>
                       <tr>
-                        {selectedOrderItemsColumns.map((column) => (
+                        {selectedOrderItemsColumnsWithFoodName.map((column) => (
                           <th key={column}>{orderColumnLabel(column)}</th>
                         ))}
                       </tr>
@@ -716,8 +773,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <tbody>
                       {selectedOrderItems.map((row, index) => (
                         <tr key={`order-item-${index}`}>
-                          {selectedOrderItemsColumns.map((column) => (
-                            <td key={`${index}-${column}`}>{orderCellText(column, row[column])}</td>
+                          {selectedOrderItemsColumnsWithFoodName.map((column) => (
+                            <td key={`${index}-${column}`}>{orderCellText(column, column === "food_name" ? row.food_id : row[column])}</td>
                           ))}
                         </tr>
                       ))}

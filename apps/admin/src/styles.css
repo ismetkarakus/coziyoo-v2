@@ -4969,11 +4969,11 @@ textarea:focus {
 }
 
 .records-order-modal {
-  width: min(900px, calc(100vw - 140px));
+  width: min(1240px, calc(100vw - 72px));
   max-height: calc(100vh - 72px);
   overflow-x: hidden;
   overflow-y: auto;
-  margin-right: 18px;
+  margin-right: 0;
   padding: 14px;
   display: grid;
   gap: 12px;
