@@ -3096,7 +3096,7 @@ textarea:focus {
 
 .buyer-ref-filter-row {
   display: grid;
-  grid-template-columns: minmax(250px, 330px) minmax(250px, 330px) minmax(300px, 1fr);
+  grid-template-columns: minmax(250px, 330px) minmax(250px, 330px) minmax(300px, 1fr) auto;
   gap: 10px;
   padding: 8px 12px 6px;
 }
@@ -3231,6 +3231,13 @@ textarea:focus {
   border-left: 1px solid color-mix(in srgb, #6f84bf 32%, var(--ops-border-default));
   padding-left: 10px;
   margin-left: 4px;
+}
+
+.buyer-ref-export-btn {
+  min-height: 46px;
+  border-radius: 12px;
+  padding-inline: 16px;
+  white-space: nowrap;
 }
 
 .buyer-ref-main-panel th {

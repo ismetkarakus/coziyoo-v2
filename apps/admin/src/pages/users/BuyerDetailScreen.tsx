@@ -654,6 +654,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       aria-label="Siparis veya isim ara"
                     />
                   </label>
+                  <button className="primary buyer-ref-export-btn" type="button" onClick={downloadBuyerOrdersAsExcel}>
+                    Excel'e Aktar
+                  </button>
                 </div>
 
                 <div className="buyer-ops-table-wrap">
