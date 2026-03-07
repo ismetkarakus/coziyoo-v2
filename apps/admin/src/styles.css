@@ -6149,10 +6149,16 @@ textarea:focus {
   word-break: break-word;
   max-height: 240px;
   overflow: auto;
+  font-family: inherit;
+  font-size: var(--text-md);
+  line-height: 1.45;
+  font-weight: var(--font-regular);
 }
 
 .foods-allergen-status-list {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
   gap: 8px;
 }
 
@@ -6163,6 +6169,8 @@ textarea:focus {
   background: color-mix(in srgb, #122041 76%, transparent);
   display: grid;
   gap: 4px;
+  flex: 1 1 240px;
+  min-width: 220px;
 }
 
 .foods-allergen-status-head {
