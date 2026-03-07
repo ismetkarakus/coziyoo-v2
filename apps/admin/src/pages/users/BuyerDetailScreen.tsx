@@ -569,13 +569,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
             </div>
             <div className="buyer-ops-tag-list">{tagItems.map((tag) => <span key={tag} className="buyer-ops-tag">{tag}</span>)}</div>
-            <div className="buyer-ref-note-list">
-              {noteItems.slice(0, 2).map((note, index) => (
-                <article key={`side-note-${index}`} className="buyer-ref-note-item">
-                  <p>{note}</p>
-                </article>
-              ))}
-            </div>
             <div className="buyer-ops-note-form">
               <input
                 value={noteInput}
@@ -800,15 +793,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       </article>
                     ))
                   )}
-                </div>
-                <div className="buyer-ops-note-form">
-                  <input
-                    value={noteInput}
-                    onChange={(event) => setNoteInput(event.target.value)}
-                  />
-                  <button className="ghost" type="button" onClick={addNote}>Not</button>
-                  <button className="ghost" type="button" onClick={addTag}>Etiket</button>
-                  <button className="ghost" type="button" onClick={() => switchBuyerTab("activity")}>Kayit</button>
                 </div>
                 <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
               </div>
