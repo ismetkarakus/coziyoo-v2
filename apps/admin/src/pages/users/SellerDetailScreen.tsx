@@ -204,31 +204,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setMessage(dict.common.saved);
   }
 
-  if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
-  if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
-
-  const isActive = row.status === "active";
-  const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
-  const phone = extractPhoneFromChecks(compliance);
-  const maskedEmail = maskEmail(row.email);
-  const profileRetentionUntil = addTwoYears(row.updatedAt);
-  const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
-  const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
-  const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
-    const value = String(item.updatedAt ?? "");
-    if (!value) return latest;
-    if (!latest) return value;
-    return Date.parse(value) > Date.parse(latest) ? value : latest;
-  }, null);
-  const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
-  const initials = initialsFromName(row.displayName, row.email);
-  const fallbackProfileImageFromFoods = foodRows.map((item) => normalizeImageUrl(item.imageUrl)).find(Boolean) ?? null;
-  const profileImageUrl =
-    !profileImageFailed
-      ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
-      : null;
-  const complianceCta = language === "tr" ? "Uygunluğa Git" : "Go to Compliance";
-  const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
   const paymentStateKey = (value: string | null | undefined): "successful" | "pending" | "failed" => {
     const lower = String(value ?? "").toLowerCase();
     if (lower.includes("fail")) return "failed";
@@ -294,6 +269,31 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     });
   }, [sellerOrders, earningsDateFilter, earningsPaymentFilter, earningsSearch, language]);
 
+  if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
+  if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
+
+  const isActive = row.status === "active";
+  const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
+  const phone = extractPhoneFromChecks(compliance);
+  const maskedEmail = maskEmail(row.email);
+  const profileRetentionUntil = addTwoYears(row.updatedAt);
+  const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
+  const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
+  const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
+    const value = String(item.updatedAt ?? "");
+    if (!value) return latest;
+    if (!latest) return value;
+    return Date.parse(value) > Date.parse(latest) ? value : latest;
+  }, null);
+  const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
+  const initials = initialsFromName(row.displayName, row.email);
+  const fallbackProfileImageFromFoods = foodRows.map((item) => normalizeImageUrl(item.imageUrl)).find(Boolean) ?? null;
+  const profileImageUrl =
+    !profileImageFailed
+      ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
+      : null;
+  const complianceCta = language === "tr" ? "Uygunluğa Git" : "Go to Compliance";
+  const auditCta = language === "tr" ? "Denetim Kayıtları" : "Audit Logs";
   const walletAmount = formatCurrency(
     filteredSellerEarnings
       .filter((order) => paymentStateKey(order.paymentStatus) === "successful")
