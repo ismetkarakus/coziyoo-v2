@@ -6154,6 +6154,20 @@ textarea:focus {
   font-size: clamp(1.04rem, 1.1vw, 1.2rem);
 }
 
+.foods-detail-paragraph {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, #0f1a34 80%, transparent);
+  font-family: inherit;
+  font-size: var(--text-md);
+  line-height: 1.45;
+  color: var(--color-text);
+  white-space: normal;
+  word-break: break-word;
+}
+
 .foods-detail-text-block pre {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);

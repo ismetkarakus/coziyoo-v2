@@ -71,6 +71,40 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     }
   };
 
+  const toReadableText = (value: unknown): string => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "string") {
+      const text = value.trim();
+      if (!text) return "-";
+      if (text.startsWith("{") || text.startsWith("[")) {
+        try {
+          return toReadableText(JSON.parse(text));
+        } catch {
+          return text;
+        }
+      }
+      return text;
+    }
+    if (Array.isArray(value)) {
+      const parts = value
+        .map((item) => toReadableText(item))
+        .map((item) => item.trim())
+        .filter((item) => item && item !== "-");
+      return parts.length > 0 ? parts.join(", ") : "-";
+    }
+    if (typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>)
+        .map(([key, item]) => {
+          const normalized = toReadableText(item);
+          if (!normalized || normalized === "-") return "";
+          return `${key}: ${normalized}`;
+        })
+        .filter(Boolean);
+      return entries.length > 0 ? entries.join(", ") : "-";
+    }
+    return String(value);
+  };
+
   const allergenCatalog = [
     { key: "gluten", labelTr: "Gluten", labelEn: "Gluten", hints: ["gluten", "bugday", "wheat", "arpa", "barley", "cavdar", "rye"] },
     { key: "milk", labelTr: "Süt", labelEn: "Milk", hints: ["sut", "milk", "lactose", "laktoz", "peynir", "yogurt", "cream"] },
@@ -628,15 +662,15 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             </div>
             <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Yemek Açıklaması" : "Food Description"}</h4>
-              <pre>{toPrettyJson(selectedFood.description)}</pre>
+              <p className="foods-detail-paragraph">{toReadableText(selectedFood.description)}</p>
             </div>
             <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
-              <pre>{toPrettyJson(selectedFood.recipe)}</pre>
+              <p className="foods-detail-paragraph">{toReadableText(selectedFood.recipe)}</p>
             </div>
             <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "İçerikler" : "Ingredients"}</h4>
-              <pre>{toPrettyJson(selectedFood.ingredientsJson)}</pre>
+              <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
             </div>
             <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>
