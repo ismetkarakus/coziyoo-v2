@@ -96,6 +96,7 @@ class HttpSTT(STT):
         if self._language:
             form.add_field("language", self._language)
         form.add_field("response_format", "json")
+        form.add_field("stream", "false")
 
         session = self._get_session()
         async with session.post(url, data=form, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as resp:
