@@ -254,6 +254,78 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   }
 
   const selectedFoodAllergenSummary = selectedFood ? explainAllergens(selectedFood) : [];
+  const selectedFoodLots = selectedFood ? (lotsByFoodId[selectedFood.id] ?? []) : [];
+
+  function downloadSelectedFoodDetailAsExcel() {
+    if (!selectedFood) return;
+    const headers = [
+      language === "tr" ? "Yemek ID" : "Food ID",
+      language === "tr" ? "Yemek Adı" : "Food Name",
+      language === "tr" ? "Satıcı" : "Seller",
+      language === "tr" ? "Durum" : "Status",
+      language === "tr" ? "Fiyat" : "Price",
+      language === "tr" ? "Güncelleme" : "Updated",
+    ];
+    const summaryRow = [
+      selectedFood.id,
+      selectedFood.name,
+      sellerNameById[selectedFood.sellerId] ?? toDisplayId(selectedFood.sellerId),
+      selectedFood.isActive ? dict.common.active : dict.common.disabled,
+      formatCurrency(selectedFood.price, language),
+      formatUiDate(selectedFood.updatedAt, language),
+    ];
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+    const lines: string[] = [];
+    lines.push(headers.map(escapeCsv).join(","));
+    lines.push(summaryRow.map(escapeCsv).join(","));
+    lines.push("");
+    lines.push(language === "tr" ? "Alerjen Durumu" : "Allergen Status");
+    if (selectedFoodAllergenSummary.length === 0) {
+      lines.push(language === "tr" ? "Bilinmiyor" : "Unknown");
+    } else {
+      lines.push([language === "tr" ? "Alerjen" : "Allergen", language === "tr" ? "Durum" : "Status", language === "tr" ? "Not" : "Note"].map(escapeCsv).join(","));
+      for (const row of selectedFoodAllergenSummary) {
+        const statusText =
+          row.status === "contains"
+            ? language === "tr"
+              ? "İçerir"
+              : "Contains"
+            : row.status === "may"
+              ? language === "tr"
+                ? "İçerebilir"
+                : "May contain"
+              : language === "tr"
+                ? "Bahsedildi"
+                : "Mentioned";
+        lines.push([row.label, statusText, row.note].map(escapeCsv).join(","));
+      }
+    }
+    lines.push("");
+    lines.push(language === "tr" ? "Lot Özeti" : "Lots Summary");
+    if (selectedFoodLots.length === 0) {
+      lines.push(language === "tr" ? "Lot bulunamadı" : "No lots");
+    } else {
+      lines.push([dict.detail.lotNumber, dict.detail.lotLifecycle, dict.detail.lotQuantity, dict.detail.lotProducedAt].map(escapeCsv).join(","));
+      for (const lot of selectedFoodLots) {
+        lines.push(
+          [
+            lot.lot_number,
+            lotLifecycleLabel(lot.lifecycle_status, language),
+            `${lot.quantity_available}/${lot.quantity_produced}`,
+            formatUiDate(lot.produced_at, language),
+          ].map(escapeCsv).join(",")
+        );
+      }
+    }
+
+    const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `food-detail-${selectedFood.id.slice(0, 12)}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="app">
@@ -603,7 +675,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             </div>
             <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Lot Özeti" : "Lots Summary"}</h4>
-              {(lotsByFoodId[selectedFood.id] ?? []).length === 0 ? (
+              {selectedFoodLots.length === 0 ? (
                 <p className="panel-meta">{dict.detail.noLotsForFood}</p>
               ) : (
                 <div className="table-wrap">
@@ -617,7 +689,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {(lotsByFoodId[selectedFood.id] ?? []).map((lot) => (
+                      {selectedFoodLots.map((lot) => (
                         <tr key={`modal-lot-${lot.id}`}>
                           <td>{lot.lot_number}</td>
                           <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
@@ -631,6 +703,9 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="buyer-ops-modal-actions">
+              <button className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel}>
+                {language === "tr" ? "Excel'e Aktar" : "Export to Excel"}
+              </button>
               <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>
