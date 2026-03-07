@@ -245,6 +245,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     event.preventDefault();
     if (!isSuperAdmin) return;
     const formData = new FormData(event.currentTarget);
+    const submittedLanguage = formData.get("language");
     const payload: Record<string, string | null> = {
       email: String(formData.get("email") ?? "").trim(),
       displayName: String(formData.get("displayName") ?? "").trim(),
@@ -252,7 +253,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       phone: String(formData.get("phone") ?? "").trim() || null,
       dob: String(formData.get("dob") ?? "").trim() || null,
       countryCode: String(formData.get("countryCode") ?? "").trim().toUpperCase() || null,
-      language: String(formData.get("language") ?? "").trim() || null,
+      language: submittedLanguage === null ? (row?.language ?? null) : String(submittedLanguage).trim() || null,
       profileImageUrl: String(formData.get("profileImageUrl") ?? "").trim() || null,
     };
     if (!payload.email || !payload.displayName) {
@@ -835,18 +836,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   </span>
                   <span aria-hidden="true">⧉</span>
                 </button>
-                <button
-                  className="seller-id-line"
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
-                  title={language === "tr" ? "UUID kopyala" : "Copy UUID"}
-                >
-                  <span className="seller-id-line-text">
-                    <span className="seller-id-line-label">{language === "tr" ? "Kullanıcı UUID" : "User UUID"}:</span>
-                    <strong className="seller-id-line-value">{String(row.id ?? "-")}</strong>
-                  </span>
-                  <span aria-hidden="true">⧉</span>
-                </button>
               </div>
               <div className="seller-general-kv">
                 <div>
@@ -958,18 +947,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {language === "tr" ? "Ülke Kodu" : "Country Code"}
                   <input name="countryCode" maxLength={3} defaultValue={String(row.countryCode ?? "")} disabled={!isSuperAdmin} />
                 </label>
-                <label>
-                  {language === "tr" ? "Dil" : "Language"}
-                  <input name="language" maxLength={10} defaultValue={String(row.language ?? "")} disabled={!isSuperAdmin} />
-                </label>
                 <input type="hidden" name="profileImageUrl" value={String(row.profileImageUrl ?? row.profile_image_url ?? "")} />
                 <label>
                   {dict.detail.passwordOptional}
                   <input name="password" type="password" disabled={!isSuperAdmin} />
                 </label>
-                <div className="seller-profile-actions">
+                <div className="seller-profile-actions-grid">
                   <button
-                    className="ghost"
+                    className="ghost seller-profile-action-btn"
                     type="button"
                     onClick={() => {
                       setIdentityViewerUrl(identityDocuments[0]?.url ?? null);
@@ -978,7 +963,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   >
                     {language === "tr" ? "Kimlik Detayını Gör" : "View Identity Details"}
                   </button>
-                  <button className="primary" type="submit" disabled={!isSuperAdmin}>
+                  <button className="primary seller-profile-action-btn" type="submit" disabled={!isSuperAdmin}>
                     {dict.actions.save}
                   </button>
                 </div>
