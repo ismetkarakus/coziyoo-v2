@@ -4997,8 +4997,9 @@ textarea:focus {
 
 .seller-hero-right {
   display: grid;
-  grid-column: 1;
-  justify-self: start;
+  grid-column: 2;
+  justify-self: end;
+  align-self: start;
   gap: 10px;
 }
 
@@ -5025,6 +5026,12 @@ textarea:focus {
   display: block;
   margin-top: 4px;
   font-size: var(--text-3xl);
+}
+
+.seller-hero-stats article:last-child strong {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: 1.2;
 }
 
 .seller-tabs-panel {
@@ -5886,6 +5893,11 @@ textarea:focus {
 
   .seller-hero-main {
     align-items: flex-start;
+  }
+
+  .seller-hero-right {
+    grid-column: 1;
+    justify-self: start;
   }
 
   .seller-user-id {
