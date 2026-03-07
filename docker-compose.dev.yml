@@ -23,8 +23,9 @@ services:
     volumes:
       - ./:/workspace
       - coziyoo_npm_cache:/root/.npm
+      - coziyoo_api_node_modules:/workspace/node_modules
     command: >
-      bash -lc "npm ci && npm run dev:api"
+      bash -lc "npm ci --workspace=apps/api --include-workspace-root && npm run dev:api"
     ports:
       - "3000:3000"
     extra_hosts:
@@ -46,8 +47,9 @@ services:
     volumes:
       - ./:/workspace
       - coziyoo_npm_cache:/root/.npm
+      - coziyoo_admin_node_modules:/workspace/node_modules
     command: >
-      bash -lc "npm ci && npm run dev:admin -- --host 0.0.0.0 --port 5173"
+      bash -lc "npm ci --workspace=apps/admin --include-workspace-root && npm run dev:admin -- --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
 
@@ -89,5 +91,7 @@ services:
 
 volumes:
   coziyoo_npm_cache:
+  coziyoo_api_node_modules:
+  coziyoo_admin_node_modules:
   coziyoo_pip_cache:
   coziyoo_postgres_data:
