@@ -17,6 +17,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       price: number;
       updatedAt: string;
       recipe: string | null;
+      description: string | null;
       ingredientsJson: unknown;
       allergensJson: unknown;
     }>
@@ -43,6 +44,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     price: number;
     updatedAt: string;
     recipe: string | null;
+    description: string | null;
     ingredientsJson: unknown;
     allergensJson: unknown;
   } | null>(null);
@@ -67,6 +69,71 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     } catch {
       return String(value);
     }
+  };
+
+  const allergenCatalog = [
+    { key: "gluten", labelTr: "Gluten", labelEn: "Gluten", hints: ["gluten", "bugday", "wheat", "arpa", "barley", "cavdar", "rye"] },
+    { key: "milk", labelTr: "Süt", labelEn: "Milk", hints: ["sut", "milk", "lactose", "laktoz", "peynir", "yogurt", "cream"] },
+    { key: "egg", labelTr: "Yumurta", labelEn: "Egg", hints: ["yumurta", "egg"] },
+    { key: "soy", labelTr: "Soya", labelEn: "Soy", hints: ["soya", "soy"] },
+    { key: "sesame", labelTr: "Susam", labelEn: "Sesame", hints: ["susam", "sesame", "tahin"] },
+    { key: "fish", labelTr: "Balık", labelEn: "Fish", hints: ["balik", "fish", "somon", "ton"] },
+    { key: "shellfish", labelTr: "Kabuklu", labelEn: "Shellfish", hints: ["kabuklu", "shrimp", "karides", "midye", "istakoz", "shellfish"] },
+    { key: "tree_nut", labelTr: "Sert Kabuklu", labelEn: "Tree Nuts", hints: ["findik", "hazelnut", "ceviz", "walnut", "badem", "almond", "fistik"] },
+    { key: "peanut", labelTr: "Yer Fıstığı", labelEn: "Peanut", hints: ["yer fistik", "peanut"] },
+  ] as const;
+
+  const normalizeText = (value: unknown): string =>
+    String(value ?? "")
+      .toLocaleLowerCase("tr-TR")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const flattenToText = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value.map((item) => flattenToText(item)).join(" ");
+    if (typeof value === "object") return Object.values(value as Record<string, unknown>).map((item) => flattenToText(item)).join(" ");
+    return String(value);
+  };
+
+  const explainAllergens = (
+    food: NonNullable<typeof selectedFood>
+  ): Array<{ key: string; label: string; status: "contains" | "may" | "free" | "mentioned" | "unknown"; note: string }> => {
+    const statusScore: Record<string, number> = { unknown: 0, mentioned: 1, free: 2, may: 3, contains: 4 };
+    const bag = new Map<string, { status: "contains" | "may" | "free" | "mentioned" | "unknown"; note: string }>();
+    const setStatus = (key: string, status: "contains" | "may" | "free" | "mentioned" | "unknown", note: string) => {
+      const prev = bag.get(key);
+      if (!prev || statusScore[status] >= statusScore[prev.status]) bag.set(key, { status, note });
+    };
+
+    const allergenText = normalizeText(flattenToText(food.allergensJson));
+    const descText = normalizeText(`${flattenToText(food.ingredientsJson)} ${food.recipe ?? ""} ${food.description ?? ""}`);
+
+    for (const allergen of allergenCatalog) {
+      const label = language === "tr" ? allergen.labelTr : allergen.labelEn;
+      const inAllergenData = allergen.hints.some((hint) => allergenText.includes(normalizeText(hint)));
+      const inDescData = allergen.hints.some((hint) => descText.includes(normalizeText(hint)));
+      if (inAllergenData) {
+        if (allergenText.includes("icermez") || allergenText.includes("contains no") || allergenText.includes("free from") || allergenText.includes("yok")) {
+          setStatus(allergen.key, "free", language === "tr" ? `${label} bulunmuyor.` : `${label} not present.`);
+        } else if (allergenText.includes("may contain") || allergenText.includes("eser") || allergenText.includes("iz") || allergenText.includes("olabilir")) {
+          setStatus(allergen.key, "may", language === "tr" ? `${label} izi olabilir.` : `${label} traces possible.`);
+        } else {
+          setStatus(allergen.key, "contains", language === "tr" ? `${label} içeriyor.` : `Contains ${label}.`);
+        }
+      } else if (inDescData) {
+        setStatus(allergen.key, "mentioned", language === "tr" ? `Açıklamada ${label} ifadesi geçiyor.` : `${label} mentioned in description.`);
+      } else {
+        setStatus(allergen.key, "unknown", language === "tr" ? "Net bilgi yok." : "No clear data.");
+      }
+    }
+
+    return allergenCatalog.map((allergen) => ({
+      key: allergen.key,
+      label: language === "tr" ? allergen.labelTr : allergen.labelEn,
+      ...(bag.get(allergen.key) ?? { status: "unknown", note: language === "tr" ? "Net bilgi yok." : "No clear data." }),
+    }));
   };
 
   useEffect(() => {
@@ -104,6 +171,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             price: Number(record.price ?? 0),
             updatedAt: String(record.updated_at ?? ""),
             recipe: typeof record.recipe === "string" ? record.recipe : null,
+            description: typeof record.description === "string" ? record.description : typeof record.card_summary === "string" ? record.card_summary : null,
             ingredientsJson: record.ingredients_json ?? null,
             allergensJson: record.allergens_json ?? null,
           }))
@@ -181,6 +249,8 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       setLotOrdersLoadingByLotId((prev) => ({ ...prev, [lotId]: false }));
     }
   }
+
+  const selectedFoodAllergenSummary = selectedFood ? explainAllergens(selectedFood) : [];
 
   return (
     <div className="app">
@@ -482,6 +552,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               </div>
             </div>
             <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Yemek Açıklaması" : "Food Description"}</h4>
+              <pre>{toPrettyJson(selectedFood.description)}</pre>
+            </div>
+            <div className="foods-detail-text-block">
               <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
               <pre>{toPrettyJson(selectedFood.recipe)}</pre>
             </div>
@@ -490,7 +564,51 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               <pre>{toPrettyJson(selectedFood.ingredientsJson)}</pre>
             </div>
             <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Alerjenler" : "Allergens"}</h4>
+              <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>
+              <div className="foods-allergen-status-list">
+                {selectedFoodAllergenSummary.map((row) => {
+                  const tone =
+                    row.status === "contains"
+                      ? "is-danger"
+                      : row.status === "may"
+                        ? "is-warning"
+                        : row.status === "free"
+                          ? "is-success"
+                          : "is-neutral";
+                  const statusText =
+                    row.status === "contains"
+                      ? language === "tr"
+                        ? "İçerir"
+                        : "Contains"
+                      : row.status === "may"
+                        ? language === "tr"
+                          ? "İçerebilir"
+                          : "May contain"
+                        : row.status === "free"
+                          ? language === "tr"
+                            ? "İçermez"
+                            : "Free from"
+                          : row.status === "mentioned"
+                            ? language === "tr"
+                              ? "Bahsedildi"
+                              : "Mentioned"
+                            : language === "tr"
+                              ? "Belirsiz"
+                              : "Unknown";
+                  return (
+                    <article key={row.key} className="foods-allergen-status-item">
+                      <div className="foods-allergen-status-head">
+                        <strong>{row.label}</strong>
+                        <span className={`status-pill ${tone}`}>{statusText}</span>
+                      </div>
+                      <p className="panel-meta">{row.note}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Ham Alerjen Verisi" : "Raw Allergen Data"}</h4>
               <pre>{toPrettyJson(selectedFood.allergensJson)}</pre>
             </div>
             <div className="foods-detail-text-block">

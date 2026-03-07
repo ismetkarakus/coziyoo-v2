@@ -6151,6 +6151,27 @@ textarea:focus {
   overflow: auto;
 }
 
+.foods-allergen-status-list {
+  display: grid;
+  gap: 8px;
+}
+
+.foods-allergen-status-item {
+  border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, #122041 76%, transparent);
+  display: grid;
+  gap: 4px;
+}
+
+.foods-allergen-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .lot-summary-cell {
   display: grid;
   gap: 2px;
