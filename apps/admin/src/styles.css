@@ -6215,6 +6215,24 @@ textarea:focus {
   background: color-mix(in srgb, var(--color-accent) 8%, var(--color-card-bg));
 }
 
+.search-focus-flash td {
+  animation: search-focus-pulse 1.9s ease;
+}
+
+@keyframes search-focus-pulse {
+  0% {
+    background: color-mix(in srgb, #2d7dff 40%, var(--color-card-bg));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #7fb0ff 70%, transparent);
+  }
+  45% {
+    background: color-mix(in srgb, #2d7dff 22%, var(--color-card-bg));
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
 .foods-lots-expanded-row td {
   background: color-mix(in srgb, var(--color-card-bg) 76%, transparent);
 }

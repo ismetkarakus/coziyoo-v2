@@ -83,6 +83,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [lotsError, setLotsError] = useState<string | null>(null);
   const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
   const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
+  const [flashFoodId, setFlashFoodId] = useState<string | null>(null);
+  const [flashLotId, setFlashLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
 
   async function loadSellerDetail() {
@@ -241,6 +243,59 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setActiveTab(resolveSellerDetailTab(new URLSearchParams(location.search).get("tab")));
   }, [location.search]);
+
+  const focusFoodId = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("focusFoodId");
+    return value ? value.trim() : "";
+  }, [location.search]);
+  const focusLotId = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("focusLotId");
+    return value ? value.trim() : "";
+  }, [location.search]);
+
+  useEffect(() => {
+    if (activeTab !== "foods") return;
+
+    let resolvedFoodId = focusFoodId;
+    if (!resolvedFoodId && focusLotId) {
+      for (const [foodId, lots] of Object.entries(lotsByFoodId)) {
+        if (lots.some((lot) => lot.id === focusLotId)) {
+          resolvedFoodId = foodId;
+          break;
+        }
+      }
+    }
+    if (!resolvedFoodId) return;
+    if (!foodRows.some((food) => food.id === resolvedFoodId)) return;
+
+    setExpandedFoodIds((prev) => (prev[resolvedFoodId] ? prev : { ...prev, [resolvedFoodId]: true }));
+    if (focusLotId) {
+      setExpandedLotIds((prev) => (prev[focusLotId] ? prev : { ...prev, [focusLotId]: true }));
+      void loadLotOrders(focusLotId);
+    }
+
+    setFlashFoodId(resolvedFoodId);
+    if (focusLotId) setFlashLotId(focusLotId);
+
+    const timer = window.setTimeout(() => {
+      const lotElement = focusLotId ? document.querySelector<HTMLElement>(`[data-lot-row-id="${focusLotId}"]`) : null;
+      const foodElement = document.querySelector<HTMLElement>(`[data-food-row-id="${resolvedFoodId}"]`);
+      (lotElement ?? foodElement)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, focusFoodId, focusLotId, foodRows, lotsByFoodId]);
+
+  useEffect(() => {
+    if (!flashFoodId) return;
+    const timer = window.setTimeout(() => setFlashFoodId(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [flashFoodId]);
+
+  useEffect(() => {
+    if (!flashLotId) return;
+    const timer = window.setTimeout(() => setFlashLotId(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [flashLotId]);
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1365,7 +1420,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     const foodExpanded = Boolean(expandedFoodIds[food.id]);
                     return (
                       <Fragment key={food.id}>
-                        <tr>
+                        <tr data-food-row-id={food.id} className={flashFoodId === food.id ? "search-focus-flash" : undefined}>
                           <td>
                             <strong>{food.name}</strong>
                             <div className="panel-meta">{food.code}</div>
@@ -1428,7 +1483,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                         const lotOrders = lotOrdersByLotId[lot.id] ?? [];
                                         return (
                                           <Fragment key={lot.id}>
-                                            <tr>
+                                            <tr data-lot-row-id={lot.id} className={flashLotId === lot.id ? "search-focus-flash" : undefined}>
                                               <td>{lot.lot_number}</td>
                                               <td>
                                                 <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>

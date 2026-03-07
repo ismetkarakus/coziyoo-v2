@@ -1169,7 +1169,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       id: row.id,
       primaryText: row.name,
       secondaryText: `${row.seller_name || row.seller_email} • ${row.is_active ? "active" : "disabled"} • FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
-      targetPath: `/app/sellers/${row.seller_id}?tab=foods`,
+      targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.id)}`,
     })),
     ...orders.rows.map((row) => ({
       kind: "order",
@@ -1183,7 +1183,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       id: row.id,
       primaryText: row.lot_number,
       secondaryText: `${row.food_name || "food"} • ${row.seller_name || row.seller_email || "seller"} • ${row.status}`,
-      targetPath: `/app/sellers/${row.seller_id}?tab=foods`,
+      targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.food_id)}&focusLotId=${encodeURIComponent(row.id)}`,
     })),
     ...complaints.rows.map((row) => ({
       kind: "complaint",
