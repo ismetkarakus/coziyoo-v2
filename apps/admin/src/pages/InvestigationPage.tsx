@@ -43,6 +43,64 @@ export default function InvestigationPage({ language }: { language: Language }) 
     return "is-disabled";
   };
 
+  async function downloadComplaintsAsExcel() {
+    try {
+      const exportQuery = new URLSearchParams({
+        page: "1",
+        pageSize: "5000",
+        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
+      });
+      const response = await request(`/v1/admin/investigations/complaints?${exportQuery.toString()}`);
+      const body = await parseJson<{
+        data?: Array<{
+          id: string;
+          orderNo: string;
+          complainantBuyerNo: string;
+          subject: string;
+          createdAt: string;
+          status: "open" | "in_review" | "resolved" | "closed";
+        }>;
+      } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
+        setError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      if (body.data.length === 0) {
+        setError(dict.common.noRecords);
+        return;
+      }
+
+      const headers = [
+        "Display ID",
+        language === "tr" ? "Sipariş Numarası" : "Order No",
+        language === "tr" ? "Alıcı Numarası" : "Buyer No",
+        language === "tr" ? "Konu" : "Subject",
+        language === "tr" ? "Oluşturma Tarihi" : "Created At",
+        language === "tr" ? "Durum" : "Status",
+      ];
+      const rowsForExport = body.data.map((row) => [
+        toDisplayId(row.id),
+        row.orderNo,
+        row.complainantBuyerNo,
+        row.subject,
+        new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US"),
+        statusText(row.status),
+      ]);
+      const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+      const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
+      const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `complaints-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError(dict.investigation.requestFailed);
+    }
+  }
+
   useEffect(() => {
     const loadComplaints = async () => {
       setLoading(true);
@@ -136,6 +194,9 @@ export default function InvestigationPage({ language }: { language: Language }) 
             <option value="resolved">{statusText("resolved")}</option>
             <option value="closed">{statusText("closed")}</option>
           </select>
+          <button className="primary" type="button" onClick={() => void downloadComplaintsAsExcel()}>
+            {language === "tr" ? "Excel'e Aktar" : "Export to Excel"}
+          </button>
         </div>
       </header>
 
