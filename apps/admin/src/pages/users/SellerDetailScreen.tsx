@@ -322,6 +322,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     .filter((value) => Number.isFinite(value) && value > 0);
   const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
   const roundedStars = Math.max(0, Math.min(5, Math.round(avgRating)));
+  const contactEmail = String(row.email ?? "").trim();
+  const contactPhone = String(phone ?? "").trim();
+  const contactPhoneHrefValue = contactPhone.replace(/[^\d+]/g, "");
+  const contactHasPhone = contactPhoneHrefValue.length > 0;
+  const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
+  const quickAccessLabel = language === "tr" ? "Hızlı Erişim" : "Quick Access";
 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
@@ -546,13 +552,37 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
           </div>
           <div className="seller-hero-text">
-            <div className="seller-hero-title-row">
-              <h1>{row.displayName ?? row.email}</h1>
-              <span className={`status-pill ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
+            <div className="seller-hero-title-stack">
+              <div className="seller-hero-title-row">
+                <h1>{row.displayName ?? row.email}</h1>
+              </div>
+              <div className="seller-hero-status-row">
+                <span className={`seller-account-status ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
+              </div>
             </div>
           </div>
         </article>
         <div className="seller-hero-right">
+          <details className="seller-quick-access">
+            <summary>{quickAccessLabel}</summary>
+            <div className="seller-quick-access-menu">
+              {contactEmail ? (
+                <a href={`mailto:${contactEmail}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
+              ) : (
+                <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
+              )}
+              {contactHasPhone ? (
+                <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
+              ) : (
+                <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
+              )}
+              {contactHasPhone ? (
+                <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
+              ) : (
+                <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
+              )}
+            </div>
+          </details>
           <div className="seller-hero-stats">
             <article>
               <p>{dict.detail.sellerTabs.wallet}</p>
