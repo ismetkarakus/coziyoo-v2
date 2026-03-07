@@ -94,6 +94,20 @@ const UpdateAdminUserRoleSchema = z.object({
 const UuidParamSchema = z.object({
   id: z.string().uuid(),
 });
+const UserAddressParamsSchema = z.object({
+  id: z.string().uuid(),
+  addressId: z.string().uuid(),
+});
+const CreateUserAddressSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  addressLine: z.string().trim().min(3).max(500),
+  isDefault: z.boolean().optional(),
+});
+const UpdateUserAddressSchema = z.object({
+  title: z.string().trim().min(1).max(80).optional(),
+  addressLine: z.string().trim().min(3).max(500).optional(),
+  isDefault: z.boolean().optional(),
+}).refine((value) => Object.keys(value).length > 0, { message: "At least one field required" });
 
 const BuyerListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -1471,6 +1485,256 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       totalFoods: Number(row.total_foods ?? 0),
     },
   });
+});
+
+adminUserManagementRouter.get("/users/:id/addresses", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const addresses = await pool.query<{
+    id: string;
+    title: string;
+    address_line: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT id, title, address_line, is_default, created_at::text, updated_at::text
+     FROM user_addresses
+     WHERE user_id = $1
+     ORDER BY is_default DESC, created_at ASC`,
+    [params.data.id]
+  );
+
+  return res.json({
+    data: addresses.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      addressLine: row.address_line,
+      isDefault: row.is_default,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/users/:id/addresses", requireAuth("admin"), requireSuperAdmin, async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = CreateUserAddressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const input = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const created = await client.query<{
+      id: string;
+      title: string;
+      address_line: string;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `INSERT INTO user_addresses (user_id, title, address_line, is_default)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, title, address_line, is_default, created_at::text, updated_at::text`,
+      [params.data.id, input.title, input.addressLine, Boolean(input.isDefault)]
+    );
+
+    const row = created.rows[0];
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "seller_address_created",
+      entityType: "user_addresses",
+      entityId: row.id,
+      after: {
+        userId: params.data.id,
+        title: row.title,
+        addressLine: row.address_line,
+        isDefault: row.is_default,
+      },
+    });
+    await client.query("COMMIT");
+
+    return res.status(201).json({
+      data: {
+        id: row.id,
+        title: row.title,
+        addressLine: row.address_line,
+        isDefault: row.is_default,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return handleMutationError(res, error);
+  } finally {
+    client.release();
+  }
+});
+
+adminUserManagementRouter.patch("/users/:id/addresses/:addressId", requireAuth("admin"), requireSuperAdmin, async (req, res) => {
+  const params = UserAddressParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = UpdateUserAddressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const input = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query<{
+      id: string;
+      title: string;
+      address_line: string;
+      is_default: boolean;
+    }>(
+      `SELECT id, title, address_line, is_default
+       FROM user_addresses
+       WHERE user_id = $1 AND id = $2
+       FOR UPDATE`,
+      [params.data.id, params.data.addressId]
+    );
+    if ((existing.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "ADDRESS_NOT_FOUND", message: "Address not found" } });
+    }
+
+    const updated = await client.query<{
+      id: string;
+      title: string;
+      address_line: string;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `UPDATE user_addresses
+       SET
+         title = CASE WHEN $3::boolean THEN $4 ELSE title END,
+         address_line = CASE WHEN $5::boolean THEN $6 ELSE address_line END,
+         is_default = CASE WHEN $7::boolean THEN $8 ELSE is_default END,
+         updated_at = now()
+       WHERE user_id = $1 AND id = $2
+       RETURNING id, title, address_line, is_default, created_at::text, updated_at::text`,
+      [
+        params.data.id,
+        params.data.addressId,
+        Object.hasOwn(input, "title"),
+        input.title ?? null,
+        Object.hasOwn(input, "addressLine"),
+        input.addressLine ?? null,
+        Object.hasOwn(input, "isDefault"),
+        typeof input.isDefault === "boolean" ? input.isDefault : null,
+      ]
+    );
+
+    const row = updated.rows[0];
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "seller_address_updated",
+      entityType: "user_addresses",
+      entityId: row.id,
+      before: existing.rows[0],
+      after: {
+        title: row.title,
+        addressLine: row.address_line,
+        isDefault: row.is_default,
+      },
+    });
+    await client.query("COMMIT");
+
+    return res.json({
+      data: {
+        id: row.id,
+        title: row.title,
+        addressLine: row.address_line,
+        isDefault: row.is_default,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return handleMutationError(res, error);
+  } finally {
+    client.release();
+  }
+});
+
+adminUserManagementRouter.delete("/users/:id/addresses/:addressId", requireAuth("admin"), requireSuperAdmin, async (req, res) => {
+  const params = UserAddressParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const deleted = await client.query<{
+      id: string;
+      title: string;
+      address_line: string;
+      is_default: boolean;
+    }>(
+      `DELETE FROM user_addresses
+       WHERE user_id = $1 AND id = $2
+       RETURNING id, title, address_line, is_default`,
+      [params.data.id, params.data.addressId]
+    );
+
+    if ((deleted.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "ADDRESS_NOT_FOUND", message: "Address not found" } });
+    }
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "seller_address_deleted",
+      entityType: "user_addresses",
+      entityId: deleted.rows[0].id,
+      before: deleted.rows[0],
+    });
+    await client.query("COMMIT");
+
+    return res.status(204).send();
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return handleMutationError(res, error);
+  } finally {
+    client.release();
+  }
 });
 
 adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), async (req, res) => {

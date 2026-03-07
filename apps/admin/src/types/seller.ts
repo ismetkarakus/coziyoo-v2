@@ -26,6 +26,15 @@ export type SellerFoodRow = {
   updatedAt: string;
 };
 
+export type SellerAddressRow = {
+  id: string;
+  title: string;
+  addressLine: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SellerComplianceStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
 export type SellerComplianceDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
 export type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived";

@@ -5402,6 +5402,98 @@ textarea:focus {
   gap: 16px;
 }
 
+.seller-general-panel {
+  margin-top: 12px;
+}
+
+.seller-general-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.seller-general-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--color-card-bg) 72%, transparent);
+}
+
+.seller-general-card.is-wide {
+  grid-column: 1 / -1;
+}
+
+.seller-general-kv {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.seller-general-kv > div {
+  border: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.seller-general-kv span {
+  color: var(--color-secondary-text);
+  font-size: var(--text-sm);
+}
+
+.seller-general-kv strong {
+  word-break: break-word;
+}
+
+.seller-general-form {
+  margin-top: 6px;
+}
+
+.seller-address-list {
+  display: grid;
+  gap: 10px;
+}
+
+.seller-address-item {
+  border: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.seller-address-view p {
+  margin: 4px 0 0;
+}
+
+.seller-address-edit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.seller-address-default-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seller-address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seller-address-create-form {
+  margin-top: 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 68%, transparent);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
 .seller-food-grid {
   margin-top: 12px;
   display: grid;
@@ -6236,6 +6328,18 @@ textarea:focus {
   }
 
   .seller-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-general-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-general-kv {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-address-edit-grid {
     grid-template-columns: 1fr;
   }
 

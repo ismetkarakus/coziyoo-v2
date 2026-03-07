@@ -2,7 +2,7 @@ import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "
 import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
-import { fmt, toDisplayId, formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
+import { toDisplayId, formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
   mapComplianceRows,
@@ -11,7 +11,6 @@ import {
   sellerDocumentStatusTone,
   optionalUploadStatusLabel,
   optionalUploadStatusTone,
-  renderJsonLine,
   extractPhoneFromChecks,
   knownDocumentCodeRank,
 } from "../../lib/compliance";
@@ -19,7 +18,7 @@ import { resolveSellerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../../lib/lots";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
-import type { SellerFoodRow, SellerCompliancePayload } from "../../types/seller";
+import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow } from "../../types/seller";
 import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerPagination } from "../../types/buyer";
 
@@ -29,6 +28,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
   const [foodRows, setFoodRows] = useState<SellerFoodRow[]>([]);
+  const [addresses, setAddresses] = useState<SellerAddressRow[]>([]);
+  const [addressSaving, setAddressSaving] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressDraft, setAddressDraft] = useState<{ title: string; addressLine: string; isDefault: boolean }>({
+    title: "",
+    addressLine: "",
+    isDefault: false,
+  });
+  const [newAddress, setNewAddress] = useState<{ title: string; addressLine: string; isDefault: boolean }>({
+    title: "",
+    addressLine: "",
+    isDefault: false,
+  });
   const [sellerOrders, setSellerOrders] = useState<
     Array<{
       orderId: string;
@@ -79,11 +91,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setMessage(null);
     setLotsError(null);
     try {
-      const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse] = await Promise.all([
+      const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse, addressesResponse] = await Promise.all([
         request(endpoint),
         request(`/v1/admin/compliance/${id}`),
         request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`),
         request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`),
+        request(`/v1/admin/users/${id}/addresses`),
       ]);
 
       if (detailResponse.status !== 200) {
@@ -117,6 +130,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       } else {
         setSellerOrders([]);
         setSellerOrdersPagination(null);
+      }
+
+      if (addressesResponse.status === 200) {
+        const addressesBody = await parseJson<{ data: SellerAddressRow[] }>(addressesResponse);
+        setAddresses(Array.isArray(addressesBody.data) ? addressesBody.data : []);
+      } else {
+        setAddresses([]);
       }
 
       setLotsLoading(true);
@@ -179,6 +199,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setLotOrdersLoadingByLotId({});
     setLotOrdersErrorByLotId({});
     setLotsError(null);
+    setAddresses([]);
+    setAddressSaving(false);
+    setEditingAddressId(null);
+    setAddressDraft({ title: "", addressLine: "", isDefault: false });
+    setNewAddress({ title: "", addressLine: "", isDefault: false });
   }, [id]);
 
   useEffect(() => {
@@ -189,9 +214,28 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     event.preventDefault();
     if (!isSuperAdmin) return;
     const formData = new FormData(event.currentTarget);
-    const payload: Record<string, string> = { email: String(formData.get("email") ?? "") };
+    const payload: Record<string, string | null> = {
+      email: String(formData.get("email") ?? "").trim(),
+      displayName: String(formData.get("displayName") ?? "").trim(),
+      fullName: String(formData.get("fullName") ?? "").trim() || null,
+      phone: String(formData.get("phone") ?? "").trim() || null,
+      dob: String(formData.get("dob") ?? "").trim() || null,
+      countryCode: String(formData.get("countryCode") ?? "").trim().toUpperCase() || null,
+      language: String(formData.get("language") ?? "").trim() || null,
+      profileImageUrl: String(formData.get("profileImageUrl") ?? "").trim() || null,
+    };
+    if (!payload.email || !payload.displayName) {
+      setMessage(language === "tr" ? "E-posta ve görünen ad zorunludur." : "Email and display name are required.");
+      return;
+    }
     const password = String(formData.get("password") ?? "").trim();
-    if (password) payload.password = password;
+    if (password) {
+      if (password.length < 8) {
+        setMessage(language === "tr" ? "Şifre en az 8 karakter olmalı." : "Password must be at least 8 characters.");
+        return;
+      }
+      payload.password = password;
+    }
     const update = await request(endpoint, { method: "PUT", body: JSON.stringify(payload) });
     if (update.status !== 200) {
       const body = await parseJson<ApiError>(update);
@@ -201,6 +245,125 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const updated = await parseJson<{ data: any }>(update);
     setRow(updated.data);
     setMessage(dict.common.saved);
+  }
+
+  async function createAddress(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isSuperAdmin || addressSaving) return;
+    const title = newAddress.title.trim();
+    const addressLine = newAddress.addressLine.trim();
+    if (!title || !addressLine) {
+      setMessage(language === "tr" ? "Adres başlığı ve adres satırı zorunludur." : "Address title and line are required.");
+      return;
+    }
+    setAddressSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/users/${id}/addresses`, {
+        method: "POST",
+        body: JSON.stringify({ title, addressLine, isDefault: newAddress.isDefault }),
+      });
+      if (response.status !== 201) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.requestFailed);
+        return;
+      }
+      setNewAddress({ title: "", addressLine: "", isDefault: false });
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setAddressSaving(false);
+    }
+  }
+
+  function beginAddressEdit(address: SellerAddressRow) {
+    setEditingAddressId(address.id);
+    setAddressDraft({
+      title: address.title,
+      addressLine: address.addressLine,
+      isDefault: address.isDefault,
+    });
+  }
+
+  async function saveAddressEdit(addressId: string) {
+    if (!isSuperAdmin || addressSaving) return;
+    const title = addressDraft.title.trim();
+    const addressLine = addressDraft.addressLine.trim();
+    if (!title || !addressLine) {
+      setMessage(language === "tr" ? "Adres başlığı ve adres satırı zorunludur." : "Address title and line are required.");
+      return;
+    }
+    setAddressSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/users/${id}/addresses/${addressId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title, addressLine, isDefault: addressDraft.isDefault }),
+      });
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.requestFailed);
+        return;
+      }
+      setEditingAddressId(null);
+      setAddressDraft({ title: "", addressLine: "", isDefault: false });
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setAddressSaving(false);
+    }
+  }
+
+  async function makeAddressDefault(addressId: string) {
+    if (!isSuperAdmin || addressSaving) return;
+    setAddressSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/users/${id}/addresses/${addressId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDefault: true }),
+      });
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.requestFailed);
+        return;
+      }
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setAddressSaving(false);
+    }
+  }
+
+  async function deleteAddress(addressId: string) {
+    if (!isSuperAdmin || addressSaving) return;
+    if (!window.confirm(language === "tr" ? "Bu adres silinsin mi?" : "Delete this address?")) return;
+    setAddressSaving(true);
+    setMessage(null);
+    try {
+      const response = await request(`/v1/admin/users/${id}/addresses/${addressId}`, { method: "DELETE" });
+      if (response.status !== 204) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? dict.detail.requestFailed);
+        return;
+      }
+      if (editingAddressId === addressId) {
+        setEditingAddressId(null);
+        setAddressDraft({ title: "", addressLine: "", isDefault: false });
+      }
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setAddressSaving(false);
+    }
   }
 
   const paymentStateKey = (value: string | null | undefined): "successful" | "pending" | "failed" => {
@@ -285,7 +448,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   const isActive = row.status === "active";
   const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
-  const phone = extractPhoneFromChecks(compliance);
+  const phone = String(row.phone ?? extractPhoneFromChecks(compliance) ?? "").trim();
   const maskedEmail = maskEmail(row.email);
   const profileRetentionUntil = addTwoYears(row.updatedAt);
   const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
@@ -323,7 +486,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
   const roundedStars = Math.max(0, Math.min(5, Math.round(avgRating)));
   const contactEmail = String(row.email ?? "").trim();
-  const contactPhone = String(phone ?? "").trim();
+  const contactPhone = phone;
   const contactPhoneHrefValue = contactPhone.replace(/[^\d+]/g, "");
   const contactHasPhone = contactPhoneHrefValue.length > 0;
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
@@ -498,6 +661,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const sellerRawPayload = {
     id: row.id,
     user: row,
+    addresses,
     compliance,
     foods: foodRows,
     orders: {
@@ -509,6 +673,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       phoneFromComplianceChecks: phone,
       roleLabel,
       isActive,
+    },
+    generalProfileSnapshot: {
+      customerId: row.id,
+      email: row.email ?? null,
+      displayName: row.displayName ?? null,
+      fullName: row.fullName ?? null,
+      phone: row.phone ?? null,
+      dob: row.dob ?? null,
+      countryCode: row.countryCode ?? null,
+      language: row.language ?? null,
+      profileImageUrl: row.profileImageUrl ?? row.profile_image_url ?? null,
+      createdAt: row.createdAt ?? null,
+      updatedAt: row.updatedAt ?? null,
+      status: row.status ?? null,
+      role: row.role ?? null,
     },
     legalHoldState: Boolean(row.legalHoldState),
   };
@@ -612,6 +791,218 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           ))}
         </div>
       </section>
+
+      {activeTab === "general" ? (
+        <section className="panel seller-general-panel">
+          <div className="seller-general-grid">
+            <article className="seller-general-card">
+              <div className="panel-header">
+                <h2>{language === "tr" ? "Kimlik Kartı" : "Identity Card"}</h2>
+              </div>
+              <div className="seller-general-kv">
+                <div>
+                  <span>{language === "tr" ? "Customer ID" : "Customer ID"}</span>
+                  <strong>{toDisplayId(row.id)}</strong>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(String(row.id ?? "")).catch(() => undefined)}
+                  >
+                    {language === "tr" ? "Kopyala" : "Copy"}
+                  </button>
+                </div>
+                <div>
+                  <span>{language === "tr" ? "Kullanıcı UUID" : "User UUID"}</span>
+                  <strong>{String(row.id ?? "-")}</strong>
+                </div>
+                <div>
+                  <span>{language === "tr" ? "Rol" : "Role"}</span>
+                  <strong>{roleLabel}</strong>
+                </div>
+                <div>
+                  <span>{language === "tr" ? "Durum" : "Status"}</span>
+                  <strong>{accountStatusLabel}</strong>
+                </div>
+                <div>
+                  <span>{language === "tr" ? "Kayıt" : "Created"}</span>
+                  <strong>{formatUiDate(row.createdAt, language)}</strong>
+                </div>
+                <div>
+                  <span>{language === "tr" ? "Son Güncelleme" : "Updated"}</span>
+                  <strong>{formatUiDate(row.updatedAt, language)}</strong>
+                </div>
+              </div>
+            </article>
+
+            <article className="seller-general-card">
+              <div className="panel-header">
+                <h2>{language === "tr" ? "Profil ve İletişim" : "Profile & Contact"}</h2>
+              </div>
+              <form className="form-grid seller-general-form" onSubmit={onSave}>
+                <label>
+                  {language === "tr" ? "Görünen Ad" : "Display Name"}
+                  <input name="displayName" defaultValue={String(row.displayName ?? "")} disabled={!isSuperAdmin} required minLength={3} />
+                </label>
+                <label>
+                  {dict.auth.email}
+                  <input name="email" type="email" defaultValue={String(row.email ?? "")} disabled={!isSuperAdmin} required />
+                </label>
+                <label>
+                  {language === "tr" ? "Ad Soyad" : "Full Name"}
+                  <input name="fullName" defaultValue={String(row.fullName ?? "")} disabled={!isSuperAdmin} />
+                </label>
+                <label>
+                  {language === "tr" ? "Telefon" : "Phone"}
+                  <input name="phone" defaultValue={String(row.phone ?? "")} disabled={!isSuperAdmin} />
+                </label>
+                <label>
+                  {language === "tr" ? "Doğum Tarihi" : "Date of Birth"}
+                  <input name="dob" type="date" defaultValue={String(row.dob ?? "").slice(0, 10)} disabled={!isSuperAdmin} />
+                </label>
+                <label>
+                  {language === "tr" ? "Ülke Kodu" : "Country Code"}
+                  <input name="countryCode" maxLength={3} defaultValue={String(row.countryCode ?? "")} disabled={!isSuperAdmin} />
+                </label>
+                <label>
+                  {language === "tr" ? "Dil" : "Language"}
+                  <input name="language" maxLength={10} defaultValue={String(row.language ?? "")} disabled={!isSuperAdmin} />
+                </label>
+                <label>
+                  {language === "tr" ? "Profil Görsel URL" : "Profile Image URL"}
+                  <input name="profileImageUrl" defaultValue={String(row.profileImageUrl ?? row.profile_image_url ?? "")} disabled={!isSuperAdmin} />
+                </label>
+                <label>
+                  {dict.detail.passwordOptional}
+                  <input name="password" type="password" disabled={!isSuperAdmin} />
+                </label>
+                <button className="primary" type="submit" disabled={!isSuperAdmin}>
+                  {dict.actions.save}
+                </button>
+              </form>
+              {!isSuperAdmin ? <p className="panel-meta">{dict.detail.readOnly}</p> : null}
+            </article>
+
+            <article className="seller-general-card is-wide">
+              <div className="panel-header">
+                <h2>{language === "tr" ? "Adresler" : "Addresses"}</h2>
+              </div>
+              {addresses.length === 0 ? (
+                <p className="panel-meta">{language === "tr" ? "Henüz adres kaydı yok." : "No addresses yet."}</p>
+              ) : (
+                <div className="seller-address-list">
+                  {addresses.map((address) => {
+                    const isEditing = editingAddressId === address.id;
+                    return (
+                      <article key={address.id} className="seller-address-item">
+                        {isEditing ? (
+                          <div className="seller-address-edit-grid">
+                            <label>
+                              {language === "tr" ? "Başlık" : "Title"}
+                              <input
+                                value={addressDraft.title}
+                                onChange={(event) => setAddressDraft((prev) => ({ ...prev, title: event.target.value }))}
+                                disabled={!isSuperAdmin || addressSaving}
+                              />
+                            </label>
+                            <label>
+                              {language === "tr" ? "Adres" : "Address"}
+                              <input
+                                value={addressDraft.addressLine}
+                                onChange={(event) => setAddressDraft((prev) => ({ ...prev, addressLine: event.target.value }))}
+                                disabled={!isSuperAdmin || addressSaving}
+                              />
+                            </label>
+                            <label className="seller-address-default-toggle">
+                              <input
+                                type="checkbox"
+                                checked={addressDraft.isDefault}
+                                onChange={(event) => setAddressDraft((prev) => ({ ...prev, isDefault: event.target.checked }))}
+                                disabled={!isSuperAdmin || addressSaving}
+                              />
+                              <span>{language === "tr" ? "Varsayılan" : "Default"}</span>
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="seller-address-view">
+                            <strong>{address.title}</strong>
+                            <p>{address.addressLine}</p>
+                            <p className="panel-meta">
+                              {address.isDefault ? (language === "tr" ? "Varsayılan adres" : "Default address") : "-"}
+                            </p>
+                          </div>
+                        )}
+                        <div className="seller-address-actions">
+                          {isEditing ? (
+                            <>
+                              <button className="primary" type="button" disabled={!isSuperAdmin || addressSaving} onClick={() => void saveAddressEdit(address.id)}>
+                                {dict.actions.save}
+                              </button>
+                              <button
+                                className="ghost"
+                                type="button"
+                                disabled={addressSaving}
+                                onClick={() => {
+                                  setEditingAddressId(null);
+                                  setAddressDraft({ title: "", addressLine: "", isDefault: false });
+                                }}
+                              >
+                                {dict.common.cancel}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="ghost" type="button" disabled={!isSuperAdmin || addressSaving} onClick={() => beginAddressEdit(address)}>
+                                {language === "tr" ? "Düzenle" : "Edit"}
+                              </button>
+                              <button className="ghost" type="button" disabled={!isSuperAdmin || addressSaving || address.isDefault} onClick={() => void makeAddressDefault(address.id)}>
+                                {language === "tr" ? "Varsayılan Yap" : "Set Default"}
+                              </button>
+                              <button className="ghost" type="button" disabled={!isSuperAdmin || addressSaving} onClick={() => void deleteAddress(address.id)}>
+                                {language === "tr" ? "Sil" : "Delete"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+              <form className="seller-address-create-form" onSubmit={createAddress}>
+                <label>
+                  {language === "tr" ? "Yeni Adres Başlığı" : "New Address Title"}
+                  <input
+                    value={newAddress.title}
+                    onChange={(event) => setNewAddress((prev) => ({ ...prev, title: event.target.value }))}
+                    disabled={!isSuperAdmin || addressSaving}
+                  />
+                </label>
+                <label>
+                  {language === "tr" ? "Yeni Adres" : "New Address"}
+                  <input
+                    value={newAddress.addressLine}
+                    onChange={(event) => setNewAddress((prev) => ({ ...prev, addressLine: event.target.value }))}
+                    disabled={!isSuperAdmin || addressSaving}
+                  />
+                </label>
+                <label className="seller-address-default-toggle">
+                  <input
+                    type="checkbox"
+                    checked={newAddress.isDefault}
+                    onChange={(event) => setNewAddress((prev) => ({ ...prev, isDefault: event.target.checked }))}
+                    disabled={!isSuperAdmin || addressSaving}
+                  />
+                  <span>{language === "tr" ? "Varsayılan olarak ekle" : "Add as default"}</span>
+                </label>
+                <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
+                  {language === "tr" ? "Adres Ekle" : "Add Address"}
+                </button>
+              </form>
+            </article>
+          </div>
+        </section>
+      ) : null}
 
       {activeTab === "identity" ? (
         <section className="panel seller-identity-compliance">
@@ -1303,7 +1694,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
+      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>
