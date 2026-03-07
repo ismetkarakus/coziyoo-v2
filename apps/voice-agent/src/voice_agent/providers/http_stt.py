@@ -7,6 +7,7 @@ the JSON transcription response.
 from __future__ import annotations
 
 import io
+import json
 import logging
 import uuid
 import wave
@@ -104,8 +105,25 @@ class HttpSTT(STT):
                 err_text = await resp.text()
                 raise Exception(f"STT server error {resp.status}: {err_text[:200]}")
 
-            result = await resp.json()
-            text = result.get("text", "").strip()
+            payload = await resp.text()
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                parsed = payload
+
+            if isinstance(parsed, dict):
+                text = str(parsed.get("text") or parsed.get("transcript") or "").strip()
+            elif isinstance(parsed, str):
+                text = parsed.strip()
+            else:
+                text = ""
+
+            if not text:
+                logger.warning(
+                    "STT response returned empty transcript. payload_type=%s payload_preview=%s",
+                    type(parsed).__name__,
+                    payload[:200],
+                )
 
         return SpeechEvent(
             type=SpeechEventType.FINAL_TRANSCRIPT,
