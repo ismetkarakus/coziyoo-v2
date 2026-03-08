@@ -845,6 +845,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <span>Talep Tarihi</span>
                     <strong>{selectedRequestedAt}</strong>
                   </div>
+                  <div>
+                    <span>Ödeme Durumu</span>
+                    <strong>{selectedPaymentStatus}</strong>
+                  </div>
                 </article>
               </div>
 
@@ -853,12 +857,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <span>Toplam</span>
                   <strong>{selectedTotal}</strong>
                 </div>
-                <div>
-                  <span>Ödeme Durumu</span>
-                  <strong>{selectedPaymentStatus}</strong>
-                </div>
                 <div className="records-order-uuid-row">
-                  <span>{`UUID: ${shortUuid(selectedOrderId)}`}</span>
+                  <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
                   <button
                     className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
                     type="button"
