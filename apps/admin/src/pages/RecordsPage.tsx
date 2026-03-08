@@ -884,6 +884,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               <div className="records-order-summary-inline">
                 <div className="records-order-uuid-row records-order-uuid-row-standalone">
                   <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
+                  <button
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
+                    type="button"
+                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
+                    title="UUID kopyala"
+                  >
+                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
+                  </button>
                 </div>
                 <div className="records-order-total-inline">
                   <span>Toplam</span>
