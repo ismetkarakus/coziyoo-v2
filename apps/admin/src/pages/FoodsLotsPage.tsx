@@ -12,6 +12,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [rows, setRows] = useState<
     Array<{
       id: string;
+      code: string;
       name: string;
       sellerId: string;
       isActive: boolean;
@@ -39,6 +40,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
   const [selectedFood, setSelectedFood] = useState<{
     id: string;
+    code: string;
     name: string;
     sellerId: string;
     isActive: boolean;
@@ -51,6 +53,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   } | null>(null);
   const [selectedFoodMap, setSelectedFoodMap] = useState<Record<string, {
     id: string;
+    code: string;
     name: string;
     sellerId: string;
     isActive: boolean;
@@ -215,6 +218,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
         const mapped = body.data.rows
           .map((record) => ({
             id: String(record.id ?? ""),
+            code: String(record.code ?? ""),
             name: String(record.name ?? "-"),
             sellerId: String(record.seller_id ?? ""),
             isActive: Boolean(record.is_active),
@@ -312,6 +316,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
 
   function toggleFoodSelection(food: {
     id: string;
+    code: string;
     name: string;
     sellerId: string;
     isActive: boolean;
@@ -507,6 +512,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                     onChange={(event) => toggleAllFoods(event.target.checked)}
                   />
                 </th>
+                <th>{dict.detail.lotActions}</th>
                 <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                 <th>{dict.detail.foodName}</th>
                 <th>{dict.detail.foodSeller}</th>
@@ -514,17 +520,16 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                 <th>{dict.detail.foodPrice}</th>
                 <th>{dict.detail.updatedAtLabel}</th>
                 <th>{dict.detail.lotSummary}</th>
-                <th>{dict.detail.lotActions}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9}>{dict.common.loading}</td>
+                  <td colSpan={10}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>{dict.common.noRecords}</td>
+                  <td colSpan={10}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((food) => {
@@ -550,6 +555,23 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                             onChange={(event) => toggleFoodSelection(food, event.target.checked)}
                           />
                         </td>
+                        <td>
+                          <button
+                            className="ghost foods-toggle-btn"
+                            type="button"
+                            aria-label={foodExpanded ? dict.detail.hideLots : dict.detail.showLots}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const next = !foodExpanded;
+                              setExpandedFoodIds((prev) => ({ ...prev, [food.id]: next }));
+                              if (next && !lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) {
+                                void loadFoodLots(food.id);
+                              }
+                            }}
+                          >
+                            {foodExpanded ? "−" : "+"}
+                          </button>
+                        </td>
                         <td>{toDisplayId(food.id)}</td>
                         <td>
                           <strong>{food.name}</strong>
@@ -569,26 +591,20 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                             {recalledLots > 0 ? <span className="lot-summary-danger">{`${language === "tr" ? "Geri çağrılan" : "Recalled"}: ${recalledLots}`}</span> : null}
                           </div>
                         </td>
-                        <td>
-                          <button
-                            className="ghost"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              const next = !foodExpanded;
-                              setExpandedFoodIds((prev) => ({ ...prev, [food.id]: next }));
-                              if (next && !lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) {
-                                void loadFoodLots(food.id);
-                              }
-                            }}
-                          >
-                            {foodExpanded ? dict.detail.hideLots : dict.detail.showLots}
-                          </button>
-                        </td>
                       </tr>
                       {foodExpanded ? (
                         <tr className="foods-lots-expanded-row">
-                          <td colSpan={9}>
+                          <td colSpan={10}>
+                            <div className="seller-food-codes-card">
+                              <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
+                              <div className="seller-food-codes-list">
+                                <span className="seller-food-code-chip is-id">{`ID: ${food.id}`}</span>
+                                <span className="seller-food-code-chip is-food">{`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}</span>
+                                {lots.map((lot) => (
+                                  <span key={`code-${food.id}-${lot.id}`} className="seller-food-code-chip is-lot">{`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}</span>
+                                ))}
+                              </div>
+                            </div>
                             {lotsLoadingByFoodId[food.id] ? (
                               <p className="panel-meta">{dict.common.loading}</p>
                             ) : lotsErrorByFoodId[food.id] ? (
