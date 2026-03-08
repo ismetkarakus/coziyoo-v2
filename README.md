@@ -11,7 +11,7 @@ coziyoo/
 ├── apps/
 │   ├── api/               # Backend API (Node.js/Express)
 │   ├── admin/             # Admin panel (React + Vite)
-│   └── web/               # Customer web/mobile app (Expo)
+│   └── mobile/            # Mobile app (Expo, standalone npm project)
 ├── packages/
 │   ├── shared-types/      # Shared TypeScript types
 │   └── shared-utils/      # Shared utility functions
@@ -43,8 +43,17 @@ npm run dev:api
 # Admin panel only (http://localhost:5173)
 npm run dev:admin
 
-# Web/mobile app
-npm run dev:web
+# Mobile app (delegates to apps/mobile)
+npm run dev:mobile
+```
+
+Mobile can also run fully standalone:
+
+```bash
+cd apps/mobile
+cp .env.example .env
+npm install
+npm run ios
 ```
 
 ## Docker Dev Stack (No System-Wide Node/Python)
@@ -78,10 +87,10 @@ Notes:
 | `npm run build` | Build all workspaces |
 | `npm run dev:api` | Start API in dev mode |
 | `npm run dev:admin` | Start Admin panel in dev mode |
-| `npm run dev:web` | Start Web app in dev mode |
+| `npm run dev:mobile` | Start Mobile app in dev mode |
 | `npm run build:api` | Build API only |
 | `npm run build:admin` | Build Admin only |
-| `npm run build:web` | Build Web for production |
+| `npm run build:mobile` | Reminder message for standalone mobile workflow |
 | `npm run test` | Run tests in all workspaces |
 | `npm run test:api` | Run API tests only |
 

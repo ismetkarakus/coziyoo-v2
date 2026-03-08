@@ -75,6 +75,16 @@ def _audio_input_options() -> room_io.AudioInputOptions:
     if not enable_noise_filter:
         return room_io.AudioInputOptions()
 
+    # Guard against enabling cloud-only filters on self-hosted LiveKit.
+    parsed = urlparse(settings.LIVEKIT_URL)
+    host = (parsed.hostname or "").lower()
+    if "livekit.cloud" not in host:
+        logger.warning(
+            "LIVEKIT_ENABLE_NOISE_CANCELLATION is enabled but LIVEKIT_URL=%s is not LiveKit Cloud; disabling filter",
+            settings.LIVEKIT_URL,
+        )
+        return room_io.AudioInputOptions()
+
     return room_io.AudioInputOptions(
         noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
         if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
@@ -87,8 +97,12 @@ def _normalize_base_url(value: str) -> str:
     if not candidate:
         return ""
     parsed = urlparse(candidate)
-    if parsed.scheme:
+    if parsed.scheme and parsed.netloc:
         return candidate
+    if parsed.scheme and not parsed.netloc:
+        # Handle malformed values like "https:ollama.example.com"
+        tail = candidate[len(parsed.scheme) + 1 :].lstrip("/")
+        return f"{parsed.scheme}://{tail}"
     return f"http://{candidate}"
 
 
@@ -106,6 +120,7 @@ def _build_stt(providers: dict, language: str):
             transcribe_path=stt_cfg.get("transcribePath", "/v1/audio/transcriptions"),
             model=stt_cfg.get("model", "whisper-1"),
             language=language,
+            response_format=stt_cfg.get("responseFormat", "verbose_json"),
             auth_header=stt_cfg.get("authHeader"),
             query_params=stt_cfg.get("queryParams") or None,
         )

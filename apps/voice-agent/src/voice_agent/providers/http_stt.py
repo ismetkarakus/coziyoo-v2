@@ -7,6 +7,7 @@ the JSON transcription response.
 from __future__ import annotations
 
 import io
+import json
 import logging
 import uuid
 import wave
@@ -34,6 +35,7 @@ class HttpSTT(STT):
         transcribe_path: str = "/v1/audio/transcriptions",
         model: str = "whisper-1",
         language: str = "en",
+        response_format: str = "verbose_json",
         auth_header: str | None = None,
         query_params: dict | None = None,
     ) -> None:
@@ -47,6 +49,7 @@ class HttpSTT(STT):
         self._transcribe_path = transcribe_path
         self._model_name = model
         self._language = language
+        self._response_format = response_format
         self._auth_header = auth_header
         self._query_params = query_params
         self._session: aiohttp.ClientSession | None = None
@@ -95,7 +98,8 @@ class HttpSTT(STT):
         form.add_field("model", self._model_name)
         if self._language:
             form.add_field("language", self._language)
-        form.add_field("response_format", "json")
+        form.add_field("response_format", self._response_format)
+        form.add_field("stream", "false")
 
         session = self._get_session()
         async with session.post(url, data=form, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as resp:
@@ -103,8 +107,27 @@ class HttpSTT(STT):
                 err_text = await resp.text()
                 raise Exception(f"STT server error {resp.status}: {err_text[:200]}")
 
-            result = await resp.json()
-            text = result.get("text", "").strip()
+            payload = await resp.text()
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                parsed = payload
+
+            if isinstance(parsed, dict):
+                text = str(parsed.get("text") or parsed.get("transcript") or "").strip()
+            elif isinstance(parsed, str):
+                text = parsed.strip()
+            else:
+                text = ""
+
+            if not text:
+                logger.warning(
+                    "STT response returned empty transcript. payload_type=%s payload_preview=%s",
+                    type(parsed).__name__,
+                    payload[:200],
+                )
+            else:
+                logger.info("STT transcript received chars=%d preview=%s", len(text), text[:120])
 
         return SpeechEvent(
             type=SpeechEventType.FINAL_TRANSCRIPT,
