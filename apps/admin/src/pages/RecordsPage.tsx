@@ -836,15 +836,19 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <strong>{selectedSellerText}</strong>
                   <p className="panel-meta">{`Teslimat Tipi: ${selectedDeliveryType}`}</p>
                 </article>
-                <article className="records-order-info-meta">
-                  <div>
+                <article className="records-order-info-meta records-order-inline-fields">
+                  <label className="records-order-inline-field">
                     <span>Sipariş Tarihi</span>
-                    <strong>{selectedCreatedAt}</strong>
-                  </div>
-                  <div>
+                    <input value={selectedCreatedAt} readOnly />
+                  </label>
+                  <label className="records-order-inline-field">
                     <span>Talep Tarihi</span>
-                    <strong>{selectedRequestedAt}</strong>
-                  </div>
+                    <input value={selectedRequestedAt} readOnly />
+                  </label>
+                  <label className="records-order-inline-field">
+                    <span>Ödeme Durumu</span>
+                    <input value={selectedPaymentStatus} readOnly />
+                  </label>
                 </article>
               </div>
 
@@ -852,10 +856,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                 <div>
                   <span>Toplam</span>
                   <strong>{selectedTotal}</strong>
-                </div>
-                <div>
-                  <span>Ödeme Durumu</span>
-                  <strong>{selectedPaymentStatus}</strong>
                 </div>
                 <div className="records-order-uuid-row">
                   <span>{`UUID: ${shortUuid(selectedOrderId)}`}</span>

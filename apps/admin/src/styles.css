@@ -5590,9 +5590,33 @@ textarea:focus {
   padding: 0;
 }
 
+.records-order-inline-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.records-order-inline-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.records-order-inline-field input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #7c8fb8 32%, var(--color-border));
+  background: color-mix(in srgb, #0b1630 72%, transparent);
+  color: var(--color-text);
+  padding: 9px 10px;
+  font-size: clamp(0.95rem, 0.96vw, 1rem);
+  line-height: 1.25;
+}
+
 .records-order-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-items: end;
 }
@@ -5609,8 +5633,8 @@ textarea:focus {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 10px;
 }
 
 .records-order-modal .table-wrap {
@@ -5647,6 +5671,10 @@ textarea:focus {
   }
 
   .records-order-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-order-inline-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 }
