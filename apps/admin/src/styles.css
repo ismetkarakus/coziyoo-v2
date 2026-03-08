@@ -3813,12 +3813,14 @@ textarea:focus {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
   padding: 0;
+  align-items: start;
 }
 
 .seller-notes-col {
   min-width: 0;
   display: grid;
   gap: 10px;
+  align-content: start;
 }
 
 .seller-notes-col-title {
@@ -3832,6 +3834,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+  align-items: center;
 }
 
 .seller-notes-input-row input {
