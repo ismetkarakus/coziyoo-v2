@@ -844,7 +844,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Lot Özeti" : "Lots Summary"}</h4>
               {selectedFoodLots.length === 0 ? (
                 <p className="panel-meta">{dict.detail.noLotsForFood}</p>
               ) : (
