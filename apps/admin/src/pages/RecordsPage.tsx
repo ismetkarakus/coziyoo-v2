@@ -130,6 +130,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   };
 
   const orderItemColumnLabelTr = (column: string): string => {
+    const normalized = String(column).trim().toLowerCase();
+    if (normalized === "id" || normalized === "order_item_id" || normalized === "orderitemid") {
+      return "Kalem ID";
+    }
     const trLabels: Record<string, string> = {
       id: "Kalem ID",
       food_id: "Yemek ID",
@@ -720,7 +724,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(raw ?? "-");
   })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
-    const withoutOrderId = selectedOrderItemsColumns.filter((column) => column !== "order_id");
+    const withoutOrderId = selectedOrderItemsColumns.filter((column) => {
+      const normalized = String(column).trim().toLowerCase();
+      return normalized !== "order_id" && normalized !== "orderid";
+    });
     if (!withoutOrderId.includes("food_id")) return withoutOrderId;
     const withoutFoodName = withoutOrderId.filter((column) => column !== "food_name");
     const foodIdIndex = withoutFoodName.indexOf("food_id");
