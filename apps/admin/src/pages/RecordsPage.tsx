@@ -885,22 +885,22 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                 ) : null}
               </div>
 
-              <div className="records-order-kpi-grid">
-                <div>
+              <div className="records-order-summary-inline">
+                <div className="records-order-uuid-row records-order-uuid-row-standalone">
+                  <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
+                  <button
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
+                    type="button"
+                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
+                    title="UUID kopyala"
+                  >
+                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
+                  </button>
+                </div>
+                <div className="records-order-total-inline">
                   <span>Toplam</span>
                   <strong>{selectedTotal}</strong>
                 </div>
-              </div>
-              <div className="records-order-uuid-row records-order-uuid-row-standalone">
-                <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
-                <button
-                  className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
-                  type="button"
-                  onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                  title="UUID kopyala"
-                >
-                  {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
-                </button>
               </div>
             </section>
             <section className="records-order-section">

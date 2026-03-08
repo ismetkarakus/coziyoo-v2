@@ -5630,6 +5630,28 @@ textarea:focus {
   margin-top: 2px;
 }
 
+.records-order-summary-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.records-order-total-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.records-order-total-inline span {
+  color: var(--color-secondary-text);
+}
+
+.records-order-total-inline strong {
+  font-size: clamp(1.08rem, 1.2vw, 1.36rem);
+}
+
 .records-order-modal .table-wrap {
   max-width: 100%;
   overflow: auto;
@@ -5665,6 +5687,11 @@ textarea:focus {
 
   .records-order-kpi-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-order-summary-inline {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
