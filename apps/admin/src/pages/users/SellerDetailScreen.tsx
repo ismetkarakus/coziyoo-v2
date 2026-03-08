@@ -1638,8 +1638,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             </button>
                           </td>
                           <td>
-                            <strong>{food.name}</strong>
-                            <div className="panel-meta">{food.code}</div>
+                            <strong>{`${food.name} (${food.code || "-"})`}</strong>
                             <div className="panel-meta">
                               <strong>{language === "tr" ? "Malzemeler:" : "Ingredients:"}</strong>{" "}
                               {ingredientItems.length > 0 ? ingredientItems.join(", ") : (language === "tr" ? "Belirtilmemiş" : "Not specified")}
