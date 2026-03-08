@@ -200,6 +200,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         note: isTr ? "Sipariş kapanışı yapıldı" : "Order completed",
         toneClass: "is-done",
       },
+      cancelled: {
+        label: isTr ? "İptal" : "Cancelled",
+        note: isTr ? "Sipariş iptal edildi" : "Order cancelled",
+        toneClass: "is-disabled",
+      },
     };
     return map[status] ?? {
       label: status ? status.replace(/_/g, " ") : dict.common.counterpartNotFound,
@@ -857,17 +862,17 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <span>Toplam</span>
                   <strong>{selectedTotal}</strong>
                 </div>
-                <div className="records-order-uuid-row">
-                  <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
-                  <button
-                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
-                    type="button"
-                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                    title="UUID kopyala"
-                  >
-                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
-                  </button>
-                </div>
+              </div>
+              <div className="records-order-uuid-row records-order-uuid-row-standalone">
+                <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
+                <button
+                  className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
+                  type="button"
+                  onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
+                  title="UUID kopyala"
+                >
+                  {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
+                </button>
               </div>
             </section>
             <section className="records-order-section">

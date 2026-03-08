@@ -5616,7 +5616,6 @@ textarea:focus {
 }
 
 .records-order-uuid-row {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -5625,6 +5624,10 @@ textarea:focus {
 
 .records-order-uuid-text {
   font-size: clamp(1.05rem, 1.08vw, 1.2rem);
+}
+
+.records-order-uuid-row-standalone {
+  margin-top: 2px;
 }
 
 .records-order-modal .table-wrap {
