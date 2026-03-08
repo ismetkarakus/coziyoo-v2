@@ -6682,6 +6682,11 @@ textarea:focus {
   border-color: color-mix(in srgb, #8ad8b7 36%, transparent);
 }
 
+.seller-food-subheading {
+  color: color-mix(in srgb, var(--color-text) 68%, transparent);
+  font-weight: 600;
+}
+
 .foods-detail-modal {
   width: min(940px, calc(100vw - 72px));
   max-height: calc(100vh - 72px);

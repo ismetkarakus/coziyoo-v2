@@ -1640,15 +1640,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           <td>
                             <strong>{`${food.name} (${food.code || "-"})`}</strong>
                             <div className="panel-meta">
-                              <strong>{language === "tr" ? "Malzemeler:" : "Ingredients:"}</strong>{" "}
+                              <strong className="seller-food-subheading">{language === "tr" ? "Malzemeler:" : "Ingredients:"}</strong>{" "}
                               {ingredientItems.length > 0 ? ingredientItems.join(", ") : (language === "tr" ? "Belirtilmemiş" : "Not specified")}
                             </div>
                             <div className="panel-meta">
-                              <strong>{language === "tr" ? "Baharatlar:" : "Spices:"}</strong>{" "}
+                              <strong className="seller-food-subheading">{language === "tr" ? "Baharatlar:" : "Spices:"}</strong>{" "}
                               {spices.length > 0 ? spices.join(", ") : "-"}
                             </div>
                             <div className="panel-meta">
-                              <strong>{language === "tr" ? "Alerjenler:" : "Allergens:"}</strong>{" "}
+                              <strong className="seller-food-subheading">{language === "tr" ? "Alerjenler:" : "Allergens:"}</strong>{" "}
                               {allergens.length > 0 ? allergens.join(", ") : "-"}
                             </div>
                           </td>
