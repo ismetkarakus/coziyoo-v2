@@ -359,6 +359,7 @@ def create_order(
             headers={
                 "authorization": f"Bearer {buyer_token}",
                 "Idempotency-Key": idempotency_key,
+                "x-actor-role": "buyer",
             },
         )
         if status == 201:
