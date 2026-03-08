@@ -6682,6 +6682,12 @@ textarea:focus {
   border-color: color-mix(in srgb, #8ad8b7 36%, transparent);
 }
 
+.seller-food-code-chip.is-link {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+
 .seller-food-subheading {
   color: color-mix(in srgb, var(--color-text) 68%, transparent);
   font-weight: 600;

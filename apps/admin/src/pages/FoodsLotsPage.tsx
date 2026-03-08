@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton } from "../components/ui";
@@ -8,6 +9,7 @@ import type { Language, ApiError } from "../types/core";
 import type { AdminLotRow, AdminLotOrderRow } from "../types/lots";
 
 export default function FoodsLotsPage({ language }: { language: Language }) {
+  const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const [rows, setRows] = useState<
     Array<{
@@ -218,7 +220,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
         const mapped = body.data.rows
           .map((record) => ({
             id: String(record.id ?? ""),
-            code: String(record.code ?? ""),
+            code: String(record.code ?? record.food_code ?? record.display_code ?? record.sku ?? record.foodCode ?? "").trim(),
             name: String(record.name ?? "-"),
             sellerId: String(record.seller_id ?? ""),
             isActive: Boolean(record.is_active),
@@ -348,6 +350,15 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       }
       return next;
     });
+  }
+
+  function openSellerFoodDetail(food: { sellerId: string; id: string }, focusLotId?: string) {
+    const sellerId = String(food.sellerId ?? "").trim();
+    const foodId = String(food.id ?? "").trim();
+    if (!sellerId || !foodId) return;
+    const query = new URLSearchParams({ tab: "foods", focusFoodId: foodId });
+    if (focusLotId) query.set("focusLotId", focusLotId);
+    navigate(`/app/sellers/${sellerId}?${query.toString()}`);
   }
 
   function downloadSelectedFoodsAsExcel() {
@@ -598,10 +609,21 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                             <div className="seller-food-codes-card">
                               <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
                               <div className="seller-food-codes-list">
-                                <span className="seller-food-code-chip is-id">{`ID: ${food.id}`}</span>
-                                <span className="seller-food-code-chip is-food">{`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}</span>
+                                <button className="seller-food-code-chip is-id is-link" type="button" onClick={() => openSellerFoodDetail(food)}>
+                                  {`ID: ${food.id}`}
+                                </button>
+                                <button className="seller-food-code-chip is-food is-link" type="button" onClick={() => openSellerFoodDetail(food)}>
+                                  {`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}
+                                </button>
                                 {lots.map((lot) => (
-                                  <span key={`code-${food.id}-${lot.id}`} className="seller-food-code-chip is-lot">{`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}</span>
+                                  <button
+                                    key={`code-${food.id}-${lot.id}`}
+                                    className="seller-food-code-chip is-lot is-link"
+                                    type="button"
+                                    onClick={() => openSellerFoodDetail(food, lot.id)}
+                                  >
+                                    {`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}
+                                  </button>
                                 ))}
                               </div>
                             </div>
