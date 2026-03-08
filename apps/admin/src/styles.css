@@ -5591,6 +5591,14 @@ textarea:focus {
   align-items: end;
 }
 
+.records-order-info-meta > div,
+.records-order-kpi-grid > div {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+
 .records-order-uuid-row {
   grid-column: 1 / -1;
   display: flex;
