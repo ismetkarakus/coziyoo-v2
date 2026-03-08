@@ -482,45 +482,18 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   function printOpenOrderDetail() {
     if (!selectedOrder || !orderModalPrintRef.current) return;
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
-    if (!printWindow) return;
-
-    const styleNodes = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
-      .map((node) => node.outerHTML)
-      .join("\n");
-    const modalHtml = orderModalPrintRef.current.innerHTML;
-
-    printWindow.document.open();
-    printWindow.document.write(`
-      <!doctype html>
-      <html lang="tr">
-        <head>
-          <meta charset="utf-8" />
-          <title>Sipariş Detayı Yazdır</title>
-          ${styleNodes}
-          <style>
-            body { margin: 0; padding: 16px; background: #ffffff; color: #0b1220; }
-            .records-order-modal { position: static !important; width: 100% !important; max-height: none !important; overflow: visible !important; margin: 0 !important; }
-            .buyer-ops-modal-actions { display: none !important; }
-          </style>
-        </head>
-        <body>
-          <div class="buyer-ops-modal records-order-modal print-target-modal">${modalHtml}</div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-
-    let printed = false;
-    const runPrint = () => {
-      if (printed) return;
-      printed = true;
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
+    const body = document.body;
+    body.classList.add("modal-print-active");
+    const cleanup = () => body.classList.remove("modal-print-active");
+    const handleAfterPrint = () => {
+      cleanup();
+      window.removeEventListener("afterprint", handleAfterPrint);
     };
-    printWindow.addEventListener("load", runPrint);
-    window.setTimeout(runPrint, 450);
+    window.addEventListener("afterprint", handleAfterPrint);
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(cleanup, 300);
+    }, 0);
   }
 
   function copyWithFeedback(text: string, key: "order-id" | "uuid") {
