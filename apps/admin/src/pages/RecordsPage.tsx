@@ -796,7 +796,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               )}
             </section>
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language={language} labelTr="Bu Detayı Excel'e Aktar" labelEn="Export This Detail" />
+              <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language={language} />
               <button className="ghost" type="button" onClick={printOpenOrderDetail}>
                 {language === "tr" ? "Yazdır" : "Print"}
               </button>
