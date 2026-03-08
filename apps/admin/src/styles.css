@@ -3925,6 +3925,33 @@ textarea:focus {
     radial-gradient(120% 140% at 0% 10%, rgba(160, 184, 236, 0.22), rgba(255, 255, 255, 0));
 }
 
+:root:not(.dark) .buyer-ops-page .buyer-ref-top .buyer-ref-metric {
+  border-color: color-mix(in srgb, #8ea7db 36%, var(--ops-border-default));
+  background:
+    linear-gradient(180deg, rgba(246, 250, 255, 0.98), rgba(236, 243, 255, 0.95)),
+    radial-gradient(140% 170% at 0% 0%, rgba(165, 189, 239, 0.2), rgba(255, 255, 255, 0));
+}
+
+:root:not(.dark) .buyer-ops-page .buyer-ref-metric-icon {
+  border-color: color-mix(in srgb, #8ea7db 38%, var(--ops-border-default));
+  background: color-mix(in srgb, #dbe7ff 78%, white);
+}
+
+:root:not(.dark) .buyer-ops-page .buyer-ref-metric-icon.is-alert {
+  color: #cf4e5a;
+  background: color-mix(in srgb, #ffd5db 74%, white);
+}
+
+:root:not(.dark) .buyer-ops-page .buyer-ref-metric-icon.is-trend {
+  color: #3f61a8;
+  background: color-mix(in srgb, #d5e3ff 76%, white);
+}
+
+:root:not(.dark) .buyer-ops-page .buyer-ref-metric-icon.is-payment {
+  color: #9b6d22;
+  background: color-mix(in srgb, #ffe8c7 78%, white);
+}
+
 :root:not(.dark) .buyer-ops-page .buyer-ref-main-panel,
 :root:not(.dark) .buyer-ops-page .buyer-ref-bottom-panel {
   border-color: color-mix(in srgb, #8ea7db 36%, var(--ops-border-default));
