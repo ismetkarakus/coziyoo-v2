@@ -21,7 +21,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
   const [foodNameById, setFoodNameById] = useState<Record<string, string>>({});
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
-  const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
   const pageSize = 20;
@@ -504,16 +503,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     window.setTimeout(runPrint, 450);
   }
 
-  function copyWithFeedback(text: string, key: "order-id" | "uuid") {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setCopyFeedbackKey(key);
-        window.setTimeout(() => setCopyFeedbackKey((prev) => (prev === key ? "" : prev)), 1100);
-      })
-      .catch(() => undefined);
-  }
-
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -705,8 +694,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(raw ?? "-");
   })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
-    if (!selectedOrderItemsColumns.includes("food_id")) return selectedOrderItemsColumns;
-    const withoutFoodName = selectedOrderItemsColumns.filter((column) => column !== "food_name");
+    const withoutOrderId = selectedOrderItemsColumns.filter((column) => column !== "order_id");
+    if (!withoutOrderId.includes("food_id")) return withoutOrderId;
+    const withoutFoodName = withoutOrderId.filter((column) => column !== "food_name");
     const foodIdIndex = withoutFoodName.indexOf("food_id");
     if (foodIdIndex < 0) return withoutFoodName;
     return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];
@@ -834,14 +824,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               <header className="records-order-head">
                 <div className="records-order-title-wrap">
                   <h3>{`Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}`}</h3>
-                  <button
-                    className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
-                    type="button"
-                    onClick={() => copyWithFeedback(selectedOrderId, "order-id")}
-                    title="Sipariş ID kopyala"
-                  >
-                    {copyFeedbackKey === "order-id" ? "✓" : "⧉"}
-                  </button>
                 </div>
                 <div className="records-order-status-wrap">
                   <span>Durumu</span>
@@ -888,14 +870,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               <div className="records-order-summary-inline">
                 <div className="records-order-uuid-row records-order-uuid-row-standalone">
                   <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
-                  <button
-                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
-                    type="button"
-                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                    title="UUID kopyala"
-                  >
-                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
-                  </button>
                 </div>
                 <div className="records-order-total-inline">
                   <span>Toplam</span>
