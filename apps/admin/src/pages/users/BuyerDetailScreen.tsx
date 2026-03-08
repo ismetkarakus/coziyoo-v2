@@ -643,7 +643,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             </div>
             <div className="buyer-ref-quick-access-wrap">
               <details className="seller-quick-access buyer-ref-quick-access">
-                <summary>{language === "tr" ? "Notlar & Etiketler" : "Notes & Tags"}</summary>
+                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
                 <div className="seller-quick-access-menu">
                   {String(email).includes("@") ? (
                     <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
