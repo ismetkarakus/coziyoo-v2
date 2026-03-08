@@ -2,7 +2,7 @@ import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, use
 import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
-import { ExcelExportButton } from "../../components/ui";
+import { ExcelExportButton, PrintButton } from "../../components/ui";
 import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
@@ -18,6 +18,7 @@ import {
 import { resolveSellerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
+import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
 import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow } from "../../types/seller";
@@ -547,46 +548,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [filteredSellerEarnings]);
 
   function printIdentityDetails() {
-    if (!identityViewerOpen || !identityModalPrintRef.current) return;
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
-    if (!printWindow) return;
-
-    const styleNodes = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
-      .map((node) => node.outerHTML)
-      .join("\n");
-    const modalHtml = identityModalPrintRef.current.innerHTML;
-
-    printWindow.document.open();
-    printWindow.document.write(`
-      <!doctype html>
-      <html lang="tr">
-        <head>
-          <meta charset="utf-8" />
-          <title>Kimlik Dosyaları Yazdır</title>
-          ${styleNodes}
-          <style>
-            body { margin: 0; padding: 16px; background: #ffffff; color: #0b1220; }
-            .seller-doc-viewer-modal { position: static !important; width: 100% !important; max-height: none !important; overflow: visible !important; margin: 0 !important; }
-            .buyer-ops-modal-actions { display: none !important; }
-          </style>
-        </head>
-        <body>
-          <div class="buyer-ops-modal seller-doc-viewer-modal print-target-modal">${modalHtml}</div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-
-    let printed = false;
-    const runPrint = () => {
-      if (printed) return;
-      printed = true;
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    };
-    printWindow.addEventListener("load", runPrint);
-    window.setTimeout(runPrint, 450);
+    if (!identityViewerOpen) return;
+    printModalContent(identityModalPrintRef.current);
   }
 
   if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
@@ -1328,9 +1291,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   Yeni Sekmede Aç
                 </a>
               ) : null}
-              <button className="ghost" type="button" onClick={printIdentityDetails}>
-                Yazdır
-              </button>
+              <PrintButton className="ghost" type="button" onClick={printIdentityDetails} language="tr" />
               <button className="primary" type="button" onClick={() => setIdentityViewerOpen(false)}>
                 Kapat
               </button>

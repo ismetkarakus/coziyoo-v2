@@ -1,8 +1,9 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { request, parseJson } from "../lib/api";
-import { Pager, ExcelExportButton } from "../components/ui";
+import { Pager, ExcelExportButton, PrintButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
+import { printModalContent } from "../lib/print";
 import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
@@ -481,17 +482,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }
 
   function printOpenOrderDetail() {
-    if (!selectedOrder || !orderModalPrintRef.current) return;
-    const body = document.body;
-    body.classList.add("modal-print-active");
-    const handleAfterPrint = () => {
-      body.classList.remove("modal-print-active");
-      window.removeEventListener("afterprint", handleAfterPrint);
-    };
-    window.addEventListener("afterprint", handleAfterPrint);
-    window.setTimeout(() => {
-      window.print();
-    }, 0);
+    if (!selectedOrder) return;
+    printModalContent(orderModalPrintRef.current);
   }
 
   function copyWithFeedback(text: string, key: "order-id" | "uuid") {
@@ -928,9 +920,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             </section>
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language="tr" />
-              <button className="ghost" type="button" onClick={printOpenOrderDetail}>
-                Yazdır
-              </button>
+              <PrintButton className="ghost" type="button" onClick={printOpenOrderDetail} language="tr" />
               <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
                 Kapat
               </button>
