@@ -283,6 +283,19 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = formatLoginRelativeDayMonth(detailLastLoginAtRaw, language);
   const birthDateText = contactInfo?.contact?.dob ? formatUiDate(contactInfo.contact.dob, language) : "-";
+  const allAddresses = useMemo(() => {
+    const next: Array<{ id: string; title: string; addressLine: string; isDefault: boolean }> = [];
+    if (contactInfo?.addresses.home) {
+      next.push(contactInfo.addresses.home);
+    }
+    if (contactInfo?.addresses.office) {
+      next.push(contactInfo.addresses.office);
+    }
+    if (Array.isArray(contactInfo?.addresses.other)) {
+      next.push(...contactInfo.addresses.other);
+    }
+    return next.filter((item) => String(item.addressLine ?? "").trim().length > 0);
+  }, [contactInfo]);
 
   const failedPayments = useMemo(
     () => orders.filter((order) => paymentBadge(order.paymentStatus).cls === "is-failed").length,
@@ -698,12 +711,26 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <p className="buyer-ref-contact-value buyer-ref-info-value">{email}</p>
               </div>
             </div>
-            <button type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(contactInfo?.addresses.home?.addressLine ?? null)}>
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Ev Adresi</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{contactInfo?.addresses.home?.addressLine ?? "Adres yok"}</p>
+            {allAddresses.length === 0 ? (
+              <div className="buyer-ref-contact-block">
+                <div className="buyer-ref-info-row">
+                  <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Adres</p>
+                  <p className="buyer-ref-contact-value buyer-ref-info-value">Adres yok</p>
+                </div>
               </div>
-            </button>
+            ) : (
+              allAddresses.map((address) => (
+                <button key={address.id} type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(address.addressLine)}>
+                  <div className="buyer-ref-info-row">
+                    <p className="buyer-ref-contact-label">
+                      <span className="buyer-ref-side-icon" aria-hidden="true">⌂</span>
+                      {address.title || "Adres"} {address.isDefault ? "(Varsayilan)" : ""}
+                    </p>
+                    <p className="buyer-ref-contact-value buyer-ref-info-value">{address.addressLine}</p>
+                  </div>
+                </button>
+              ))
+            )}
             <button type="button" className="buyer-ref-link-block" onClick={() => openDialer(phone)}>
               <div className="buyer-ref-info-row">
                 <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
@@ -712,7 +739,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   <span className="buyer-ref-online-dot" aria-hidden="true" />
                 </p>
               </div>
-              <p className="panel-meta">{`${locations.length} lokasyon`}</p>
+            </button>
+            <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌖</span> Giris Lokasyonlari</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{`${locations.length} lokasyon`}</p>
+              </div>
             </button>
             <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
               <div className="buyer-ref-info-row">
