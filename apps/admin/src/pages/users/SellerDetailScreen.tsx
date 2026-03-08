@@ -1257,9 +1257,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       {identityViewerOpen ? (
         <div className="buyer-ops-modal-backdrop">
           <div className="buyer-ops-modal seller-doc-viewer-modal print-target-modal">
-            <h3>{language === "tr" ? "Kimlik Dosyaları" : "Identity Files"}</h3>
+            <h3>Kimlik Dosyaları</h3>
             {identityDocuments.length === 0 ? (
-              <p className="panel-meta">{language === "tr" ? "Kimlik dosyası bulunamadı." : "No identity files found."}</p>
+              <p className="panel-meta">Kimlik dosyası bulunamadı.</p>
             ) : (
               <div className="seller-doc-viewer-grid">
                 <div className="seller-doc-viewer-list">
@@ -1282,7 +1282,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <img src={selectedIdentityDocument.url} alt={selectedIdentityDocument.label} />
                     )
                   ) : (
-                    <p className="panel-meta">{language === "tr" ? "Görüntülenecek dosya yok." : "No file to preview."}</p>
+                    <p className="panel-meta">Görüntülenecek dosya yok.</p>
                   )}
                 </div>
               </div>
@@ -1290,14 +1290,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <div className="buyer-ops-modal-actions">
               {selectedIdentityDocument ? (
                 <a className="ghost" href={selectedIdentityDocument.url} target="_blank" rel="noreferrer">
-                  {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
+                  Yeni Sekmede Aç
                 </a>
               ) : null}
               <button className="ghost" type="button" onClick={printIdentityDetails}>
-                {language === "tr" ? "Yazdır" : "Print"}
+                Yazdır
               </button>
               <button className="primary" type="button" onClick={() => setIdentityViewerOpen(false)}>
-                {language === "tr" ? "Kapat" : "Close"}
+                Kapat
               </button>
             </div>
           </div>

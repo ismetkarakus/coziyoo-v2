@@ -798,7 +798,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       {selectedFood ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedFood(null)}>
           <div className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>{language === "tr" ? "Yemek Detayı" : "Food Details"}</h3>
+            <h3>Yemek Detayı</h3>
             <div className="foods-detail-grid">
               <div>
                 <span className="panel-meta">ID</span>
@@ -818,22 +818,22 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               </div>
               <div>
                 <span className="panel-meta">{dict.detail.foodPrice}</span>
-                <strong>{formatCurrency(selectedFood.price, language)}</strong>
+                <strong>{formatCurrency(selectedFood.price, "tr")}</strong>
               </div>
               <div>
                 <span className="panel-meta">{dict.detail.updatedAtLabel}</span>
-                <strong>{formatUiDate(selectedFood.updatedAt, language)}</strong>
+                <strong>{formatUiDate(selectedFood.updatedAt, "tr")}</strong>
               </div>
             </div>
             <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "İçerikler" : "Ingredients"}</h4>
+              <h4>İçerikler</h4>
               <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
             </div>
             <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>
+              <h4>Alerjen Durumu</h4>
               {selectedFoodAllergenSummary.length === 0 ? (
                 <p className="panel-meta">
-                  {language === "tr" ? "Alerjen yok." : "No allergens."}
+                  Alerjen yok.
                 </p>
               ) : (
                 <div className="foods-allergen-status-list">
@@ -841,16 +841,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                     const tone = row.status === "contains" ? "is-danger" : row.status === "may" ? "is-warning" : "is-neutral";
                     const statusText =
                       row.status === "contains"
-                        ? language === "tr"
-                          ? "İçerir"
-                          : "Contains"
+                        ? "İçerir"
                         : row.status === "may"
-                          ? language === "tr"
-                            ? "İçerebilir"
-                            : "May contain"
-                          : language === "tr"
-                            ? "Bahsedildi"
-                            : "Mentioned";
+                          ? "İçerebilir"
+                          : "Bahsedildi";
                     return (
                       <article key={row.key} className="foods-allergen-status-item">
                         <div className="foods-allergen-status-head">
@@ -882,9 +876,9 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                       {selectedFoodLots.map((lot) => (
                         <tr key={`modal-lot-${lot.id}`}>
                           <td>{lot.lot_number}</td>
-                          <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
+                          <td>{lotLifecycleLabel(lot.lifecycle_status, "tr")}</td>
                           <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                          <td>{formatUiDate(lot.produced_at, language)}</td>
+                          <td>{formatUiDate(lot.produced_at, "tr")}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -893,12 +887,12 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
+              <ExcelExportButton className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel} language="tr" />
               <button className="ghost" type="button" onClick={printSelectedFoodDetail}>
-                {language === "tr" ? "Yazdır" : "Print"}
+                Yazdır
               </button>
               <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
-                {language === "tr" ? "Kapat" : "Close"}
+                Kapat
               </button>
             </div>
           </div>

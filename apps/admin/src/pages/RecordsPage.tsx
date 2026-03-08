@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { Pager, ExcelExportButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
@@ -23,6 +23,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
   const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
+  const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
   const pageSize = 20;
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
@@ -100,6 +101,32 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (column === "seller_id") return "Seller";
     if (column === "payment_completed") return "Payment";
     return formatTableHeader(column);
+  };
+
+  const orderColumnLabelTr = (column: string): string => {
+    const trLabels: Record<string, string> = {
+      __display_id: "Görünen ID",
+      id: "Sipariş ID",
+      created_at: "Tarih",
+      updated_at: "Güncelleme",
+      requested_at: "Talep Tarihi",
+      buyer_id: "Alıcı",
+      seller_id: "Satıcı",
+      status: "Durum",
+      payment_completed: "Ödeme Durumu",
+      delivery_type: "Teslimat Tipi",
+      total_price: "Toplam Tutar",
+      estimated_delivery_time: "Tahmini Teslimat",
+      delivery_address_json: "Teslimat Adresi",
+      order_id: "Sipariş ID",
+      lot_id: "Lot ID",
+      food_id: "Yemek ID",
+      food_name: "Yemek Adı",
+      quantity: "Adet",
+      unit_price: "Birim Fiyat",
+      line_total: "Satır Toplamı",
+    };
+    return trLabels[column] ?? formatTableHeader(column);
   };
 
   const formatOrderCreatedAt = (value: unknown): string => {
@@ -430,12 +457,46 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }
 
   function printOpenOrderDetail() {
-    if (!selectedOrder) return;
-    document.body.classList.add("modal-print-active");
-    const clear = () => document.body.classList.remove("modal-print-active");
-    window.addEventListener("afterprint", clear, { once: true });
-    window.print();
-    window.setTimeout(clear, 1200);
+    if (!selectedOrder || !orderModalPrintRef.current) return;
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
+    if (!printWindow) return;
+
+    const styleNodes = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+      .map((node) => node.outerHTML)
+      .join("\n");
+    const modalHtml = orderModalPrintRef.current.innerHTML;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="tr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Sipariş Detayı Yazdır</title>
+          ${styleNodes}
+          <style>
+            body { margin: 0; padding: 16px; background: #ffffff; color: #0b1220; }
+            .records-order-modal { position: static !important; width: 100% !important; max-height: none !important; overflow: visible !important; margin: 0 !important; }
+            .buyer-ops-modal-actions { display: none !important; }
+          </style>
+        </head>
+        <body>
+          <div class="buyer-ops-modal records-order-modal print-target-modal">${modalHtml}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    let printed = false;
+    const runPrint = () => {
+      if (printed) return;
+      printed = true;
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+    printWindow.addEventListener("load", runPrint);
+    window.setTimeout(runPrint, 450);
   }
 
   function copyWithFeedback(text: string, key: "order-id" | "uuid") {
@@ -565,14 +626,57 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
   const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
+  const selectedStatusLabelTr = (() => {
+    const status = String(selectedOrder?.status ?? "").trim().toLowerCase();
+    if (status === "pending_seller_approval") return "Onay bekliyor";
+    if (status === "seller_approved") return "Onaylandı";
+    if (status === "awaiting_payment") return "Ödeme bekliyor";
+    if (status === "paid") return "Ödendi";
+    if (status === "preparing") return "Hazırlanıyor";
+    if (status === "ready") return "Teslime hazır";
+    if (status === "in_delivery") return "Teslimatta";
+    if (status === "delivered") return "Teslim edildi";
+    if (status === "cancelled") return "İptal";
+    return status ? status.toUpperCase() : "-";
+  })();
   const selectedBuyerText = orderCellText("buyer_id", selectedOrder?.buyer_id);
   const selectedSellerText = orderCellText("seller_id", selectedOrder?.seller_id);
   const selectedDeliveryAddress = formatDeliveryAddress(selectedOrder?.delivery_address_json);
-  const selectedDeliveryType = orderCellText("delivery_type", selectedOrder?.delivery_type);
-  const selectedCreatedAt = orderCellText("created_at", selectedOrder?.created_at);
-  const selectedRequestedAt = orderCellText("requested_at", selectedOrder?.requested_at);
-  const selectedPaymentStatus = orderCellText("payment_completed", selectedOrder?.payment_completed);
-  const selectedTotal = orderCellText("total_price", selectedOrder?.total_price);
+  const selectedDeliveryType = (() => {
+    const raw = String(selectedOrder?.delivery_type ?? "").trim().toLowerCase();
+    if (!raw) return "-";
+    if (raw.includes("pickup")) return "Restorandan Teslim";
+    if (raw.includes("delivery")) return "Adrese Teslim";
+    if (raw.includes("courier")) return "Kurye";
+    return raw;
+  })();
+  const selectedCreatedAt = (() => {
+    const raw = String(selectedOrder?.created_at ?? "").trim();
+    if (!raw) return "-";
+    const parsed = Date.parse(raw);
+    return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString("tr-TR");
+  })();
+  const selectedRequestedAt = (() => {
+    const raw = String(selectedOrder?.requested_at ?? "").trim();
+    if (!raw) return "-";
+    const parsed = Date.parse(raw);
+    return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString("tr-TR");
+  })();
+  const selectedPaymentStatus = (() => {
+    const raw = selectedOrder?.payment_completed;
+    if (typeof raw === "boolean") return raw ? "Ödendi" : "Bekliyor";
+    const text = String(raw ?? "").trim().toLowerCase();
+    if (!text) return "-";
+    if (["true", "1", "paid", "success", "completed", "odendi"].some((key) => text.includes(key))) return "Ödendi";
+    if (["false", "0", "pending", "bekliyor", "await"].some((key) => text.includes(key))) return "Bekliyor";
+    return text;
+  })();
+  const selectedTotal = (() => {
+    const raw = selectedOrder?.total_price;
+    const number = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(number)) return formatCurrency(number, "tr");
+    return String(raw ?? "-");
+  })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
     if (!selectedOrderItemsColumns.includes("food_id")) return selectedOrderItemsColumns;
     const withoutFoodName = selectedOrderItemsColumns.filter((column) => column !== "food_name");
@@ -698,47 +802,47 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       </section>
       {selectedOrder ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedOrder(null)}>
-          <div className="buyer-ops-modal records-order-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
+          <div ref={orderModalPrintRef} className="buyer-ops-modal records-order-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <section className="records-order-section">
               <header className="records-order-head">
                 <div className="records-order-title-wrap">
-                  <h3>{language === "tr" ? `Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}` : `Active Order Details: #${toDisplayId(selectedOrderId)}`}</h3>
+                  <h3>{`Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}`}</h3>
                   <button
                     className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
                     type="button"
                     onClick={() => copyWithFeedback(selectedOrderId, "order-id")}
-                    title={language === "tr" ? "Sipariş ID kopyala" : "Copy order ID"}
+                    title="Sipariş ID kopyala"
                   >
                     {copyFeedbackKey === "order-id" ? "✓" : "⧉"}
                   </button>
                 </div>
                 <div className="records-order-status-wrap">
-                  <span>{language === "tr" ? "Durumu" : "Status"}</span>
-                  <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusMeta.label}</span>
+                  <span>Durumu</span>
+                  <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusLabelTr}</span>
                 </div>
               </header>
 
               <div className="records-order-grid">
                 <article className="records-order-info-card">
-                  <span>{language === "tr" ? "Alıcı" : "Buyer"}</span>
+                  <span>Alıcı</span>
                   <strong>{selectedBuyerText}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>{language === "tr" ? "Teslimat Adresi" : "Delivery Address"}</span>
+                  <span>Teslimat Adresi</span>
                   <strong>{selectedDeliveryAddress}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>{language === "tr" ? "Satıcı" : "Seller"}</span>
+                  <span>Satıcı</span>
                   <strong>{selectedSellerText}</strong>
-                  <p className="panel-meta">{`${language === "tr" ? "Teslimat Tipi" : "Delivery Type"}: ${selectedDeliveryType}`}</p>
+                  <p className="panel-meta">{`Teslimat Tipi: ${selectedDeliveryType}`}</p>
                 </article>
                 <article className="records-order-info-meta">
                   <div>
-                    <span>{language === "tr" ? "Sipariş Tarihi" : "Order Date"}</span>
+                    <span>Sipariş Tarihi</span>
                     <strong>{selectedCreatedAt}</strong>
                   </div>
                   <div>
-                    <span>{language === "tr" ? "Talep Tarihi" : "Requested Date"}</span>
+                    <span>Talep Tarihi</span>
                     <strong>{selectedRequestedAt}</strong>
                   </div>
                 </article>
@@ -746,20 +850,20 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
               <div className="records-order-kpi-grid">
                 <div>
-                  <span>{language === "tr" ? "Total" : "Total"}</span>
+                  <span>Toplam</span>
                   <strong>{selectedTotal}</strong>
                 </div>
                 <div>
-                  <span>{language === "tr" ? "Ödeme Durumu" : "Payment Status"}</span>
+                  <span>Ödeme Durumu</span>
                   <strong>{selectedPaymentStatus}</strong>
                 </div>
                 <div className="records-order-uuid-row">
-                  <span>{language === "tr" ? "UUID" : "UUID"}: {shortUuid(selectedOrderId)}</span>
+                  <span>{`UUID: ${shortUuid(selectedOrderId)}`}</span>
                   <button
                     className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
                     type="button"
                     onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                    title={language === "tr" ? "UUID kopyala" : "Copy UUID"}
+                    title="UUID kopyala"
                   >
                     {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
                   </button>
@@ -767,18 +871,18 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               </div>
             </section>
             <section className="records-order-section">
-              <h4>{language === "tr" ? "Sipariş Kalemleri" : "Order Items"}</h4>
+              <h4>Sipariş Kalemleri</h4>
               {orderItemsLoading ? (
                 <p className="panel-meta">{dict.common.loading}</p>
               ) : selectedOrderItems.length === 0 ? (
-                <p className="panel-meta">{language === "tr" ? "Kalem bulunamadı." : "No items found."}</p>
+                <p className="panel-meta">Kalem bulunamadı.</p>
               ) : (
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
                         {selectedOrderItemsColumnsWithFoodName.map((column) => (
-                          <th key={column}>{orderColumnLabel(column)}</th>
+                          <th key={column}>{orderColumnLabelTr(column)}</th>
                         ))}
                       </tr>
                     </thead>
@@ -796,12 +900,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               )}
             </section>
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language={language} />
+              <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language="tr" />
               <button className="ghost" type="button" onClick={printOpenOrderDetail}>
-                {language === "tr" ? "Yazdır" : "Print"}
+                Yazdır
               </button>
               <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
-                {language === "tr" ? "Kapat" : "Close"}
+                Kapat
               </button>
             </div>
           </div>
