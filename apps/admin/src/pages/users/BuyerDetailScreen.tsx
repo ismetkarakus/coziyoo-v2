@@ -43,6 +43,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
   const [emailBody, setEmailBody] = useState("Merhaba,");
   const [noteInput, setNoteInput] = useState("");
+  const [mainNoteInput, setMainNoteInput] = useState("");
+  const [mainTagInput, setMainTagInput] = useState("");
   const [sidebarNoteMode, setSidebarNoteMode] = useState<"note" | "tag">("note");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -85,6 +87,17 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
   function formatDate(value: string) {
     return new Date(value).toLocaleString("tr-TR");
+  }
+
+  function formatNoteStamp(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleString("tr-TR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function trend(current: number, previous: number) {
@@ -483,8 +496,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     URL.revokeObjectURL(url);
   }
 
-  async function addNote() {
-    const trimmed = noteInput.trim();
+  async function addNote(rawValue?: string, onSuccess?: () => void) {
+    const sourceValue = rawValue ?? noteInput;
+    const trimmed = sourceValue.trim();
     if (!trimmed) return;
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes`, {
@@ -498,7 +512,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         } else {
           await loadBuyerDetail();
         }
-        setNoteInput("");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          setNoteInput("");
+        }
       } else {
         setMessage("Not kaydedilemedi.");
       }
@@ -507,8 +525,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
-  async function addTag() {
-    const trimmed = noteInput.trim();
+  async function addTag(rawValue?: string, onSuccess?: () => void) {
+    const sourceValue = rawValue ?? noteInput;
+    const trimmed = sourceValue.trim();
     if (!trimmed) return;
     try {
       const response = await request(`/v1/admin/buyers/${id}/tags`, {
@@ -519,7 +538,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         if (!tagItems.includes(trimmed)) {
           setTagItems((prev) => [trimmed, ...prev].slice(0, 8));
         }
-        setNoteInput("");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          setNoteInput("");
+        }
       } else {
         setMessage("Etiket kaydedilemedi.");
       }
@@ -1011,17 +1034,37 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             ) : null}
 
             {activeTab === "notes" ? (
-              <div className="buyer-ref-main-notes">
-                <div className="buyer-ref-main-notes-columns">
-                  <div className="buyer-ref-main-notes-col is-notes">
-                    <div className="buyer-ref-note-list" ref={noteListRef}>
+              <div className="buyer-ref-main-notes seller-notes-panel">
+                <div className="panel-header seller-notes-header">
+                  <h2>Notlar & Etiketler</h2>
+                  <span className="seller-notes-count-pill">{`${noteItems.length} Not | ${tagItems.length} Etiket`}</span>
+                </div>
+                <div className="seller-notes-layout">
+                  <div className="seller-notes-col">
+                    <p className="seller-notes-col-title">Notlar</p>
+                    <div className="seller-notes-input-row">
+                      <input
+                        value={mainNoteInput}
+                        onChange={(event) => setMainNoteInput(event.target.value)}
+                        placeholder=""
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") return;
+                          event.preventDefault();
+                          void addNote(mainNoteInput, () => setMainNoteInput(""));
+                        }}
+                      />
+                      <button className="ghost seller-notes-add-btn" type="button" onClick={() => void addNote(mainNoteInput, () => setMainNoteInput(""))}>
+                        Not Ekle
+                      </button>
+                    </div>
+                    <div className="buyer-ref-note-list seller-note-list" ref={noteListRef}>
                       {noteItems.length === 0 ? (
                         <p className="panel-meta">Henüz not yok.</p>
                       ) : (
                         noteItems.map((note) => (
                           <article
                             key={`main-note-${note.id}`}
-                            className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
+                            className={`buyer-ref-note-item seller-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
                             onClick={() => openNoteCard(note.id)}
                             role="button"
                             tabIndex={0}
@@ -1049,20 +1092,26 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                                 />
                               </div>
                             ) : (
-                              <p>{note.note}</p>
+                              <div className="seller-note-item-row">
+                                <p>{note.note}</p>
+                                <div className="seller-note-item-meta">
+                                  <span>{formatNoteStamp(note.createdAt)}</span>
+                                  <button
+                                    className="ghost seller-note-inline-edit"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setEditingNoteId(note.id);
+                                      setEditingNoteValue(note.note);
+                                    }}
+                                  >
+                                    ✎
+                                  </button>
+                                </div>
+                              </div>
                             )}
                             {editingNoteId !== note.id && openNoteMenuId === note.id ? (
                               <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
-                                <button
-                                  className="ghost"
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingNoteId(note.id);
-                                    setEditingNoteValue(note.note);
-                                  }}
-                                >
-                                  Duzenle
-                                </button>
                                 <button className="ghost is-danger" type="button" onClick={() => deleteNote(note.id)}>Sil</button>
                               </div>
                             ) : null}
@@ -1071,8 +1120,24 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       )}
                     </div>
                   </div>
-                  <div className="buyer-ref-main-notes-col is-tags">
-                    <div className="buyer-ops-tag-list">
+                  <div className="seller-notes-col">
+                    <p className="seller-notes-col-title">Etiketler</p>
+                    <div className="seller-notes-input-row">
+                      <input
+                        value={mainTagInput}
+                        onChange={(event) => setMainTagInput(event.target.value)}
+                        placeholder=""
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") return;
+                          event.preventDefault();
+                          void addTag(mainTagInput, () => setMainTagInput(""));
+                        }}
+                      />
+                      <button className="ghost seller-notes-add-btn is-tag" type="button" onClick={() => void addTag(mainTagInput, () => setMainTagInput(""))}>
+                        Etiket Ekle
+                      </button>
+                    </div>
+                    <div className="buyer-ops-tag-list seller-tag-list">
                       {tagItems.map((tag) => (
                         <span key={`main-${tag}`} className="buyer-ops-tag">
                           <span>{tag}</span>
@@ -1080,9 +1145,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         </span>
                       ))}
                     </div>
+                    {tagItems.length === 0 ? <p className="panel-meta">Henüz etiket eklenmemiş.</p> : null}
                   </div>
                 </div>
-                <p className="panel-meta buyer-ref-main-notes-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
               </div>
             ) : null}
 
