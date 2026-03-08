@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
@@ -40,6 +40,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
   const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
   const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
+  const foodModalPrintRef = useRef<HTMLDivElement | null>(null);
   const [selectedFood, setSelectedFood] = useState<{
     id: string;
     code: string;
@@ -476,12 +477,46 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   }
 
   function printSelectedFoodDetail() {
-    if (!selectedFood) return;
-    document.body.classList.add("modal-print-active");
-    const clear = () => document.body.classList.remove("modal-print-active");
-    window.addEventListener("afterprint", clear, { once: true });
-    window.print();
-    window.setTimeout(clear, 1200);
+    if (!selectedFood || !foodModalPrintRef.current) return;
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
+    if (!printWindow) return;
+
+    const styleNodes = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+      .map((node) => node.outerHTML)
+      .join("\n");
+    const modalHtml = foodModalPrintRef.current.innerHTML;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="tr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Yemek Detayı Yazdır</title>
+          ${styleNodes}
+          <style>
+            body { margin: 0; padding: 16px; background: #ffffff; color: #0b1220; }
+            .foods-detail-modal { position: static !important; width: 100% !important; max-height: none !important; overflow: visible !important; margin: 0 !important; }
+            .buyer-ops-modal-actions { display: none !important; }
+          </style>
+        </head>
+        <body>
+          <div class="buyer-ops-modal foods-detail-modal print-target-modal">${modalHtml}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    let printed = false;
+    const runPrint = () => {
+      if (printed) return;
+      printed = true;
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+    printWindow.addEventListener("load", runPrint);
+    window.setTimeout(runPrint, 450);
   }
 
   return (
@@ -797,7 +832,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       </section>
       {selectedFood ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedFood(null)}>
-          <div className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
+          <div ref={foodModalPrintRef} className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <h3>Yemek Detayı</h3>
             <div className="foods-detail-grid">
               <div>

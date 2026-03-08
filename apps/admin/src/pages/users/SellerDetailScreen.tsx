@@ -97,6 +97,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [pinnedFoodId, setPinnedFoodId] = useState<string | null>(null);
   const [pinnedLotId, setPinnedLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
+  const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
   const spiceHints = useMemo(() => ([
     "karabiber", "pul biber", "kimyon", "nane", "kekik", "isot", "paprika", "sumak", "tarcin", "yenibahar", "zerdecal",
   ]), []);
@@ -546,12 +547,46 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [filteredSellerEarnings]);
 
   function printIdentityDetails() {
-    if (!identityViewerOpen) return;
-    document.body.classList.add("modal-print-active");
-    const clear = () => document.body.classList.remove("modal-print-active");
-    window.addEventListener("afterprint", clear, { once: true });
-    window.print();
-    window.setTimeout(clear, 1200);
+    if (!identityViewerOpen || !identityModalPrintRef.current) return;
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
+    if (!printWindow) return;
+
+    const styleNodes = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+      .map((node) => node.outerHTML)
+      .join("\n");
+    const modalHtml = identityModalPrintRef.current.innerHTML;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="tr">
+        <head>
+          <meta charset="utf-8" />
+          <title>Kimlik Dosyaları Yazdır</title>
+          ${styleNodes}
+          <style>
+            body { margin: 0; padding: 16px; background: #ffffff; color: #0b1220; }
+            .seller-doc-viewer-modal { position: static !important; width: 100% !important; max-height: none !important; overflow: visible !important; margin: 0 !important; }
+            .buyer-ops-modal-actions { display: none !important; }
+          </style>
+        </head>
+        <body>
+          <div class="buyer-ops-modal seller-doc-viewer-modal print-target-modal">${modalHtml}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    let printed = false;
+    const runPrint = () => {
+      if (printed) return;
+      printed = true;
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+    printWindow.addEventListener("load", runPrint);
+    window.setTimeout(runPrint, 450);
   }
 
   if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
@@ -1256,7 +1291,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ) : null}
       {identityViewerOpen ? (
         <div className="buyer-ops-modal-backdrop">
-          <div className="buyer-ops-modal seller-doc-viewer-modal print-target-modal">
+          <div ref={identityModalPrintRef} className="buyer-ops-modal seller-doc-viewer-modal print-target-modal">
             <h3>Kimlik Dosyaları</h3>
             {identityDocuments.length === 0 ? (
               <p className="panel-meta">Kimlik dosyası bulunamadı.</p>
