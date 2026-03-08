@@ -17,6 +17,7 @@ import {
 } from "../../lib/compliance";
 import { resolveSellerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../../lib/lots";
+import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
 import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow } from "../../types/seller";
@@ -96,6 +97,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [pinnedFoodId, setPinnedFoodId] = useState<string | null>(null);
   const [pinnedLotId, setPinnedLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
+  const spiceHints = useMemo(() => ([
+    "karabiber", "pul biber", "kimyon", "nane", "kekik", "isot", "paprika", "sumak", "tarcin", "yenibahar", "zerdecal",
+  ]), []);
+  const allergenHints = useMemo(() => ([
+    "gluten", "un", "sut", "peynir", "yogurt", "yumurta", "balik", "karides", "midye", "susam", "fistik", "findik", "ceviz", "badem", "soya", "laktoz",
+  ]), []);
+
+  function splitFoodItems(value: string): string[] {
+    return value
+      .split(/[,;\n]/g)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
 
   async function loadSellerDetail() {
     setLoading(true);
@@ -1597,6 +1611,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     const activeLots = foodLots.filter((lot) => lot.lifecycle_status === "on_sale").length;
                     const recalledLots = foodLots.filter((lot) => lot.lifecycle_status === "recalled").length;
                     const foodExpanded = Boolean(expandedFoodIds[food.id]);
+                    const metadata = foodMetadataByName(food.name);
+                    const ingredientsText = sanitizeSeedText(resolveFoodIngredients(food.ingredients, food.recipe, metadata?.ingredients ?? null, language)) ?? "";
+                    const ingredientItems = splitFoodItems(ingredientsText);
+                    const lowerIngredients = ingredientItems.map((item) => item.toLocaleLowerCase("tr-TR"));
+                    const spices = ingredientItems.filter((item, index) => spiceHints.some((hint) => lowerIngredients[index].includes(hint)));
+                    const allergens = ingredientItems.filter((item, index) => allergenHints.some((hint) => lowerIngredients[index].includes(hint)));
                     return (
                       <Fragment key={food.id}>
                         <tr
@@ -1620,7 +1640,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           <td>
                             <strong>{food.name}</strong>
                             <div className="panel-meta">{food.code}</div>
-                            <div className="panel-meta">{sanitizeSeedText(food.description) || sanitizeSeedText(food.cardSummary) || dict.detail.noFoodDescription}</div>
+                            <div className="panel-meta">
+                              <strong>{language === "tr" ? "Malzemeler:" : "Ingredients:"}</strong>{" "}
+                              {ingredientItems.length > 0 ? ingredientItems.join(", ") : (language === "tr" ? "Belirtilmemiş" : "Not specified")}
+                            </div>
+                            <div className="panel-meta">
+                              <strong>{language === "tr" ? "Baharatlar:" : "Spices:"}</strong>{" "}
+                              {spices.length > 0 ? spices.join(", ") : "-"}
+                            </div>
+                            <div className="panel-meta">
+                              <strong>{language === "tr" ? "Alerjenler:" : "Allergens:"}</strong>{" "}
+                              {allergens.length > 0 ? allergens.join(", ") : "-"}
+                            </div>
                           </td>
                           <td>
                             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
