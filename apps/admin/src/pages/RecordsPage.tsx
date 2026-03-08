@@ -429,6 +429,15 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     URL.revokeObjectURL(url);
   }
 
+  function printOpenOrderDetail() {
+    if (!selectedOrder) return;
+    document.body.classList.add("modal-print-active");
+    const clear = () => document.body.classList.remove("modal-print-active");
+    window.addEventListener("afterprint", clear, { once: true });
+    window.print();
+    window.setTimeout(clear, 1200);
+  }
+
   function copyWithFeedback(text: string, key: "order-id" | "uuid") {
     navigator.clipboard
       .writeText(text)
@@ -689,7 +698,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       </section>
       {selectedOrder ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedOrder(null)}>
-          <div className="buyer-ops-modal records-order-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="buyer-ops-modal records-order-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <section className="records-order-section">
               <header className="records-order-head">
                 <div className="records-order-title-wrap">
@@ -788,6 +797,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             </section>
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language={language} labelTr="Bu Detayı Excel'e Aktar" labelEn="Export This Detail" />
+              <button className="ghost" type="button" onClick={printOpenOrderDetail}>
+                {language === "tr" ? "Yazdır" : "Print"}
+              </button>
               <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>

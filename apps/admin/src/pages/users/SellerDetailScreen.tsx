@@ -545,6 +545,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setSelectedEarningIds((prev) => prev.filter((id) => visible.has(id)));
   }, [filteredSellerEarnings]);
 
+  function printIdentityDetails() {
+    if (!identityViewerOpen) return;
+    document.body.classList.add("modal-print-active");
+    const clear = () => document.body.classList.remove("modal-print-active");
+    window.addEventListener("afterprint", clear, { once: true });
+    window.print();
+    window.setTimeout(clear, 1200);
+  }
+
   if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
   if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
 
@@ -1247,7 +1256,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ) : null}
       {identityViewerOpen ? (
         <div className="buyer-ops-modal-backdrop">
-          <div className="buyer-ops-modal seller-doc-viewer-modal">
+          <div className="buyer-ops-modal seller-doc-viewer-modal print-target-modal">
             <h3>{language === "tr" ? "Kimlik Dosyaları" : "Identity Files"}</h3>
             {identityDocuments.length === 0 ? (
               <p className="panel-meta">{language === "tr" ? "Kimlik dosyası bulunamadı." : "No identity files found."}</p>
@@ -1284,6 +1293,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
                 </a>
               ) : null}
+              <button className="ghost" type="button" onClick={printIdentityDetails}>
+                {language === "tr" ? "Yazdır" : "Print"}
+              </button>
               <button className="primary" type="button" onClick={() => setIdentityViewerOpen(false)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>

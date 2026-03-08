@@ -475,6 +475,15 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     URL.revokeObjectURL(url);
   }
 
+  function printSelectedFoodDetail() {
+    if (!selectedFood) return;
+    document.body.classList.add("modal-print-active");
+    const clear = () => document.body.classList.remove("modal-print-active");
+    window.addEventListener("afterprint", clear, { once: true });
+    window.print();
+    window.setTimeout(clear, 1200);
+  }
+
   return (
     <div className="app">
       <header className="topbar topbar-with-centered-search">
@@ -788,7 +797,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       </section>
       {selectedFood ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedFood(null)}>
-          <div className="buyer-ops-modal foods-detail-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <h3>{language === "tr" ? "Yemek Detayı" : "Food Details"}</h3>
             <div className="foods-detail-grid">
               <div>
@@ -885,6 +894,9 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             </div>
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
+              <button className="ghost" type="button" onClick={printSelectedFoodDetail}>
+                {language === "tr" ? "Yazdır" : "Print"}
+              </button>
               <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
                 {language === "tr" ? "Kapat" : "Close"}
               </button>
