@@ -5519,6 +5519,7 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: nowrap;
   min-width: 0;
 }
 
@@ -5526,6 +5527,9 @@ textarea:focus {
   margin: 0;
   font-size: clamp(1.1rem, 1.28vw, 1.42rem);
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .records-copy-btn {
