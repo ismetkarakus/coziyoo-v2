@@ -631,6 +631,28 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
   const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
+  const selectedStatusRaw = String(selectedOrder?.status ?? "").trim().toLowerCase();
+  const selectedCancelReason = (() => {
+    if (selectedStatusRaw !== "cancelled") return "";
+    const candidates = [
+      selectedOrder?.cancel_reason,
+      selectedOrder?.cancellation_reason,
+      selectedOrder?.cancelReason,
+      selectedOrder?.cancellationReason,
+      selectedOrder?.status_reason,
+      selectedOrder?.statusReason,
+      selectedOrder?.reason,
+      selectedOrder?.cancel_note,
+      selectedOrder?.cancelNote,
+      selectedOrder?.notes,
+      selectedOrder?.note,
+    ];
+    for (const value of candidates) {
+      const text = String(value ?? "").trim();
+      if (text) return text;
+    }
+    return "Neden bilgisi bulunamadı.";
+  })();
   const selectedStatusLabelTr = (() => {
     const status = String(selectedOrder?.status ?? "").trim().toLowerCase();
     if (status === "pending_seller_approval") return "Onay bekliyor";
@@ -855,6 +877,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <strong>{selectedPaymentStatus}</strong>
                   </div>
                 </article>
+                {selectedStatusRaw === "cancelled" ? (
+                  <article className="records-order-info-card">
+                    <span>İptal Nedeni</span>
+                    <strong>{selectedCancelReason}</strong>
+                  </article>
+                ) : null}
               </div>
 
               <div className="records-order-kpi-grid">
