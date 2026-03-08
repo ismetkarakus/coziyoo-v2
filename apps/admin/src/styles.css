@@ -2876,7 +2876,7 @@ textarea:focus {
 }
 
 .buyer-ref-profile-card h2 {
-  font-size: clamp(1.08rem, 1.3vw, 1.52rem);
+  font-size: clamp(1.16rem, 1.42vw, 1.66rem);
   line-height: 1.04;
   letter-spacing: -0.03em;
   white-space: nowrap;
