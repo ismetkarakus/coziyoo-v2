@@ -418,7 +418,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     lines.push("");
     lines.push(language === "tr" ? "Alerjen Durumu" : "Allergen Status");
     if (selectedFoodAllergenSummary.length === 0) {
-      lines.push(language === "tr" ? "Bilinmiyor" : "Unknown");
+      lines.push(language === "tr" ? "Alerjen yok" : "No allergens");
     } else {
       lines.push([language === "tr" ? "Alerjen" : "Allergen", language === "tr" ? "Durum" : "Status", language === "tr" ? "Not" : "Note"].map(escapeCsv).join(","));
       for (const row of selectedFoodAllergenSummary) {
@@ -812,7 +812,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>
               {selectedFoodAllergenSummary.length === 0 ? (
                 <p className="panel-meta">
-                  {language === "tr" ? "Alerjen durumu: Bilinmiyor." : "Allergen status: Unknown."}
+                  {language === "tr" ? "Alerjen yok." : "No allergens."}
                 </p>
               ) : (
                 <div className="foods-allergen-status-list">
