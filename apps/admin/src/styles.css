@@ -4048,6 +4048,43 @@ textarea:focus {
   border-color: color-mix(in srgb, #92aade 36%, var(--ops-border-default));
 }
 
+:root:not(.dark) .buyer-ops-page .seller-notes-panel {
+  border-color: color-mix(in srgb, #8ea7db 34%, var(--ops-border-default));
+  background:
+    linear-gradient(112deg, rgba(246, 250, 255, 0.96), rgba(238, 245, 255, 0.94)),
+    radial-gradient(130% 160% at 0% 0%, rgba(170, 196, 241, 0.2), transparent 66%);
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-header h2,
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-col-title {
+  color: #1b2b4a;
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-count-pill {
+  border-color: color-mix(in srgb, #8ea7db 34%, var(--ops-border-default));
+  background: linear-gradient(180deg, rgba(237, 243, 255, 0.94), rgba(227, 236, 253, 0.92));
+  color: #4f6188;
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-input-row input {
+  border-color: color-mix(in srgb, #8fa8dc 34%, var(--ops-border-default));
+  background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
+  color: #1b2b4a;
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-note-item {
+  border-color: color-mix(in srgb, #8ea7db 30%, var(--ops-border-default));
+  background: color-mix(in srgb, #eaf1ff 88%, white);
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-note-item-meta {
+  color: #60739b;
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .panel-meta {
+  color: #5a6d93;
+}
+
 .buyer-ref-note-actions {
   margin-top: 8px;
   display: flex;
