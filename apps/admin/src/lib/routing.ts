@@ -15,13 +15,14 @@ export function resolveSellerDetailTab(value: string | null | undefined): Seller
 }
 
 export function resolveBuyerDetailTab(value: string | null | undefined): BuyerDetailTab {
+  if (value === "general") return "general";
   if (value === "payments") return "payments";
   if (value === "complaints") return "complaints";
   if (value === "reviews") return "reviews";
   if (value === "activity") return "activity";
   if (value === "notes") return "notes";
   if (value === "raw") return "raw";
-  return "orders";
+  return "general";
 }
 
 function restoreRedirectPathFromQuery() {

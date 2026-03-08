@@ -391,6 +391,15 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     notes: noteItems.map((item) => item.note),
     tags: tagItems,
   };
+  const buyerTabSummary = [
+    { key: "orders" as const, label: "Siparisler", count: orders.length, lastAt: orders[0]?.createdAt ?? null },
+    { key: "payments" as const, label: "Odemeler", count: orders.length, lastAt: orders[0]?.updatedAt ?? orders[0]?.createdAt ?? null },
+    { key: "complaints" as const, label: "Sikayetler", count: cancellations.length, lastAt: cancellations[0]?.cancelledAt ?? null },
+    { key: "reviews" as const, label: "Yorumlar & Puanlar", count: reviews.length, lastAt: reviews[0]?.createdAt ?? null },
+    { key: "activity" as const, label: "Aktivite Logu", count: activityRows.length, lastAt: activityRows[0]?.at ?? null },
+    { key: "notes" as const, label: "Notlar & Etiketler", count: noteItems.length + tagItems.length, lastAt: noteItems[0]?.createdAt ?? null },
+    { key: "raw" as const, label: "Ham Veri", count: Object.keys(buyerRawPayload).length, lastAt: detailLastLoginAtRaw },
+  ];
   const canExportActiveBuyerTab = activeTab === "orders" || activeTab === "payments";
 
   function switchBuyerTab(tab: BuyerDetailTab) {
@@ -720,103 +729,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             </div>
           </section>
 
-          <section className="panel buyer-ops-side-card buyer-ref-activity-card">
-            <div className="panel-header">
-              <h2>Aktivite Logu</h2>
-              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("activity")}>Ac</button>
-            </div>
-            <div className="buyer-ops-activity-mini">
-              {activityRows.slice(0, 2).map((item: any) => (
-                <article key={item.id} className="buyer-ref-click-item" onClick={() => switchBuyerTab("activity")} role="button" tabIndex={0} onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    switchBuyerTab("activity");
-                  }
-                }}>
-                  <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
-                  <p className="buyer-ref-activity-action">{item.action}</p>
-                  <p className="panel-meta">{item.detail}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel buyer-ops-side-card buyer-ref-notes-card">
-            <div className="panel-header">
-              <h2>Notlar & Etiketler</h2>
-              <details className="seller-quick-access buyer-ref-quick-access">
-                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
-                <div className="seller-quick-access-menu">
-                  {String(email).includes("@") ? (
-                    <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
-                  )}
-                  {contactHasPhone ? (
-                    <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
-                  )}
-                  {contactHasPhone ? (
-                    <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
-                  )}
-                </div>
-              </details>
-              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
-            </div>
-            <div className="buyer-ops-tag-list">
-              {tagItems.map((tag) => (
-                <span key={tag} className="buyer-ops-tag">
-                  <span>{tag}</span>
-                  <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
-                </span>
-              ))}
-            </div>
-            <div className="buyer-ops-note-form">
-              <input
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    if (sidebarNoteMode === "tag") {
-                      addTag();
-                    } else {
-                      addNote();
-                    }
-                  }
-                }}
-              />
-              <button
-                className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => {
-                  setSidebarNoteMode("note");
-                  addNote();
-                }}
-              >
-                Not
-              </button>
-              <button
-                className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => {
-                  setSidebarNoteMode("tag");
-                  addTag();
-                }}
-              >
-                Etiket
-              </button>
-            </div>
-            <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etikes</p>
-          </section>
         </aside>
 
         <div className="buyer-ref-left">
           <section className="panel buyer-ref-main-panel">
             <div className="buyer-ops-tabs-head">
               <div className="buyer-ops-tabs" role="tablist" aria-label="Alici detay sekmeleri">
+                <button className={activeTab === "general" ? "is-active" : ""} onClick={() => switchBuyerTab("general")} type="button">Genel</button>
                 <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => switchBuyerTab("orders")} type="button">Siparisler</button>
                 <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => switchBuyerTab("payments")} type="button">Odemeler</button>
                 <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => switchBuyerTab("complaints")} type="button">Sikayetler</button>
@@ -833,6 +752,128 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 language={language}
               />
             </div>
+            {activeTab === "general" ? (
+              <>
+                <div className="buyer-ops-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Sekme</th>
+                        <th>Kayit Ozeti</th>
+                        <th>Son Hareket</th>
+                        <th>Detay</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {buyerTabSummary.map((item) => (
+                        <tr key={`general-${item.key}`}>
+                          <td>{item.label}</td>
+                          <td>{item.count}</td>
+                          <td>{item.lastAt ? toRelative(item.lastAt) : "-"}</td>
+                          <td>
+                            <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab(item.key)}>
+                              Ac
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <section className="panel buyer-ops-side-card buyer-ref-activity-card">
+                  <div className="panel-header">
+                    <h2>Aktivite Logu</h2>
+                    <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("activity")}>Ac</button>
+                  </div>
+                  <div className="buyer-ops-activity-mini">
+                    {activityRows.slice(0, 5).map((item: any) => (
+                      <article key={`general-${item.id}-${item.at}`} className="buyer-ref-click-item" onClick={() => switchBuyerTab("activity")} role="button" tabIndex={0} onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          switchBuyerTab("activity");
+                        }
+                      }}>
+                        <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
+                        <p className="buyer-ref-activity-action">{item.action}</p>
+                        <p className="panel-meta">{item.detail}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="panel buyer-ops-side-card buyer-ref-notes-card">
+                  <div className="panel-header">
+                    <h2>Notlar & Etiketler</h2>
+                    <details className="seller-quick-access buyer-ref-quick-access">
+                      <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
+                      <div className="seller-quick-access-menu">
+                        {String(email).includes("@") ? (
+                          <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
+                        ) : (
+                          <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
+                        )}
+                        {contactHasPhone ? (
+                          <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
+                        ) : (
+                          <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
+                        )}
+                        {contactHasPhone ? (
+                          <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
+                        ) : (
+                          <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
+                        )}
+                      </div>
+                    </details>
+                    <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
+                  </div>
+                  <div className="buyer-ops-tag-list">
+                    {tagItems.map((tag) => (
+                      <span key={`general-${tag}`} className="buyer-ops-tag">
+                        <span>{tag}</span>
+                        <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="buyer-ops-note-form">
+                    <input
+                      value={noteInput}
+                      onChange={(event) => setNoteInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          if (sidebarNoteMode === "tag") {
+                            addTag();
+                          } else {
+                            addNote();
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
+                      type="button"
+                      onClick={() => {
+                        setSidebarNoteMode("note");
+                        addNote();
+                      }}
+                    >
+                      Not
+                    </button>
+                    <button
+                      className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
+                      type="button"
+                      onClick={() => {
+                        setSidebarNoteMode("tag");
+                        addTag();
+                      }}
+                    >
+                      Etiket
+                    </button>
+                  </div>
+                  <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
+                </section>
+              </>
+            ) : null}
             {activeTab === "orders" || activeTab === "payments" ? (
               <>
                 <div className="buyer-ref-filter-row">

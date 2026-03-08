@@ -8,7 +8,7 @@ export type ColumnMeta = {
 
 export type DensityMode = "compact" | "normal" | "comfortable";
 
-export type BuyerDetailTab = "orders" | "payments" | "complaints" | "reviews" | "activity" | "notes" | "raw";
+export type BuyerDetailTab = "general" | "orders" | "payments" | "complaints" | "reviews" | "activity" | "notes" | "raw";
 
 export type BuyerSmartFilterKey =
   | "daily_buyer"
