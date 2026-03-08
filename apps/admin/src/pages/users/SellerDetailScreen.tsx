@@ -2046,6 +2046,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       role="button"
                       tabIndex={0}
                       onKeyDown={(event) => {
+                        const target = event.target as HTMLElement | null;
+                        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+                          return;
+                        }
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           openNoteCard(note.id);
