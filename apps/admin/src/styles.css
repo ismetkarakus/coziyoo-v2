@@ -2853,8 +2853,8 @@ textarea:focus {
 .buyer-ref-profile-card {
   padding: 8px 10px;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
   align-items: center;
   min-width: 0;
   overflow: hidden;
@@ -2863,8 +2863,8 @@ textarea:focus {
 }
 
 .buyer-ref-avatar {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -2876,7 +2876,7 @@ textarea:focus {
 }
 
 .buyer-ref-profile-card h2 {
-  font-size: clamp(1.02rem, 1.25vw, 1.45rem);
+  font-size: clamp(1.08rem, 1.3vw, 1.52rem);
   line-height: 1.04;
   letter-spacing: -0.03em;
   white-space: nowrap;
