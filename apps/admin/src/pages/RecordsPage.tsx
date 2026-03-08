@@ -128,6 +128,21 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return trLabels[column] ?? formatTableHeader(column);
   };
 
+  const orderItemColumnLabelTr = (column: string): string => {
+    const trLabels: Record<string, string> = {
+      id: "Kalem ID",
+      food_id: "Yemek ID",
+      food_name: "Yemek Adı",
+      quantity: "Adet",
+      unit_price: "Birim Fiyat",
+      line_total: "Satır Toplamı",
+      created_at: "Tarih",
+      updated_at: "Güncelleme",
+      lot_id: "Lot ID",
+    };
+    return trLabels[column] ?? orderColumnLabelTr(column);
+  };
+
   const formatOrderCreatedAt = (value: unknown): string => {
     const iso = String(value ?? "");
     const timestamp = Date.parse(iso);
@@ -830,6 +845,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusLabelTr}</span>
                 </div>
               </header>
+              <p className="panel-meta">{`Sipariş ID: ${selectedOrderId || "-"}`}</p>
 
               <div className="records-order-grid">
                 <article className="records-order-info-card">
@@ -889,7 +905,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <thead>
                       <tr>
                         {selectedOrderItemsColumnsWithFoodName.map((column) => (
-                          <th key={column}>{orderColumnLabelTr(column)}</th>
+                          <th key={column}>{orderItemColumnLabelTr(column)}</th>
                         ))}
                       </tr>
                     </thead>
