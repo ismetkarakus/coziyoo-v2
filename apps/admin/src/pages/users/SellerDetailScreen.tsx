@@ -1582,12 +1582,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <table className="foods-lots-main-table">
                 <thead>
                   <tr>
+                    <th>{dict.detail.lotActions}</th>
                     <th>{dict.detail.foodName}</th>
                     <th>{dict.detail.foodStatus}</th>
                     <th>{dict.detail.foodPrice}</th>
                     <th>{dict.detail.updatedAtLabel}</th>
                     <th>{dict.detail.lotSummary}</th>
-                    <th>{dict.detail.lotActions}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1602,10 +1602,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         <tr
                           data-food-row-id={food.id}
                           className={[
+                            "foods-main-row",
                             flashFoodId === food.id ? "search-focus-flash" : "",
                             pinnedFoodId === food.id ? "search-focus-pinned" : "",
                           ].filter(Boolean).join(" ") || undefined}
                         >
+                          <td>
+                            <button
+                              className="ghost foods-toggle-btn"
+                              type="button"
+                              aria-label={foodExpanded ? dict.detail.hideLots : dict.detail.showLots}
+                              onClick={() => setExpandedFoodIds((prev) => ({ ...prev, [food.id]: !prev[food.id] }))}
+                            >
+                              {foodExpanded ? "−" : "+"}
+                            </button>
+                          </td>
                           <td>
                             <strong>{food.name}</strong>
                             <div className="panel-meta">{food.code}</div>
@@ -1625,19 +1636,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               {recalledLots > 0 ? <span className="lot-summary-danger">{`${language === "tr" ? "Geri çağrılan" : "Recalled"}: ${recalledLots}`}</span> : null}
                             </div>
                           </td>
-                          <td>
-                            <button
-                              className="ghost"
-                              type="button"
-                              onClick={() => setExpandedFoodIds((prev) => ({ ...prev, [food.id]: !prev[food.id] }))}
-                            >
-                              {foodExpanded ? dict.detail.hideLots : dict.detail.showLots}
-                            </button>
-                          </td>
                         </tr>
                         {foodExpanded ? (
                           <tr className="foods-lots-expanded-row">
                             <td colSpan={6}>
+                              <div className="seller-food-codes-card">
+                                <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
+                                <div className="seller-food-codes-list">
+                                  <span className="seller-food-code-chip is-id">{`ID: ${food.id}`}</span>
+                                  <span className="seller-food-code-chip is-food">{`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}</span>
+                                  {foodLots.map((lot) => (
+                                    <span key={`code-${food.id}-${lot.id}`} className="seller-food-code-chip is-lot">{`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}</span>
+                                  ))}
+                                </div>
+                              </div>
                               {lotsLoading ? (
                                 <p className="panel-meta">{dict.common.loading}</p>
                               ) : foodLots.length === 0 ? (

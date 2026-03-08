@@ -6631,6 +6631,57 @@ textarea:focus {
   background: color-mix(in srgb, var(--color-card-bg) 76%, transparent);
 }
 
+.foods-toggle-btn {
+  min-width: 34px;
+  padding: 4px 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.seller-food-codes-card {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #5f82b6 30%, var(--color-border));
+  background: color-mix(in srgb, #173258 28%, var(--color-card-bg));
+}
+
+.seller-food-codes-list {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.seller-food-code-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  border: 1px solid transparent;
+}
+
+.seller-food-code-chip.is-id {
+  color: #d9ecff;
+  background: color-mix(in srgb, #2270ff 32%, transparent);
+  border-color: color-mix(in srgb, #8bb7ff 40%, transparent);
+}
+
+.seller-food-code-chip.is-food {
+  color: #f5ecff;
+  background: color-mix(in srgb, #6d41ff 30%, transparent);
+  border-color: color-mix(in srgb, #b0a0ff 38%, transparent);
+}
+
+.seller-food-code-chip.is-lot {
+  color: #ecfff5;
+  background: color-mix(in srgb, #1f8f5f 28%, transparent);
+  border-color: color-mix(in srgb, #8ad8b7 36%, transparent);
+}
+
 .foods-detail-modal {
   width: min(940px, calc(100vw - 72px));
   max-height: calc(100vh - 72px);
