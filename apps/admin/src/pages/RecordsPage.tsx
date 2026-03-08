@@ -484,15 +484,13 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (!selectedOrder || !orderModalPrintRef.current) return;
     const body = document.body;
     body.classList.add("modal-print-active");
-    const cleanup = () => body.classList.remove("modal-print-active");
     const handleAfterPrint = () => {
-      cleanup();
+      body.classList.remove("modal-print-active");
       window.removeEventListener("afterprint", handleAfterPrint);
     };
     window.addEventListener("afterprint", handleAfterPrint);
     window.setTimeout(() => {
       window.print();
-      window.setTimeout(cleanup, 300);
     }, 0);
   }
 
