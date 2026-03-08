@@ -5,7 +5,16 @@ import { abuseProtection } from "../middleware/abuse-protection.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireIdempotency } from "../middleware/idempotency.js";
+import { createFinanceAdjustmentTx } from "../services/finance.js";
 import { enqueueOutboxEvent } from "../services/outbox.js";
+import {
+  generateDailyPayoutBatches,
+  getSellerBalance,
+  markPayoutBatchFailed,
+  markPayoutBatchPaid,
+  retryFailedPayoutBatch,
+  setSellerPayoutHold,
+} from "../services/payouts.js";
 
 const CommissionCreateSchema = z.object({
   commissionRate: z.number().min(0).max(1),
@@ -28,6 +37,30 @@ const ReportCreateSchema = z.object({
 const RefundRequestSchema = z.object({
   reasonCode: z.string().min(2).max(80),
   reason: z.string().min(3).max(1000).optional(),
+});
+
+const SellerBankAccountSchema = z.object({
+  iban: z.string().trim().min(10).max(34),
+  accountHolderName: z.string().trim().min(3).max(120),
+  bankCode: z.string().trim().min(2).max(20).optional(),
+});
+
+const PayoutBatchQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  status: z.enum(["pending", "processing", "paid", "failed"]).optional(),
+  sellerId: z.string().uuid().optional(),
+});
+
+const PayoutStatusUpdateSchema = z.object({
+  status: z.enum(["paid", "failed"]),
+  failureReason: z.string().min(2).max(200).optional(),
+  providerPayload: z.record(z.string(), z.unknown()).optional(),
+});
+
+const PayoutHoldSchema = z.object({
+  hold: z.boolean(),
+  reason: z.string().min(2).max(200).optional(),
 });
 
 export const adminCommissionRouter = Router();
@@ -173,6 +206,96 @@ sellerFinanceRouter.get("/:sellerId/finance/orders", requireAuth("app"), async (
   });
 });
 
+sellerFinanceRouter.put("/:sellerId/bank-account", requireAuth("app"), async (req, res) => {
+  const sellerScope = await ensureSellerScope(req, res);
+  if (!sellerScope.ok) return;
+
+  const parsed = SellerBankAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const input = parsed.data;
+  const upsert = await pool.query(
+    `INSERT INTO seller_bank_accounts
+      (seller_id, iban, account_holder_name, bank_code, verification_status, is_active, payout_hold, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, 'pending', TRUE, FALSE, now(), now())
+     ON CONFLICT (seller_id)
+     DO UPDATE SET iban = EXCLUDED.iban,
+                   account_holder_name = EXCLUDED.account_holder_name,
+                   bank_code = EXCLUDED.bank_code,
+                   verification_status = 'pending',
+                   is_active = TRUE,
+                   updated_at = now()
+     RETURNING seller_id, iban, account_holder_name, bank_code, verification_status, is_active, payout_hold, updated_at::text`,
+    [sellerScope.sellerId, input.iban, input.accountHolderName, input.bankCode ?? null]
+  );
+
+  return res.json({
+    data: {
+      sellerId: upsert.rows[0].seller_id,
+      iban: upsert.rows[0].iban,
+      accountHolderName: upsert.rows[0].account_holder_name,
+      bankCode: upsert.rows[0].bank_code,
+      verificationStatus: upsert.rows[0].verification_status,
+      isActive: upsert.rows[0].is_active,
+      payoutHold: upsert.rows[0].payout_hold,
+      updatedAt: upsert.rows[0].updated_at,
+    },
+  });
+});
+
+sellerFinanceRouter.get("/:sellerId/finance/balance", requireAuth("app"), async (req, res) => {
+  const sellerScope = await ensureSellerScope(req, res);
+  if (!sellerScope.ok) return;
+
+  const balance = await getSellerBalance(sellerScope.sellerId);
+  return res.json({ data: balance });
+});
+
+sellerFinanceRouter.get("/:sellerId/finance/payouts", requireAuth("app"), async (req, res) => {
+  const sellerScope = await ensureSellerScope(req, res);
+  if (!sellerScope.ok) return;
+
+  const page = Math.max(1, Number(req.query.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 20)));
+  const offset = (page - 1) * pageSize;
+
+  const list = await pool.query(
+    `SELECT id, payout_date::text, currency, total_amount::text, status, transfer_reference, failure_reason, paid_at::text, created_at::text
+     FROM seller_payout_batches
+     WHERE seller_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [sellerScope.sellerId, pageSize, offset]
+  );
+  const total = await pool.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM seller_payout_batches WHERE seller_id = $1",
+    [sellerScope.sellerId]
+  );
+
+  return res.json({
+    data: list.rows.map((row) => ({
+      batchId: row.id,
+      payoutDate: row.payout_date,
+      currency: row.currency,
+      totalAmount: Number(row.total_amount),
+      status: row.status,
+      transferReference: row.transfer_reference,
+      failureReason: row.failure_reason,
+      paidAt: row.paid_at,
+      createdAt: row.created_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page,
+      pageSize,
+      total: Number(total.rows[0].count),
+      totalPages: Math.ceil(Number(total.rows[0].count) / pageSize),
+    },
+  });
+});
+
 orderDisputeRouter.post(
   "/:id/refund-request",
   requireAuth("app"),
@@ -244,11 +367,15 @@ orderDisputeRouter.post(
       ]
     );
 
-    await client.query(
-      `INSERT INTO finance_adjustments (order_id, seller_id, dispute_case_id, type, amount, reason, created_at)
-       VALUES ($1, $2, $3, 'refund_request', $4, $5, now())`,
-      [orderId, orderRow.seller_id, dispute.rows[0].id, Number((-Number(orderRow.total_price)).toFixed(2)), parsed.data.reason ?? null]
-    );
+    await createFinanceAdjustmentTx({
+      client,
+      orderId,
+      sellerId: orderRow.seller_id,
+      disputeCaseId: dispute.rows[0].id,
+      type: "refund_request",
+      amount: Number((-Number(orderRow.total_price)).toFixed(2)),
+      reason: parsed.data.reason ?? null,
+    });
 
     await enqueueOutboxEvent(client, {
       eventType: "dispute_opened",
@@ -360,11 +487,15 @@ adminDisputeRouter.post("/:id/resolve", requireAuth("admin"), async (req, res) =
         ratio = 0;
       }
       const amount = Number((-Number(order.rows[0].total_price) * ratio).toFixed(2));
-      await client.query(
-        `INSERT INTO finance_adjustments (order_id, seller_id, dispute_case_id, type, amount, reason, created_at)
-         VALUES ($1, $2, $3, 'dispute_resolution', $4, $5, now())`,
-        [dispute.rows[0].order_id, order.rows[0].seller_id, disputeId, amount, `dispute_${parsed.data.status}_${nextLiability}`]
-      );
+      await createFinanceAdjustmentTx({
+        client,
+        orderId: dispute.rows[0].order_id,
+        sellerId: order.rows[0].seller_id,
+        disputeCaseId: disputeId,
+        type: "dispute_resolution",
+        amount,
+        reason: `dispute_${parsed.data.status}_${nextLiability}`,
+      });
     }
 
     const admin = await client.query<{ email: string; role: string }>("SELECT email, role FROM admin_users WHERE id = $1", [
@@ -483,6 +614,126 @@ adminFinanceRouter.get("/reports", requireAuth("admin"), async (req, res) => {
     [req.auth!.userId]
   );
   return res.json({ data: reports.rows });
+});
+
+adminFinanceRouter.post("/payouts/run-daily", requireAuth("admin"), async (_req, res) => {
+  try {
+    const result = await generateDailyPayoutBatches();
+    return res.status(201).json({ data: result });
+  } catch {
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Daily payout generation failed" } });
+  }
+});
+
+adminFinanceRouter.get("/payouts/batches", requireAuth("admin"), async (req, res) => {
+  const parsed = PayoutBatchQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const { page, pageSize, status, sellerId } = parsed.data;
+  const offset = (page - 1) * pageSize;
+
+  const filters: string[] = [];
+  const values: unknown[] = [];
+  if (status) {
+    values.push(status);
+    filters.push(`status = $${values.length}`);
+  }
+  if (sellerId) {
+    values.push(sellerId);
+    filters.push(`seller_id = $${values.length}`);
+  }
+  const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const listSql = `SELECT id, seller_id, payout_date::text, currency, total_amount::text, status, transfer_reference, failure_reason, paid_at::text, created_at::text, updated_at::text
+                   FROM seller_payout_batches
+                   ${where}
+                   ORDER BY created_at DESC
+                   LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+  const countSql = `SELECT count(*)::text AS count FROM seller_payout_batches ${where}`;
+
+  const list = await pool.query(listSql, [...values, pageSize, offset]);
+  const total = await pool.query<{ count: string }>(countSql, values);
+
+  return res.json({
+    data: list.rows.map((row) => ({
+      batchId: row.id,
+      sellerId: row.seller_id,
+      payoutDate: row.payout_date,
+      currency: row.currency,
+      totalAmount: Number(row.total_amount),
+      status: row.status,
+      transferReference: row.transfer_reference,
+      failureReason: row.failure_reason,
+      paidAt: row.paid_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page,
+      pageSize,
+      total: Number(total.rows[0].count),
+      totalPages: Math.ceil(Number(total.rows[0].count) / pageSize),
+    },
+  });
+});
+
+adminFinanceRouter.post("/payouts/batches/:batchId/retry", requireAuth("admin"), async (req, res) => {
+  const batchId = String(req.params.batchId ?? "");
+  if (!z.string().uuid().safeParse(batchId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid batch id" } });
+  }
+  try {
+    const result = await retryFailedPayoutBatch(batchId);
+    return res.status(201).json({ data: result });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Retry payout failed";
+    return res.status(409).json({ error: { code: "PAYOUT_RETRY_FAILED", message: msg } });
+  }
+});
+
+adminFinanceRouter.post("/payouts/batches/:batchId/status", requireAuth("admin"), async (req, res) => {
+  const batchId = String(req.params.batchId ?? "");
+  if (!z.string().uuid().safeParse(batchId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid batch id" } });
+  }
+  const parsed = PayoutStatusUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    if (parsed.data.status === "paid") {
+      await markPayoutBatchPaid({ batchId, providerPayload: parsed.data.providerPayload ?? null });
+      return res.json({ data: { batchId, status: "paid" } });
+    }
+
+    await markPayoutBatchFailed({
+      batchId,
+      failureReason: parsed.data.failureReason ?? "provider_failed",
+      providerPayload: parsed.data.providerPayload ?? null,
+    });
+    return res.json({ data: { batchId, status: "failed" } });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Payout status update failed";
+    return res.status(409).json({ error: { code: "PAYOUT_STATUS_UPDATE_FAILED", message: msg } });
+  }
+});
+
+adminFinanceRouter.post("/sellers/:sellerId/payout-hold", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid seller id" } });
+  }
+
+  const parsed = PayoutHoldSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  await setSellerPayoutHold({ sellerId, hold: parsed.data.hold, reason: parsed.data.reason ?? null });
+  return res.json({ data: { sellerId, hold: parsed.data.hold } });
 });
 
 async function ensureSellerScope(

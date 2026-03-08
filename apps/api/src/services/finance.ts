@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { appendSellerLedgerEntryTx } from "./payouts.js";
 
 export async function getActiveCommissionRate(client: PoolClient): Promise<number> {
   const result = await client.query<{ commission_rate: string }>(
@@ -31,5 +32,44 @@ export async function finalizeOrderFinanceTx(params: {
      ON CONFLICT (order_id) DO NOTHING`,
     [orderId, sellerId, grossAmount, commissionRate, commissionAmount, sellerNetAmount]
   );
+
+  await appendSellerLedgerEntryTx({
+    client,
+    sellerId,
+    orderId,
+    sourceType: "order_finance",
+    sourceId: orderId,
+    amount: sellerNetAmount,
+  });
 }
 
+export async function createFinanceAdjustmentTx(params: {
+  client: PoolClient;
+  orderId: string;
+  sellerId: string;
+  disputeCaseId?: string | null;
+  type: string;
+  amount: number;
+  reason?: string | null;
+}): Promise<{ adjustmentId: string }> {
+  const { client, orderId, sellerId, disputeCaseId = null, type, amount, reason = null } = params;
+
+  const inserted = await client.query<{ id: string }>(
+    `INSERT INTO finance_adjustments (order_id, seller_id, dispute_case_id, type, amount, reason, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, now())
+     RETURNING id`,
+    [orderId, sellerId, disputeCaseId, type, Number(amount.toFixed(2)), reason]
+  );
+
+  const adjustmentId = inserted.rows[0].id;
+  await appendSellerLedgerEntryTx({
+    client,
+    sellerId,
+    orderId,
+    sourceType: "finance_adjustment",
+    sourceId: adjustmentId,
+    amount,
+  });
+
+  return { adjustmentId };
+}

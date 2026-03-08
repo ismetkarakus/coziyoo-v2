@@ -78,6 +78,8 @@ const EnvSchema = z.object({
   TOOLS_REGISTRY_URL: z.string().url().default("https://registry.caal.io/index.json"),
   N8N_BASE_URL: z.string().url().optional(),
   N8N_API_KEY: z.string().min(1).optional(),
+  PAYOUT_SCHEDULER_ENABLED: boolFromEnv.optional(),
+  PAYOUT_SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().max(86_400_000).default(300_000),
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   DOCS_ENABLED: boolFromEnv.optional(),
@@ -115,6 +117,7 @@ function resolveDatabaseUrl(data: z.infer<typeof EnvSchema>): string {
 }
 
 const docsEnabledDefault = parsed.data.NODE_ENV !== "production";
+const payoutSchedulerEnabledDefault = parsed.data.NODE_ENV !== "test";
 const databaseUrl = resolveDatabaseUrl(parsed.data);
 const speechToTextBaseUrl = parsed.data.SPEECH_TO_TEXT_BASE_URL ?? parsed.data.STT_BASE_URL;
 
@@ -123,4 +126,5 @@ export const env = {
   DATABASE_URL: databaseUrl,
   SPEECH_TO_TEXT_BASE_URL: speechToTextBaseUrl,
   DOCS_ENABLED: parsed.data.DOCS_ENABLED ?? docsEnabledDefault,
+  PAYOUT_SCHEDULER_ENABLED: parsed.data.PAYOUT_SCHEDULER_ENABLED ?? payoutSchedulerEnabledDefault,
 };
