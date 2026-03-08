@@ -3587,6 +3587,17 @@ textarea:focus {
 .buyer-ref-activity-card .panel-header,
 .buyer-ref-notes-card .panel-header {
   padding-bottom: 4px;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+}
+
+.buyer-ref-notes-card .panel-header .buyer-ref-quick-access {
+  margin-left: 2px;
+}
+
+.buyer-ref-notes-card .panel-header .buyer-ops-mini-btn {
+  margin-left: auto;
 }
 
 .buyer-ref-activity-card .panel-header h2,

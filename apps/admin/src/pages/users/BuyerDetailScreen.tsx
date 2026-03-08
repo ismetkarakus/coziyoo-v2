@@ -641,28 +641,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <span aria-hidden="true">◌</span>
               </button>
             </div>
-            <div className="buyer-ref-quick-access-wrap">
-              <details className="seller-quick-access buyer-ref-quick-access">
-                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
-                <div className="seller-quick-access-menu">
-                  {String(email).includes("@") ? (
-                    <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
-                  )}
-                  {contactHasPhone ? (
-                    <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
-                  )}
-                  {contactHasPhone ? (
-                    <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
-                  )}
-                </div>
-              </details>
-            </div>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
@@ -766,6 +744,26 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
           <section className="panel buyer-ops-side-card buyer-ref-notes-card">
             <div className="panel-header">
               <h2>Notlar & Etiketler</h2>
+              <details className="seller-quick-access buyer-ref-quick-access">
+                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
+                <div className="seller-quick-access-menu">
+                  {String(email).includes("@") ? (
+                    <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
+                  )}
+                  {contactHasPhone ? (
+                    <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
+                  )}
+                  {contactHasPhone ? (
+                    <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
+                  )}
+                </div>
+              </details>
               <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
             </div>
             <div className="buyer-ops-tag-list">
