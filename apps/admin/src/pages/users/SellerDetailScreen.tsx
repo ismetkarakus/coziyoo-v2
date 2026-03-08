@@ -82,7 +82,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string }>>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
   const [noteInput, setNoteInput] = useState("");
-  const [sidebarNoteMode, setSidebarNoteMode] = useState<"note" | "tag">("note");
+  const [tagInput, setTagInput] = useState("");
   const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
@@ -226,7 +226,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setNoteItems([]);
     setTagItems([]);
     setNoteInput("");
-    setSidebarNoteMode("note");
+    setTagInput("");
     setOpenNoteMenuId(null);
     setEditingNoteId(null);
     setEditingNoteValue("");
@@ -813,7 +813,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   async function addSellerTag() {
-    const trimmed = noteInput.trim();
+    const trimmed = tagInput.trim();
     if (!trimmed) return;
     try {
       const response = await request(`/v1/admin/sellers/${id}/tags`, {
@@ -824,7 +824,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         if (!tagItems.includes(trimmed)) {
           setTagItems((prev) => [trimmed, ...prev].slice(0, 16));
         }
-        setNoteInput("");
+        setTagInput("");
         return;
       }
       setMessage(language === "tr" ? "Etiket kaydedilemedi." : "Failed to save tag.");
@@ -905,6 +905,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     } finally {
       setSavingNoteId(null);
     }
+  }
+
+  function formatNoteStamp(value: string) {
+    const date = Date.parse(String(value ?? ""));
+    if (Number.isNaN(date)) return "-";
+    return new Date(date).toLocaleString(language === "tr" ? "tr-TR" : "en-US", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   const sellerRawPayload = {
@@ -2001,113 +2012,120 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       {activeTab === "notes" ? (
         <section className="panel buyer-ref-main-panel seller-notes-panel">
-          <div className="panel-header">
+          <div className="panel-header seller-notes-header">
             <h2>{dict.detail.sellerTabs.notes}</h2>
+            <span className="seller-notes-count-pill">{`${noteItems.length} ${language === "tr" ? "Not" : "Notes"} | ${tagItems.length} ${language === "tr" ? "Etiket" : "Tags"}`}</span>
           </div>
-          <div className="buyer-ref-main-notes">
-            <div className="buyer-ops-note-form">
-              <input
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-                placeholder={language === "tr" ? "Not veya etiket yaz..." : "Type note or tag..."}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  if (sidebarNoteMode === "note") {
+          <div className="seller-notes-layout">
+            <div className="seller-notes-col">
+              <p className="seller-notes-col-title">{language === "tr" ? "Notlar" : "Notes"}</p>
+              <div className="seller-notes-input-row">
+                <input
+                  value={noteInput}
+                  onChange={(event) => setNoteInput(event.target.value)}
+                  placeholder={language === "tr" ? "Not yaz..." : "Type note..."}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
                     void addSellerNote();
-                  } else {
-                    void addSellerTag();
-                  }
-                }}
-              />
-              <button
-                className={`ghost seller-note-mode-btn ${sidebarNoteMode === "note" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => {
-                  setSidebarNoteMode("note");
-                  void addSellerNote();
-                }}
-              >
-                {language === "tr" ? "Not Ekle" : "Add Note"}
-              </button>
-              <button
-                className={`ghost seller-note-mode-btn is-tag-mode ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => {
-                  setSidebarNoteMode("tag");
-                  void addSellerTag();
-                }}
-              >
-                {language === "tr" ? "Etiket Ekle" : "Add Tag"}
-              </button>
-            </div>
-            <div className="buyer-ops-tag-list">
-              {tagItems.map((tag) => (
-                <span key={`seller-tag-${tag}`} className="buyer-ops-tag">
-                  <span>{tag}</span>
-                  <button className="buyer-ops-tag-remove" type="button" onClick={() => void deleteSellerTag(tag)} aria-label={`Sil ${tag}`}>×</button>
-                </span>
-              ))}
-            </div>
-            <div className="buyer-ref-note-list">
-              {noteItems.length === 0 ? (
-                <p className="panel-meta">{language === "tr" ? "Henüz not yok." : "No notes yet."}</p>
-              ) : (
-                noteItems.map((note) => (
-                  <article
-                    key={`seller-note-${note.id}`}
-                    className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
-                    onClick={() => openNoteCard(note.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openNoteCard(note.id);
-                      }
-                    }}
-                  >
-                    {editingNoteId === note.id ? (
-                      <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
-                        <input
-                          value={editingNoteValue}
-                          onChange={(event) => setEditingNoteValue(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
+                  }}
+                />
+                <button className="ghost seller-notes-add-btn" type="button" onClick={() => void addSellerNote()}>
+                  {language === "tr" ? "Not Ekle" : "Add Note"}
+                </button>
+              </div>
+              <div className="buyer-ref-note-list seller-note-list">
+                {noteItems.length === 0 ? (
+                  <p className="panel-meta">{language === "tr" ? "Henüz not yok." : "No notes yet."}</p>
+                ) : (
+                  noteItems.map((note) => (
+                    <article
+                      key={`seller-note-${note.id}`}
+                      className={`buyer-ref-note-item seller-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
+                      onClick={() => openNoteCard(note.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openNoteCard(note.id);
+                        }
+                      }}
+                    >
+                      {editingNoteId === note.id ? (
+                        <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
+                          <input
+                            value={editingNoteValue}
+                            onChange={(event) => setEditingNoteValue(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                void saveEditedSellerNote(note.id);
+                              }
+                            }}
+                            onBlur={() => {
                               void saveEditedSellerNote(note.id);
-                            }
-                          }}
-                          onBlur={() => {
-                            void saveEditedSellerNote(note.id);
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <p>{note.note}</p>
-                    )}
-                    {editingNoteId !== note.id && openNoteMenuId === note.id ? (
-                      <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
-                        <button
-                          className="ghost"
-                          type="button"
-                          onClick={() => {
-                            setEditingNoteId(note.id);
-                            setEditingNoteValue(note.note);
-                          }}
-                        >
-                          {language === "tr" ? "Duzenle" : "Edit"}
-                        </button>
-                        <button className="ghost is-danger" type="button" onClick={() => void deleteSellerNote(note.id)}>
-                          {language === "tr" ? "Sil" : "Delete"}
-                        </button>
-                      </div>
-                    ) : null}
-                  </article>
-                ))
-              )}
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="seller-note-item-row">
+                          <p>{note.note}</p>
+                          <div className="seller-note-item-meta">
+                            <span>{formatNoteStamp(note.createdAt)}</span>
+                            <button
+                              className="ghost seller-note-inline-edit"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setEditingNoteId(note.id);
+                                setEditingNoteValue(note.note);
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {editingNoteId !== note.id && openNoteMenuId === note.id ? (
+                        <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
+                          <button className="ghost is-danger" type="button" onClick={() => void deleteSellerNote(note.id)}>
+                            {language === "tr" ? "Sil" : "Delete"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))
+                )}
+              </div>
             </div>
-            <p className="panel-meta">{noteItems.length} {language === "tr" ? "Not" : "Notes"}, {tagItems.length} {language === "tr" ? "Etiket" : "Tags"}</p>
+            <div className="seller-notes-col">
+              <p className="seller-notes-col-title">{language === "tr" ? "Etiketler" : "Tags"}</p>
+              <div className="seller-notes-input-row">
+                <input
+                  value={tagInput}
+                  onChange={(event) => setTagInput(event.target.value)}
+                  placeholder={language === "tr" ? "Etiket yaz..." : "Type tag..."}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    void addSellerTag();
+                  }}
+                />
+                <button className="ghost seller-notes-add-btn is-tag" type="button" onClick={() => void addSellerTag()}>
+                  {language === "tr" ? "Etiket Ekle" : "Add Tag"}
+                </button>
+              </div>
+              <div className="buyer-ops-tag-list seller-tag-list">
+                {tagItems.map((tag) => (
+                  <span key={`seller-tag-${tag}`} className="buyer-ops-tag">
+                    <span>{tag}</span>
+                    <button className="buyer-ops-tag-remove" type="button" onClick={() => void deleteSellerTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                  </span>
+                ))}
+              </div>
+              {tagItems.length === 0 ? <p className="panel-meta">{language === "tr" ? "Henüz etiket eklenmemiş." : "No tags yet."}</p> : null}
+            </div>
           </div>
         </section>
       ) : null}
