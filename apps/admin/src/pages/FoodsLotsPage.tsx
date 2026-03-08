@@ -220,7 +220,18 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
         const mapped = body.data.rows
           .map((record) => ({
             id: String(record.id ?? ""),
-            code: String(record.code ?? record.food_code ?? record.display_code ?? record.sku ?? record.foodCode ?? "").trim(),
+            code: String(
+              record.code ??
+              record.food_code ??
+              record.display_code ??
+              record.display_id ??
+              record.food_no ??
+              record.sku ??
+              record.foodCode ??
+              record.displayId ??
+              record.foodNo ??
+              ""
+            ).trim(),
             name: String(record.name ?? "-"),
             sellerId: String(record.seller_id ?? ""),
             isActive: Boolean(record.is_active),
@@ -545,6 +556,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               ) : (
                 rows.map((food) => {
                   const lots = lotsByFoodId[food.id] ?? [];
+                  const resolvedFoodCode = food.code || `F-${String(food.id).slice(0, 8)}`;
                   const activeLots = lots.filter((lot) => lot.lifecycle_status === "on_sale").length;
                   const recalledLots = lots.filter((lot) => lot.lifecycle_status === "recalled").length;
                   const foodExpanded = Boolean(expandedFoodIds[food.id]);
@@ -613,7 +625,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                                   {`ID: ${food.id}`}
                                 </button>
                                 <button className="seller-food-code-chip is-food is-link" type="button" onClick={() => openSellerFoodDetail(food)}>
-                                  {`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}
+                                  {`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${resolvedFoodCode}`}
                                 </button>
                                 {lots.map((lot) => (
                                   <button
