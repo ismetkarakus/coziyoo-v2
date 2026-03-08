@@ -2,11 +2,13 @@
 """Seed rich Turkish sample data through Coziyoo HTTP API + PostgreSQL.
 
 Flow:
-- Create buyers/sellers via /v1/auth/register
+- Create buyers/sellers/both-role users via /v1/auth/register
 - Insert categories/foods directly into PostgreSQL
 - Insert one active lot for each seeded food directly into PostgreSQL
 - Backfill profile and GPS fields for created users
 - Create orders via /v1/orders using lotId items
+- Enrich generated rows for admin filter scenarios:
+  complaints, payment attempts, login locations, and compliance docs
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 
@@ -713,12 +715,491 @@ def profile_for(index: int, names: list[str]) -> tuple[str, str]:
     return slugify_display(full_name), full_name
 
 
+def ensure_compliance_document_types(conn: Any) -> list[dict[str, Any]]:
+    fallback_types = [
+        {
+            "code": "gida_isletme_kaydi",
+            "name": "Gida Isletme Kayit Belgesi",
+            "description": "TR gida mevzuatina uygun kayit belgesi",
+            "source_info": "seed_api_sample_load fallback",
+            "details": "Filter testing sample",
+            "is_required_default": True,
+        },
+        {
+            "code": "vergi_levhasi",
+            "name": "Vergi Levhasi",
+            "description": "Guncel vergi levhasi",
+            "source_info": "seed_api_sample_load fallback",
+            "details": "Filter testing sample",
+            "is_required_default": True,
+        },
+        {
+            "code": "kvkk_taahhut",
+            "name": "KVKK Taahhut",
+            "description": "KVKK sureclerine uyum taahhudu",
+            "source_info": "seed_api_sample_load fallback",
+            "details": "Filter testing sample",
+            "is_required_default": False,
+        },
+        {
+            "code": "hijyen_egitimi",
+            "name": "Hijyen Egitimi Belgesi",
+            "description": "Personel hijyen egitimi sertifikasi",
+            "source_info": "seed_api_sample_load fallback",
+            "details": "Filter testing sample",
+            "is_required_default": True,
+        },
+    ]
+    with conn.cursor() as cur:
+        for row in fallback_types:
+            cur.execute(
+                """
+                INSERT INTO compliance_documents_list (
+                  code,
+                  name,
+                  description,
+                  source_info,
+                  details,
+                  is_active,
+                  is_required_default,
+                  created_at,
+                  updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, TRUE, %s, now(), now())
+                ON CONFLICT (code)
+                DO UPDATE SET
+                  name = EXCLUDED.name,
+                  description = EXCLUDED.description,
+                  source_info = EXCLUDED.source_info,
+                  details = EXCLUDED.details,
+                  is_active = TRUE,
+                  is_required_default = EXCLUDED.is_required_default,
+                  updated_at = now()
+                """,
+                (
+                    row["code"],
+                    row["name"],
+                    row["description"],
+                    row["source_info"],
+                    row["details"],
+                    row["is_required_default"],
+                ),
+            )
+        cur.execute(
+            """
+            SELECT id::text, code, is_required_default
+            FROM compliance_documents_list
+            WHERE is_active = TRUE
+            ORDER BY code ASC
+            """
+        )
+        rows = cur.fetchall()
+    return [{"id": r[0], "code": r[1], "isRequiredDefault": bool(r[2])} for r in rows]
+
+
+def ensure_complaint_categories(conn: Any) -> list[str]:
+    categories = [
+        ("teslimat_gecikmesi", "Teslimat Gecikmesi"),
+        ("urun_kalitesi", "Urun Kalitesi"),
+        ("yanlis_urun", "Yanlis Urun"),
+        ("ucret_iadesi", "Ucret Iadesi"),
+    ]
+    category_ids: list[str] = []
+    with conn.cursor() as cur:
+        for code, name in categories:
+            cur.execute(
+                """
+                INSERT INTO complaint_categories (code, name, is_active)
+                VALUES (%s, %s, TRUE)
+                ON CONFLICT (code)
+                DO UPDATE SET name = EXCLUDED.name, is_active = TRUE
+                RETURNING id::text
+                """,
+                (code, name),
+            )
+            category_ids.append(cur.fetchone()[0])
+    return category_ids
+
+
+def enrich_seed_dataset(
+    conn: Any,
+    *,
+    created_orders: list[dict[str, Any]],
+    buyer_capable_users: list[UserAccount],
+    seller_capable_users: list[UserAccount],
+    sample_doc_url: str,
+) -> dict[str, int]:
+    if not created_orders:
+        return {
+            "ordersUpdated": 0,
+            "paymentAttemptsCreated": 0,
+            "complaintsCreated": 0,
+            "loginLocationsCreated": 0,
+            "complianceDocsUpserted": 0,
+        }
+
+    compliance_doc_types = ensure_compliance_document_types(conn)
+    complaint_category_ids = ensure_complaint_categories(conn)
+    now = datetime.now(timezone.utc)
+    buyer_index = {u.user_id: idx for idx, u in enumerate(buyer_capable_users)}
+    seller_ids = [u.user_id for u in seller_capable_users]
+    risky_seller_ids = seller_ids[: min(3, len(seller_ids))]
+    seller_id_set = set(seller_ids)
+    suspicious_user_ids = [u.user_id for u in buyer_capable_users[: min(8, len(buyer_capable_users))]]
+    same_ip_user_ids = [u.user_id for u in buyer_capable_users[: min(6, len(buyer_capable_users))]]
+
+    orders_by_buyer: dict[str, list[dict[str, Any]]] = {}
+    for row in created_orders:
+        orders_by_buyer.setdefault(row["buyerId"], []).append(row)
+
+    payment_attempts_created = 0
+    complaints_created = 0
+    login_locations_created = 0
+    compliance_docs_upserted = 0
+    orders_updated = 0
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT id::text FROM admin_users ORDER BY created_at ASC LIMIT 1")
+        admin_row = cur.fetchone()
+        admin_id = admin_row[0] if admin_row else None
+
+        complaint_seed_rows: list[dict[str, Any]] = []
+        for user_id, rows in orders_by_buyer.items():
+            rows.sort(key=lambda x: x["orderId"])
+            idx = buyer_index.get(user_id, 0)
+            trend = idx % 3  # 0: up, 1: down, 2: flat
+            for pos, row in enumerate(rows):
+                order_id = row["orderId"]
+                seller_id = row["sellerId"]
+
+                if trend == 0:
+                    age_days = [46, 9, 0][pos % 3]
+                elif trend == 1:
+                    age_days = [54, 39, 5][pos % 3]
+                else:
+                    age_days = [50, 20, 2][pos % 3]
+
+                if idx == 0 and pos >= 1:
+                    age_days = 0  # force "daily buyer" winner
+
+                created_at = now - timedelta(days=age_days, hours=(idx % 6), minutes=pos * 7)
+                requested_at = created_at - timedelta(minutes=35)
+                updated_at = created_at + timedelta(minutes=15)
+
+                if pos == 0:
+                    status = "completed"
+                    payment_status = "confirmed"
+                    payment_completed = True
+                elif pos == 1 and idx % 4 == 0:
+                    status = "cancelled"
+                    payment_status = "failed"
+                    payment_completed = False
+                elif pos == 2 and idx % 5 == 0:
+                    status = "awaiting_payment"
+                    payment_status = "pending"
+                    payment_completed = False
+                elif pos == 2 and idx % 7 == 0:
+                    status = "seller_approved"
+                    payment_status = "pending"
+                    payment_completed = False
+                else:
+                    status = "completed"
+                    payment_status = "confirmed"
+                    payment_completed = True
+
+                boosted_total = 1200.0 + (idx * 5) if idx == 0 and age_days == 0 else 0.0
+                if boosted_total > 0:
+                    cur.execute(
+                        "UPDATE orders SET total_price = %s WHERE id = %s::uuid",
+                        (boosted_total, order_id),
+                    )
+
+                cur.execute(
+                    """
+                    UPDATE orders
+                    SET status = %s,
+                        payment_completed = %s,
+                        requested_at = %s,
+                        created_at = %s,
+                        updated_at = %s
+                    WHERE id = %s::uuid
+                    """,
+                    (status, payment_completed, requested_at, created_at, updated_at, order_id),
+                )
+                orders_updated += 1
+
+                provider_session_id = f"seed-session-{short_id(order_id, 8)}-{idx:02d}-{pos:02d}"
+                provider_reference_id = f"seed-ref-{short_id(order_id, 8)}-{idx:02d}-{pos:02d}"
+                callback_payload = {
+                    "seed": True,
+                    "orderStatus": status,
+                    "paymentStatus": payment_status,
+                    "createdAt": created_at.isoformat(),
+                }
+                cur.execute(
+                    """
+                    INSERT INTO payment_attempts (
+                      order_id,
+                      buyer_id,
+                      provider,
+                      provider_session_id,
+                      provider_reference_id,
+                      status,
+                      callback_payload_json,
+                      signature_valid,
+                      created_at,
+                      updated_at
+                    )
+                    VALUES (%s::uuid, %s::uuid, 'seedpay', %s, %s, %s, %s::jsonb, TRUE, %s, %s)
+                    """,
+                    (
+                        order_id,
+                        user_id,
+                        provider_session_id,
+                        provider_reference_id,
+                        payment_status,
+                        json.dumps(callback_payload, ensure_ascii=False),
+                        created_at,
+                        updated_at,
+                    ),
+                )
+                payment_attempts_created += 1
+
+                if len(complaint_seed_rows) < 60 and (idx % 2 == 0 or seller_id in risky_seller_ids):
+                    complaint_seed_rows.append(
+                        {
+                            "orderId": order_id,
+                            "buyerId": user_id,
+                            "sellerId": seller_id,
+                            "createdAt": created_at,
+                        }
+                    )
+
+        # ensure risky sellers have enough open complaints
+        risky_rows = [r for r in complaint_seed_rows if r["sellerId"] in risky_seller_ids]
+        while len(risky_rows) < 12:
+            for row in created_orders:
+                if row["sellerId"] in risky_seller_ids:
+                    risky_rows.append(
+                        {
+                            "orderId": row["orderId"],
+                            "buyerId": row["buyerId"],
+                            "sellerId": row["sellerId"],
+                            "createdAt": now - timedelta(days=(len(risky_rows) % 14)),
+                        }
+                    )
+                if len(risky_rows) >= 12:
+                    break
+        complaint_rows = risky_rows[:12] + complaint_seed_rows[:48]
+        for i, row in enumerate(complaint_rows):
+            if i < 12:
+                status = "open" if i % 2 == 0 else "in_review"
+            else:
+                status = ["open", "in_review", "resolved", "closed"][i % 4]
+            priority = ["low", "medium", "high", "urgent"][i % 4]
+            created_at = row["createdAt"] + timedelta(hours=2)
+            resolved_at = created_at + timedelta(days=2) if status in ("resolved", "closed") else None
+            resolution_note = "Seed resolution note" if resolved_at else None
+            category_id = complaint_category_ids[i % len(complaint_category_ids)]
+            cur.execute(
+                """
+                INSERT INTO complaints (
+                  order_id,
+                  complainant_buyer_id,
+                  subject,
+                  status,
+                  created_at,
+                  description,
+                  category_id,
+                  priority,
+                  resolved_at,
+                  resolution_note,
+                  assigned_admin_id
+                )
+                VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s::uuid, %s, %s, %s, %s::uuid)
+                """,
+                (
+                    row["orderId"],
+                    row["buyerId"],
+                    f"Seed complaint #{i + 1}",
+                    status,
+                    created_at,
+                    "Filter coverage complaint record",
+                    category_id,
+                    priority,
+                    resolved_at,
+                    resolution_note,
+                    admin_id,
+                ),
+            )
+            complaints_created += 1
+
+        # login locations
+        for idx, user in enumerate(buyer_capable_users):
+            base_lat = 41.0 + ((idx % 10) * 0.03)
+            base_lon = 29.0 + ((idx % 10) * 0.03)
+            for j in range(2):
+                created_at = now - timedelta(days=2 + j, hours=idx % 5)
+                cur.execute(
+                    """
+                    INSERT INTO user_login_locations (
+                      user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent, created_at
+                    )
+                    VALUES (%s::uuid, NULL, %s, %s, %s, 'app', %s, %s, %s)
+                    """,
+                    (
+                        user.user_id,
+                        round(base_lat + (j * 0.01), 6),
+                        round(base_lon + (j * 0.01), 6),
+                        20 + j,
+                        f"10.0.{idx % 200}.{j + 1}",
+                        "seed-agent/buyer",
+                        created_at,
+                    ),
+                )
+                login_locations_created += 1
+
+        for idx, user in enumerate(seller_capable_users):
+            created_at = now - timedelta(days=3, hours=idx % 4)
+            cur.execute(
+                """
+                INSERT INTO user_login_locations (
+                  user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent, created_at
+                )
+                VALUES (%s::uuid, NULL, %s, %s, %s, 'admin_seed', %s, %s, %s)
+                """,
+                (
+                    user.user_id,
+                    round(40.95 + (idx * 0.02), 6),
+                    round(29.05 + (idx * 0.02), 6),
+                    35,
+                    f"172.16.{idx % 200}.10",
+                    "seed-agent/seller",
+                    created_at,
+                ),
+            )
+            login_locations_created += 1
+
+        for idx, user_id in enumerate(suspicious_user_ids):
+            for j in range(2):
+                created_at = now - timedelta(hours=3 + j)
+                cur.execute(
+                    """
+                    INSERT INTO user_login_locations (
+                      user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent, created_at
+                    )
+                    VALUES (%s::uuid, NULL, %s, %s, %s, 'app', %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        41.02 + (j * 1.25),
+                        28.98 + (j * 1.25),
+                        15,
+                        f"203.0.113.{(idx * 2) + j + 1}",
+                        "seed-agent/suspicious",
+                        created_at,
+                    ),
+                )
+                login_locations_created += 1
+
+        pair_count = len(same_ip_user_ids) // 2
+        for pair_idx in range(pair_count):
+            shared_ip = f"198.51.100.{pair_idx + 10}"
+            first = same_ip_user_ids[pair_idx * 2]
+            second = same_ip_user_ids[(pair_idx * 2) + 1]
+            for user_id, offset in ((first, 1), (second, 2)):
+                created_at = now - timedelta(hours=offset)
+                cur.execute(
+                    """
+                    INSERT INTO user_login_locations (
+                      user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent, created_at
+                    )
+                    VALUES (%s::uuid, NULL, %s, %s, %s, 'app', %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        41.12 + pair_idx * 0.01,
+                        29.12 + pair_idx * 0.01,
+                        18,
+                        shared_ip,
+                        "seed-agent/shared-ip",
+                        created_at,
+                    ),
+                )
+                login_locations_created += 1
+
+        # compliance docs with a single shared sample PDF URL
+        doc_status_cycle = ["uploaded", "approved", "rejected", "requested"]
+        for s_idx, seller in enumerate(seller_capable_users):
+            if seller.user_id not in seller_id_set:
+                continue
+            for d_idx, doc in enumerate(compliance_doc_types):
+                status = doc_status_cycle[(s_idx + d_idx) % len(doc_status_cycle)]
+                reviewed_at = now - timedelta(days=(s_idx + d_idx) % 7) if status in ("approved", "rejected") else None
+                reviewed_by = admin_id if reviewed_at else None
+                rejection_reason = "Belge okunamadi" if status == "rejected" else None
+                uploaded_at = now - timedelta(days=(s_idx + d_idx) % 10)
+                is_required = doc["isRequiredDefault"] if (d_idx % 2 == 0) else (not doc["isRequiredDefault"])
+                cur.execute(
+                    """
+                    INSERT INTO seller_compliance_documents (
+                      seller_id,
+                      document_list_id,
+                      is_required,
+                      status,
+                      file_url,
+                      uploaded_at,
+                      reviewed_at,
+                      reviewed_by_admin_id,
+                      rejection_reason,
+                      notes,
+                      created_at,
+                      updated_at
+                    )
+                    VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s::uuid, %s, %s, now(), now())
+                    ON CONFLICT (seller_id, document_list_id)
+                    DO UPDATE SET
+                      is_required = EXCLUDED.is_required,
+                      status = EXCLUDED.status,
+                      file_url = EXCLUDED.file_url,
+                      uploaded_at = EXCLUDED.uploaded_at,
+                      reviewed_at = EXCLUDED.reviewed_at,
+                      reviewed_by_admin_id = EXCLUDED.reviewed_by_admin_id,
+                      rejection_reason = EXCLUDED.rejection_reason,
+                      notes = EXCLUDED.notes,
+                      updated_at = now()
+                    """,
+                    (
+                        seller.user_id,
+                        doc["id"],
+                        is_required,
+                        status,
+                        sample_doc_url,
+                        uploaded_at,
+                        reviewed_at,
+                        reviewed_by,
+                        rejection_reason,
+                        "seed_api_sample_load compliance sample",
+                    ),
+                )
+                compliance_docs_upserted += 1
+
+    return {
+        "ordersUpdated": orders_updated,
+        "paymentAttemptsCreated": payment_attempts_created,
+        "complaintsCreated": complaints_created,
+        "loginLocationsCreated": login_locations_created,
+        "complianceDocsUpserted": compliance_docs_upserted,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed buyers/sellers/categories/foods/orders via Coziyoo API + PostgreSQL.")
     parser.add_argument("--base-url", default="https://api.coziyoo.com", help="API base URL")
     parser.add_argument("--database-url", default=os.environ.get("DATABASE_URL"), help="PostgreSQL DSN (or use DATABASE_URL env)")
     parser.add_argument("--buyers", type=int, default=10, help="Buyer users to create")
     parser.add_argument("--sellers", type=int, default=10, help="Seller users to create")
+    parser.add_argument("--both-users", type=int, default=0, help="Both-role users to create")
     parser.add_argument("--categories", type=int, default=5, help="Categories to create")
     parser.add_argument("--foods-per-seller", type=int, default=5, help="Foods to create for each new seller")
     parser.add_argument("--orders-per-buyer", type=int, default=5, help="Orders to create for each buyer")
@@ -726,6 +1207,17 @@ def main() -> int:
     parser.add_argument("--admin-password", default="12345", help="Admin password for auth check")
     parser.add_argument("--buyer-password", default="Buyer12345!", help="Password used for new buyers")
     parser.add_argument("--seller-password", default="Seller12345!", help="Password used for new sellers")
+    parser.add_argument("--both-password", default="Both12345!", help="Password used for new both-role users")
+    parser.add_argument(
+        "--sample-doc-url",
+        default="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        help="Shared sample PDF URL used for seller compliance documents",
+    )
+    parser.add_argument(
+        "--wide-profile",
+        action="store_true",
+        help="Apply wide filter-testing preset (24 buyers, 14 sellers, 6 both, 3 orders per buyer)",
+    )
     parser.add_argument("--seed", default=None, help="Deterministic seed string")
     parser.add_argument("--order-interval-seconds", type=float, default=1.2, help="Delay between order requests")
     parser.add_argument(
@@ -735,6 +1227,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.wide_profile:
+        args.buyers = 24
+        args.sellers = 14
+        args.both_users = 6
+        args.orders_per_buyer = 3
+
     if not args.database_url:
         raise RuntimeError("DATABASE_URL is required. Pass --database-url or export DATABASE_URL.")
 
@@ -742,14 +1240,15 @@ def main() -> int:
     random.seed(seed_id)
     print(f"seed run: {seed_id}")
     print(
-        f"target: buyers={args.buyers} sellers={args.sellers} categories={args.categories} "
-        f"foods_per_seller={args.foods_per_seller} orders_per_buyer={args.orders_per_buyer}"
+        f"target: buyers={args.buyers} sellers={args.sellers} both={args.both_users} "
+        f"categories={args.categories} foods_per_seller={args.foods_per_seller} orders_per_buyer={args.orders_per_buyer}"
     )
 
     _admin_token = admin_login(args.base_url, email=args.admin_email, password=args.admin_password)
 
     buyers: list[UserAccount] = []
     sellers: list[UserAccount] = []
+    both_users: list[UserAccount] = []
 
     for i in range(args.buyers):
         handle, full_name = profile_for(i, TURKISH_BUYER_NAMES)
@@ -783,16 +1282,35 @@ def main() -> int:
         sellers.append(account)
         print(f"[seller {i + 1}/{args.sellers}] {account.email} ({short_id(account.user_id)})")
 
+    for i in range(args.both_users):
+        handle, full_name = profile_for(i, TURKISH_BUYER_NAMES)
+        email_local = compact_email_local(full_name, i + 1, seed_id)
+        email = f"both_{email_local}@coziyoo.local"
+        display_name = f"Both{camel_case_display(full_name)}{seed_id[-2:]}{i + 1:02d}"
+        account = register_user(
+            args.base_url,
+            email=email,
+            password=args.both_password,
+            display_name=display_name,
+            full_name=full_name,
+            user_type="both",
+        )
+        both_users.append(account)
+        print(f"[both {i + 1}/{args.both_users}] {account.email} ({short_id(account.user_id)})")
+
+    buyer_capable_users = buyers + both_users
+    seller_capable_users = sellers + both_users
+
     conn, db_driver = open_db(args.database_url)
     print(f"connected to postgres with driver={db_driver}")
     try:
         ensure_user_gps_columns(conn)
         categories = seed_categories(conn, count=args.categories)
-        buyer_geo = backfill_users(conn, buyers, role="buyer")
-        seller_geo = backfill_users(conn, sellers, role="seller")
+        buyer_geo = backfill_users(conn, buyer_capable_users, role="buyer")
+        seller_geo = backfill_users(conn, seller_capable_users, role="seller")
         foods_by_seller = seed_foods(
             conn,
-            sellers=sellers,
+            sellers=seller_capable_users,
             categories=categories,
             foods_per_seller=args.foods_per_seller,
         )
@@ -804,12 +1322,12 @@ def main() -> int:
     finally:
         conn.close()
 
-    seller_ids = [s.user_id for s in sellers if s.user_id in lots_by_seller]
+    seller_ids = [s.user_id for s in seller_capable_users if s.user_id in lots_by_seller]
     created_orders: list[dict[str, Any]] = []
     if not seller_ids:
         raise RuntimeError("No seller foods created; cannot create orders.")
 
-    for buyer_idx, buyer in enumerate(buyers):
+    for buyer_idx, buyer in enumerate(buyer_capable_users):
         seller_rotation = random.sample(seller_ids, k=min(len(seller_ids), args.orders_per_buyer))
         while len(seller_rotation) < args.orders_per_buyer:
             seller_rotation.append(random.choice(seller_ids))
@@ -846,12 +1364,28 @@ def main() -> int:
                 }
             )
             order_no = buyer_idx * args.orders_per_buyer + order_idx + 1
-            total_orders = args.buyers * args.orders_per_buyer
+            total_orders = len(buyer_capable_users) * args.orders_per_buyer
             print(
                 f"[order {order_no}/{total_orders}] orderId={short_id(order_id)} "
                 f"buyer={short_id(buyer.user_id)} seller={short_id(seller_id)}"
             )
             time.sleep(max(0.0, args.order_interval_seconds))
+
+    conn, _ = open_db(args.database_url)
+    try:
+        enrichment = enrich_seed_dataset(
+            conn,
+            created_orders=created_orders,
+            buyer_capable_users=buyer_capable_users,
+            seller_capable_users=seller_capable_users,
+            sample_doc_url=args.sample_doc_url,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     summary = {
         "seedId": seed_id,
@@ -859,10 +1393,15 @@ def main() -> int:
         "counts": {
             "buyers": len(buyers),
             "sellers": len(sellers),
+            "bothUsers": len(both_users),
             "categories": len(categories),
             "foods": sum(len(rows) for rows in foods_by_seller.values()),
             "lots": sum(len(rows) for rows in lots_by_seller.values()),
             "orders": len(created_orders),
+            "paymentAttempts": enrichment["paymentAttemptsCreated"],
+            "complaints": enrichment["complaintsCreated"],
+            "loginLocations": enrichment["loginLocationsCreated"],
+            "complianceDocs": enrichment["complianceDocsUpserted"],
         },
         "buyersCreated": [
             {
@@ -882,10 +1421,21 @@ def main() -> int:
             }
             for s in sellers
         ],
+        "bothUsersCreated": [
+            {
+                "email": u.email,
+                "userId": u.user_id,
+                "fullName": u.full_name,
+                "gps": buyer_geo.get(u.user_id),
+            }
+            for u in both_users
+        ],
         "categoriesCreated": categories,
         "foodsBySeller": foods_by_seller,
         "lotsBySeller": lots_by_seller,
         "ordersCreated": created_orders,
+        "enrichment": enrichment,
+        "sampleDocUrl": args.sample_doc_url,
     }
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(summary, fh, ensure_ascii=False, indent=2)

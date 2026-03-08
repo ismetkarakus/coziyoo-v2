@@ -100,9 +100,12 @@ if [[ "${SEED_SAMPLE_DATA:-false}" == "true" ]]; then
       --admin-password "${ADMIN_PASSWORD}" \
       --buyers "${SEED_BUYERS:-10}" \
       --sellers "${SEED_SELLERS:-10}" \
+      --both-users "${SEED_BOTH_USERS:-0}" \
       --categories "${SEED_CATEGORIES:-5}" \
       --foods-per-seller "${SEED_FOODS_PER_SELLER:-5}" \
       --orders-per-buyer "${SEED_ORDERS_PER_BUYER:-5}" \
+      ${SEED_WIDE_PROFILE:+--wide-profile} \
+      --sample-doc-url "${SEED_SAMPLE_DOC_URL:-https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf}" \
       --out "${REPO_ROOT}/seed_output.json" 2>&1; then
       log "  ✓ Sample data seeding finished"
     else
