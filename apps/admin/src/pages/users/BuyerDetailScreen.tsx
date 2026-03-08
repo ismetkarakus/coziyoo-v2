@@ -704,7 +704,29 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       <section className="buyer-ref-content">
         <aside className="buyer-ref-right">
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
-            <h2>Profil Bilgileri</h2>
+            <div className="panel-header">
+              <h2>Profil Bilgileri</h2>
+              <details className="seller-quick-access buyer-ref-quick-access">
+                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
+                <div className="seller-quick-access-menu">
+                  {String(email).includes("@") ? (
+                    <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
+                  )}
+                  {contactHasPhone ? (
+                    <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
+                  )}
+                  {contactHasPhone ? (
+                    <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
+                  ) : (
+                    <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
+                  )}
+                </div>
+              </details>
+            </div>
             <div className="buyer-ref-contact-block">
               <div className="buyer-ref-info-row">
                 <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
@@ -837,26 +859,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <section className="panel buyer-ops-side-card buyer-ref-notes-card">
                   <div className="panel-header">
                     <h2>Notlar & Etiketler</h2>
-                    <details className="seller-quick-access buyer-ref-quick-access">
-                      <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
-                      <div className="seller-quick-access-menu">
-                        {String(email).includes("@") ? (
-                          <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
-                        ) : (
-                          <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
-                        )}
-                        {contactHasPhone ? (
-                          <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
-                        ) : (
-                          <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
-                        )}
-                        {contactHasPhone ? (
-                          <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
-                        ) : (
-                          <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
-                        )}
-                      </div>
-                    </details>
                     <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
                   </div>
                   <div className="buyer-ops-tag-list">
