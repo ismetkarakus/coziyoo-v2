@@ -1012,71 +1012,77 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
             {activeTab === "notes" ? (
               <div className="buyer-ref-main-notes">
-                <div className="buyer-ops-tag-list">
-                  {tagItems.map((tag) => (
-                    <span key={`main-${tag}`} className="buyer-ops-tag">
-                      <span>{tag}</span>
-                      <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
-                    </span>
-                  ))}
+                <div className="buyer-ref-main-notes-columns">
+                  <div className="buyer-ref-main-notes-col is-notes">
+                    <div className="buyer-ref-note-list" ref={noteListRef}>
+                      {noteItems.length === 0 ? (
+                        <p className="panel-meta">Henüz not yok.</p>
+                      ) : (
+                        noteItems.map((note) => (
+                          <article
+                            key={`main-note-${note.id}`}
+                            className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
+                            onClick={() => openNoteCard(note.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openNoteCard(note.id);
+                              }
+                            }}
+                          >
+                            {editingNoteId === note.id ? (
+                              <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
+                                <input
+                                  value={editingNoteValue}
+                                  onChange={(event) => setEditingNoteValue(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") {
+                                      event.preventDefault();
+                                      saveEditedNote(note.id).catch(() => undefined);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    saveEditedNote(note.id).catch(() => undefined);
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <p>{note.note}</p>
+                            )}
+                            {editingNoteId !== note.id && openNoteMenuId === note.id ? (
+                              <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
+                                <button
+                                  className="ghost"
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingNoteId(note.id);
+                                    setEditingNoteValue(note.note);
+                                  }}
+                                >
+                                  Duzenle
+                                </button>
+                                <button className="ghost is-danger" type="button" onClick={() => deleteNote(note.id)}>Sil</button>
+                              </div>
+                            ) : null}
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <div className="buyer-ref-main-notes-col is-tags">
+                    <div className="buyer-ops-tag-list">
+                      {tagItems.map((tag) => (
+                        <span key={`main-${tag}`} className="buyer-ops-tag">
+                          <span>{tag}</span>
+                          <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="buyer-ref-note-list" ref={noteListRef}>
-                  {noteItems.length === 0 ? (
-                    <p className="panel-meta">Henüz not yok.</p>
-                  ) : (
-                    noteItems.map((note) => (
-                      <article
-                        key={`main-note-${note.id}`}
-                        className={`buyer-ref-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
-                        onClick={() => openNoteCard(note.id)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openNoteCard(note.id);
-                          }
-                        }}
-                      >
-                        {editingNoteId === note.id ? (
-                          <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              value={editingNoteValue}
-                              onChange={(event) => setEditingNoteValue(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  event.preventDefault();
-                                  saveEditedNote(note.id).catch(() => undefined);
-                                }
-                              }}
-                              onBlur={() => {
-                                saveEditedNote(note.id).catch(() => undefined);
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <p>{note.note}</p>
-                        )}
-                        {editingNoteId !== note.id && openNoteMenuId === note.id ? (
-                          <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
-                            <button
-                              className="ghost"
-                              type="button"
-                              onClick={() => {
-                                setEditingNoteId(note.id);
-                                setEditingNoteValue(note.note);
-                              }}
-                            >
-                              Duzenle
-                            </button>
-                            <button className="ghost is-danger" type="button" onClick={() => deleteNote(note.id)}>Sil</button>
-                          </div>
-                        ) : null}
-                      </article>
-                    ))
-                  )}
-                </div>
-                <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
+                <p className="panel-meta buyer-ref-main-notes-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
               </div>
             ) : null}
 

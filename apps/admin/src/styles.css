@@ -3697,7 +3697,47 @@ textarea:focus {
 .buyer-ref-main-notes {
   padding: 14px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.buyer-ref-main-notes-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.buyer-ref-main-notes-col {
+  min-width: 0;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #5273ba 42%, var(--ops-border-default));
+  background:
+    linear-gradient(180deg, rgba(16, 29, 64, 0.92), rgba(11, 22, 53, 0.94)),
+    radial-gradient(140% 180% at 0% 0%, rgba(56, 96, 183, 0.2), transparent 72%);
+  padding: 10px;
+}
+
+.buyer-ref-main-notes-col.is-tags .buyer-ops-tag-list {
+  display: grid;
+  gap: 8px;
+}
+
+.buyer-ref-main-notes-col.is-tags .buyer-ops-tag {
+  width: 100%;
+  justify-content: space-between;
+  border-radius: 11px;
+  border-color: color-mix(in srgb, #5476bf 44%, var(--ops-border-default));
+  background: color-mix(in srgb, #172f67 70%, transparent);
+  color: #dfe9ff;
+  padding: 8px 10px;
+}
+
+.buyer-ref-main-notes-col.is-tags .buyer-ops-tag-remove {
+  color: color-mix(in srgb, #d7e5ff 90%, transparent);
+}
+
+.buyer-ref-main-notes-meta {
+  padding-inline: 2px;
+  color: color-mix(in srgb, #d8e3ff 86%, var(--ops-text-secondary));
 }
 
 .buyer-ref-note-list {
@@ -3706,10 +3746,10 @@ textarea:focus {
 }
 
 .buyer-ref-note-item {
-  border: 1px solid color-mix(in srgb, #6f84bf 26%, var(--ops-border-default));
-  border-radius: 10px;
-  padding: 8px 10px;
-  background: color-mix(in srgb, #111a34 84%, transparent);
+  border: 1px solid color-mix(in srgb, #4f70b4 46%, var(--ops-border-default));
+  border-radius: 16px;
+  padding: 12px 18px;
+  background: linear-gradient(180deg, rgba(13, 27, 66, 0.96), rgba(11, 23, 57, 0.95));
   cursor: pointer;
 }
 
@@ -3721,7 +3761,14 @@ textarea:focus {
 }
 
 .buyer-ref-note-item.is-open {
-  border-color: color-mix(in srgb, #86a0de 46%, var(--ops-border-default));
+  border-color: color-mix(in srgb, #85a7f0 62%, var(--ops-border-default));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #95b7ff 42%, transparent);
+}
+
+@media (max-width: 1080px) {
+  .buyer-ref-main-notes-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .seller-notes-panel .seller-notes-header {
