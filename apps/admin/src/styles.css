@@ -2853,7 +2853,7 @@ textarea:focus {
 .buyer-ref-profile-card {
   padding: 8px 10px;
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 70px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -2863,13 +2863,13 @@ textarea:focus {
 }
 
 .buyer-ref-avatar {
-  width: 64px;
-  height: 64px;
+  width: 70px;
+  height: 70px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   background: radial-gradient(65% 65% at 35% 30%, rgba(68, 102, 171, 0.42), rgba(20, 30, 53, 0.86));
   border: 1px solid color-mix(in srgb, #6f81b8 42%, var(--ops-border-default));
@@ -3587,17 +3587,20 @@ textarea:focus {
 .buyer-ref-activity-card .panel-header,
 .buyer-ref-notes-card .panel-header {
   padding-bottom: 4px;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
 }
 
 .buyer-ref-notes-card .panel-header .buyer-ref-quick-access {
-  margin-left: 2px;
+  justify-self: center;
+  margin-left: 0;
 }
 
 .buyer-ref-notes-card .panel-header .buyer-ops-mini-btn {
-  margin-left: auto;
+  justify-self: end;
+  margin-left: 0;
 }
 
 .buyer-ref-activity-card .panel-header h2,
