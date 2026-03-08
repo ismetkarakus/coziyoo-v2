@@ -5549,6 +5549,12 @@ textarea:focus {
   font-size: clamp(1rem, 1.02vw, 1.1rem);
 }
 
+.records-inline-copy-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .records-order-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

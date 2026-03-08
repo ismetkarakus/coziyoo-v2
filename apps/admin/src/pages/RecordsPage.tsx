@@ -21,6 +21,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
   const [foodNameById, setFoodNameById] = useState<Record<string, string>>({});
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
+  const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
   const pageSize = 20;
@@ -518,6 +519,16 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     window.setTimeout(runPrint, 450);
   }
 
+  function copyWithFeedback(text: string, key: "order-id" | "uuid") {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopyFeedbackKey(key);
+        window.setTimeout(() => setCopyFeedbackKey((prev) => (prev === key ? "" : prev)), 1100);
+      })
+      .catch(() => undefined);
+  }
+
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -845,7 +856,17 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusLabelTr}</span>
                 </div>
               </header>
-              <p className="panel-meta">{`Sipariş ID: ${selectedOrderId || "-"}`}</p>
+              <p className="panel-meta records-inline-copy-row">
+                <span>{`Sipariş ID: ${selectedOrderId || "-"}`}</span>
+                <button
+                  className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
+                  type="button"
+                  onClick={() => copyWithFeedback(selectedOrderId, "order-id")}
+                  title="Sipariş ID kopyala"
+                >
+                  {copyFeedbackKey === "order-id" ? "✓" : "⧉"}
+                </button>
+              </p>
 
               <div className="records-order-grid">
                 <article className="records-order-info-card">
@@ -886,6 +907,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               <div className="records-order-summary-inline">
                 <div className="records-order-uuid-row records-order-uuid-row-standalone">
                   <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
+                  <button
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
+                    type="button"
+                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
+                    title="UUID kopyala"
+                  >
+                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
+                  </button>
                 </div>
                 <div className="records-order-total-inline">
                   <span>Toplam</span>
