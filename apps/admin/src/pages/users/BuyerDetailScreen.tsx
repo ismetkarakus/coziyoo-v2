@@ -671,19 +671,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             <p>Acik Sikayet</p>
             <span className="buyer-ref-metric-head-value">{openComplaints}</span>
           </div>
-          <div className="buyer-ref-metric-line">
-            <small>Son sikayet: {cancellations[0] ? toRelative(cancellations[0].cancelledAt) : "4 ay once"}</small>
-          </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-trend" aria-hidden="true">⌁</span>
             <p>Son 30 Gun</p>
             <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</small>
-          </div>
-          <div className="buyer-ref-metric-line buyer-ref-metric-line-30">
-            <small className={`buyer-trend ${orderTrend.cls}`}>Siparis: {orders[0] ? toRelative(orders[0].createdAt) : "2 gun once"}</small>
-            <strong><span>Siparis</span> <span className="is-accent">{`${summary?.monthlyOrderCountCurrent ?? 0} adet`}</span></strong>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
@@ -693,10 +686,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             <span className="buyer-ref-metric-head-stack">
               <span className="buyer-ref-metric-head-balance">{`${failedPayments} bakiyede`}</span>
             </span>
-          </div>
-          <div className="buyer-ref-metric-line buyer-ref-metric-line-payment">
-            <small>Son islem: {orders[0] ? toRelative(orders[0].updatedAt || orders[0].createdAt) : "2 hafta once"}</small>
-            <small>{`Siparis ${orders.length - failedPayments} adet`}</small>
           </div>
         </article>
       </section>
