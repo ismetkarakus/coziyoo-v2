@@ -626,28 +626,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
   const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
-  const selectedStatusRaw = String(selectedOrder?.status ?? "").trim().toLowerCase();
-  const selectedCancelReason = (() => {
-    if (selectedStatusRaw !== "cancelled") return "";
-    const candidates = [
-      selectedOrder?.cancel_reason,
-      selectedOrder?.cancellation_reason,
-      selectedOrder?.cancelReason,
-      selectedOrder?.cancellationReason,
-      selectedOrder?.status_reason,
-      selectedOrder?.statusReason,
-      selectedOrder?.reason,
-      selectedOrder?.cancel_note,
-      selectedOrder?.cancelNote,
-      selectedOrder?.notes,
-      selectedOrder?.note,
-    ];
-    for (const value of candidates) {
-      const text = String(value ?? "").trim();
-      if (text) return text;
-    }
-    return "Neden bilgisi bulunamadı.";
-  })();
   const selectedStatusLabelTr = (() => {
     const status = String(selectedOrder?.status ?? "").trim().toLowerCase();
     if (status === "pending_seller_approval") return "Onay bekliyor";
@@ -829,6 +807,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               <header className="records-order-head">
                 <div className="records-order-title-wrap">
                   <h3>{`Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}`}</h3>
+                  <button
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
+                    type="button"
+                    onClick={() => copyWithFeedback(selectedOrderId, "order-id")}
+                    title="Sipariş ID kopyala"
+                  >
+                    {copyFeedbackKey === "order-id" ? "✓" : "⧉"}
+                  </button>
                 </div>
                 <div className="records-order-status-wrap">
                   <span>Durumu</span>
@@ -842,50 +828,46 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <strong>{selectedBuyerText}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>Satıcı</span>
-                  <strong>{selectedSellerText}</strong>
-                  <p className="panel-meta">{`Teslimat Tipi: ${selectedDeliveryType}`}</p>
-                </article>
-                <article className="records-order-info-card is-wide">
                   <span>Teslimat Adresi</span>
                   <strong>{selectedDeliveryAddress}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>Sipariş Tarihi</span>
-                  <strong>{selectedCreatedAt}</strong>
+                  <span>Satıcı</span>
+                  <strong>{selectedSellerText}</strong>
+                  <p className="panel-meta">{`Teslimat Tipi: ${selectedDeliveryType}`}</p>
                 </article>
-                <article className="records-order-info-card">
-                  <span>Talep Tarihi</span>
-                  <strong>{selectedRequestedAt}</strong>
-                </article>
-                <article className="records-order-info-card">
-                  <span>Ödeme Durumu</span>
-                  <strong>{selectedPaymentStatus}</strong>
-                </article>
-                <article className="records-order-info-card">
-                  <span>Toplam</span>
-                  <strong>{selectedTotal}</strong>
-                </article>
-                <article className="records-order-info-card records-order-uuid-card">
-                  <span>UUID</span>
-                  <div className="records-order-uuid-row">
-                    <strong>{shortUuid(selectedOrderId)}</strong>
-                    <button
-                      className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
-                      type="button"
-                      onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                      title="UUID kopyala"
-                    >
-                      {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
-                    </button>
+                <article className="records-order-info-meta">
+                  <div>
+                    <span>Sipariş Tarihi</span>
+                    <strong>{selectedCreatedAt}</strong>
+                  </div>
+                  <div>
+                    <span>Talep Tarihi</span>
+                    <strong>{selectedRequestedAt}</strong>
                   </div>
                 </article>
-                {selectedStatusRaw === "cancelled" ? (
-                  <article className="records-order-info-card is-wide">
-                    <span>İptal Nedeni</span>
-                    <strong>{selectedCancelReason}</strong>
-                  </article>
-                ) : null}
+              </div>
+
+              <div className="records-order-kpi-grid">
+                <div>
+                  <span>Toplam</span>
+                  <strong>{selectedTotal}</strong>
+                </div>
+                <div>
+                  <span>Ödeme Durumu</span>
+                  <strong>{selectedPaymentStatus}</strong>
+                </div>
+                <div className="records-order-uuid-row">
+                  <span>{`UUID: ${shortUuid(selectedOrderId)}`}</span>
+                  <button
+                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
+                    type="button"
+                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
+                    title="UUID kopyala"
+                  >
+                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
+                  </button>
+                </div>
               </div>
             </section>
             <section className="records-order-section">
