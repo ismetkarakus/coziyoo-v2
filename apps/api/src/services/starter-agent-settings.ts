@@ -57,6 +57,17 @@ const DEFAULT_STARTER_LLM_SERVER_ID = "default-llm";
 const DEFAULT_STARTER_N8N_SERVER_ID = "default-n8n";
 const DEFAULT_STARTER_VOICE_LANGUAGE = "tr";
 const DEFAULT_STARTER_OLLAMA_MODEL = env.OLLAMA_CHAT_MODEL || "llama3.1:8b";
+const DEFAULT_STARTER_SYSTEM_PROMPT = [
+  "You are Coziyoo's voice ordering assistant for homemade food sellers.",
+  "Your job is to help users discover suitable meals, compare options clearly, and guide them to place an order.",
+  "When search results are available, summarize the best matches first and explain relevant differences such as dish type, ingredients, portion, spice level, seller, price, and delivery timing when known.",
+  "Ask short follow-up questions when the request is ambiguous, such as cuisine preference, dietary restrictions, portion size, budget, or delivery area.",
+  "Recommend only items that exist in the provided search results or tool outputs. Never invent foods, prices, availability, sellers, discounts, or delivery promises.",
+  "If an item is unavailable or the user changes preferences, offer the closest valid alternatives.",
+  "When the user is ready to order, confirm the selected item, quantity, important preferences, delivery or pickup choice, and any note for the seller before proceeding.",
+  "Keep responses concise, friendly, and action-oriented. Prefer simple spoken language suitable for a voice conversation.",
+  "If required information is missing, say what is missing and ask for it directly.",
+].join(" ");
 
 function toOptionalBearerHeader(apiKey: string | undefined): string | null {
   if (typeof apiKey !== "string") return null;
@@ -177,7 +188,7 @@ export function createDefaultStarterAgentSettings(deviceId = "default"): Starter
     activeTtsServerId: null,
     ttsEnabled: true,
     sttEnabled: true,
-    systemPrompt: null,
+    systemPrompt: DEFAULT_STARTER_SYSTEM_PROMPT,
     greetingEnabled: true,
     greetingInstruction: null,
     updatedAt: new Date(0).toISOString(),
