@@ -21,6 +21,7 @@ type OllamaTagsResponse = {
 type OllamaRequestOptions = {
   model?: string;
   baseUrl?: string;
+  systemPrompt?: string;
 };
 
 export async function askOllamaChat(userText: string, options?: OllamaRequestOptions) {
@@ -29,9 +30,10 @@ export async function askOllamaChat(userText: string, options?: OllamaRequestOpt
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OLLAMA_TIMEOUT_MS);
   const selectedModel = options?.model?.trim() || env.OLLAMA_CHAT_MODEL;
+  const selectedSystemPrompt = options?.systemPrompt?.trim() || env.OLLAMA_SYSTEM_PROMPT;
 
   const messages: OllamaMessage[] = [
-    { role: "system", content: env.OLLAMA_SYSTEM_PROMPT },
+    { role: "system", content: selectedSystemPrompt },
     { role: "user", content: userText },
   ];
 

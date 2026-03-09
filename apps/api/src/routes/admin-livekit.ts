@@ -742,6 +742,9 @@ adminLiveKitRouter.post("/test/stt/transcribe", async (req, res) => {
 const TestOllamaSchema = z.object({
   baseUrl: z.string().optional(),
   modelsPath: z.string().optional(),
+  model: z.string().max(256).optional(),
+  systemPrompt: z.string().max(4_000).optional(),
+  text: z.string().min(1).max(2_000).optional(),
 });
 
 adminLiveKitRouter.post("/test/ollama", async (req, res) => {
@@ -751,7 +754,12 @@ adminLiveKitRouter.post("/test/ollama", async (req, res) => {
   }
   try {
     const result = await listOllamaModels({ baseUrl: parsed.data.baseUrl || undefined, modelsPath: parsed.data.modelsPath || undefined });
-    return res.json({ data: { ok: true, models: result.models } });
+    const answer = await askOllamaChat(parsed.data.text || "Hello", {
+      baseUrl: parsed.data.baseUrl || undefined,
+      model: parsed.data.model || undefined,
+      systemPrompt: parsed.data.systemPrompt || undefined,
+    });
+    return res.json({ data: { ok: true, models: result.models, answer: answer.text, model: answer.model } });
   } catch (err) {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
   }

@@ -802,7 +802,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
 
   // ── Connection tests ──────────────────────────────────────────────────────────
 
-  type TestResponse = { data?: { ok?: boolean; reason?: string } };
+  type TestResponse = { data?: { ok?: boolean; reason?: string; answer?: string; model?: string } };
 
   const runTestLiveKit = async () => {
     setTestLiveKit(null);
@@ -838,9 +838,23 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     const srv = llmServers.find(s => s.id === defaultLlmServerId);
     setTestOllama(null);
     try {
-      const res = await request("/v1/admin/livekit/test/ollama", { method: "POST", body: JSON.stringify({ baseUrl: srv?.baseUrl }) });
+      const greetingText = greetingEnabled && greetingInstruction.trim()
+        ? greetingInstruction.trim()
+        : "Merhaba, menuden ne onerebilirsin?";
+      const res = await request("/v1/admin/livekit/test/ollama", {
+        method: "POST",
+        body: JSON.stringify({
+          baseUrl: srv?.baseUrl,
+          model: srv?.model,
+          systemPrompt: systemPrompt.trim() || undefined,
+          text: greetingText,
+        }),
+      });
       const json = await parseJson<TestResponse>(res);
-      setTestOllama({ ok: json.data?.ok === true, detail: json.data?.reason });
+      setTestOllama({
+        ok: json.data?.ok === true,
+        detail: json.data?.ok ? (json.data.answer?.slice(0, 100) || "Model replied") : json.data?.reason,
+      });
     } catch { setTestOllama({ ok: false, detail: "Request failed" }); }
   };
 
@@ -848,12 +862,24 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     setLlmTestingServerId(server.id);
     setLlmServerTestResults((prev) => ({ ...prev, [server.id]: null }));
     try {
+      const greetingText = greetingEnabled && greetingInstruction.trim()
+        ? greetingInstruction.trim()
+        : "Merhaba, menuden ne onerebilirsin?";
       const res = await request("/v1/admin/livekit/test/ollama", {
         method: "POST",
-        body: JSON.stringify({ baseUrl: server.baseUrl, modelsPath: server.modelsPath }),
+        body: JSON.stringify({
+          baseUrl: server.baseUrl,
+          modelsPath: server.modelsPath,
+          model: server.model,
+          systemPrompt: systemPrompt.trim() || undefined,
+          text: greetingText,
+        }),
       });
       const json = await parseJson<TestResponse>(res);
-      const status = { ok: json.data?.ok === true, detail: json.data?.reason } as TestStatus;
+      const status = {
+        ok: json.data?.ok === true,
+        detail: json.data?.ok ? (json.data.answer?.slice(0, 140) || "Model replied") : json.data?.reason,
+      } as TestStatus;
       setLlmServerTestResults((prev) => ({ ...prev, [server.id]: status }));
     } catch {
       setLlmServerTestResults((prev) => ({ ...prev, [server.id]: { ok: false, detail: "Request failed" } }));
