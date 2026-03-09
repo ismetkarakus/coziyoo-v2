@@ -562,6 +562,8 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const [testN8n, setTestN8n] = useState<TestStatus>(null);
   const [testTts, setTestTts] = useState<TestStatus>(null);
   const [testing, setTesting] = useState(false);
+  const [llmTestingServerId, setLlmTestingServerId] = useState<string | null>(null);
+  const [llmServerTestResults, setLlmServerTestResults] = useState<Record<string, TestStatus>>({});
 
   // TTS audio test
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -842,6 +844,24 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     } catch { setTestOllama({ ok: false, detail: "Request failed" }); }
   };
 
+  const runTestLlmServer = async (server: LlmServer) => {
+    setLlmTestingServerId(server.id);
+    setLlmServerTestResults((prev) => ({ ...prev, [server.id]: null }));
+    try {
+      const res = await request("/v1/admin/livekit/test/ollama", {
+        method: "POST",
+        body: JSON.stringify({ baseUrl: server.baseUrl, modelsPath: server.modelsPath }),
+      });
+      const json = await parseJson<TestResponse>(res);
+      const status = { ok: json.data?.ok === true, detail: json.data?.reason } as TestStatus;
+      setLlmServerTestResults((prev) => ({ ...prev, [server.id]: status }));
+    } catch {
+      setLlmServerTestResults((prev) => ({ ...prev, [server.id]: { ok: false, detail: "Request failed" } }));
+    } finally {
+      setLlmTestingServerId(null);
+    }
+  };
+
   const runTestN8n = async () => {
     const srv = n8nServers.find(s => s.id === defaultN8nServerId);
     setTestN8n(null);
@@ -1078,6 +1098,17 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                       {ttsTestBusy ? "…" : "▶ Test"}
                     </button>
                   )}
+                  {type === "llm" && (
+                    <button
+                      className="ghost"
+                      type="button"
+                      style={{ fontSize: "0.78em", padding: "3px 10px" }}
+                      onClick={() => void runTestLlmServer(server as LlmServer)}
+                      disabled={llmTestingServerId === server.id}
+                    >
+                      {llmTestingServerId === server.id ? "…" : "🤖 Test"}
+                    </button>
+                  )}
                   <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }}
                     onClick={() => {
                       if (isThisEditing) { setEditing(null); return; }
@@ -1116,6 +1147,19 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                   onStart={() => startSttRecording(server as SttServer)}
                   onStop={stopSttRecording}
                 />
+              )}
+              {type === "llm" && llmServerTestResults[server.id] && (
+                <div
+                  style={{
+                    marginTop: "0.4rem",
+                    fontSize: "0.82em",
+                    color: llmServerTestResults[server.id]?.ok ? "#22c55e" : "#ef4444",
+                  }}
+                >
+                  {llmServerTestResults[server.id]?.ok
+                    ? "LLM test successful"
+                    : `LLM test failed${llmServerTestResults[server.id]?.detail ? `: ${llmServerTestResults[server.id]?.detail}` : ""}`}
+                </div>
               )}
             </div>
           );
