@@ -885,7 +885,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost seller-excel-btn" type="button" onClick={downloadSelectedFoodDetailAsExcel} language="tr" />
+              <ExcelExportButton className="ghost" type="button" onClick={downloadSelectedFoodDetailAsExcel} language="tr" />
               <PrintButton className="ghost" type="button" onClick={printSelectedFoodDetail} language="tr" />
               <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
                 Kapat

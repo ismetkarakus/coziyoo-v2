@@ -2779,6 +2779,19 @@ textarea:focus {
   gap: 8px;
 }
 
+.excel-export-btn {
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+  line-height: 1.15;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 @media print {
   body.modal-print-active * {
     visibility: hidden !important;
@@ -3218,12 +3231,6 @@ textarea:focus {
   flex: 0 0 auto;
   margin-right: 12px;
   white-space: nowrap;
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: var(--text-sm);
-  line-height: 1.15;
-  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .buyer-ref-main-panel .buyer-ops-tabs button {
@@ -3414,13 +3421,7 @@ textarea:focus {
 }
 
 .buyer-ref-export-btn {
-  min-height: 36px;
-  border-radius: 10px;
-  padding: 6px 12px;
-  font-size: var(--text-sm);
-  line-height: 1.15;
   white-space: nowrap;
-  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .buyer-ref-main-panel th {
@@ -4539,10 +4540,7 @@ textarea:focus {
 }
 
 .buyer-v2-export {
-  min-height: 44px;
-  border-radius: 14px;
-  padding: 0 24px;
-  font-size: var(--text-md);
+  white-space: nowrap;
 }
 
 .buyer-v2-table-wrap table {
@@ -6049,12 +6047,6 @@ textarea:focus {
 .seller-tabs-export-btn {
   flex: 0 0 auto;
   white-space: nowrap;
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: var(--text-sm);
-  line-height: 1.15;
-  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .seller-tabs button {
@@ -6156,13 +6148,7 @@ textarea:focus {
 }
 
 .seller-detail-export-btn {
-  min-height: 36px;
-  border-radius: 10px;
-  padding: 6px 12px;
-  font-size: var(--text-sm);
-  line-height: 1.15;
   white-space: nowrap;
-  box-shadow: 0 6px 14px rgba(45, 125, 255, 0.24);
 }
 
 .seller-wallet-table-wrap tbody td:nth-child(5) {
@@ -6922,9 +6908,7 @@ textarea:focus {
 }
 
 .seller-excel-btn {
-  border-color: color-mix(in srgb, #2f9d6c 55%, var(--color-border));
-  color: #c9ffe6;
-  background: color-mix(in srgb, #1a6f49 38%, transparent);
+  white-space: nowrap;
 }
 
 .seller-identity-layout {

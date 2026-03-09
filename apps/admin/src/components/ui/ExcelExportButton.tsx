@@ -13,12 +13,14 @@ export function ExcelExportButton({
   children,
   labelTr = "Excel'e Aktar",
   labelEn = "Export to Excel",
+  className,
+  type = "button",
   ...buttonProps
 }: ExcelExportButtonProps) {
+  const mergedClassName = ["excel-export-btn", className].filter(Boolean).join(" ");
   return (
-    <button {...buttonProps}>
+    <button {...buttonProps} type={type} className={mergedClassName}>
       {children ?? (language === "tr" ? labelTr : labelEn)}
     </button>
   );
 }
-

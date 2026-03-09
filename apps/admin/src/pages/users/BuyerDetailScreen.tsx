@@ -2,7 +2,7 @@ import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
-import { ExcelExportButton } from "../../components/ui";
+import { ExcelExportButton, QuickAccessMenu } from "../../components/ui";
 import { fmt, toDisplayId, formatUiDate, formatLoginRelativeDayMonth, maskEmail, maskPhone, addTwoYears } from "../../lib/format";
 import { openQuickEmail } from "../../lib/compliance";
 import { resolveBuyerDetailTab } from "../../lib/routing";
@@ -695,26 +695,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
           <section className="panel buyer-ops-side-card buyer-ref-contact-side">
             <div className="panel-header">
               <h2>Profil Bilgileri</h2>
-              <details className="seller-quick-access buyer-ref-quick-access">
-                <summary>{language === "tr" ? "Hızlı Erişim" : "Quick Access"}</summary>
-                <div className="seller-quick-access-menu">
-                  {String(email).includes("@") ? (
-                    <a href={`mailto:${String(email).trim()}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
-                  )}
-                  {contactHasPhone ? (
-                    <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
-                  )}
-                  {contactHasPhone ? (
-                    <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
-                  ) : (
-                    <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
-                  )}
-                </div>
-              </details>
+              <QuickAccessMenu
+                language={language}
+                className="buyer-ref-quick-access"
+                email={email}
+                phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
+                smsBody={contactSmsBody}
+              />
             </div>
             <div className="buyer-ref-contact-block">
               <div className="buyer-ref-info-row">
@@ -788,7 +775,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <button className={activeTab === "raw" ? "is-active" : ""} onClick={() => switchBuyerTab("raw")} type="button">Ham Veri</button>
               </div>
               <ExcelExportButton
-                className="primary buyer-ref-export-btn buyer-tabs-export-btn"
+                className="primary buyer-tabs-export-btn"
                 type="button"
                 onClick={downloadBuyerOrdersAsExcel}
                 disabled={!canExportActiveBuyerTab}

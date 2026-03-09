@@ -2,7 +2,7 @@ import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, use
 import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { DICTIONARIES } from "../../lib/i18n";
-import { ExcelExportButton, PrintButton } from "../../components/ui";
+import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
@@ -599,7 +599,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const contactPhoneHrefValue = contactPhone.replace(/[^\d+]/g, "");
   const contactHasPhone = contactPhoneHrefValue.length > 0;
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
-  const quickAccessLabel = language === "tr" ? "Hızlı Erişim" : "Quick Access";
 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
@@ -1042,26 +1041,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <strong>{formatUiDate(row.updatedAt, language)}</strong>
             </article>
           </div>
-          <details className="seller-quick-access" ref={quickAccessRef}>
-            <summary>{quickAccessLabel}</summary>
-            <div className="seller-quick-access-menu">
-              {contactEmail ? (
-                <a href={`mailto:${contactEmail}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
-              ) : (
-                <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
-              )}
-              {contactHasPhone ? (
-                <a href={`sms:${contactPhoneHrefValue}?body=${contactSmsBody}`}>SMS</a>
-              ) : (
-                <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
-              )}
-              {contactHasPhone ? (
-                <a href={`tel:${contactPhoneHrefValue}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
-              ) : (
-                <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
-              )}
-            </div>
-          </details>
+          <QuickAccessMenu
+            ref={quickAccessRef}
+            language={language}
+            email={contactEmail}
+            phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
+            smsBody={contactSmsBody}
+          />
         </div>
       </section>
 
@@ -1082,13 +1068,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             ))}
           </div>
           <ExcelExportButton
-            className="primary seller-detail-export-btn seller-tabs-export-btn"
+            className="primary seller-tabs-export-btn"
             type="button"
             onClick={exportActiveSellerTabAsExcel}
             disabled={!canExportActiveSellerTab}
             language={language}
-            labelTr="Seçileni Excel'e Aktar"
-            labelEn="Export Selected"
           />
         </div>
       </section>
