@@ -8,19 +8,57 @@ export function printModalContent(target: HTMLElement | null) {
   const win = window.open("", "_blank", "noopener,noreferrer,width=1000,height=750");
   if (!win) return;
 
-  win.document.documentElement.lang = "tr";
-  win.document.documentElement.innerHTML = `<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>Coziyoo Admin – Yazdır</title>
+  const printHtml = `<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coziyoo Admin - Yazdır</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 13px;
       color: #0b1120;
-      background: #fff;
+      background: #f5f7fb;
       padding: 20px;
+    }
+    .print-page-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+    .print-page-actions {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      background: #f5f7fb;
+      padding: 8px 0;
+    }
+    .print-page-actions button {
+      border: 1px solid #c7d1e3;
+      background: #fff;
+      color: #0b1120;
+      border-radius: 8px;
+      height: 34px;
+      padding: 0 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .print-page-actions button.primary {
+      border-color: #2766cc;
+      background: #2766cc;
+      color: #fff;
+    }
+    .print-content {
+      background: #fff;
+      border: 1px solid #d5dbe8;
+      border-radius: 10px;
+      padding: 16px;
     }
     h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
     h4 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
@@ -121,15 +159,25 @@ export function printModalContent(target: HTMLElement | null) {
 
     @media print {
       @page { margin: 1.5cm; }
-      body { padding: 0; }
+      body { background: #fff; padding: 0; }
+      .print-page-actions { display: none !important; }
+      .print-content { border: 0; border-radius: 0; padding: 0; }
     }
   </style>
 </head>
-<body>${clone.innerHTML}</body>
+<body>
+  <main class="print-page-shell">
+    <div class="print-page-actions">
+      <button type="button" onclick="window.close()">Kapat</button>
+      <button type="button" class="primary" onclick="window.print()">Yazdır</button>
+    </div>
+    <section class="print-content">${clone.innerHTML}</section>
+  </main>
+</body>
 </html>`;
 
+  win.document.open();
+  win.document.write(printHtml);
+  win.document.close();
   win.focus();
-  win.setTimeout(() => {
-    win.print();
-  }, 400);
 }
