@@ -1,3 +1,4 @@
+import { env } from "../config/env.js";
 import { pool } from "../db/client.js";
 import { DEFAULT_TTS_ENGINE, normalizeTtsEngine, type TtsEngine } from "./tts-engines.js";
 
@@ -49,6 +50,129 @@ type StarterSettingsSchemaCapabilities = {
 
 let schemaCapabilitiesPromise: Promise<StarterSettingsSchemaCapabilities> | null = null;
 let ensureIsActivePromise: Promise<void> | null = null;
+
+const DEFAULT_STARTER_STT_SERVER_ID = "default-stt";
+const DEFAULT_STARTER_TTS_SERVER_ID = "default-tts";
+const DEFAULT_STARTER_LLM_SERVER_ID = "default-llm";
+const DEFAULT_STARTER_VOICE_LANGUAGE = "tr";
+const DEFAULT_STARTER_OLLAMA_MODEL = env.OLLAMA_CHAT_MODEL || "llama3.1:8b";
+
+function toOptionalBearerHeader(apiKey: string | undefined): string | null {
+  if (typeof apiKey !== "string") return null;
+  const trimmed = apiKey.trim();
+  if (!trimmed || /^change_me/i.test(trimmed)) return null;
+  return `Bearer ${trimmed}`;
+}
+
+export function createDefaultStarterTtsConfig() {
+  const sttAuthHeader = toOptionalBearerHeader(env.SPEECH_TO_TEXT_API_KEY);
+
+  return {
+    baseUrl: "https://chatter.drascom.uk",
+    path: "/tts",
+    textFieldName: "text",
+    bodyParams: {
+      voice_mode: "predefined",
+      predefined_voice_id: "ayhan.mp3",
+      output_format: "wav",
+      split_text: "true",
+      chunk_size: "220",
+      temperature: "0.1",
+      exaggeration: "0",
+      cfg_weight: "0",
+      seed: "0",
+      speed_factor: "0",
+      language: DEFAULT_STARTER_VOICE_LANGUAGE,
+    },
+    queryParams: {},
+    authHeader: null,
+    stt: {
+      provider: "remote-speech-server",
+      baseUrl: "https://stt-speach.drascom.uk",
+      transcribePath: "/v1/audio/transcriptions",
+      model: "Systran/faster-whisper-medium",
+      queryParams: {},
+      authHeader: sttAuthHeader,
+    },
+    llm: {
+      ollamaBaseUrl: "https://ollama.drascom.uk",
+      authHeader: null,
+    },
+    n8n: {},
+    sttServers: [
+      {
+        id: DEFAULT_STARTER_STT_SERVER_ID,
+        name: "Default STT",
+        enabled: true,
+        provider: "remote-speech-server",
+        baseUrl: "https://stt-speach.drascom.uk",
+        transcribePath: "/v1/audio/transcriptions",
+        model: "Systran/faster-whisper-medium",
+        queryParams: {},
+        authHeader: sttAuthHeader ?? "",
+      },
+    ],
+    defaultSttServerId: DEFAULT_STARTER_STT_SERVER_ID,
+    ttsServers: [
+      {
+        id: DEFAULT_STARTER_TTS_SERVER_ID,
+        name: "Default TTS",
+        enabled: true,
+        baseUrl: "https://chatter.drascom.uk",
+        synthPath: "/tts",
+        textFieldName: "text",
+        bodyParams: {
+          voice_mode: "predefined",
+          predefined_voice_id: "ayhan.mp3",
+          output_format: "wav",
+          split_text: "true",
+          chunk_size: "220",
+          temperature: "0.1",
+          exaggeration: "0",
+          cfg_weight: "0",
+          seed: "0",
+          speed_factor: "0",
+          language: DEFAULT_STARTER_VOICE_LANGUAGE,
+        },
+        queryParams: {},
+        authHeader: "",
+      },
+    ],
+    defaultTtsServerId: DEFAULT_STARTER_TTS_SERVER_ID,
+    llmServers: [
+      {
+        id: DEFAULT_STARTER_LLM_SERVER_ID,
+        name: "Default LLM",
+        enabled: true,
+        baseUrl: "https://ollama.drascom.uk",
+        model: DEFAULT_STARTER_OLLAMA_MODEL,
+        authHeader: "",
+      },
+    ],
+    defaultLlmServerId: DEFAULT_STARTER_LLM_SERVER_ID,
+    n8nServers: [],
+    defaultN8nServerId: "",
+  };
+}
+
+export function createDefaultStarterAgentSettings(deviceId = "default"): StarterAgentSettings {
+  return {
+    deviceId,
+    agentName: "coziyoo-agent",
+    voiceLanguage: DEFAULT_STARTER_VOICE_LANGUAGE,
+    ollamaModel: DEFAULT_STARTER_OLLAMA_MODEL,
+    ttsEngine: "chatterbox",
+    ttsConfig: createDefaultStarterTtsConfig(),
+    ttsServers: null,
+    activeTtsServerId: null,
+    ttsEnabled: true,
+    sttEnabled: true,
+    systemPrompt: null,
+    greetingEnabled: true,
+    greetingInstruction: null,
+    updatedAt: new Date(0).toISOString(),
+  };
+}
 
 export async function getStarterAgentSettings(deviceId: string): Promise<StarterAgentSettings | null> {
   const capabilities = await getSchemaCapabilities();

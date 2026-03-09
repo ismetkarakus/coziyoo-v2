@@ -15,7 +15,7 @@ export type ResolvedProviders = {
     baseUrl: string | null;
     synthPath: string;
     textFieldName: string;
-    bodyParams: Record<string, string>;
+    bodyParams: Record<string, unknown>;
     queryParams: Record<string, string>;
     authHeader: string | null;
   };
@@ -58,6 +58,24 @@ function recordOf(value: unknown): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [k, v] of Object.entries(value)) {
     if (typeof v === "string") result[k] = v;
+  }
+  return result;
+}
+
+function coerceScalar(value: string): string | number | boolean {
+  const trimmed = value.trim();
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  return value;
+}
+
+function bodyRecordOf(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === "string") result[k] = coerceScalar(v);
+    else if (typeof v === "number" || typeof v === "boolean") result[k] = v;
   }
   return result;
 }
@@ -107,7 +125,7 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         baseUrl: strOrNull(defaultTtsServer.baseUrl),
         synthPath: str(defaultTtsServer.synthPath ?? defaultTtsServer.path, "/tts"),
         textFieldName: str(defaultTtsServer.textFieldName, "text"),
-        bodyParams: recordOf(defaultTtsServer.bodyParams),
+        bodyParams: bodyRecordOf(defaultTtsServer.bodyParams),
         queryParams: recordOf(defaultTtsServer.queryParams),
         authHeader: strOrNull(defaultTtsServer.authHeader),
       }
@@ -116,7 +134,7 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         baseUrl: strOrNull(ttsConfig.baseUrl),
         synthPath: str(ttsConfig.path, "/tts"),
         textFieldName: str(ttsConfig.textFieldName, "text"),
-        bodyParams: recordOf(ttsConfig.bodyParams),
+        bodyParams: bodyRecordOf(ttsConfig.bodyParams),
         queryParams: recordOf(ttsConfig.queryParams),
         authHeader: strOrNull(ttsConfig.authHeader),
       };

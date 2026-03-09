@@ -17,6 +17,8 @@ import {
   sendRoomData,
 } from "../services/livekit.js";
 import {
+  createDefaultStarterAgentSettings,
+  createDefaultStarterTtsConfig,
   ensureStarterAgentIsActiveColumn,
   getStarterAgentSettings,
   hasStarterAgentIsActiveColumn,
@@ -516,10 +518,10 @@ adminLiveKitRouter.post("/agent-settings/:deviceId/activate", async (req, res) =
 adminLiveKitRouter.get("/agent-settings/:deviceId", async (req, res) => {
   try {
     const settings = await getStarterAgentSettings(req.params.deviceId);
-    if (!settings) {
+    if (!settings && req.params.deviceId !== "default") {
       return res.status(404).json({ error: { code: "NOT_FOUND", message: "No settings found for this device" } });
     }
-    return res.json({ data: settings });
+    return res.json({ data: settings ?? createDefaultStarterAgentSettings(req.params.deviceId) });
   } catch (err) {
     return res.status(500).json({ error: { code: "DB_ERROR", message: err instanceof Error ? err.message : "Query failed" } });
   }
@@ -534,9 +536,12 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
   const { deviceId } = req.params;
   const input = parsed.data;
   try {
-  const existing = await getStarterAgentSettings(deviceId);
+  const existing = (await getStarterAgentSettings(deviceId)) ?? createDefaultStarterAgentSettings(deviceId);
 
-  const existingTtsConfig = (existing?.ttsConfig ?? {}) as Record<string, unknown>;
+  const existingTtsConfig = {
+    ...createDefaultStarterTtsConfig(),
+    ...((existing.ttsConfig ?? {}) as Record<string, unknown>),
+  } as Record<string, unknown>;
   const existingStt = (typeof existingTtsConfig.stt === "object" && existingTtsConfig.stt !== null ? existingTtsConfig.stt : {}) as Record<string, unknown>;
   const existingLlm = (typeof existingTtsConfig.llm === "object" && existingTtsConfig.llm !== null ? existingTtsConfig.llm : {}) as Record<string, unknown>;
   const existingN8n = (typeof existingTtsConfig.n8n === "object" && existingTtsConfig.n8n !== null ? existingTtsConfig.n8n : {}) as Record<string, unknown>;
@@ -578,16 +583,16 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
 
     const settings = await upsertStarterAgentSettings({
       deviceId,
-      agentName: input.agentName ?? existing?.agentName ?? "coziyoo-agent",
-      voiceLanguage: input.voiceLanguage ?? existing?.voiceLanguage ?? "en",
-      ollamaModel: input.ollamaModel ?? existing?.ollamaModel ?? "llama3.1:8b",
-      ttsEngine: normalizeTtsEngine(existing?.ttsEngine),
-      ttsEnabled: input.ttsEnabled ?? existing?.ttsEnabled ?? true,
-      sttEnabled: input.sttEnabled ?? existing?.sttEnabled ?? true,
+      agentName: input.agentName ?? existing.agentName ?? "coziyoo-agent",
+      voiceLanguage: input.voiceLanguage ?? existing.voiceLanguage,
+      ollamaModel: input.ollamaModel ?? existing.ollamaModel,
+      ttsEngine: normalizeTtsEngine(existing.ttsEngine),
+      ttsEnabled: input.ttsEnabled ?? existing.ttsEnabled,
+      sttEnabled: input.sttEnabled ?? existing.sttEnabled,
       ttsConfig: mergedTtsConfig,
-      systemPrompt: input.systemPrompt ?? existing?.systemPrompt ?? undefined,
-      greetingEnabled: input.greetingEnabled ?? existing?.greetingEnabled ?? true,
-      greetingInstruction: input.greetingInstruction ?? existing?.greetingInstruction ?? undefined,
+      systemPrompt: input.systemPrompt ?? existing.systemPrompt ?? undefined,
+      greetingEnabled: input.greetingEnabled ?? existing.greetingEnabled,
+      greetingInstruction: input.greetingInstruction ?? existing.greetingInstruction ?? undefined,
     });
     return res.json({ data: settings });
   } catch (err) {

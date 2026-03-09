@@ -6,7 +6,12 @@ import { requireAuth } from "../middleware/auth.js";
 import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
 import { resolveProviders } from "../services/resolve-providers.js";
-import { getStarterAgentSettings, upsertStarterAgentSettings } from "../services/starter-agent-settings.js";
+import {
+  createDefaultStarterAgentSettings,
+  createDefaultStarterTtsConfig,
+  getStarterAgentSettings,
+  upsertStarterAgentSettings,
+} from "../services/starter-agent-settings.js";
 import { TTS_ENGINES } from "../services/tts-engines.js";
 import {
   buildRoomScopedAgentIdentity,
@@ -213,9 +218,11 @@ async function getStarterAgentSettingsWithDefault(deviceId: string | null | unde
   if (normalized.length > 0) {
     const deviceSettings = await getStarterAgentSettings(normalized);
     if (deviceSettings) return deviceSettings;
-    if (normalized === "default") return null;
+    const defaultSettings = await getStarterAgentSettings("default");
+    if (defaultSettings) return defaultSettings;
+    return createDefaultStarterAgentSettings(normalized);
   }
-  return getStarterAgentSettings("default");
+  return (await getStarterAgentSettings("default")) ?? createDefaultStarterAgentSettings("default");
 }
 
 function readProviderConfigFromTtsConfig(raw: Record<string, unknown> | null | undefined) {
@@ -243,7 +250,10 @@ function readProviderConfigFromTtsConfig(raw: Record<string, unknown> | null | u
 }
 
 function buildMergedTtsConfig(input: z.infer<typeof StarterAgentSettingsSchema>) {
-  const base = ((input.ttsConfig ?? {}) as Record<string, unknown>) ?? {};
+  const base = {
+    ...createDefaultStarterTtsConfig(),
+    ...(((input.ttsConfig ?? {}) as Record<string, unknown>) ?? {}),
+  };
   const current = readProviderConfigFromTtsConfig(base);
 
   const stt = {
