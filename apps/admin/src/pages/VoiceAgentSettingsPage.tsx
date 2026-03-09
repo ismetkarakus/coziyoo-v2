@@ -393,11 +393,12 @@ function CurlImportModal({ type, onImport, onClose }: {
 
 // ── SttRecordPanel ────────────────────────────────────────────────────────────
 
-function SttRecordPanel({ server, recording, transcribing, transcript, error, debugInfo, onStart, onStop }: {
+function SttRecordPanel({ server, recording, transcribing, transcript, responseBody, error, debugInfo, onStart, onStop }: {
   server: SttServer;
   recording: boolean;
   transcribing: boolean;
   transcript: string | null;
+  responseBody: string | null;
   error: string | null;
   debugInfo: string | null;
   onStart: () => void;
@@ -430,6 +431,12 @@ function SttRecordPanel({ server, recording, transcribing, transcript, error, de
         <div style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
           <div style={{ fontSize: "0.78em", fontWeight: 600, color: "var(--color-secondary-text)", marginBottom: "4px" }}>TRANSCRIPT</div>
           <div style={{ fontSize: "0.92em" }}>{transcript || <em style={{ opacity: 0.5 }}>empty</em>}</div>
+        </div>
+      )}
+      {responseBody !== null && (
+        <div style={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: "6px", padding: "0.75rem" }}>
+          <div style={{ fontSize: "0.78em", fontWeight: 600, color: "var(--color-secondary-text)", marginBottom: "4px" }}>RAW RESPONSE</div>
+          <pre style={{ margin: 0, fontSize: "0.82em", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{responseBody || "empty"}</pre>
         </div>
       )}
       {error && <div style={{ color: "#ef4444", fontSize: "0.85em" }}>{error}</div>}
@@ -568,6 +575,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const [sttRecording, setSttRecording] = useState(false);
   const [sttTranscribing, setSttTranscribing] = useState(false);
   const [sttTranscript, setSttTranscript] = useState<string | null>(null);
+  const [sttResponseBody, setSttResponseBody] = useState<string | null>(null);
   const [sttTestError, setSttTestError] = useState<string | null>(null);
   const [sttDebugInfo, setSttDebugInfo] = useState<string | null>(null);
 
@@ -878,6 +886,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
 
   const startSttRecording = async (server: SttServer) => {
     setSttTranscript(null);
+    setSttResponseBody(null);
     setSttTestError(null);
     setSttDebugInfo(null);
     try {
@@ -907,27 +916,42 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   };
 
   const sendSttRecording = async (server: SttServer) => {
+    type SttTranscribeResponse = {
+      data?: {
+        ok?: boolean;
+        status?: number;
+        url?: string;
+        reason?: string;
+        transcript?: string;
+        rawText?: string;
+        contentType?: string | null;
+      };
+      error?: { message?: string };
+    };
+
+    const toBase64 = async (blob: Blob) => {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let binary = "";
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    };
+
     const fullUrl = `${server.baseUrl.replace(/\/$/, "")}${server.transcribePath}`;
     setSttTranscribing(true);
     setSttTestError(null);
     setSttDebugInfo(null);
+    setSttResponseBody(null);
     try {
       const mimeType = sttChunksRef.current[0]?.type || "audio/webm";
       const blob = new Blob(sttChunksRef.current, { type: mimeType });
       if (blob.size === 0) { setSttTestError("Recording is empty — try again"); setSttTranscribing(false); return; }
 
-      const form = new FormData();
-      form.append("file", blob, "recording.webm");
-      if (server.model.trim()) form.append("model", server.model.trim());
       const extraLines: string[] = [];
       for (const [key, value] of Object.entries(server.queryParams)) {
-        if (key.trim()) { form.append(key.trim(), value); extraLines.push(`${key}=${value}`); }
-      }
-
-      const headers: Record<string, string> = {};
-      if (server.authHeader.trim()) {
-        const raw = server.authHeader.trim();
-        headers["Authorization"] = /\s/.test(raw) ? raw : `Bearer ${raw}`;
+        if (key.trim()) extraLines.push(`${key}=${value}`);
       }
 
       const debugLines = [
@@ -935,22 +959,41 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
         `file: recording.webm  type=${mimeType}  size=${blob.size} bytes`,
         server.model.trim() ? `model: ${server.model}` : null,
         ...extraLines,
-        server.authHeader.trim() ? `Authorization: ${headers["Authorization"]?.slice(0, 20)}…` : null,
+        server.authHeader.trim() ? `Authorization: ${server.authHeader.trim().slice(0, 20)}…` : null,
       ].filter(Boolean).join("\n");
       setSttDebugInfo(debugLines);
 
-      const res = await fetch(fullUrl, { method: "POST", headers, body: form });
-      const text = await res.text();
-      setSttDebugInfo(`${debugLines}\n\n→ HTTP ${res.status}\n${text.slice(0, 400)}`);
+      const res = await request("/v1/admin/livekit/test/stt/transcribe", {
+        method: "POST",
+        body: JSON.stringify({
+          baseUrl: server.baseUrl,
+          transcribePath: server.transcribePath,
+          model: server.model.trim() || undefined,
+          queryParams: server.queryParams,
+          authHeader: server.authHeader.trim() || undefined,
+          audioBase64: await toBase64(blob),
+          mimeType,
+          filename: "recording.webm",
+        }),
+      });
+      const json = await parseJson<SttTranscribeResponse>(res);
+      if (json.error) throw new Error(json.error.message ?? `HTTP ${res.status}`);
 
-      if (!res.ok) { setSttTestError(`HTTP ${res.status}: ${text.slice(0, 200)}`); return; }
+      const data = json.data;
+      const status = data?.status ?? 0;
+      const rawText = data?.rawText ?? "";
+      setSttResponseBody(rawText);
+      setSttDebugInfo(
+        `${debugLines}\n\n→ HTTP ${status}${data?.contentType ? `\ncontent-type: ${data.contentType}` : ""}${
+          data?.reason ? `\nreason: ${data.reason}` : ""
+        }`,
+      );
 
-      try {
-        const json = JSON.parse(text) as Record<string, unknown>;
-        setSttTranscript(String(json.text ?? json.transcript ?? json.transcription ?? text));
-      } catch {
-        setSttTranscript(text);
+      if (!data?.ok) {
+        setSttTestError(`HTTP ${status}: ${(rawText || data?.reason || "STT request failed").slice(0, 200)}`);
+        return;
       }
+      setSttTranscript((data?.transcript ?? "").trim() || rawText || "");
     } catch (err) {
       setSttTestError(err instanceof Error ? err.message : "STT request failed");
     } finally {
@@ -1025,7 +1068,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                     <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }}
                       onClick={() => {
                         if (sttTestingServerId === server.id) { setSttTestingServerId(null); }
-                        else { setSttTestingServerId(server.id); setSttTranscript(null); setSttTestError(null); setSttDebugInfo(null); }
+                        else { setSttTestingServerId(server.id); setSttTranscript(null); setSttResponseBody(null); setSttTestError(null); setSttDebugInfo(null); }
                       }}>
                       {sttTestingServerId === server.id ? "Close Test" : "🎤 Test"}
                     </button>
@@ -1067,6 +1110,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                   recording={sttRecording}
                   transcribing={sttTranscribing}
                   transcript={sttTranscript}
+                  responseBody={sttResponseBody}
                   error={sttTestError}
                   debugInfo={sttDebugInfo}
                   onStart={() => startSttRecording(server as SttServer)}

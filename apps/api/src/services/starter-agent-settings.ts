@@ -77,7 +77,7 @@ function toOptionalBearerHeader(apiKey: string | undefined): string | null {
 }
 
 export function createDefaultStarterTtsConfig() {
-  const sttAuthHeader = toOptionalBearerHeader(env.SPEECH_TO_TEXT_API_KEY);
+  const sttAuthHeader = toOptionalBearerHeader(env.SPEECH_TO_TEXT_API_KEY) ?? "Bearer your-strong-secret";
 
   return {
     baseUrl: "https://chatter.drascom.uk",

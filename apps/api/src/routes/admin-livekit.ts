@@ -626,6 +626,17 @@ const TestSttSchema = z.object({
   transcribePath: z.string().optional(),
 });
 
+const TestSttTranscribeSchema = z.object({
+  baseUrl: z.string().min(1),
+  transcribePath: z.string().optional(),
+  model: z.string().max(256).optional(),
+  queryParams: z.record(z.string(), z.string()).optional(),
+  authHeader: z.string().max(512).optional(),
+  audioBase64: z.string().min(1),
+  mimeType: z.string().max(128).optional(),
+  filename: z.string().max(256).optional(),
+});
+
 adminLiveKitRouter.post("/test/stt", async (req, res) => {
   const parsed = TestSttSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -638,6 +649,93 @@ adminLiveKitRouter.post("/test/stt", async (req, res) => {
     return res.json({ data: { ok: true, status: response.status, url } });
   } catch (err) {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
+  }
+});
+
+function extractSttTranscript(rawText: string): string {
+  if (!rawText) return "";
+  try {
+    const parsed = JSON.parse(rawText) as Record<string, unknown>;
+    const candidate = parsed.text ?? parsed.transcript ?? parsed.transcription;
+    if (typeof candidate === "string") return candidate;
+  } catch {
+    // no-op
+  }
+  return rawText;
+}
+
+adminLiveKitRouter.post("/test/stt/transcribe", async (req, res) => {
+  const parsed = TestSttTranscribeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const {
+    baseUrl,
+    transcribePath = "/v1/audio/transcriptions",
+    model,
+    queryParams,
+    authHeader,
+    audioBase64,
+    mimeType,
+    filename,
+  } = parsed.data;
+
+  let url = `${baseUrl.replace(/\/$/, "")}${transcribePath}`;
+  if (queryParams && Object.keys(queryParams).length > 0) {
+    const qs = new URLSearchParams(queryParams).toString();
+    url = `${url}?${qs}`;
+  }
+
+  const headers: Record<string, string> = {};
+  if (authHeader?.trim()) {
+    const raw = authHeader.trim();
+    headers.Authorization = /\s/.test(raw) ? raw : `Bearer ${raw}`;
+  }
+
+  try {
+    const audioBytes = Buffer.from(audioBase64, "base64");
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([audioBytes], { type: mimeType?.trim() || "audio/webm" }),
+      filename?.trim() || "recording.webm",
+    );
+    if (model?.trim()) {
+      form.append("model", model.trim());
+    }
+
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers,
+      body: form,
+      signal: AbortSignal.timeout(45_000),
+    });
+
+    const rawText = await upstream.text().catch(() => "");
+    const transcript = extractSttTranscript(rawText);
+    return res.json({
+      data: {
+        ok: upstream.ok,
+        status: upstream.status,
+        url,
+        transcript,
+        rawText,
+        contentType: upstream.headers.get("content-type"),
+      },
+    });
+  } catch (err) {
+    return res.json({
+      data: {
+        ok: false,
+        status: 0,
+        url,
+        reason: err instanceof Error ? err.message : "STT request failed",
+        transcript: "",
+        rawText: "",
+        contentType: null,
+      },
+    });
   }
 });
 
