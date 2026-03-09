@@ -21,13 +21,23 @@ export function printModalContent(target: HTMLElement | null) {
       target.classList.remove("print-target-modal", tempTargetClass);
     }
     window.removeEventListener("afterprint", onAfterPrint);
+    window.removeEventListener("focus", onFocus, true);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
   };
 
   const onAfterPrint = () => cleanup();
+  const onFocus = () => {
+    if (document.visibilityState === "visible") cleanup();
+  };
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "visible") cleanup();
+  };
+
   window.addEventListener("afterprint", onAfterPrint);
+  window.addEventListener("focus", onFocus, true);
+  document.addEventListener("visibilitychange", onVisibilityChange);
 
   window.setTimeout(() => {
     window.print();
-    window.setTimeout(cleanup, 2500);
   }, 0);
 }
