@@ -2792,50 +2792,6 @@ textarea:focus {
   gap: 6px;
 }
 
-@media print {
-  body.modal-print-active * {
-    visibility: hidden !important;
-  }
-
-  body.modal-print-active .print-target-modal,
-  body.modal-print-active .print-target-modal * {
-    visibility: visible !important;
-    color: #0b1120 !important;
-    background: transparent !important;
-    border-color: #d5dbe8 !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
-  }
-
-  body.modal-print-active .buyer-ops-modal-backdrop {
-    position: static !important;
-    inset: auto !important;
-    background: transparent !important;
-    backdrop-filter: none !important;
-    padding: 0 !important;
-    display: block !important;
-    visibility: visible !important;
-  }
-
-  body.modal-print-active .print-target-modal {
-    position: static !important;
-    width: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    overflow: visible !important;
-    border-radius: 0 !important;
-    border: 1px solid #d5dbe8 !important;
-    box-shadow: none !important;
-    background: #fff !important;
-    color: #0b1120 !important;
-    padding: 12px !important;
-    display: block !important;
-  }
-
-  body.modal-print-active .buyer-ops-modal-actions {
-    display: none !important;
-  }
-}
 
 .buyer-ref-head {
   display: grid;
