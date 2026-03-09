@@ -95,6 +95,74 @@ export function sanitizeSeedText(value: string | null | undefined): string | nul
   return cleaned || null;
 }
 
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("tr-TR");
+}
+
+export function formatNoteStamp(value: string | null | undefined, language: Language = "tr"): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString(language === "tr" ? "tr-TR" : "en-US", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function toRelativeTimeTR(value: string): string {
+  const diff = Date.now() - new Date(value).getTime();
+  const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
+  if (hours < 1) return "Şimdi";
+  if (hours < 24) return `${hours} saat önce`;
+  const days = Math.floor(hours / 24);
+  return `${days} gün önce`;
+}
+
+export function toRelativeDaysTR(iso: string | null | undefined, missingText: string): string {
+  if (!iso) return missingText;
+  const ms = Date.now() - new Date(iso).getTime();
+  const days = Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+  if (days === 0) return "Bugün";
+  if (days === 1) return "1 gün önce";
+  return `${days} gün önce`;
+}
+
+export function toLocalDateKey(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function formatCustomDateInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  const day = digits.slice(0, 2);
+  const month = digits.slice(2, 4);
+  const year = digits.slice(4, 8);
+  if (digits.length <= 2) return day;
+  if (digits.length <= 4) return `${day}/${month}`;
+  return `${day}/${month}/${year}`;
+}
+
+export function parseCustomDateToKey(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 8) return "";
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4, 8));
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return "";
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return "";
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 export function formatLoginRelativeDayMonth(value: string | null | undefined, language: Language): string {
   if (!value) return "-";
   const date = Date.parse(value);

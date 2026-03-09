@@ -1,19 +1,6 @@
+import { formatCurrency } from "../../lib/format";
+import { paymentBadge } from "../../lib/status";
 import type { BuyerOrderRow, BuyerPagination } from "../../types/buyer";
-
-function paymentLabel(status: string) {
-  const normalized = status.toLowerCase();
-  if (normalized.includes("fail") || normalized.includes("cancel") || normalized.includes("declin")) {
-    return { text: "Başarısız", cls: "is-failed" };
-  }
-  if (normalized.includes("pending") || normalized.includes("wait")) {
-    return { text: "Bekliyor", cls: "is-pending" };
-  }
-  return { text: "Başarılı", cls: "is-success" };
-}
-
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2 }).format(value);
-}
 
 export function BuyerOrdersHistoryTable({
   orders,
@@ -48,7 +35,7 @@ export function BuyerOrdersHistoryTable({
               </tr>
             ) : (
               orders.map((order) => {
-                const badge = paymentLabel(order.paymentStatus);
+                const badge = paymentBadge(order.paymentStatus);
                 return (
                   <tr key={order.orderId}>
                     <td>{new Date(order.createdAt).toLocaleString("tr-TR")}</td>
@@ -65,7 +52,7 @@ export function BuyerOrdersHistoryTable({
                         ))}
                       </div>
                     </td>
-                    <td>{formatPrice(order.totalAmount)}</td>
+                    <td>{formatCurrency(order.totalAmount, "tr")}</td>
                     <td>
                       <span className={`buyer-payment-badge ${badge.cls}`}>{badge.text}</span>
                     </td>

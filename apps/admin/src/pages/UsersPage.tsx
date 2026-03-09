@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { Pager, KpiCard, ExcelExportButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
-import { fmt, toDisplayId, formatTableHeader, formatCurrency, formatUiDate, formatLoginRelativeDayMonth, adminRoleLabel } from "../lib/format";
+import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth } from "../lib/format";
 import { BUYER_SMART_FILTER_ITEMS, SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
-import type { Language, ApiError, Dictionary } from "../types/core";
+import type { Language, ApiError } from "../types/core";
 import type { UserKind, ColumnMeta, DensityMode, BuyerSmartFilterKey } from "../types/users";
 import type { SellerSmartFilterKey } from "../types/seller";
 
@@ -884,13 +884,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     return { symbol: "•", className: "is-flat" };
   }
 
-  function formatTry(value: number): string {
-    return new Intl.NumberFormat(language === "tr" ? "tr-TR" : "en-US", {
-      style: "currency",
-      currency: "TRY",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
 
   function exportCellValue(row: any, columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -943,7 +936,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       String(Number(row.complaintResolved ?? 0)),
       String(Number(row.complaintUnresolved ?? 0)),
       `${trendArrow(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)).symbol} ${Number(row.monthlyOrderCountCurrent ?? 0)} / ${Number(row.monthlyOrderCountPrevious ?? 0)}`,
-      `${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${formatTry(Number(row.monthlySpentCurrent ?? 0))} / ${formatTry(Number(row.monthlySpentPrevious ?? 0))}`,
+      `${trendArrow(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)).symbol} ${formatCurrency(Number(row.monthlySpentCurrent ?? 0), language)} / ${formatCurrency(Number(row.monthlySpentPrevious ?? 0), language)}`,
     ]);
 
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
@@ -967,7 +960,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       row.status === "disabled" ? "Pasif" : "Aktif",
       String(sellerTotalFoods(row)),
       String(sellerOrderCurrent(row)),
-      formatTry(sellerRevenue(row)),
+      formatCurrency(sellerRevenue(row), language),
     ]);
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
@@ -1677,7 +1670,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td>
                           <div className="buyer-spend-cell">
-                            <strong>{formatTry(spendCurrent)}</strong>
+                            <strong>{formatCurrency(spendCurrent, language)}</strong>
                             <span className={`buyer-trend ${spendTrendMeta.className}`}>{spendTrendMeta.symbol}</span>
                             {spendDelta === 0 ? <span className="buyer-dot">•</span> : null}
                           </div>
@@ -2155,7 +2148,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </td>
                           <td>
                             <div className={`buyer-trend ${spendTrendMeta.className}`}>
-                              <strong>{formatTry(Number(row.monthlySpentCurrent ?? 0))}</strong>
+                              <strong>{formatCurrency(Number(row.monthlySpentCurrent ?? 0), language)}</strong>
                               <span>{spendTrendMeta.symbol}</span>
                             </div>
                           </td>

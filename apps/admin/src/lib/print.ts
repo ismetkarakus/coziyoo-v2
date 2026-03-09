@@ -19,5 +19,5 @@ export function printModalContent(target: HTMLElement | null, bodyClass = "modal
   window.setTimeout(() => {
     window.print();
     window.setTimeout(cleanup, 2000);
-  }, 0);
+  }, 80);
 }

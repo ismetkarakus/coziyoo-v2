@@ -1,8 +1,8 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
-import { DICTIONARIES } from "../../lib/i18n";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
+import { NotesPanel } from "../../components/NotesPanel";
 import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
@@ -76,19 +76,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [optionalRejectTargetId, setOptionalRejectTargetId] = useState<string | null>(null);
   const [optionalRejectReason, setOptionalRejectReason] = useState("");
   const [profileImageFailed, setProfileImageFailed] = useState(false);
-  const [foodImageErrors, setFoodImageErrors] = useState<Record<string, boolean>>({});
+  const [, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
   const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
   const [expandedFoodIds, setExpandedFoodIds] = useState<Record<string, boolean>>({});
   const [expandedLotIds, setExpandedLotIds] = useState<Record<string, boolean>>({});
   const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string }>>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
-  const [noteInput, setNoteInput] = useState("");
-  const [tagInput, setTagInput] = useState("");
-  const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteValue, setEditingNoteValue] = useState("");
-  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [lotsLoading, setLotsLoading] = useState(false);
   const [lotsError, setLotsError] = useState<string | null>(null);
   const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
@@ -241,12 +235,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setExpandedLotIds({});
     setNoteItems([]);
     setTagItems([]);
-    setNoteInput("");
-    setTagInput("");
-    setOpenNoteMenuId(null);
-    setEditingNoteId(null);
-    setEditingNoteValue("");
-    setSavingNoteId(null);
     setLotOrdersLoadingByLotId({});
     setLotOrdersErrorByLotId({});
     setLotsError(null);
@@ -800,21 +788,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     URL.revokeObjectURL(url);
   }
 
-  function openNoteCard(noteId: string) {
-    if (editingNoteId && editingNoteId !== noteId) {
-      setEditingNoteId(null);
-      setEditingNoteValue("");
-    }
-    setOpenNoteMenuId(noteId);
-  }
-
-  async function addSellerNote() {
-    const trimmed = noteInput.trim();
-    if (!trimmed) return;
+  async function handleAddNote(text: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/sellers/${id}/notes`, {
         method: "POST",
-        body: JSON.stringify({ note: trimmed }),
+        body: JSON.stringify({ note: text }),
       });
       if (response.status >= 200 && response.status < 300) {
         const body = await parseJson<{ data?: { id: string; note: string; createdAt: string } } & ApiError>(response);
@@ -823,119 +801,78 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         } else {
           await loadSellerDetail();
         }
-        setNoteInput("");
-        return;
+      } else {
+        setMessage(language === "tr" ? "Not kaydedilemedi." : "Failed to save note.");
       }
-      setMessage(language === "tr" ? "Not kaydedilemedi." : "Failed to save note.");
     } catch {
       setMessage(language === "tr" ? "Not kaydedilemedi." : "Failed to save note.");
     }
   }
 
-  async function addSellerTag() {
-    const trimmed = tagInput.trim();
-    if (!trimmed) return;
+  async function handleAddTag(tag: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/sellers/${id}/tags`, {
         method: "POST",
-        body: JSON.stringify({ tag: trimmed }),
+        body: JSON.stringify({ tag }),
       });
       if (response.status >= 200 && response.status < 300) {
-        if (!tagItems.includes(trimmed)) {
-          setTagItems((prev) => [trimmed, ...prev].slice(0, 16));
+        if (!tagItems.includes(tag)) {
+          setTagItems((prev) => [tag, ...prev].slice(0, 16));
         }
-        setTagInput("");
-        return;
+      } else {
+        setMessage(language === "tr" ? "Etiket kaydedilemedi." : "Failed to save tag.");
       }
-      setMessage(language === "tr" ? "Etiket kaydedilemedi." : "Failed to save tag.");
     } catch {
       setMessage(language === "tr" ? "Etiket kaydedilemedi." : "Failed to save tag.");
     }
   }
 
-  async function deleteSellerTag(tag: string) {
-    const value = String(tag ?? "").trim();
-    if (!value) return;
+  async function handleDeleteTag(tag: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/sellers/${id}/tags`, {
         method: "DELETE",
-        body: JSON.stringify({ tag: value }),
+        body: JSON.stringify({ tag }),
       });
       if (response.status === 204) {
-        setTagItems((prev) => prev.filter((item) => item !== value));
-        return;
+        setTagItems((prev) => prev.filter((item) => item !== tag));
+      } else {
+        setMessage(language === "tr" ? "Etiket silinemedi." : "Failed to delete tag.");
       }
-      setMessage(language === "tr" ? "Etiket silinemedi." : "Failed to delete tag.");
     } catch {
       setMessage(language === "tr" ? "Etiket silinemedi." : "Failed to delete tag.");
     }
   }
 
-  async function deleteSellerNote(noteId: string) {
+  async function handleDeleteNote(noteId: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/sellers/${id}/notes/${noteId}`, { method: "DELETE" });
       if (response.status === 204) {
         setNoteItems((prev) => prev.filter((item) => item.id !== noteId));
-        setOpenNoteMenuId(null);
-        if (editingNoteId === noteId) {
-          setEditingNoteId(null);
-          setEditingNoteValue("");
-        }
-        return;
+      } else {
+        setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
       }
-      setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
     } catch {
       setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
     }
   }
 
-  async function saveEditedSellerNote(noteId: string) {
-    if (savingNoteId === noteId) return;
-    const trimmed = editingNoteValue.trim();
-    if (!trimmed) {
-      setMessage(language === "tr" ? "Not bos olamaz." : "Note cannot be empty.");
-      return;
-    }
-    const current = noteItems.find((item) => item.id === noteId);
-    if (current && current.note.trim() === trimmed) {
-      setEditingNoteId(null);
-      setEditingNoteValue("");
-      setOpenNoteMenuId(null);
-      return;
-    }
-    setSavingNoteId(noteId);
+  async function handleSaveNote(noteId: string, newText: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/sellers/${id}/notes/${noteId}`, {
         method: "PATCH",
-        body: JSON.stringify({ note: trimmed }),
+        body: JSON.stringify({ note: newText }),
       });
       if (response.status === 200) {
         const body = await parseJson<{ data?: { id: string; note: string; createdAt: string } } & ApiError>(response);
         if (body.data?.id) {
           setNoteItems((prev) => prev.map((item) => (item.id === noteId ? (body.data as { id: string; note: string; createdAt: string }) : item)));
         }
-        setEditingNoteId(null);
-        setEditingNoteValue("");
-        setOpenNoteMenuId(null);
         return;
       }
-      setMessage(language === "tr" ? "Not guncellenemedi." : "Failed to update note.");
+      setMessage(language === "tr" ? "Not güncellenemedi." : "Failed to update note.");
     } catch {
-      setMessage(language === "tr" ? "Not guncellenemedi." : "Failed to update note.");
-    } finally {
-      setSavingNoteId(null);
+      setMessage(language === "tr" ? "Not güncellenemedi." : "Failed to update note.");
     }
-  }
-
-  function formatNoteStamp(value: string) {
-    const date = Date.parse(String(value ?? ""));
-    if (Number.isNaN(date)) return "-";
-    return new Date(date).toLocaleString(language === "tr" ? "tr-TR" : "en-US", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   }
 
   const sellerRawPayload = {
@@ -2045,127 +1982,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ) : null}
 
       {activeTab === "notes" ? (
-        <section className="panel buyer-ref-main-panel seller-notes-panel">
-          <div className="panel-header seller-notes-header">
-            <h2>{dict.detail.sellerTabs.notes}</h2>
-            <span className="seller-notes-count-pill">{`${noteItems.length} ${language === "tr" ? "Not" : "Notes"} | ${tagItems.length} ${language === "tr" ? "Etiket" : "Tags"}`}</span>
-          </div>
-          <div className="seller-notes-layout">
-            <div className="seller-notes-col">
-              <p className="seller-notes-col-title">{language === "tr" ? "Notlar" : "Notes"}</p>
-              <div className="seller-notes-input-row">
-                <input
-                  value={noteInput}
-                  onChange={(event) => setNoteInput(event.target.value)}
-                  placeholder={language === "tr" ? "Not yaz..." : "Type note..."}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    void addSellerNote();
-                  }}
-                />
-                <button className="ghost seller-notes-add-btn" type="button" onClick={() => void addSellerNote()}>
-                  {language === "tr" ? "Not Ekle" : "Add Note"}
-                </button>
-              </div>
-              <div className="buyer-ref-note-list seller-note-list">
-                {noteItems.length === 0 ? (
-                  <p className="panel-meta">{language === "tr" ? "Henüz not yok." : "No notes yet."}</p>
-                ) : (
-                  noteItems.map((note) => (
-                    <article
-                      key={`seller-note-${note.id}`}
-                      className={`buyer-ref-note-item seller-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
-                      onClick={() => openNoteCard(note.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        const target = event.target as HTMLElement | null;
-                        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
-                          return;
-                        }
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          openNoteCard(note.id);
-                        }
-                      }}
-                    >
-                      {editingNoteId === note.id ? (
-                        <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
-                          <input
-                            value={editingNoteValue}
-                            onChange={(event) => setEditingNoteValue(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                void saveEditedSellerNote(note.id);
-                              }
-                            }}
-                            onBlur={() => {
-                              void saveEditedSellerNote(note.id);
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="seller-note-item-row">
-                          <p>{note.note}</p>
-                          <div className="seller-note-item-meta">
-                            <span>{formatNoteStamp(note.createdAt)}</span>
-                            <button
-                              className="ghost seller-note-inline-edit"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setEditingNoteId(note.id);
-                                setEditingNoteValue(note.note);
-                              }}
-                            >
-                              ✎
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {editingNoteId !== note.id && openNoteMenuId === note.id ? (
-                        <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
-                          <button className="ghost is-danger" type="button" onClick={() => void deleteSellerNote(note.id)}>
-                            {language === "tr" ? "Sil" : "Delete"}
-                          </button>
-                        </div>
-                      ) : null}
-                    </article>
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="seller-notes-col">
-              <p className="seller-notes-col-title">{language === "tr" ? "Etiketler" : "Tags"}</p>
-              <div className="seller-notes-input-row">
-                <input
-                  value={tagInput}
-                  onChange={(event) => setTagInput(event.target.value)}
-                  placeholder={language === "tr" ? "Etiket yaz..." : "Type tag..."}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    void addSellerTag();
-                  }}
-                />
-                <button className="ghost seller-notes-add-btn is-tag" type="button" onClick={() => void addSellerTag()}>
-                  {language === "tr" ? "Etiket Ekle" : "Add Tag"}
-                </button>
-              </div>
-              <div className="buyer-ops-tag-list seller-tag-list">
-                {tagItems.map((tag) => (
-                  <span key={`seller-tag-${tag}`} className="buyer-ops-tag">
-                    <span>{tag}</span>
-                    <button className="buyer-ops-tag-remove" type="button" onClick={() => void deleteSellerTag(tag)} aria-label={`Sil ${tag}`}>×</button>
-                  </span>
-                ))}
-              </div>
-              {tagItems.length === 0 ? <p className="panel-meta">{language === "tr" ? "Henüz etiket eklenmemiş." : "No tags yet."}</p> : null}
-            </div>
-          </div>
-        </section>
+        <NotesPanel
+          noteItems={noteItems}
+          tagItems={tagItems}
+          language={language}
+          title={dict.detail.sellerTabs.notes}
+          onAddNote={handleAddNote}
+          onDeleteNote={handleDeleteNote}
+          onSaveNote={handleSaveNote}
+          onAddTag={handleAddTag}
+          onDeleteTag={handleDeleteTag}
+        />
       ) : null}
 
       {activeTab === "raw" ? (

@@ -1,16 +1,13 @@
-import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
-import { DICTIONARIES } from "../../lib/i18n";
 import { ExcelExportButton, QuickAccessMenu } from "../../components/ui";
-import { fmt, toDisplayId, formatUiDate, formatLoginRelativeDayMonth, maskEmail, maskPhone, addTwoYears } from "../../lib/format";
-import { openQuickEmail } from "../../lib/compliance";
+import { NotesPanel } from "../../components/NotesPanel";
+import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatDateTime, toRelativeTimeTR, toLocalDateKey, formatCustomDateInput, parseCustomDateToKey } from "../../lib/format";
+import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
-import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../../lib/lots";
-import { foodMetadataByName, isPlaceholderIngredients, resolveFoodIngredients, resolveFoodImageUrl } from "../../lib/food";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { BuyerDetailTab } from "../../types/users";
-import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerDetail, BuyerContactInfo, BuyerLoginLocation, BuyerOrderRow, BuyerCancellationRow, BuyerReviewRow, BuyerSummaryMetrics, BuyerPagination } from "../../types/buyer";
 
 type BuyerNoteItem = {
@@ -43,8 +40,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
   const [emailBody, setEmailBody] = useState("Merhaba,");
   const [noteInput, setNoteInput] = useState("");
-  const [mainNoteInput, setMainNoteInput] = useState("");
-  const [mainTagInput, setMainTagInput] = useState("");
   const [sidebarNoteMode, setSidebarNoteMode] = useState<"note" | "tag">("note");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -52,99 +47,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [orderSearch, setOrderSearch] = useState("");
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
-  const noteListRef = useRef<HTMLDivElement | null>(null);
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
-  const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteValue, setEditingNoteValue] = useState("");
-  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
-
-  function paymentBadge(status: string) {
-    const normalized = status.toLowerCase();
-    if (normalized.includes("fail") || normalized.includes("cancel") || normalized.includes("declin")) {
-      return { text: "Basarisiz", cls: "is-failed" };
-    }
-    if (normalized.includes("pending") || normalized.includes("wait")) {
-      return { text: "Bekliyor", cls: "is-pending" };
-    }
-    return { text: "Basarili", cls: "is-success" };
-  }
-
-  function orderStatusLabel(status: string) {
-    const normalized = status.toLowerCase();
-    if (normalized.includes("cancel")) return "Iptal";
-    if (normalized.includes("deliver")) return "Teslim Edildi";
-    if (normalized.includes("done")) return "Tamamlandi";
-    if (normalized.includes("approve")) return "Onaylandi";
-    if (normalized.includes("pending")) return "Bekliyor";
-    return status;
-  }
-
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2 }).format(value);
-  }
-
-  function formatDate(value: string) {
-    return new Date(value).toLocaleString("tr-TR");
-  }
-
-  function formatNoteStamp(value: string) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleString("tr-TR", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  function trend(current: number, previous: number) {
-    if (current > previous) return { arrow: "up", cls: "is-up" };
-    if (current < previous) return { arrow: "down", cls: "is-down" };
-    return { arrow: "flat", cls: "is-flat" };
-  }
-
-  function toRelative(value: string) {
-    const diff = Date.now() - new Date(value).getTime();
-    const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
-    if (hours < 1) return "Simdi";
-    if (hours < 24) return `${hours} saat once`;
-    const days = Math.floor(hours / 24);
-    return `${days} gun once`;
-  }
-
-  function toLocalDateKey(value: string) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function formatCustomDateInput(value: string) {
-    const digits = value.replace(/\D/g, "").slice(0, 8);
-    const day = digits.slice(0, 2);
-    const month = digits.slice(2, 4);
-    const year = digits.slice(4, 8);
-    if (digits.length <= 2) return day;
-    if (digits.length <= 4) return `${day}/${month}`;
-    return `${day}/${month}/${year}`;
-  }
-
-  function parseCustomDateToKey(value: string) {
-    const digits = value.replace(/\D/g, "");
-    if (digits.length !== 8) return "";
-    const day = Number(digits.slice(0, 2));
-    const month = Number(digits.slice(2, 4));
-    const year = Number(digits.slice(4, 8));
-    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return "";
-    const date = new Date(year, month - 1, day);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return "";
-    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
 
   async function loadBuyerDetail() {
     setLoading(true);
@@ -260,17 +164,10 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       if (actionMenuOpen && actionMenuWrapRef.current && !actionMenuWrapRef.current.contains(target)) {
         setActionMenuOpen(false);
       }
-      if (openNoteMenuId && noteListRef.current && !noteListRef.current.contains(target)) {
-        if (editingNoteId) {
-          saveEditedNote(editingNoteId).catch(() => undefined);
-        } else {
-          setOpenNoteMenuId(null);
-        }
-      }
     };
     document.addEventListener("mousedown", onDocumentMouseDown);
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [quickContactMenuOpen, actionMenuOpen, openNoteMenuId, editingNoteId]);
+  }, [quickContactMenuOpen, actionMenuOpen]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
@@ -323,9 +220,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
     return { level, reasons };
   }, [openComplaints, cancellations30d, failedPayments]);
-
-  const orderTrend = trend(summary?.monthlyOrderCountCurrent ?? 0, summary?.monthlyOrderCountPrevious ?? 0);
-  const spendTrend = trend(summary?.monthlySpentCurrent ?? 0, summary?.monthlySpentPrevious ?? 0);
 
   const activityRows = useMemo(() => {
     const orderEvents = orders.slice(0, 5).map((order) => ({
@@ -422,14 +316,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
   }
 
-  function openNoteCard(noteId: string) {
-    if (editingNoteId && editingNoteId !== noteId) {
-      setEditingNoteId(null);
-      setEditingNoteValue("");
-    }
-    setOpenNoteMenuId(noteId);
-  }
-
   async function sendSms() {
     if (!smsMessage.trim()) {
       setMessage("SMS icerigi bos olamaz.");
@@ -498,11 +384,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
     const headers = ["Tarih / Saat", "Siparis No", "Satici", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
     const rowsForExport = orders.map((order) => [
-      formatDate(order.createdAt),
+      formatDateTime(order.createdAt),
       order.orderNo,
       order.sellerName ?? order.sellerEmail ?? order.sellerId,
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
-      formatCurrency(order.totalAmount),
+      formatCurrency(order.totalAmount, "tr"),
       orderStatusLabel(order.status),
       paymentBadge(order.paymentStatus).text,
     ]);
@@ -518,14 +404,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     URL.revokeObjectURL(url);
   }
 
-  async function addNote(rawValue?: string, onSuccess?: () => void) {
-    const sourceValue = rawValue ?? noteInput;
-    const trimmed = sourceValue.trim();
-    if (!trimmed) return;
+  async function handleAddNote(text: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes`, {
         method: "POST",
-        body: JSON.stringify({ note: trimmed }),
+        body: JSON.stringify({ note: text }),
       });
       if (response.status >= 200 && response.status < 300) {
         const body = await parseJson<{ data?: BuyerNoteItem } & ApiError>(response);
@@ -533,11 +416,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
           setNoteItems((prev) => [body.data as BuyerNoteItem, ...prev]);
         } else {
           await loadBuyerDetail();
-        }
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          setNoteInput("");
         }
       } else {
         setMessage("Not kaydedilemedi.");
@@ -547,23 +425,15 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
-  async function addTag(rawValue?: string, onSuccess?: () => void) {
-    const sourceValue = rawValue ?? noteInput;
-    const trimmed = sourceValue.trim();
-    if (!trimmed) return;
+  async function handleAddTag(tag: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/buyers/${id}/tags`, {
         method: "POST",
-        body: JSON.stringify({ tag: trimmed }),
+        body: JSON.stringify({ tag }),
       });
       if (response.status >= 200 && response.status < 300) {
-        if (!tagItems.includes(trimmed)) {
-          setTagItems((prev) => [trimmed, ...prev].slice(0, 8));
-        }
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          setNoteInput("");
+        if (!tagItems.includes(tag)) {
+          setTagItems((prev) => [tag, ...prev].slice(0, 8));
         }
       } else {
         setMessage("Etiket kaydedilemedi.");
@@ -573,77 +443,51 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
-  async function deleteTag(tag: string) {
-    const value = String(tag ?? "").trim();
-    if (!value) return;
+  async function handleDeleteTag(tag: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/buyers/${id}/tags`, {
         method: "DELETE",
-        body: JSON.stringify({ tag: value }),
+        body: JSON.stringify({ tag }),
       });
       if (response.status === 204) {
-        setTagItems((prev) => prev.filter((item) => item !== value));
-        return;
+        setTagItems((prev) => prev.filter((item) => item !== tag));
+      } else {
+        setMessage("Etiket silinemedi.");
       }
-      setMessage("Etiket silinemedi.");
     } catch {
       setMessage("Etiket silinemedi.");
     }
   }
 
-  async function deleteNote(noteId: string) {
+  async function handleDeleteNote(noteId: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, { method: "DELETE" });
       if (response.status === 204) {
         setNoteItems((prev) => prev.filter((item) => item.id !== noteId));
-        setOpenNoteMenuId(null);
-        if (editingNoteId === noteId) {
-          setEditingNoteId(null);
-          setEditingNoteValue("");
-        }
-        return;
+      } else {
+        setMessage("Not silinemedi.");
       }
-      setMessage("Not silinemedi.");
     } catch {
       setMessage("Not silinemedi.");
     }
   }
 
-  async function saveEditedNote(noteId: string) {
-    if (savingNoteId === noteId) return;
-    const trimmed = editingNoteValue.trim();
-    if (!trimmed) {
-      setMessage("Not bos olamaz.");
-      return;
-    }
-    const current = noteItems.find((item) => item.id === noteId);
-    if (current && current.note.trim() === trimmed) {
-      setEditingNoteId(null);
-      setEditingNoteValue("");
-      setOpenNoteMenuId(null);
-      return;
-    }
-    setSavingNoteId(noteId);
+  async function handleSaveNote(noteId: string, newText: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, {
         method: "PATCH",
-        body: JSON.stringify({ note: trimmed }),
+        body: JSON.stringify({ note: newText }),
       });
       if (response.status === 200) {
         const body = await parseJson<{ data?: BuyerNoteItem } & ApiError>(response);
         if (body.data?.id) {
           setNoteItems((prev) => prev.map((item) => (item.id === noteId ? (body.data as BuyerNoteItem) : item)));
         }
-        setEditingNoteId(null);
-        setEditingNoteValue("");
-        setOpenNoteMenuId(null);
-        return;
+      } else {
+        setMessage("Not guncellenemedi.");
       }
-      setMessage("Not guncellenemedi.");
     } catch {
       setMessage("Not guncellenemedi.");
-    } finally {
-      setSavingNoteId(null);
     }
   }
 
@@ -676,7 +520,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
           <div className="buyer-ref-metric-head">
             <span className="buyer-ref-metric-icon is-trend" aria-hidden="true">⌁</span>
             <p>Son 30 Gun</p>
-            <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0)}</small>
+            <small className="buyer-ref-metric-head-meta is-accent">{formatCurrency(summary?.monthlySpentCurrent ?? 0, "tr")}</small>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
@@ -772,7 +616,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                     switchBuyerTab("activity");
                   }
                 }}>
-                  <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
+                  <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelativeTimeTR(item.at)}</p>
                   <p className="buyer-ref-activity-action">{item.action}</p>
                   <p className="panel-meta">{item.detail}</p>
                 </article>
@@ -789,7 +633,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               {tagItems.map((tag) => (
                 <span key={`general-${tag}`} className="buyer-ops-tag">
                   <span>{tag}</span>
-                  <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
+                  <button className="buyer-ops-tag-remove" type="button" onClick={() => void handleDeleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
                 </span>
               ))}
             </div>
@@ -800,9 +644,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     if (sidebarNoteMode === "tag") {
-                      addTag();
+                      void handleAddTag(noteInput).then(() => setNoteInput(""));
                     } else {
-                      addNote();
+                      void handleAddNote(noteInput).then(() => setNoteInput(""));
                     }
                   }
                 }}
@@ -810,20 +654,14 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <button
                 className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
                 type="button"
-                onClick={() => {
-                  setSidebarNoteMode("note");
-                  addNote();
-                }}
+                onClick={() => { setSidebarNoteMode("note"); void handleAddNote(noteInput).then(() => setNoteInput("")); }}
               >
                 Not
               </button>
               <button
                 className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
                 type="button"
-                onClick={() => {
-                  setSidebarNoteMode("tag");
-                  addTag();
-                }}
+                onClick={() => { setSidebarNoteMode("tag"); void handleAddTag(noteInput).then(() => setNoteInput("")); }}
               >
                 Etiket
               </button>
@@ -871,7 +709,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         <tr key={`general-${item.key}`}>
                           <td>{item.label}</td>
                           <td>{item.count}</td>
-                          <td>{item.lastAt ? toRelative(item.lastAt) : "-"}</td>
+                          <td>{item.lastAt ? toRelativeTimeTR(item.lastAt) : "-"}</td>
                           <td>
                             <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab(item.key)}>
                               Ac
@@ -987,11 +825,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         return (
                           <tr key={order.orderId}>
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
-                            <td>{formatDate(order.createdAt)}</td>
+                            <td>{formatDateTime(order.createdAt)}</td>
                             <td className="buyer-order-no">{order.orderNo}</td>
                             <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId.slice(0, 10)}</td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
-                            <td>{formatCurrency(order.totalAmount)}</td>
+                            <td>{formatCurrency(order.totalAmount, "tr")}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
                             <td><span className="status-pill is-success">Aktif</span></td>
                           </tr>
@@ -1032,9 +870,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <tr><td colSpan={4}>Sikayet kaydi bulunamadi.</td></tr>
                     ) : cancellations.map((item) => (
                       <tr key={`${item.orderId}-${item.cancelledAt}`}>
-                        <td>{formatDate(item.cancelledAt)}</td>
+                        <td>{formatDateTime(item.cancelledAt)}</td>
                         <td className="buyer-order-no">{item.orderNo}</td>
-                        <td>{formatCurrency(item.totalAmount)}</td>
+                        <td>{formatCurrency(item.totalAmount, "tr")}</td>
                         <td>{item.reason ?? "-"}</td>
                       </tr>
                     ))}
@@ -1059,7 +897,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <tr><td colSpan={4}>Yorum kaydi bulunamadi.</td></tr>
                     ) : reviews.map((item) => (
                       <tr key={item.id}>
-                        <td>{formatDate(item.createdAt)}</td>
+                        <td>{formatDateTime(item.createdAt)}</td>
                         <td>{item.foodName}</td>
                         <td>{item.rating}/5</td>
                         <td>{item.comment ?? "-"}</td>
@@ -1074,7 +912,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <div className="buyer-ops-activity-mini buyer-ref-main-activity">
                 {activityRows.map((item: any) => (
                   <article key={`main-${item.id}-${item.at}`}>
-                    <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelative(item.at)}</p>
+                    <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelativeTimeTR(item.at)}</p>
                     <p className="buyer-ref-activity-action">{item.action}</p>
                     <p className="panel-meta">{item.detail}</p>
                   </article>
@@ -1083,125 +921,16 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             ) : null}
 
             {activeTab === "notes" ? (
-              <div className="buyer-ref-main-notes seller-notes-panel">
-                <div className="panel-header seller-notes-header">
-                  <h2>Notlar & Etiketler</h2>
-                  <span className="seller-notes-count-pill">{`${noteItems.length} Not | ${tagItems.length} Etiket`}</span>
-                </div>
-                <div className="seller-notes-layout">
-                  <div className="seller-notes-col">
-                    <p className="seller-notes-col-title">Notlar</p>
-                    <div className="seller-notes-input-row">
-                      <input
-                        value={mainNoteInput}
-                        onChange={(event) => setMainNoteInput(event.target.value)}
-                        placeholder=""
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") return;
-                          event.preventDefault();
-                          void addNote(mainNoteInput, () => setMainNoteInput(""));
-                        }}
-                      />
-                      <button className="ghost seller-notes-add-btn" type="button" onClick={() => void addNote(mainNoteInput, () => setMainNoteInput(""))}>
-                        Not Ekle
-                      </button>
-                    </div>
-                    <div className="buyer-ref-note-list seller-note-list" ref={noteListRef}>
-                      {noteItems.length === 0 ? (
-                        <p className="panel-meta">Henüz not yok.</p>
-                      ) : (
-                        noteItems.map((note) => (
-                          <article
-                            key={`main-note-${note.id}`}
-                            className={`buyer-ref-note-item seller-note-item ${openNoteMenuId === note.id ? "is-open" : ""} ${editingNoteId === note.id ? "is-editing" : ""}`}
-                            onClick={() => openNoteCard(note.id)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(event) => {
-                              const target = event.target as HTMLElement | null;
-                              if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
-                                return;
-                              }
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                openNoteCard(note.id);
-                              }
-                            }}
-                          >
-                            {editingNoteId === note.id ? (
-                              <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
-                                <input
-                                  value={editingNoteValue}
-                                  onChange={(event) => setEditingNoteValue(event.target.value)}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter") {
-                                      event.preventDefault();
-                                      saveEditedNote(note.id).catch(() => undefined);
-                                    }
-                                  }}
-                                  onBlur={() => {
-                                    saveEditedNote(note.id).catch(() => undefined);
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <div className="seller-note-item-row">
-                                <p>{note.note}</p>
-                                <div className="seller-note-item-meta">
-                                  <span>{formatNoteStamp(note.createdAt)}</span>
-                                  <button
-                                    className="ghost seller-note-inline-edit"
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setEditingNoteId(note.id);
-                                      setEditingNoteValue(note.note);
-                                    }}
-                                  >
-                                    ✎
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                            {editingNoteId !== note.id && openNoteMenuId === note.id ? (
-                              <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
-                                <button className="ghost is-danger" type="button" onClick={() => deleteNote(note.id)}>Sil</button>
-                              </div>
-                            ) : null}
-                          </article>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                  <div className="seller-notes-col">
-                    <p className="seller-notes-col-title">Etiketler</p>
-                    <div className="seller-notes-input-row">
-                      <input
-                        value={mainTagInput}
-                        onChange={(event) => setMainTagInput(event.target.value)}
-                        placeholder=""
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") return;
-                          event.preventDefault();
-                          void addTag(mainTagInput, () => setMainTagInput(""));
-                        }}
-                      />
-                      <button className="ghost seller-notes-add-btn is-tag" type="button" onClick={() => void addTag(mainTagInput, () => setMainTagInput(""))}>
-                        Etiket Ekle
-                      </button>
-                    </div>
-                    <div className="buyer-ops-tag-list seller-tag-list">
-                      {tagItems.map((tag) => (
-                        <span key={`main-${tag}`} className="buyer-ops-tag">
-                          <span>{tag}</span>
-                          <button className="buyer-ops-tag-remove" type="button" onClick={() => deleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
-                        </span>
-                      ))}
-                    </div>
-                    {tagItems.length === 0 ? <p className="panel-meta">Henüz etiket eklenmemiş.</p> : null}
-                  </div>
-                </div>
-              </div>
+              <NotesPanel
+                noteItems={noteItems}
+                tagItems={tagItems}
+                language={language}
+                onAddNote={handleAddNote}
+                onDeleteNote={handleDeleteNote}
+                onSaveNote={handleSaveNote}
+                onAddTag={handleAddTag}
+                onDeleteTag={handleDeleteTag}
+              />
             ) : null}
 
             {activeTab === "raw" ? (
