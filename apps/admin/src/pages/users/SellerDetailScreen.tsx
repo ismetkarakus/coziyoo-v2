@@ -1,5 +1,5 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
@@ -1704,9 +1704,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                         <tbody>
                                                           {lotOrders.map((order) => (
                                                             <tr key={`${lot.id}-${order.order_id}`}>
-                                                              <td>{`#${order.order_id.slice(0, 8).toUpperCase()}`}</td>
+                                                              <td>
+                                                                <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.order_id)}`}>
+                                                                  {`#${order.order_id.slice(0, 8).toUpperCase()}`}
+                                                                </Link>
+                                                              </td>
                                                               <td>{order.status}</td>
-                                                              <td>{order.buyer_id}</td>
+                                                              <td>
+                                                                {order.buyer_id ? (
+                                                                  <Link className="inline-copy" to={`/app/buyers/${order.buyer_id}`}>
+                                                                    {order.buyer_id}
+                                                                  </Link>
+                                                                ) : "-"}
+                                                              </td>
                                                               <td>{order.quantity_allocated}</td>
                                                               <td>{formatUiDate(order.created_at, language)}</td>
                                                             </tr>
@@ -1824,8 +1834,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             />
                           </td>
                           <td>{formatUiDate(order.createdAt, language)}</td>
-                          <td>{order.orderNo}</td>
-                          <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
+                          <td>
+                            <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
+                              {order.orderNo}
+                            </Link>
+                          </td>
+                          <td>
+                            {order.buyerId ? (
+                              <Link className="inline-copy" to={`/app/buyers/${order.buyerId}`}>
+                                {order.buyerName ?? order.buyerEmail ?? order.buyerId}
+                              </Link>
+                            ) : (order.buyerName ?? order.buyerEmail ?? "-")}
+                          </td>
                           <td>{foods || "-"}</td>
                           <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                           <td>{paymentText}</td>
@@ -1933,8 +1953,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           />
                         </td>
                         <td>{formatUiDate(order.createdAt, language)}</td>
-                        <td>{order.orderNo}</td>
-                        <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
+                        <td>
+                          <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
+                            {order.orderNo}
+                          </Link>
+                        </td>
+                        <td>
+                          {order.buyerId ? (
+                            <Link className="inline-copy" to={`/app/buyers/${order.buyerId}`}>
+                              {order.buyerName ?? order.buyerEmail ?? order.buyerId}
+                            </Link>
+                          ) : (order.buyerName ?? order.buyerEmail ?? "-")}
+                        </td>
                         <td>{paymentStateText(order.paymentStatus)}</td>
                         <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                       </tr>

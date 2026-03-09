@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { Pager, ExcelExportButton, PrintButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
@@ -8,13 +9,15 @@ import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
 export default function RecordsPage({ language, tableKey }: { language: Language; tableKey: "orders" | "foods" }) {
+  const location = useLocation();
   const dict = DICTIONARIES[language];
+  const urlSearchQuery = tableKey === "orders" ? (new URLSearchParams(location.search).get("search") ?? "").trim() : "";
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [userNameById, setUserNameById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(urlSearchQuery);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
@@ -495,6 +498,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       })
       .catch(() => undefined);
   }
+
+  useEffect(() => {
+    if (tableKey !== "orders") return;
+    setSearch(urlSearchQuery);
+    setPage(1);
+  }, [tableKey, urlSearchQuery]);
 
   useEffect(() => {
     setLoading(true);
