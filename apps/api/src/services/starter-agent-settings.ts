@@ -54,6 +54,7 @@ let ensureIsActivePromise: Promise<void> | null = null;
 const DEFAULT_STARTER_STT_SERVER_ID = "default-stt";
 const DEFAULT_STARTER_TTS_SERVER_ID = "default-tts";
 const DEFAULT_STARTER_LLM_SERVER_ID = "default-llm";
+const DEFAULT_STARTER_N8N_SERVER_ID = "default-n8n";
 const DEFAULT_STARTER_VOICE_LANGUAGE = "tr";
 const DEFAULT_STARTER_OLLAMA_MODEL = env.OLLAMA_CHAT_MODEL || "llama3.1:8b";
 
@@ -98,7 +99,9 @@ export function createDefaultStarterTtsConfig() {
       ollamaBaseUrl: "https://ollama.drascom.uk",
       authHeader: null,
     },
-    n8n: {},
+    n8n: {
+      baseUrl: "https://n8n.drascom.uk",
+    },
     sttServers: [
       {
         id: DEFAULT_STARTER_STT_SERVER_ID,
@@ -150,8 +153,15 @@ export function createDefaultStarterTtsConfig() {
       },
     ],
     defaultLlmServerId: DEFAULT_STARTER_LLM_SERVER_ID,
-    n8nServers: [],
-    defaultN8nServerId: "",
+    n8nServers: [
+      {
+        id: DEFAULT_STARTER_N8N_SERVER_ID,
+        name: "Default N8N",
+        enabled: true,
+        baseUrl: "https://n8n.drascom.uk",
+      },
+    ],
+    defaultN8nServerId: DEFAULT_STARTER_N8N_SERVER_ID,
   };
 }
 
