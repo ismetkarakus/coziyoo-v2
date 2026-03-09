@@ -1149,50 +1149,66 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
     ),
   ]);
 
-  const data = [
-    ...sellers.rows.map((row) => ({
+  const allKinds = [
+    sellers.rows.map((row) => ({
       kind: "seller",
       id: row.id,
       primaryText: row.display_name || row.email,
       secondaryText: `${row.email} • ${row.is_active ? "active" : "disabled"} • CUST-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/sellers/${row.id}`,
     })),
-    ...buyers.rows.map((row) => ({
+    buyers.rows.map((row) => ({
       kind: "buyer",
       id: row.id,
       primaryText: row.display_name || row.email,
       secondaryText: `${row.email} • ${row.is_active ? "active" : "disabled"} • CUST-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/buyers/${row.id}`,
     })),
-    ...foods.rows.map((row) => ({
+    foods.rows.map((row) => ({
       kind: "food",
       id: row.id,
       primaryText: row.name,
       secondaryText: `${row.seller_name || row.seller_email} • ${row.is_active ? "active" : "disabled"} • FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.id)}`,
     })),
-    ...orders.rows.map((row) => ({
+    orders.rows.map((row) => ({
       kind: "order",
       id: row.id,
       primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}`,
-      targetPath: `/app/buyers/${row.buyer_id}?tab=orders`,
+      targetPath: `/app/orders?search=${encodeURIComponent("#" + row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase())}`,
     })),
-    ...lots.rows.map((row) => ({
+    lots.rows.map((row) => ({
       kind: "lot",
       id: row.id,
       primaryText: row.lot_number,
       secondaryText: `${row.food_name || "food"} • ${row.seller_name || row.seller_email || "seller"} • ${row.status}`,
       targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.food_id)}&focusLotId=${encodeURIComponent(row.id)}`,
     })),
-    ...complaints.rows.map((row) => ({
+    complaints.rows.map((row) => ({
       kind: "complaint",
       id: row.id,
       primaryText: row.subject,
       secondaryText: `${row.status} • order #${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()} • ${row.buyer_name || row.buyer_email || "buyer"}`,
       targetPath: `/app/buyers/${row.buyer_id}?tab=complaints`,
     })),
-  ].slice(0, input.limit);
+  ];
+
+  // Interleave results across all kinds so every entity type gets fair representation.
+  // Without interleaving, a flat concat + slice(0, limit) would cut off orders/lots/complaints
+  // when sellers/buyers/foods already fill the limit.
+  const data: (typeof allKinds)[0] = [];
+  for (let i = 0; data.length < input.limit; i++) {
+    let added = false;
+    for (const kindArr of allKinds) {
+      if (i < kindArr.length) {
+        data.push(kindArr[i]);
+        added = true;
+        if (data.length >= input.limit) break;
+      }
+    }
+    if (!added) break;
+  }
 
   return res.json({ data });
 });
