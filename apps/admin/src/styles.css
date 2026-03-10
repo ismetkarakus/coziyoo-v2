@@ -880,6 +880,20 @@ h1 {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
+.investigation-page .investigation-click-row {
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.investigation-page .investigation-click-row:hover td {
+  background: color-mix(in srgb, var(--color-subtle-bg) 78%, transparent);
+}
+
+.investigation-page .investigation-click-row:focus-visible td {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 56%, transparent);
+  outline-offset: -2px;
+}
+
 button {
   border: 1px solid transparent;
   padding: 10px 18px;

@@ -213,12 +213,20 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="is-clickable" onClick={() => navigate(`/app/investigation/${row.id}`)}>
-                    <td>
-                      <button className="inline-copy" type="button" onClick={() => navigate(`/app/investigation/${row.id}`)}>
-                        {toDisplayId(row.id)}
-                      </button>
-                    </td>
+                  <tr
+                    key={row.id}
+                    className="investigation-click-row"
+                    onClick={() => navigate(`/app/investigation/${row.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate(`/app/investigation/${row.id}`);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <td>{toDisplayId(row.id)}</td>
                     <td>{row.orderNo}</td>
                     <td>{row.complainantBuyerName ?? row.complainantBuyerNo}</td>
                     <td>{row.categoryName ?? "-"}</td>
