@@ -5,26 +5,47 @@ import { ExcelExportButton } from "../components/ui";
 import { fmt, toDisplayId } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
+type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
+
+type ComplaintRow = {
+  id: string;
+  orderNo: string;
+  complainantBuyerNo: string;
+  complainantBuyerName?: string;
+  subject: string;
+  categoryName?: string | null;
+  createdAt: string;
+  status: ComplaintStatus;
+};
+
+type ComplaintNote = {
+  id: string;
+  complaintId: string;
+  note: string;
+  createdByAdminId: string;
+  createdByAdminEmail: string | null;
+  createdAt: string;
+};
+
 export default function InvestigationPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "in_review" | "resolved" | "closed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | ComplaintStatus>("all");
   const [page, setPage] = useState(1);
-  const [rows, setRows] = useState<
-    Array<{
-      id: string;
-      orderNo: string;
-      complainantBuyerNo: string;
-      subject: string;
-      createdAt: string;
-      status: "open" | "in_review" | "resolved" | "closed";
-    }>
-  >([]);
+  const [rows, setRows] = useState<ComplaintRow[]>([]);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
 
-  const statusText = (status: "open" | "in_review" | "resolved" | "closed") => {
+  const [selectedComplaint, setSelectedComplaint] = useState<ComplaintRow | null>(null);
+  const [notes, setNotes] = useState<ComplaintNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteInput, setNoteInput] = useState("");
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  const statusText = (status: ComplaintStatus) => {
     if (language === "tr") {
       if (status === "open") return "Açık";
       if (status === "in_review") return "İnceleniyor";
@@ -37,12 +58,86 @@ export default function InvestigationPage({ language }: { language: Language }) 
     return "Closed";
   };
 
-  const statusClass = (status: "open" | "in_review" | "resolved" | "closed") => {
+  const statusClass = (status: ComplaintStatus) => {
     if (status === "open") return "is-pending";
     if (status === "in_review") return "is-approved";
     if (status === "resolved") return "is-done";
     return "is-disabled";
   };
+
+  async function loadComplaintNotes(complaintId: string) {
+    setNotesLoading(true);
+    setModalError(null);
+    try {
+      const response = await request(`/v1/admin/investigations/complaints/${complaintId}/notes`);
+      const body = await parseJson<{ data?: ComplaintNote[] } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
+        setModalError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      setNotes(body.data);
+    } catch {
+      setModalError(dict.investigation.requestFailed);
+    } finally {
+      setNotesLoading(false);
+    }
+  }
+
+  async function openComplaintModal(row: ComplaintRow) {
+    setSelectedComplaint(row);
+    setNotes([]);
+    setNoteInput("");
+    await loadComplaintNotes(row.id);
+  }
+
+  async function updateComplaintStatus(nextStatus: ComplaintStatus) {
+    if (!selectedComplaint || statusSaving) return;
+    setStatusSaving(true);
+    setModalError(null);
+    try {
+      const response = await request(`/v1/admin/investigations/complaints/${selectedComplaint.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const body = await parseJson<{ data?: { status: ComplaintStatus } } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
+        setModalError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      setSelectedComplaint((prev) => (prev ? { ...prev, status: body.data!.status } : prev));
+      setRows((prev) => prev.map((item) => (item.id === selectedComplaint.id ? { ...item, status: body.data!.status } : item)));
+    } catch {
+      setModalError(dict.investigation.requestFailed);
+    } finally {
+      setStatusSaving(false);
+    }
+  }
+
+  async function addComplaintNote() {
+    if (!selectedComplaint || noteSaving) return;
+    const note = noteInput.trim();
+    if (!note) return;
+
+    setNoteSaving(true);
+    setModalError(null);
+    try {
+      const response = await request(`/v1/admin/investigations/complaints/${selectedComplaint.id}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+      const body = await parseJson<{ data?: ComplaintNote } & ApiError>(response);
+      if (response.status !== 201 || !body.data) {
+        setModalError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      setNoteInput("");
+      await loadComplaintNotes(selectedComplaint.id);
+    } catch {
+      setModalError(dict.investigation.requestFailed);
+    } finally {
+      setNoteSaving(false);
+    }
+  }
 
   async function downloadComplaintsAsExcel() {
     try {
@@ -53,16 +148,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
       });
       const response = await request(`/v1/admin/investigations/complaints?${exportQuery.toString()}`);
-      const body = await parseJson<{
-        data?: Array<{
-          id: string;
-          orderNo: string;
-          complainantBuyerNo: string;
-          subject: string;
-          createdAt: string;
-          status: "open" | "in_review" | "resolved" | "closed";
-        }>;
-      } & ApiError>(response);
+      const body = await parseJson<{ data?: ComplaintRow[] } & ApiError>(response);
       if (response.status !== 200 || !body.data) {
         setError(body.error?.message ?? dict.investigation.requestFailed);
         return;
@@ -75,16 +161,16 @@ export default function InvestigationPage({ language }: { language: Language }) 
       const headers = [
         "Display ID",
         language === "tr" ? "Sipariş Numarası" : "Order No",
-        language === "tr" ? "Alıcı Numarası" : "Buyer No",
-        language === "tr" ? "Konu" : "Subject",
+        language === "tr" ? "Alıcı" : "Buyer",
+        language === "tr" ? "Şikayet Kategorisi" : "Complaint Category",
         language === "tr" ? "Oluşturma Tarihi" : "Created At",
         language === "tr" ? "Durum" : "Status",
       ];
       const rowsForExport = body.data.map((row) => [
         toDisplayId(row.id),
         row.orderNo,
-        row.complainantBuyerNo,
-        row.subject,
+        row.complainantBuyerName ?? row.complainantBuyerNo,
+        row.categoryName ?? "-",
         new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US"),
         statusText(row.status),
       ]);
@@ -116,14 +202,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
       try {
         const response = await request(`/v1/admin/investigations/complaints?${query.toString()}`);
         const body = await parseJson<{
-          data?: Array<{
-            id: string;
-            orderNo: string;
-            complainantBuyerNo: string;
-            subject: string;
-            createdAt: string;
-            status: "open" | "in_review" | "resolved" | "closed";
-          }>;
+          data?: ComplaintRow[];
           pagination?: { total: number; totalPages: number };
         } & ApiError>(response);
         if (response.status !== 200 || !body.data || !body.pagination) {
@@ -206,8 +285,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
               <tr>
                 <th>Display ID</th>
                 <th>{language === "tr" ? "Sipariş Numarası" : "Order No"}</th>
-                <th>{language === "tr" ? "Alıcı Numarası" : "Buyer No"}</th>
-                <th>{language === "tr" ? "Konu" : "Subject"}</th>
+                <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                <th>{language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}</th>
                 <th>{language === "tr" ? "Oluşturma Tarihi" : "Created At"}</th>
                 <th>{language === "tr" ? "Durum" : "Status"}</th>
               </tr>
@@ -223,11 +302,15 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>{toDisplayId(row.id)}</td>
+                  <tr key={row.id} className="is-clickable" onClick={() => void openComplaintModal(row)}>
+                    <td>
+                      <button className="inline-copy" type="button" onClick={() => void openComplaintModal(row)}>
+                        {toDisplayId(row.id)}
+                      </button>
+                    </td>
                     <td>{row.orderNo}</td>
-                    <td>{row.complainantBuyerNo}</td>
-                    <td>{row.subject}</td>
+                    <td>{row.complainantBuyerName ?? row.complainantBuyerNo}</td>
+                    <td>{row.categoryName ?? "-"}</td>
                     <td>{new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
                     <td>
                       <span className={`status-pill ${statusClass(row.status)}`}>{statusText(row.status)}</span>
@@ -261,6 +344,101 @@ export default function InvestigationPage({ language }: { language: Language }) 
           </div>
         </div>
       </section>
+
+      <div className={`drawer-overlay ${selectedComplaint ? "is-open" : ""}`} onClick={() => setSelectedComplaint(null)}>
+        <section className={`settings-modal ${selectedComplaint ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
+          <div className="form-drawer-header">
+            <h2>{language === "tr" ? "Şikayet Detayı" : "Complaint Detail"}</h2>
+            <button className="ghost" type="button" onClick={() => setSelectedComplaint(null)}>
+              {language === "tr" ? "Kapat" : "Close"}
+            </button>
+          </div>
+
+          {selectedComplaint ? (
+            <>
+              <div className="form-grid">
+                <label>
+                  {language === "tr" ? "Sipariş Numarası" : "Order No"}
+                  <input value={selectedComplaint.orderNo} readOnly />
+                </label>
+                <label>
+                  {language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}
+                  <input value={selectedComplaint.categoryName ?? "-"} readOnly />
+                </label>
+                <label>
+                  {language === "tr" ? "Konu" : "Subject"}
+                  <input value={selectedComplaint.subject} readOnly />
+                </label>
+                <label>
+                  {language === "tr" ? "Alıcı" : "Buyer"}
+                  <input value={selectedComplaint.complainantBuyerName ?? selectedComplaint.complainantBuyerNo} readOnly />
+                </label>
+              </div>
+
+              <div>
+                <p className="panel-meta">{language === "tr" ? "Şikayet Durumu" : "Complaint Status"}</p>
+                <div className="topbar-actions">
+                  {(["open", "in_review", "resolved", "closed"] as ComplaintStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      className={selectedComplaint.status === status ? "primary" : "ghost"}
+                      type="button"
+                      disabled={statusSaving}
+                      onClick={() => void updateComplaintStatus(status)}
+                    >
+                      {statusText(status)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="panel-meta">{language === "tr" ? "Notlar" : "Notes"}</p>
+                <div className="form-grid">
+                  <label>
+                    {language === "tr" ? "Yeni Not" : "New Note"}
+                    <textarea value={noteInput} onChange={(event) => setNoteInput(event.target.value)} rows={3} />
+                  </label>
+                </div>
+                <div className="topbar-actions">
+                  <button className="primary" type="button" disabled={noteSaving} onClick={() => void addComplaintNote()}>
+                    {noteSaving ? dict.common.loading : dict.actions.save}
+                  </button>
+                </div>
+
+                {notesLoading ? (
+                  <p className="panel-meta">{dict.common.loading}</p>
+                ) : notes.length === 0 ? (
+                  <p className="panel-meta">{dict.common.noRecords}</p>
+                ) : (
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>{language === "tr" ? "Not" : "Note"}</th>
+                          <th>{language === "tr" ? "Yazan" : "Author"}</th>
+                          <th>{language === "tr" ? "Tarih" : "Date"}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {notes.map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.note}</td>
+                            <td>{item.createdByAdminEmail ?? item.createdByAdminId}</td>
+                            <td>{new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
+
+          {modalError ? <div className="alert">{modalError}</div> : null}
+        </section>
+      </div>
     </div>
   );
 }

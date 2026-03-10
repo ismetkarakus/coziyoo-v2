@@ -26,6 +26,7 @@ import { env } from "./config/env.js";
 import { liveKitRouter } from "./routes/livekit.js";
 import { adminLiveKitRouter } from "./routes/admin-livekit.js";
 import { adminApiTokenRouter } from "./routes/admin-api-tokens.js";
+import { adminSalesCommissionSettingsRouter } from "./routes/admin-sales-commission-settings.js";
 
 export const app = express();
 
@@ -351,6 +352,7 @@ app.use("/v1/admin", adminUserManagementRouter);
 app.use("/v1/admin", adminAuditRouter);
 app.use("/v1/admin", adminSystemRouter);
 app.use("/v1/admin", adminApiTokenRouter);
+app.use("/v1/admin", adminSalesCommissionSettingsRouter);
 app.use("/v1/admin/livekit", adminLiveKitRouter);
 app.use("/v1/docs", docsRouter);
 app.use("/v1/livekit", liveKitRouter);
