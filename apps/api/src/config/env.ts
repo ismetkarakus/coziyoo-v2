@@ -76,7 +76,6 @@ const EnvSchema = z.object({
   TTS_SPEAKER_WAV_PATH: z.string().optional(),
   TTS_XTTS_SPEAKER_WAV_URL: z.string().url().optional(),
   TOOLS_REGISTRY_URL: z.string().url().default("https://registry.caal.io/index.json"),
-  N8N_BASE_URL: z.string().url().optional(),
   N8N_HOST: z.string().url().optional(),
   N8N_API_KEY: z.string().min(1).optional(),
   N8N_LLM_WORKFLOW_ID: z.string().min(1).default("6KFFgjd26nF0kNCA"),
@@ -125,14 +124,12 @@ const docsEnabledDefault = parsed.data.NODE_ENV !== "production";
 const payoutSchedulerEnabledDefault = parsed.data.NODE_ENV !== "test";
 const databaseUrl = resolveDatabaseUrl(parsed.data);
 const speechToTextBaseUrl = parsed.data.SPEECH_TO_TEXT_BASE_URL ?? parsed.data.STT_BASE_URL;
-const n8nBaseUrl = parsed.data.N8N_BASE_URL ?? parsed.data.N8N_HOST;
 const n8nApiKey = parsed.data.N8N_API_KEY;
 
 export const env = {
   ...parsed.data,
   DATABASE_URL: databaseUrl,
   SPEECH_TO_TEXT_BASE_URL: speechToTextBaseUrl,
-  N8N_BASE_URL: n8nBaseUrl,
   N8N_API_KEY: n8nApiKey,
   DOCS_ENABLED: parsed.data.DOCS_ENABLED ?? docsEnabledDefault,
   PAYOUT_SCHEDULER_ENABLED: parsed.data.PAYOUT_SCHEDULER_ENABLED ?? payoutSchedulerEnabledDefault,

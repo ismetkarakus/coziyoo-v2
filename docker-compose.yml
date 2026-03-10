@@ -20,8 +20,8 @@ services:
       PGHOST: postgres
       PGPORT: "5432"
       AI_SERVER_URL: http://voice-agent-api:9000
-      N8N_BASE_URL: ${N8N_BASE_URL:-https://n8n.drascom.uk}
       N8N_API_KEY: ${N8N_API_KEY:-change_me_n8n_api_key}
+      N8N_HOST: ${N8N_HOST:-https://n8n.drascom.uk}
       N8N_LLM_WORKFLOW_ID: ${N8N_LLM_WORKFLOW_ID:-6KFFgjd26nF0kNCA}
       N8N_MCP_WORKFLOW_ID: ${N8N_MCP_WORKFLOW_ID:-XYiIkxpa4PlnddQt}
     volumes:
@@ -90,7 +90,6 @@ services:
       VOICE_AGENT_LOG_LEVEL: ${VOICE_AGENT_LOG_LEVEL:-WARNING}
       VOICE_AGENT_REQUEST_LOG_LEVEL: ${VOICE_AGENT_REQUEST_LOG_LEVEL:-INFO}
       VOICE_AGENT_REQUEST_LOG_FILE: /workspace/.runtime/voice-agent-requests.log
-      N8N_BASE_URL: ${N8N_BASE_URL:-https://n8n.drascom.uk}
       N8N_HOST: ${N8N_HOST:-https://n8n.drascom.uk}
       N8N_API_KEY: ${N8N_API_KEY:-change_me_n8n_api_key}
       N8N_LLM_WORKFLOW_ID: ${N8N_LLM_WORKFLOW_ID:-6KFFgjd26nF0kNCA}

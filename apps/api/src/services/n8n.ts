@@ -23,7 +23,7 @@ function buildHeaders() {
 }
 
 function resolveN8nBaseUrl(options?: { baseUrl?: string | null }): string | null {
-  return options?.baseUrl?.trim() || env.N8N_BASE_URL || null;
+  return options?.baseUrl?.trim() || env.N8N_HOST || null;
 }
 
 async function checkWorkflowAccessibility(baseUrl: string, workflowId: string) {

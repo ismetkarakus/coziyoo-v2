@@ -449,7 +449,7 @@ liveKitRouter.post("/session/end", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "N8N_NOT_CONFIGURED",
-          message: "Set N8N_BASE_URL in API environment or save n8n.baseUrl in device settings.",
+          message: "Set N8N_HOST in API environment or save n8n.baseUrl in device settings.",
         },
       });
     }
@@ -1256,7 +1256,7 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "N8N_NOT_CONFIGURED",
-          message: "Set N8N_BASE_URL in API environment or save n8n.baseUrl in device settings.",
+          message: "Set N8N_HOST in API environment or save n8n.baseUrl in device settings.",
         },
       });
     }

@@ -27,7 +27,7 @@ afterEach(() => {
 describe("n8n service status", () => {
   it("checks workflow accessibility after health check", async () => {
     stubCoreEnv();
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.example.com");
+    vi.stubEnv("N8N_HOST", "https://n8n.example.com");
     vi.stubEnv("N8N_API_KEY", "test-n8n-key");
 
     const fetchMock = vi

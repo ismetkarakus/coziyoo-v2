@@ -62,7 +62,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{$env.N8N_BASE_URL}}{{$env.N8N_MCP_WEBHOOK_PATH || '/webhook/XYiIkxpa4PlnddQt'}}",
+        "url": "={{$env.N8N_HOST}}{{$env.N8N_MCP_WEBHOOK_PATH || '/webhook/XYiIkxpa4PlnddQt'}}",
         "sendBody": true,
         "contentType": "json",
         "jsonBody": "={{ { traceId: $json.traceId, action: $json.action || 'unknown', params: $json.params || { userText: $json.userText }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"

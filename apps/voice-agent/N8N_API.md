@@ -12,7 +12,7 @@ set -a; source .env; set +a
 ```
 
 Required vars:
-- `N8N_BASE_URL` or `N8N_HOST` (e.g. https://n8n.drascom.uk)
+- `N8N_HOST` (e.g. https://n8n.drascom.uk)
 - `N8N_API_KEY`
 - `N8N_LLM_WORKFLOW_ID` (default: `6KFFgjd26nF0kNCA`)
 - `N8N_MCP_WORKFLOW_ID` (default: `XYiIkxpa4PlnddQt`)

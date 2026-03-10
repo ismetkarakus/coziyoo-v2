@@ -706,7 +706,7 @@ def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
         or "6KFFgjd26nF0kNCA"
     ).strip()
     n8n_base_url = _normalize_base_url(
-        str(n8n_cfg.get("baseUrl") or os.getenv("N8N_BASE_URL", "") or os.getenv("N8N_HOST", ""))
+        str(n8n_cfg.get("baseUrl") or os.getenv("N8N_HOST", ""))
     )
     n8n_endpoint = _resolve_n8n_webhook(
         n8n_base_url,

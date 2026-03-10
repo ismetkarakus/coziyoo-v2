@@ -133,7 +133,7 @@ Root `.env` is the single source of truth for all services (API reads it directl
 - **API:** `API_PORT`, `APP_JWT_SECRET`, `ADMIN_JWT_SECRET`
 - **Database:** `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `DATABASE_URL`
 - **LiveKit:** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-- **External:** `OLLAMA_BASE_URL`, `N8N_BASE_URL`, `TTS_API_KEY`, `SPEECH_TO_TEXT_API_KEY`, `PAYMENT_WEBHOOK_SECRET`
+- **External:** `OLLAMA_BASE_URL`, `N8N_HOST`, `TTS_API_KEY`, `SPEECH_TO_TEXT_API_KEY`, `PAYMENT_WEBHOOK_SECRET`
 - **CORS:** `CORS_ALLOWED_ORIGINS` (comma-separated list)
 
 Installation-specific VPS settings (domains, OS passwords) go in `installation/config.env`.
