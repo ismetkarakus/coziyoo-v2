@@ -92,6 +92,13 @@ async def request_logs(
     return {"data": items, "count": len(items), "file": str(request_log_file)}
 
 
+@app.post("/logs/clear")
+async def clear_request_logs() -> dict[str, bool]:
+    request_log_file.parent.mkdir(parents=True, exist_ok=True)
+    request_log_file.write_text("", encoding="utf-8")
+    return {"ok": True}
+
+
 @app.get("/logs/viewer", response_class=HTMLResponse)
 async def logs_viewer() -> str:
     return """<!doctype html>
@@ -129,7 +136,7 @@ async def logs_viewer() -> str:
     </label>
     <label>Limit <input id="limit" type="number" min="1" max="500" value="120" /></label>
     <label>Search <input id="q" type="text" placeholder="text in message" /></label>
-    <button id="refresh">Refresh</button>
+    <button id="refresh">Clear logs</button>
     <label><input id="auto" type="checkbox" checked /> auto refresh (2s)</label>
   </div>
   <div class="meta" id="meta">loading...</div>
@@ -237,7 +244,10 @@ async def logs_viewer() -> str:
       meta.textContent = `file: ${json.file} | rows: ${json.count}`;
     }
 
-    refresh.addEventListener("click", load);
+    refresh.addEventListener("click", async () => {
+      await fetch("/logs/clear", { method: "POST" });
+      await load();
+    });
     kind.addEventListener("change", load);
     limit.addEventListener("change", load);
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
