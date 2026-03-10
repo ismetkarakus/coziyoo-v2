@@ -3,6 +3,7 @@
   "nodes": [
     {
       "id": "brain-webhook",
+      "webhookId": "6KFFgjd26nF0kNCA",
       "name": "Brain Webhook In",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -21,7 +22,7 @@
       "typeVersion": 2,
       "position": [500, 340],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const body = $json.body ?? $json;\nconst traceId = body.traceId || body.jobId || `trace-${Date.now()}`;\nconst userText = String(body.userText || '').trim();\nconst messages = Array.isArray(body.messages) ? body.messages : [];\nreturn [{ json: {\n  traceId,\n  workflowId: body.workflowId || '6KFFgjd26nF0kNCA',\n  requestedByWorkflowId: '6KFFgjd26nF0kNCA',\n  roomId: body.roomId || null,\n  jobId: body.jobId || null,\n  deviceId: body.deviceId || null,\n  userText,\n  messages,\n  action: body.action || null,\n  params: body.params || null\n}}];"
       }
     },
@@ -33,10 +34,11 @@
       "position": [760, 340],
       "parameters": {
         "method": "POST",
-        "url": "={{($env.OLLAMA_BASE_URL || 'https://ollama.drascom.uk').replace(/\\\/$/, '') + '/v1/chat/completions'}}",
+        "url": "https://ollama.drascom.uk/v1/chat/completions",
         "sendBody": true,
+        "specifyBody": "json",
         "contentType": "json",
-        "jsonBody": "={{ { model: ($env.OLLAMA_CHAT_MODEL || 'ministral-3:8b'), temperature: 0.1, messages: [ { role: 'system', content: 'You classify user intent for a food-ordering voice assistant. Return strict JSON only: {\\\"intent\\\":string,\\\"requiresMcp\\\":boolean,\\\"action\\\":string,\\\"query\\\":string,\\\"ask\\\":string}. Use requiresMcp=true when DB/API lookup is needed (menu availability, prices, orders, customer records). If simple greeting/chitchat/clarification, requiresMcp=false.' }, { role: 'user', content: `User text: ${$json.userText}\\nRecent messages: ${JSON.stringify(($json.messages || []).slice(-8))}` } ] } }}"
+        "jsonBody": "={{ { model: 'ministral-3:8b', temperature: 0.1, messages: [ { role: 'system', content: 'You classify user intent for a food-ordering voice assistant. Return strict JSON only: {\\\"intent\\\":string,\\\"requiresMcp\\\":boolean,\\\"action\\\":string,\\\"query\\\":string,\\\"ask\\\":string}. Use requiresMcp=true when DB/API lookup is needed (menu availability, prices, orders, customer records). If simple greeting/chitchat/clarification, requiresMcp=false.' }, { role: 'user', content: `User text: ${$json.userText}\\nRecent messages: ${JSON.stringify(($json.messages || []).slice(-8))}` } ] } }}"
       }
     },
     {
@@ -46,7 +48,7 @@
       "typeVersion": 2,
       "position": [1020, 340],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const root = $json.body ?? $json;\nconst raw = root?.choices?.[0]?.message?.content || root?.replyText || root?.text || '';\nlet parsed = {};\nif (typeof raw === 'string') {\n  try {\n    parsed = JSON.parse(raw);\n  } catch {\n    parsed = {};\n  }\n}\nconst prev = $('Normalize Input').item.json;\nconst fallbackNeed = /^tool:|^api:|menu|price|availability|order|status|db|database/i.test(prev.userText || '');\nconst requiresMcp = typeof parsed.requiresMcp === 'boolean' ? parsed.requiresMcp : fallbackNeed;\nconst intent = String(parsed.intent || 'general_query');\nconst action = String(parsed.action || (requiresMcp ? 'database.question' : 'none'));\nconst query = String(parsed.query || prev.userText || '');\nconst ask = String(parsed.ask || '');\nreturn [{ json: { ...prev, intent, requiresMcp, action, query, ask, intentRaw: raw } }];"
       }
     },
@@ -75,8 +77,9 @@
       "position": [1500, 200],
       "parameters": {
         "method": "POST",
-        "url": "={{$env.N8N_HOST + ($env.N8N_MCP_WEBHOOK_PATH || '/webhook/XYiIkxpa4PlnddQt')}}",
+        "url": "https://n8n.drascom.uk/webhook/XYiIkxpa4PlnddQt",
         "sendBody": true,
+        "specifyBody": "json",
         "contentType": "json",
         "jsonBody": "={{ { traceId: $json.traceId, action: $json.action || 'database.question', params: { query: $json.query, userText: $json.userText, roomId: $json.roomId, deviceId: $json.deviceId }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"
       }
@@ -88,7 +91,7 @@
       "typeVersion": 2,
       "position": [1740, 340],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const hasMcp = $input.item.pairedItem?.input === 0 || !!$json.ok || !!$json.data || !!$json.error;\nif (hasMcp && ('ok' in $json || 'data' in $json || 'error' in $json)) {\n  const base = $('Parse Intent').item.json;\n  return [{ json: { ...base, mcp: { ok: Boolean($json.ok), status: Number($json.status || 0), data: $json.data ?? null, error: $json.error ?? null, durationMs: $json.durationMs ?? null } } }];\n}\nreturn [{ json: { ...$json, mcp: null } }];"
       }
     },
@@ -100,10 +103,11 @@
       "position": [1980, 340],
       "parameters": {
         "method": "POST",
-        "url": "={{($env.OLLAMA_BASE_URL || 'https://ollama.drascom.uk').replace(/\\\/$/, '') + '/v1/chat/completions'}}",
+        "url": "https://ollama.drascom.uk/v1/chat/completions",
         "sendBody": true,
+        "specifyBody": "json",
         "contentType": "json",
-        "jsonBody": "={{ { model: ($env.OLLAMA_CHAT_MODEL || 'ministral-3:8b'), temperature: 0.25, messages: [ { role: 'system', content: 'You are Coziyoo voice assistant. Reply concise and natural for speech. If MCP data exists, prioritize factual values from it. If data missing, ask one short clarifying question.' }, { role: 'user', content: `Intent: ${$json.intent}\\nUser text: ${$json.userText}\\nMCP result: ${JSON.stringify($json.mcp)}\\nHint: ${$json.ask || ''}` } ] } }}"
+        "jsonBody": "={{ { model: 'ministral-3:8b', temperature: 0.25, messages: [ { role: 'system', content: 'You are Coziyoo voice assistant. Reply concise and natural for speech. If MCP data exists, prioritize factual values from it. If data missing, ask one short clarifying question.' }, { role: 'user', content: `Intent: ${$json.intent}\\nUser text: ${$json.userText}\\nMCP result: ${JSON.stringify($json.mcp)}\\nHint: ${$json.ask || ''}` } ] } }}"
       }
     },
     {
@@ -113,7 +117,7 @@
       "typeVersion": 2,
       "position": [2220, 340],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const rawRoot = $json.body ?? $json;\nconst llmText = String(rawRoot?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Merge Context').item.json;\nconst fallback = ctx.ask || (ctx.mcp && ctx.mcp.ok === false ? 'I could not fetch that data now. Please try again.' : 'How can I help you?');\nconst replyText = llmText || fallback;\nreturn [{ json: { replyText, meta: { intent: ctx.intent, requiresMcp: ctx.requiresMcp, mcp: ctx.mcp, traceId: ctx.traceId } } }];"
       }
     },

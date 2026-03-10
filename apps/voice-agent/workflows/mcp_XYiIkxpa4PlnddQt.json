@@ -3,6 +3,7 @@
   "nodes": [
     {
       "id": "mcp-webhook",
+      "webhookId": "XYiIkxpa4PlnddQt",
       "name": "MCP Webhook In",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -27,7 +28,7 @@
         320
       ],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const body = $json.body ?? $json;\nconst startedAt = Date.now();\nreturn [{ json: {\n  traceId: body.traceId || `mcp-${Date.now()}`,\n  action: String(body.action || 'unknown'),\n  params: typeof body.params === 'object' && body.params !== null ? body.params : {},\n  roomId: body.roomId || null,\n  deviceId: body.deviceId || null,\n  requestedByWorkflowId: body.requestedByWorkflowId || null,\n  startedAt\n}}];"
       }
     },
@@ -41,7 +42,7 @@
         320
       ],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const input = $json;\nconst action = input.action;\nlet status = 200;\nlet ok = true;\nlet data = null;\nlet error = null;\n\ntry {\n  if (action === 'health.check') {\n    data = { service: 'mcp-gateway', status: 'ok' };\n  } else if (action === 'echo') {\n    data = { echo: input.params };\n  } else if (action === 'database.question') {\n    const query = String(input?.params?.query || input?.params?.userText || '').trim();\n    data = {\n      source: 'database.question',\n      query,\n      answer: query\n        ? `Database tool received query: ${query}. Connect this action to your real DB/API node for production answers.`\n        : 'Database tool received empty query.'\n    };\n  } else {\n    status = 400;\n    ok = false;\n    error = { code: 'UNSUPPORTED_ACTION', message: `Unsupported action: ${action}` };\n  }\n} catch (e) {\n  status = 500;\n  ok = false;\n  error = { code: 'MCP_GATEWAY_FAILURE', message: e.message || String(e) };\n}\n\nreturn [{ json: { ...input, ok, status, data, error } }];"
       }
     },
@@ -55,7 +56,7 @@
         320
       ],
       "parameters": {
-        "mode": "runOnceForEachItem",
+        "mode": "runOnceForAllItems",
         "jsCode": "const finishedAt = Date.now();\nconst durationMs = finishedAt - Number($json.startedAt || finishedAt);\nconst classification = $json.ok ? 'success' : ($json.status >= 500 ? 'upstream_error' : 'client_error');\nreturn [{ json: {\n  ok: Boolean($json.ok),\n  status: Number($json.status || 500),\n  data: $json.data ?? null,\n  error: $json.error ?? null,\n  durationMs,\n  traceId: $json.traceId,\n  roomId: $json.roomId,\n  deviceId: $json.deviceId,\n  requestedByWorkflowId: $json.requestedByWorkflowId,\n  classification,\n  source: 'mcp-gateway'\n}}];"
       }
     },
