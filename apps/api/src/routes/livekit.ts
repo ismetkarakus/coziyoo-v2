@@ -662,6 +662,12 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
   const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
   const resolved = resolveProviders(settings);
+  const n8nPreflight = await getN8nStatus({
+    baseUrl: resolved.n8n.baseUrl,
+    workflowIds: [resolved.n8n.workflowId ?? env.N8N_LLM_WORKFLOW_ID, resolved.n8n.mcpWorkflowId ?? env.N8N_MCP_WORKFLOW_ID].filter(
+      Boolean,
+    ),
+  });
 
   const userMetadata = JSON.stringify({
     username,
@@ -766,6 +772,7 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
         alreadyRunning,
         dispatch,
       },
+      n8nPreflight,
     },
   });
 });
@@ -1097,8 +1104,19 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res
     typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
       ? n8nConfig.baseUrl.trim()
       : null;
+  const n8nWorkflowId =
+    typeof n8nConfig.workflowId === "string" && n8nConfig.workflowId.trim().length > 0
+      ? n8nConfig.workflowId.trim()
+      : env.N8N_LLM_WORKFLOW_ID;
+  const n8nMcpWorkflowId =
+    typeof n8nConfig.mcpWorkflowId === "string" && n8nConfig.mcpWorkflowId.trim().length > 0
+      ? n8nConfig.mcpWorkflowId.trim()
+      : env.N8N_MCP_WORKFLOW_ID;
 
-  const status = await getN8nStatus({ baseUrl: n8nBaseUrl });
+  const status = await getN8nStatus({
+    baseUrl: n8nBaseUrl,
+    workflowIds: [n8nWorkflowId, n8nMcpWorkflowId].filter(Boolean),
+  });
   return res.status(200).json({
     data: status,
   });
@@ -1118,9 +1136,24 @@ liveKitRouter.get("/starter/tools/status", async (_req, res) => {
       typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
         ? n8nConfig.baseUrl.trim()
         : null;
+    const workflowId =
+      typeof n8nConfig.workflowId === "string" && n8nConfig.workflowId.trim().length > 0
+        ? n8nConfig.workflowId.trim()
+        : env.N8N_LLM_WORKFLOW_ID;
+    const mcpWorkflowId =
+      typeof n8nConfig.mcpWorkflowId === "string" && n8nConfig.mcpWorkflowId.trim().length > 0
+        ? n8nConfig.mcpWorkflowId.trim()
+        : env.N8N_MCP_WORKFLOW_ID;
+    const status = await getN8nStatus({
+      baseUrl: n8nBaseUrlOverride,
+      workflowIds: [workflowId, mcpWorkflowId].filter(Boolean),
+    });
+    return res.status(200).json({ data: status });
   }
-
-  const status = await getN8nStatus({ baseUrl: n8nBaseUrlOverride });
+  const status = await getN8nStatus({
+    baseUrl: n8nBaseUrlOverride,
+    workflowIds: [env.N8N_LLM_WORKFLOW_ID, env.N8N_MCP_WORKFLOW_ID].filter(Boolean),
+  });
   return res.status(200).json({ data: status });
 });
 

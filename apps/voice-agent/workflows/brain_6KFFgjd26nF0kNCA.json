@@ -1,0 +1,218 @@
+{
+  "name": "Coziyoo Voice Brain (6KFF)",
+  "nodes": [
+    {
+      "id": "brain-webhook",
+      "name": "Brain Webhook In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        340
+      ],
+      "parameters": {
+        "path": "6KFFgjd26nF0kNCA",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "normalize-input",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? $json;\nconst traceId = body.traceId || body.jobId || `trace-${Date.now()}`;\nconst userText = String(body.userText || '').trim();\nreturn [{ json: {\n  traceId,\n  workflowId: body.workflowId || '6KFFgjd26nF0kNCA',\n  requestedByWorkflowId: '6KFFgjd26nF0kNCA',\n  roomId: body.roomId || null,\n  jobId: body.jobId || null,\n  deviceId: body.deviceId || null,\n  userText,\n  messages: Array.isArray(body.messages) ? body.messages : [],\n  requiresMcp: Boolean(body.requiresMcp || /^tool:|^api:/i.test(userText)),\n  action: body.action || null,\n  params: body.params || null\n}}];"
+      }
+    },
+    {
+      "id": "needs-mcp",
+      "name": "Needs MCP?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        760,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.requiresMcp}}",
+              "operation": "isTrue"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "call-mcp",
+      "name": "Call MCP Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.N8N_BASE_URL}}{{$env.N8N_MCP_WEBHOOK_PATH || '/webhook/XYiIkxpa4PlnddQt'}}",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ { traceId: $json.traceId, action: $json.action || 'unknown', params: $json.params || { userText: $json.userText }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"
+      }
+    },
+    {
+      "id": "compose-mcp-reply",
+      "name": "Compose MCP Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? $json;\nconst ok = Boolean(body.ok);\nconst data = body.data ?? null;\nconst error = body.error ?? null;\nconst replyText = ok\n  ? `Done. ${typeof data === 'string' ? data : 'Action completed successfully.'}`\n  : `I couldn't complete that action right now.${error ? ' ' + (error.message || JSON.stringify(error)) : ''}`;\nreturn [{ json: { replyText, meta: { source: 'mcp', ok, data, error } } }];"
+      }
+    },
+    {
+      "id": "compose-direct-reply",
+      "name": "Compose Direct Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const text = String($json.userText || '').trim();\nconst replyText = text ? `Understood: ${text}` : 'How can I help you today?';\nreturn [{ json: { replyText, meta: { source: 'direct' } } }];"
+      }
+    },
+    {
+      "id": "finalize",
+      "name": "Finalize Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? $json;\nconst replyText = String(body.replyText || body.answer || body.text || '').trim() || 'I am sorry, I could not generate a response.';\nconst meta = typeof body.meta === 'object' && body.meta !== null ? body.meta : {};\nreturn [{ json: { replyText, meta } }];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        340
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Brain Webhook In": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Needs MCP?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs MCP?": {
+      "main": [
+        [
+          {
+            "node": "Call MCP Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose Direct Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call MCP Gateway": {
+      "main": [
+        [
+          {
+            "node": "Compose MCP Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose MCP Reply": {
+      "main": [
+        [
+          {
+            "node": "Finalize Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Direct Reply": {
+      "main": [
+        [
+          {
+            "node": "Finalize Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Reply": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

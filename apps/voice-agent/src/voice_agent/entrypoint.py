@@ -237,6 +237,41 @@ def _extract_n8n_answer(body: Any) -> str:
     return ""
 
 
+def _deep_find_answer(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        direct = _extract_n8n_answer(value)
+        if direct:
+            return direct
+        for child in value.values():
+            found = _deep_find_answer(child)
+            if found:
+                return found
+        return ""
+    if isinstance(value, list):
+        for child in value:
+            found = _deep_find_answer(child)
+            if found:
+                return found
+        return ""
+    return ""
+
+
+def _extract_execution_id(body: Any) -> str:
+    if isinstance(body, dict):
+        for key in ("id", "executionId"):
+            value = body.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+        for key in ("data", "execution"):
+            if key in body:
+                found = _extract_execution_id(body.get(key))
+                if found:
+                    return found
+    return ""
+
+
 def _build_n8n_headers(n8n_cfg: dict) -> dict[str, str]:
     headers: dict[str, str] = {"Content-Type": "application/json"}
     auth_header = str(n8n_cfg.get("authHeader") or "").strip()
@@ -253,11 +288,11 @@ def _build_n8n_headers(n8n_cfg: dict) -> dict[str, str]:
     return headers
 
 
-def _resolve_n8n_webhook(n8n_base_url: str, workflow_id: str) -> str:
+def _resolve_n8n_webhook(n8n_base_url: str, workflow_id: str, webhook_path: str = "") -> str:
     explicit = _normalize_base_url(os.getenv("N8N_LLM_WEBHOOK_URL", ""))
     if explicit:
         return explicit
-    path = (os.getenv("N8N_LLM_WEBHOOK_PATH", "") or "").strip()
+    path = (webhook_path or "").strip() or (os.getenv("N8N_LLM_WEBHOOK_PATH", "") or "").strip()
     if not path:
         path = f"/webhook/{workflow_id}"
     if not n8n_base_url:
@@ -266,11 +301,21 @@ def _resolve_n8n_webhook(n8n_base_url: str, workflow_id: str) -> str:
 
 
 class N8nLLM(BaseLLM):
-    def __init__(self, *, endpoint: str, headers: dict[str, str], workflow_id: str) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        headers: dict[str, str],
+        workflow_id: str,
+        base_url: str,
+        runtime_ctx: dict[str, str],
+    ) -> None:
         super().__init__()
         self._endpoint = endpoint
         self._headers = headers
         self._workflow_id = workflow_id
+        self._base_url = base_url.rstrip("/")
+        self._runtime_ctx = runtime_ctx
         self._session: aiohttp.ClientSession | None = None
 
     @property
@@ -300,8 +345,10 @@ class N8nLLM(BaseLLM):
             tools=tools or [],
             conn_options=conn_options,
             endpoint=self._endpoint,
+            base_url=self._base_url,
             headers=self._headers,
             workflow_id=self._workflow_id,
+            runtime_ctx=self._runtime_ctx,
         )
 
     async def aclose(self) -> None:
@@ -318,13 +365,17 @@ class N8nLLMStream(llm.LLMStream):
         tools: list[Any],
         conn_options: APIConnectOptions,
         endpoint: str,
+        base_url: str,
         headers: dict[str, str],
         workflow_id: str,
+        runtime_ctx: dict[str, str],
     ) -> None:
         super().__init__(llm_v, chat_ctx=chat_ctx, tools=tools, conn_options=conn_options)
         self._endpoint = endpoint
+        self._base_url = base_url
         self._headers = headers
         self._workflow_id = workflow_id
+        self._runtime_ctx = runtime_ctx
 
     async def _run(self) -> None:
         user_text = _last_user_preview(self._chat_ctx)
@@ -332,48 +383,132 @@ class N8nLLMStream(llm.LLMStream):
             "workflowId": self._workflow_id,
             "source": "voice-agent",
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "roomId": self._runtime_ctx.get("roomId"),
+            "jobId": self._runtime_ctx.get("jobId"),
+            "deviceId": self._runtime_ctx.get("deviceId"),
             "userText": user_text,
             "messages": _chat_history(self._chat_ctx),
+            "mcpWorkflowId": self._runtime_ctx.get("mcpWorkflowId"),
         }
         request_id = f"n8n-{uuid.uuid4().hex[:12]}"
         session = self._llm._get_session()  # type: ignore[attr-defined]
 
+        webhook_error: Exception | None = None
         try:
-            async with session.post(
-                self._endpoint,
-                json=payload,
-                headers=self._headers,
-                timeout=aiohttp.ClientTimeout(total=self._conn_options.timeout),
-            ) as resp:
-                raw = await resp.text()
-                parsed: Any
-                try:
-                    parsed = json.loads(raw) if raw else {}
-                except json.JSONDecodeError:
-                    parsed = raw
-
-                if resp.status >= 400:
-                    raise APIStatusError(
-                        f"n8n webhook error {resp.status}: {raw[:200]}",
-                        status_code=resp.status,
-                        body=raw[:500],
-                        retryable=resp.status >= 500 or resp.status == 429,
-                    )
-
-                answer = _extract_n8n_answer(parsed)
-                if not answer:
-                    raise APIConnectionError("n8n webhook returned empty answer", retryable=False)
-
-                self._event_ch.send_nowait(
-                    llm.ChatChunk(
-                        id=request_id,
-                        delta=llm.ChoiceDelta(role="assistant", content=answer),
-                    )
+            answer = await self._run_webhook(session=session, payload=payload)
+            self._event_ch.send_nowait(
+                llm.ChatChunk(
+                    id=request_id,
+                    delta=llm.ChoiceDelta(role="assistant", content=answer, extra={"path": "webhook"}),
                 )
-        except APIStatusError:
-            raise
+            )
+            return
         except Exception as exc:
-            raise APIConnectionError(f"n8n webhook request failed: {exc}", retryable=True) from exc
+            webhook_error = exc
+
+        try:
+            answer = await self._run_execution_api(session=session, payload=payload)
+            self._event_ch.send_nowait(
+                llm.ChatChunk(
+                    id=request_id,
+                    delta=llm.ChoiceDelta(role="assistant", content=answer, extra={"path": "execution_api"}),
+                )
+            )
+            return
+        except Exception as exec_error:
+            if isinstance(exec_error, APIStatusError):
+                raise exec_error
+            if isinstance(exec_error, APIConnectionError):
+                raise exec_error
+            if webhook_error:
+                raise APIConnectionError(
+                    f"n8n webhook+execution fallback failed: {webhook_error}; {exec_error}",
+                    retryable=True,
+                ) from exec_error
+            raise APIConnectionError(f"n8n execution fallback failed: {exec_error}", retryable=True) from exec_error
+
+    async def _run_webhook(self, *, session: aiohttp.ClientSession, payload: dict[str, Any]) -> str:
+        async with session.post(
+            self._endpoint,
+            json=payload,
+            headers=self._headers,
+            timeout=aiohttp.ClientTimeout(total=self._conn_options.timeout),
+        ) as resp:
+            raw = await resp.text()
+            parsed: Any
+            try:
+                parsed = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                parsed = raw
+
+            if resp.status >= 400:
+                raise APIStatusError(
+                    f"n8n webhook error {resp.status}: {raw[:200]}",
+                    status_code=resp.status,
+                    body=raw[:500],
+                    retryable=resp.status >= 500 or resp.status == 429,
+                )
+
+            answer = _extract_n8n_answer(parsed)
+            if not answer:
+                answer = _deep_find_answer(parsed)
+            if not answer:
+                raise APIConnectionError("n8n webhook returned empty answer", retryable=False)
+            return answer
+
+    async def _run_execution_api(self, *, session: aiohttp.ClientSession, payload: dict[str, Any]) -> str:
+        create_url = f"{self._base_url}/api/v1/executions"
+        create_payload = {
+            "workflowId": self._workflow_id,
+            "data": payload,
+        }
+        async with session.post(
+            create_url,
+            json=create_payload,
+            headers=self._headers,
+            timeout=aiohttp.ClientTimeout(total=self._conn_options.timeout),
+        ) as resp:
+            raw = await resp.text()
+            parsed: Any
+            try:
+                parsed = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                parsed = raw
+            if resp.status >= 400:
+                raise APIStatusError(
+                    f"n8n execution create error {resp.status}: {raw[:200]}",
+                    status_code=resp.status,
+                    body=raw[:500],
+                    retryable=resp.status >= 500 or resp.status == 429,
+                )
+            execution_id = _extract_execution_id(parsed)
+            if not execution_id:
+                raise APIConnectionError("n8n execution create response missing execution id", retryable=False)
+
+        await asyncio.sleep(0.6)
+        fetch_url = f"{self._base_url}/api/v1/executions/{execution_id}?includeData=true"
+        async with session.get(
+            fetch_url,
+            headers=self._headers,
+            timeout=aiohttp.ClientTimeout(total=self._conn_options.timeout),
+        ) as resp:
+            raw = await resp.text()
+            parsed: Any
+            try:
+                parsed = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                parsed = raw
+            if resp.status >= 400:
+                raise APIStatusError(
+                    f"n8n execution read error {resp.status}: {raw[:200]}",
+                    status_code=resp.status,
+                    body=raw[:500],
+                    retryable=resp.status >= 500 or resp.status == 429,
+                )
+            answer = _deep_find_answer(parsed)
+            if not answer:
+                raise APIConnectionError("n8n execution result missing answer text", retryable=False)
+            return answer
 
 
 class LoggingLLM(BaseLLM):
@@ -422,6 +557,7 @@ class LoggingLLMStream:
         self._model = model
         self._logger = logger
         self._parts: list[str] = []
+        self._path = "unknown"
         self._logged_summary = False
 
     async def __aenter__(self):
@@ -447,6 +583,11 @@ class LoggingLLMStream:
         content = getattr(delta, "content", None)
         if isinstance(content, str) and content:
             self._parts.append(content)
+        extra = getattr(delta, "extra", None)
+        if isinstance(extra, dict):
+            path_value = extra.get("path")
+            if isinstance(path_value, str) and path_value.strip():
+                self._path = path_value.strip()
         return chunk
 
     async def aclose(self) -> None:
@@ -464,7 +605,8 @@ class LoggingLLMStream:
         self._logged_summary = True
         text = "".join(self._parts).strip()
         self._logger.info(
-            "LLM response model=%s answer=%s",
+            "LLM response path=%s model=%s answer=%s",
+            self._path,
             self._model,
             text,
         )
@@ -553,8 +695,9 @@ def _build_stt(providers: dict, language: str):
     )
 
 
-def _build_llm(providers: dict):
+def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
     """Build an LLM instance from provider config."""
+    runtime_ctx = runtime_ctx or {}
     llm_cfg = providers.get("llm", {})
     n8n_cfg_raw = providers.get("n8n", {})
     n8n_cfg = n8n_cfg_raw if isinstance(n8n_cfg_raw, dict) else {}
@@ -566,13 +709,24 @@ def _build_llm(providers: dict):
     n8n_base_url = _normalize_base_url(
         str(n8n_cfg.get("baseUrl") or os.getenv("N8N_BASE_URL", "") or os.getenv("N8N_HOST", ""))
     )
-    n8n_endpoint = _resolve_n8n_webhook(n8n_base_url, workflow_id)
+    n8n_endpoint = _resolve_n8n_webhook(
+        n8n_base_url,
+        workflow_id,
+        webhook_path=str(n8n_cfg.get("webhookPath") or ""),
+    )
     if n8n_endpoint:
         logger.info("Using N8N LLM webhook: %s workflow=%s", n8n_endpoint, workflow_id)
         n8n_llm = N8nLLM(
             endpoint=n8n_endpoint,
             headers=_build_n8n_headers(n8n_cfg),
             workflow_id=workflow_id,
+            base_url=n8n_base_url,
+            runtime_ctx={
+                "roomId": str(runtime_ctx.get("roomId", "") or ""),
+                "jobId": str(runtime_ctx.get("jobId", "") or ""),
+                "deviceId": str(runtime_ctx.get("deviceId", "") or ""),
+                "mcpWorkflowId": str(n8n_cfg.get("mcpWorkflowId") or os.getenv("N8N_MCP_WORKFLOW_ID", "XYiIkxpa4PlnddQt")),
+            },
         )
         return LoggingLLM(inner=n8n_llm, model=f"n8n:{workflow_id}", base_url=n8n_endpoint)
 
@@ -738,7 +892,14 @@ async def entrypoint(ctx: JobContext) -> None:
     ctx.room.on("disconnected", _on_disconnected)
 
     stt_instance = _build_stt(providers, language)
-    llm_instance = _build_llm(providers)
+    llm_instance = _build_llm(
+        providers,
+        runtime_ctx={
+            "roomId": str(ctx.room.name),
+            "jobId": str(getattr(ctx.job, "id", "") or ""),
+            "deviceId": str(metadata_data.get("deviceId", "") or ""),
+        },
+    )
     tts_instance = _build_tts(providers, language)
 
     session = AgentSession(

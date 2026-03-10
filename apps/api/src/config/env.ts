@@ -77,7 +77,13 @@ const EnvSchema = z.object({
   TTS_XTTS_SPEAKER_WAV_URL: z.string().url().optional(),
   TOOLS_REGISTRY_URL: z.string().url().default("https://registry.caal.io/index.json"),
   N8N_BASE_URL: z.string().url().optional(),
+  N8N_HOST: z.string().url().optional(),
   N8N_API_KEY: z.string().min(1).optional(),
+  N8N_APIKEY: z.string().min(1).optional(),
+  N8N_LLM_WORKFLOW_ID: z.string().min(1).default("6KFFgjd26nF0kNCA"),
+  N8N_MCP_WORKFLOW_ID: z.string().min(1).default("XYiIkxpa4PlnddQt"),
+  N8N_LLM_WEBHOOK_PATH: z.string().default(""),
+  N8N_MCP_WEBHOOK_PATH: z.string().default(""),
   PAYOUT_SCHEDULER_ENABLED: boolFromEnv.optional(),
   PAYOUT_SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().max(86_400_000).default(300_000),
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
@@ -120,11 +126,15 @@ const docsEnabledDefault = parsed.data.NODE_ENV !== "production";
 const payoutSchedulerEnabledDefault = parsed.data.NODE_ENV !== "test";
 const databaseUrl = resolveDatabaseUrl(parsed.data);
 const speechToTextBaseUrl = parsed.data.SPEECH_TO_TEXT_BASE_URL ?? parsed.data.STT_BASE_URL;
+const n8nBaseUrl = parsed.data.N8N_BASE_URL ?? parsed.data.N8N_HOST;
+const n8nApiKey = parsed.data.N8N_API_KEY ?? parsed.data.N8N_APIKEY;
 
 export const env = {
   ...parsed.data,
   DATABASE_URL: databaseUrl,
   SPEECH_TO_TEXT_BASE_URL: speechToTextBaseUrl,
+  N8N_BASE_URL: n8nBaseUrl,
+  N8N_API_KEY: n8nApiKey,
   DOCS_ENABLED: parsed.data.DOCS_ENABLED ?? docsEnabledDefault,
   PAYOUT_SCHEDULER_ENABLED: parsed.data.PAYOUT_SCHEDULER_ENABLED ?? payoutSchedulerEnabledDefault,
 };

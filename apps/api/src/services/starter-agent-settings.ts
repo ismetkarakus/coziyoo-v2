@@ -112,6 +112,10 @@ export function createDefaultStarterTtsConfig() {
     },
     n8n: {
       baseUrl: "https://n8n.drascom.uk",
+      workflowId: env.N8N_LLM_WORKFLOW_ID,
+      mcpWorkflowId: env.N8N_MCP_WORKFLOW_ID,
+      webhookPath: env.N8N_LLM_WEBHOOK_PATH || null,
+      mcpWebhookPath: env.N8N_MCP_WEBHOOK_PATH || null,
     },
     sttServers: [
       {
@@ -170,6 +174,10 @@ export function createDefaultStarterTtsConfig() {
         name: "Default N8N",
         enabled: true,
         baseUrl: "https://n8n.drascom.uk",
+        workflowId: env.N8N_LLM_WORKFLOW_ID,
+        mcpWorkflowId: env.N8N_MCP_WORKFLOW_ID,
+        webhookPath: env.N8N_LLM_WEBHOOK_PATH || "",
+        mcpWebhookPath: env.N8N_MCP_WEBHOOK_PATH || "",
       },
     ],
     defaultN8nServerId: DEFAULT_STARTER_N8N_SERVER_ID,

@@ -775,8 +775,13 @@ adminLiveKitRouter.post("/test/n8n", async (req, res) => {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
   try {
-    const status = await getN8nStatus({ baseUrl: parsed.data.baseUrl || undefined });
-    return res.json({ data: { ok: status.reachable, status } });
+    const workflowIds = [env.N8N_LLM_WORKFLOW_ID, env.N8N_MCP_WORKFLOW_ID].filter(Boolean);
+    const status = await getN8nStatus({
+      baseUrl: parsed.data.baseUrl || undefined,
+      workflowIds,
+    });
+    const workflowsOk = Object.values(status.workflows).every((value) => value.reachable);
+    return res.json({ data: { ok: status.reachable && workflowsOk, status } });
   } catch (err) {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
   }

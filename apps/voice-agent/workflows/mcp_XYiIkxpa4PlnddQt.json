@@ -1,0 +1,127 @@
+{
+  "name": "Coziyoo MCP Gateway (XYiI)",
+  "nodes": [
+    {
+      "id": "mcp-webhook",
+      "name": "MCP Webhook In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        320
+      ],
+      "parameters": {
+        "path": "XYiIkxpa4PlnddQt",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "normalize",
+      "name": "Normalize MCP Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        320
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? $json;\nconst startedAt = Date.now();\nreturn [{ json: {\n  traceId: body.traceId || `mcp-${Date.now()}`,\n  action: String(body.action || 'unknown'),\n  params: typeof body.params === 'object' && body.params !== null ? body.params : {},\n  roomId: body.roomId || null,\n  deviceId: body.deviceId || null,\n  requestedByWorkflowId: body.requestedByWorkflowId || null,\n  startedAt\n}}];"
+      }
+    },
+    {
+      "id": "dispatch",
+      "name": "Dispatch Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        320
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $json;\nconst action = input.action;\nlet status = 200;\nlet ok = true;\nlet data = null;\nlet error = null;\n\ntry {\n  if (action === 'health.check') {\n    data = { service: 'mcp-gateway', status: 'ok' };\n  } else if (action === 'echo') {\n    data = { echo: input.params };\n  } else {\n    status = 400;\n    ok = false;\n    error = { code: 'UNSUPPORTED_ACTION', message: `Unsupported action: ${action}` };\n  }\n} catch (e) {\n  status = 500;\n  ok = false;\n  error = { code: 'MCP_GATEWAY_FAILURE', message: e.message || String(e) };\n}\n\nreturn [{ json: { ...input, ok, status, data, error } }];"
+      }
+    },
+    {
+      "id": "audit",
+      "name": "Audit Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        320
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const finishedAt = Date.now();\nconst durationMs = finishedAt - Number($json.startedAt || finishedAt);\nconst classification = $json.ok ? 'success' : ($json.status >= 500 ? 'upstream_error' : 'client_error');\nreturn [{ json: {\n  ok: Boolean($json.ok),\n  status: Number($json.status || 500),\n  data: $json.data ?? null,\n  error: $json.error ?? null,\n  durationMs,\n  traceId: $json.traceId,\n  roomId: $json.roomId,\n  deviceId: $json.deviceId,\n  requestedByWorkflowId: $json.requestedByWorkflowId,\n  classification,\n  source: 'mcp-gateway'\n}}];"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond MCP",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "MCP Webhook In": {
+      "main": [
+        [
+          {
+            "node": "Normalize MCP Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize MCP Input": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Action": {
+      "main": [
+        [
+          {
+            "node": "Audit Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Envelope": {
+      "main": [
+        [
+          {
+            "node": "Respond MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

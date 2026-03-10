@@ -26,6 +26,11 @@ export type ResolvedProviders = {
   };
   n8n: {
     baseUrl: string | null;
+    workflowId: string | null;
+    mcpWorkflowId: string | null;
+    webhookPath: string | null;
+    mcpWebhookPath: string | null;
+    authHeader: string | null;
   };
 };
 
@@ -154,8 +159,22 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
 
   // --- N8N ---
   const n8n: ResolvedProviders["n8n"] = defaultN8nServer
-    ? { baseUrl: strOrNull(defaultN8nServer.baseUrl) }
-    : { baseUrl: strOrNull(legacyN8n.baseUrl) };
+    ? {
+        baseUrl: strOrNull(defaultN8nServer.baseUrl) ?? env.N8N_BASE_URL ?? null,
+        workflowId: strOrNull(defaultN8nServer.workflowId) ?? env.N8N_LLM_WORKFLOW_ID,
+        mcpWorkflowId: strOrNull(defaultN8nServer.mcpWorkflowId) ?? env.N8N_MCP_WORKFLOW_ID,
+        webhookPath: strOrNull(defaultN8nServer.webhookPath) ?? (env.N8N_LLM_WEBHOOK_PATH || null),
+        mcpWebhookPath: strOrNull(defaultN8nServer.mcpWebhookPath) ?? (env.N8N_MCP_WEBHOOK_PATH || null),
+        authHeader: strOrNull(defaultN8nServer.authHeader),
+      }
+    : {
+        baseUrl: strOrNull(legacyN8n.baseUrl) ?? env.N8N_BASE_URL ?? null,
+        workflowId: strOrNull(legacyN8n.workflowId) ?? env.N8N_LLM_WORKFLOW_ID,
+        mcpWorkflowId: strOrNull(legacyN8n.mcpWorkflowId) ?? env.N8N_MCP_WORKFLOW_ID,
+        webhookPath: strOrNull(legacyN8n.webhookPath) ?? (env.N8N_LLM_WEBHOOK_PATH || null),
+        mcpWebhookPath: strOrNull(legacyN8n.mcpWebhookPath) ?? (env.N8N_MCP_WEBHOOK_PATH || null),
+        authHeader: strOrNull(legacyN8n.authHeader),
+      };
 
   return { stt, tts, llm, n8n };
 }
