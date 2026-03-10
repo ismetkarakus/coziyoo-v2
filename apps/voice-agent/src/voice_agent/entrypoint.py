@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -172,50 +173,119 @@ def _compact_text(value: str, max_len: int = 160) -> str:
     return f"{text[:max_len]}..."
 
 
+def _coerce_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in ("text", "content", "input_text", "transcript", "value"):
+            raw = value.get(key)
+            if isinstance(raw, str) and raw.strip():
+                return raw
+        return ""
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            text = _coerce_text(item).strip()
+            if text:
+                parts.append(text)
+        return " ".join(parts).strip()
+    return ""
+
+
+def _message_text(message: Any) -> str:
+    if isinstance(message, dict):
+        text = _coerce_text(message.get("content"))
+        if text:
+            return text
+        return _coerce_text(message.get("text"))
+
+    text_content = getattr(message, "text_content", None)
+    if callable(text_content):
+        try:
+            text = str(text_content() or "").strip()
+            if text:
+                return text
+        except Exception:
+            pass
+
+    for attr in ("content", "text", "input_text", "transcript", "value"):
+        try:
+            raw = getattr(message, attr, None)
+        except Exception:
+            raw = None
+        text = _coerce_text(raw).strip()
+        if text:
+            return text
+    return ""
+
+
+def _chat_messages(chat_ctx: object) -> list[Any]:
+    for attr in ("messages", "items", "history"):
+        value = getattr(chat_ctx, attr, None)
+        if callable(value):
+            try:
+                value = value()
+            except Exception:
+                value = None
+        if isinstance(value, list):
+            return value
+    return []
+
+
 def _last_user_preview(chat_ctx: object) -> str:
-    messages_attr = getattr(chat_ctx, "messages", None)
-    messages = messages_attr() if callable(messages_attr) else (messages_attr or [])
+    messages = _chat_messages(chat_ctx)
     for message in reversed(messages):
-        role = str(getattr(message, "role", "")).lower()
+        role = str(getattr(message, "role", message.get("role", "") if isinstance(message, dict) else "")).lower()
         if role != "user":
             continue
-        text = ""
-        text_content = getattr(message, "text_content", None)
-        if callable(text_content):
-            try:
-                text = str(text_content() or "")
-            except Exception:
-                text = ""
-        if not text:
-            content = getattr(message, "content", None)
-            if isinstance(content, str):
-                text = content
+        text = _message_text(message)
         if text:
             return _compact_text(text)
     return ""
 
 
 def _chat_history(chat_ctx: object, *, max_items: int = 24) -> list[dict[str, str]]:
-    messages_attr = getattr(chat_ctx, "messages", None)
-    messages = messages_attr() if callable(messages_attr) else (messages_attr or [])
+    messages = _chat_messages(chat_ctx)
     out: list[dict[str, str]] = []
     for message in messages[-max_items:]:
-        role = str(getattr(message, "role", "")).lower() or "user"
-        text = ""
-        text_content = getattr(message, "text_content", None)
-        if callable(text_content):
-            try:
-                text = str(text_content() or "")
-            except Exception:
-                text = ""
-        if not text:
-            content = getattr(message, "content", None)
-            if isinstance(content, str):
-                text = content
+        role = str(getattr(message, "role", message.get("role", "") if isinstance(message, dict) else "")).lower() or "user"
+        text = _message_text(message)
         text = text.strip()
         if text:
-            out.append({"role": role, "text": text})
+            out.append({"role": role, "content": text})
     return out
+
+
+def _fallback_user_text_from_stt() -> str:
+    log_path = Path(
+        os.getenv(
+            "VOICE_AGENT_REQUEST_LOG_FILE",
+            "/workspace/.runtime/voice-agent-requests.log",
+        )
+    )
+    if not log_path.exists():
+        return ""
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception:
+        return ""
+    for line in reversed(lines[-300:]):
+        try:
+            item = json.loads(line)
+        except Exception:
+            continue
+        if str(item.get("name") or "") != "coziyoo-voice-agent.requests.stt":
+            continue
+        message = str(item.get("message") or "")
+        match = re.search(r"STT response text=(.*)$", message)
+        if not match:
+            continue
+        text = match.group(1).strip()
+        if text:
+            return text
+    return ""
 
 
 def _extract_n8n_answer(body: Any) -> str:
@@ -407,6 +477,13 @@ class N8nLLMStream(llm.LLMStream):
 
     async def _run(self) -> None:
         user_text = _last_user_preview(self._chat_ctx)
+        messages = _chat_history(self._chat_ctx)
+        if not user_text:
+            fallback_text = _fallback_user_text_from_stt()
+            if fallback_text:
+                user_text = fallback_text
+                if not messages:
+                    messages = [{"role": "user", "content": fallback_text}]
         payload = {
             "workflowId": self._workflow_id,
             "source": "voice-agent",
@@ -415,7 +492,7 @@ class N8nLLMStream(llm.LLMStream):
             "jobId": self._runtime_ctx.get("jobId"),
             "deviceId": self._runtime_ctx.get("deviceId"),
             "userText": user_text,
-            "messages": _chat_history(self._chat_ctx),
+            "messages": messages,
             "mcpWorkflowId": self._runtime_ctx.get("mcpWorkflowId"),
         }
         request_id = f"n8n-{uuid.uuid4().hex[:12]}"
