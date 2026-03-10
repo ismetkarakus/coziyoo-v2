@@ -7,6 +7,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
@@ -213,13 +214,77 @@ class LoggingLLM(BaseLLM):
             tool_count,
             preview,
         )
-        return self._inner.chat(**kwargs)
+        inner_stream = self._inner.chat(**kwargs)
+        return LoggingLLMStream(
+            inner=inner_stream,
+            provider=self.provider,
+            model=self.model,
+            logger=request_logger,
+        )
 
     def prewarm(self) -> None:
         self._inner.prewarm()
 
     async def aclose(self) -> None:
         await self._inner.aclose()
+
+
+class LoggingLLMStream:
+    def __init__(self, *, inner: Any, provider: str, model: str, logger: logging.Logger) -> None:
+        self._inner = inner
+        self._provider = provider
+        self._model = model
+        self._logger = logger
+        self._parts: list[str] = []
+        self._logged_summary = False
+
+    async def __aenter__(self):
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        try:
+            return await self._inner.__aexit__(exc_type, exc, tb)
+        finally:
+            self._emit_summary()
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            chunk = await self._inner.__anext__()
+        except StopAsyncIteration:
+            self._emit_summary()
+            raise
+        delta = getattr(chunk, "delta", None)
+        content = getattr(delta, "content", None)
+        if isinstance(content, str) and content:
+            self._parts.append(content)
+        return chunk
+
+    async def aclose(self) -> None:
+        try:
+            await self._inner.aclose()
+        finally:
+            self._emit_summary()
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+    def _emit_summary(self) -> None:
+        if self._logged_summary:
+            return
+        self._logged_summary = True
+        text = "".join(self._parts).strip()
+        preview = _compact_text(text, 220) if text else ""
+        self._logger.info(
+            "LLM response provider=%s model=%s text_chars=%d preview=%s",
+            self._provider,
+            self._model,
+            len(text),
+            preview,
+        )
 
 
 def _audio_input_options() -> room_io.AudioInputOptions:
