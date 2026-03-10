@@ -89,7 +89,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         total_price: "Toplam Tutar",
         estimated_delivery_time: "Tahmini Teslimat",
         delivery_address_json: "Teslimat Adresi",
-        order_id: "Order ID",
         lot_id: "Lot ID",
         food_id: "Yemek ID",
         food_name: "Yemek Adı",
@@ -385,8 +384,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       const body = await parseJson<{
         data: { rows: Array<Record<string, unknown>>; columns: string[] };
       }>(response);
-      const rows = (body.data.rows ?? []).filter((item) => String(item.order_id ?? "") === orderId);
-      setSelectedOrderItems(rows);
+      setSelectedOrderItems(body.data.rows ?? []);
       setSelectedOrderItemsColumns(body.data.columns ?? []);
     } finally {
       setOrderItemsLoading(false);
@@ -696,12 +694,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(raw ?? "-");
   })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
-    const withoutOrderId = selectedOrderItemsColumns.filter((column) => {
-      const normalized = String(column).trim().toLowerCase();
-      return normalized !== "order_id" && normalized !== "orderid";
-    });
-    if (!withoutOrderId.includes("food_id")) return withoutOrderId;
-    const withoutFoodName = withoutOrderId.filter((column) => column !== "food_name");
+    if (!selectedOrderItemsColumns.includes("food_id")) return selectedOrderItemsColumns;
+    const withoutFoodName = selectedOrderItemsColumns.filter((column) => column !== "food_name");
     const foodIdIndex = withoutFoodName.indexOf("food_id");
     if (foodIdIndex < 0) return withoutFoodName;
     return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];

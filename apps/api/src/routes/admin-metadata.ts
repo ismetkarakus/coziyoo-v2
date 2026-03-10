@@ -42,6 +42,11 @@ type TableKey = z.infer<typeof TableKeySchema>;
 type ColumnSensitivity = "public" | "internal" | "secret";
 const EXCLUDED_METADATA_COLUMNS = new Set(["short_id"]);
 
+// Per-table columns excluded from API responses (still stored in DB but not exposed).
+const TABLE_EXCLUDED_COLUMNS: Partial<Record<TableKey, Set<string>>> = {
+  orderItems: new Set(["order_id"]),
+};
+
 const PreferencesSchema = z.object({
   visibleColumns: z.array(z.string().min(1)).min(1),
   columnOrder: z.array(z.string().min(1)).optional(),
@@ -207,7 +212,8 @@ adminMetadataRouter.get("/metadata/tables/:tableKey/records", requireAuth("admin
   const offset = (page - 1) * pageSize;
 
   const fields = await loadColumnDefinitions(tableName);
-  const columns = visibleColumnsFromFields(fields);
+  const tableExcluded = TABLE_EXCLUDED_COLUMNS[tableKey] ?? new Set<string>();
+  const columns = visibleColumnsFromFields(fields).filter((c) => !tableExcluded.has(c));
   if (columns.length === 0) {
     return res.status(404).json({ error: { code: "TABLE_NOT_FOUND", message: "No fields found for table" } });
   }
