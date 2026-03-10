@@ -157,7 +157,11 @@ async def logs_viewer() -> str:
       for (const item of (json.data || [])) {
         const tr = document.createElement("tr");
         const type = (item.name || "").split(".").pop() || "-";
-        tr.innerHTML = `<td>${item.timestamp || ""}</td><td>${type}</td><td class="msg">${item.message || ""}</td>`;
+        const ts = item.timestamp ? new Date(item.timestamp) : null;
+        const timeOnly = ts && !Number.isNaN(ts.getTime())
+          ? ts.toLocaleTimeString("en-GB", { hour12: false })
+          : (item.timestamp || "");
+        tr.innerHTML = `<td>${timeOnly}</td><td>${type}</td><td class="msg">${item.message || ""}</td>`;
         rows.appendChild(tr);
       }
       meta.textContent = `file: ${json.file} | rows: ${json.count}`;
