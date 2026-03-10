@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+import datetime
 import json
 import logging
 import os
 from urllib.parse import urlparse
 
+import aiohttp
 from livekit import rtc
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, room_io
-from livekit.plugins import noise_cancellation, silero
+from livekit.plugins import silero
 
 from .config.settings import get_settings
 
@@ -76,7 +79,7 @@ def _audio_input_options() -> room_io.AudioInputOptions:
         return room_io.AudioInputOptions()
 
     # Guard against enabling cloud-only filters on self-hosted LiveKit.
-    parsed = urlparse(settings.LIVEKIT_URL)
+    parsed = urlparse(settings.livekit_url)
     host = (parsed.hostname or "").lower()
     if "livekit.cloud" not in host:
         logger.warning(
@@ -84,6 +87,10 @@ def _audio_input_options() -> room_io.AudioInputOptions:
             settings.LIVEKIT_URL,
         )
         return room_io.AudioInputOptions()
+
+    # Import only when explicitly enabled to avoid loading cloud-only noise
+    # filtering paths on self-hosted deployments.
+    from livekit.plugins import noise_cancellation
 
     return room_io.AudioInputOptions(
         noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
@@ -223,6 +230,57 @@ def _build_tts(providers: dict, language: str):
     )
 
 
+async def _notify_session_end(
+    room_name: str,
+    started_at: str,
+    ended_at: str,
+    metadata_data: dict,
+    api_base_url: str,
+    shared_secret: str,
+) -> None:
+    """Report session completion to the API, which forwards the event to N8N."""
+    if not api_base_url or not shared_secret:
+        logger.warning(
+            "Session end not reported: API_BASE_URL or AI_SERVER_SHARED_SECRET not configured"
+        )
+        return
+
+    url = f"{api_base_url.rstrip('/')}/v1/livekit/session/end"
+    payload: dict = {
+        "roomName": room_name,
+        "summary": "Voice session completed.",
+        "startedAt": started_at,
+        "endedAt": ended_at,
+        "outcome": "completed",
+    }
+    device_id = metadata_data.get("deviceId")
+    if device_id:
+        payload["deviceId"] = device_id
+
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.post(
+                url,
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-ai-server-secret": shared_secret,
+                },
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                body = await resp.text()
+                if resp.status >= 400:
+                    logger.warning(
+                        "Session end API call failed status=%s body=%s",
+                        resp.status,
+                        body[:200],
+                    )
+                else:
+                    logger.info("Session end reported to API status=%s", resp.status)
+    except Exception as exc:
+        logger.warning("Failed to report session end to API: %s", exc)
+
+
 @server.rtc_session(agent_name="coziyoo-voice-agent")
 async def entrypoint(ctx: JobContext) -> None:
     metadata = ctx.job.metadata or "{}"
@@ -238,6 +296,8 @@ async def entrypoint(ctx: JobContext) -> None:
         language = str(metadata_data.get("voiceLanguage") or metadata_data.get("locale") or "en").split("-")[0]
         providers = metadata_data.get("providers", {})
 
+    started_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
     logger.info(
         "Starting session deviceId=%s language=%s stt=%s llm=%s tts=%s",
         metadata_data.get("deviceId", "?"),
@@ -246,6 +306,15 @@ async def entrypoint(ctx: JobContext) -> None:
         providers.get("llm", {}).get("baseUrl", "?"),
         providers.get("tts", {}).get("baseUrl", "?"),
     )
+
+    # Track room disconnect so we can report session end regardless of how start() behaves
+    disconnect_fut: asyncio.Future[None] = asyncio.get_event_loop().create_future()
+
+    def _on_disconnected(*_args: object) -> None:
+        if not disconnect_fut.done():
+            disconnect_fut.set_result(None)
+
+    ctx.room.on("disconnected", _on_disconnected)
 
     stt_instance = _build_stt(providers, language)
     llm_instance = _build_llm(providers)
@@ -265,6 +334,20 @@ async def entrypoint(ctx: JobContext) -> None:
         room_options=room_io.RoomOptions(
             audio_input=_audio_input_options(),
         ),
+    )
+
+    # If session.start() is non-blocking, wait for the actual room disconnect
+    if not disconnect_fut.done():
+        await disconnect_fut
+
+    ended_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    await _notify_session_end(
+        room_name=ctx.room.name,
+        started_at=started_at,
+        ended_at=ended_at,
+        metadata_data=metadata_data,
+        api_base_url=settings.api_base_url,
+        shared_secret=settings.ai_server_shared_secret,
     )
 
 
