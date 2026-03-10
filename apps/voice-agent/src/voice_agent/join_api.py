@@ -111,6 +111,9 @@ async def logs_viewer() -> str:
     th, td { border-bottom: 1px solid #2a2f3a; padding: 6px 4px; text-align: left; vertical-align: top; }
     th { color: #aab4c3; font-weight: 600; }
     .msg { white-space: pre-wrap; word-break: break-word; }
+    tr.child td { background: #141925; }
+    tr.child td.msg { padding-left: 22px; color: #d6e2ff; }
+    .tag { display: inline-block; min-width: 58px; color: #8ea1be; }
   </style>
 </head>
 <body>
@@ -145,6 +148,45 @@ async def logs_viewer() -> str:
     const auto = document.getElementById("auto");
     const refresh = document.getElementById("refresh");
 
+    function typeOf(item) {
+      return (item.name || "").split(".").pop() || "-";
+    }
+
+    function isRequest(item) {
+      return /\\brequest\\b/i.test(item.message || "");
+    }
+
+    function isResponse(item) {
+      return /\\bresponse\\b/i.test(item.message || "");
+    }
+
+    function keyOf(item) {
+      return `${typeOf(item)}|${item.job_id || ""}|${item.room_id || ""}`;
+    }
+
+    function formatTime(item) {
+      const ts = item.timestamp ? new Date(item.timestamp) : null;
+      return ts && !Number.isNaN(ts.getTime())
+        ? ts.toLocaleTimeString("en-GB", { hour12: false })
+        : (item.timestamp || "");
+    }
+
+    function td(text, cls) {
+      const el = document.createElement("td");
+      if (cls) el.className = cls;
+      el.textContent = text;
+      return el;
+    }
+
+    function appendRow(item, type, message, isChild) {
+      const tr = document.createElement("tr");
+      if (isChild) tr.className = "child";
+      tr.appendChild(td(formatTime(item)));
+      tr.appendChild(td(type));
+      tr.appendChild(td(message, "msg"));
+      rows.appendChild(tr);
+    }
+
     async function load() {
       const params = new URLSearchParams({
         kind: kind.value,
@@ -154,15 +196,43 @@ async def logs_viewer() -> str:
       const res = await fetch(`/logs/requests?${params.toString()}`);
       const json = await res.json();
       rows.innerHTML = "";
-      for (const item of (json.data || [])) {
-        const tr = document.createElement("tr");
-        const type = (item.name || "").split(".").pop() || "-";
-        const ts = item.timestamp ? new Date(item.timestamp) : null;
-        const timeOnly = ts && !Number.isNaN(ts.getTime())
-          ? ts.toLocaleTimeString("en-GB", { hour12: false })
-          : (item.timestamp || "");
-        tr.innerHTML = `<td>${timeOnly}</td><td>${type}</td><td class="msg">${item.message || ""}</td>`;
-        rows.appendChild(tr);
+
+      const itemsChron = [...(json.data || [])].reverse();
+      const pending = new Map();
+      const groups = [];
+
+      for (const item of itemsChron) {
+        const type = typeOf(item);
+        const key = keyOf(item);
+        if (isRequest(item)) {
+          const group = { type, request: item, response: null };
+          groups.push(group);
+          if (!pending.has(key)) pending.set(key, []);
+          pending.get(key).push(group);
+          continue;
+        }
+        if (isResponse(item)) {
+          const queue = pending.get(key) || [];
+          if (queue.length > 0) {
+            const group = queue.shift();
+            group.response = item;
+            continue;
+          }
+        }
+        groups.push({ type, single: item });
+      }
+
+      for (const group of groups.reverse()) {
+        if (group.single) {
+          appendRow(group.single, group.type, group.single.message || "", false);
+          continue;
+        }
+        const requestMsg = `request -> ${group.request.message || ""}`;
+        appendRow(group.request, group.type, requestMsg, false);
+        if (group.response) {
+          const responseMsg = `response -> ${group.response.message || ""}`;
+          appendRow(group.response, group.type, responseMsg, true);
+        }
       }
       meta.textContent = `file: ${json.file} | rows: ${json.count}`;
     }
