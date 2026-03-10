@@ -205,40 +205,118 @@ async def logs_viewer() -> str:
       rows.innerHTML = "";
 
       const itemsChron = [...(json.data || [])].reverse();
-      const pending = new Map();
-      const groups = [];
+      const selectedKind = kind.value;
 
-      for (const item of itemsChron) {
-        const type = typeOf(item);
-        const key = keyOf(item);
-        if (isRequest(item)) {
-          const group = { type, request: item, response: null };
-          groups.push(group);
-          if (!pending.has(key)) pending.set(key, []);
-          pending.get(key).push(group);
-          continue;
-        }
-        if (isResponse(item)) {
-          const queue = pending.get(key) || [];
-          if (queue.length > 0) {
-            const group = queue.shift();
-            group.response = item;
+      if (selectedKind !== "all") {
+        // Keep simple request/response rendering when a single type is selected.
+        const pending = [];
+        for (const item of itemsChron) {
+          if (isResponse(item)) {
+            pending.push(item);
             continue;
           }
+          if (isRequest(item)) {
+            appendRow(item, typeOf(item), `request -> ${item.message || ""}`, false);
+            const idx = pending.findIndex((r) => keyOf(r) === keyOf(item));
+            if (idx >= 0) {
+              const resp = pending.splice(idx, 1)[0];
+              appendRow(resp, typeOf(resp), `response -> ${resp.message || ""}`, true);
+            }
+            continue;
+          }
+          appendRow(item, typeOf(item), item.message || "", false);
         }
-        groups.push({ type, single: item });
-      }
+      } else {
+        // Group by expected stage flow: stt -> llm -> tts
+        const flows = [];
+        let current = null;
 
-      for (const group of groups.reverse()) {
-        if (group.single) {
-          appendRow(group.single, group.type, group.single.message || "", false);
-          continue;
+        function newFlow(seed) {
+          return {
+            key: `${seed.job_id || ""}|${seed.room_id || ""}`,
+            sttReq: null,
+            sttRes: null,
+            llmReq: null,
+            llmRes: null,
+            ttsPairs: [],
+            others: [],
+            firstTs: seed.timestamp,
+          };
         }
-        const requestMsg = `request -> ${group.request.message || ""}`;
-        appendRow(group.request, group.type, requestMsg, false);
-        if (group.response) {
-          const responseMsg = `response -> ${group.response.message || ""}`;
-          appendRow(group.response, group.type, responseMsg, true);
+
+        function flushCurrent() {
+          if (!current) return;
+          const hasData = current.sttReq || current.llmReq || current.ttsPairs.length || current.others.length;
+          if (hasData) flows.push(current);
+        }
+
+        for (const item of itemsChron) {
+          const t = typeOf(item);
+          const req = isRequest(item);
+          const resp = isResponse(item);
+
+          if (t === "stt" && req) {
+            flushCurrent();
+            current = newFlow(item);
+            current.sttReq = item;
+            continue;
+          }
+
+          if (!current) current = newFlow(item);
+
+          if (t === "stt" && resp) {
+            if (!current.sttRes) current.sttRes = item;
+            else current.others.push(item);
+            continue;
+          }
+
+          if (t === "llm" && req) {
+            if (!current.llmReq) current.llmReq = item;
+            else current.others.push(item);
+            continue;
+          }
+
+          if (t === "llm" && resp) {
+            if (!current.llmRes) current.llmRes = item;
+            else current.others.push(item);
+            continue;
+          }
+
+          if (t === "tts" && req) {
+            current.ttsPairs.push({ req: item, res: null });
+            continue;
+          }
+
+          if (t === "tts" && resp) {
+            const open = [...current.ttsPairs].reverse().find((p) => p.req && !p.res);
+            if (open) open.res = item;
+            else current.ttsPairs.push({ req: null, res: item });
+            continue;
+          }
+
+          current.others.push(item);
+        }
+        flushCurrent();
+
+        for (const flow of flows.reverse()) {
+          const rootItem = flow.sttReq || flow.llmReq || (flow.ttsPairs[0] && (flow.ttsPairs[0].req || flow.ttsPairs[0].res)) || flow.others[0];
+          if (!rootItem) continue;
+          appendRow(rootItem, "flow", "stt -> llm -> tts", false);
+
+          if (flow.sttReq) appendRow(flow.sttReq, "stt", `request -> ${flow.sttReq.message || ""}`, true);
+          if (flow.sttRes) appendRow(flow.sttRes, "stt", `response -> ${flow.sttRes.message || ""}`, true);
+
+          if (flow.llmReq) appendRow(flow.llmReq, "llm", `request -> ${flow.llmReq.message || ""}`, true);
+          if (flow.llmRes) appendRow(flow.llmRes, "llm", `response -> ${flow.llmRes.message || ""}`, true);
+
+          for (const pair of flow.ttsPairs) {
+            if (pair.req) appendRow(pair.req, "tts", `request -> ${pair.req.message || ""}`, true);
+            if (pair.res) appendRow(pair.res, "tts", `response -> ${pair.res.message || ""}`, true);
+          }
+
+          for (const extra of flow.others) {
+            appendRow(extra, typeOf(extra), extra.message || "", true);
+          }
         }
       }
       meta.textContent = `file: ${json.file} | rows: ${json.count}`;
