@@ -42,7 +42,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const input = $json;\nconst action = input.action;\nlet status = 200;\nlet ok = true;\nlet data = null;\nlet error = null;\n\ntry {\n  if (action === 'health.check') {\n    data = { service: 'mcp-gateway', status: 'ok' };\n  } else if (action === 'echo') {\n    data = { echo: input.params };\n  } else {\n    status = 400;\n    ok = false;\n    error = { code: 'UNSUPPORTED_ACTION', message: `Unsupported action: ${action}` };\n  }\n} catch (e) {\n  status = 500;\n  ok = false;\n  error = { code: 'MCP_GATEWAY_FAILURE', message: e.message || String(e) };\n}\n\nreturn [{ json: { ...input, ok, status, data, error } }];"
+        "jsCode": "const input = $json;\nconst action = input.action;\nlet status = 200;\nlet ok = true;\nlet data = null;\nlet error = null;\n\ntry {\n  if (action === 'health.check') {\n    data = { service: 'mcp-gateway', status: 'ok' };\n  } else if (action === 'echo') {\n    data = { echo: input.params };\n  } else if (action === 'database.question') {\n    const query = String(input?.params?.query || input?.params?.userText || '').trim();\n    data = {\n      source: 'database.question',\n      query,\n      answer: query\n        ? `Database tool received query: ${query}. Connect this action to your real DB/API node for production answers.`\n        : 'Database tool received empty query.'\n    };\n  } else {\n    status = 400;\n    ok = false;\n    error = { code: 'UNSUPPORTED_ACTION', message: `Unsupported action: ${action}` };\n  }\n} catch (e) {\n  status = 500;\n  ok = false;\n  error = { code: 'MCP_GATEWAY_FAILURE', message: e.message || String(e) };\n}\n\nreturn [{ json: { ...input, ok, status, data, error } }];"
       }
     },
     {

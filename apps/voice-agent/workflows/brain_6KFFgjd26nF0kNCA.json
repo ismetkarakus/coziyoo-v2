@@ -6,10 +6,7 @@
       "name": "Brain Webhook In",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        340
-      ],
+      "position": [240, 340],
       "parameters": {
         "path": "6KFFgjd26nF0kNCA",
         "httpMethod": "POST",
@@ -22,13 +19,35 @@
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        500,
-        340
-      ],
+      "position": [500, 340],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const body = $json.body ?? $json;\nconst traceId = body.traceId || body.jobId || `trace-${Date.now()}`;\nconst userText = String(body.userText || '').trim();\nreturn [{ json: {\n  traceId,\n  workflowId: body.workflowId || '6KFFgjd26nF0kNCA',\n  requestedByWorkflowId: '6KFFgjd26nF0kNCA',\n  roomId: body.roomId || null,\n  jobId: body.jobId || null,\n  deviceId: body.deviceId || null,\n  userText,\n  messages: Array.isArray(body.messages) ? body.messages : [],\n  requiresMcp: Boolean(body.requiresMcp || /^tool:|^api:/i.test(userText)),\n  action: body.action || null,\n  params: body.params || null\n}}];"
+        "jsCode": "const body = $json.body ?? $json;\nconst traceId = body.traceId || body.jobId || `trace-${Date.now()}`;\nconst userText = String(body.userText || '').trim();\nconst messages = Array.isArray(body.messages) ? body.messages : [];\nreturn [{ json: {\n  traceId,\n  workflowId: body.workflowId || '6KFFgjd26nF0kNCA',\n  requestedByWorkflowId: '6KFFgjd26nF0kNCA',\n  roomId: body.roomId || null,\n  jobId: body.jobId || null,\n  deviceId: body.deviceId || null,\n  userText,\n  messages,\n  action: body.action || null,\n  params: body.params || null\n}}];"
+      }
+    },
+    {
+      "id": "intent-llm",
+      "name": "Intent LLM (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 340],
+      "parameters": {
+        "method": "POST",
+        "url": "={{($env.OLLAMA_BASE_URL || 'https://ollama.drascom.uk').replace(/\\\/$/, '') + '/v1/chat/completions'}}",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ { model: ($env.OLLAMA_CHAT_MODEL || 'ministral-3:8b'), temperature: 0.1, messages: [ { role: 'system', content: 'You classify user intent for a food-ordering voice assistant. Return strict JSON only: {\\\"intent\\\":string,\\\"requiresMcp\\\":boolean,\\\"action\\\":string,\\\"query\\\":string,\\\"ask\\\":string}. Use requiresMcp=true when DB/API lookup is needed (menu availability, prices, orders, customer records). If simple greeting/chitchat/clarification, requiresMcp=false.' }, { role: 'user', content: `User text: ${$json.userText}\\nRecent messages: ${JSON.stringify(($json.messages || []).slice(-8))}` } ] } }}"
+      }
+    },
+    {
+      "id": "parse-intent",
+      "name": "Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 340],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const root = $json.body ?? $json;\nconst raw = root?.choices?.[0]?.message?.content || root?.replyText || root?.text || '';\nlet parsed = {};\nif (typeof raw === 'string') {\n  try {\n    parsed = JSON.parse(raw);\n  } catch {\n    parsed = {};\n  }\n}\nconst prev = $('Normalize Input').item.json;\nconst fallbackNeed = /^tool:|^api:|menu|price|availability|order|status|db|database/i.test(prev.userText || '');\nconst requiresMcp = typeof parsed.requiresMcp === 'boolean' ? parsed.requiresMcp : fallbackNeed;\nconst intent = String(parsed.intent || 'general_query');\nconst action = String(parsed.action || (requiresMcp ? 'database.question' : 'none'));\nconst query = String(parsed.query || prev.userText || '');\nconst ask = String(parsed.ask || '');\nreturn [{ json: { ...prev, intent, requiresMcp, action, query, ask, intentRaw: raw } }];"
       }
     },
     {
@@ -36,10 +55,7 @@
       "name": "Needs MCP?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        760,
-        340
-      ],
+      "position": [1260, 340],
       "parameters": {
         "conditions": {
           "boolean": [
@@ -56,44 +72,38 @@
       "name": "Call MCP Gateway",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1020,
-        200
-      ],
+      "position": [1500, 200],
       "parameters": {
         "method": "POST",
-        "url": "={{$env.N8N_HOST}}{{$env.N8N_MCP_WEBHOOK_PATH || '/webhook/XYiIkxpa4PlnddQt'}}",
+        "url": "={{$env.N8N_HOST + ($env.N8N_MCP_WEBHOOK_PATH || '/webhook/XYiIkxpa4PlnddQt')}}",
         "sendBody": true,
         "contentType": "json",
-        "jsonBody": "={{ { traceId: $json.traceId, action: $json.action || 'unknown', params: $json.params || { userText: $json.userText }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"
+        "jsonBody": "={{ { traceId: $json.traceId, action: $json.action || 'database.question', params: { query: $json.query, userText: $json.userText, roomId: $json.roomId, deviceId: $json.deviceId }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"
       }
     },
     {
-      "id": "compose-mcp-reply",
-      "name": "Compose MCP Reply",
+      "id": "merge-context",
+      "name": "Merge Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1280,
-        200
-      ],
+      "position": [1740, 340],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const body = $json.body ?? $json;\nconst ok = Boolean(body.ok);\nconst data = body.data ?? null;\nconst error = body.error ?? null;\nconst replyText = ok\n  ? `Done. ${typeof data === 'string' ? data : 'Action completed successfully.'}`\n  : `I couldn't complete that action right now.${error ? ' ' + (error.message || JSON.stringify(error)) : ''}`;\nreturn [{ json: { replyText, meta: { source: 'mcp', ok, data, error } } }];"
+        "jsCode": "const hasMcp = $input.item.pairedItem?.input === 0 || !!$json.ok || !!$json.data || !!$json.error;\nif (hasMcp && ('ok' in $json || 'data' in $json || 'error' in $json)) {\n  const base = $('Parse Intent').item.json;\n  return [{ json: { ...base, mcp: { ok: Boolean($json.ok), status: Number($json.status || 0), data: $json.data ?? null, error: $json.error ?? null, durationMs: $json.durationMs ?? null } } }];\n}\nreturn [{ json: { ...$json, mcp: null } }];"
       }
     },
     {
-      "id": "compose-direct-reply",
-      "name": "Compose Direct Reply",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1020,
-        460
-      ],
+      "id": "reply-llm",
+      "name": "Reply LLM (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 340],
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const text = String($json.userText || '').trim();\nconst replyText = text ? `Understood: ${text}` : 'How can I help you today?';\nreturn [{ json: { replyText, meta: { source: 'direct' } } }];"
+        "method": "POST",
+        "url": "={{($env.OLLAMA_BASE_URL || 'https://ollama.drascom.uk').replace(/\\\/$/, '') + '/v1/chat/completions'}}",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ { model: ($env.OLLAMA_CHAT_MODEL || 'ministral-3:8b'), temperature: 0.25, messages: [ { role: 'system', content: 'You are Coziyoo voice assistant. Reply concise and natural for speech. If MCP data exists, prioritize factual values from it. If data missing, ask one short clarifying question.' }, { role: 'user', content: `Intent: ${$json.intent}\\nUser text: ${$json.userText}\\nMCP result: ${JSON.stringify($json.mcp)}\\nHint: ${$json.ask || ''}` } ] } }}"
       }
     },
     {
@@ -101,13 +111,10 @@
       "name": "Finalize Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1540,
-        340
-      ],
+      "position": [2220, 340],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const body = $json.body ?? $json;\nconst replyText = String(body.replyText || body.answer || body.text || '').trim() || 'I am sorry, I could not generate a response.';\nconst meta = typeof body.meta === 'object' && body.meta !== null ? body.meta : {};\nreturn [{ json: { replyText, meta } }];"
+        "jsCode": "const rawRoot = $json.body ?? $json;\nconst llmText = String(rawRoot?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Merge Context').item.json;\nconst fallback = ctx.ask || (ctx.mcp && ctx.mcp.ok === false ? 'I could not fetch that data now. Please try again.' : 'How can I help you?');\nconst replyText = llmText || fallback;\nreturn [{ json: { replyText, meta: { intent: ctx.intent, requiresMcp: ctx.requiresMcp, mcp: ctx.mcp, traceId: ctx.traceId } } }];"
       }
     },
     {
@@ -115,10 +122,7 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1780,
-        340
-      ],
+      "position": [2460, 340],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{$json}}",
@@ -128,88 +132,34 @@
   ],
   "connections": {
     "Brain Webhook In": {
-      "main": [
-        [
-          {
-            "node": "Normalize Input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
     },
     "Normalize Input": {
-      "main": [
-        [
-          {
-            "node": "Needs MCP?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Intent LLM (Ollama)", "type": "main", "index": 0 }]]
+    },
+    "Intent LLM (Ollama)": {
+      "main": [[{ "node": "Parse Intent", "type": "main", "index": 0 }]]
+    },
+    "Parse Intent": {
+      "main": [[{ "node": "Needs MCP?", "type": "main", "index": 0 }]]
     },
     "Needs MCP?": {
       "main": [
-        [
-          {
-            "node": "Call MCP Gateway",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Compose Direct Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Call MCP Gateway", "type": "main", "index": 0 }],
+        [{ "node": "Merge Context", "type": "main", "index": 0 }]
       ]
     },
     "Call MCP Gateway": {
-      "main": [
-        [
-          {
-            "node": "Compose MCP Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Merge Context", "type": "main", "index": 0 }]]
     },
-    "Compose MCP Reply": {
-      "main": [
-        [
-          {
-            "node": "Finalize Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Merge Context": {
+      "main": [[{ "node": "Reply LLM (Ollama)", "type": "main", "index": 0 }]]
     },
-    "Compose Direct Reply": {
-      "main": [
-        [
-          {
-            "node": "Finalize Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Reply LLM (Ollama)": {
+      "main": [[{ "node": "Finalize Reply", "type": "main", "index": 0 }]]
     },
     "Finalize Reply": {
-      "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
     }
   },
   "settings": {
