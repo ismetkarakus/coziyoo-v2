@@ -10,11 +10,13 @@ from urllib.parse import urlparse
 import aiohttp
 from livekit import rtc
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, room_io
+from livekit.agents.llm import LLM as BaseLLM
 from livekit.plugins import silero
 
 from .config.settings import get_settings
 
 logger = logging.getLogger("coziyoo-voice-agent")
+request_logger = logging.getLogger("coziyoo-voice-agent.requests.llm")
 settings = get_settings()
 
 
@@ -69,6 +71,110 @@ def _env_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _configure_logging() -> None:
+    """Configure root and library logger levels from environment."""
+    level_name = (
+        os.getenv("VOICE_AGENT_LOG_LEVEL")
+        or os.getenv("LOG_LEVEL")
+        or "INFO"
+    ).strip().upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(level=level)
+    request_level_name = (os.getenv("VOICE_AGENT_REQUEST_LOG_LEVEL") or "INFO").strip().upper()
+    request_level = getattr(logging, request_level_name, logging.INFO)
+
+    # Keep third-party logs aligned with requested verbosity.
+    for logger_name in (
+        "livekit",
+        "livekit.agents",
+        "openai",
+        "httpx",
+        "httpcore",
+        "urllib3",
+        "coziyoo-voice-agent",
+        "coziyoo-voice-agent.http-stt",
+        "coziyoo-voice-agent.http-tts",
+        "coziyoo-voice-agent-join",
+    ):
+        logging.getLogger(logger_name).setLevel(level)
+    for logger_name in (
+        "coziyoo-voice-agent.requests.llm",
+        "coziyoo-voice-agent.requests.stt",
+        "coziyoo-voice-agent.requests.tts",
+    ):
+        logging.getLogger(logger_name).setLevel(request_level)
+
+
+def _compact_text(value: str, max_len: int = 160) -> str:
+    text = " ".join((value or "").split())
+    if len(text) <= max_len:
+        return text
+    return f"{text[:max_len]}..."
+
+
+def _last_user_preview(chat_ctx: object) -> str:
+    messages = getattr(chat_ctx, "messages", None) or []
+    for message in reversed(messages):
+        role = str(getattr(message, "role", "")).lower()
+        if role != "user":
+            continue
+        text = ""
+        text_content = getattr(message, "text_content", None)
+        if callable(text_content):
+            try:
+                text = str(text_content() or "")
+            except Exception:
+                text = ""
+        if not text:
+            content = getattr(message, "content", None)
+            if isinstance(content, str):
+                text = content
+        if text:
+            return _compact_text(text)
+    return ""
+
+
+class LoggingLLM(BaseLLM):
+    """Small wrapper to emit request traces before delegating to real LLM."""
+
+    def __init__(self, inner: BaseLLM, model: str, base_url: str) -> None:
+        super().__init__()
+        self._inner = inner
+        self._model = model
+        self._base_url = base_url
+
+    @property
+    def model(self) -> str:
+        return str(getattr(self._inner, "model", self._model))
+
+    @property
+    def provider(self) -> str:
+        return str(getattr(self._inner, "provider", "openai-compatible-llm"))
+
+    def chat(self, **kwargs):
+        chat_ctx = kwargs.get("chat_ctx")
+        tools = kwargs.get("tools")
+        preview = _last_user_preview(chat_ctx)
+        message_count = len(getattr(chat_ctx, "messages", None) or [])
+        tool_count = len(tools or [])
+        request_logger.info(
+            "LLM request provider=%s model=%s base=%s messages=%d tools=%d preview=%s",
+            self.provider,
+            self.model,
+            self._base_url,
+            message_count,
+            tool_count,
+            preview,
+        )
+        return self._inner.chat(**kwargs)
+
+    def prewarm(self) -> None:
+        self._inner.prewarm()
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 def _audio_input_options() -> room_io.AudioInputOptions:
@@ -179,11 +285,12 @@ def _build_llm(providers: dict):
         from livekit.plugins.openai import LLM
 
         logger.info("Using OpenAI-compatible LLM (Ollama): %s model=%s", openai_base, model)
-        return LLM(
+        llm = LLM(
             model=model,
             base_url=openai_base,
             api_key=api_key,
         )
+        return LoggingLLM(inner=llm, model=str(model), base_url=openai_base)
     except ImportError:
         raise RuntimeError(
             "livekit-plugins-openai is required for LLM support. "
@@ -352,7 +459,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    _configure_logging()
     cli.run_app(server)
 
 

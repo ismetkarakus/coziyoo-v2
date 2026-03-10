@@ -64,11 +64,12 @@ services:
       AI_SERVER_HOST: 0.0.0.0
       AI_SERVER_PORT: "9000"
       API_BASE_URL: http://api:3000
+      VOICE_AGENT_API_LOG_LEVEL: ${VOICE_AGENT_API_LOG_LEVEL:-warning}
     volumes:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip
     command: >
-      bash -lc "pip install -e . && uvicorn voice_agent.join_api:app --host 0.0.0.0 --port 9000"
+      bash -lc "pip install -e . && uvicorn voice_agent.join_api:app --host 0.0.0.0 --port 9000 --log-level ${VOICE_AGENT_API_LOG_LEVEL:-warning} --no-access-log"
     ports:
       - "9000:9000"
 
@@ -81,6 +82,8 @@ services:
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
       API_BASE_URL: http://api:3000
+      VOICE_AGENT_LOG_LEVEL: ${VOICE_AGENT_LOG_LEVEL:-WARNING}
+      VOICE_AGENT_REQUEST_LOG_LEVEL: ${VOICE_AGENT_REQUEST_LOG_LEVEL:-INFO}
     volumes:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip

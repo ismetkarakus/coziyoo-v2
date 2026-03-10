@@ -18,6 +18,7 @@ from livekit.agents.tts import ChunkedStream, TTS, TTSCapabilities
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS, APIConnectOptions
 
 logger = logging.getLogger("coziyoo-voice-agent.http-tts")
+request_logger = logging.getLogger("coziyoo-voice-agent.requests.tts")
 
 DEFAULT_SAMPLE_RATE = 24000
 DEFAULT_NUM_CHANNELS = 1
@@ -104,12 +105,24 @@ class HttpTTSChunkedStream(ChunkedStream):
 
         session = self._tts._get_session()
         try:
+            request_logger.info(
+                "TTS request provider=http-tts model=%s url=%s language=%s text_chars=%d",
+                self._tts._engine,
+                url,
+                self._tts._language,
+                len(self._input_text),
+            )
             async with session.post(url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status != 200:
                     err_text = await resp.text()
                     raise Exception(f"TTS server error {resp.status}: {err_text[:200]}")
 
                 audio_bytes = await resp.read()
+                request_logger.info(
+                    "TTS response provider=http-tts status=%s audio_bytes=%d",
+                    resp.status,
+                    len(audio_bytes),
+                )
                 frame = _decode_audio(audio_bytes, self._tts._sample_rate, self._tts._num_channels)
                 output_emitter.initialize(
                     request_id=request_id,

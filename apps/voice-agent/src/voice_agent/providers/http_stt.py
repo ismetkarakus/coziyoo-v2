@@ -25,6 +25,7 @@ from livekit.agents.utils import AudioBuffer
 from livekit.agents.utils.audio import combine_frames
 
 logger = logging.getLogger("coziyoo-voice-agent.http-stt")
+request_logger = logging.getLogger("coziyoo-voice-agent.requests.stt")
 
 
 class HttpSTT(STT):
@@ -102,6 +103,13 @@ class HttpSTT(STT):
         form.add_field("stream", "false")
 
         session = self._get_session()
+        request_logger.info(
+            "STT request provider=http-stt model=%s url=%s language=%s pcm_bytes=%d",
+            self._model_name,
+            url,
+            self._language,
+            len(frame.data),
+        )
         async with session.post(url, data=form, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as resp:
             if resp.status != 200:
                 err_text = await resp.text()
@@ -128,6 +136,11 @@ class HttpSTT(STT):
                 )
             else:
                 logger.info("STT transcript received chars=%d preview=%s", len(text), text[:120])
+            request_logger.info(
+                "STT response provider=http-stt status=%s text_chars=%d",
+                resp.status,
+                len(text),
+            )
 
         return SpeechEvent(
             type=SpeechEventType.FINAL_TRANSCRIPT,
