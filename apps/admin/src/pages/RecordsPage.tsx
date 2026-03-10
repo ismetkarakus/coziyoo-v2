@@ -133,12 +133,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   };
 
   const orderItemColumnLabelTr = (column: string): string => {
-    const normalized = String(column).trim().toLowerCase();
-    if (normalized === "id" || normalized === "order_item_id" || normalized === "orderitemid") {
-      return "Kalem ID";
-    }
     const trLabels: Record<string, string> = {
-      id: "Kalem ID",
       food_id: "Yemek ID",
       food_name: "Yemek Adı",
       quantity: "Adet",

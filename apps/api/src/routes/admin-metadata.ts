@@ -44,7 +44,7 @@ const EXCLUDED_METADATA_COLUMNS = new Set(["short_id"]);
 
 // Per-table columns excluded from API responses (still stored in DB but not exposed).
 const TABLE_EXCLUDED_COLUMNS: Partial<Record<TableKey, Set<string>>> = {
-  orderItems: new Set(["order_id"]),
+  orderItems: new Set(["id", "order_id"]),
 };
 
 const PreferencesSchema = z.object({
