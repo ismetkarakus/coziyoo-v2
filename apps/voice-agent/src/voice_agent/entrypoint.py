@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import os
+import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -12,8 +13,20 @@ from urllib.parse import urlparse
 
 import aiohttp
 from livekit import rtc
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, room_io
+from livekit.agents import (
+    APIConnectionError,
+    APIStatusError,
+    Agent,
+    AgentServer,
+    AgentSession,
+    JobContext,
+    JobProcess,
+    cli,
+    llm,
+    room_io,
+)
 from livekit.agents.llm import LLM as BaseLLM
+from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS, APIConnectOptions
 from livekit.plugins import silero
 
 from .config.settings import get_settings
@@ -178,6 +191,189 @@ def _last_user_preview(chat_ctx: object) -> str:
         if text:
             return _compact_text(text)
     return ""
+
+
+def _chat_history(chat_ctx: object, *, max_items: int = 24) -> list[dict[str, str]]:
+    messages_attr = getattr(chat_ctx, "messages", None)
+    messages = messages_attr() if callable(messages_attr) else (messages_attr or [])
+    out: list[dict[str, str]] = []
+    for message in messages[-max_items:]:
+        role = str(getattr(message, "role", "")).lower() or "user"
+        text = ""
+        text_content = getattr(message, "text_content", None)
+        if callable(text_content):
+            try:
+                text = str(text_content() or "")
+            except Exception:
+                text = ""
+        if not text:
+            content = getattr(message, "content", None)
+            if isinstance(content, str):
+                text = content
+        text = text.strip()
+        if text:
+            out.append({"role": role, "text": text})
+    return out
+
+
+def _extract_n8n_answer(body: Any) -> str:
+    if isinstance(body, str):
+        return body.strip()
+    if not isinstance(body, dict):
+        return ""
+
+    for key in ("replyText", "answer", "text", "output", "message"):
+        value = body.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    data = body.get("data")
+    if isinstance(data, dict):
+        for key in ("replyText", "answer", "text", "output", "message"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return ""
+
+
+def _build_n8n_headers(n8n_cfg: dict) -> dict[str, str]:
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    auth_header = str(n8n_cfg.get("authHeader") or "").strip()
+    if auth_header:
+        headers["Authorization"] = auth_header
+    api_key = (
+        str(n8n_cfg.get("apiKey") or "").strip()
+        or os.getenv("N8N_API_KEY", "").strip()
+        or os.getenv("N8N_APIKEY", "").strip()
+    )
+    if api_key:
+        headers["X-N8N-API-KEY"] = api_key
+        headers["Authorization"] = headers.get("Authorization") or f"Bearer {api_key}"
+    return headers
+
+
+def _resolve_n8n_webhook(n8n_base_url: str, workflow_id: str) -> str:
+    explicit = _normalize_base_url(os.getenv("N8N_LLM_WEBHOOK_URL", ""))
+    if explicit:
+        return explicit
+    path = (os.getenv("N8N_LLM_WEBHOOK_PATH", "") or "").strip()
+    if not path:
+        path = f"/webhook/{workflow_id}"
+    if not n8n_base_url:
+        return ""
+    return f"{n8n_base_url.rstrip('/')}/{path.lstrip('/')}"
+
+
+class N8nLLM(BaseLLM):
+    def __init__(self, *, endpoint: str, headers: dict[str, str], workflow_id: str) -> None:
+        super().__init__()
+        self._endpoint = endpoint
+        self._headers = headers
+        self._workflow_id = workflow_id
+        self._session: aiohttp.ClientSession | None = None
+
+    @property
+    def model(self) -> str:
+        return f"n8n:{self._workflow_id}"
+
+    @property
+    def provider(self) -> str:
+        return "n8n"
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    def chat(
+        self,
+        *,
+        chat_ctx: Any,
+        tools: list[Any] | None = None,
+        conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS,
+        **_kwargs: Any,
+    ):
+        return N8nLLMStream(
+            self,
+            chat_ctx=chat_ctx,
+            tools=tools or [],
+            conn_options=conn_options,
+            endpoint=self._endpoint,
+            headers=self._headers,
+            workflow_id=self._workflow_id,
+        )
+
+    async def aclose(self) -> None:
+        if self._session and not self._session.closed:
+            await self._session.close()
+
+
+class N8nLLMStream(llm.LLMStream):
+    def __init__(
+        self,
+        llm_v: N8nLLM,
+        *,
+        chat_ctx: Any,
+        tools: list[Any],
+        conn_options: APIConnectOptions,
+        endpoint: str,
+        headers: dict[str, str],
+        workflow_id: str,
+    ) -> None:
+        super().__init__(llm_v, chat_ctx=chat_ctx, tools=tools, conn_options=conn_options)
+        self._endpoint = endpoint
+        self._headers = headers
+        self._workflow_id = workflow_id
+
+    async def _run(self) -> None:
+        user_text = _last_user_preview(self._chat_ctx)
+        payload = {
+            "workflowId": self._workflow_id,
+            "source": "voice-agent",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "userText": user_text,
+            "messages": _chat_history(self._chat_ctx),
+        }
+        request_id = f"n8n-{uuid.uuid4().hex[:12]}"
+        session = self._llm._get_session()  # type: ignore[attr-defined]
+
+        try:
+            async with session.post(
+                self._endpoint,
+                json=payload,
+                headers=self._headers,
+                timeout=aiohttp.ClientTimeout(total=self._conn_options.timeout),
+            ) as resp:
+                raw = await resp.text()
+                parsed: Any
+                try:
+                    parsed = json.loads(raw) if raw else {}
+                except json.JSONDecodeError:
+                    parsed = raw
+
+                if resp.status >= 400:
+                    raise APIStatusError(
+                        f"n8n webhook error {resp.status}: {raw[:200]}",
+                        status_code=resp.status,
+                        body=raw[:500],
+                        retryable=resp.status >= 500 or resp.status == 429,
+                    )
+
+                answer = _extract_n8n_answer(parsed)
+                if not answer:
+                    raise APIConnectionError("n8n webhook returned empty answer", retryable=False)
+
+                self._event_ch.send_nowait(
+                    llm.ChatChunk(
+                        id=request_id,
+                        delta=llm.ChoiceDelta(role="assistant", content=answer),
+                    )
+                )
+        except APIStatusError:
+            raise
+        except Exception as exc:
+            raise APIConnectionError(f"n8n webhook request failed: {exc}", retryable=True) from exc
 
 
 class LoggingLLM(BaseLLM):
@@ -360,6 +556,27 @@ def _build_stt(providers: dict, language: str):
 def _build_llm(providers: dict):
     """Build an LLM instance from provider config."""
     llm_cfg = providers.get("llm", {})
+    n8n_cfg_raw = providers.get("n8n", {})
+    n8n_cfg = n8n_cfg_raw if isinstance(n8n_cfg_raw, dict) else {}
+    workflow_id = str(
+        n8n_cfg.get("workflowId")
+        or os.getenv("N8N_LLM_WORKFLOW_ID", "")
+        or "6KFFgjd26nF0kNCA"
+    ).strip()
+    n8n_base_url = _normalize_base_url(
+        str(n8n_cfg.get("baseUrl") or os.getenv("N8N_BASE_URL", "") or os.getenv("N8N_HOST", ""))
+    )
+    n8n_endpoint = _resolve_n8n_webhook(n8n_base_url, workflow_id)
+    if n8n_endpoint:
+        logger.info("Using N8N LLM webhook: %s workflow=%s", n8n_endpoint, workflow_id)
+        n8n_llm = N8nLLM(
+            endpoint=n8n_endpoint,
+            headers=_build_n8n_headers(n8n_cfg),
+            workflow_id=workflow_id,
+        )
+        return LoggingLLM(inner=n8n_llm, model=f"n8n:{workflow_id}", base_url=n8n_endpoint)
+
+    logger.warning("N8N LLM not configured; falling back to OpenAI-compatible LLM provider")
     model = llm_cfg.get("model", os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b"))
     base_url = _normalize_base_url(str(llm_cfg.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")))
     auth_header = llm_cfg.get("authHeader") or None
