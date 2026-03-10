@@ -304,8 +304,19 @@ def _resolve_n8n_webhook(
     if parsed_path and parsed_path.scheme and parsed_path.netloc:
         return _normalize_base_url(raw_path)
 
+    parsed_base = urlparse(n8n_base_url or "")
+    base_has_webhook_path = bool(parsed_base.path and parsed_base.path not in ("", "/") and "webhook" in parsed_base.path.lower())
+
+    # If baseUrl is already a full webhook URL, use it directly even when
+    # webhook_path came from env/defaults.
+    if base_has_webhook_path:
+        if not raw_path:
+            return _normalize_base_url(n8n_base_url)
+        normalized_default = f"/webhook/{workflow_id}"
+        if raw_path.strip() == normalized_default:
+            return _normalize_base_url(n8n_base_url)
+
     if not raw_path:
-        parsed_base = urlparse(n8n_base_url or "")
         if parsed_base.path and parsed_base.path not in ("", "/"):
             # Support saving a full webhook URL directly in DB n8n.baseUrl
             return _normalize_base_url(n8n_base_url)
