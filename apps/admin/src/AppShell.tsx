@@ -7,6 +7,7 @@ import ApiHealthBadge from "./components/ApiHealthBadge";
 import DashboardPage from "./pages/DashboardPage";
 import UsersPage from "./pages/UsersPage";
 import InvestigationPage from "./pages/InvestigationPage";
+import InvestigationComplaintDetailPage from "./pages/InvestigationComplaintDetailPage";
 import FoodsLotsPage from "./pages/FoodsLotsPage";
 import RecordsPage from "./pages/RecordsPage";
 import EntitiesPage from "./pages/EntitiesPage";
@@ -206,6 +207,12 @@ function AppShell({
         {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
+        {location.pathname.startsWith("/app/investigation/") ? (
+          <InvestigationComplaintDetailPage
+            language={language}
+            complaintId={location.pathname.split("/").at(-1) ?? ""}
+          />
+        ) : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}

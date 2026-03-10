@@ -604,6 +604,98 @@ adminUserManagementRouter.get("/investigations/complaint-categories", requireAut
   });
 });
 
+adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const detail = await pool.query<{
+    id: string;
+    order_id: string;
+    complainant_buyer_id: string;
+    complainant_buyer_name: string | null;
+    complainant_buyer_email: string | null;
+    seller_id: string;
+    seller_name: string | null;
+    seller_email: string | null;
+    subject: string;
+    description: string | null;
+    category_id: string | null;
+    category_code: string | null;
+    category_name: string | null;
+    priority: "low" | "medium" | "high" | "urgent";
+    resolved_at: string | null;
+    resolution_note: string | null;
+    assigned_admin_id: string | null;
+    assigned_admin_email: string | null;
+    created_at: string;
+    status: "open" | "in_review" | "resolved" | "closed";
+  }>(
+    `SELECT
+       c.id::text,
+       c.order_id::text,
+       c.complainant_buyer_id::text,
+       b.display_name AS complainant_buyer_name,
+       b.email AS complainant_buyer_email,
+       o.seller_id::text,
+       s.display_name AS seller_name,
+       s.email AS seller_email,
+       c.subject,
+       c.description,
+       c.category_id::text,
+       cat.code AS category_code,
+       cat.name AS category_name,
+       c.priority,
+       c.resolved_at::text,
+       c.resolution_note,
+       c.assigned_admin_id::text,
+       au.email AS assigned_admin_email,
+       c.created_at::text,
+       c.status
+     FROM complaints c
+     JOIN orders o ON o.id = c.order_id
+     LEFT JOIN users b ON b.id = c.complainant_buyer_id
+     LEFT JOIN users s ON s.id = o.seller_id
+     LEFT JOIN complaint_categories cat ON cat.id = c.category_id
+     LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
+     WHERE c.id = $1
+     LIMIT 1`,
+    [params.data.id]
+  );
+
+  const row = detail.rows[0];
+  if (!row) {
+    return res.status(404).json({ error: { code: "COMPLAINT_NOT_FOUND", message: "Complaint not found" } });
+  }
+
+  return res.json({
+    data: {
+      id: row.id,
+      orderId: row.order_id,
+      orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      complainantBuyerId: row.complainant_buyer_id,
+      complainantBuyerName: row.complainant_buyer_name ?? row.complainant_buyer_email ?? row.complainant_buyer_id,
+      complainantBuyerEmail: row.complainant_buyer_email,
+      sellerId: row.seller_id,
+      sellerName: row.seller_name ?? row.seller_email ?? row.seller_id,
+      sellerEmail: row.seller_email,
+      subject: row.subject,
+      description: row.description,
+      categoryId: row.category_id,
+      categoryCode: row.category_code,
+      categoryName: row.category_name,
+      priority: row.priority,
+      resolvedAt: row.resolved_at,
+      resolutionNote: row.resolution_note,
+      assignedAdminId: row.assigned_admin_id,
+      assignedAdminEmail: row.assigned_admin_email,
+      createdAt: row.created_at,
+      status: row.status,
+    },
+  });
+});
+
 adminUserManagementRouter.get("/investigations/complaints/:id/notes", requireAuth("admin"), async (req, res) => {
   const params = UuidParamSchema.safeParse(req.params);
   if (!params.success) {
