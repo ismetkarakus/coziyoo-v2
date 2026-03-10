@@ -32,7 +32,8 @@ from livekit.plugins import silero
 from .config.settings import get_settings
 
 logger = logging.getLogger("coziyoo-voice-agent")
-request_logger = logging.getLogger("coziyoo-voice-agent.requests.llm")
+llm_request_logger = logging.getLogger("coziyoo-voice-agent.requests.llm")
+n8n_request_logger = logging.getLogger("coziyoo-voice-agent.requests.n8n")
 settings = get_settings()
 
 
@@ -136,6 +137,7 @@ def _configure_logging() -> None:
 
     for logger_name in (
         "coziyoo-voice-agent.requests.llm",
+        "coziyoo-voice-agent.requests.n8n",
         "coziyoo-voice-agent.requests.stt",
         "coziyoo-voice-agent.requests.tts",
     ):
@@ -287,13 +289,29 @@ def _build_n8n_headers(n8n_cfg: dict) -> dict[str, str]:
     return headers
 
 
-def _resolve_n8n_webhook(n8n_base_url: str, workflow_id: str, webhook_path: str = "") -> str:
-    explicit = _normalize_base_url(os.getenv("N8N_LLM_WEBHOOK_URL", ""))
+def _resolve_n8n_webhook(
+    n8n_base_url: str,
+    workflow_id: str,
+    webhook_path: str = "",
+    webhook_url: str = "",
+) -> str:
+    explicit = _normalize_base_url(webhook_url or os.getenv("N8N_LLM_WEBHOOK_URL", ""))
     if explicit:
         return explicit
-    path = (webhook_path or "").strip() or (os.getenv("N8N_LLM_WEBHOOK_PATH", "") or "").strip()
-    if not path:
-        path = f"/webhook/{workflow_id}"
+
+    raw_path = (webhook_path or "").strip() or (os.getenv("N8N_LLM_WEBHOOK_PATH", "") or "").strip()
+    parsed_path = urlparse(raw_path) if raw_path else None
+    if parsed_path and parsed_path.scheme and parsed_path.netloc:
+        return _normalize_base_url(raw_path)
+
+    if not raw_path:
+        parsed_base = urlparse(n8n_base_url or "")
+        if parsed_base.path and parsed_base.path not in ("", "/"):
+            # Support saving a full webhook URL directly in DB n8n.baseUrl
+            return _normalize_base_url(n8n_base_url)
+        raw_path = f"/webhook/{workflow_id}"
+
+    path = raw_path
     if not n8n_base_url:
         return ""
     return f"{n8n_base_url.rstrip('/')}/{path.lstrip('/')}"
@@ -391,10 +409,17 @@ class N8nLLMStream(llm.LLMStream):
         }
         request_id = f"n8n-{uuid.uuid4().hex[:12]}"
         session = self._llm._get_session()  # type: ignore[attr-defined]
+        n8n_request_logger.info(
+            "N8N request endpoint=%s workflow=%s text=%s",
+            self._endpoint,
+            self._workflow_id,
+            user_text,
+        )
 
         webhook_error: Exception | None = None
         try:
             answer = await self._run_webhook(session=session, payload=payload)
+            n8n_request_logger.info("N8N response path=webhook status=200 answer=%s", answer)
             self._event_ch.send_nowait(
                 llm.ChatChunk(
                     id=request_id,
@@ -404,9 +429,11 @@ class N8nLLMStream(llm.LLMStream):
             return
         except Exception as exc:
             webhook_error = exc
+            n8n_request_logger.warning("N8N response path=webhook error=%s", exc)
 
         try:
             answer = await self._run_execution_api(session=session, payload=payload)
+            n8n_request_logger.info("N8N response path=execution_api status=200 answer=%s", answer)
             self._event_ch.send_nowait(
                 llm.ChatChunk(
                     id=request_id,
@@ -415,6 +442,7 @@ class N8nLLMStream(llm.LLMStream):
             )
             return
         except Exception as exec_error:
+            n8n_request_logger.error("N8N response path=execution_api error=%s", exec_error)
             if isinstance(exec_error, APIStatusError):
                 raise exec_error
             if isinstance(exec_error, APIConnectionError):
@@ -530,7 +558,7 @@ class LoggingLLM(BaseLLM):
     def chat(self, **kwargs):
         chat_ctx = kwargs.get("chat_ctx")
         sent_text = _last_user_preview(chat_ctx)
-        request_logger.info(
+        llm_request_logger.info(
             "LLM request text=%s",
             sent_text,
         )
@@ -539,7 +567,7 @@ class LoggingLLM(BaseLLM):
             inner=inner_stream,
             provider=self.provider,
             model=self.model,
-            logger=request_logger,
+            logger=llm_request_logger,
         )
 
     def prewarm(self) -> None:
@@ -712,6 +740,7 @@ def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
         n8n_base_url,
         workflow_id,
         webhook_path=str(n8n_cfg.get("webhookPath") or ""),
+        webhook_url=str(n8n_cfg.get("webhookUrl") or ""),
     )
     if n8n_endpoint:
         logger.info("Using N8N LLM webhook: %s workflow=%s", n8n_endpoint, workflow_id)
@@ -727,7 +756,7 @@ def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
                 "mcpWorkflowId": str(n8n_cfg.get("mcpWorkflowId") or os.getenv("N8N_MCP_WORKFLOW_ID", "XYiIkxpa4PlnddQt")),
             },
         )
-        return LoggingLLM(inner=n8n_llm, model=f"n8n:{workflow_id}", base_url=n8n_endpoint)
+        return n8n_llm
 
     logger.warning("N8N LLM not configured; falling back to OpenAI-compatible LLM provider")
     model = llm_cfg.get("model", os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b"))

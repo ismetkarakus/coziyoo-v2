@@ -85,7 +85,7 @@ def _read_request_logs(*, limit: int, kind: str, query: str | None) -> list[dict
 @app.get("/logs/requests")
 async def request_logs(
     limit: int = Query(default=120, ge=1, le=500),
-    kind: str = Query(default="all", pattern="^(all|stt|tts|llm)$"),
+    kind: str = Query(default="all", pattern="^(all|stt|tts|llm|n8n)$"),
     q: str | None = Query(default=None, max_length=120),
 ) -> dict:
     items = _read_request_logs(limit=limit, kind=kind, query=q)
@@ -132,6 +132,7 @@ async def logs_viewer() -> str:
         <option value="stt">stt</option>
         <option value="tts">tts</option>
         <option value="llm">llm</option>
+        <option value="n8n">n8n</option>
       </select>
     </label>
     <label>Limit <input id="limit" type="number" min="1" max="500" value="120" /></label>
@@ -227,7 +228,7 @@ async def logs_viewer() -> str:
           appendRow(item, typeOf(item), item.message || "", false);
         }
       } else {
-        // Group by expected stage flow: stt -> llm -> tts
+        // Group by expected stage flow: stt -> n8n (or llm fallback) -> tts
         const flows = [];
         let current = null;
 
@@ -236,6 +237,8 @@ async def logs_viewer() -> str:
             key: `${seed.job_id || ""}|${seed.room_id || ""}`,
             sttReq: null,
             sttRes: null,
+            n8nReq: null,
+            n8nRes: null,
             llmReq: null,
             llmRes: null,
             ttsPairs: [],
@@ -270,6 +273,18 @@ async def logs_viewer() -> str:
             continue;
           }
 
+          if (t === "n8n" && req) {
+            if (!current.n8nReq) current.n8nReq = item;
+            else current.others.push(item);
+            continue;
+          }
+
+          if (t === "n8n" && resp) {
+            if (!current.n8nRes) current.n8nRes = item;
+            else current.others.push(item);
+            continue;
+          }
+
           if (t === "llm" && req) {
             if (!current.llmReq) current.llmReq = item;
             else current.others.push(item);
@@ -299,12 +314,20 @@ async def logs_viewer() -> str:
         flushCurrent();
 
         for (const flow of flows.reverse()) {
-          const rootItem = flow.sttReq || flow.llmReq || (flow.ttsPairs[0] && (flow.ttsPairs[0].req || flow.ttsPairs[0].res)) || flow.others[0];
+          const rootItem =
+            flow.sttReq ||
+            flow.n8nReq ||
+            flow.llmReq ||
+            (flow.ttsPairs[0] && (flow.ttsPairs[0].req || flow.ttsPairs[0].res)) ||
+            flow.others[0];
           if (!rootItem) continue;
-          appendRow(rootItem, "flow", "stt -> llm -> tts", false);
+          appendRow(rootItem, "flow", "stt -> n8n -> tts", false);
 
           if (flow.sttReq) appendRow(flow.sttReq, "stt", `request -> ${flow.sttReq.message || ""}`, true);
           if (flow.sttRes) appendRow(flow.sttRes, "stt", `response -> ${flow.sttRes.message || ""}`, true);
+
+          if (flow.n8nReq) appendRow(flow.n8nReq, "n8n", `request -> ${flow.n8nReq.message || ""}`, true);
+          if (flow.n8nRes) appendRow(flow.n8nRes, "n8n", `response -> ${flow.n8nRes.message || ""}`, true);
 
           if (flow.llmReq) appendRow(flow.llmReq, "llm", `request -> ${flow.llmReq.message || ""}`, true);
           if (flow.llmRes) appendRow(flow.llmRes, "llm", `response -> ${flow.llmRes.message || ""}`, true);
