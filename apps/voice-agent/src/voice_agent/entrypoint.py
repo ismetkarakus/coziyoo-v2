@@ -199,20 +199,10 @@ class LoggingLLM(BaseLLM):
 
     def chat(self, **kwargs):
         chat_ctx = kwargs.get("chat_ctx")
-        tools = kwargs.get("tools")
-        preview = _last_user_preview(chat_ctx)
-        messages_attr = getattr(chat_ctx, "messages", None)
-        messages = messages_attr() if callable(messages_attr) else (messages_attr or [])
-        message_count = len(messages)
-        tool_count = len(tools or [])
+        sent_text = _last_user_preview(chat_ctx)
         request_logger.info(
-            "LLM request provider=%s model=%s base=%s messages=%d tools=%d preview=%s",
-            self.provider,
-            self.model,
-            self._base_url,
-            message_count,
-            tool_count,
-            preview,
+            "LLM request text=%s",
+            sent_text,
         )
         inner_stream = self._inner.chat(**kwargs)
         return LoggingLLMStream(
@@ -277,13 +267,10 @@ class LoggingLLMStream:
             return
         self._logged_summary = True
         text = "".join(self._parts).strip()
-        preview = _compact_text(text, 220) if text else ""
         self._logger.info(
-            "LLM response provider=%s model=%s text_chars=%d preview=%s",
-            self._provider,
+            "LLM response model=%s answer=%s",
             self._model,
-            len(text),
-            preview,
+            text,
         )
 
 
