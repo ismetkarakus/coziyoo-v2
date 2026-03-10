@@ -137,9 +137,8 @@ class HttpSTT(STT):
             else:
                 logger.info("STT transcript received chars=%d preview=%s", len(text), text[:120])
             request_logger.info(
-                "STT response provider=http-stt status=%s text_chars=%d",
-                resp.status,
-                len(text),
+                "STT response text=%s",
+                text,
             )
 
         return SpeechEvent(
