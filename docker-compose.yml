@@ -65,6 +65,7 @@ services:
       AI_SERVER_PORT: "9000"
       API_BASE_URL: http://api:3000
       VOICE_AGENT_API_LOG_LEVEL: ${VOICE_AGENT_API_LOG_LEVEL:-warning}
+      VOICE_AGENT_REQUEST_LOG_FILE: /workspace/.runtime/voice-agent-requests.log
     volumes:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip
@@ -84,6 +85,7 @@ services:
       API_BASE_URL: http://api:3000
       VOICE_AGENT_LOG_LEVEL: ${VOICE_AGENT_LOG_LEVEL:-WARNING}
       VOICE_AGENT_REQUEST_LOG_LEVEL: ${VOICE_AGENT_REQUEST_LOG_LEVEL:-INFO}
+      VOICE_AGENT_REQUEST_LOG_FILE: /workspace/.runtime/voice-agent-requests.log
     volumes:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip

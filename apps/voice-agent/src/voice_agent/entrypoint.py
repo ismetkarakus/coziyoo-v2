@@ -5,6 +5,8 @@ import datetime
 import json
 import logging
 import os
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from urllib.parse import urlparse
 
 import aiohttp
@@ -99,12 +101,52 @@ def _configure_logging() -> None:
         "coziyoo-voice-agent-join",
     ):
         logging.getLogger(logger_name).setLevel(level)
+
+    request_log_file = Path(
+        os.getenv(
+            "VOICE_AGENT_REQUEST_LOG_FILE",
+            "/workspace/.runtime/voice-agent-requests.log",
+        )
+    )
+    request_log_file.parent.mkdir(parents=True, exist_ok=True)
+    request_log_max_bytes = int(os.getenv("VOICE_AGENT_REQUEST_LOG_MAX_BYTES", "5242880"))
+    request_log_backup_count = int(os.getenv("VOICE_AGENT_REQUEST_LOG_BACKUP_COUNT", "3"))
+    request_handler = RotatingFileHandler(
+        request_log_file,
+        maxBytes=request_log_max_bytes,
+        backupCount=request_log_backup_count,
+        encoding="utf-8",
+    )
+    request_handler.setLevel(request_level)
+    request_handler.setFormatter(_JsonLineFormatter())
+
     for logger_name in (
         "coziyoo-voice-agent.requests.llm",
         "coziyoo-voice-agent.requests.stt",
         "coziyoo-voice-agent.requests.tts",
     ):
-        logging.getLogger(logger_name).setLevel(request_level)
+        request_log = logging.getLogger(logger_name)
+        request_log.setLevel(request_level)
+        request_log.handlers.clear()
+        request_log.propagate = False
+        request_log.addHandler(request_handler)
+
+
+class _JsonLineFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+        }
+        job_id = getattr(record, "job_id", None)
+        room_id = getattr(record, "room_id", None)
+        if job_id:
+            payload["job_id"] = str(job_id)
+        if room_id:
+            payload["room_id"] = str(room_id)
+        return json.dumps(payload, ensure_ascii=True)
 
 
 def _compact_text(value: str, max_len: int = 160) -> str:
