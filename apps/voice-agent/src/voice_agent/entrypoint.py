@@ -280,7 +280,6 @@ def _build_n8n_headers(n8n_cfg: dict) -> dict[str, str]:
     api_key = (
         str(n8n_cfg.get("apiKey") or "").strip()
         or os.getenv("N8N_API_KEY", "").strip()
-        or os.getenv("N8N_APIKEY", "").strip()
     )
     if api_key:
         headers["X-N8N-API-KEY"] = api_key

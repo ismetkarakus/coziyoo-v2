@@ -93,7 +93,6 @@ services:
       N8N_BASE_URL: ${N8N_BASE_URL:-https://n8n.drascom.uk}
       N8N_HOST: ${N8N_HOST:-https://n8n.drascom.uk}
       N8N_API_KEY: ${N8N_API_KEY:-change_me_n8n_api_key}
-      N8N_APIKEY: ${N8N_APIKEY:-change_me_n8n_api_key}
       N8N_LLM_WORKFLOW_ID: ${N8N_LLM_WORKFLOW_ID:-6KFFgjd26nF0kNCA}
       N8N_MCP_WORKFLOW_ID: ${N8N_MCP_WORKFLOW_ID:-XYiIkxpa4PlnddQt}
       N8N_LLM_WEBHOOK_PATH: ${N8N_LLM_WEBHOOK_PATH:-/webhook/6KFFgjd26nF0kNCA}

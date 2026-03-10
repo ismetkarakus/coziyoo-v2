@@ -13,7 +13,7 @@ set -a; source .env; set +a
 
 Required vars:
 - `N8N_BASE_URL` or `N8N_HOST` (e.g. https://n8n.drascom.uk)
-- `N8N_API_KEY` or `N8N_APIKEY`
+- `N8N_API_KEY`
 - `N8N_LLM_WORKFLOW_ID` (default: `6KFFgjd26nF0kNCA`)
 - `N8N_MCP_WORKFLOW_ID` (default: `XYiIkxpa4PlnddQt`)
 
@@ -50,7 +50,7 @@ python scripts/sync_n8n_workflows.py --apply
 
 ```sh
 curl -sS "$N8N_HOST/api/v1/workflows/<WORKFLOW_ID>" \
-  -H "X-N8N-API-KEY: $N8N_APIKEY"
+  -H "X-N8N-API-KEY: $N8N_API_KEY"
 ```
 
 ## Update Workflow (Safe Pattern)
@@ -62,7 +62,7 @@ import json, os
 import urllib.request
 
 host = os.environ["N8N_HOST"]
-key = os.environ["N8N_APIKEY"]
+key = os.environ["N8N_API_KEY"]
 
 
 def request(method, path, data=None):
@@ -107,11 +107,11 @@ Some workflows accept only a subset of `settings`. If the API returns:
 ```sh
 # List recent executions
 curl -sS "$N8N_HOST/api/v1/executions?workflowId=<WORKFLOW_ID>&limit=50" \
-  -H "X-N8N-API-KEY: $N8N_APIKEY"
+  -H "X-N8N-API-KEY: $N8N_API_KEY"
 
 # Fetch one execution with run data
 curl -sS "$N8N_HOST/api/v1/executions/<EXEC_ID>?includeData=true" \
-  -H "X-N8N-API-KEY: $N8N_APIKEY"
+  -H "X-N8N-API-KEY: $N8N_API_KEY"
 ```
 
 ## Safety

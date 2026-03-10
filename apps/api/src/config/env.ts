@@ -79,7 +79,6 @@ const EnvSchema = z.object({
   N8N_BASE_URL: z.string().url().optional(),
   N8N_HOST: z.string().url().optional(),
   N8N_API_KEY: z.string().min(1).optional(),
-  N8N_APIKEY: z.string().min(1).optional(),
   N8N_LLM_WORKFLOW_ID: z.string().min(1).default("6KFFgjd26nF0kNCA"),
   N8N_MCP_WORKFLOW_ID: z.string().min(1).default("XYiIkxpa4PlnddQt"),
   N8N_LLM_WEBHOOK_PATH: z.string().default(""),
@@ -127,7 +126,7 @@ const payoutSchedulerEnabledDefault = parsed.data.NODE_ENV !== "test";
 const databaseUrl = resolveDatabaseUrl(parsed.data);
 const speechToTextBaseUrl = parsed.data.SPEECH_TO_TEXT_BASE_URL ?? parsed.data.STT_BASE_URL;
 const n8nBaseUrl = parsed.data.N8N_BASE_URL ?? parsed.data.N8N_HOST;
-const n8nApiKey = parsed.data.N8N_API_KEY ?? parsed.data.N8N_APIKEY;
+const n8nApiKey = parsed.data.N8N_API_KEY;
 
 export const env = {
   ...parsed.data,

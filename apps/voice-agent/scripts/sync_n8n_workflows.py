@@ -38,7 +38,7 @@ def resolve_config() -> tuple[str, str]:
     merged.update(read_env_file(ROOT.parent.parent / ".env.local"))
     merged.update(os.environ)
     base = (merged.get("N8N_BASE_URL") or merged.get("N8N_HOST") or "").strip().rstrip("/")
-    key = (merged.get("N8N_API_KEY") or merged.get("N8N_APIKEY") or "").strip()
+    key = (merged.get("N8N_API_KEY") or "").strip()
     return base, key
 
 
@@ -90,7 +90,7 @@ def main() -> int:
         print("N8N base URL missing (N8N_BASE_URL or N8N_HOST).", file=sys.stderr)
         return 2
     if not key:
-        print("N8N API key missing (N8N_API_KEY or N8N_APIKEY).", file=sys.stderr)
+        print("N8N API key missing (N8N_API_KEY).", file=sys.stderr)
         return 2
 
     print(f"n8n base: {base}")
