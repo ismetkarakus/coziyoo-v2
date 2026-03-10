@@ -115,7 +115,8 @@ def _compact_text(value: str, max_len: int = 160) -> str:
 
 
 def _last_user_preview(chat_ctx: object) -> str:
-    messages = getattr(chat_ctx, "messages", None) or []
+    messages_attr = getattr(chat_ctx, "messages", None)
+    messages = messages_attr() if callable(messages_attr) else (messages_attr or [])
     for message in reversed(messages):
         role = str(getattr(message, "role", "")).lower()
         if role != "user":
@@ -157,7 +158,9 @@ class LoggingLLM(BaseLLM):
         chat_ctx = kwargs.get("chat_ctx")
         tools = kwargs.get("tools")
         preview = _last_user_preview(chat_ctx)
-        message_count = len(getattr(chat_ctx, "messages", None) or [])
+        messages_attr = getattr(chat_ctx, "messages", None)
+        messages = messages_attr() if callable(messages_attr) else (messages_attr or [])
+        message_count = len(messages)
         tool_count = len(tools or [])
         request_logger.info(
             "LLM request provider=%s model=%s base=%s messages=%d tools=%d preview=%s",
