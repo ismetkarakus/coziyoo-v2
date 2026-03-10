@@ -79,7 +79,6 @@ def _read_request_logs(*, limit: int, kind: str, query: str | None) -> list[dict
         if len(out) >= limit:
             break
 
-    out.reverse()
     return out
 
 
