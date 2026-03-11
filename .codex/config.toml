@@ -1,0 +1,3 @@
+[mcp_servers.supabase]
+command = "bash"
+args = ["-lc", "./scripts/mcp/start-supabase-mcp.sh"]
