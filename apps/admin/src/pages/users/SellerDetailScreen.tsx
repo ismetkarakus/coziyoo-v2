@@ -669,13 +669,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     };
   }
 
-  async function refreshComplianceOnly() {
-    const response = await request(`/v1/admin/compliance/${id}`);
-    if (response.status !== 200) return;
-    const body = await parseJson<{ data: SellerCompliancePayload }>(response);
-    setCompliance(body.data);
-  }
-
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSavingKey(`doc:${documentId}`);
     try {
@@ -711,7 +704,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           profile: recomputeProfile(updatedDocuments, prev.profile),
         };
       });
-      void refreshComplianceOnly();
       setMessage(dict.common.saved);
       setRejectTargetId(null);
       setRejectReason("");
@@ -757,7 +749,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           ),
         };
       });
-      void refreshComplianceOnly();
       setMessage(dict.common.saved);
       setOptionalRejectTargetId(null);
       setOptionalRejectReason("");
@@ -798,7 +789,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           profile: recomputeProfile(updatedDocuments, prev.profile),
         };
       });
-      void refreshComplianceOnly();
       setMessage(dict.common.saved);
     } catch {
       setMessage(dict.detail.requestFailed);
