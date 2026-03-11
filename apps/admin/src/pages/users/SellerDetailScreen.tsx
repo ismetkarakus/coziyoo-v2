@@ -638,6 +638,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
   const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
 
+  async function refreshComplianceOnly() {
+    const response = await request(`/v1/admin/compliance/${id}`);
+    if (response.status !== 200) return;
+    const body = await parseJson<{ data: SellerCompliancePayload }>(response);
+    setCompliance(body.data);
+  }
+
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSaving(true);
     setMessage(null);
@@ -654,7 +661,25 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      await loadSellerDetail();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const nowIso = new Date().toISOString();
+        return {
+          ...prev,
+          documents: prev.documents.map((item) =>
+            item.id === documentId
+              ? {
+                  ...item,
+                  status,
+                  rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                  reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
+                  updated_at: nowIso,
+                }
+              : item
+          ),
+        };
+      });
+      void refreshComplianceOnly();
       setMessage(dict.common.saved);
       setRejectTargetId(null);
       setRejectReason("");
@@ -683,7 +708,25 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      await loadSellerDetail();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const nowIso = new Date().toISOString();
+        return {
+          ...prev,
+          optionalUploads: prev.optionalUploads.map((item) =>
+            item.id === uploadId
+              ? {
+                  ...item,
+                  status,
+                  rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                  reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
+                  updated_at: nowIso,
+                }
+              : item
+          ),
+        };
+      });
+      void refreshComplianceOnly();
       setMessage(dict.common.saved);
       setOptionalRejectTargetId(null);
       setOptionalRejectReason("");
@@ -707,7 +750,23 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      await loadSellerDetail();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const nowIso = new Date().toISOString();
+        return {
+          ...prev,
+          documents: prev.documents.map((item) =>
+            item.code === docTypeCode
+              ? {
+                  ...item,
+                  is_required: required,
+                  updated_at: nowIso,
+                }
+              : item
+          ),
+        };
+      });
+      void refreshComplianceOnly();
       setMessage(dict.common.saved);
     } catch {
       setMessage(dict.detail.requestFailed);
