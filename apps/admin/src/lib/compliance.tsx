@@ -205,7 +205,6 @@ export function mapComplianceRows(
     { key: "taxPlate", label: dict.detail.complianceRows.taxPlate },
     { key: "kvkk", label: dict.detail.complianceRows.kvkk },
     { key: "foodSafetyTraining", label: dict.detail.complianceRows.foodSafetyTraining },
-    { key: "phoneVerification", label: dict.detail.complianceRows.phoneVerification },
     { key: "workplaceInsurance", label: dict.detail.complianceRows.workplaceInsurance, optional: true },
   ];
 
