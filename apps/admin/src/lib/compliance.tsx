@@ -144,22 +144,40 @@ export function mapComplianceRows(
     return null;
   };
 
+  const sourceSortStamp = (source: ComplianceSource | null | undefined): number => {
+    const raw = source?.reviewedAt ?? source?.uploadedAt ?? source?.updatedAt ?? null;
+    if (!raw) return 0;
+    const time = Date.parse(raw);
+    return Number.isNaN(time) ? 0 : time;
+  };
+
+  const pickNewerSource = (prev: ComplianceSource | undefined, next: ComplianceSource): ComplianceSource => {
+    if (!prev) return next;
+    const prevStamp = sourceSortStamp(prev);
+    const nextStamp = sourceSortStamp(next);
+    if (nextStamp >= prevStamp) return next;
+    return prev;
+  };
+
   for (const doc of docs) {
     const normalizedType = normalizeComplianceToken(doc.doc_type);
-    const rowKey = resolveKey(normalizedType);
-    if (!rowKey || docByKey.has(rowKey)) continue;
-    docByKey.set(rowKey, {
+    const normalizedCode = normalizeComplianceToken(doc.code);
+    const normalizedName = normalizeComplianceToken(doc.name);
+    const rowKey = resolveKey(normalizedType) ?? resolveKey(normalizedCode) ?? resolveKey(normalizedName);
+    if (!rowKey) continue;
+    const nextSource: ComplianceSource = {
       status: doc.status,
       reviewedAt: doc.reviewed_at,
       uploadedAt: doc.uploaded_at,
       updatedAt: null,
-    });
+    };
+    docByKey.set(rowKey, pickNewerSource(docByKey.get(rowKey), nextSource));
   }
 
   for (const check of checks) {
     const normalizedCode = normalizeComplianceToken(check.check_code);
     const rowKey = resolveKey(normalizedCode);
-    if (!rowKey || checkByKey.has(rowKey)) continue;
+    if (!rowKey) continue;
     let phoneValue: string | null = null;
     if (rowKey === "phoneVerification") {
       const raw = check.value_json;
@@ -172,13 +190,14 @@ export function mapComplianceRows(
         phoneValue = (candidate as string | undefined) ?? null;
       }
     }
-    checkByKey.set(rowKey, {
+    const nextSource: ComplianceSource = {
       status: check.status,
       reviewedAt: null,
       uploadedAt: null,
       updatedAt: check.updated_at,
       phoneValue,
-    });
+    };
+    checkByKey.set(rowKey, pickNewerSource(checkByKey.get(rowKey), nextSource));
   }
 
   const rowMeta: Array<{ key: ComplianceRowKey; label: string; optional?: boolean }> = [
