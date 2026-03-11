@@ -173,11 +173,11 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <input value={detail.orderNo} readOnly />
               </label>
               <label>
-                {language === "tr" ? "Kim Şikayet Etti" : "Complainant"}
+                {language === "tr" ? "Şikayetçi" : "Complainant"}
                 <input value={`${detail.complainantBuyerName}${detail.complainantBuyerEmail ? ` (${detail.complainantBuyerEmail})` : ""}`} readOnly />
               </label>
               <label>
-                {language === "tr" ? "Kimi Şikayet Etti" : "Complained Against"}
+                {language === "tr" ? "Şikayet Edilen" : "Complained Against"}
                 <input value={`${detail.sellerName}${detail.sellerEmail ? ` (${detail.sellerEmail})` : ""}`} readOnly />
               </label>
               <label>
