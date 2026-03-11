@@ -241,11 +241,9 @@ main() {
 
   [[ -s "$DUMP_FILE" ]] || fail "Dump file is empty: $DUMP_FILE"
 
-  log "Reset target: dropping and recreating public schema"
+  log "Reset target: dropping public schema (dump will recreate schema/extensions)"
   run_target_psql <<'SQL'
 DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
 SQL
 
   log "Import: restoring dump into target Supabase DB"
