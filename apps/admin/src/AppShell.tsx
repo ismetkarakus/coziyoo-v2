@@ -16,6 +16,7 @@ import ApiTokensPage from "./pages/ApiTokensPage";
 import ComplianceDocumentsPage from "./pages/ComplianceDocumentsPage";
 import VoiceAgentSettingsPage from "./pages/VoiceAgentSettingsPage";
 import SalesCommissionSettingsPage from "./pages/SalesCommissionSettingsPage";
+import AdminTestScenariosPage from "./pages/AdminTestScenariosPage";
 import { UserDetail } from "./pages/users/DefaultUserDetailScreen";
 import type { AdminUser, Language, Dictionary, ApiError, GlobalSearchResultItem, GlobalSearchResultKind } from "./types/core";
 
@@ -216,6 +217,7 @@ function AppShell({
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
+        {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
         {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
@@ -334,6 +336,7 @@ function TopNavTabs({
     { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
     { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
+    { to: "/app/test-scenarios", active: pathname.startsWith("/app/test-scenarios"), label: dict.menu.testScenarios },
     { to: "/app/sales-commission-settings", active: pathname.startsWith("/app/sales-commission-settings"), label: dict.menu.salesCommissionSettings },
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
     { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },

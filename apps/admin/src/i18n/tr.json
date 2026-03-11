@@ -16,7 +16,8 @@
     "dataExplorer": "Veri Gezgini",
     "management": "Yönetim",
     "voiceAgentSettings": "Sesli Ajan Ayarları",
-    "salesCommissionSettings": "Satış Komisyon Ayarı"
+    "salesCommissionSettings": "Satış Komisyon Ayarı",
+    "testScenarios": "Test Senaryoları"
   },
   "actions": {
     "logout": "Çıkış",
@@ -441,6 +442,13 @@
     "testTtsPlay": "Sentezle & Oynat",
     "testTtsSynthesizing": "Sentezleniyor...",
     "testTtsNoUrl": "TTS URL yapılandırılmamış"
+  },
+  "testScenarios": {
+    "title": "Admin Test Senaryoları",
+    "subtitle": "Admin panel akışlarını bozmadan adım adım doğrulama listesi.",
+    "safetyTitle": "Güvenli test modu",
+    "safetyText": "Bu sayfa yalnızca senaryo rehberidir; kendi başına veri güncellemez. Senaryolardaki yazma işlemlerini demo/staging verisi üzerinde çalıştırın.",
+    "tipText": "İpucu: Management menüsünden önce demo veri ekleyip sonra bu senaryoları sırayla uygulayın."
   },
   "salesCommissionSettings": {
     "title": "Satış Komisyon Ayarı",
