@@ -2453,14 +2453,14 @@ adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async 
 
   const rows = await pool.query<{
     id: string;
-    buyer_id: string;
+    seller_id: string;
     admin_id: string;
     note: string;
     created_at: string;
   }>(
-    `SELECT id, buyer_id, admin_id, note, created_at::text
-     FROM buyer_notes
-     WHERE buyer_id = $1
+    `SELECT id, seller_id, admin_id, note, created_at::text
+     FROM seller_notes
+     WHERE seller_id = $1
      ORDER BY created_at DESC
      LIMIT $2`,
     [params.data.id, query.data.limit]
@@ -2469,7 +2469,7 @@ adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async 
   return res.json({
     data: rows.rows.map((row) => ({
       id: row.id,
-      buyerId: row.buyer_id,
+      sellerId: row.seller_id,
       adminId: row.admin_id,
       note: row.note,
       createdAt: row.created_at,
@@ -2497,7 +2497,7 @@ adminUserManagementRouter.post("/sellers/:id/notes", requireAuth("admin"), async
     note: string;
     created_at: string;
   }>(
-    `INSERT INTO buyer_notes (buyer_id, admin_id, note)
+    `INSERT INTO seller_notes (seller_id, admin_id, note)
      VALUES ($1, $2, $3)
      RETURNING id, note, created_at::text`,
     [params.data.id, req.auth!.userId, parsed.data.note.trim()]
@@ -2528,9 +2528,9 @@ adminUserManagementRouter.patch("/sellers/:id/notes/:noteId", requireAuth("admin
   }
 
   const updated = await pool.query<{ id: string; note: string; created_at: string }>(
-    `UPDATE buyer_notes
+    `UPDATE seller_notes
      SET note = $3
-     WHERE buyer_id = $1 AND id = $2
+     WHERE seller_id = $1 AND id = $2
      RETURNING id, note, created_at::text`,
     [params.data.id, params.data.noteId, parsed.data.note.trim()]
   );
@@ -2560,8 +2560,8 @@ adminUserManagementRouter.delete("/sellers/:id/notes/:noteId", requireAuth("admi
   }
 
   const deleted = await pool.query<{ id: string }>(
-    `DELETE FROM buyer_notes
-     WHERE buyer_id = $1 AND id = $2
+    `DELETE FROM seller_notes
+     WHERE seller_id = $1 AND id = $2
      RETURNING id`,
     [params.data.id, params.data.noteId]
   );
@@ -2586,8 +2586,8 @@ adminUserManagementRouter.get("/sellers/:id/tags", requireAuth("admin"), async (
 
   const rows = await pool.query<{ id: string; tag: string }>(
     `SELECT id, tag
-     FROM buyer_tags
-     WHERE buyer_id = $1
+     FROM seller_tags
+     WHERE seller_id = $1
      ORDER BY tag ASC`,
     [params.data.id]
   );
@@ -2617,9 +2617,9 @@ adminUserManagementRouter.post("/sellers/:id/tags", requireAuth("admin"), async 
 
   const tagValue = parsed.data.tag.trim();
   const inserted = await pool.query<{ id: string; tag: string }>(
-    `INSERT INTO buyer_tags (buyer_id, tag)
+    `INSERT INTO seller_tags (seller_id, tag)
      VALUES ($1, $2)
-     ON CONFLICT (buyer_id, tag) DO UPDATE
+     ON CONFLICT (seller_id, tag) DO UPDATE
      SET tag = EXCLUDED.tag
      RETURNING id, tag`,
     [params.data.id, tagValue]
@@ -2649,8 +2649,8 @@ adminUserManagementRouter.delete("/sellers/:id/tags", requireAuth("admin"), asyn
   }
 
   const deleted = await pool.query<{ id: string }>(
-    `DELETE FROM buyer_tags
-     WHERE buyer_id = $1 AND tag = $2
+    `DELETE FROM seller_tags
+     WHERE seller_id = $1 AND tag = $2
      RETURNING id`,
     [params.data.id, parsed.data.tag.trim()]
   );
@@ -2674,8 +2674,8 @@ adminUserManagementRouter.delete("/sellers/:id/tags/:tagId", requireAuth("admin"
   }
 
   const deleted = await pool.query<{ id: string }>(
-    `DELETE FROM buyer_tags
-     WHERE buyer_id = $1 AND id = $2
+    `DELETE FROM seller_tags
+     WHERE seller_id = $1 AND id = $2
      RETURNING id`,
     [params.data.id, params.data.tagId]
   );
