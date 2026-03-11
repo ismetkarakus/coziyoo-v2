@@ -19,11 +19,6 @@ export type ResolvedProviders = {
     queryParams: Record<string, string>;
     authHeader: string | null;
   };
-  llm: {
-    baseUrl: string | null;
-    model: string;
-    authHeader: string | null;
-  };
   n8n: {
     baseUrl: string | null;
     workflowId: string | null;
@@ -91,18 +86,15 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
 
   // Legacy sub-objects from tts_config_json
   const legacyStt = (typeof ttsConfig.stt === "object" && ttsConfig.stt !== null ? ttsConfig.stt : {}) as ServerRecord;
-  const legacyLlm = (typeof ttsConfig.llm === "object" && ttsConfig.llm !== null ? ttsConfig.llm : {}) as ServerRecord;
   const legacyN8n = (typeof ttsConfig.n8n === "object" && ttsConfig.n8n !== null ? ttsConfig.n8n : {}) as ServerRecord;
 
   // Multi-server arrays stored in tts_config_json
   const sttServers = ttsConfig.sttServers as ServerRecord[] | undefined;
   const ttsServers = ttsConfig.ttsServers as ServerRecord[] | undefined;
-  const llmServers = ttsConfig.llmServers as ServerRecord[] | undefined;
   const n8nServers = ttsConfig.n8nServers as ServerRecord[] | undefined;
 
   const defaultSttServer = findDefaultServer(sttServers, ttsConfig.defaultSttServerId as string | undefined);
   const defaultTtsServer = findDefaultServer(ttsServers, ttsConfig.defaultTtsServerId as string | undefined);
-  const defaultLlmServer = findDefaultServer(llmServers, ttsConfig.defaultLlmServerId as string | undefined);
   const defaultN8nServer = findDefaultServer(n8nServers, ttsConfig.defaultN8nServerId as string | undefined);
 
   // --- STT ---
@@ -145,19 +137,6 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         authHeader: strOrNull(ttsConfig.authHeader),
       };
 
-  // --- LLM ---
-  const llm: ResolvedProviders["llm"] = defaultLlmServer
-    ? {
-        baseUrl: strOrNull(defaultLlmServer.baseUrl ?? defaultLlmServer.ollamaBaseUrl) ?? env.OLLAMA_BASE_URL,
-        model: str(defaultLlmServer.model, settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL),
-        authHeader: strOrNull(defaultLlmServer.authHeader),
-      }
-    : {
-        baseUrl: strOrNull(legacyLlm.ollamaBaseUrl) ?? env.OLLAMA_BASE_URL,
-        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
-        authHeader: strOrNull(legacyLlm.authHeader),
-      };
-
   // --- N8N ---
   const n8n: ResolvedProviders["n8n"] = defaultN8nServer
     ? {
@@ -165,8 +144,7 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         workflowId: strOrNull(defaultN8nServer.workflowId) ?? env.N8N_LLM_WORKFLOW_ID,
         mcpWorkflowId: strOrNull(defaultN8nServer.mcpWorkflowId) ?? env.N8N_MCP_WORKFLOW_ID,
         webhookUrl:
-          strOrNull(defaultN8nServer.webhookUrl ?? defaultN8nServer.endpoint ?? defaultN8nServer.url) ??
-          (env.N8N_LLM_WEBHOOK_URL || null),
+          strOrNull(defaultN8nServer.webhookUrl ?? defaultN8nServer.endpoint ?? defaultN8nServer.url) ?? null,
         webhookPath: strOrNull(defaultN8nServer.webhookPath) ?? (env.N8N_LLM_WEBHOOK_PATH || null),
         mcpWebhookPath: strOrNull(defaultN8nServer.mcpWebhookPath) ?? (env.N8N_MCP_WEBHOOK_PATH || null),
         authHeader: strOrNull(defaultN8nServer.authHeader),
@@ -176,12 +154,11 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         workflowId: strOrNull(legacyN8n.workflowId) ?? env.N8N_LLM_WORKFLOW_ID,
         mcpWorkflowId: strOrNull(legacyN8n.mcpWorkflowId) ?? env.N8N_MCP_WORKFLOW_ID,
         webhookUrl:
-          strOrNull(legacyN8n.webhookUrl ?? legacyN8n.endpoint ?? legacyN8n.url) ??
-          (env.N8N_LLM_WEBHOOK_URL || null),
+          strOrNull(legacyN8n.webhookUrl ?? legacyN8n.endpoint ?? legacyN8n.url) ?? null,
         webhookPath: strOrNull(legacyN8n.webhookPath) ?? (env.N8N_LLM_WEBHOOK_PATH || null),
         mcpWebhookPath: strOrNull(legacyN8n.mcpWebhookPath) ?? (env.N8N_MCP_WEBHOOK_PATH || null),
         authHeader: strOrNull(legacyN8n.authHeader),
       };
 
-  return { stt, tts, llm, n8n };
+  return { stt, tts, n8n };
 }

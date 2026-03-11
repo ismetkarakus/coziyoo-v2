@@ -5,7 +5,7 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { pool } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
-import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
+import { askOllamaChat } from "../services/ollama.js";
 import { getN8nStatus } from "../services/n8n.js";
 import {
   buildRoomScopedAgentIdentity,
@@ -424,8 +424,6 @@ const ServerRecordSchema = z.record(z.string(), z.unknown());
 const AdminAgentSettingsSchema = z.object({
   agentName: z.string().max(128).optional(),
   voiceLanguage: z.string().min(2).max(16).optional(),
-  ollamaModel: z.string().max(128).optional(),
-  ollamaBaseUrl: z.string().optional(),
   ttsEnabled: z.boolean().optional(),
   ttsBaseUrl: z.string().optional(),
   ttsSynthPath: z.string().max(256).optional(),
@@ -442,14 +440,11 @@ const AdminAgentSettingsSchema = z.object({
   ttsQueryParams: z.record(z.string(), z.string()).optional(),
   sttAuthHeader: z.string().max(512).optional(),
   ttsAuthHeader: z.string().max(512).optional(),
-  llmAuthHeader: z.string().max(512).optional(),
   // Multi-server arrays
   sttServers: z.array(ServerRecordSchema).optional(),
   defaultSttServerId: z.string().max(128).optional(),
   ttsServers: z.array(ServerRecordSchema).optional(),
   defaultTtsServerId: z.string().max(128).optional(),
-  llmServers: z.array(ServerRecordSchema).optional(),
-  defaultLlmServerId: z.string().max(128).optional(),
   n8nServers: z.array(ServerRecordSchema).optional(),
   defaultN8nServerId: z.string().max(128).optional(),
 });
@@ -543,7 +538,6 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
     ...((existing.ttsConfig ?? {}) as Record<string, unknown>),
   } as Record<string, unknown>;
   const existingStt = (typeof existingTtsConfig.stt === "object" && existingTtsConfig.stt !== null ? existingTtsConfig.stt : {}) as Record<string, unknown>;
-  const existingLlm = (typeof existingTtsConfig.llm === "object" && existingTtsConfig.llm !== null ? existingTtsConfig.llm : {}) as Record<string, unknown>;
   const existingN8n = (typeof existingTtsConfig.n8n === "object" && existingTtsConfig.n8n !== null ? existingTtsConfig.n8n : {}) as Record<string, unknown>;
 
   const mergedTtsConfig = {
@@ -561,11 +555,6 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
       ...(input.sttQueryParams !== undefined ? { queryParams: input.sttQueryParams } : {}),
       ...(input.sttAuthHeader !== undefined ? { authHeader: input.sttAuthHeader || null } : {}),
     },
-    llm: {
-      ...existingLlm,
-      ...(input.ollamaBaseUrl !== undefined ? { ollamaBaseUrl: input.ollamaBaseUrl || null } : {}),
-      ...(input.llmAuthHeader !== undefined ? { authHeader: input.llmAuthHeader || null } : {}),
-    },
     n8n: {
       ...existingN8n,
       ...(input.n8nBaseUrl !== undefined ? { baseUrl: input.n8nBaseUrl || null } : {}),
@@ -575,8 +564,6 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
     ...(input.defaultSttServerId !== undefined ? { defaultSttServerId: input.defaultSttServerId } : {}),
     ...(input.ttsServers !== undefined ? { ttsServers: input.ttsServers } : {}),
     ...(input.defaultTtsServerId !== undefined ? { defaultTtsServerId: input.defaultTtsServerId } : {}),
-    ...(input.llmServers !== undefined ? { llmServers: input.llmServers } : {}),
-    ...(input.defaultLlmServerId !== undefined ? { defaultLlmServerId: input.defaultLlmServerId } : {}),
     ...(input.n8nServers !== undefined ? { n8nServers: input.n8nServers } : {}),
     ...(input.defaultN8nServerId !== undefined ? { defaultN8nServerId: input.defaultN8nServerId } : {}),
   };
@@ -585,7 +572,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
       deviceId,
       agentName: input.agentName ?? existing.agentName ?? "coziyoo-agent",
       voiceLanguage: input.voiceLanguage ?? existing.voiceLanguage,
-      ollamaModel: input.ollamaModel ?? existing.ollamaModel,
+      ollamaModel: existing.ollamaModel,
       ttsEngine: normalizeTtsEngine(existing.ttsEngine),
       ttsEnabled: input.ttsEnabled ?? existing.ttsEnabled,
       sttEnabled: input.sttEnabled ?? existing.sttEnabled,
@@ -736,32 +723,6 @@ adminLiveKitRouter.post("/test/stt/transcribe", async (req, res) => {
         contentType: null,
       },
     });
-  }
-});
-
-const TestOllamaSchema = z.object({
-  baseUrl: z.string().optional(),
-  modelsPath: z.string().optional(),
-  model: z.string().max(256).optional(),
-  systemPrompt: z.string().max(4_000).optional(),
-  text: z.string().min(1).max(2_000).optional(),
-});
-
-adminLiveKitRouter.post("/test/ollama", async (req, res) => {
-  const parsed = TestOllamaSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-  try {
-    const result = await listOllamaModels({ baseUrl: parsed.data.baseUrl || undefined, modelsPath: parsed.data.modelsPath || undefined });
-    const answer = await askOllamaChat(parsed.data.text || "Hello", {
-      baseUrl: parsed.data.baseUrl || undefined,
-      model: parsed.data.model || undefined,
-      systemPrompt: parsed.data.systemPrompt || undefined,
-    });
-    return res.json({ data: { ok: true, models: result.models, answer: answer.text, model: answer.model } });
-  } catch (err) {
-    return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
   }
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,25 @@ import {
 import { StatusBar } from 'react-native';
 import {
   AudioSession,
+  AndroidAudioTypePresets,
   LiveKitRoom,
   useLocalParticipant,
   useParticipants,
   useRoomContext,
 } from '@livekit/react-native';
-import { ConnectionState, Track } from 'livekit-client';
+import { ConnectionState, RoomEvent } from 'livekit-client';
 import type { SessionData } from './HomeScreen';
+
+type AgentActionEnvelope = {
+  type: 'action';
+  version: string;
+  requestId: string;
+  timestamp: string;
+  action: {
+    name: 'navigate' | 'add_to_cart' | 'show_order_summary';
+    params: Record<string, unknown>;
+  };
+};
 
 type Props = {
   session: SessionData;
@@ -24,23 +36,70 @@ type Props = {
 };
 
 export default function VoiceSessionScreen({ session, onEnd }: Props) {
+  const intentionalEnd = useRef(false);
+  // Don't connect until audio session is fully configured.
+  // LiveKit docs: configureAudio must be called before connecting to a room.
+  const [audioReady, setAudioReady] = useState(false);
+
   useEffect(() => {
-    AudioSession.startAudioSession();
+    // Configure audio for two-way communication (playAndRecord + voiceChat).
+    // On iOS this is required for the microphone to capture while audio plays.
+    // On Android the communication preset sets the correct audio mode and focus.
+    AudioSession.configureAudio({
+      ios: { defaultOutput: 'speaker' },
+      android: { audioTypeOptions: AndroidAudioTypePresets.communication },
+    })
+      .then(() =>
+        AudioSession.setAppleAudioConfiguration({
+          audioCategory: 'playAndRecord',
+          audioCategoryOptions: ['allowBluetooth', 'defaultToSpeaker'],
+          audioMode: 'voiceChat',
+        })
+      )
+      .then(() => AudioSession.startAudioSession())
+      .then(() => setAudioReady(true))
+      .catch((err) => {
+        console.warn('[AudioSession] setup failed:', err);
+        // Still allow connection even if configuration partially fails
+        setAudioReady(true);
+      });
+
     return () => {
       AudioSession.stopAudioSession();
     };
   }, []);
 
+  function handleDisconnected() {
+    if (intentionalEnd.current) {
+      onEnd();
+      return;
+    }
+    // Unexpected disconnect — prompt user
+    Alert.alert(
+      'Disconnected',
+      'The session was interrupted. What would you like to do?',
+      [
+        { text: 'End Session', style: 'destructive', onPress: onEnd },
+        { text: 'Dismiss', style: 'cancel' },
+      ]
+    );
+  }
+
+  function handleEnd() {
+    intentionalEnd.current = true;
+    onEnd();
+  }
+
   return (
     <LiveKitRoom
       serverUrl={session.wsUrl}
       token={session.token}
-      connect={true}
+      connect={audioReady}
       audio={true}
       video={false}
-      onDisconnected={onEnd}
+      onDisconnected={handleDisconnected}
     >
-      <SessionView onEnd={onEnd} roomName={session.roomName} />
+      <SessionView onEnd={handleEnd} roomName={session.roomName} />
     </LiveKitRoom>
   );
 }
@@ -64,6 +123,55 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   const connectionState = room.state;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [actionBanner, setActionBanner] = useState<string | null>(null);
+  const processedIds = useRef(new Set<string>());
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Subscribe to agent-action data channel messages
+  useEffect(() => {
+    function handleData(
+      payload: Uint8Array,
+      _participant: unknown,
+      _kind: unknown,
+      topic?: string
+    ) {
+      if (topic !== 'agent-action') return;
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload)) as AgentActionEnvelope;
+        if (msg.type !== 'action' || !msg.requestId) return;
+        if (processedIds.current.has(msg.requestId)) return;
+        processedIds.current.add(msg.requestId);
+
+        const { name, params } = msg.action;
+        let banner: string;
+        switch (name) {
+          case 'navigate':
+            banner = `Go to: ${params.screen as string}`;
+            break;
+          case 'add_to_cart':
+            banner = `Added: ${params.productName as string} ×${params.quantity as number}`;
+            break;
+          case 'show_order_summary':
+            banner = `Order total: $${(params.total as number).toFixed(2)}`;
+            break;
+          default:
+            return;
+        }
+
+        if (bannerTimer.current) clearTimeout(bannerTimer.current);
+        setActionBanner(banner);
+        bannerTimer.current = setTimeout(() => setActionBanner(null), 3500);
+      } catch {
+        // ignore malformed messages
+      }
+    }
+
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+      if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    };
+  }, [room]);
 
   useEffect(() => {
     if (isAgentSpeaking) {
@@ -127,6 +235,12 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
+
+      {actionBanner && (
+        <View style={styles.actionBanner}>
+          <Text style={styles.actionBannerText}>{actionBanner}</Text>
+        </View>
+      )}
 
       <View style={styles.header}>
         <Text style={styles.roomLabel}>Room</Text>
@@ -322,5 +436,21 @@ const styles = StyleSheet.create({
   controlLabel: {
     color: '#888',
     fontSize: 11,
+  },
+  actionBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#6C63FF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    zIndex: 10,
+    alignItems: 'center',
+  },
+  actionBannerText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

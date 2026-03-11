@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS_DIR = ROOT / "workflows"
 
 WORKFLOW_FILES = {
-    "6KFFgjd26nF0kNCA": WORKFLOWS_DIR / "brain_6KFFgjd26nF0kNCA.json",
-    "XYiIkxpa4PlnddQt": WORKFLOWS_DIR / "mcp_XYiIkxpa4PlnddQt.json",
+    "6bJGOBvPm9eyvooK": WORKFLOWS_DIR / "brain_6KFFgjd26nF0kNCA.json",
+    "FEJrgQ4V7DOcT9kF": WORKFLOWS_DIR / "mcp_XYiIkxpa4PlnddQt.json",
 }
 
 

@@ -1,5 +1,5 @@
 {
-  "name": "Coziyoo Voice Brain (6KFF)",
+  "name": "Coziyoo Voice Brain v2 (6KFF)",
   "nodes": [
     {
       "id": "brain-webhook",
@@ -7,7 +7,7 @@
       "name": "Brain Webhook In",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 340],
+      "position": [240, 320],
       "parameters": {
         "path": "6KFFgjd26nF0kNCA",
         "httpMethod": "POST",
@@ -20,10 +20,21 @@
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [500, 340],
+      "position": [480, 320],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $json.body ?? $json;\nconst traceId = body.traceId || body.jobId || `trace-${Date.now()}`;\nconst userText = String(body.userText || '').trim();\nconst messages = Array.isArray(body.messages) ? body.messages : [];\nreturn [{ json: {\n  traceId,\n  workflowId: body.workflowId || '6KFFgjd26nF0kNCA',\n  requestedByWorkflowId: '6KFFgjd26nF0kNCA',\n  roomId: body.roomId || null,\n  jobId: body.jobId || null,\n  deviceId: body.deviceId || null,\n  userText,\n  messages,\n  action: body.action || null,\n  params: body.params || null\n}}];"
+        "jsCode": "const body = $json.body ?? $json;\nconst traceId = body.traceId || body.jobId || `trace-${Date.now()}`;\n\n// A. Input cleaning\nlet userText = String(body.userText || '').trim();\nuserText = userText.replace(/[\\u2018\\u2019]/g, \"'\").replace(/[\\u201C\\u201D]/g, '\"');\nuserText = userText.replace(/[ \\t\\n\\r]+/g, ' ').trim();\nuserText = userText.slice(0, 500);\nconst userTextRaw = String(body.userText || '');\n\n// B. Language / locale\nconst locale = String(body.locale || body.voiceLanguage || 'en').slice(0, 16);\n\n// C. System prompt from agent settings\nconst systemPrompt = String(body.systemPrompt || '').trim().slice(0, 2000);\n\n// D. Per-session config hints (model selection, RAG overrides) from Python agent\nconst config = (body.config && typeof body.config === 'object') ? body.config : {};\n\n// E. Conversation context compression: keep last 10, strip empty\nconst rawMessages = Array.isArray(body.messages) ? body.messages : [];\nconst messages = rawMessages\n  .filter(m => m && String(m.content || '').trim().length > 0)\n  .slice(-10);\n\nreturn [{ json: {\n  traceId,\n  workflowId: body.workflowId || '6KFFgjd26nF0kNCA',\n  requestedByWorkflowId: '6KFFgjd26nF0kNCA',\n  roomId: body.roomId || null,\n  jobId: body.jobId || null,\n  deviceId: body.deviceId || null,\n  userText,\n  userTextRaw,\n  messages,\n  locale,\n  systemPrompt,\n  config,\n  action: body.action || null,\n  params: body.params || null,\n  startedAt: new Date().toISOString()\n}}];"
+      }
+    },
+    {
+      "id": "resolve-config",
+      "name": "Resolve Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 320],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Priority: payload.config > n8n Variables > hardcoded defaults\n// Configure models, RAG, and routing via n8n UI → Settings → Variables\nconst body = $json;\nconst pCfg = body.config || {};\n\nfunction resolve(pv, varName, def) {\n  if (pv != null && pv !== '') return pv;\n  try { const nv = $vars[varName]; if (nv != null && nv !== '') return nv; } catch {}\n  return def;\n}\nfunction resolveBool(pv, varName, def) {\n  const v = resolve(pv, varName, def);\n  if (typeof v === 'boolean') return v;\n  return String(v).toLowerCase() !== 'false';\n}\n\nconst cfg = {\n  // --- Intent LLM (fast/cheap model for classification) ---\n  intentModel:       resolve(pCfg.intentModel,       'INTENT_MODEL',        'ministral-3:8b'),\n  intentBaseUrl:     resolve(pCfg.intentBaseUrl,     'INTENT_BASE_URL',     'https://ollama.drascom.uk').replace(/\\/$/, ''),\n  intentTemperature: parseFloat(resolve(pCfg.intentTemperature, 'INTENT_TEMPERATURE', 0.1)) || 0.1,\n\n  // --- Reply LLM (higher quality model for response generation) ---\n  replyModel:        resolve(pCfg.replyModel,        'REPLY_MODEL',         'ministral-3:8b'),\n  replyBaseUrl:      resolve(pCfg.replyBaseUrl,      'REPLY_BASE_URL',      'https://ollama.drascom.uk').replace(/\\/$/, ''),\n  replyTemperature:  parseFloat(resolve(pCfg.replyTemperature,  'REPLY_TEMPERATURE',  0.25)) || 0.25,\n  replyMaxTokens:    parseInt(resolve(pCfg.replyMaxTokens,     'REPLY_MAX_TOKENS',   150))  || 150,\n\n  // --- RAG (retrieval-augmented generation) ---\n  // ragSource: 'foods_api' = search live menu | 'disabled' = skip RAG\n  ragEnabled:  resolveBool(resolve(pCfg.ragEnabled,  null, null), 'RAG_ENABLED',  true),\n  ragSource:   resolve(pCfg.ragSource,   'RAG_SOURCE',   'foods_api'),\n  ragTopK:     parseInt(resolve(pCfg.ragTopK, 'RAG_TOP_K', 5)) || 5,\n  ragBaseUrl:  resolve(pCfg.ragBaseUrl,  'RAG_BASE_URL', 'http://127.0.0.1:3000').replace(/\\/$/, ''),\n  ragSecret:   resolve(pCfg.ragSecret,   'AI_SERVER_SHARED_SECRET', ''),\n\n  // --- Routing ---\n  // Below threshold intent confidence → force fallback, no MCP call\n  confidenceThreshold: parseFloat(resolve(pCfg.confidenceThreshold, 'CONFIDENCE_THRESHOLD', 0.45)) || 0.45,\n  mcpEnabled: resolveBool(resolve(pCfg.mcpEnabled, null, null), 'MCP_ENABLED', true),\n  mcpUrl:     resolve(pCfg.mcpUrl, 'MCP_URL', 'https://n8n.drascom.uk/webhook/XYiIkxpa4PlnddQt'),\n};\n\nreturn [{ json: { ...body, cfg } }];"
       }
     },
     {
@@ -31,14 +42,14 @@
       "name": "Intent LLM (Ollama)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [760, 340],
+      "position": [960, 320],
       "parameters": {
         "method": "POST",
-        "url": "https://ollama.drascom.uk/v1/chat/completions",
+        "url": "={{ $json.cfg.intentBaseUrl }}/v1/chat/completions",
         "sendBody": true,
         "specifyBody": "json",
         "contentType": "json",
-        "jsonBody": "={{ { model: 'ministral-3:8b', temperature: 0.1, messages: [ { role: 'system', content: 'You classify user intent for a food-ordering voice assistant. Return strict JSON only: {\\\"intent\\\":string,\\\"requiresMcp\\\":boolean,\\\"action\\\":string,\\\"query\\\":string,\\\"ask\\\":string}. Use requiresMcp=true when DB/API lookup is needed (menu availability, prices, orders, customer records). If simple greeting/chitchat/clarification, requiresMcp=false.' }, { role: 'user', content: `User text: ${$json.userText}\\nRecent messages: ${JSON.stringify(($json.messages || []).slice(-8))}` } ] } }}"
+        "jsonBody": "={{ { model: $json.cfg.intentModel, temperature: $json.cfg.intentTemperature, messages: [ { role: 'system', content: 'You are a food-ordering voice assistant intent classifier.\\nOutput ONLY valid JSON. No markdown. No explanation.\\n\\nSchema:\\n{\\n  \"intent\": string,\\n  \"confidence\": number,\\n  \"slots\": {\\n    \"productName\": string | null,\\n    \"quantity\": number | null,\\n    \"orderId\": string | null,\\n    \"category\": string | null\\n  },\\n  \"requiresMcp\": boolean,\\n  \"mcpAction\": string,\\n  \"mcpQuery\": string,\\n  \"ask\": string\\n}\\n\\nINTENT VALUES:\\n  greeting          — hello, hi, good morning\\n  farewell          — bye, thank you, goodbye\\n  menu_browse       — show menu, what do you have, what\\'s available\\n  product_search    — find X, do you have X, search for X\\n  price_check       — how much is X, what does X cost\\n  add_to_cart       — I want X, order X, I\\'ll take N of X\\n  view_cart         — what\\'s in my cart, my order so far, review order\\n  checkout          — I\\'m ready, place order, confirm order, checkout\\n  order_status      — where\\'s my order, track order, order update\\n  help              — what can you do, how does this work\\n  fallback          — anything not matching above\\n\\nSLOT EXTRACTION RULES:\\n- productName: extract verbatim noun phrase (e.g., \"lamb kebab\", \"veggie pizza\")\\n- quantity: extract the number (default 1 if \"order X\" with no explicit number)\\n- Words: \"a\"/\"an\"/\"one\" → 1, \"a couple\" → 2, \"a few\" → 3\\n- Leave slot null if not mentioned\\n\\nMCP RULES:\\n- requiresMcp=true: menu_browse, product_search, price_check, add_to_cart, order_status\\n- mcpAction: menu_browse→products.list, product_search/price_check/add_to_cart→products.search, order_status→orders.status\\n- mcpQuery: productName slot, or category, or orderId\\n- requiresMcp=false for: greeting, farewell, view_cart, checkout, help, fallback' }, { role: 'user', content: `Recent conversation:\\n${JSON.stringify(($json.messages || []).slice(-3))}\\n\\nUser just said: \"${$json.userText}\"\\n\\nClassify intent and extract slots.` } ] } }}"
       }
     },
     {
@@ -46,18 +57,18 @@
       "name": "Parse Intent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1020, 340],
+      "position": [1200, 320],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const root = $json.body ?? $json;\nconst raw = root?.choices?.[0]?.message?.content || root?.replyText || root?.text || '';\nlet parsed = {};\nif (typeof raw === 'string') {\n  try {\n    parsed = JSON.parse(raw);\n  } catch {\n    parsed = {};\n  }\n}\nconst prev = $('Normalize Input').item.json;\nconst fallbackNeed = /^tool:|^api:|menu|price|availability|order|status|db|database/i.test(prev.userText || '');\nconst requiresMcp = typeof parsed.requiresMcp === 'boolean' ? parsed.requiresMcp : fallbackNeed;\nconst intent = String(parsed.intent || 'general_query');\nconst action = String(parsed.action || (requiresMcp ? 'database.question' : 'none'));\nconst query = String(parsed.query || prev.userText || '');\nconst ask = String(parsed.ask || '');\nreturn [{ json: { ...prev, intent, requiresMcp, action, query, ask, intentRaw: raw } }];"
+        "jsCode": "const root = $json.body ?? $json;\nconst raw = root?.choices?.[0]?.message?.content || root?.replyText || root?.text || '';\nlet parsed = {};\nif (typeof raw === 'string') {\n  try {\n    const cleaned = raw.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/\\s*```$/i, '').trim();\n    parsed = JSON.parse(cleaned);\n  } catch { parsed = {}; }\n}\n\n// Use Resolve Config as prev (has cfg + all normalized fields)\nconst prev = $('Resolve Config').item.json;\nconst cfg = prev.cfg || {};\n\nconst VALID_INTENTS = new Set(['greeting','farewell','menu_browse','product_search','price_check','add_to_cart','view_cart','checkout','order_status','help','fallback']);\nconst rawIntent = VALID_INTENTS.has(parsed.intent) ? parsed.intent : 'fallback';\n\nconst rawConfidence = typeof parsed.confidence === 'number'\n  ? Math.min(1, Math.max(0, parsed.confidence))\n  : (rawIntent === 'fallback' ? 0.3 : 0.7);\n\n// Quality gate: below confidence threshold → treat as fallback, skip MCP\nconst threshold = cfg.confidenceThreshold || 0.45;\nconst intent = rawConfidence >= threshold ? rawIntent : 'fallback';\nconst confidence = rawConfidence;\n\nconst slots = {\n  productName: parsed.slots?.productName || null,\n  quantity: typeof parsed.slots?.quantity === 'number' ? parsed.slots.quantity : null,\n  orderId: parsed.slots?.orderId || null,\n  category: parsed.slots?.category || null\n};\n\nconst MCP_INTENTS = new Set(['menu_browse','product_search','price_check','add_to_cart','order_status']);\nconst requiresMcp = MCP_INTENTS.has(intent) && cfg.mcpEnabled !== false;\n\nconst MCP_ACTION_MAP = {\n  menu_browse: 'products.list',\n  product_search: 'products.search',\n  price_check: 'products.search',\n  add_to_cart: 'products.search',\n  order_status: 'orders.status'\n};\nconst mcpAction = parsed.mcpAction || MCP_ACTION_MAP[intent] || 'none';\nconst mcpQuery = parsed.mcpQuery || slots.productName || slots.category || slots.orderId || prev.userText || '';\nconst ask = String(parsed.ask || '');\n\nreturn [{ json: { ...prev, intent, confidence, rawConfidence, slots, requiresMcp, mcpAction, mcpQuery, ask, intentRaw: raw } }];"
       }
     },
     {
-      "id": "needs-mcp",
+      "id": "route-intent",
       "name": "Needs MCP?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1260, 340],
+      "position": [1440, 320],
       "parameters": {
         "conditions": {
           "boolean": [
@@ -70,18 +81,29 @@
       }
     },
     {
+      "id": "rag-lookup",
+      "name": "RAG Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 160],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Retrieval-Augmented Generation: enrich context with knowledge base results\n// ragSource: 'foods_api' = live menu search | 'disabled' = skip\n// Future sources: 'vector_store' (pgvector embeddings), 'knowledge_base' (FAQ/policies)\nconst ctx = $json;\nconst cfg = ctx.cfg || {};\n\nconst RAG_INTENTS = new Set(['menu_browse', 'product_search', 'price_check', 'add_to_cart']);\nconst shouldRag = cfg.ragEnabled !== false\n  && cfg.ragSource !== 'disabled'\n  && RAG_INTENTS.has(ctx.intent);\n\nif (!shouldRag) {\n  return [{ json: { ...ctx, ragContext: null, ragFoods: null, ragMeta: { skipped: true, reason: 'not applicable for intent: ' + ctx.intent } } }];\n}\n\ntry {\n  const q = ctx.mcpQuery || ctx.userText || '';\n  const limit = cfg.ragTopK || 5;\n  const baseUrl = (cfg.ragBaseUrl || 'http://127.0.0.1:3000').replace(/\\/$/, '');\n  const url = `${baseUrl}/v1/voice/foods?limit=${limit}${q ? '&q=' + encodeURIComponent(q) : ''}`;\n\n  const resp = await fetch(url, {\n    method: 'GET',\n    headers: {\n      'x-ai-server-secret': cfg.ragSecret || '',\n      'Accept': 'application/json'\n    }\n  });\n\n  const data = await resp.json();\n  const foods = data?.data?.foods || [];\n\n  const ragContext = foods.length > 0\n    ? 'Menu knowledge:\\n' + foods.map(f =>\n        '• ' + f.name + ': \\u00a3' + parseFloat(f.price).toFixed(2)\n        + (f.available ? ' (available)' : ' (unavailable)')\n        + (f.cardSummary ? ' \\u2014 ' + f.cardSummary : '')\n      ).join('\\n')\n    : 'No matching menu items found.';\n\n  return [{ json: {\n    ...ctx,\n    ragContext,\n    ragFoods: foods,\n    ragMeta: { source: cfg.ragSource, topK: limit, query: q, count: foods.length }\n  }}];\n} catch (err) {\n  // RAG failure is non-fatal: log and proceed without enrichment\n  return [{ json: { ...ctx, ragContext: null, ragFoods: null, ragMeta: { error: String(err.message || err) } } }];\n}"
+      }
+    },
+    {
       "id": "call-mcp",
       "name": "Call MCP Gateway",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1500, 200],
+      "position": [1920, 160],
       "parameters": {
         "method": "POST",
-        "url": "https://n8n.drascom.uk/webhook/XYiIkxpa4PlnddQt",
+        "url": "={{ $json.cfg.mcpUrl }}",
         "sendBody": true,
         "specifyBody": "json",
         "contentType": "json",
-        "jsonBody": "={{ { traceId: $json.traceId, action: $json.action || 'database.question', params: { query: $json.query, userText: $json.userText, roomId: $json.roomId, deviceId: $json.deviceId }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"
+        "jsonBody": "={{ { traceId: $json.traceId, action: $json.mcpAction || 'products.search', params: { query: $json.mcpQuery, userText: $json.userText, roomId: $json.roomId, deviceId: $json.deviceId }, roomId: $json.roomId, deviceId: $json.deviceId, requestedByWorkflowId: $json.requestedByWorkflowId } }}"
       }
     },
     {
@@ -89,10 +111,21 @@
       "name": "Merge Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1740, 340],
+      "position": [2160, 320],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const hasMcp = $input.item.pairedItem?.input === 0 || !!$json.ok || !!$json.data || !!$json.error;\nif (hasMcp && ('ok' in $json || 'data' in $json || 'error' in $json)) {\n  const base = $('Parse Intent').item.json;\n  return [{ json: { ...base, mcp: { ok: Boolean($json.ok), status: Number($json.status || 0), data: $json.data ?? null, error: $json.error ?? null, durationMs: $json.durationMs ?? null } } }];\n}\nreturn [{ json: { ...$json, mcp: null } }];"
+        "jsCode": "const hasMcp = !!$json.ok || 'data' in $json || 'error' in $json;\nif (hasMcp) {\n  // MCP path: $json = Call MCP response. RAG Lookup ran upstream — get its output as base.\n  const base = $('RAG Lookup').item.json; // has ctx + cfg + ragContext + ragFoods\n  return [{ json: {\n    ...base,\n    mcp: {\n      ok: Boolean($json.ok),\n      status: Number($json.status || 0),\n      data: $json.data ?? null,\n      error: $json.error ?? null,\n      durationMs: $json.durationMs ?? null\n    }\n  }}];\n}\n// Direct path: $json = Parse Intent output (route-intent false)\nreturn [{ json: { ...$json, ragContext: null, ragFoods: null, ragMeta: { skipped: true }, mcp: null } }];"
+      }
+    },
+    {
+      "id": "build-reply-context",
+      "name": "Build Reply Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 320],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx = $json;\nconst mcp = ctx.mcp || null;\n\n// RAG section: knowledge base results formatted as prose\nconst ragPart = ctx.ragContext || '';\n\n// MCP section: live structured data (prices, availability)\nlet mcpPart = '';\nif (mcp?.ok && mcp.data?.foods?.length > 0) {\n  mcpPart = 'Live availability:\\n' + mcp.data.foods.slice(0, 5).map(f =>\n    '- ' + f.name + ': \\u00a3' + f.price + ' (' + (f.available ? 'available' : 'unavailable') + ')'\n  ).join('\\n');\n} else if (mcp && !mcp.ok) {\n  mcpPart = 'Data lookup failed: ' + (mcp.error?.message || 'unknown error');\n} else if (mcp?.ok && (!mcp.data?.foods || mcp.data.foods.length === 0)) {\n  mcpPart = 'No matching items found in the menu.';\n}\n\n// Combine: RAG knowledge first, then live MCP data\nconst contextBlock = [ragPart, mcpPart].filter(Boolean).join('\\n\\n') || '(no additional data)';\n\n// Typed UI actions for deterministic intent paths\nconst actions = [];\nif (ctx.intent === 'menu_browse') {\n  actions.push({ name: 'navigate', params: { screen: 'Menu' } });\n} else if (ctx.intent === 'checkout') {\n  actions.push({ name: 'navigate', params: { screen: 'Cart' } });\n} else if (ctx.intent === 'view_cart') {\n  actions.push({ name: 'show_order_summary', params: { items: [], total: 0 } });\n} else if (ctx.intent === 'order_status') {\n  actions.push({ name: 'navigate', params: { screen: 'OrderStatus' } });\n} else if (ctx.intent === 'add_to_cart' && mcp?.data?.foods?.length > 0) {\n  const food = mcp.data.foods[0];\n  actions.push({ name: 'add_to_cart', params: {\n    productId: food.id,\n    productName: food.name,\n    quantity: ctx.slots?.quantity || 1,\n    price: parseFloat(food.price) || 0\n  }});\n}\n\nreturn [{ json: { ...ctx, contextBlock, actions } }];"
       }
     },
     {
@@ -100,14 +133,14 @@
       "name": "Reply LLM (Ollama)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1980, 340],
+      "position": [2640, 320],
       "parameters": {
         "method": "POST",
-        "url": "https://ollama.drascom.uk/v1/chat/completions",
+        "url": "={{ $json.cfg.replyBaseUrl }}/v1/chat/completions",
         "sendBody": true,
         "specifyBody": "json",
         "contentType": "json",
-        "jsonBody": "={{ { model: 'ministral-3:8b', temperature: 0.25, messages: [ { role: 'system', content: 'You are Coziyoo voice assistant. Reply concise and natural for speech. If MCP data exists, prioritize factual values from it. If data missing, ask one short clarifying question.' }, { role: 'user', content: `Intent: ${$json.intent}\\nUser text: ${$json.userText}\\nMCP result: ${JSON.stringify($json.mcp)}\\nHint: ${$json.ask || ''}` } ] } }}"
+        "jsonBody": "={{ { model: $json.cfg.replyModel, temperature: $json.cfg.replyTemperature, max_tokens: $json.cfg.replyMaxTokens, messages: [ { role: 'system', content: ($json.systemPrompt || 'You are Coziyoo, a friendly voice assistant for food ordering.') + `\\nReply in 1-2 short sentences suitable for speech. Never exceed 40 words.\\nUse ONLY data from the context block below. Never invent prices, product names, or availability.\\nIf you have no data for a question, say so honestly and offer an alternative.\\nDo not mention \"database\", \"MCP\", \"lookup\", \"RAG\", or system terms.\\nRespond in the user's language (locale: ${$json.locale || 'en'}).\\n\\nContext:\\n${$json.contextBlock || '(no additional data)'}` }, { role: 'user', content: `Intent: ${$json.intent}\\nUser said: \"${$json.userText}\"${$json.ask ? '\\nClarification hint: ' + $json.ask : ''}` } ] } }}"
       }
     },
     {
@@ -115,10 +148,10 @@
       "name": "Finalize Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2220, 340],
+      "position": [2880, 320],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const rawRoot = $json.body ?? $json;\nconst llmText = String(rawRoot?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Merge Context').item.json;\nconst fallback = ctx.ask || (ctx.mcp && ctx.mcp.ok === false ? 'I could not fetch that data now. Please try again.' : 'How can I help you?');\nconst replyText = llmText || fallback;\nreturn [{ json: { replyText, meta: { intent: ctx.intent, requiresMcp: ctx.requiresMcp, mcp: ctx.mcp, traceId: ctx.traceId } } }];"
+        "jsCode": "const rawRoot = $json.body ?? $json;\nconst llmText = String(rawRoot?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Build Reply Context').item.json;\n\n// Fallback chain: LLM output → clarifying question → intent-based default\nconst fallback = ctx.ask\n  ? ctx.ask\n  : ctx.intent === 'fallback'\n    ? \"I'm not sure I understood that. Could you rephrase?\"\n    : 'How can I help you with your order?';\n\nconst replyText = llmText || fallback;\n\n// Validate actions against allowlist (defense against hallucinated action names)\nconst ALLOWED = new Set(['navigate', 'add_to_cart', 'show_order_summary']);\nconst actions = (ctx.actions || []).filter(a => ALLOWED.has(a.name));\n\nreturn [{ json: {\n  replyText,\n  actions,\n  meta: {\n    intent: ctx.intent,\n    confidence: ctx.confidence,\n    rawConfidence: ctx.rawConfidence,\n    slots: ctx.slots,\n    requiresMcp: ctx.requiresMcp,\n    mcpAction: ctx.mcpAction,\n    mcp: ctx.mcp,\n    rag: ctx.ragMeta,\n    traceId: ctx.traceId,\n    locale: ctx.locale,\n    model: {\n      intent: ctx.cfg?.intentModel,\n      reply: ctx.cfg?.replyModel\n    }\n  }\n}}];"
       }
     },
     {
@@ -126,7 +159,7 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2460, 340],
+      "position": [3120, 320],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{$json}}",
@@ -139,6 +172,9 @@
       "main": [[{ "node": "Normalize Input", "type": "main", "index": 0 }]]
     },
     "Normalize Input": {
+      "main": [[{ "node": "Resolve Config", "type": "main", "index": 0 }]]
+    },
+    "Resolve Config": {
       "main": [[{ "node": "Intent LLM (Ollama)", "type": "main", "index": 0 }]]
     },
     "Intent LLM (Ollama)": {
@@ -149,14 +185,20 @@
     },
     "Needs MCP?": {
       "main": [
-        [{ "node": "Call MCP Gateway", "type": "main", "index": 0 }],
+        [{ "node": "RAG Lookup", "type": "main", "index": 0 }],
         [{ "node": "Merge Context", "type": "main", "index": 0 }]
       ]
+    },
+    "RAG Lookup": {
+      "main": [[{ "node": "Call MCP Gateway", "type": "main", "index": 0 }]]
     },
     "Call MCP Gateway": {
       "main": [[{ "node": "Merge Context", "type": "main", "index": 0 }]]
     },
     "Merge Context": {
+      "main": [[{ "node": "Build Reply Context", "type": "main", "index": 0 }]]
+    },
+    "Build Reply Context": {
       "main": [[{ "node": "Reply LLM (Ollama)", "type": "main", "index": 0 }]]
     },
     "Reply LLM (Ollama)": {

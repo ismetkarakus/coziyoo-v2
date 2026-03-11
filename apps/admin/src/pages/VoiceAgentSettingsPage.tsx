@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import type { Language, ApiError } from "../types/core";
-import type { AgentSettingsFull, SttServer, TtsServer, LlmServer, N8nServer, VoiceSettingsTab } from "../types/voice";
+import type { AgentSettingsFull, SttServer, TtsServer, N8nServer, VoiceSettingsTab } from "../types/voice";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,10 +170,12 @@ type ServerDraft = {
   /** Extra key-value pairs merged into the JSON request body (model, voice, temperature, etc.) */
   bodyParams: Array<{ key: string; value: string }>;
   authHeader: string;
+  webhookPath: string;
+  mcpWebhookPath: string;
 };
 
 function emptyDraft(): ServerDraft {
-  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", textFieldName: "text", model: "", modelsPath: "", queryParams: [], bodyParams: [], authHeader: "" };
+  return { name: "", enabled: true, provider: "remote-speech-server", baseUrl: "", transcribePath: "/v1/audio/transcriptions", synthPath: "/tts", textFieldName: "text", model: "", modelsPath: "", queryParams: [], bodyParams: [], authHeader: "", webhookPath: "", mcpWebhookPath: "" };
 }
 
 function sttToDraft(s: SttServer): ServerDraft {
@@ -184,12 +186,8 @@ function ttsToDraft(s: TtsServer): ServerDraft {
   return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, textFieldName: s.textFieldName || "text", model: "", modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: objToParams(s.bodyParams ?? {}), authHeader: s.authHeader };
 }
 
-function llmToDraft(s: LlmServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: s.model, modelsPath: s.modelsPath ?? "", queryParams: [], bodyParams: [], authHeader: s.authHeader };
-}
-
 function n8nToDraft(s: N8nServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: "", modelsPath: "", queryParams: [], bodyParams: [], authHeader: "" };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: "", textFieldName: "text", model: "", modelsPath: "", queryParams: [], bodyParams: [], authHeader: "", webhookPath: s.webhookPath || "", mcpWebhookPath: s.mcpWebhookPath || "" };
 }
 
 function draftToStt(id: string, d: ServerDraft): SttServer {
@@ -200,12 +198,8 @@ function draftToTts(id: string, d: ServerDraft): TtsServer {
   return { id, name: d.name || "TTS Server", enabled: d.enabled, baseUrl: d.baseUrl, synthPath: d.synthPath || "/tts", textFieldName: d.textFieldName || "text", bodyParams: paramsToObj(d.bodyParams), queryParams: paramsToObj(d.queryParams), authHeader: d.authHeader };
 }
 
-function draftToLlm(id: string, d: ServerDraft): LlmServer {
-  return { id, name: d.name || "LLM Server", enabled: d.enabled, baseUrl: d.baseUrl, model: d.model, modelsPath: d.modelsPath || undefined, authHeader: d.authHeader };
-}
-
 function draftToN8n(id: string, d: ServerDraft): N8nServer {
-  return { id, name: d.name || "N8N Server", enabled: d.enabled, baseUrl: d.baseUrl };
+  return { id, name: d.name || "N8N Server", enabled: d.enabled, baseUrl: d.baseUrl, webhookPath: d.webhookPath || "", mcpWebhookPath: d.mcpWebhookPath || "" };
 }
 
 // ── QueryParamsEditor ─────────────────────────────────────────────────────────
@@ -235,7 +229,7 @@ function QueryParamsEditor({ label = "Query Params", hint, params, onChange }: {
 // ── ServerInlineForm ──────────────────────────────────────────────────────────
 
 function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }: {
-  type: "stt" | "tts" | "llm" | "n8n";
+  type: "stt" | "tts" | "n8n";
   draft: ServerDraft;
   onChange: (d: ServerDraft) => void;
   onSave: () => void;
@@ -245,35 +239,6 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
   const set = (field: keyof ServerDraft, val: unknown) => onChange({ ...draft, [field]: val } as ServerDraft);
   const inp = { width: "100%", fontSize: "0.88em", padding: "5px 10px", boxSizing: "border-box" as const };
   const lbl = { fontSize: "0.8em", fontWeight: 600, color: "var(--color-secondary-text)", marginBottom: "3px", display: "block" } as const;
-
-  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
-  const [modelsFetching, setModelsFetching] = useState(false);
-  const [modelsFetchError, setModelsFetchError] = useState<string | null>(null);
-
-  const fetchModels = async () => {
-    if (!draft.baseUrl) return;
-    setModelsFetching(true);
-    setModelsFetchError(null);
-    try {
-      const res = await request("/v1/admin/livekit/test/ollama", {
-        method: "POST",
-        body: JSON.stringify({ baseUrl: draft.baseUrl, modelsPath: draft.modelsPath || undefined }),
-      });
-      const json = await parseJson<{ data?: { ok?: boolean; models?: string[] }; error?: { message?: string } }>(res);
-      if (json.data?.ok && Array.isArray(json.data.models)) {
-        setFetchedModels(json.data.models);
-        if (json.data.models.length > 0 && !draft.model) {
-          set("model", json.data.models[0]);
-        }
-      } else {
-        setModelsFetchError(json.error?.message ?? "Could not fetch models");
-      }
-    } catch {
-      setModelsFetchError("Request failed");
-    } finally {
-      setModelsFetching(false);
-    }
-  };
 
   const field = (label: string, node: React.ReactNode) => (
     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -290,7 +255,9 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
         Enabled
       </label>
       {type === "stt" && field("Provider", <input style={inp} value={draft.provider} onChange={(e) => set("provider", e.target.value)} />)}
-      {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} />)}
+      {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} placeholder={type === "n8n" ? "https://coziyoo.drascom.uk" : ""} />)}
+      {type === "n8n" && field("Brain Webhook Path", <input style={inp} value={draft.webhookPath} onChange={(e) => set("webhookPath", e.target.value)} placeholder="/webhook/coziyoo-ask" />)}
+      {type === "n8n" && field("MCP Webhook Path", <input style={inp} value={draft.mcpWebhookPath} onChange={(e) => set("mcpWebhookPath", e.target.value)} placeholder="/webhook/mcp-gateway" />)}
       {type === "stt" && field("Transcribe Path", <input style={inp} value={draft.transcribePath} onChange={(e) => set("transcribePath", e.target.value)} />)}
       {type === "tts" && field("Synth Path", <input style={inp} value={draft.synthPath} onChange={(e) => set("synthPath", e.target.value)} />)}
       {type === "tts" && field(
@@ -301,30 +268,6 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
         </div>
       )}
       {type === "stt" && field("Model", <input style={inp} value={draft.model} onChange={(e) => set("model", e.target.value)} />)}
-      {type === "llm" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <label style={lbl}>Model</label>
-            <div style={{ display: "flex", gap: "0.4rem" }}>
-              {fetchedModels.length > 0 ? (
-                <select style={{ ...inp, flex: 1 }} value={draft.model} onChange={(e) => set("model", e.target.value)}>
-                  {fetchedModels.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <input style={{ ...inp, flex: 1 }} value={draft.model} onChange={(e) => set("model", e.target.value)} />
-              )}
-              <button className="ghost" type="button" style={{ fontSize: "0.82em", padding: "4px 12px", flexShrink: 0 }} onClick={fetchModels} disabled={!draft.baseUrl || modelsFetching}>
-                {modelsFetching ? "…" : fetchedModels.length > 0 ? "↻ Refresh" : "Fetch Models"}
-              </button>
-            </div>
-            {modelsFetchError && <span style={{ fontSize: "0.78em", color: "#ef4444", marginTop: "2px" }}>{modelsFetchError}</span>}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <label style={{ ...lbl, fontWeight: 400 }}>Models endpoint <span style={{ opacity: 0.6 }}>(optional)</span></label>
-            <input style={{ ...inp, fontSize: "0.82em" }} value={draft.modelsPath} onChange={(e) => set("modelsPath", e.target.value)} />
-          </div>
-        </div>
-      )}
       {type === "stt" && <QueryParamsEditor label="Query Params" params={draft.queryParams} onChange={(p) => set("queryParams", p)} />}
       {type === "tts" && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} />)}
       {type === "tts" && (
@@ -337,7 +280,7 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
           </div>
         </>
       )}
-      {(type === "stt" || type === "llm") && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} />)}
+      {type === "stt" && field("Auth Header", <input style={inp} value={draft.authHeader} onChange={(e) => set("authHeader", e.target.value)} />)}
       <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", borderTop: "1px solid var(--color-border)", paddingTop: "0.75rem" }}>
         <button className="ghost" type="button" onClick={onCancel}>Cancel</button>
         <button className="primary" type="button" onClick={onSave} disabled={isSaving}>{isSaving ? "Saving…" : "Save"}</button>
@@ -469,7 +412,7 @@ function StatusDot({ status, label }: { status: TestStatus; label: string }) {
 
 // ── Legacy migration ──────────────────────────────────────────────────────────
 
-function migrateLegacy(cfg: Record<string, unknown>, ollamaModel: string) {
+function migrateLegacy(cfg: Record<string, unknown>) {
   let sttList: SttServer[] = Array.isArray(cfg.sttServers) ? (cfg.sttServers as SttServer[]) : [];
   let defaultSttId = typeof cfg.defaultSttServerId === "string" ? cfg.defaultSttServerId : "";
   if (sttList.length === 0) {
@@ -492,29 +435,18 @@ function migrateLegacy(cfg: Record<string, unknown>, ollamaModel: string) {
     }
   }
 
-  let llmList: LlmServer[] = Array.isArray(cfg.llmServers) ? (cfg.llmServers as LlmServer[]) : [];
-  let defaultLlmId = typeof cfg.defaultLlmServerId === "string" ? cfg.defaultLlmServerId : "";
-  if (llmList.length === 0) {
-    const legacyUrl = readNestedStr(cfg, "llm", "ollamaBaseUrl");
-    if (legacyUrl) {
-      const id = newId();
-      llmList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl, model: ollamaModel, authHeader: readNestedStr(cfg, "llm", "authHeader") }];
-      defaultLlmId = id;
-    }
-  }
-
   let n8nList: N8nServer[] = Array.isArray(cfg.n8nServers) ? (cfg.n8nServers as N8nServer[]) : [];
   let defaultN8nId = typeof cfg.defaultN8nServerId === "string" ? cfg.defaultN8nServerId : "";
   if (n8nList.length === 0) {
     const legacyUrl = readNestedStr(cfg, "n8n", "baseUrl");
     if (legacyUrl) {
       const id = newId();
-      n8nList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl }];
+      n8nList = [{ id, name: "Default", enabled: true, baseUrl: legacyUrl, webhookPath: readNestedStr(cfg, "n8n", "webhookPath") || "", mcpWebhookPath: readNestedStr(cfg, "n8n", "mcpWebhookPath") || "" }];
       defaultN8nId = id;
     }
   }
 
-  return { sttList, defaultSttId, ttsList, defaultTtsId, llmList, defaultLlmId, n8nList, defaultN8nId };
+  return { sttList, defaultSttId, ttsList, defaultTtsId, n8nList, defaultN8nId };
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -528,8 +460,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const [defaultSttServerId, setDefaultSttServerId] = useState("");
   const [ttsServers, setTtsServers] = useState<TtsServer[]>([]);
   const [defaultTtsServerId, setDefaultTtsServerId] = useState("");
-  const [llmServers, setLlmServers] = useState<LlmServer[]>([]);
-  const [defaultLlmServerId, setDefaultLlmServerId] = useState("");
   const [n8nServers, setN8nServers] = useState<N8nServer[]>([]);
   const [defaultN8nServerId, setDefaultN8nServerId] = useState("");
 
@@ -544,7 +474,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const [curlModalType, setCurlModalType] = useState<"stt" | "tts" | null>(null);
 
   // Inline edit state
-  type EditTarget = { type: "stt" | "tts" | "llm" | "n8n"; id: string | null };
+  type EditTarget = { type: "stt" | "tts" | "n8n"; id: string | null };
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [serverDraft, setServerDraft] = useState<ServerDraft>(emptyDraft());
   const [serverSaving, setServerSaving] = useState(false);
@@ -558,12 +488,9 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   // Connection test state
   const [testLiveKit, setTestLiveKit] = useState<TestStatus>(null);
   const [testStt, setTestStt] = useState<TestStatus>(null);
-  const [testOllama, setTestOllama] = useState<TestStatus>(null);
   const [testN8n, setTestN8n] = useState<TestStatus>(null);
   const [testTts, setTestTts] = useState<TestStatus>(null);
   const [testing, setTesting] = useState(false);
-  const [llmTestingServerId, setLlmTestingServerId] = useState<string | null>(null);
-  const [llmServerTestResults, setLlmServerTestResults] = useState<Record<string, TestStatus>>({});
 
   // TTS audio test
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -605,14 +532,12 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
       setGreetingEnabled(data.greetingEnabled ?? true);
       setGreetingInstruction(data.greetingInstruction ?? "");
 
-      const { sttList, defaultSttId, ttsList, defaultTtsId, llmList, defaultLlmId, n8nList, defaultN8nId } = migrateLegacy(cfg, data.ollamaModel ?? "");
+      const { sttList, defaultSttId, ttsList, defaultTtsId, n8nList, defaultN8nId } = migrateLegacy(cfg);
 
       setSttServers(sttList);
       setDefaultSttServerId(defaultSttId);
       setTtsServers(ttsList);
       setDefaultTtsServerId(defaultTtsId);
-      setLlmServers(llmList);
-      setDefaultLlmServerId(defaultLlmId);
       setN8nServers(n8nList);
       setDefaultN8nServerId(defaultN8nId);
     } catch (err) {
@@ -627,44 +552,38 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   const saveServers = useCallback(async (opts: {
     sttServers?: SttServer[]; defaultSttServerId?: string;
     ttsServers?: TtsServer[]; defaultTtsServerId?: string;
-    llmServers?: LlmServer[]; defaultLlmServerId?: string;
     n8nServers?: N8nServer[]; defaultN8nServerId?: string;
   }) => {
     const _stt = opts.sttServers ?? sttServers;
     const _dStt = opts.defaultSttServerId ?? defaultSttServerId;
     const _tts = opts.ttsServers ?? ttsServers;
     const _dTts = opts.defaultTtsServerId ?? defaultTtsServerId;
-    const _llm = opts.llmServers ?? llmServers;
-    const _dLlm = opts.defaultLlmServerId ?? defaultLlmServerId;
     const _n8n = opts.n8nServers ?? n8nServers;
     const _dN8n = opts.defaultN8nServerId ?? defaultN8nServerId;
 
     const defaultStt = _stt.find(s => s.id === _dStt);
     const defaultTts = _tts.find(s => s.id === _dTts);
-    const defaultLlm = _llm.find(s => s.id === _dLlm);
     const defaultN8n = _n8n.find(s => s.id === _dN8n);
 
     const body: Record<string, unknown> = {
       sttServers: _stt, defaultSttServerId: _dStt,
       ttsServers: _tts, defaultTtsServerId: _dTts,
-      llmServers: _llm, defaultLlmServerId: _dLlm,
       n8nServers: _n8n, defaultN8nServerId: _dN8n,
     };
 
     // Backward-compat: derive scalar fields from default servers
     if (defaultStt) { body.sttBaseUrl = defaultStt.baseUrl; body.sttProvider = defaultStt.provider; body.sttTranscribePath = defaultStt.transcribePath; body.sttModel = defaultStt.model; body.sttQueryParams = defaultStt.queryParams; body.sttAuthHeader = defaultStt.authHeader; }
     if (defaultTts) { body.ttsBaseUrl = defaultTts.baseUrl; body.ttsSynthPath = defaultTts.synthPath; body.ttsQueryParams = defaultTts.queryParams; body.ttsAuthHeader = defaultTts.authHeader; }
-    if (defaultLlm) { body.ollamaBaseUrl = defaultLlm.baseUrl; body.ollamaModel = defaultLlm.model; body.llmAuthHeader = defaultLlm.authHeader; }
     if (defaultN8n) { body.n8nBaseUrl = defaultN8n.baseUrl; }
 
     const res = await request("/v1/admin/livekit/agent-settings/default", { method: "PUT", body: JSON.stringify(body) });
     const json = await parseJson<ApiError>(res);
     if (json.error) throw new Error(json.error.message ?? "Save failed");
-  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId]);
+  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, n8nServers, defaultN8nServerId]);
 
   // ── Server mutations ────────────────────────────────────────────────────────
 
-  const handleAddServer = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", draft: ServerDraft) => {
+  const handleAddServer = useCallback(async (type: "stt" | "tts" | "n8n", draft: ServerDraft) => {
     const id = newId();
     setServerSaving(true);
     setServerError(null);
@@ -683,13 +602,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
         await saveServers({ ttsServers: newList, defaultTtsServerId: newDefault });
         setTtsServers(newList);
         setDefaultTtsServerId(newDefault);
-      } else if (type === "llm") {
-        const server = draftToLlm(id, draft);
-        const newList = [...llmServers, server];
-        const newDefault = defaultLlmServerId || id;
-        await saveServers({ llmServers: newList, defaultLlmServerId: newDefault });
-        setLlmServers(newList);
-        setDefaultLlmServerId(newDefault);
       } else {
         const server = draftToN8n(id, draft);
         const newList = [...n8nServers, server];
@@ -704,9 +616,9 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     } finally {
       setServerSaving(false);
     }
-  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId, saveServers]);
+  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, n8nServers, defaultN8nServerId, saveServers]);
 
-  const handleEditServer = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", id: string, draft: ServerDraft) => {
+  const handleEditServer = useCallback(async (type: "stt" | "tts" | "n8n", id: string, draft: ServerDraft) => {
     setServerSaving(true);
     setServerError(null);
     try {
@@ -718,10 +630,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
         const newList = ttsServers.map(s => s.id === id ? draftToTts(id, draft) : s);
         await saveServers({ ttsServers: newList });
         setTtsServers(newList);
-      } else if (type === "llm") {
-        const newList = llmServers.map(s => s.id === id ? draftToLlm(id, draft) : s);
-        await saveServers({ llmServers: newList });
-        setLlmServers(newList);
       } else {
         const newList = n8nServers.map(s => s.id === id ? draftToN8n(id, draft) : s);
         await saveServers({ n8nServers: newList });
@@ -733,9 +641,9 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     } finally {
       setServerSaving(false);
     }
-  }, [sttServers, ttsServers, llmServers, n8nServers, saveServers]);
+  }, [sttServers, ttsServers, n8nServers, saveServers]);
 
-  const handleDeleteServer = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", id: string) => {
+  const handleDeleteServer = useCallback(async (type: "stt" | "tts" | "n8n", id: string) => {
     setServerError(null);
     try {
       if (type === "stt") {
@@ -750,12 +658,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
         await saveServers({ ttsServers: newList, defaultTtsServerId: newDefault });
         setTtsServers(newList);
         setDefaultTtsServerId(newDefault);
-      } else if (type === "llm") {
-        const newList = llmServers.filter(s => s.id !== id);
-        const newDefault = defaultLlmServerId === id ? (newList[0]?.id ?? "") : defaultLlmServerId;
-        await saveServers({ llmServers: newList, defaultLlmServerId: newDefault });
-        setLlmServers(newList);
-        setDefaultLlmServerId(newDefault);
       } else {
         const newList = n8nServers.filter(s => s.id !== id);
         const newDefault = defaultN8nServerId === id ? (newList[0]?.id ?? "") : defaultN8nServerId;
@@ -767,14 +669,13 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Delete failed");
     }
-  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, llmServers, defaultLlmServerId, n8nServers, defaultN8nServerId, saveServers, editing]);
+  }, [sttServers, defaultSttServerId, ttsServers, defaultTtsServerId, n8nServers, defaultN8nServerId, saveServers, editing]);
 
-  const handleSetDefault = useCallback(async (type: "stt" | "tts" | "llm" | "n8n", id: string) => {
+  const handleSetDefault = useCallback(async (type: "stt" | "tts" | "n8n", id: string) => {
     setServerError(null);
     try {
       if (type === "stt") { await saveServers({ defaultSttServerId: id }); setDefaultSttServerId(id); }
       else if (type === "tts") { await saveServers({ defaultTtsServerId: id }); setDefaultTtsServerId(id); }
-      else if (type === "llm") { await saveServers({ defaultLlmServerId: id }); setDefaultLlmServerId(id); }
       else { await saveServers({ defaultN8nServerId: id }); setDefaultN8nServerId(id); }
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Save failed");
@@ -834,60 +735,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     } catch { setTestTts({ ok: false, detail: "Request failed" }); }
   };
 
-  const runTestOllama = async () => {
-    const srv = llmServers.find(s => s.id === defaultLlmServerId);
-    setTestOllama(null);
-    try {
-      const greetingText = greetingEnabled && greetingInstruction.trim()
-        ? greetingInstruction.trim()
-        : "Merhaba, menuden ne onerebilirsin?";
-      const res = await request("/v1/admin/livekit/test/ollama", {
-        method: "POST",
-        body: JSON.stringify({
-          baseUrl: srv?.baseUrl,
-          model: srv?.model,
-          systemPrompt: systemPrompt.trim() || undefined,
-          text: greetingText,
-        }),
-      });
-      const json = await parseJson<TestResponse>(res);
-      setTestOllama({
-        ok: json.data?.ok === true,
-        detail: json.data?.ok ? (json.data.answer?.slice(0, 100) || "Model replied") : json.data?.reason,
-      });
-    } catch { setTestOllama({ ok: false, detail: "Request failed" }); }
-  };
-
-  const runTestLlmServer = async (server: LlmServer) => {
-    setLlmTestingServerId(server.id);
-    setLlmServerTestResults((prev) => ({ ...prev, [server.id]: null }));
-    try {
-      const greetingText = greetingEnabled && greetingInstruction.trim()
-        ? greetingInstruction.trim()
-        : "Merhaba, menuden ne onerebilirsin?";
-      const res = await request("/v1/admin/livekit/test/ollama", {
-        method: "POST",
-        body: JSON.stringify({
-          baseUrl: server.baseUrl,
-          modelsPath: server.modelsPath,
-          model: server.model,
-          systemPrompt: systemPrompt.trim() || undefined,
-          text: greetingText,
-        }),
-      });
-      const json = await parseJson<TestResponse>(res);
-      const status = {
-        ok: json.data?.ok === true,
-        detail: json.data?.ok ? (json.data.answer?.slice(0, 140) || "Model replied") : json.data?.reason,
-      } as TestStatus;
-      setLlmServerTestResults((prev) => ({ ...prev, [server.id]: status }));
-    } catch {
-      setLlmServerTestResults((prev) => ({ ...prev, [server.id]: { ok: false, detail: "Request failed" } }));
-    } finally {
-      setLlmTestingServerId(null);
-    }
-  };
-
   const runTestN8n = async () => {
     const srv = n8nServers.find(s => s.id === defaultN8nServerId);
     setTestN8n(null);
@@ -900,7 +747,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
 
   const handleTestAll = async () => {
     setTesting(true);
-    await Promise.all([runTestLiveKit(), runTestSttHealth(), runTestTtsHealth(), runTestOllama(), runTestN8n()]);
+    await Promise.all([runTestLiveKit(), runTestSttHealth(), runTestTtsHealth(), runTestN8n()]);
     setTesting(false);
   };
 
@@ -1050,8 +897,8 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
   // ── Server list tab renderer ───────────────────────────────────────────────
 
   function renderServerList(
-    type: "stt" | "tts" | "llm" | "n8n",
-    servers: Array<SttServer | TtsServer | LlmServer | N8nServer>,
+    type: "stt" | "tts" | "n8n",
+    servers: Array<SttServer | TtsServer | N8nServer>,
     defaultId: string,
   ) {
     const isEditingType = editing?.type === type;
@@ -1124,23 +971,11 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                       {ttsTestBusy ? "…" : "▶ Test"}
                     </button>
                   )}
-                  {type === "llm" && (
-                    <button
-                      className="ghost"
-                      type="button"
-                      style={{ fontSize: "0.78em", padding: "3px 10px" }}
-                      onClick={() => void runTestLlmServer(server as LlmServer)}
-                      disabled={llmTestingServerId === server.id}
-                    >
-                      {llmTestingServerId === server.id ? "…" : "🤖 Test"}
-                    </button>
-                  )}
                   <button className="ghost" type="button" style={{ fontSize: "0.78em", padding: "3px 10px" }}
                     onClick={() => {
                       if (isThisEditing) { setEditing(null); return; }
                       const draft = type === "stt" ? sttToDraft(server as SttServer)
                         : type === "tts" ? ttsToDraft(server as TtsServer)
-                        : type === "llm" ? llmToDraft(server as LlmServer)
                         : n8nToDraft(server as N8nServer);
                       setEditing({ type, id: server.id });
                       setServerDraft(draft);
@@ -1174,19 +1009,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
                   onStop={stopSttRecording}
                 />
               )}
-              {type === "llm" && llmServerTestResults[server.id] && (
-                <div
-                  style={{
-                    marginTop: "0.4rem",
-                    fontSize: "0.82em",
-                    color: llmServerTestResults[server.id]?.ok ? "#22c55e" : "#ef4444",
-                  }}
-                >
-                  {llmServerTestResults[server.id]?.ok
-                    ? "LLM test successful"
-                    : `LLM test failed${llmServerTestResults[server.id]?.detail ? `: ${llmServerTestResults[server.id]?.detail}` : ""}`}
-                </div>
-              )}
             </div>
           );
         })}
@@ -1211,7 +1033,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
     { key: "summary", label: "Summary" },
     { key: "stt", label: "STT" },
     { key: "tts", label: "TTS" },
-    { key: "llm", label: "LLM" },
     { key: "n8n", label: "N8N" },
     { key: "general", label: "General" },
   ];
@@ -1264,8 +1085,7 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
           <StatusDot status={testLiveKit} label="LiveKit" />
           <StatusDot status={testStt} label={`STT — ${sttServers.find(s => s.id === defaultSttServerId)?.baseUrl ?? "no default"}`} />
           <StatusDot status={testTts} label={`TTS — ${ttsServers.find(s => s.id === defaultTtsServerId)?.baseUrl ?? "no default"}`} />
-          <StatusDot status={testOllama} label={`LLM — ${llmServers.find(s => s.id === defaultLlmServerId)?.baseUrl ?? "no default"}`} />
-          <StatusDot status={testN8n} label={`N8N — ${n8nServers.find(s => s.id === defaultN8nServerId)?.baseUrl ?? "no default"}`} />
+          <StatusDot status={testN8n} label={`N8N — ${(() => { const s = n8nServers.find(x => x.id === defaultN8nServerId); return s ? `${s.baseUrl}${s.webhookPath || ""}` : "no default"; })()}`} />
           <div style={{ marginTop: "1rem" }}>
             <button className="primary" type="button" onClick={handleTestAll} disabled={testing}>
               {testing ? "Testing…" : "Test All"}
@@ -1276,7 +1096,6 @@ export default function VoiceAgentSettingsPage({ language: _language }: { langua
 
       {activeTab === "stt" && renderServerList("stt", sttServers, defaultSttServerId)}
       {activeTab === "tts" && renderServerList("tts", ttsServers, defaultTtsServerId)}
-      {activeTab === "llm" && renderServerList("llm", llmServers, defaultLlmServerId)}
       {activeTab === "n8n" && renderServerList("n8n", n8nServers, defaultN8nServerId)}
 
       {/* General */}

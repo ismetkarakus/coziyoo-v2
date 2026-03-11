@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
+import { pool } from "../db/client.js";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent } from "../services/n8n.js";
@@ -1051,43 +1052,6 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/stt", async (req, res
   }
 });
 
-liveKitRouter.post("/starter/agent-settings/:deviceId/test/ollama", async (req, res) => {
-  const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-
-  const settings = await getStarterAgentSettingsWithDefault(parsed.data.deviceId);
-  const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
-  const llmConfig =
-    ttsConfig && typeof ttsConfig.llm === "object" && ttsConfig.llm !== null
-      ? (ttsConfig.llm as Record<string, unknown>)
-      : {};
-  const ollamaBaseUrl =
-    typeof llmConfig.ollamaBaseUrl === "string" && llmConfig.ollamaBaseUrl.trim().length > 0
-      ? llmConfig.ollamaBaseUrl.trim()
-      : undefined;
-
-  try {
-    const result = await listOllamaModels({ baseUrl: ollamaBaseUrl });
-    return res.status(200).json({
-      data: {
-        reachable: true,
-        endpoint: result.endpoint,
-        modelCount: result.models.length,
-        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
-      },
-    });
-  } catch (error) {
-    return res.status(502).json({
-      error: {
-        code: "OLLAMA_TEST_FAILED",
-        message: error instanceof Error ? error.message : "Failed to reach Ollama",
-      },
-    });
-  }
-});
-
 liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res) => {
   const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
   if (!parsed.success) {
@@ -1203,6 +1167,122 @@ liveKitRouter.get("/starter/tools/registry", async (_req, res) => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Voice router — internal AI server endpoints (secured by x-ai-server-secret)
+// Mounted at /v1/voice in app.ts
+// ---------------------------------------------------------------------------
+
+export const voiceRouter = Router();
+
+voiceRouter.get("/foods", async (req, res) => {
+  if (!env.AI_SERVER_SHARED_SECRET) {
+    return res.status(503).json({
+      error: {
+        code: "AI_SERVER_SHARED_SECRET_MISSING",
+        message: "Set AI_SERVER_SHARED_SECRET before using /v1/voice/foods.",
+      },
+    });
+  }
+
+  const provided = String(req.headers["x-ai-server-secret"] ?? "");
+  if (!isValidSharedSecret(provided)) {
+    return res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" },
+    });
+  }
+
+  const q = String(req.query.q ?? "").trim();
+  const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? "10"), 10) || 10));
+
+  try {
+    let rows: Array<{
+      id: string;
+      name: string;
+      price: string;
+      card_summary: string | null;
+      available: boolean;
+      lot_id: string | null;
+    }>;
+
+    const lotSubquery = `
+      SELECT DISTINCT ON (food_id) food_id, id AS lot_id, quantity_available
+      FROM production_lots
+      WHERE status = 'active'
+        AND sale_starts_at <= now()
+        AND sale_ends_at >= now()
+        AND quantity_available > 0
+      ORDER BY food_id, sale_ends_at ASC
+    `;
+
+    if (q.length > 0) {
+      // Search by name (case-insensitive)
+      const result = await pool.query<{
+        id: string;
+        name: string;
+        price: string;
+        card_summary: string | null;
+        available: boolean;
+        lot_id: string | null;
+      }>(
+        `SELECT f.id, f.name, f.price::text, f.card_summary,
+                (pl.lot_id IS NOT NULL) AS available,
+                pl.lot_id
+         FROM foods f
+         LEFT JOIN (${lotSubquery}) pl ON pl.food_id = f.id
+         WHERE f.is_active = true
+           AND f.name ILIKE $1
+         ORDER BY f.name
+         LIMIT $2`,
+        [`%${q}%`, limit],
+      );
+      rows = result.rows;
+    } else {
+      // List all active foods with lot availability
+      const result = await pool.query<{
+        id: string;
+        name: string;
+        price: string;
+        card_summary: string | null;
+        available: boolean;
+        lot_id: string | null;
+      }>(
+        `SELECT f.id, f.name, f.price::text, f.card_summary,
+                (pl.lot_id IS NOT NULL) AS available,
+                pl.lot_id
+         FROM foods f
+         LEFT JOIN (${lotSubquery}) pl ON pl.food_id = f.id
+         WHERE f.is_active = true
+         ORDER BY f.name
+         LIMIT $1`,
+        [limit],
+      );
+      rows = result.rows;
+    }
+
+    const foods = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      price: r.price,
+      cardSummary: r.card_summary ?? null,
+      available: Boolean(r.available),
+      lotId: r.lot_id ?? null,
+    }));
+
+    return res.status(200).json({
+      data: { foods, total: foods.length },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: {
+        code: "FOODS_QUERY_FAILED",
+        message: error instanceof Error ? error.message : "Failed to query foods",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 
 liveKitRouter.post("/starter/tools/run", async (req, res) => {
   const parsed = StarterToolRunSchema.safeParse(req.body);

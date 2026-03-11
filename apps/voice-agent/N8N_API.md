@@ -3,19 +3,34 @@
 This repo talks to the n8n instance using credentials stored in `.env`.
 Always consult this document before making API calls to the instance.
 
+## Instance
+
+| Key | Value |
+|-----|-------|
+| URL | `https://coziyoo.drascom.uk` |
+| API key | stored in `.env.local` as `N8N_API_KEY` |
+
+### Live Workflow IDs (coziyoo.drascom.uk)
+
+| Workflow | n8n ID | Webhook path |
+|----------|--------|--------------|
+| Brain | `6bJGOBvPm9eyvooK` | `/webhook/6KFFgjd26nF0kNCA` |
+| MCP Gateway | `FEJrgQ4V7DOcT9kF` | `/webhook/XYiIkxpa4PlnddQt` |
+
+> **Note:** Webhook URLs are configured in the **admin voice agent settings page** per-device — not in `.env`.
+> The n8n workflow IDs above are only needed when running `sync_n8n_workflows.py --apply` to push changes.
+
 ## Environment
 
-Load credentials from `.env`:
+Load credentials from `.env.local`:
 
 ```sh
-set -a; source .env; set +a
+set -a; source .env.local; set +a
 ```
 
 Required vars:
-- `N8N_HOST` (e.g. https://n8n.drascom.uk)
-- `N8N_API_KEY`
-- `N8N_LLM_WORKFLOW_ID` (default: `6KFFgjd26nF0kNCA`)
-- `N8N_MCP_WORKFLOW_ID` (default: `XYiIkxpa4PlnddQt`)
+- `N8N_HOST` — `https://coziyoo.drascom.uk`
+- `N8N_API_KEY` — JWT token in `.env.local`
 
 ## Workflow Templates + Sync Script
 

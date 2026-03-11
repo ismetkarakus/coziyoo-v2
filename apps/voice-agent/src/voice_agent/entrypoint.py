@@ -28,7 +28,7 @@ from livekit.agents import (
 )
 from livekit.agents.llm import LLM as BaseLLM
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS, APIConnectOptions
-from livekit.plugins import silero
+from livekit.plugins import silero, turn_detector
 
 from .config.settings import get_settings
 
@@ -68,10 +68,7 @@ class VoiceSalesAgent(Agent):
             "Greet the user briefly and ask their sales goal in one sentence."
         )
 
-        await self.session.generate_reply(
-            instructions=greeting,
-            allow_interruptions=True,
-        )
+        await self.session.generate_reply(instructions=greeting)
 
 
 server = AgentServer(shutdown_process_timeout=60.0)
@@ -79,6 +76,7 @@ server = AgentServer(shutdown_process_timeout=60.0)
 
 def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["turn_detector"] = turn_detector.EOUModel()
 
 
 server.setup_fnc = prewarm
@@ -494,6 +492,8 @@ class N8nLLMStream(llm.LLMStream):
             "userText": user_text,
             "messages": messages,
             "mcpWorkflowId": self._runtime_ctx.get("mcpWorkflowId"),
+            "systemPrompt": self._runtime_ctx.get("systemPrompt") or None,
+            "locale": self._runtime_ctx.get("locale") or "en",
         }
         request_id = f"n8n-{uuid.uuid4().hex[:12]}"
         session = self._llm._get_session()  # type: ignore[attr-defined]
@@ -842,6 +842,8 @@ def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
                 "jobId": str(runtime_ctx.get("jobId", "") or ""),
                 "deviceId": str(runtime_ctx.get("deviceId", "") or ""),
                 "mcpWorkflowId": str(n8n_cfg.get("mcpWorkflowId") or os.getenv("N8N_MCP_WORKFLOW_ID", "XYiIkxpa4PlnddQt")),
+                "systemPrompt": str(runtime_ctx.get("systemPrompt", "") or ""),
+                "locale": str(runtime_ctx.get("locale", "") or "en"),
             },
         )
         return n8n_llm
@@ -1014,6 +1016,8 @@ async def entrypoint(ctx: JobContext) -> None:
             "roomId": str(ctx.room.name),
             "jobId": str(getattr(ctx.job, "id", "") or ""),
             "deviceId": str(metadata_data.get("deviceId", "") or ""),
+            "systemPrompt": str(metadata_data.get("systemPrompt") or ""),
+            "locale": language,
         },
     )
     tts_instance = _build_tts(providers, language)
@@ -1023,6 +1027,9 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=llm_instance,
         tts=tts_instance,
         vad=ctx.proc.userdata["vad"],
+        turn_detector=ctx.proc.userdata["turn_detector"],
+        allow_interruptions=True,
+        min_interruption_duration=0.5,
         preemptive_generation=True,
     )
 
