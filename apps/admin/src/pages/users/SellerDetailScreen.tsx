@@ -1431,7 +1431,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || isSavingDoc(row.id)}
+                                  disabled={isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1439,7 +1439,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || isSavingDoc(row.id)}
+                                  disabled={isSavingDoc(row.id)}
                                   onClick={() => {
                                     setRejectTargetId(row.id);
                                     setRejectReason(row.rejection_reason ?? "");
@@ -1450,7 +1450,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || isSavingDoc(row.id)}
+                                  disabled={isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "requested")}
                                 >
                                   {dict.detail.legalPend}
@@ -1506,7 +1506,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || isSavingOptional(row.id) || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1514,7 +1514,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || isSavingOptional(row.id) || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => {
                                     setOptionalRejectTargetId(row.id);
                                     setOptionalRejectReason(row.rejection_reason ?? "");
@@ -1525,7 +1525,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || isSavingOptional(row.id) || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "uploaded")}
                                 >
                                   {dict.detail.legalPend}
