@@ -49,6 +49,9 @@ describe("payouts service", () => {
       if (q.includes("pg_try_advisory_xact_lock")) {
         return { rowCount: 1, rows: [{ acquired: true }] };
       }
+      if (q.includes("select to_regclass($1) is not null as exists")) {
+        return { rowCount: 1, rows: [{ exists: true }] };
+      }
       if (q.includes("insert into seller_ledger_entries") && q.includes("from order_finance")) {
         return { rowCount: 0, rows: [] };
       }
@@ -136,15 +139,21 @@ describe("payouts service", () => {
   });
 
   it("computes seller balance with pending payout subtraction", async () => {
-    mockPoolQuery.mockResolvedValue({
-      rowCount: 1,
-      rows: [
-        {
-          ledger_balance: "140.00",
-          pending_balance: "40.00",
-          paid_total: "100.00",
-        },
-      ],
+    mockPoolQuery.mockImplementation(async (sql: unknown) => {
+      const q = normalizeSql(sql);
+      if (q.includes("select to_regclass($1) is not null as exists")) {
+        return { rowCount: 1, rows: [{ exists: true }] };
+      }
+      return {
+        rowCount: 1,
+        rows: [
+          {
+            ledger_balance: "140.00",
+            pending_balance: "40.00",
+            paid_total: "100.00",
+          },
+        ],
+      };
     });
 
     const { getSellerBalance } = await import("../../src/services/payouts.js");
