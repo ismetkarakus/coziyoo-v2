@@ -70,7 +70,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [selectedEarningIds, setSelectedEarningIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [legalSaving, setLegalSaving] = useState(false);
+  const [legalSavingKey, setLegalSavingKey] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [optionalRejectTargetId, setOptionalRejectTargetId] = useState<string | null>(null);
@@ -637,6 +637,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const selectedIdentityDocument =
     identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
   const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
+  const legalSaving = legalSavingKey !== null;
+  const isSavingDoc = (docId: string) => legalSavingKey === `doc:${docId}`;
+  const isSavingOptional = (uploadId: string) => legalSavingKey === `optional:${uploadId}`;
+  const isSavingDocType = (docTypeCode: string) => legalSavingKey === `dtype:${docTypeCode}`;
 
   async function refreshComplianceOnly() {
     const response = await request(`/v1/admin/compliance/${id}`);
@@ -646,7 +650,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
-    setLegalSaving(true);
+    setLegalSavingKey(`doc:${documentId}`);
     setMessage(null);
     try {
       const response = await request(`/v1/admin/compliance/${id}/documents/${documentId}`, {
@@ -688,12 +692,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
-      setLegalSaving(false);
+      setLegalSavingKey(null);
     }
   }
 
   async function updateOptionalUploadStatus(uploadId: string, status: "uploaded" | "approved" | "rejected", rejectionReasonInput?: string) {
-    setLegalSaving(true);
+    setLegalSavingKey(`optional:${uploadId}`);
     setMessage(null);
     try {
       const response = await request(`/v1/admin/compliance/${id}/optional-uploads/${uploadId}`, {
@@ -733,12 +737,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
-      setLegalSaving(false);
+      setLegalSavingKey(null);
     }
   }
 
   async function updateDocumentRequired(docTypeCode: string, required: boolean) {
-    setLegalSaving(true);
+    setLegalSavingKey(`dtype:${docTypeCode}`);
     setMessage(null);
     try {
       const response = await request(`/v1/admin/compliance/${id}/doc-types/${encodeURIComponent(docTypeCode)}`, {
@@ -771,7 +775,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
-      setLegalSaving(false);
+      setLegalSavingKey(null);
     }
   }
 
@@ -1347,7 +1351,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <input
                                   type="checkbox"
                                   checked={row.is_required}
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={!isSuperAdmin || isSavingDocType(row.code)}
                                   onChange={(event) => {
                                     void updateDocumentRequired(row.code, event.target.checked);
                                   }}
@@ -1409,7 +1413,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={!isSuperAdmin || isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1417,7 +1421,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={!isSuperAdmin || isSavingDoc(row.id)}
                                   onClick={() => {
                                     setRejectTargetId(row.id);
                                     setRejectReason(row.rejection_reason ?? "");
@@ -1428,7 +1432,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={!isSuperAdmin || isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "requested")}
                                 >
                                   {dict.detail.legalPend}
@@ -1484,7 +1488,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  disabled={!isSuperAdmin || isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1492,7 +1496,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  disabled={!isSuperAdmin || isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => {
                                     setOptionalRejectTargetId(row.id);
                                     setOptionalRejectReason(row.rejection_reason ?? "");
@@ -1503,7 +1507,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  disabled={!isSuperAdmin || isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "uploaded")}
                                 >
                                   {dict.detail.legalPend}
