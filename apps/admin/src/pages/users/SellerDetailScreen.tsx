@@ -21,7 +21,7 @@ import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
-import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow } from "../../types/seller";
+import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow, SellerComplianceStatus } from "../../types/seller";
 import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerPagination } from "../../types/buyer";
 
@@ -642,6 +642,33 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const isSavingOptional = (uploadId: string) => legalSavingKey === `optional:${uploadId}`;
   const isSavingDocType = (docTypeCode: string) => legalSavingKey === `dtype:${docTypeCode}`;
 
+  function recomputeProfile(
+    documents: SellerCompliancePayload["documents"],
+    prev: SellerCompliancePayload["profile"]
+  ): SellerCompliancePayload["profile"] {
+    const required = documents.filter((d) => d.is_required);
+    const requiredCount = required.length;
+    const approvedRequired = required.filter((d) => d.status === "approved").length;
+    const uploadedRequired = required.filter((d) => d.status === "uploaded").length;
+    const requestedRequired = required.filter((d) => d.status === "requested").length;
+    const rejectedRequired = required.filter((d) => d.status === "rejected").length;
+    let status: SellerComplianceStatus;
+    if (requiredCount === 0) status = "not_started";
+    else if (rejectedRequired > 0) status = "rejected";
+    else if (approvedRequired === requiredCount) status = "approved";
+    else if (requestedRequired > 0) status = "in_progress";
+    else status = "under_review";
+    return {
+      ...prev,
+      status,
+      required_count: requiredCount,
+      approved_required_count: approvedRequired,
+      uploaded_required_count: uploadedRequired,
+      requested_required_count: requestedRequired,
+      rejected_required_count: rejectedRequired,
+    };
+  }
+
   async function refreshComplianceOnly() {
     const response = await request(`/v1/admin/compliance/${id}`);
     if (response.status !== 200) return;
@@ -651,7 +678,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSavingKey(`doc:${documentId}`);
-    setMessage(null);
     try {
       const response = await request(`/v1/admin/compliance/${id}/documents/${documentId}`, {
         method: "PATCH",
@@ -668,19 +694,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setCompliance((prev) => {
         if (!prev) return prev;
         const nowIso = new Date().toISOString();
+        const updatedDocuments = prev.documents.map((item) =>
+          item.id === documentId
+            ? {
+                ...item,
+                status,
+                rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
+                updated_at: nowIso,
+              }
+            : item
+        );
         return {
           ...prev,
-          documents: prev.documents.map((item) =>
-            item.id === documentId
-              ? {
-                  ...item,
-                  status,
-                  rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
-                  reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
-                  updated_at: nowIso,
-                }
-              : item
-          ),
+          documents: updatedDocuments,
+          profile: recomputeProfile(updatedDocuments, prev.profile),
         };
       });
       void refreshComplianceOnly();
@@ -698,7 +726,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   async function updateOptionalUploadStatus(uploadId: string, status: "uploaded" | "approved" | "rejected", rejectionReasonInput?: string) {
     setLegalSavingKey(`optional:${uploadId}`);
-    setMessage(null);
     try {
       const response = await request(`/v1/admin/compliance/${id}/optional-uploads/${uploadId}`, {
         method: "PATCH",
@@ -743,7 +770,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   async function updateDocumentRequired(docTypeCode: string, required: boolean) {
     setLegalSavingKey(`dtype:${docTypeCode}`);
-    setMessage(null);
     try {
       const response = await request(`/v1/admin/compliance/${id}/doc-types/${encodeURIComponent(docTypeCode)}`, {
         method: "PATCH",
@@ -757,17 +783,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setCompliance((prev) => {
         if (!prev) return prev;
         const nowIso = new Date().toISOString();
+        const updatedDocuments = prev.documents.map((item) =>
+          item.code === docTypeCode
+            ? {
+                ...item,
+                is_required: required,
+                updated_at: nowIso,
+              }
+            : item
+        );
         return {
           ...prev,
-          documents: prev.documents.map((item) =>
-            item.code === docTypeCode
-              ? {
-                  ...item,
-                  is_required: required,
-                  updated_at: nowIso,
-                }
-              : item
-          ),
+          documents: updatedDocuments,
+          profile: recomputeProfile(updatedDocuments, prev.profile),
         };
       });
       void refreshComplianceOnly();

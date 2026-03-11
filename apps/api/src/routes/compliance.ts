@@ -265,9 +265,7 @@ async function ensureSellerAssignments(sellerId: string) {
      FROM compliance_documents_list cdl
      WHERE cdl.is_active = TRUE
      ON CONFLICT (seller_id, document_list_id)
-     DO UPDATE SET
-       is_required = EXCLUDED.is_required,
-       updated_at = now()`,
+     DO NOTHING`,
     [sellerId]
   );
 }
