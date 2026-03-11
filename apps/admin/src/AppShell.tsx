@@ -59,6 +59,9 @@ function AppShell({
   }
 
   const isSuperAdmin = admin.role === "super_admin";
+  const pathParts = location.pathname.split("/").filter(Boolean);
+  const isDetailPage = pathParts.length > 2;
+  const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
   const globalSearchMinChars = 2;
   const globalSearchQuery = globalSearchInput.trim();
 
@@ -200,6 +203,17 @@ function AppShell({
         </div>
       </header>
       <section className="main">
+        {isDetailPage && parentPath ? (
+          <div className="back-nav">
+            <button
+              type="button"
+              className="ghost back-nav-btn"
+              onClick={() => navigate(parentPath)}
+            >
+              ← {language === "tr" ? "Geri" : "Back"}
+            </button>
+          </div>
+        ) : null}
         {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
         {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}

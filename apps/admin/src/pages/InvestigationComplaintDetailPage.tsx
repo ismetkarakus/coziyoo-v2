@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import type { Language, ApiError } from "../types/core";
@@ -41,7 +40,6 @@ type ComplaintNote = {
 
 export default function InvestigationComplaintDetailPage({ language, complaintId }: { language: Language; complaintId: string }) {
   const dict = DICTIONARIES[language];
-  const navigate = useNavigate();
   const [detail, setDetail] = useState<ComplaintDetail | null>(null);
   const [notes, setNotes] = useState<ComplaintNote[]>([]);
   const [noteInput, setNoteInput] = useState("");
@@ -151,9 +149,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
         <div>
           <h1>{language === "tr" ? "Şikayet Detay" : "Complaint Detail"}</h1>
           <p className="subtext">{language === "tr" ? "Şikayetin tüm detaylarını inceleyin." : "Inspect all complaint details."}</p>
-        </div>
-        <div className="topbar-actions">
-          <button className="ghost" type="button" onClick={() => navigate("/app/investigation")}>{language === "tr" ? "Listeye Dön" : "Back to list"}</button>
         </div>
       </header>
 

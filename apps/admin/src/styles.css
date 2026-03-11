@@ -778,6 +778,16 @@ a {
   gap: 24px;
 }
 
+.back-nav {
+  display: flex;
+  align-items: center;
+}
+
+.back-nav-btn {
+  font-size: 0.85rem;
+  padding: 5px 12px;
+}
+
 .app {
   display: flex;
   flex-direction: column;
