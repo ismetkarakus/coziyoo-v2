@@ -1461,8 +1461,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
           </article>
           {rejectTargetId ? (
-            <div className="buyer-ops-modal-backdrop">
-              <div className="buyer-ops-modal">
+            <div
+              className="buyer-ops-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.detail.legalRejectModalTitle}
+              onClick={() => {
+                if (legalSaving) return;
+                setRejectTargetId(null);
+                setRejectReason("");
+              }}
+            >
+              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
                 <h3>{dict.detail.legalRejectModalTitle}</h3>
                 <label>
                   {dict.detail.legalRejectionReason}
@@ -1485,8 +1495,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
           ) : null}
           {optionalRejectTargetId ? (
-            <div className="buyer-ops-modal-backdrop">
-              <div className="buyer-ops-modal">
+            <div
+              className="buyer-ops-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.detail.optionalRejectModalTitle}
+              onClick={() => {
+                if (legalSaving) return;
+                setOptionalRejectTargetId(null);
+                setOptionalRejectReason("");
+              }}
+            >
+              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
                 <h3>{dict.detail.optionalRejectModalTitle}</h3>
                 <label>
                   {dict.detail.legalRejectionReason}

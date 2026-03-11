@@ -2756,12 +2756,13 @@ textarea:focus {
 .buyer-ops-modal {
   width: min(520px, 100%);
   border-radius: 14px;
-  border: 1px solid var(--ops-border-default);
-  background: color-mix(in srgb, var(--ops-bg-card) 98%, transparent);
+  border: 1px solid var(--ops-border-default, var(--color-border));
+  background: color-mix(in srgb, var(--ops-bg-card, var(--color-card-bg)) 98%, transparent);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   padding: 16px;
   display: grid;
   gap: 10px;
+  color: var(--ops-text-primary, var(--color-text));
 }
 
 .buyer-ops-modal h3 {
@@ -2771,7 +2772,7 @@ textarea:focus {
 .buyer-ops-modal label {
   display: grid;
   gap: 6px;
-  color: var(--ops-text-secondary);
+  color: var(--ops-text-secondary, var(--color-secondary-text));
   font-size: var(--text-xs);
   border: 0;
   background: transparent;
@@ -2781,10 +2782,10 @@ textarea:focus {
 .buyer-ops-modal input,
 .buyer-ops-modal textarea {
   border-radius: 10px;
-  border: 1px solid var(--ops-border-default);
-  background: color-mix(in srgb, var(--ops-bg-default) 72%, transparent);
+  border: 1px solid var(--ops-border-default, var(--color-input-border));
+  background: color-mix(in srgb, var(--ops-bg-default, var(--color-input-bg)) 72%, transparent);
   padding: 10px 12px;
-  color: var(--ops-text-primary);
+  color: var(--ops-text-primary, var(--color-text));
 }
 
 .buyer-ops-modal-actions {
