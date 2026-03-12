@@ -50,7 +50,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: Fix agent worker health check to verify both join API and worker process; surface worker-not-running as error
+- [x] 02-01: Fix agent worker health check to verify both join API and worker process; surface worker-not-running as error
 - [ ] 02-02: Validate and fix mobile iOS audio session configuration and Android audio session setup; test on physical devices
 - [ ] 02-03: Test and resolve React Native New Architecture + LiveKit compatibility (apply newArchEnabled mitigation if needed)
 - [ ] 02-04: Implement n8n workflow activation preflight check and connection status UI on mobile
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Supabase DB Cutover | 3/3 | Completed | 2026-03-12 |
-| 2. Voice Session Startup | 0/4 | Not started | - |
+| 2. Voice Session Startup | 1/4 | In progress | - |
 | 3. Observability | 0/2 | Not started | - |
 | 4. Per-Turn N8N Integration | 0/4 | Not started | - |
 | 5. Order Creation | 0/3 | Not started | - |

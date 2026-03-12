@@ -203,6 +203,79 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+type AgentRuntimeHealth = {
+  ok: boolean;
+  endpoint: string;
+  httpStatus: number;
+  joinApiReachable: boolean;
+  workerRunning: boolean;
+  reason: string;
+  details: unknown;
+};
+
+async function checkAgentRuntimeHealth(): Promise<AgentRuntimeHealth> {
+  if (!env.AI_SERVER_URL) {
+    return {
+      ok: false,
+      endpoint: "AI_SERVER_URL_NOT_CONFIGURED",
+      httpStatus: 0,
+      joinApiReachable: false,
+      workerRunning: false,
+      reason: "ai_server_url_missing",
+      details: null,
+    };
+  }
+
+  const endpoint = new URL("/health", env.AI_SERVER_URL).toString();
+
+  try {
+    const response = await fetchWithTimeout(
+      endpoint,
+      {
+        method: "GET",
+        headers: { "accept": "application/json" },
+      },
+      env.AI_SERVER_TIMEOUT_MS,
+    );
+
+    const rawBody = await response.text();
+    let body: unknown = rawBody;
+    try {
+      body = rawBody.length > 0 ? JSON.parse(rawBody) : null;
+    } catch {
+      body = rawBody;
+    }
+
+    const joinApiReachable = response.ok;
+    const workerRunning = Boolean(
+      body &&
+        typeof body === "object" &&
+        "worker" in body &&
+        (body as { worker?: { running?: unknown } }).worker?.running === true,
+    );
+
+    return {
+      ok: joinApiReachable && workerRunning,
+      endpoint,
+      httpStatus: response.status,
+      joinApiReachable,
+      workerRunning,
+      reason: !joinApiReachable ? "join_api_unreachable" : workerRunning ? "ok" : "worker_not_running",
+      details: body,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      endpoint,
+      httpStatus: 0,
+      joinApiReachable: false,
+      workerRunning: false,
+      reason: "join_api_request_failed",
+      details: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function isValidSharedSecret(providedSecret: string) {
   if (!env.AI_SERVER_SHARED_SECRET) return false;
   const providedBuffer = Buffer.from(providedSecret, "utf8");
@@ -470,6 +543,19 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
   }
 
   const input = parsed.data;
+  if (input.autoDispatchAgent) {
+    const runtimeHealth = await checkAgentRuntimeHealth();
+    if (!runtimeHealth.ok) {
+      return res.status(503).json({
+        error: {
+          code: "AGENT_UNAVAILABLE",
+          message: "Voice agent unavailable. Please try again shortly.",
+          details: runtimeHealth,
+        },
+      });
+    }
+  }
+
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const userIdentity = input.participantIdentity ?? `user-${req.auth!.userId}`;
   const userMetadata =
@@ -658,6 +744,17 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   }
 
   const input = parsed.data;
+  const runtimeHealth = await checkAgentRuntimeHealth();
+  if (!runtimeHealth.ok) {
+    return res.status(503).json({
+      error: {
+        code: "AGENT_UNAVAILABLE",
+        message: "Voice agent unavailable. Please try again shortly.",
+        details: runtimeHealth,
+      },
+    });
+  }
+
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;

@@ -6,6 +6,8 @@ import json
 import logging
 import os
 import re
+import threading
+import time
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -36,6 +38,11 @@ logger = logging.getLogger("coziyoo-voice-agent")
 llm_request_logger = logging.getLogger("coziyoo-voice-agent.requests.llm")
 n8n_request_logger = logging.getLogger("coziyoo-voice-agent.requests.n8n")
 settings = get_settings()
+
+worker_heartbeat_file = Path(
+    os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_FILE", "/workspace/.runtime/voice-agent-worker-heartbeat.json")
+)
+worker_heartbeat_interval_seconds = float(os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_INTERVAL_SECONDS", "5"))
 
 
 class VoiceSalesAgent(Agent):
@@ -145,6 +152,31 @@ def _configure_logging() -> None:
         request_log.handlers.clear()
         request_log.propagate = False
         request_log.addHandler(request_handler)
+
+
+def _write_worker_heartbeat(started_at: str) -> None:
+    worker_heartbeat_file.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "status": "running",
+        "pid": os.getpid(),
+        "startedAt": started_at,
+        "heartbeatAt": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    worker_heartbeat_file.write_text(json.dumps(payload, ensure_ascii=True), encoding="utf-8")
+
+
+def _start_worker_heartbeat() -> None:
+    started_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def _loop() -> None:
+        while True:
+            try:
+                _write_worker_heartbeat(started_at)
+            except Exception:
+                logger.exception("Failed to write worker heartbeat")
+            time.sleep(max(1.0, worker_heartbeat_interval_seconds))
+
+    threading.Thread(target=_loop, name="voice-agent-worker-heartbeat", daemon=True).start()
 
 
 class _JsonLineFormatter(logging.Formatter):
@@ -1058,6 +1090,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
 def main() -> None:
     _configure_logging()
+    _start_worker_heartbeat()
     cli.run_app(server)
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Query
@@ -18,6 +19,10 @@ app = FastAPI(title="coziyoo-voice-agent-join")
 request_log_file = Path(
     os.getenv("VOICE_AGENT_REQUEST_LOG_FILE", "/workspace/.runtime/voice-agent-requests.log")
 )
+worker_heartbeat_file = Path(
+    os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_FILE", "/workspace/.runtime/voice-agent-worker-heartbeat.json")
+)
+worker_heartbeat_stale_seconds = int(os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_STALE_SECONDS", "20"))
 
 
 class JoinRequest(BaseModel):
@@ -40,8 +45,56 @@ def _http_url(ws_url: str) -> str:
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict:
+    worker_status = {
+        "running": False,
+        "reason": "heartbeat_file_missing",
+        "heartbeatAt": None,
+        "heartbeatAgeSeconds": None,
+        "staleAfterSeconds": worker_heartbeat_stale_seconds,
+    }
+
+    if worker_heartbeat_file.exists():
+        try:
+            raw = json.loads(worker_heartbeat_file.read_text(encoding="utf-8", errors="replace"))
+            heartbeat_at = str(raw.get("heartbeatAt") or "")
+            parsed = None
+            if heartbeat_at:
+                parsed = datetime.fromisoformat(heartbeat_at.replace("Z", "+00:00"))
+            if parsed is not None and parsed.tzinfo is not None:
+                age_seconds = max(0.0, (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds())
+                is_fresh = age_seconds <= worker_heartbeat_stale_seconds
+                worker_status = {
+                    "running": bool(raw.get("status") == "running" and is_fresh),
+                    "reason": "ok" if bool(raw.get("status") == "running" and is_fresh) else "heartbeat_stale",
+                    "heartbeatAt": heartbeat_at,
+                    "heartbeatAgeSeconds": round(age_seconds, 3),
+                    "staleAfterSeconds": worker_heartbeat_stale_seconds,
+                    "pid": raw.get("pid"),
+                    "startedAt": raw.get("startedAt"),
+                }
+            else:
+                worker_status = {
+                    "running": False,
+                    "reason": "heartbeat_parse_failed",
+                    "heartbeatAt": heartbeat_at or None,
+                    "heartbeatAgeSeconds": None,
+                    "staleAfterSeconds": worker_heartbeat_stale_seconds,
+                }
+        except Exception:
+            worker_status = {
+                "running": False,
+                "reason": "heartbeat_read_failed",
+                "heartbeatAt": None,
+                "heartbeatAgeSeconds": None,
+                "staleAfterSeconds": worker_heartbeat_stale_seconds,
+            }
+
+    return {
+        "status": "ok" if worker_status["running"] else "degraded",
+        "joinApi": {"status": "ok"},
+        "worker": worker_status,
+    }
 
 
 def _read_request_logs(*, limit: int, kind: str, query: str | None) -> list[dict]:
