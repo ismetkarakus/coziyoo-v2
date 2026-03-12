@@ -33,9 +33,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 
 Plans:
-- [ ] 01-01: Swap API env vars to Supabase connection string and verify connectivity
-- [ ] 01-02: Run full API smoke test against Supabase (auth, orders, payments, finance)
-- [ ] 01-03: Create user memory tables (session_memory, long_term_memory) in Supabase schema
+- [x] 01-01: Swap API env vars to Supabase connection string and verify connectivity
+- [x] 01-02: Run full API smoke test against Supabase (auth, orders, payments, finance)
+- [x] 01-03: Create user memory tables (session_memory, long_term_memory) in Supabase schema
 
 ### Phase 2: Voice Session Startup
 **Goal**: User taps Start on mobile and the voice agent joins the LiveKit room consistently on physical iOS and Android devices
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Supabase DB Cutover | 0/3 | Not started | - |
+| 1. Supabase DB Cutover | 3/3 | Completed | 2026-03-12 |
 | 2. Voice Session Startup | 0/4 | Not started | - |
 | 3. Observability | 0/2 | Not started | - |
 | 4. Per-Turn N8N Integration | 0/4 | Not started | - |

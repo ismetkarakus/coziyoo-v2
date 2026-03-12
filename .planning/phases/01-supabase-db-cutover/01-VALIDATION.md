@@ -38,10 +38,10 @@ created: 2026-03-12
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 1-01-01 | 01 | 1 | DB-01 | integration | `npm run test:api -- --run` | ✅ | ⬜ pending |
+| 1-01-01 | 01 | 1 | DB-01 | integration | `npm run test:api -- --run` | ✅ | ✅ green |
 | 1-01-02 | 01 | 1 | DB-01 | manual | curl smoke test | ✅ | ✅ green |
 | 1-02-01 | 02 | 2 | DB-02 | manual | curl smoke test script | ✅ | ✅ green |
-| 1-03-01 | 03 | 3 | DB-03 | integration | `npm run test:api -- --run` | ❌ W0 | ⬜ pending |
+| 1-03-01 | 03 | 3 | DB-03 | integration | `npm run test:api -- --run` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
