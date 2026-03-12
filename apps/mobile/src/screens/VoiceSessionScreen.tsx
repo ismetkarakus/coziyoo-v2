@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Animated,
   Alert,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'react-native';
 import {
@@ -13,6 +15,7 @@ import {
   AndroidAudioTypePresets,
   LiveKitRoom,
   useLocalParticipant,
+  useIOSAudioManagement,
   useParticipants,
   useRoomContext,
 } from '@livekit/react-native';
@@ -40,31 +43,52 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
   // Don't connect until audio session is fully configured.
   // LiveKit docs: configureAudio must be called before connecting to a room.
   const [audioReady, setAudioReady] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Configure audio for two-way communication (playAndRecord + voiceChat).
-    // On iOS this is required for the microphone to capture while audio plays.
-    // On Android the communication preset sets the correct audio mode and focus.
-    AudioSession.configureAudio({
-      ios: { defaultOutput: 'speaker' },
-      android: { audioTypeOptions: AndroidAudioTypePresets.communication },
-    })
-      .then(() =>
-        AudioSession.setAppleAudioConfiguration({
-          audioCategory: 'playAndRecord',
-          audioCategoryOptions: ['allowBluetooth', 'defaultToSpeaker'],
-          audioMode: 'voiceChat',
-        })
-      )
-      .then(() => AudioSession.startAudioSession())
-      .then(() => setAudioReady(true))
-      .catch((err) => {
+    let mounted = true;
+
+    async function setupAudioSession() {
+      setAudioReady(false);
+      setAudioError(null);
+
+      try {
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            throw new Error('Microphone permission is required to start a voice session.');
+          }
+        }
+
+        await AudioSession.configureAudio({
+          ios: { defaultOutput: 'speaker' },
+          android: { audioTypeOptions: AndroidAudioTypePresets.communication },
+        });
+
+        if (Platform.OS === 'ios') {
+          await AudioSession.setAppleAudioConfiguration({
+            audioCategory: 'playAndRecord',
+            audioCategoryOptions: ['allowBluetooth', 'defaultToSpeaker'],
+            audioMode: 'voiceChat',
+          });
+        }
+
+        await AudioSession.startAudioSession();
+
+        if (mounted) setAudioReady(true);
+      } catch (err) {
         console.warn('[AudioSession] setup failed:', err);
-        // Still allow connection even if configuration partially fails
-        setAudioReady(true);
-      });
+        if (mounted) {
+          setAudioError(err instanceof Error ? err.message : 'Failed to configure audio session.');
+          setAudioReady(false);
+        }
+      }
+    }
+
+    void setupAudioSession();
 
     return () => {
+      mounted = false;
       AudioSession.stopAudioSession();
     };
   }, []);
@@ -90,6 +114,27 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
     onEnd();
   }
 
+  if (audioError) {
+    return (
+      <View style={styles.setupContainer}>
+        <Text style={styles.setupTitle}>Audio setup failed</Text>
+        <Text style={styles.setupMessage}>{audioError}</Text>
+        <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
+          <Text style={styles.setupButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!audioReady) {
+    return (
+      <View style={styles.setupContainer}>
+        <Text style={styles.setupTitle}>Preparing audio…</Text>
+        <Text style={styles.setupMessage}>Configuring microphone and speaker for voice chat.</Text>
+      </View>
+    );
+  }
+
   return (
     <LiveKitRoom
       serverUrl={session.wsUrl}
@@ -111,6 +156,7 @@ type SessionViewProps = {
 
 function SessionView({ onEnd, roomName }: SessionViewProps) {
   const room = useRoomContext();
+  useIOSAudioManagement(room, true);
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
 
@@ -309,6 +355,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  setupContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  setupTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  setupMessage: {
+    color: '#aab4d6',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  setupButton: {
+    marginTop: 8,
+    backgroundColor: '#6C63FF',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  setupButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     paddingTop: 64,

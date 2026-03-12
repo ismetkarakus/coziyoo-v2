@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 Phase: 2 of 7 (Voice Session Startup)
 Plan: 1 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-12 — Plan 02-01 implemented (worker preflight + mobile unavailable error)
+Last activity: 2026-03-12 — Plan 02-02 code hardening done (audio permission/session setup); physical device verification pending
 
 Progress: [░░░░░░░░░░] 0%
 
