@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 Phase: 1 of 7 (Supabase DB Cutover)
 Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-12 — Roadmap created; ready to begin Phase 1 planning
+Status: In progress
+Last activity: 2026-03-12 — Supabase smoke validation passed; memory migration applied
 
 Progress: [░░░░░░░░░░] 0%
 

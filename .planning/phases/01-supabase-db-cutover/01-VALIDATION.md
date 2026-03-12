@@ -3,7 +3,7 @@ phase: 1
 slug: supabase-db-cutover
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-03-12
 ---
 
@@ -39,8 +39,8 @@ created: 2026-03-12
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 1-01-01 | 01 | 1 | DB-01 | integration | `npm run test:api -- --run` | ✅ | ⬜ pending |
-| 1-01-02 | 01 | 1 | DB-01 | manual | curl smoke test | ❌ W0 | ⬜ pending |
-| 1-02-01 | 02 | 2 | DB-02 | manual | curl smoke test script | ❌ W0 | ⬜ pending |
+| 1-01-02 | 01 | 1 | DB-01 | manual | curl smoke test | ✅ | ✅ green |
+| 1-02-01 | 02 | 2 | DB-02 | manual | curl smoke test script | ✅ | ✅ green |
 | 1-03-01 | 03 | 3 | DB-03 | integration | `npm run test:api -- --run` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -49,8 +49,8 @@ created: 2026-03-12
 
 ## Wave 0 Requirements
 
-- [ ] `apps/api/src/db/migrations/0014_user_memory_tables.sql` — migration stub for DB-03
-- [ ] `installation/scripts/smoke-test.sh` — curl-based smoke test script for DB-02
+- [x] `apps/api/src/db/migrations/0006_user_memory_tables.sql` — migration stub for DB-03
+- [x] `installation/scripts/smoke-test.sh` — curl-based smoke test script for DB-02
 
 *If none: "Existing infrastructure covers all phase requirements."*
 
@@ -75,3 +75,9 @@ created: 2026-03-12
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
+
+## Execution Notes
+
+- 2026-03-12: Verified API starts against Supabase pooler with `DATABASE_SSL_MODE=no-verify`.
+- 2026-03-12: `installation/scripts/smoke-test.sh` passed on health/auth/orders/payments/finance.
+- 2026-03-12: Applied `0006_user_memory_tables.sql` directly to Supabase and verified both tables exist.

@@ -87,6 +87,26 @@ request() {
   printf "%s\n%s\n" "${status}" "${response}"
 }
 
+request_pair() {
+  local __status_var="$1"
+  local __body_var="$2"
+  local method="$3"
+  local url="$4"
+  local body="${5:-}"
+  local auth_token="${6:-}"
+  local actor_role="${7:-}"
+
+  local pair
+  pair="$(request "${method}" "${url}" "${body}" "${auth_token}" "${actor_role}")"
+  local status_line
+  local body_line
+  status_line="${pair%%$'\n'*}"
+  body_line="${pair#*$'\n'}"
+
+  printf -v "${__status_var}" "%s" "${status_line}"
+  printf -v "${__body_var}" "%s" "${body_line}"
+}
+
 assert_status() {
   local got="$1"
   local expected_csv="$2"
@@ -108,8 +128,10 @@ require_cmd node
 
 log "Starting API smoke test against ${API_BASE_URL}"
 
-readarray -t health < <(request "GET" "${API_BASE_URL}/v1/health")
-assert_status "${health[0]}" "200" "Health check"
+health_status=""
+health_body=""
+request_pair health_status health_body "GET" "${API_BASE_URL}/v1/health"
+assert_status "${health_status}" "200" "Health check"
 
 email="smoke.$(date +%s).$(uuid | cut -d'-' -f1)@coziyoo.local"
 password="Smoke12345!"
@@ -120,20 +142,28 @@ register_payload="$(cat <<JSON
 JSON
 )"
 
-readarray -t register < <(request "POST" "${API_BASE_URL}/v1/auth/register" "${register_payload}")
-assert_status "${register[0]}" "201" "Auth register"
+register_status=""
+register_body=""
+request_pair register_status register_body "POST" "${API_BASE_URL}/v1/auth/register" "${register_payload}"
+assert_status "${register_status}" "201" "Auth register"
 
-access_token="$(json_get "${register[1]}" "data.tokens.accessToken")" || fail "Register response missing access token"
-user_id="$(json_get "${register[1]}" "data.user.id")" || fail "Register response missing user id"
+access_token="$(json_get "${register_body}" "data.tokens.accessToken")" || fail "Register response missing access token"
+user_id="$(json_get "${register_body}" "data.user.id")" || fail "Register response missing user id"
 
-readarray -t orders < <(request "GET" "${API_BASE_URL}/v1/orders?page=1&pageSize=5" "" "${access_token}" "buyer")
-assert_status "${orders[0]}" "200" "Orders list"
+orders_status=""
+orders_body=""
+request_pair orders_status orders_body "GET" "${API_BASE_URL}/v1/orders?page=1&pageSize=5" "" "${access_token}" "buyer"
+assert_status "${orders_status}" "200" "Orders list"
 
 random_order_id="$(uuid)"
-readarray -t payments < <(request "GET" "${API_BASE_URL}/v1/payments/${random_order_id}/status" "" "${access_token}" "buyer")
-assert_status "${payments[0]}" "404" "Payments status lookup"
+payments_status=""
+payments_body=""
+request_pair payments_status payments_body "GET" "${API_BASE_URL}/v1/payments/${random_order_id}/status" "" "${access_token}" "buyer"
+assert_status "${payments_status}" "404" "Payments status lookup"
 
-readarray -t finance < <(request "GET" "${API_BASE_URL}/v1/sellers/${user_id}/finance/summary" "" "${access_token}" "seller")
-assert_status "${finance[0]}" "200" "Finance summary"
+finance_status=""
+finance_body=""
+request_pair finance_status finance_body "GET" "${API_BASE_URL}/v1/sellers/${user_id}/finance/summary" "" "${access_token}" "seller"
+assert_status "${finance_status}" "200" "Finance summary"
 
 log "Smoke test completed successfully"
