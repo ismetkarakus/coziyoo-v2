@@ -44,6 +44,7 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
   // LiveKit docs: configureAudio must be called before connecting to a room.
   const [audioReady, setAudioReady] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +115,19 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
     onEnd();
   }
 
+  function handleConnected() {
+    setSessionError(null);
+  }
+
+  function handleRoomError(error: Error) {
+    console.warn('[LiveKitRoom] connection error:', error);
+    setSessionError('Failed to connect to voice session. Please try again.');
+  }
+
+  function handleMediaDeviceFailure() {
+    setSessionError('Microphone access failed. Check iOS microphone permission and try again.');
+  }
+
   if (audioError) {
     return (
       <View style={styles.setupContainer}>
@@ -135,6 +149,18 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
     );
   }
 
+  if (sessionError) {
+    return (
+      <View style={styles.setupContainer}>
+        <Text style={styles.setupTitle}>Connection failed</Text>
+        <Text style={styles.setupMessage}>{sessionError}</Text>
+        <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
+          <Text style={styles.setupButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <LiveKitRoom
       serverUrl={session.wsUrl}
@@ -142,7 +168,10 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
       connect={audioReady}
       audio={true}
       video={false}
+      onConnected={handleConnected}
       onDisconnected={handleDisconnected}
+      onError={handleRoomError}
+      onMediaDeviceFailure={handleMediaDeviceFailure}
     >
       <SessionView onEnd={handleEnd} roomName={session.roomName} />
     </LiveKitRoom>

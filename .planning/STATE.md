@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 Phase: 2 of 7 (Voice Session Startup)
 Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-12 — Added n8n workflow preflight gating + mobile error mapping; iOS physical validation remains
+Last activity: 2026-03-12 — Added iOS physical-device UAT runbook and session-level connection error handling
 
 Progress: [░░░░░░░░░░] 0%
 
