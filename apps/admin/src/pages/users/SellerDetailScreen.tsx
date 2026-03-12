@@ -1548,7 +1548,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               aria-modal="true"
               aria-label={dict.detail.legalRejectModalTitle}
               onClick={() => {
-                if (legalSaving) return;
+                if (isSavingDoc(rejectTargetId)) return;
                 setRejectTargetId(null);
                 setRejectReason("");
               }}
@@ -1560,13 +1560,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={4} />
                 </label>
                 <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" onClick={() => { setRejectTargetId(null); setRejectReason(""); }}>
+                  <button className="ghost" type="button" disabled={isSavingDoc(rejectTargetId)} onClick={() => { setRejectTargetId(null); setRejectReason(""); }}>
                     {dict.common.cancel}
                   </button>
                   <button
                     className="primary"
                     type="button"
-                    disabled={!rejectReason.trim() || legalSaving}
+                    disabled={rejectReason.trim().length < 3 || isSavingDoc(rejectTargetId)}
                     onClick={() => void updateDocumentStatus(rejectTargetId, "rejected", rejectReason.trim())}
                   >
                     {dict.detail.legalReject}
@@ -1582,7 +1582,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               aria-modal="true"
               aria-label={dict.detail.optionalRejectModalTitle}
               onClick={() => {
-                if (legalSaving) return;
+                if (isSavingOptional(optionalRejectTargetId)) return;
                 setOptionalRejectTargetId(null);
                 setOptionalRejectReason("");
               }}
@@ -1594,13 +1594,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <textarea value={optionalRejectReason} onChange={(event) => setOptionalRejectReason(event.target.value)} rows={4} />
                 </label>
                 <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" onClick={() => { setOptionalRejectTargetId(null); setOptionalRejectReason(""); }}>
+                  <button className="ghost" type="button" disabled={isSavingOptional(optionalRejectTargetId)} onClick={() => { setOptionalRejectTargetId(null); setOptionalRejectReason(""); }}>
                     {dict.common.cancel}
                   </button>
                   <button
                     className="primary"
                     type="button"
-                    disabled={!optionalRejectReason.trim() || legalSaving}
+                    disabled={optionalRejectReason.trim().length < 3 || isSavingOptional(optionalRejectTargetId)}
                     onClick={() => void updateOptionalUploadStatus(optionalRejectTargetId, "rejected", optionalRejectReason.trim())}
                   >
                     {dict.detail.legalReject}
