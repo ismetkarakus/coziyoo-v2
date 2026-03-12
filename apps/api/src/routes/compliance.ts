@@ -1074,7 +1074,8 @@ adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("adm
         status: updated.rows[0].status,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("[compliance] document status update failed:", err);
     await client.query("ROLLBACK");
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance document update failed" } });
   } finally {
