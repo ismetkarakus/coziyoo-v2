@@ -250,8 +250,8 @@ SQL
   dc exec -T "$SOURCE_DOCKER_SERVICE" \
     psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1 < "$DUMP_FILE"
 
-  log "Post-import: ANALYZE"
-  run_target_psql -c "ANALYZE;"
+  log "Post-import: ANALYZE public schema"
+  run_target_psql -c "ANALYZE VERBOSE public;"
 
   log "Post-import: sequence alignment"
   run_target_psql <<'SQL'

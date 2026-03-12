@@ -290,12 +290,12 @@ main() {
   fi
 
   printf "\nVerification artifacts\n"
-  printf "- %s\n" "$OUTPUT_DIR"
-  printf "- %s\n" "$source_tables"
-  printf "- %s\n" "$target_tables"
-  printf "- %s\n" "$source_counts"
-  printf "- %s\n" "$target_counts"
-  printf "- %s\n" "$target_invalid_constraints"
+  printf -- "- %s\n" "$OUTPUT_DIR"
+  printf -- "- %s\n" "$source_tables"
+  printf -- "- %s\n" "$target_tables"
+  printf -- "- %s\n" "$source_counts"
+  printf -- "- %s\n" "$target_counts"
+  printf -- "- %s\n" "$target_invalid_constraints"
 
   if (( failed != 0 )); then
     fail "Supabase transfer verification failed"
