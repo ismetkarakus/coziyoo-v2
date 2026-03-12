@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 2 of 7 (Voice Session Startup)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-12 — iOS focus: new architecture mitigation locked (`newArchEnabled=false`), audio hardening in place
+Last activity: 2026-03-12 — Added n8n workflow preflight gating + mobile error mapping; iOS physical validation remains
 
 Progress: [░░░░░░░░░░] 0%
 

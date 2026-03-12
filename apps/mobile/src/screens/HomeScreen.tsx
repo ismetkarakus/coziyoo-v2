@@ -49,6 +49,9 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
     if (code === 'AGENT_UNAVAILABLE') {
       return 'Voice agent unavailable right now. Please try again in a moment.';
     }
+    if (code === 'N8N_WORKFLOW_UNAVAILABLE') {
+      return 'AI workflow is unavailable right now. Please try again shortly.';
+    }
     return payload?.error?.message ?? `Server error ${status}`;
   }
 
