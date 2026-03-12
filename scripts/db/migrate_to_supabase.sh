@@ -250,8 +250,21 @@ SQL
   dc exec -T "$SOURCE_DOCKER_SERVICE" \
     psql "$TARGET_DB_URL" -v ON_ERROR_STOP=1 < "$DUMP_FILE"
 
-  log "Post-import: ANALYZE public schema"
-  run_target_psql -c "ANALYZE VERBOSE public;"
+  log "Post-import: ANALYZE all public tables"
+  run_target_psql <<'SQL'
+DO $$
+DECLARE
+  rec record;
+BEGIN
+  FOR rec IN
+    SELECT schemaname, tablename
+    FROM pg_tables
+    WHERE schemaname = 'public'
+  LOOP
+    EXECUTE format('ANALYZE VERBOSE %I.%I', rec.schemaname, rec.tablename);
+  END LOOP;
+END $$;
+SQL
 
   log "Post-import: sequence alignment"
   run_target_psql <<'SQL'
