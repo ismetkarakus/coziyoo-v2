@@ -5,7 +5,7 @@
 Production deployment uses:
 - **Nginx Proxy Manager** (Docker) for external ingress (TLS, routing)
 - **Systemd services** for applications (API, Admin, PostgreSQL)
-- **Python HTTP server** for serving admin static files
+- **Node `serve`** for serving admin static files (SPA routing support)
 - **Node.js/Express** for API
 
 ## Service Architecture
@@ -15,7 +15,7 @@ Internet
     ↓
 Nginx Proxy Manager (Docker: 80/443)
     ├──→ API (systemd: 127.0.0.1:3000)
-    └──→ Admin (systemd: 127.0.0.1:8000) [Python HTTP]
+    └──→ Admin (systemd: 127.0.0.1:8000) [Node Serve]
     
 PostgreSQL (systemd: 127.0.0.1:5432)
 ```
@@ -31,10 +31,10 @@ PostgreSQL (systemd: 127.0.0.1:5432)
 
 ### 2. Admin Panel (`coziyoo-admin`)
 - **Type:** Systemd service  
-- **Runtime:** Python HTTP server
+- **Runtime:** Node Serve (`npx serve`)
 - **Port:** 127.0.0.1:8000
-- **Working Dir:** `/var/www/coziyoo-admin`
-- **Start:** `python3 -m http.server 8000 --bind 0.0.0.0`
+- **Working Dir:** /var/www/coziyoo-admin
+- **Start:** `npx serve -s . -l 8000`
 
 ### 3. PostgreSQL
 - **Type:** Systemd service
@@ -63,7 +63,7 @@ PostgreSQL (systemd: 127.0.0.1:5432)
    - npm ci
    - npm run build
    - Copy to `/var/www/coziyoo-admin`
-   - Create Python HTTP systemd service
+   - Create Node Serve systemd service
    - Start service
 
 ## Configuration Files
@@ -90,7 +90,7 @@ SEED_SAMPLE_DATA=false
 - All services bind to localhost (127.0.0.1) except NPM
 - NPM handles SSL termination
 - PostgreSQL uses pgcrypto for password hashing
-- No local nginx (removed in favor of NPM + Python HTTP)
+- No local nginx (removed in favor of NPM + Node Serve)
 
 ## Data Seeding
 

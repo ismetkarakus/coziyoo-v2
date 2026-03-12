@@ -53,7 +53,7 @@ EOF
 run_root mkdir -p "${PUBLISH_DIR}"
 run_root rsync -a --delete "${ADMIN_DIR_ABS}/dist/" "${PUBLISH_DIR}/"
 
-# Restart the Python HTTP service
+# Restart the admin panel service
 service_action restart "${ADMIN_SERVICE_NAME}"
 
-log "Admin updated (Python HTTP server restarted)"
+log "Admin updated"
