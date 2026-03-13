@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { pool } from "../db/client.js";
 import { resolveActorRole } from "../middleware/app-role.js";
@@ -135,6 +135,7 @@ type SellerComplianceProfileStatus = "not_started" | "in_progress" | "under_revi
 
 export const sellerComplianceRouter = Router();
 export const adminComplianceRouter = Router();
+let ensureComplianceDocumentValiditySchemaPromise: Promise<void> | null = null;
 
 function normalizeDocumentStatus(value: string): SellerDocumentStatus {
   return value === "pending" ? "requested" : (value as SellerDocumentStatus);
@@ -157,6 +158,77 @@ function resolveEffectiveOptionalStatus(status: OptionalUploadStatus, expired: b
   if (status === "expired" || expired) return "expired";
   return status;
 }
+
+async function ensureComplianceDocumentValiditySchema() {
+  if (!ensureComplianceDocumentValiditySchemaPromise) {
+    ensureComplianceDocumentValiditySchemaPromise = (async () => {
+      const client = await pool.connect();
+      try {
+        await client.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'compliance_documents_list'
+                AND column_name = 'validity_years'
+            ) THEN
+              IF EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'compliance_documents_list'
+                  AND column_name = 'validity_days'
+              ) THEN
+                ALTER TABLE compliance_documents_list
+                  RENAME COLUMN validity_days TO validity_years;
+              ELSE
+                ALTER TABLE compliance_documents_list
+                  ADD COLUMN validity_years integer;
+              END IF;
+            END IF;
+          END
+          $$;
+        `);
+        await client.query(`
+          ALTER TABLE compliance_documents_list
+            DROP CONSTRAINT IF EXISTS compliance_documents_list_validity_days_check;
+          ALTER TABLE compliance_documents_list
+            DROP CONSTRAINT IF EXISTS compliance_documents_list_validity_years_check;
+          ALTER TABLE compliance_documents_list
+            ADD CONSTRAINT compliance_documents_list_validity_years_check
+            CHECK (validity_years IS NULL OR validity_years > 0);
+        `);
+      } finally {
+        client.release();
+      }
+    })().catch((error) => {
+      ensureComplianceDocumentValiditySchemaPromise = null;
+      throw error;
+    });
+  }
+
+  await ensureComplianceDocumentValiditySchemaPromise;
+}
+
+async function complianceSchemaMiddleware(_req: Request, res: Response, next: NextFunction) {
+  try {
+    await ensureComplianceDocumentValiditySchema();
+    return next();
+  } catch (error) {
+    console.error("[compliance] validity schema guard failed:", error);
+    return res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Compliance schema validation failed",
+      },
+    });
+  }
+}
+
+sellerComplianceRouter.use(complianceSchemaMiddleware);
+adminComplianceRouter.use(complianceSchemaMiddleware);
 
 async function syncSellerDocumentExpiry(client: { query: typeof pool.query }, sellerId?: string | null) {
   await client.query(
