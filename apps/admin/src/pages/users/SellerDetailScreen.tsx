@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
-import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, addTwoYears, sanitizeSeedText } from "../../lib/format";
+import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
   mapComplianceRows,
@@ -605,16 +605,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const accountStatusLabel = isActive ? dict.common.active : dict.common.disabled;
   const phone = String(row.phone ?? extractPhoneFromChecks(compliance) ?? "").trim();
   const maskedEmail = maskEmail(row.email);
-  const profileRetentionUntil = addTwoYears(row.updatedAt);
-  const complianceRetentionUntil = addTwoYears(compliance?.profile.updated_at);
   const totalFoods = Number(row.totalFoods ?? foodRows.length ?? 0);
-  const latestFoodUpdatedAt = foodRows.reduce<string | null>((latest, item) => {
-    const value = String(item.updatedAt ?? "");
-    if (!value) return latest;
-    if (!latest) return value;
-    return Date.parse(value) > Date.parse(latest) ? value : latest;
-  }, null);
-  const foodRetentionUntil = addTwoYears(latestFoodUpdatedAt);
   const initials = initialsFromName(row.displayName, row.email);
   const fallbackProfileImageFromFoods = foodRows.map((item) => normalizeImageUrl(item.imageUrl)).find(Boolean) ?? null;
   const profileImageUrl =
@@ -651,15 +642,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const legalDocuments = [...(compliance?.documents ?? [])].sort((a, b) => {
     const rankDiff = knownDocumentCodeRank(a.code) - knownDocumentCodeRank(b.code);
     if (rankDiff !== 0) return rankDiff;
-    return a.name.localeCompare(b.name, language === "tr" ? "tr" : "en", { sensitivity: "base" });
+    const nameDiff = a.name.localeCompare(b.name, language === "tr" ? "tr" : "en", { sensitivity: "base" });
+    if (nameDiff !== 0) return nameDiff;
+    return b.version - a.version;
   });
-  const legalTypeRows = (() => {
-    const map = new Map<string, (typeof legalDocuments)[number]>();
-    for (const row of legalDocuments) {
-      if (!map.has(row.code)) map.set(row.code, row);
-    }
-    return Array.from(map.values());
-  })();
+  const currentLegalDocuments = legalDocuments.filter((row) => row.is_current);
+  const legalTypeRows = currentLegalDocuments;
   const optionalUploads = [...(compliance?.optionalUploads ?? [])].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
   const identityDocuments = (() => {
     const isIdentityCode = (value: string) => {
@@ -706,11 +694,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     documents: SellerCompliancePayload["documents"],
     prev: SellerCompliancePayload["profile"]
   ): SellerCompliancePayload["profile"] {
-    const required = documents.filter((d) => d.is_required);
+    const required = documents.filter((d) => d.is_current && d.is_required);
     const requiredCount = required.length;
     const approvedRequired = required.filter((d) => d.status === "approved").length;
     const uploadedRequired = required.filter((d) => d.status === "uploaded").length;
-    const requestedRequired = required.filter((d) => d.status === "requested").length;
+    const requestedRequired = required.filter((d) => d.status === "requested" || d.status === "expired").length;
     const rejectedRequired = required.filter((d) => d.status === "rejected").length;
     let status: SellerComplianceStatus;
     if (requiredCount === 0) status = "not_started";
@@ -841,7 +829,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         if (!prev) return prev;
         const nowIso = new Date().toISOString();
         const updatedDocuments = prev.documents.map((item) =>
-          item.code === docTypeCode
+          item.code === docTypeCode && item.is_current
             ? {
                 ...item,
                 is_required: required,
@@ -1252,7 +1240,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "orders", label: dict.detail.sellerTabs.orders },
     { key: "wallet", label: dict.detail.sellerTabs.wallet },
     { key: "identity", label: language === "tr" ? "Uygunluk" : "Compliance" },
-    { key: "retention", label: dict.detail.sellerTabs.retention },
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "notes", label: dict.detail.sellerTabs.notes },
     { key: "raw", label: dict.detail.sellerTabs.raw },
@@ -1776,8 +1763,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <tr>
                         <th>{dict.detail.legalUploadedAt}</th>
                         <th>{dict.detail.legalDocType}</th>
+                        <th>{dict.detail.legalVersion}</th>
                         <th>{dict.detail.legalFile}</th>
                         <th>{dict.detail.legalStatus}</th>
+                        <th>{dict.detail.legalExpiresAt}</th>
                         <th>{dict.detail.legalReviewedAt}</th>
                         <th>{dict.detail.legalRejectionReason}</th>
                         <th>{dict.detail.legalActions}</th>
@@ -1794,6 +1783,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               <div className="panel-meta legal-doc-sub">{row.code}</div>
                             </td>
                             <td>
+                              {`v${row.version}`}
+                              {!row.is_current ? <div className="panel-meta">{dict.detail.legalHistorical}</div> : null}
+                            </td>
+                            <td>
                               {row.file_url ? (
                                 <a href={row.file_url} target="_blank" rel="noreferrer" className="inline-copy">{dict.detail.legalOpenFile}</a>
                               ) : (
@@ -1801,6 +1794,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               )}
                             </td>
                             <td><span className={`status-pill compliance-status-pill is-${tone}`}>{sellerDocumentStatusLabel(row.status, dict)}</span></td>
+                            <td>{formatUiDate(row.expires_at, language)}</td>
                             <td>{formatUiDate(row.reviewed_at, language)}</td>
                             <td>{row.rejection_reason ?? "-"}</td>
                             <td>
@@ -1808,7 +1802,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={isSavingDoc(row.id)}
+                                  disabled={!row.is_current || isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1816,7 +1810,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={isSavingDoc(row.id)}
+                                  disabled={!row.is_current || isSavingDoc(row.id)}
                                   onClick={() => {
                                     setRejectTargetId(row.id);
                                     setRejectReason(row.rejection_reason ?? "");
@@ -1827,7 +1821,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={isSavingDoc(row.id)}
+                                  disabled={!row.is_current || isSavingDoc(row.id)}
                                   onClick={() => {
                                     setPendingTargetId(row.id);
                                     setPendingReason(row.rejection_reason ?? "");
@@ -2530,30 +2524,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab === "retention" ? (
-        <section className="panel">
-          <div className="panel-header">
-            <h2>{dict.detail.retentionPolicy}</h2>
-          </div>
-          <div className="seller-retention-chips">
-            <span className="retention-chip">{`${dict.detail.retentionYears}: 2`}</span>
-            <span className="retention-chip">{`${dict.detail.retentionUntil} (${dict.detail.sellerTabs.identity}): ${formatUiDate(
-              profileRetentionUntil,
-              language
-            )}`}</span>
-            <span className="retention-chip">{`${dict.detail.retentionUntil} (${dict.detail.trCompliance}): ${formatUiDate(
-              complianceRetentionUntil,
-              language
-            )}`}</span>
-            <span className="retention-chip">{`${dict.detail.retentionUntil} (${dict.detail.sellerTabs.foods}): ${formatUiDate(
-              foodRetentionUntil,
-              language
-            )}`}</span>
-            <span className="retention-chip">{`${dict.detail.legalHold}: ${Boolean(row.legalHoldState)}`}</span>
-          </div>
-        </section>
-      ) : null}
-
       {activeTab === "security" ? (
         <section className="panel">
           <div className="panel-header">
@@ -2595,7 +2565,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "retention" && activeTab !== "security" && activeTab !== "notes" && activeTab !== "raw" ? (
+      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "security" && activeTab !== "notes" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>

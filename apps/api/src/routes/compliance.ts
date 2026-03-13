@@ -90,6 +90,7 @@ const ComplianceDocumentListCreateSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   sourceInfo: z.string().trim().max(1000).nullable().optional(),
   details: z.string().trim().max(4000).nullable().optional(),
+  validityDays: z.coerce.number().int().positive().max(36500).nullable().optional(),
   isActive: z.boolean().optional(),
   isRequiredDefault: z.boolean().optional(),
 });
@@ -101,6 +102,7 @@ const ComplianceDocumentListUpdateSchema = z
     description: z.string().trim().max(1000).nullable().optional(),
     sourceInfo: z.string().trim().max(1000).nullable().optional(),
     details: z.string().trim().max(4000).nullable().optional(),
+    validityDays: z.coerce.number().int().positive().max(36500).nullable().optional(),
     isActive: z.boolean().optional(),
     isRequiredDefault: z.boolean().optional(),
   })
@@ -111,6 +113,7 @@ const ComplianceDocumentListUpdateSchema = z
       value.description === undefined &&
       value.sourceInfo === undefined &&
       value.details === undefined &&
+      value.validityDays === undefined &&
       value.isActive === undefined &&
       value.isRequiredDefault === undefined
     ) {
@@ -121,8 +124,8 @@ const ComplianceDocumentListUpdateSchema = z
     }
   });
 
-type SellerDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
-type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived";
+type SellerDocumentStatus = "requested" | "uploaded" | "approved" | "rejected" | "expired";
+type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived" | "expired";
 type SellerComplianceProfileStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
 
 export const sellerComplianceRouter = Router();
@@ -130,6 +133,27 @@ export const adminComplianceRouter = Router();
 
 function normalizeDocumentStatus(value: string): SellerDocumentStatus {
   return value === "pending" ? "requested" : (value as SellerDocumentStatus);
+}
+
+function resolveExpiresAt(uploadedAt: string | null, validityDays: number | null): string | null {
+  if (!uploadedAt || !validityDays || validityDays <= 0) return null;
+  const base = Date.parse(uploadedAt);
+  if (Number.isNaN(base)) return null;
+  return new Date(base + validityDays * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function resolveEffectiveDocumentStatus(status: SellerDocumentStatus, uploadedAt: string | null, validityDays: number | null): SellerDocumentStatus {
+  if (!["uploaded", "approved"].includes(status)) return status;
+  const expiresAt = resolveExpiresAt(uploadedAt, validityDays);
+  if (!expiresAt) return status;
+  return Date.parse(expiresAt) <= Date.now() ? "expired" : status;
+}
+
+function resolveEffectiveOptionalStatus(status: OptionalUploadStatus, createdAt: string | null, validityDays: number | null): OptionalUploadStatus {
+  if (!["uploaded", "approved"].includes(status)) return status;
+  const expiresAt = resolveExpiresAt(createdAt, validityDays);
+  if (!expiresAt) return status;
+  return Date.parse(expiresAt) <= Date.now() ? "expired" : status;
 }
 
 function computeSellerComplianceProfile(rows: Array<{ is_required: boolean; status: SellerDocumentStatus; updated_at: string }>): {
@@ -145,7 +169,7 @@ function computeSellerComplianceProfile(rows: Array<{ is_required: boolean; stat
   const requiredCount = requiredRows.length;
   const approvedRequiredCount = requiredRows.filter((row) => row.status === "approved").length;
   const uploadedRequiredCount = requiredRows.filter((row) => row.status === "uploaded").length;
-  const requestedRequiredCount = requiredRows.filter((row) => row.status === "requested").length;
+  const requestedRequiredCount = requiredRows.filter((row) => row.status === "requested" || row.status === "expired").length;
   const rejectedRequiredCount = requiredRows.filter((row) => row.status === "rejected").length;
 
   const updatedAt = rows
@@ -228,7 +252,11 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
     description: string | null;
     source_info: string | null;
     details: string | null;
+    validity_days: number | null;
     is_active: boolean;
+    version: number;
+    is_current: boolean;
+    expires_at: string | null;
   }>(
     `SELECT
        scd.id::text,
@@ -249,23 +277,54 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
        cdl.description,
        cdl.source_info,
        cdl.details,
-       cdl.is_active
+       cdl.validity_days,
+       cdl.is_active,
+       scd.version,
+       scd.is_current
      FROM seller_compliance_documents scd
      JOIN compliance_documents_list cdl ON cdl.id = scd.document_list_id
      WHERE scd.seller_id = $1
-     ORDER BY scd.is_required DESC, cdl.name ASC, scd.created_at ASC`,
+     ORDER BY cdl.name ASC, scd.version DESC, scd.created_at DESC`,
     [sellerId]
-  );
+  ).then((result) => ({
+    ...result,
+    rows: result.rows.map((row) => {
+      const expiresAt = resolveExpiresAt(row.uploaded_at, row.validity_days);
+      return {
+        ...row,
+        expires_at: expiresAt,
+        status: resolveEffectiveDocumentStatus(row.status, row.uploaded_at, row.validity_days),
+      };
+    }),
+  }));
+}
+
+function filterCurrentDocuments<T extends { is_current: boolean }>(rows: T[]) {
+  return rows.filter((row) => row.is_current);
 }
 
 async function ensureSellerAssignments(sellerId: string) {
   await pool.query(
-    `INSERT INTO seller_compliance_documents (seller_id, document_list_id, is_required, status, created_at, updated_at)
-     SELECT $1, cdl.id, cdl.is_required_default, 'requested', now(), now()
+    `INSERT INTO seller_compliance_documents (
+       seller_id,
+       document_list_id,
+       is_required,
+       status,
+       version,
+       is_current,
+       created_at,
+       updated_at
+     )
+     SELECT $1, cdl.id, cdl.is_required_default, 'requested', 1, TRUE, now(), now()
      FROM compliance_documents_list cdl
      WHERE cdl.is_active = TRUE
-     ON CONFLICT (seller_id, document_list_id)
-     DO NOTHING`,
+       AND NOT EXISTS (
+         SELECT 1
+         FROM seller_compliance_documents scd
+         WHERE scd.seller_id = $1
+           AND scd.document_list_id = cdl.id
+           AND scd.is_current = TRUE
+       )`,
     [sellerId]
   );
 }
@@ -285,6 +344,8 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
     rejection_reason: string | null;
     created_at: string;
     updated_at: string;
+    validity_days: number | null;
+    expires_at: string | null;
   }>(
     `SELECT
        sou.id::text,
@@ -299,13 +360,24 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
        sou.reviewed_at::text,
        sou.rejection_reason,
        sou.created_at::text,
-       sou.updated_at::text
+       sou.updated_at::text,
+       cdl.validity_days
      FROM seller_optional_uploads sou
      LEFT JOIN compliance_documents_list cdl ON cdl.id = sou.document_list_id
      WHERE sou.seller_id = $1
      ORDER BY sou.created_at DESC`,
     [sellerId]
-  );
+  ).then((result) => ({
+    ...result,
+    rows: result.rows.map((row) => {
+      const expiresAt = resolveExpiresAt(row.created_at, row.validity_days);
+      return {
+        ...row,
+        expires_at: expiresAt,
+        status: resolveEffectiveOptionalStatus(row.status, row.created_at, row.validity_days),
+      };
+    }),
+  }));
 }
 
 sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
@@ -317,7 +389,8 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
   const optionalUploads = await getSellerOptionalUploads(pool, req.auth!.userId);
-  const profile = computeSellerComplianceProfile(docs.rows);
+  const currentDocs = filterCurrentDocuments(docs.rows);
+  const profile = computeSellerComplianceProfile(currentDocs);
   return res.json({
     data: {
       profile: {
@@ -330,7 +403,7 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
         rejected_required_count: profile.rejectedRequiredCount,
         updated_at: profile.updatedAt,
       },
-      documents: docs.rows,
+      documents: currentDocs,
       optionalUploads: optionalUploads.rows,
     },
   });
@@ -360,44 +433,131 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
   }
   const input = parsed.data;
 
-  const docType = await pool.query<{ id: string }>(
-    "SELECT id::text FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
+  const docType = await pool.query<{ id: string; is_required_default: boolean }>(
+    "SELECT id::text, is_required_default FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
     [input.docType]
   );
   if ((docType.rowCount ?? 0) === 0) {
     return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
   }
 
-  const row = await pool.query<{ id: string }>(
-    `INSERT INTO seller_compliance_documents (
-       seller_id,
-       document_list_id,
-       is_required,
-       status,
-       file_url,
-       uploaded_at,
-       reviewed_at,
-       reviewed_by_admin_id,
-       rejection_reason,
-       notes,
-       updated_at
-     )
-     VALUES ($1, $2, TRUE, 'uploaded', $3, now(), NULL, NULL, NULL, $4, now())
-     ON CONFLICT (seller_id, document_list_id)
-     DO UPDATE SET
-       status = 'uploaded',
-       file_url = EXCLUDED.file_url,
-       uploaded_at = now(),
-       reviewed_at = NULL,
-       reviewed_by_admin_id = NULL,
-       rejection_reason = NULL,
-       notes = EXCLUDED.notes,
-       updated_at = now()
-     RETURNING id::text`,
-    [req.auth!.userId, docType.rows[0].id, input.fileUrl, input.notes ?? null]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const currentRow = await client.query<{
+      id: string;
+      is_required: boolean;
+      version: number;
+      status: SellerDocumentStatus;
+      file_url: string | null;
+      uploaded_at: string | null;
+    }>(
+      `SELECT
+         id::text,
+         is_required,
+         version,
+         status,
+         file_url,
+         uploaded_at::text
+       FROM seller_compliance_documents
+       WHERE seller_id = $1
+         AND document_list_id = $2
+         AND is_current = TRUE
+       FOR UPDATE`,
+      [req.auth!.userId, docType.rows[0].id]
+    );
 
-  return res.status(201).json({ data: { documentId: row.rows[0].id } });
+    let documentId: string;
+    if ((currentRow.rowCount ?? 0) === 0) {
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO seller_compliance_documents (
+           seller_id,
+           document_list_id,
+           is_required,
+           status,
+           file_url,
+           uploaded_at,
+           reviewed_at,
+           reviewed_by_admin_id,
+           rejection_reason,
+           notes,
+           version,
+           is_current,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, $5, 1, TRUE, now(), now())
+         RETURNING id::text`,
+        [req.auth!.userId, docType.rows[0].id, docType.rows[0].is_required_default, input.fileUrl, input.notes ?? null]
+      );
+      documentId = inserted.rows[0].id;
+    } else {
+      const current = currentRow.rows[0];
+      const canReuseCurrentVersion =
+        current.version === 1 &&
+        current.status === "requested" &&
+        current.file_url === null &&
+        current.uploaded_at === null;
+
+      if (canReuseCurrentVersion) {
+        const updated = await client.query<{ id: string }>(
+          `UPDATE seller_compliance_documents
+           SET
+             status = 'uploaded',
+             file_url = $3,
+             uploaded_at = now(),
+             reviewed_at = NULL,
+             reviewed_by_admin_id = NULL,
+             rejection_reason = NULL,
+             notes = $4,
+             updated_at = now()
+           WHERE id = $1
+             AND seller_id = $2
+           RETURNING id::text`,
+          [current.id, req.auth!.userId, input.fileUrl, input.notes ?? null]
+        );
+        documentId = updated.rows[0].id;
+      } else {
+        await client.query(
+          `UPDATE seller_compliance_documents
+           SET is_current = FALSE,
+               updated_at = now()
+           WHERE id = $1`,
+          [current.id]
+        );
+        const inserted = await client.query<{ id: string }>(
+          `INSERT INTO seller_compliance_documents (
+             seller_id,
+             document_list_id,
+             is_required,
+             status,
+             file_url,
+             uploaded_at,
+             reviewed_at,
+             reviewed_by_admin_id,
+             rejection_reason,
+             notes,
+             version,
+             is_current,
+             created_at,
+             updated_at
+           )
+           VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, $5, $6, TRUE, now(), now())
+           RETURNING id::text`,
+          [req.auth!.userId, docType.rows[0].id, current.is_required, input.fileUrl, input.notes ?? null, current.version + 1]
+        );
+        documentId = inserted.rows[0].id;
+      }
+    }
+
+    await client.query("COMMIT");
+    return res.status(201).json({ data: { documentId } });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document upload failed" } });
+  } finally {
+    client.release();
+  }
 });
 
 sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) => {
@@ -407,7 +567,7 @@ sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) =>
   }
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
-  return res.json({ data: docs.rows });
+  return res.json({ data: filterCurrentDocuments(docs.rows) });
 });
 
 sellerComplianceRouter.get("/optional-uploads", requireAuth("app"), async (req, res) => {
@@ -533,7 +693,7 @@ sellerComplianceRouter.post("/submit", requireAuth("app"), async (req, res) => {
   }
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
-  const profile = computeSellerComplianceProfile(docs.rows);
+  const profile = computeSellerComplianceProfile(filterCurrentDocuments(docs.rows));
   if (profile.requestedRequiredCount > 0 || profile.rejectedRequiredCount > 0) {
     return res.status(409).json({
       error: {
@@ -551,11 +711,12 @@ adminComplianceRouter.get("/queue", requireAuth("admin"), async (_req, res) => {
     uploaded_required_count: string;
     updated_at: string;
   }>(
-    `SELECT
+     `SELECT
        scd.seller_id::text,
        count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'uploaded')::text AS uploaded_required_count,
        max(scd.updated_at)::text AS updated_at
      FROM seller_compliance_documents scd
+     WHERE scd.is_current = TRUE
      GROUP BY scd.seller_id
      HAVING count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'uploaded') > 0
      ORDER BY max(scd.updated_at) DESC`
@@ -571,6 +732,7 @@ adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, r
     description: string | null;
     source_info: string | null;
     details: string | null;
+    validity_days: number | null;
     is_active: boolean;
     is_required_default: boolean;
     seller_assignment_count: string;
@@ -584,9 +746,10 @@ adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, r
        cdl.description,
        cdl.source_info,
        cdl.details,
+       cdl.validity_days,
        cdl.is_active,
        cdl.is_required_default,
-       count(scd.id)::text AS seller_assignment_count,
+       count(scd.id) FILTER (WHERE scd.is_current = TRUE)::text AS seller_assignment_count,
        cdl.created_at::text,
        cdl.updated_at::text
      FROM compliance_documents_list cdl
@@ -610,12 +773,13 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
     const inserted = await client.query<{
       id: string;
       code: string;
-      name: string;
-      description: string | null;
-      source_info: string | null;
-      details: string | null;
-      is_active: boolean;
-      is_required_default: boolean;
+    name: string;
+    description: string | null;
+    source_info: string | null;
+    details: string | null;
+    validity_days: number | null;
+    is_active: boolean;
+    is_required_default: boolean;
       created_at: string;
       updated_at: string;
     }>(
@@ -625,12 +789,13 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
          description,
          source_info,
          details,
+         validity_days,
          is_active,
          is_required_default,
          created_at,
          updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
        RETURNING
          id::text,
          code,
@@ -638,11 +803,12 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
          description,
          source_info,
          details,
+         validity_days,
          is_active,
          is_required_default,
          created_at::text,
          updated_at::text`,
-      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.isActive ?? true, input.isRequiredDefault ?? true]
+      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.validityDays ?? null, input.isActive ?? true, input.isRequiredDefault ?? true]
     );
 
     await writeAdminAudit(client, {
@@ -688,6 +854,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       description: string | null;
       source_info: string | null;
       details: string | null;
+      validity_days: number | null;
       is_active: boolean;
       is_required_default: boolean;
     }>(
@@ -698,6 +865,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description,
          source_info,
          details,
+         validity_days,
          is_active,
          is_required_default
        FROM compliance_documents_list
@@ -717,6 +885,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       description: string | null;
       source_info: string | null;
       details: string | null;
+      validity_days: number | null;
       is_active: boolean;
       is_required_default: boolean;
       created_at: string;
@@ -729,8 +898,9 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description = CASE WHEN $4::boolean THEN $5 ELSE description END,
          source_info = CASE WHEN $6::boolean THEN $7 ELSE source_info END,
          details = CASE WHEN $8::boolean THEN $9 ELSE details END,
-         is_active = COALESCE($10, is_active),
-         is_required_default = COALESCE($11, is_required_default),
+         validity_days = CASE WHEN $10::boolean THEN $11 ELSE validity_days END,
+         is_active = COALESCE($12, is_active),
+         is_required_default = COALESCE($13, is_required_default),
          updated_at = now()
        WHERE id = $1
        RETURNING
@@ -740,6 +910,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description,
          source_info,
          details,
+         validity_days,
          is_active,
          is_required_default,
          created_at::text,
@@ -754,6 +925,8 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
         input.sourceInfo ?? null,
         input.details !== undefined,
         input.details ?? null,
+        input.validityDays !== undefined,
+        input.validityDays ?? null,
         input.isActive ?? null,
         input.isRequiredDefault ?? null,
       ]
@@ -947,7 +1120,8 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
   await ensureSellerAssignments(sellerId);
   const docs = await getSellerDocuments(pool, sellerId);
   const optionalUploads = await getSellerOptionalUploads(pool, sellerId);
-  const profile = computeSellerComplianceProfile(docs.rows);
+  const currentDocs = filterCurrentDocuments(docs.rows);
+  const profile = computeSellerComplianceProfile(currentDocs);
 
   return res.json({
     data: {
@@ -967,7 +1141,7 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
         ...row,
         doc_type: row.code,
       })),
-      profileDocuments: docs.rows.map((row) => ({
+      profileDocuments: currentDocs.map((row) => ({
         id: row.id,
         seller_id: row.seller_id,
         doc_type: row.code,
@@ -1110,39 +1284,57 @@ adminComplianceRouter.patch("/:sellerId/doc-types/:docType", requireAuth("admin"
       return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
     }
 
-    const before = await client.query<{ is_required: boolean }>(
-      `SELECT is_required
+    const before = await client.query<{ id: string; is_required: boolean }>(
+      `SELECT id::text, is_required
        FROM seller_compliance_documents
        WHERE seller_id = $1
-         AND document_list_id = $2`,
+         AND document_list_id = $2
+         AND is_current = TRUE
+       FOR UPDATE`,
       [sellerId, list.rows[0].id]
     );
 
-    const upserted = await client.query<{ id: string; is_required: boolean }>(
-      `INSERT INTO seller_compliance_documents (
-         seller_id,
-         document_list_id,
-         is_required,
-         status,
-         created_at,
-         updated_at
-       )
-       VALUES ($1, $2, $3, 'requested', now(), now())
-       ON CONFLICT (seller_id, document_list_id)
-       DO UPDATE SET
-         is_required = EXCLUDED.is_required,
-         updated_at = now()
-       RETURNING id::text, is_required`,
-      [sellerId, list.rows[0].id, parsed.data.required]
-    );
+    let documentId = before.rows[0]?.id ?? null;
+    let required = parsed.data.required;
+    if (documentId) {
+      const updated = await client.query<{ id: string; is_required: boolean }>(
+        `UPDATE seller_compliance_documents
+         SET is_required = $3,
+             updated_at = now()
+         WHERE id = $1
+           AND seller_id = $2
+         RETURNING id::text, is_required`,
+        [documentId, sellerId, parsed.data.required]
+      );
+      documentId = updated.rows[0].id;
+      required = updated.rows[0].is_required;
+    } else {
+      const inserted = await client.query<{ id: string; is_required: boolean }>(
+        `INSERT INTO seller_compliance_documents (
+           seller_id,
+           document_list_id,
+           is_required,
+           status,
+           version,
+           is_current,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, 'requested', 1, TRUE, now(), now())
+         RETURNING id::text, is_required`,
+        [sellerId, list.rows[0].id, parsed.data.required]
+      );
+      documentId = inserted.rows[0].id;
+      required = inserted.rows[0].is_required;
+    }
 
     await writeAdminAudit(client, {
       actorAdminId: req.auth!.userId,
       action: "compliance_document_requirement_updated",
       entityType: "seller_compliance_documents",
-      entityId: upserted.rows[0].id,
+      entityId: documentId!,
       before: { required: before.rows[0]?.is_required ?? null, docType, sellerId },
-      after: { required: upserted.rows[0].is_required, docType, sellerId },
+      after: { required, docType, sellerId },
     });
 
     await client.query("COMMIT");
@@ -1150,7 +1342,7 @@ adminComplianceRouter.patch("/:sellerId/doc-types/:docType", requireAuth("admin"
       data: {
         sellerId,
         docType,
-        required: upserted.rows[0].is_required,
+        required,
       },
     });
   } catch {
@@ -1180,6 +1372,7 @@ adminComplianceRouter.post("/:sellerId/approve", requireAuth("admin"), async (re
          updated_at = now()
      WHERE seller_id = $1
        AND is_required = TRUE
+       AND is_current = TRUE
        AND status IN ('uploaded', 'requested', 'rejected')`,
     [sellerId, req.auth!.userId, parsed.data.reviewNotes ?? null]
   );
@@ -1204,6 +1397,7 @@ adminComplianceRouter.post("/:sellerId/reject", requireAuth("admin"), async (req
          updated_at = now()
      WHERE seller_id = $1
        AND is_required = TRUE
+       AND is_current = TRUE
        AND status IN ('uploaded', 'requested', 'approved')`,
     [sellerId, req.auth!.userId, parsed.data.reviewNotes]
   );
@@ -1228,7 +1422,8 @@ adminComplianceRouter.post("/:sellerId/request-changes", requireAuth("admin"), a
          reviewed_by_admin_id = NULL,
          updated_at = now()
      WHERE seller_id = $1
-       AND is_required = TRUE`,
+       AND is_required = TRUE
+       AND is_current = TRUE`,
     [sellerId, req.auth!.userId, parsed.data.reviewNotes ?? null]
   );
   return res.json({ data: { sellerId, updatedCount: result.rowCount ?? 0, status: "in_progress" } });

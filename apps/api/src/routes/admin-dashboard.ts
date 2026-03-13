@@ -25,6 +25,7 @@ adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_re
          SELECT seller_id
          FROM seller_compliance_documents
          WHERE is_required = TRUE
+           AND is_current = TRUE
            AND status = 'uploaded'
          GROUP BY seller_id
        ) q`

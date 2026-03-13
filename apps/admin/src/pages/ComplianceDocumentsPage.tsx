@@ -16,12 +16,14 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
   const [createDescription, setCreateDescription] = useState("");
   const [createSourceInfo, setCreateSourceInfo] = useState("");
   const [createDetails, setCreateDetails] = useState("");
+  const [createValidityDays, setCreateValidityDays] = useState("");
   const [createIsActive, setCreateIsActive] = useState(true);
   const [createIsRequiredDefault, setCreateIsRequiredDefault] = useState(true);
   const [editingRow, setEditingRow] = useState<ComplianceDocumentListRow | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editSourceInfo, setEditSourceInfo] = useState("");
   const [editDetails, setEditDetails] = useState("");
+  const [editValidityDays, setEditValidityDays] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
   const [editIsRequiredDefault, setEditIsRequiredDefault] = useState(true);
 
@@ -52,6 +54,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
     setCreateDescription("");
     setCreateSourceInfo("");
     setCreateDetails("");
+    setCreateValidityDays("");
     setCreateIsActive(true);
     setCreateIsRequiredDefault(true);
   }
@@ -62,8 +65,17 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
     setEditDescription("");
     setEditSourceInfo("");
     setEditDetails("");
+    setEditValidityDays("");
     setEditIsActive(true);
     setEditIsRequiredDefault(true);
+  }
+
+  function parseValidityDays(value: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed <= 0) return Number.NaN;
+    return parsed;
   }
 
   async function submitCreateForm(event: FormEvent<HTMLFormElement>) {
@@ -71,6 +83,11 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
     if (!isSuperAdmin || saving) return;
     if (!createCode.trim() || !createName.trim()) {
       setMessage(dict.complianceDocuments.validationRequired);
+      return;
+    }
+    const validityDays = parseValidityDays(createValidityDays);
+    if (Number.isNaN(validityDays)) {
+      setMessage(dict.complianceDocuments.validityDaysHint);
       return;
     }
 
@@ -83,6 +100,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
         description: createDescription.trim() || null,
         sourceInfo: createSourceInfo.trim() || null,
         details: createDetails.trim() || null,
+        validityDays,
         isActive: createIsActive,
         isRequiredDefault: createIsRequiredDefault,
       };
@@ -111,6 +129,12 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
 
     setSaving(true);
     setMessage(null);
+    const validityDays = parseValidityDays(editValidityDays);
+    if (Number.isNaN(validityDays)) {
+      setSaving(false);
+      setMessage(dict.complianceDocuments.validityDaysHint);
+      return;
+    }
     try {
       const response = await request(`/v1/admin/compliance/document-list/${editingRow.id}`, {
         method: "PATCH",
@@ -118,6 +142,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
           description: editDescription.trim() || null,
           sourceInfo: editSourceInfo.trim() || null,
           details: editDetails.trim() || null,
+          validityDays,
           isActive: editIsActive,
           isRequiredDefault: editIsRequiredDefault,
         }),
@@ -172,6 +197,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
     setEditDescription(row.description ?? "");
     setEditSourceInfo(row.source_info ?? "");
     setEditDetails(row.details ?? "");
+    setEditValidityDays(row.validity_days ? String(row.validity_days) : "");
     setEditIsActive(row.is_active);
     setEditIsRequiredDefault(row.is_required_default);
   }
@@ -236,6 +262,11 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
             <textarea value={createDetails} onChange={(event) => setCreateDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
           </label>
           <label>
+            {dict.complianceDocuments.validityDays}
+            <input value={createValidityDays} onChange={(event) => setCreateValidityDays(event.target.value)} inputMode="numeric" disabled={!isSuperAdmin || saving} />
+            <span className="panel-meta">{dict.complianceDocuments.validityDaysHint}</span>
+          </label>
+          <label>
             {dict.complianceDocuments.active}
             <select value={createIsActive ? "true" : "false"} onChange={(event) => setCreateIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
               <option value="true">{dict.common.active}</option>
@@ -282,6 +313,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
                 <th>{dict.complianceDocuments.description}</th>
                 <th>{dict.complianceDocuments.sourceInfo}</th>
                 <th>{dict.complianceDocuments.details}</th>
+                <th>{dict.complianceDocuments.validityDays}</th>
                 <th>{dict.complianceDocuments.active}</th>
                 <th>{dict.complianceDocuments.requiredDefault}</th>
                 <th>{dict.complianceDocuments.assignedCount}</th>
@@ -292,11 +324,11 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10}>{dict.common.loading}</td>
+                  <td colSpan={11}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>{dict.common.noRecords}</td>
+                  <td colSpan={11}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
@@ -306,6 +338,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
                     <td>{row.description ?? "-"}</td>
                     <td>{row.source_info ?? "-"}</td>
                     <td>{row.details ?? "-"}</td>
+                    <td>{row.validity_days ?? "-"}</td>
                     <td>{row.is_active ? dict.common.active : dict.common.disabled}</td>
                     <td>
                       <button className="ghost compliance-edit-btn" type="button" disabled={!isSuperAdmin || saving} onClick={() => void toggleRequiredDefault(row)}>
@@ -356,6 +389,11 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
               <label>
                 {dict.complianceDocuments.details}
                 <textarea value={editDetails} onChange={(event) => setEditDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.validityDays}
+                <input value={editValidityDays} onChange={(event) => setEditValidityDays(event.target.value)} inputMode="numeric" disabled={!isSuperAdmin || saving} />
+                <span className="panel-meta">{dict.complianceDocuments.validityDaysHint}</span>
               </label>
               <label>
                 {dict.complianceDocuments.active}

@@ -361,11 +361,21 @@ async function transitionHandler(
         rejected_count: string;
       }>(
         `SELECT
-           count(*) FILTER (WHERE is_required = TRUE)::text AS required_count,
-           count(*) FILTER (WHERE is_required = TRUE AND status = 'approved')::text AS approved_count,
-           count(*) FILTER (WHERE is_required = TRUE AND status = 'rejected')::text AS rejected_count
-         FROM seller_compliance_documents
-         WHERE seller_id = $1`,
+           count(*) FILTER (WHERE scd.is_required = TRUE)::text AS required_count,
+           count(*) FILTER (
+             WHERE scd.is_required = TRUE
+               AND scd.status = 'approved'
+               AND (
+                 cdl.validity_days IS NULL
+                 OR scd.uploaded_at IS NULL
+                 OR scd.uploaded_at + make_interval(days => cdl.validity_days) > now()
+               )
+           )::text AS approved_count,
+           count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'rejected')::text AS rejected_count
+         FROM seller_compliance_documents scd
+         JOIN compliance_documents_list cdl ON cdl.id = scd.document_list_id
+         WHERE scd.seller_id = $1
+           AND scd.is_current = TRUE`,
         [req.auth!.userId]
       );
       const requiredCount = Number(compliance.rows[0]?.required_count ?? "0");

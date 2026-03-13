@@ -1,4 +1,4 @@
-export type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "retention" | "security" | "notes" | "raw";
+export type SellerDetailTab = "general" | "foods" | "orders" | "wallet" | "identity" | "legal" | "security" | "notes" | "raw";
 
 export type SellerSmartFilterKey =
   | "login_anomaly"
@@ -36,8 +36,8 @@ export type SellerAddressRow = {
 };
 
 export type SellerComplianceStatus = "not_started" | "in_progress" | "under_review" | "approved" | "rejected";
-export type SellerComplianceDocumentStatus = "requested" | "uploaded" | "approved" | "rejected";
-export type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived";
+export type SellerComplianceDocumentStatus = "requested" | "uploaded" | "approved" | "rejected" | "expired";
+export type OptionalUploadStatus = "uploaded" | "approved" | "rejected" | "archived" | "expired";
 
 export type SellerCompliancePayload = {
   profile: {
@@ -68,6 +68,7 @@ export type SellerCompliancePayload = {
     description: string | null;
     source_info: string | null;
     details: string | null;
+    validity_days: number | null;
     is_required: boolean;
     is_active: boolean;
     doc_type: string;
@@ -75,7 +76,10 @@ export type SellerCompliancePayload = {
     status: SellerComplianceDocumentStatus;
     rejection_reason: string | null;
     notes: string | null;
+    version: number;
+    is_current: boolean;
     uploaded_at: string | null;
+    expires_at: string | null;
     reviewed_at: string | null;
     updated_at: string;
   }>;
@@ -101,6 +105,7 @@ export type SellerCompliancePayload = {
     reviewed_at: string | null;
     rejection_reason: string | null;
     created_at: string;
+    expires_at: string | null;
     updated_at: string;
   }>;
 };

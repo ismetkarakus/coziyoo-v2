@@ -78,6 +78,7 @@ export function profileBadgeFromStatus(
 export function sellerDocumentStatusLabel(status: SellerComplianceDocumentStatus, dict: Dictionary): string {
   if (status === "approved") return dict.detail.sellerStatus.approved;
   if (status === "rejected") return dict.detail.sellerStatus.rejected;
+  if (status === "expired") return dict.detail.sellerStatus.expired;
   if (status === "uploaded") return dict.detail.sellerStatus.uploaded;
   return dict.detail.sellerStatus.requested;
 }
@@ -85,6 +86,7 @@ export function sellerDocumentStatusLabel(status: SellerComplianceDocumentStatus
 export function sellerDocumentStatusTone(status: SellerComplianceDocumentStatus): ComplianceTone {
   if (status === "approved") return "success";
   if (status === "rejected") return "danger";
+  if (status === "expired") return "danger";
   if (status === "uploaded") return "warning";
   return "neutral";
 }
@@ -92,6 +94,7 @@ export function sellerDocumentStatusTone(status: SellerComplianceDocumentStatus)
 export function optionalUploadStatusLabel(status: OptionalUploadStatus, dict: Dictionary): string {
   if (status === "approved") return dict.detail.sellerStatus.approved;
   if (status === "rejected") return dict.detail.sellerStatus.rejected;
+  if (status === "expired") return dict.detail.sellerStatus.expired;
   if (status === "uploaded") return dict.detail.sellerStatus.uploaded;
   return dict.detail.optionalArchived;
 }
@@ -99,6 +102,7 @@ export function optionalUploadStatusLabel(status: OptionalUploadStatus, dict: Di
 export function optionalUploadStatusTone(status: OptionalUploadStatus): ComplianceTone {
   if (status === "approved") return "success";
   if (status === "rejected") return "danger";
+  if (status === "expired") return "danger";
   if (status === "uploaded") return "warning";
   return "neutral";
 }
@@ -122,7 +126,7 @@ export function mapComplianceRows(
   dict: Dictionary,
   language: Language
 ): ComplianceRowViewModel[] {
-  const docs = payload?.documents ?? [];
+  const docs = (payload?.documents ?? []).filter((item) => item.is_current);
   const checks = payload?.checks ?? [];
 
   const docByKey = new Map<ComplianceRowKey, ComplianceSource>();

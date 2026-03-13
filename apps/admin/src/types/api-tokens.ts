@@ -33,6 +33,7 @@ export type ComplianceDocumentListRow = {
   description: string | null;
   source_info: string | null;
   details: string | null;
+  validity_days: number | null;
   is_active: boolean;
   is_required_default: boolean;
   seller_assignment_count: string;

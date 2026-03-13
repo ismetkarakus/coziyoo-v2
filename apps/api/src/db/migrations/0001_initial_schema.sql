@@ -73,6 +73,8 @@ BEGIN
       document_list_id,
       is_required,
       status,
+      version,
+      is_current,
       created_at,
       updated_at
     )
@@ -81,11 +83,19 @@ BEGIN
       cdl.id,
       cdl.is_required_default,
       'requested',
+      1,
+      TRUE,
       now(),
       now()
     FROM compliance_documents_list cdl
     WHERE cdl.is_active = TRUE
-    ON CONFLICT (seller_id, document_list_id) DO NOTHING;
+      AND NOT EXISTS (
+        SELECT 1
+        FROM seller_compliance_documents scd
+        WHERE scd.seller_id = NEW.id
+          AND scd.document_list_id = cdl.id
+          AND scd.is_current = TRUE
+      );
   END IF;
 
   RETURN NEW;
@@ -388,10 +398,12 @@ CREATE TABLE public.compliance_documents_list (
     description text,
     source_info text,
     details text,
+    validity_days integer,
     is_active boolean DEFAULT true NOT NULL,
     is_required_default boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT compliance_documents_list_validity_days_check CHECK (((validity_days IS NULL) OR (validity_days > 0)))
 );
 
 
@@ -816,9 +828,12 @@ CREATE TABLE public.seller_compliance_documents (
     reviewed_by_admin_id uuid,
     rejection_reason text,
     notes text,
+    version integer DEFAULT 1 NOT NULL,
+    is_current boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT seller_compliance_documents_status_check CHECK ((status = ANY (ARRAY['requested'::text, 'uploaded'::text, 'approved'::text, 'rejected'::text])))
+    CONSTRAINT seller_compliance_documents_status_check CHECK ((status = ANY (ARRAY['requested'::text, 'uploaded'::text, 'approved'::text, 'rejected'::text, 'expired'::text]))),
+    CONSTRAINT seller_compliance_documents_version_check CHECK ((version > 0))
 );
 
 
@@ -840,7 +855,7 @@ CREATE TABLE public.seller_optional_uploads (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT seller_optional_uploads_check CHECK (((document_list_id IS NOT NULL) OR ((custom_title IS NOT NULL) AND (length(TRIM(BOTH FROM custom_title)) > 0)))),
-    CONSTRAINT seller_optional_uploads_status_check CHECK ((status = ANY (ARRAY['uploaded'::text, 'approved'::text, 'rejected'::text, 'archived'::text])))
+    CONSTRAINT seller_optional_uploads_status_check CHECK ((status = ANY (ARRAY['uploaded'::text, 'approved'::text, 'rejected'::text, 'archived'::text, 'expired'::text])))
 );
 
 
@@ -1411,14 +1426,6 @@ ALTER TABLE ONLY public.seller_compliance_documents
 
 
 --
--- Name: seller_compliance_documents seller_compliance_documents_seller_id_document_list_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.seller_compliance_documents
-    ADD CONSTRAINT seller_compliance_documents_seller_id_document_list_id_key UNIQUE (seller_id, document_list_id);
-
-
---
 -- Name: seller_optional_uploads seller_optional_uploads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1706,6 +1713,13 @@ CREATE INDEX idx_seller_compliance_documents_list_id ON public.seller_compliance
 --
 
 CREATE INDEX idx_seller_compliance_documents_seller ON public.seller_compliance_documents USING btree (seller_id);
+
+
+--
+-- Name: idx_seller_compliance_documents_seller_document_current; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_seller_compliance_documents_seller_document_current ON public.seller_compliance_documents USING btree (seller_id, document_list_id) WHERE (is_current = true);
 
 
 --

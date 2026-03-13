@@ -255,35 +255,99 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
     complianceDocTypesActive = activeComplianceTypes.rowCount ?? 0;
 
     for (const type of activeComplianceTypes.rows) {
-      const upserted = await client.query(
-        `INSERT INTO seller_compliance_documents (
-           seller_id,
-           document_list_id,
-           is_required,
-           status,
-           file_url,
-           uploaded_at,
-           reviewed_at,
-           reviewed_by_admin_id,
-           rejection_reason,
-           notes,
-           created_at,
-           updated_at
-         )
-         VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', now(), now())
-         ON CONFLICT (seller_id, document_list_id)
-         DO UPDATE SET
-           is_required = EXCLUDED.is_required,
-           status = 'uploaded',
-           file_url = EXCLUDED.file_url,
-           uploaded_at = now(),
-           reviewed_at = NULL,
-           reviewed_by_admin_id = NULL,
-           rejection_reason = NULL,
-           notes = 'admin_demo_seed',
-           updated_at = now()`,
-        [sellerId, type.id, type.is_required_default, demoComplianceFileUrl(type.code)]
+      const current = await client.query<{
+        id: string;
+        version: number;
+        is_required: boolean;
+        file_url: string | null;
+        uploaded_at: string | null;
+        status: string;
+      }>(
+        `SELECT id::text, version, is_required, file_url, uploaded_at::text, status
+         FROM seller_compliance_documents
+         WHERE seller_id = $1
+           AND document_list_id = $2
+           AND is_current = TRUE
+         FOR UPDATE`,
+        [sellerId, type.id]
       );
+      const demoUrl = demoComplianceFileUrl(type.code);
+      let upserted;
+      if ((current.rowCount ?? 0) === 0) {
+        upserted = await client.query(
+          `INSERT INTO seller_compliance_documents (
+             seller_id,
+             document_list_id,
+             is_required,
+             status,
+             file_url,
+             uploaded_at,
+             reviewed_at,
+             reviewed_by_admin_id,
+             rejection_reason,
+             notes,
+             version,
+             is_current,
+             created_at,
+             updated_at
+           )
+           VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', 1, TRUE, now(), now())`,
+          [sellerId, type.id, type.is_required_default, demoUrl]
+        );
+      } else {
+        const row = current.rows[0];
+        const canReuseCurrentVersion =
+          row.version === 1 &&
+          row.file_url === null &&
+          row.uploaded_at === null &&
+          row.status === "requested";
+        if (canReuseCurrentVersion) {
+          upserted = await client.query(
+            `UPDATE seller_compliance_documents
+             SET
+               is_required = $3,
+               status = 'uploaded',
+               file_url = $4,
+               uploaded_at = now(),
+               reviewed_at = NULL,
+               reviewed_by_admin_id = NULL,
+               rejection_reason = NULL,
+               notes = 'admin_demo_seed',
+               updated_at = now()
+             WHERE id = $1
+               AND seller_id = $2`,
+            [row.id, sellerId, type.is_required_default, demoUrl]
+          );
+        } else {
+          await client.query(
+            `UPDATE seller_compliance_documents
+             SET is_current = FALSE,
+                 updated_at = now()
+             WHERE id = $1`,
+            [row.id]
+          );
+          upserted = await client.query(
+            `INSERT INTO seller_compliance_documents (
+               seller_id,
+               document_list_id,
+               is_required,
+               status,
+               file_url,
+               uploaded_at,
+               reviewed_at,
+               reviewed_by_admin_id,
+               rejection_reason,
+               notes,
+               version,
+               is_current,
+               created_at,
+               updated_at
+             )
+             VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', $5, TRUE, now(), now())`,
+            [sellerId, type.id, type.is_required_default, demoUrl, row.version + 1]
+          );
+        }
+      }
       complianceDocsUpserted += upserted.rowCount ?? 0;
     }
 
