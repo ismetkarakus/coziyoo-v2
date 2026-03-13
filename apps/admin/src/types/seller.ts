@@ -123,6 +123,9 @@ export type ComplianceRowViewModel = {
   detailText: string;
   isOptional?: boolean;
   sourceType: "document" | "check" | "fallback";
+  sourceDocumentId?: string | null;
+  sourceFileUrl?: string | null;
+  sourceDocumentStatus?: SellerComplianceDocumentStatus | null;
 };
 
 export type ComplianceSource = {

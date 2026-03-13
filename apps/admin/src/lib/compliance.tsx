@@ -126,6 +126,7 @@ export function mapComplianceRows(
   const checks = payload?.checks ?? [];
 
   const docByKey = new Map<ComplianceRowKey, ComplianceSource>();
+  const docMetaByKey = new Map<ComplianceRowKey, { id: string; fileUrl: string | null; status: SellerComplianceDocumentStatus }>();
   const checkByKey = new Map<ComplianceRowKey, ComplianceSource>();
 
   const keyMatchers: Array<{ key: ComplianceRowKey; tokens: string[] }> = [
@@ -171,7 +172,15 @@ export function mapComplianceRows(
       uploadedAt: doc.uploaded_at,
       updatedAt: null,
     };
-    docByKey.set(rowKey, pickNewerSource(docByKey.get(rowKey), nextSource));
+    const chosen = pickNewerSource(docByKey.get(rowKey), nextSource);
+    docByKey.set(rowKey, chosen);
+    if (chosen === nextSource) {
+      docMetaByKey.set(rowKey, {
+        id: doc.id,
+        fileUrl: doc.file_url,
+        status: doc.status,
+      });
+    }
   }
 
   for (const check of checks) {
@@ -227,6 +236,7 @@ export function mapComplianceRows(
     const dateText = formatUiDate(date, language);
     const phoneText = meta.key === "phoneVerification" ? maskPhone(source?.phoneValue ?? null) : null;
     const detailText = phoneText && phoneText !== "-" ? `${statusLabel} • ${phoneText}` : dateText !== "-" ? `${statusLabel} • ${dateText}` : statusLabel;
+    const docMeta = docMetaByKey.get(meta.key);
     return {
       key: meta.key,
       label: meta.label,
@@ -235,6 +245,9 @@ export function mapComplianceRows(
       detailText,
       isOptional: meta.optional,
       sourceType,
+      sourceDocumentId: docMeta?.id ?? null,
+      sourceFileUrl: docMeta?.fileUrl ?? null,
+      sourceDocumentStatus: docMeta?.status ?? null,
     };
   });
 }

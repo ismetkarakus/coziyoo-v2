@@ -21,9 +21,37 @@ import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
-import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow, SellerComplianceStatus } from "../../types/seller";
+import type {
+  SellerFoodRow,
+  SellerCompliancePayload,
+  SellerAddressRow,
+  SellerComplianceStatus,
+  ComplianceRowKey,
+  ComplianceTone,
+  SellerComplianceDocumentStatus,
+} from "../../types/seller";
 import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerPagination } from "../../types/buyer";
+
+type TempComplianceUpload = {
+  key: ComplianceRowKey;
+  fileName: string;
+  fileUrl: string;
+  uploadedAt: string;
+  status: SellerComplianceDocumentStatus;
+  rejectionReason: string | null;
+};
+
+type SellerPreviewTarget = {
+  title: string;
+  url: string;
+  key?: ComplianceRowKey;
+  documentId?: string | null;
+  status: SellerComplianceDocumentStatus;
+  tone: ComplianceTone;
+  detailText?: string;
+  isTemporary?: boolean;
+};
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const location = useLocation();
@@ -39,6 +67,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [addressHistoryOpen, setAddressHistoryOpen] = useState(false);
   const [identityViewerOpen, setIdentityViewerOpen] = useState(false);
   const [identityViewerUrl, setIdentityViewerUrl] = useState<string | null>(null);
+  const [tempComplianceUploads, setTempComplianceUploads] = useState<Record<string, TempComplianceUpload>>({});
+  const [previewTarget, setPreviewTarget] = useState<SellerPreviewTarget | null>(null);
   const [sellerOrders, setSellerOrders] = useState<
     Array<{
       orderId: string;
@@ -93,6 +123,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [pinnedLotId, setPinnedLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
+  const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingUploadKey, setPendingUploadKey] = useState<ComplianceRowKey | null>(null);
   const spiceHints = useMemo(() => ([
     "karabiber", "pul biber", "kimyon", "nane", "kekik", "isot", "paprika", "sumak", "tarcin", "yenibahar", "zerdecal",
   ]), []);
@@ -250,7 +282,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setAddressHistoryOpen(false);
     setIdentityViewerOpen(false);
     setIdentityViewerUrl(null);
+    setPreviewTarget(null);
+    setPendingUploadKey(null);
+    setTempComplianceUploads((prev) => {
+      Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
+      return {};
+    });
   }, [id]);
+
+  useEffect(() => () => {
+    Object.values(tempComplianceUploads).forEach((item) => URL.revokeObjectURL(item.fileUrl));
+  }, [tempComplianceUploads]);
 
   useEffect(() => {
     if (addressDirty) return;
@@ -589,6 +631,22 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
 
   const legalRows = mapComplianceRows(compliance, dict, language);
+  const displayLegalRows = legalRows.map((item) => {
+    const tempUpload = tempComplianceUploads[item.key];
+    if (!tempUpload) return item;
+    const tone = sellerDocumentStatusTone(tempUpload.status);
+    const statusLabel = sellerDocumentStatusLabel(tempUpload.status, dict);
+    return {
+      ...item,
+      tone,
+      statusLabel,
+      detailText: `${statusLabel} • ${formatUiDate(tempUpload.uploadedAt, language)}`,
+      sourceType: "document" as const,
+      sourceDocumentId: null,
+      sourceFileUrl: tempUpload.fileUrl,
+      sourceDocumentStatus: tempUpload.status,
+    };
+  });
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
   const legalDocuments = [...(compliance?.documents ?? [])].sort((a, b) => {
     const rankDiff = knownDocumentCodeRank(a.code) - knownDocumentCodeRank(b.code);
@@ -637,6 +695,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const selectedIdentityDocument =
     identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
   const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
+  const previewTargetIsPdf = /\.pdf(?:$|\?)/i.test(String(previewTarget?.url ?? ""));
   const legalSaving = legalSavingKey !== null;
   const isSavingDoc = (docId: string) => legalSavingKey === `doc:${docId}`;
   const isSavingOptional = (uploadId: string) => legalSavingKey === `optional:${uploadId}`;
@@ -794,6 +853,119 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setMessage(dict.detail.requestFailed);
     } finally {
       setLegalSavingKey(null);
+    }
+  }
+
+  function openCompliancePreview(row: (typeof displayLegalRows)[number]) {
+    const fileUrl = row.sourceFileUrl ?? null;
+    if (!fileUrl) return;
+    setPreviewTarget({
+      title: row.label,
+      url: fileUrl,
+      key: row.key,
+      documentId: row.sourceDocumentId,
+      status: row.sourceDocumentStatus ?? "uploaded",
+      tone: row.tone,
+      detailText: row.detailText,
+      isTemporary: !row.sourceDocumentId,
+    });
+  }
+
+  function triggerComplianceUpload(key: ComplianceRowKey) {
+    setPendingUploadKey(key);
+    complianceUploadInputRef.current?.click();
+  }
+
+  function handleComplianceFileChange(event: FormEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file || !pendingUploadKey) {
+      input.value = "";
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+    setTempComplianceUploads((prev) => {
+      const current = prev[pendingUploadKey];
+      if (current) URL.revokeObjectURL(current.fileUrl);
+      return {
+        ...prev,
+        [pendingUploadKey]: {
+          key: pendingUploadKey,
+          fileName: file.name,
+          fileUrl: nextUrl,
+          uploadedAt: new Date().toISOString(),
+          status: "uploaded",
+          rejectionReason: null,
+        },
+      };
+    });
+    setPreviewTarget({
+      title: file.name,
+      url: nextUrl,
+      key: pendingUploadKey,
+      documentId: null,
+      status: "uploaded",
+      tone: sellerDocumentStatusTone("uploaded"),
+      detailText: `${sellerDocumentStatusLabel("uploaded", dict)} • ${formatUiDate(new Date().toISOString(), language)}`,
+      isTemporary: true,
+    });
+    setPendingUploadKey(null);
+    input.value = "";
+  }
+
+  function closePreviewTarget() {
+    setPreviewTarget(null);
+  }
+
+  async function acceptPreviewTarget() {
+    if (!previewTarget) return;
+    if (previewTarget.documentId) {
+      await updateDocumentStatus(previewTarget.documentId, "approved");
+      setPreviewTarget((prev) => (prev ? { ...prev, status: "approved", tone: sellerDocumentStatusTone("approved") } : prev));
+      return;
+    }
+    if (previewTarget.key) {
+      setTempComplianceUploads((prev) => {
+        const current = prev[previewTarget.key!];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [previewTarget.key!]: {
+            ...current,
+            status: "approved",
+            rejectionReason: null,
+          },
+        };
+      });
+      setPreviewTarget((prev) => (prev ? { ...prev, status: "approved", tone: sellerDocumentStatusTone("approved") } : prev));
+      setMessage(dict.common.saved);
+    }
+  }
+
+  async function rejectPreviewTarget() {
+    if (!previewTarget) return;
+    if (previewTarget.documentId) {
+      setRejectTargetId(previewTarget.documentId);
+      setRejectReason("");
+      setPreviewTarget(null);
+      return;
+    }
+    if (previewTarget.key) {
+      setTempComplianceUploads((prev) => {
+        const current = prev[previewTarget.key!];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [previewTarget.key!]: {
+            ...current,
+            status: "rejected",
+            rejectionReason: language === "tr" ? "Geçici red" : "Temporary rejection",
+          },
+        };
+      });
+      setPreviewTarget((prev) => (prev ? { ...prev, status: "rejected", tone: sellerDocumentStatusTone("rejected") } : prev));
+      setMessage(dict.common.saved);
     }
   }
 
@@ -1302,8 +1474,48 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </div>
       ) : null}
 
+      {previewTarget ? (
+        <div className="buyer-ops-modal-backdrop" onClick={closePreviewTarget}>
+          <div className="buyer-ops-modal seller-doc-viewer-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{language === "tr" ? "Belge Ön İzleme" : "Document Preview"}</h3>
+            <div className="seller-doc-preview-meta">
+              <strong>{previewTarget.title}</strong>
+              <span className={`status-pill compliance-status-pill is-${previewTarget.tone}`}>
+                {sellerDocumentStatusLabel(previewTarget.status, dict)}
+              </span>
+            </div>
+            {previewTarget.detailText ? <p className="panel-meta">{previewTarget.detailText}</p> : null}
+            <div className="seller-doc-viewer-preview seller-doc-preview-single">
+              {previewTargetIsPdf ? (
+                <iframe src={previewTarget.url} title={previewTarget.title} />
+              ) : (
+                <img src={previewTarget.url} alt={previewTarget.title} />
+              )}
+            </div>
+            <div className="buyer-ops-modal-actions">
+              <a className="ghost" href={previewTarget.url} target="_blank" rel="noreferrer">
+                {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
+              </a>
+              <button className="ghost" type="button" disabled={legalSaving} onClick={() => void rejectPreviewTarget()}>
+                {dict.detail.legalReject}
+              </button>
+              <button className="primary" type="button" disabled={legalSaving} onClick={() => void acceptPreviewTarget()}>
+                {dict.detail.legalApprove}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {activeTab === "identity" ? (
         <section className="panel seller-identity-compliance">
+            <input
+              ref={complianceUploadInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              hidden
+              onChange={handleComplianceFileChange}
+            />
             <div className="seller-compliance-header">
               <div className="seller-compliance-title">
                 <span className="seller-compliance-flag" aria-hidden="true">🇹🇷</span>
@@ -1312,16 +1524,32 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <span className={`status-pill compliance-status-pill is-${profileBadge.tone}`}>{profileBadge.label}</span>
             </div>
             <div className="seller-compliance-list">
-              {legalRows.map((item) => (
+              {displayLegalRows.map((item) => (
                 <article className="seller-compliance-row" key={`identity-${item.key}`}>
                   <span className={`compliance-icon is-${item.tone}`} aria-hidden="true" />
                   <div>
                     <strong>{item.label}</strong>
                     <p className="panel-meta">{item.detailText}</p>
                   </div>
-                  <button className="ghost" type="button" onClick={() => setActiveTab("legal")}>
-                    {language === "tr" ? "Duzenle" : "Edit"}
-                  </button>
+                  <div className="legal-doc-actions">
+                    <button className="ghost compliance-edit-btn" type="button" onClick={() => triggerComplianceUpload(item.key)}>
+                      {language === "tr" ? "Yükle" : "Upload"}
+                    </button>
+                    <button
+                      className="ghost compliance-edit-btn compliance-preview-btn"
+                      type="button"
+                      disabled={!item.sourceFileUrl}
+                      onClick={() => openCompliancePreview(item)}
+                    >
+                      <span className="compliance-preview-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" strokeWidth="1.8" />
+                          <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+                        </svg>
+                      </span>
+                      <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
