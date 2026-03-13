@@ -38,6 +38,7 @@ from .config.settings import get_settings
 logger = logging.getLogger("coziyoo-voice-agent")
 llm_request_logger = logging.getLogger("coziyoo-voice-agent.requests.llm")
 n8n_request_logger = logging.getLogger("coziyoo-voice-agent.requests.n8n")
+session_request_logger = logging.getLogger("coziyoo-voice-agent.requests.session")
 settings = get_settings()
 
 worker_heartbeat_file = Path(
@@ -178,6 +179,7 @@ def _configure_logging() -> None:
         "coziyoo-voice-agent.requests.n8n",
         "coziyoo-voice-agent.requests.stt",
         "coziyoo-voice-agent.requests.tts",
+        "coziyoo-voice-agent.requests.session",
     ):
         request_log = logging.getLogger(logger_name)
         request_log.setLevel(request_level)
@@ -1063,6 +1065,11 @@ async def entrypoint(ctx: JobContext) -> None:
         providers.get("llm", {}).get("baseUrl", "?"),
         providers.get("tts", {}).get("baseUrl", "?"),
     )
+    session_request_logger.info(
+        "session connect room=%s",
+        ctx.room.name,
+        extra={"room_id": ctx.room.name, "job_id": str(getattr(ctx.job, "id", "") or "")},
+    )
 
     # Track room disconnect so we can report session end regardless of how start() behaves
     disconnect_fut: asyncio.Future[None] = asyncio.get_event_loop().create_future()
@@ -1091,7 +1098,7 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=llm_instance,
         tts=tts_instance,
         vad=ctx.proc.userdata["vad"],
-        turn_detector=_load_turn_detector(),
+        turn_detection=_load_turn_detector(),
         allow_interruptions=True,
         min_interruption_duration=0.5,
         preemptive_generation=True,
@@ -1110,6 +1117,11 @@ async def entrypoint(ctx: JobContext) -> None:
         await disconnect_fut
 
     ended_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    session_request_logger.info(
+        "session disconnect room=%s",
+        ctx.room.name,
+        extra={"room_id": ctx.room.name, "job_id": str(getattr(ctx.job, "id", "") or "")},
+    )
     await _notify_session_end(
         room_name=ctx.room.name,
         started_at=started_at,
