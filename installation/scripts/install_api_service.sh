@@ -46,9 +46,7 @@ log "Installing API dependencies and building in ${API_DIR_ABS}"
   npm run build
 )
 
-# Run database migrations
-log "Running database migrations"
-bash "${SCRIPT_DIR}/db-migrate.sh"
+log "Skipping database migration step in install script (database managed externally)"
 
 # Create/restart systemd service
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"

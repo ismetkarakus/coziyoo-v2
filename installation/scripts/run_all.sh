@@ -10,7 +10,7 @@ ACTION="${1:-}"
 SERVICE="${2:-}"
 
 if [[ -z "${ACTION}" ]]; then
-  echo "Usage: $0 <start|stop|restart|status|logs> [api|admin|voice-agent-api|voice-agent-worker|postgres]"
+  echo "Usage: $0 <start|stop|restart|status|logs> [api|admin|voice-agent-api|voice-agent-worker]"
   exit 1
 fi
 
@@ -18,7 +18,6 @@ api_service="${API_SERVICE_NAME:-coziyoo-api}"
 admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
 voice_agent_api_service="${VOICE_AGENT_API_SERVICE_NAME:-coziyoo-voice-agent-api}"
 voice_agent_worker_service="${VOICE_AGENT_WORKER_SERVICE_NAME:-coziyoo-voice-agent-worker}"
-postgres_service="${POSTGRES_SERVICE_NAME:-postgresql}"
 
 service_for_name() {
   case "$1" in
@@ -26,7 +25,6 @@ service_for_name() {
     admin) echo "${admin_service}" ;;
     voice-agent-api) echo "${voice_agent_api_service}" ;;
     voice-agent-worker) echo "${voice_agent_worker_service}" ;;
-    postgres) echo "${postgres_service}" ;;
     *) fail "Unknown service name: $1" ;;
   esac
 }
@@ -56,7 +54,6 @@ else
   run_on_service admin
   run_on_service voice-agent-api
   run_on_service voice-agent-worker
-  run_on_service postgres
 fi
 
 log "Action ${ACTION} finished"

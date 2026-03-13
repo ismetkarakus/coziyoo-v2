@@ -2,14 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Preserve runtime override passed from caller before config load.
-RUNTIME_RUN_DB_MIGRATIONS_ON_UPDATE="${RUN_DB_MIGRATIONS_ON_UPDATE:-}"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 load_config
-if [[ -n "${RUNTIME_RUN_DB_MIGRATIONS_ON_UPDATE}" ]]; then
-  RUN_DB_MIGRATIONS_ON_UPDATE="${RUNTIME_RUN_DB_MIGRATIONS_ON_UPDATE}"
-fi
 
 API_DIR_ABS="$(resolve_path "${API_DIR:-apps/api}")"
 SERVICE_NAME="${API_SERVICE_NAME:-coziyoo-api}"
@@ -61,14 +56,7 @@ maybe_git_update "${REPO_ROOT}"
   npm run build
 )
 
-# Run database migrations on updates by default (idempotent).
-# Set RUN_DB_MIGRATIONS_ON_UPDATE=false to disable.
-if [[ "${RUN_DB_MIGRATIONS_ON_UPDATE:-true}" == "true" ]]; then
-  log "Running database migrations during API update"
-  bash "${SCRIPT_DIR}/db-migrate.sh"
-else
-  log "Skipping DB migrations during API update (RUN_DB_MIGRATIONS_ON_UPDATE=false)"
-fi
+log "Skipping database migration step in deploy script (database managed externally)"
 
 service_action restart "${SERVICE_NAME}"
 log "API updated"
