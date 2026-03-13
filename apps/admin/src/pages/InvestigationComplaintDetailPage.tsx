@@ -61,6 +61,16 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     return "Closed";
   };
 
+  const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
+  const complainantLabel = detail
+    ? `${detail.complainantBuyerName}${detail.complainantBuyerEmail ? ` (${detail.complainantBuyerEmail})` : ""}`
+    : "";
+  const complainedAgainstLabel = detail
+    ? `${detail.sellerName}${detail.sellerEmail ? ` (${detail.sellerEmail})` : ""}`
+    : "";
+  const categoryLabel = detail?.categoryName ?? (language === "tr" ? "Kategori yok" : "No category");
+  const subjectLabel = detail?.subject ?? "-";
+
   async function loadData() {
     setLoading(true);
     setError(null);
@@ -147,7 +157,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     <div className="app investigation-page">
       <header className="topbar">
         <div>
-          <h1>{language === "tr" ? "Şikayet Detay" : "Complaint Detail"}</h1>
+          <h1>{language === "tr" ? "Şikayet Detayı" : "Complaint Detail"}</h1>
           <p className="subtext">{language === "tr" ? "Şikayetin tüm detaylarını inceleyin." : "Inspect all complaint details."}</p>
         </div>
       </header>
@@ -158,59 +168,91 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
         {detail ? (
           <>
-            <div className="form-grid">
-              <label>
-                {language === "tr" ? "Şikayet ID" : "Complaint ID"}
-                <input value={detail.id} readOnly />
-              </label>
-              <label>
-                {language === "tr" ? "Sipariş Numarası" : "Order No"}
-                <input value={detail.orderNo} readOnly />
-              </label>
-              <label>
-                {language === "tr" ? "Şikayetçi" : "Complainant"}
-                <input value={`${detail.complainantBuyerName}${detail.complainantBuyerEmail ? ` (${detail.complainantBuyerEmail})` : ""}`} readOnly />
-              </label>
-              <label>
-                {language === "tr" ? "Şikayet Edilen" : "Complained Against"}
-                <input value={`${detail.sellerName}${detail.sellerEmail ? ` (${detail.sellerEmail})` : ""}`} readOnly />
-              </label>
-              <label>
-                {language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}
-                <input value={detail.categoryName ?? "-"} readOnly />
-              </label>
-              <label>
-                {language === "tr" ? "Konu" : "Subject"}
-                <input value={detail.subject} readOnly />
-              </label>
-              <label>
-                {language === "tr" ? "Sebep / Açıklama" : "Reason / Description"}
-                <textarea value={detail.description ?? "-"} readOnly rows={3} />
-              </label>
-              <label>
-                {language === "tr" ? "Şikayet Tarihi" : "Complaint Date"}
-                <input value={new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")} readOnly />
-              </label>
-            </div>
+            <div className="complaint-detail-card">
+              <div className="complaint-status-strip">
+                <div className="complaint-status-strip-label">{language === "tr" ? "Şikayet Durumu" : "Complaint Status"}</div>
+                <div className="complaint-status-strip-options">
+                  {(["open", "in_review", "resolved", "closed"] as ComplaintStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      className={`complaint-status-tab ${detail.status === status ? "is-active" : ""}`}
+                      type="button"
+                      disabled={savingStatus}
+                      onClick={() => void updateStatus(status)}
+                    >
+                      {status === "in_review" && detail.status === status ? (
+                        <span className="complaint-status-tab-icon" aria-hidden="true">
+                          <svg viewBox="0 0 20 20" fill="none" role="presentation">
+                            <path d="M6.3 10h7.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <path d="M9.2 7.2L6.2 10l3 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M13.2 8.1v3.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                      ) : null}
+                      <span>{statusText(status)}</span>
+                      {detail.status === status ? (
+                        <span className="complaint-status-tab-caret" aria-hidden="true">
+                          <svg viewBox="0 0 20 20" fill="none" role="presentation">
+                            <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <div style={{ marginTop: 12 }}>
-              <p className="panel-meta">{language === "tr" ? "Şikayet Durumu" : "Complaint Status"}</p>
-              <div className="topbar-actions">
-                {(["open", "in_review", "resolved", "closed"] as ComplaintStatus[]).map((status) => (
-                  <button
-                    key={status}
-                    className={detail.status === status ? "primary" : "ghost"}
-                    type="button"
-                    disabled={savingStatus}
-                    onClick={() => void updateStatus(status)}
-                  >
-                    {statusText(status)}
-                  </button>
-                ))}
+              <div className="complaint-detail-grid">
+                <div className="complaint-detail-field">
+                  <span className="complaint-detail-label">{language === "tr" ? "Şikayet ID" : "Complaint ID"}</span>
+                  <strong className="complaint-detail-value">{detail.id}</strong>
+                </div>
+                <div className="complaint-detail-field">
+                  <span className="complaint-detail-label">{language === "tr" ? "Şikayet Tarihi" : "Complaint Date"}</span>
+                  <strong className="complaint-detail-value">{complaintDate}</strong>
+                </div>
+                <div className="complaint-detail-field complaint-detail-field--wide">
+                  <span className="complaint-detail-label">{language === "tr" ? "Şikayetçi" : "Complainant"}</span>
+                  <strong className="complaint-detail-value">{complainantLabel}</strong>
+                </div>
+                <div className="complaint-detail-field complaint-detail-field--wide">
+                  <span className="complaint-detail-label">{language === "tr" ? "Şikayet Edilen" : "Complained Against"}</span>
+                  <strong className="complaint-detail-value">{complainedAgainstLabel}</strong>
+                </div>
+              </div>
+
+              <div className="complaint-detail-divider" />
+
+              <div className="complaint-tree">
+                <div className="complaint-tree-heading">{language === "tr" ? "Şikayetler" : "Complaints"}</div>
+                <div className="complaint-tree-node complaint-tree-node--category">
+                  <span className="complaint-tree-branch" aria-hidden="true" />
+                  <span className="complaint-tree-folder" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                      <path d="M3.5 7.5a2 2 0 0 1 2-2h4l1.6 1.8h7.4a2 2 0 0 1 2 2V16a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="complaint-tree-text">{categoryLabel}</span>
+                </div>
+                <div className="complaint-tree-node complaint-tree-node--subject">
+                  <span className="complaint-tree-branch complaint-tree-branch--last" aria-hidden="true" />
+                  <span className="complaint-tree-file" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                      <path d="M7 3.8h6.6l3.4 3.4V20.2H7V3.8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M13.6 3.8v3.4H17" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="complaint-tree-text">{subjectLabel}</span>
+                </div>
+              </div>
+
+              <div className="complaint-description-card">
+                <span className="complaint-detail-label">{language === "tr" ? "Sebep / Açıklama" : "Reason / Description"}</span>
+                <p>{detail.description ?? "-"}</p>
               </div>
             </div>
 
-            <div style={{ marginTop: 12 }}>
+            <div className="complaint-notes-card">
               <p className="panel-meta">{language === "tr" ? "Notlar" : "Notes"}</p>
               <label>
                 {language === "tr" ? "Yeni Not" : "New Note"}

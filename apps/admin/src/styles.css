@@ -7024,6 +7024,193 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   color: #d5ddf0;
 }
 
+.complaint-detail-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 22px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, #2f3d66 18%, transparent), transparent 52%),
+    linear-gradient(180deg, color-mix(in srgb, #1a2238 92%, var(--color-card-bg)), color-mix(in srgb, #141b2f 96%, var(--color-card-bg)));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.complaint-status-strip {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 20px;
+  overflow: hidden;
+  background: color-mix(in srgb, #1f273b 82%, var(--color-card-bg));
+}
+
+.complaint-status-strip-label {
+  display: flex;
+  align-items: center;
+  padding: 20px 28px;
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  font-weight: var(--font-semibold);
+  color: #93a0bf;
+}
+
+.complaint-status-strip-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.complaint-status-tab {
+  min-height: 96px;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 64%, transparent);
+  background: transparent;
+  color: #a6b0c9;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: var(--font-semibold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.complaint-status-tab.is-active {
+  color: #f5f8ff;
+  background: linear-gradient(180deg, #3f84ff, #3271ea);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.complaint-status-tab:disabled {
+  opacity: 0.9;
+}
+
+.complaint-status-tab-icon,
+.complaint-status-tab-caret {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+
+.complaint-status-tab-icon svg,
+.complaint-status-tab-caret svg {
+  width: 100%;
+  height: 100%;
+}
+
+.complaint-detail-grid {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 34px 60px;
+}
+
+.complaint-detail-field {
+  display: grid;
+  gap: 8px;
+}
+
+.complaint-detail-field--wide {
+  align-content: start;
+}
+
+.complaint-detail-label {
+  color: #92a0bc;
+  font-size: clamp(1rem, 1.7vw, 1.18rem);
+  font-weight: var(--font-semibold);
+}
+
+.complaint-detail-value {
+  color: #f6f8fd;
+  font-size: clamp(1.2rem, 2vw, 1.42rem);
+  font-weight: var(--font-bold);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.complaint-detail-divider {
+  margin: 18px 0 22px;
+  border-top: 1px solid color-mix(in srgb, #51607f 36%, transparent);
+}
+
+.complaint-tree {
+  display: grid;
+  gap: 14px;
+  color: #dfe6f5;
+}
+
+.complaint-tree-heading {
+  font-size: clamp(1.18rem, 2vw, 1.42rem);
+  font-weight: var(--font-semibold);
+  color: #93a0bf;
+}
+
+.complaint-tree-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 28px;
+}
+
+.complaint-tree-node--subject {
+  margin-left: 38px;
+}
+
+.complaint-tree-branch {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 18px;
+  height: 22px;
+  border-left: 1px solid color-mix(in srgb, #5f6d8f 54%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #5f6d8f 54%, transparent);
+  transform: translateY(-68%);
+}
+
+.complaint-tree-branch--last {
+  height: 26px;
+  transform: translateY(-72%);
+}
+
+.complaint-tree-folder,
+.complaint-tree-file {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  color: #7f93ba;
+}
+
+.complaint-tree-folder svg,
+.complaint-tree-file svg {
+  width: 100%;
+  height: 100%;
+}
+
+.complaint-tree-text {
+  font-size: clamp(1.14rem, 2vw, 1.36rem);
+  font-weight: var(--font-semibold);
+  color: #f6f8fd;
+}
+
+.complaint-description-card {
+  margin-top: 24px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 66%, transparent);
+  background: color-mix(in srgb, #151d31 76%, var(--color-card-bg));
+  padding: 16px 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.complaint-description-card p {
+  margin: 0;
+  color: #dce5f7;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.complaint-notes-card {
+  margin-top: 16px;
+}
+
 .seller-json-card {
   margin-top: 12px;
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
@@ -7406,6 +7593,23 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 @media (max-width: 960px) {
+  .complaint-status-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .complaint-status-strip-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .complaint-status-tab {
+    min-height: 72px;
+  }
+
+  .complaint-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
   .shell {
     padding: 12px;
     gap: 16px;
@@ -7807,6 +8011,31 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 @media (max-width: 640px) {
+  .complaint-detail-card {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .complaint-status-strip-label {
+    padding: 16px 18px;
+  }
+
+  .complaint-status-strip-options {
+    grid-template-columns: 1fr;
+  }
+
+  .complaint-status-tab {
+    justify-content: flex-start;
+    padding: 0 18px;
+    min-height: 60px;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-border) 64%, transparent);
+  }
+
+  .complaint-tree-node--subject {
+    margin-left: 20px;
+  }
+
   h1 {
   margin-bottom: 8px;
   font-size: var(--text-2xl);
