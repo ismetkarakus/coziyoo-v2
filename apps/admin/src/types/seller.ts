@@ -68,7 +68,7 @@ export type SellerCompliancePayload = {
     description: string | null;
     source_info: string | null;
     details: string | null;
-    validity_days: number | null;
+    validity_years: number | null;
     is_required: boolean;
     is_active: boolean;
     doc_type: string;

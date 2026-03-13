@@ -1,12 +1,12 @@
 ALTER TABLE compliance_documents_list
-  ADD COLUMN IF NOT EXISTS validity_days integer;
+  ADD COLUMN IF NOT EXISTS validity_years integer;
 
 ALTER TABLE compliance_documents_list
-  DROP CONSTRAINT IF EXISTS compliance_documents_list_validity_days_check;
+  DROP CONSTRAINT IF EXISTS compliance_documents_list_validity_years_check;
 
 ALTER TABLE compliance_documents_list
-  ADD CONSTRAINT compliance_documents_list_validity_days_check
-  CHECK (validity_days IS NULL OR validity_days > 0);
+  ADD CONSTRAINT compliance_documents_list_validity_years_check
+  CHECK (validity_years IS NULL OR validity_years > 0);
 
 ALTER TABLE seller_compliance_documents
   ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1,

@@ -90,7 +90,7 @@ const ComplianceDocumentListCreateSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   sourceInfo: z.string().trim().max(1000).nullable().optional(),
   details: z.string().trim().max(4000).nullable().optional(),
-  validityDays: z.coerce.number().int().positive().max(36500).nullable().optional(),
+  validityYears: z.coerce.number().int().positive().max(100).nullable().optional(),
   isActive: z.boolean().optional(),
   isRequiredDefault: z.boolean().optional(),
 });
@@ -102,7 +102,7 @@ const ComplianceDocumentListUpdateSchema = z
     description: z.string().trim().max(1000).nullable().optional(),
     sourceInfo: z.string().trim().max(1000).nullable().optional(),
     details: z.string().trim().max(4000).nullable().optional(),
-    validityDays: z.coerce.number().int().positive().max(36500).nullable().optional(),
+    validityYears: z.coerce.number().int().positive().max(100).nullable().optional(),
     isActive: z.boolean().optional(),
     isRequiredDefault: z.boolean().optional(),
   })
@@ -113,7 +113,7 @@ const ComplianceDocumentListUpdateSchema = z
       value.description === undefined &&
       value.sourceInfo === undefined &&
       value.details === undefined &&
-      value.validityDays === undefined &&
+      value.validityYears === undefined &&
       value.isActive === undefined &&
       value.isRequiredDefault === undefined
     ) {
@@ -135,23 +135,24 @@ function normalizeDocumentStatus(value: string): SellerDocumentStatus {
   return value === "pending" ? "requested" : (value as SellerDocumentStatus);
 }
 
-function resolveExpiresAt(uploadedAt: string | null, validityDays: number | null): string | null {
-  if (!uploadedAt || !validityDays || validityDays <= 0) return null;
-  const base = Date.parse(uploadedAt);
-  if (Number.isNaN(base)) return null;
-  return new Date(base + validityDays * 24 * 60 * 60 * 1000).toISOString();
+function resolveExpiresAt(uploadedAt: string | null, validityYears: number | null): string | null {
+  if (!uploadedAt || !validityYears || validityYears <= 0) return null;
+  const expiresAt = new Date(uploadedAt);
+  if (Number.isNaN(expiresAt.getTime())) return null;
+  expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + validityYears);
+  return expiresAt.toISOString();
 }
 
-function resolveEffectiveDocumentStatus(status: SellerDocumentStatus, uploadedAt: string | null, validityDays: number | null): SellerDocumentStatus {
+function resolveEffectiveDocumentStatus(status: SellerDocumentStatus, uploadedAt: string | null, validityYears: number | null): SellerDocumentStatus {
   if (!["uploaded", "approved"].includes(status)) return status;
-  const expiresAt = resolveExpiresAt(uploadedAt, validityDays);
+  const expiresAt = resolveExpiresAt(uploadedAt, validityYears);
   if (!expiresAt) return status;
   return Date.parse(expiresAt) <= Date.now() ? "expired" : status;
 }
 
-function resolveEffectiveOptionalStatus(status: OptionalUploadStatus, createdAt: string | null, validityDays: number | null): OptionalUploadStatus {
+function resolveEffectiveOptionalStatus(status: OptionalUploadStatus, createdAt: string | null, validityYears: number | null): OptionalUploadStatus {
   if (!["uploaded", "approved"].includes(status)) return status;
-  const expiresAt = resolveExpiresAt(createdAt, validityDays);
+  const expiresAt = resolveExpiresAt(createdAt, validityYears);
   if (!expiresAt) return status;
   return Date.parse(expiresAt) <= Date.now() ? "expired" : status;
 }
@@ -252,7 +253,7 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
     description: string | null;
     source_info: string | null;
     details: string | null;
-    validity_days: number | null;
+    validity_years: number | null;
     is_active: boolean;
     version: number;
     is_current: boolean;
@@ -277,7 +278,7 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
        cdl.description,
        cdl.source_info,
        cdl.details,
-       cdl.validity_days,
+       cdl.validity_years,
        cdl.is_active,
        scd.version,
        scd.is_current
@@ -289,11 +290,11 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
   ).then((result) => ({
     ...result,
     rows: result.rows.map((row) => {
-      const expiresAt = resolveExpiresAt(row.uploaded_at, row.validity_days);
+      const expiresAt = resolveExpiresAt(row.uploaded_at, row.validity_years);
       return {
         ...row,
         expires_at: expiresAt,
-        status: resolveEffectiveDocumentStatus(row.status, row.uploaded_at, row.validity_days),
+        status: resolveEffectiveDocumentStatus(row.status, row.uploaded_at, row.validity_years),
       };
     }),
   }));
@@ -344,7 +345,7 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
     rejection_reason: string | null;
     created_at: string;
     updated_at: string;
-    validity_days: number | null;
+    validity_years: number | null;
     expires_at: string | null;
   }>(
     `SELECT
@@ -361,7 +362,7 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
        sou.rejection_reason,
        sou.created_at::text,
        sou.updated_at::text,
-       cdl.validity_days
+       cdl.validity_years
      FROM seller_optional_uploads sou
      LEFT JOIN compliance_documents_list cdl ON cdl.id = sou.document_list_id
      WHERE sou.seller_id = $1
@@ -370,11 +371,11 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
   ).then((result) => ({
     ...result,
     rows: result.rows.map((row) => {
-      const expiresAt = resolveExpiresAt(row.created_at, row.validity_days);
+      const expiresAt = resolveExpiresAt(row.created_at, row.validity_years);
       return {
         ...row,
         expires_at: expiresAt,
-        status: resolveEffectiveOptionalStatus(row.status, row.created_at, row.validity_days),
+        status: resolveEffectiveOptionalStatus(row.status, row.created_at, row.validity_years),
       };
     }),
   }));
@@ -732,7 +733,7 @@ adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, r
     description: string | null;
     source_info: string | null;
     details: string | null;
-    validity_days: number | null;
+    validity_years: number | null;
     is_active: boolean;
     is_required_default: boolean;
     seller_assignment_count: string;
@@ -746,7 +747,7 @@ adminComplianceRouter.get("/document-list", requireAuth("admin"), async (_req, r
        cdl.description,
        cdl.source_info,
        cdl.details,
-       cdl.validity_days,
+       cdl.validity_years,
        cdl.is_active,
        cdl.is_required_default,
        count(scd.id) FILTER (WHERE scd.is_current = TRUE)::text AS seller_assignment_count,
@@ -777,7 +778,7 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
     description: string | null;
     source_info: string | null;
     details: string | null;
-    validity_days: number | null;
+    validity_years: number | null;
     is_active: boolean;
     is_required_default: boolean;
       created_at: string;
@@ -789,7 +790,7 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
          description,
          source_info,
          details,
-         validity_days,
+         validity_years,
          is_active,
          is_required_default,
          created_at,
@@ -803,12 +804,12 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
          description,
          source_info,
          details,
-         validity_days,
+         validity_years,
          is_active,
          is_required_default,
          created_at::text,
          updated_at::text`,
-      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.validityDays ?? null, input.isActive ?? true, input.isRequiredDefault ?? true]
+      [input.code, input.name, input.description ?? null, input.sourceInfo ?? null, input.details ?? null, input.validityYears ?? null, input.isActive ?? true, input.isRequiredDefault ?? true]
     );
 
     await writeAdminAudit(client, {
@@ -854,7 +855,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       description: string | null;
       source_info: string | null;
       details: string | null;
-      validity_days: number | null;
+      validity_years: number | null;
       is_active: boolean;
       is_required_default: boolean;
     }>(
@@ -865,7 +866,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description,
          source_info,
          details,
-         validity_days,
+         validity_years,
          is_active,
          is_required_default
        FROM compliance_documents_list
@@ -885,7 +886,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
       description: string | null;
       source_info: string | null;
       details: string | null;
-      validity_days: number | null;
+      validity_years: number | null;
       is_active: boolean;
       is_required_default: boolean;
       created_at: string;
@@ -898,7 +899,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description = CASE WHEN $4::boolean THEN $5 ELSE description END,
          source_info = CASE WHEN $6::boolean THEN $7 ELSE source_info END,
          details = CASE WHEN $8::boolean THEN $9 ELSE details END,
-         validity_days = CASE WHEN $10::boolean THEN $11 ELSE validity_days END,
+         validity_years = CASE WHEN $10::boolean THEN $11 ELSE validity_years END,
          is_active = COALESCE($12, is_active),
          is_required_default = COALESCE($13, is_required_default),
          updated_at = now()
@@ -910,7 +911,7 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
          description,
          source_info,
          details,
-         validity_days,
+         validity_years,
          is_active,
          is_required_default,
          created_at::text,
@@ -925,8 +926,8 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
         input.sourceInfo ?? null,
         input.details !== undefined,
         input.details ?? null,
-        input.validityDays !== undefined,
-        input.validityDays ?? null,
+        input.validityYears !== undefined,
+        input.validityYears ?? null,
         input.isActive ?? null,
         input.isRequiredDefault ?? null,
       ]

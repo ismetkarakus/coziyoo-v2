@@ -398,12 +398,12 @@ CREATE TABLE public.compliance_documents_list (
     description text,
     source_info text,
     details text,
-    validity_days integer,
+    validity_years integer,
     is_active boolean DEFAULT true NOT NULL,
     is_required_default boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT compliance_documents_list_validity_days_check CHECK (((validity_days IS NULL) OR (validity_days > 0)))
+    CONSTRAINT compliance_documents_list_validity_years_check CHECK (((validity_years IS NULL) OR (validity_years > 0)))
 );
 
 
