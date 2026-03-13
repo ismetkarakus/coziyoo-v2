@@ -7,6 +7,7 @@ import ApiHealthBadge from "./components/ApiHealthBadge";
 import DashboardPage from "./pages/DashboardPage";
 import UsersPage from "./pages/UsersPage";
 import InvestigationPage from "./pages/InvestigationPage";
+import InvestigationComplaintDetailPage from "./pages/InvestigationComplaintDetailPage";
 import FoodsLotsPage from "./pages/FoodsLotsPage";
 import RecordsPage from "./pages/RecordsPage";
 import EntitiesPage from "./pages/EntitiesPage";
@@ -14,6 +15,8 @@ import AuditPage from "./pages/AuditPage";
 import ApiTokensPage from "./pages/ApiTokensPage";
 import ComplianceDocumentsPage from "./pages/ComplianceDocumentsPage";
 import VoiceAgentSettingsPage from "./pages/VoiceAgentSettingsPage";
+import SalesCommissionSettingsPage from "./pages/SalesCommissionSettingsPage";
+import AdminTestScenariosPage from "./pages/AdminTestScenariosPage";
 import { UserDetail } from "./pages/users/DefaultUserDetailScreen";
 import type { AdminUser, Language, Dictionary, ApiError, GlobalSearchResultItem, GlobalSearchResultKind } from "./types/core";
 
@@ -56,6 +59,9 @@ function AppShell({
   }
 
   const isSuperAdmin = admin.role === "super_admin";
+  const pathParts = location.pathname.split("/").filter(Boolean);
+  const isDetailPage = pathParts.length > 2;
+  const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
   const globalSearchMinChars = 2;
   const globalSearchQuery = globalSearchInput.trim();
 
@@ -197,6 +203,17 @@ function AppShell({
         </div>
       </header>
       <section className="main">
+        {isDetailPage && parentPath ? (
+          <div className="back-nav">
+            <button
+              type="button"
+              className="ghost back-nav-btn"
+              onClick={() => navigate(parentPath)}
+            >
+              ← {language === "tr" ? "Geri" : "Back"}
+            </button>
+          </div>
+        ) : null}
         {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
         {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
@@ -205,8 +222,16 @@ function AppShell({
         {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
+        {location.pathname.startsWith("/app/investigation/") ? (
+          <InvestigationComplaintDetailPage
+            language={language}
+            complaintId={location.pathname.split("/").at(-1) ?? ""}
+          />
+        ) : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+        {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
+        {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
         {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
         {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
@@ -325,6 +350,8 @@ function TopNavTabs({
     { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
     { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
+    { to: "/app/test-scenarios", active: pathname.startsWith("/app/test-scenarios"), label: dict.menu.testScenarios },
+    { to: "/app/sales-commission-settings", active: pathname.startsWith("/app/sales-commission-settings"), label: dict.menu.salesCommissionSettings },
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
     { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },

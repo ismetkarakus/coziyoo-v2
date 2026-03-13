@@ -86,9 +86,9 @@ Production ingress via Nginx Proxy Manager (Docker):
 ### API Structure (`apps/api/src/`)
 
 - `app.ts` — Express setup, middleware registration, route mounting
-- `routes/` — 21 route files grouped by domain (`auth`, `orders`, `payments`, `livekit`, `admin/*`)
+- `routes/` — 20 route files grouped by domain (`auth`, `orders`, `payments`, `livekit`, `admin/*`)
 - `db/client.ts` — PostgreSQL pool (pg) using root `.env` vars
-- `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0013_*.sql`)
+- `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0006_*.sql`)
 - `middleware/` — Auth, CORS, content-type normalization, rate limiting, idempotency, RBAC
 
 ### Request Middleware Chain
@@ -120,7 +120,7 @@ The Python voice agent (`apps/voice-agent`) runs as a LiveKit Agents worker:
 
 ### Database Migrations
 
-Migrations live in `apps/api/src/db/migrations/` as numbered SQL files. The `db-migrate.sh` script runs all pending migrations before service start in production. When adding a migration, use the next sequential number (currently up to `0013`).
+Migrations live in `apps/api/src/db/migrations/` as numbered SQL files. The `db-migrate.sh` script runs all pending migrations before service start in production. When adding a migration, use the next sequential number (currently up to `0006`).
 
 ### CI/CD
 
@@ -133,7 +133,7 @@ Root `.env` is the single source of truth for all services (API reads it directl
 - **API:** `API_PORT`, `APP_JWT_SECRET`, `ADMIN_JWT_SECRET`
 - **Database:** `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `DATABASE_URL`
 - **LiveKit:** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-- **External:** `OLLAMA_BASE_URL`, `N8N_BASE_URL`, `TTS_API_KEY`, `SPEECH_TO_TEXT_API_KEY`, `PAYMENT_WEBHOOK_SECRET`
+- **External:** `OLLAMA_BASE_URL`, `N8N_HOST`, `TTS_API_KEY`, `SPEECH_TO_TEXT_API_KEY`, `PAYMENT_WEBHOOK_SECRET`
 - **CORS:** `CORS_ALLOWED_ORIGINS` (comma-separated list)
 
 Installation-specific VPS settings (domains, OS passwords) go in `installation/config.env`.

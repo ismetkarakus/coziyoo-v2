@@ -7,7 +7,9 @@ LiveKit Agents runtime for Coziyoo voice sessions with modular STT/LLM/TTS provi
 - Agent dispatch API: `voice_agent.join_api`
 
 ## Env
-Copy `.env.example` to `.env` and set values.
+Use repo-root env files as single source of truth:
+- local Docker/dev: root `.env.local`
+- non-Docker/runtime scripts: root `.env`
 
 ## Install
 ```bash

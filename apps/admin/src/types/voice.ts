@@ -51,22 +51,13 @@ export type TtsServer = {
   authHeader: string;
 };
 
-export type LlmServer = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  baseUrl: string;
-  model: string;
-  /** Path used to list available models (default: /api/tags for Ollama) */
-  modelsPath?: string;
-  authHeader: string;
-};
-
 export type N8nServer = {
   id: string;
   name: string;
   enabled: boolean;
   baseUrl: string;
+  webhookPath: string;
+  mcpWebhookPath: string;
 };
 
-export type VoiceSettingsTab = "summary" | "stt" | "tts" | "llm" | "n8n" | "general";
+export type VoiceSettingsTab = "summary" | "stt" | "tts" | "n8n" | "general";

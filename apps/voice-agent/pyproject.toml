@@ -10,6 +10,7 @@ dependencies = [
   "livekit-plugins-noise-cancellation>=0.2.5",
   "livekit-plugins-openai>=1.0.0",
   "livekit-plugins-silero>=1.2.6",
+  "livekit-plugins-turn-detector>=1.4.5",
   "pydantic>=2.10.6",
   "python-dotenv>=1.0.1",
   "uvicorn>=0.34.0"

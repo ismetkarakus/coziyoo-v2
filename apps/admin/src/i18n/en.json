@@ -15,7 +15,9 @@
     "livekitDemo": "LiveKit Demo",
     "dataExplorer": "Data Explorer",
     "management": "Management",
-    "voiceAgentSettings": "Voice Agent Settings"
+    "voiceAgentSettings": "Voice Agent Settings",
+    "salesCommissionSettings": "Sales Commission Setting",
+    "testScenarios": "Test Scenarios"
   },
   "actions": {
     "logout": "Logout",
@@ -440,5 +442,22 @@
     "testTtsPlay": "Synthesize & Play",
     "testTtsSynthesizing": "Synthesizing...",
     "testTtsNoUrl": "No TTS URL configured"
+  },
+  "testScenarios": {
+    "title": "Admin Test Scenarios",
+    "subtitle": "Step-by-step validation list without changing admin panel structure.",
+    "safetyTitle": "Safe test mode",
+    "safetyText": "This page is guidance-only and does not mutate data by itself. Run write scenarios on demo/staging data.",
+    "tipText": "Tip: Seed demo data from Management menu, then execute scenarios in order."
+  },
+  "salesCommissionSettings": {
+    "title": "Sales Commission Setting",
+    "subtitle": "Save the sales commission rate.",
+    "formTitle": "Commission Form",
+    "rateLabel": "Sales Commission Rate (%)",
+    "validationError": "Commission rate must be between 0 and 100.",
+    "saveError": "Failed to save commission setting.",
+    "loadError": "Failed to load commission setting.",
+    "saved": "Commission setting saved."
   }
 }

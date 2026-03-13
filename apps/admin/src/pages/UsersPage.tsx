@@ -664,6 +664,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       }
       if (activeSellerSmartFilter) {
         scopedRows = scopedRows.filter((row) => matchSellerSmartFilter(row, activeSellerSmartFilter));
+        if (activeSellerSmartFilter === "top_revenue") {
+          scopedRows = [...scopedRows].sort((a, b) => sellerRevenue(b) - sellerRevenue(a));
+        }
       }
 
       const sellerQuery = searchInput.trim().toLocaleLowerCase("tr-TR");

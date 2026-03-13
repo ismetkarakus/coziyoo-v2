@@ -25,6 +25,13 @@ type Props = {
   onOpenSettings: () => void;
 };
 
+type ApiErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+};
+
 export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,6 +43,17 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
       setApiUrl(s.apiUrl);
     });
   }, []);
+
+  function resolveStartSessionError(payload: ApiErrorPayload, status: number): string {
+    const code = payload?.error?.code;
+    if (code === 'AGENT_UNAVAILABLE') {
+      return 'Voice agent unavailable right now. Please try again in a moment.';
+    }
+    if (code === 'N8N_WORKFLOW_UNAVAILABLE') {
+      return 'AI workflow is unavailable right now. Please try again shortly.';
+    }
+    return payload?.error?.message ?? `Server error ${status}`;
+  }
 
   async function handleStart() {
     const name = username.trim();
@@ -53,7 +71,7 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
       });
       const json = await response.json();
       if (!response.ok || json.error) {
-        throw new Error(json.error?.message ?? `Server error ${response.status}`);
+        throw new Error(resolveStartSessionError(json, response.status));
       }
       const { data } = json;
       onSessionStart({

@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
+import { pool } from "../db/client.js";
 import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
-import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent } from "../services/n8n.js";
+import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent, type N8nStatus } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
 import { resolveProviders } from "../services/resolve-providers.js";
 import {
@@ -199,6 +200,79 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+type AgentRuntimeHealth = {
+  ok: boolean;
+  endpoint: string;
+  httpStatus: number;
+  joinApiReachable: boolean;
+  workerRunning: boolean;
+  reason: string;
+  details: unknown;
+};
+
+async function checkAgentRuntimeHealth(): Promise<AgentRuntimeHealth> {
+  if (!env.AI_SERVER_URL) {
+    return {
+      ok: false,
+      endpoint: "AI_SERVER_URL_NOT_CONFIGURED",
+      httpStatus: 0,
+      joinApiReachable: false,
+      workerRunning: false,
+      reason: "ai_server_url_missing",
+      details: null,
+    };
+  }
+
+  const endpoint = new URL("/health", env.AI_SERVER_URL).toString();
+
+  try {
+    const response = await fetchWithTimeout(
+      endpoint,
+      {
+        method: "GET",
+        headers: { "accept": "application/json" },
+      },
+      env.AI_SERVER_TIMEOUT_MS,
+    );
+
+    const rawBody = await response.text();
+    let body: unknown = rawBody;
+    try {
+      body = rawBody.length > 0 ? JSON.parse(rawBody) : null;
+    } catch {
+      body = rawBody;
+    }
+
+    const joinApiReachable = response.ok;
+    const workerRunning = Boolean(
+      body &&
+        typeof body === "object" &&
+        "worker" in body &&
+        (body as { worker?: { running?: unknown } }).worker?.running === true,
+    );
+
+    return {
+      ok: joinApiReachable && workerRunning,
+      endpoint,
+      httpStatus: response.status,
+      joinApiReachable,
+      workerRunning,
+      reason: !joinApiReachable ? "join_api_unreachable" : workerRunning ? "ok" : "worker_not_running",
+      details: body,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      endpoint,
+      httpStatus: 0,
+      joinApiReachable: false,
+      workerRunning: false,
+      reason: "join_api_request_failed",
+      details: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -449,7 +523,7 @@ liveKitRouter.post("/session/end", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "N8N_NOT_CONFIGURED",
-          message: "Set N8N_BASE_URL in API environment or save n8n.baseUrl in device settings.",
+          message: "Set N8N_HOST in API environment or save n8n.baseUrl in device settings.",
         },
       });
     }
@@ -469,6 +543,23 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
   }
 
   const input = parsed.data;
+  if (input.autoDispatchAgent) {
+    const runtimeHealth = await checkAgentRuntimeHealth();
+    if (!runtimeHealth.ok) {
+      return res.status(503).json({
+        error: {
+          code: "AGENT_UNAVAILABLE",
+          message: "Voice agent unavailable. Please try again shortly.",
+          details: runtimeHealth,
+        },
+      });
+    }
+  }
+
+  const sessionN8nPreflight = await getN8nStatus({
+    workflowIds: [env.N8N_LLM_WORKFLOW_ID, env.N8N_MCP_WORKFLOW_ID].filter(Boolean),
+  });
+
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const userIdentity = input.participantIdentity ?? `user-${req.auth!.userId}`;
   const userMetadata =
@@ -657,11 +748,28 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   }
 
   const input = parsed.data;
+  const runtimeHealth = await checkAgentRuntimeHealth();
+  if (!runtimeHealth.ok) {
+    return res.status(503).json({
+      error: {
+        code: "AGENT_UNAVAILABLE",
+        message: "Voice agent unavailable. Please try again shortly.",
+        details: runtimeHealth,
+      },
+    });
+  }
+
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const username = input.username.trim();
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
   const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
   const resolved = resolveProviders(settings);
+  const n8nPreflight = await getN8nStatus({
+    baseUrl: resolved.n8n.baseUrl,
+    workflowIds: [resolved.n8n.workflowId ?? env.N8N_LLM_WORKFLOW_ID, resolved.n8n.mcpWorkflowId ?? env.N8N_MCP_WORKFLOW_ID].filter(
+      Boolean,
+    ),
+  });
 
   const userMetadata = JSON.stringify({
     username,
@@ -766,6 +874,7 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
         alreadyRunning,
         dispatch,
       },
+      n8nPreflight,
     },
   });
 });
@@ -1044,43 +1153,6 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/stt", async (req, res
   }
 });
 
-liveKitRouter.post("/starter/agent-settings/:deviceId/test/ollama", async (req, res) => {
-  const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
-  }
-
-  const settings = await getStarterAgentSettingsWithDefault(parsed.data.deviceId);
-  const ttsConfig = (settings?.ttsConfig as Record<string, unknown> | null) ?? null;
-  const llmConfig =
-    ttsConfig && typeof ttsConfig.llm === "object" && ttsConfig.llm !== null
-      ? (ttsConfig.llm as Record<string, unknown>)
-      : {};
-  const ollamaBaseUrl =
-    typeof llmConfig.ollamaBaseUrl === "string" && llmConfig.ollamaBaseUrl.trim().length > 0
-      ? llmConfig.ollamaBaseUrl.trim()
-      : undefined;
-
-  try {
-    const result = await listOllamaModels({ baseUrl: ollamaBaseUrl });
-    return res.status(200).json({
-      data: {
-        reachable: true,
-        endpoint: result.endpoint,
-        modelCount: result.models.length,
-        model: settings?.ollamaModel ?? env.OLLAMA_CHAT_MODEL,
-      },
-    });
-  } catch (error) {
-    return res.status(502).json({
-      error: {
-        code: "OLLAMA_TEST_FAILED",
-        message: error instanceof Error ? error.message : "Failed to reach Ollama",
-      },
-    });
-  }
-});
-
 liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res) => {
   const parsed = StarterAgentSettingsParamsSchema.safeParse(req.params);
   if (!parsed.success) {
@@ -1097,8 +1169,19 @@ liveKitRouter.post("/starter/agent-settings/:deviceId/test/n8n", async (req, res
     typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
       ? n8nConfig.baseUrl.trim()
       : null;
+  const n8nWorkflowId =
+    typeof n8nConfig.workflowId === "string" && n8nConfig.workflowId.trim().length > 0
+      ? n8nConfig.workflowId.trim()
+      : env.N8N_LLM_WORKFLOW_ID;
+  const n8nMcpWorkflowId =
+    typeof n8nConfig.mcpWorkflowId === "string" && n8nConfig.mcpWorkflowId.trim().length > 0
+      ? n8nConfig.mcpWorkflowId.trim()
+      : env.N8N_MCP_WORKFLOW_ID;
 
-  const status = await getN8nStatus({ baseUrl: n8nBaseUrl });
+  const status = await getN8nStatus({
+    baseUrl: n8nBaseUrl,
+    workflowIds: [n8nWorkflowId, n8nMcpWorkflowId].filter(Boolean),
+  });
   return res.status(200).json({
     data: status,
   });
@@ -1118,9 +1201,24 @@ liveKitRouter.get("/starter/tools/status", async (_req, res) => {
       typeof n8nConfig.baseUrl === "string" && n8nConfig.baseUrl.trim().length > 0
         ? n8nConfig.baseUrl.trim()
         : null;
+    const workflowId =
+      typeof n8nConfig.workflowId === "string" && n8nConfig.workflowId.trim().length > 0
+        ? n8nConfig.workflowId.trim()
+        : env.N8N_LLM_WORKFLOW_ID;
+    const mcpWorkflowId =
+      typeof n8nConfig.mcpWorkflowId === "string" && n8nConfig.mcpWorkflowId.trim().length > 0
+        ? n8nConfig.mcpWorkflowId.trim()
+        : env.N8N_MCP_WORKFLOW_ID;
+    const status = await getN8nStatus({
+      baseUrl: n8nBaseUrlOverride,
+      workflowIds: [workflowId, mcpWorkflowId].filter(Boolean),
+    });
+    return res.status(200).json({ data: status });
   }
-
-  const status = await getN8nStatus({ baseUrl: n8nBaseUrlOverride });
+  const status = await getN8nStatus({
+    baseUrl: n8nBaseUrlOverride,
+    workflowIds: [env.N8N_LLM_WORKFLOW_ID, env.N8N_MCP_WORKFLOW_ID].filter(Boolean),
+  });
   return res.status(200).json({ data: status });
 });
 
@@ -1170,6 +1268,122 @@ liveKitRouter.get("/starter/tools/registry", async (_req, res) => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Voice router — internal AI server endpoints (secured by x-ai-server-secret)
+// Mounted at /v1/voice in app.ts
+// ---------------------------------------------------------------------------
+
+export const voiceRouter = Router();
+
+voiceRouter.get("/foods", async (req, res) => {
+  if (!env.AI_SERVER_SHARED_SECRET) {
+    return res.status(503).json({
+      error: {
+        code: "AI_SERVER_SHARED_SECRET_MISSING",
+        message: "Set AI_SERVER_SHARED_SECRET before using /v1/voice/foods.",
+      },
+    });
+  }
+
+  const provided = String(req.headers["x-ai-server-secret"] ?? "");
+  if (!isValidSharedSecret(provided)) {
+    return res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" },
+    });
+  }
+
+  const q = String(req.query.q ?? "").trim();
+  const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? "10"), 10) || 10));
+
+  try {
+    let rows: Array<{
+      id: string;
+      name: string;
+      price: string;
+      card_summary: string | null;
+      available: boolean;
+      lot_id: string | null;
+    }>;
+
+    const lotSubquery = `
+      SELECT DISTINCT ON (food_id) food_id, id AS lot_id, quantity_available
+      FROM production_lots
+      WHERE status = 'active'
+        AND sale_starts_at <= now()
+        AND sale_ends_at >= now()
+        AND quantity_available > 0
+      ORDER BY food_id, sale_ends_at ASC
+    `;
+
+    if (q.length > 0) {
+      // Search by name (case-insensitive)
+      const result = await pool.query<{
+        id: string;
+        name: string;
+        price: string;
+        card_summary: string | null;
+        available: boolean;
+        lot_id: string | null;
+      }>(
+        `SELECT f.id, f.name, f.price::text, f.card_summary,
+                (pl.lot_id IS NOT NULL) AS available,
+                pl.lot_id
+         FROM foods f
+         LEFT JOIN (${lotSubquery}) pl ON pl.food_id = f.id
+         WHERE f.is_active = true
+           AND f.name ILIKE $1
+         ORDER BY f.name
+         LIMIT $2`,
+        [`%${q}%`, limit],
+      );
+      rows = result.rows;
+    } else {
+      // List all active foods with lot availability
+      const result = await pool.query<{
+        id: string;
+        name: string;
+        price: string;
+        card_summary: string | null;
+        available: boolean;
+        lot_id: string | null;
+      }>(
+        `SELECT f.id, f.name, f.price::text, f.card_summary,
+                (pl.lot_id IS NOT NULL) AS available,
+                pl.lot_id
+         FROM foods f
+         LEFT JOIN (${lotSubquery}) pl ON pl.food_id = f.id
+         WHERE f.is_active = true
+         ORDER BY f.name
+         LIMIT $1`,
+        [limit],
+      );
+      rows = result.rows;
+    }
+
+    const foods = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      price: r.price,
+      cardSummary: r.card_summary ?? null,
+      available: Boolean(r.available),
+      lotId: r.lot_id ?? null,
+    }));
+
+    return res.status(200).json({
+      data: { foods, total: foods.length },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: {
+        code: "FOODS_QUERY_FAILED",
+        message: error instanceof Error ? error.message : "Failed to query foods",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 
 liveKitRouter.post("/starter/tools/run", async (req, res) => {
   const parsed = StarterToolRunSchema.safeParse(req.body);
@@ -1223,7 +1437,7 @@ liveKitRouter.post("/starter/tools/run", async (req, res) => {
       return res.status(503).json({
         error: {
           code: "N8N_NOT_CONFIGURED",
-          message: "Set N8N_BASE_URL in API environment or save n8n.baseUrl in device settings.",
+          message: "Set N8N_HOST in API environment or save n8n.baseUrl in device settings.",
         },
       });
     }

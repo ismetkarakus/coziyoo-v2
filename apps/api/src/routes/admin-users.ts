@@ -159,6 +159,9 @@ const UpdateComplaintSchema = z.object({
   resolutionNote: z.string().trim().max(4000).nullable().optional(),
   assignedAdminId: z.string().uuid().nullable().optional(),
 }).refine((value) => Object.keys(value).length > 0, { message: "At least one field required" });
+const CreateComplaintNoteSchema = z.object({
+  note: z.string().trim().min(1).max(4000),
+});
 const BuyerSmsBodySchema = z.object({
   message: z.string().min(1).max(1000),
 });
@@ -505,6 +508,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     id: string;
     order_id: string;
     complainant_buyer_id: string;
+    complainant_buyer_name: string | null;
     subject: string;
     description: string | null;
     category_id: string | null;
@@ -522,6 +526,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
        c.id::text,
        c.order_id::text,
        c.complainant_buyer_id::text,
+       COALESCE(NULLIF(b.display_name, ''), NULLIF(b.full_name, ''), NULLIF(b.email, ''), c.complainant_buyer_id::text) AS complainant_buyer_name,
        c.subject,
        c.description,
        c.category_id::text,
@@ -536,6 +541,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
        c.status
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
+     LEFT JOIN users b ON b.id = c.complainant_buyer_id
      LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
      ${whereSql}
@@ -552,6 +558,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
       id: row.id,
       orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       complainantBuyerNo: row.complainant_buyer_id,
+      complainantBuyerName: row.complainant_buyer_name ?? row.complainant_buyer_id,
       subject: row.subject,
       description: row.description,
       categoryId: row.category_id,
@@ -594,6 +601,177 @@ adminUserManagementRouter.get("/investigations/complaint-categories", requireAut
       isActive: row.is_active,
       createdAt: row.created_at,
     })),
+  });
+});
+
+adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const detail = await pool.query<{
+    id: string;
+    order_id: string;
+    complainant_buyer_id: string;
+    complainant_buyer_name: string | null;
+    complainant_buyer_email: string | null;
+    seller_id: string;
+    seller_name: string | null;
+    seller_email: string | null;
+    subject: string;
+    description: string | null;
+    category_id: string | null;
+    category_code: string | null;
+    category_name: string | null;
+    priority: "low" | "medium" | "high" | "urgent";
+    resolved_at: string | null;
+    resolution_note: string | null;
+    assigned_admin_id: string | null;
+    assigned_admin_email: string | null;
+    created_at: string;
+    status: "open" | "in_review" | "resolved" | "closed";
+  }>(
+    `SELECT
+       c.id::text,
+       c.order_id::text,
+       c.complainant_buyer_id::text,
+       b.display_name AS complainant_buyer_name,
+       b.email AS complainant_buyer_email,
+       o.seller_id::text,
+       s.display_name AS seller_name,
+       s.email AS seller_email,
+       c.subject,
+       c.description,
+       c.category_id::text,
+       cat.code AS category_code,
+       cat.name AS category_name,
+       c.priority,
+       c.resolved_at::text,
+       c.resolution_note,
+       c.assigned_admin_id::text,
+       au.email AS assigned_admin_email,
+       c.created_at::text,
+       c.status
+     FROM complaints c
+     JOIN orders o ON o.id = c.order_id
+     LEFT JOIN users b ON b.id = c.complainant_buyer_id
+     LEFT JOIN users s ON s.id = o.seller_id
+     LEFT JOIN complaint_categories cat ON cat.id = c.category_id
+     LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
+     WHERE c.id = $1
+     LIMIT 1`,
+    [params.data.id]
+  );
+
+  const row = detail.rows[0];
+  if (!row) {
+    return res.status(404).json({ error: { code: "COMPLAINT_NOT_FOUND", message: "Complaint not found" } });
+  }
+
+  return res.json({
+    data: {
+      id: row.id,
+      orderId: row.order_id,
+      orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      complainantBuyerId: row.complainant_buyer_id,
+      complainantBuyerName: row.complainant_buyer_name ?? row.complainant_buyer_email ?? row.complainant_buyer_id,
+      complainantBuyerEmail: row.complainant_buyer_email,
+      sellerId: row.seller_id,
+      sellerName: row.seller_name ?? row.seller_email ?? row.seller_id,
+      sellerEmail: row.seller_email,
+      subject: row.subject,
+      description: row.description,
+      categoryId: row.category_id,
+      categoryCode: row.category_code,
+      categoryName: row.category_name,
+      priority: row.priority,
+      resolvedAt: row.resolved_at,
+      resolutionNote: row.resolution_note,
+      assignedAdminId: row.assigned_admin_id,
+      assignedAdminEmail: row.assigned_admin_email,
+      createdAt: row.created_at,
+      status: row.status,
+    },
+  });
+});
+
+adminUserManagementRouter.get("/investigations/complaints/:id/notes", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const rows = await pool.query<{
+    id: string;
+    complaint_id: string;
+    note: string;
+    created_by_admin_id: string;
+    created_by_admin_email: string | null;
+    created_at: string;
+  }>(
+    `SELECT
+       n.id::text,
+       n.complaint_id::text,
+       n.note,
+       n.created_by_admin_id::text,
+       a.email AS created_by_admin_email,
+       n.created_at::text
+     FROM complaint_admin_notes n
+     LEFT JOIN admin_users a ON a.id = n.created_by_admin_id
+     WHERE n.complaint_id = $1
+     ORDER BY n.created_at DESC`,
+    [params.data.id]
+  );
+
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      complaintId: row.complaint_id,
+      note: row.note,
+      createdByAdminId: row.created_by_admin_id,
+      createdByAdminEmail: row.created_by_admin_email,
+      createdAt: row.created_at,
+    })),
+  });
+});
+
+adminUserManagementRouter.post("/investigations/complaints/:id/notes", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = CreateComplaintNoteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const complaintExists = await pool.query<{ id: string }>("SELECT id::text FROM complaints WHERE id = $1 LIMIT 1", [params.data.id]);
+  if ((complaintExists.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "COMPLAINT_NOT_FOUND", message: "Complaint not found" } });
+  }
+
+  const created = await pool.query<{
+    id: string;
+    complaint_id: string;
+    note: string;
+    created_by_admin_id: string;
+    created_at: string;
+  }>(
+    `INSERT INTO complaint_admin_notes (complaint_id, note, created_by_admin_id, created_at)
+     VALUES ($1, $2, $3, now())
+     RETURNING id::text, complaint_id::text, note, created_by_admin_id::text, created_at::text`,
+    [params.data.id, parsed.data.note, req.auth!.userId]
+  );
+
+  return res.status(201).json({
+    data: {
+      id: created.rows[0].id,
+      complaintId: created.rows[0].complaint_id,
+      note: created.rows[0].note,
+      createdByAdminId: created.rows[0].created_by_admin_id,
+      createdAt: created.rows[0].created_at,
+    },
   });
 });
 
@@ -1149,50 +1327,66 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
     ),
   ]);
 
-  const data = [
-    ...sellers.rows.map((row) => ({
+  const allKinds = [
+    sellers.rows.map((row) => ({
       kind: "seller",
       id: row.id,
       primaryText: row.display_name || row.email,
       secondaryText: `${row.email} • ${row.is_active ? "active" : "disabled"} • CUST-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/sellers/${row.id}`,
     })),
-    ...buyers.rows.map((row) => ({
+    buyers.rows.map((row) => ({
       kind: "buyer",
       id: row.id,
       primaryText: row.display_name || row.email,
       secondaryText: `${row.email} • ${row.is_active ? "active" : "disabled"} • CUST-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/buyers/${row.id}`,
     })),
-    ...foods.rows.map((row) => ({
+    foods.rows.map((row) => ({
       kind: "food",
       id: row.id,
       primaryText: row.name,
       secondaryText: `${row.seller_name || row.seller_email} • ${row.is_active ? "active" : "disabled"} • FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.id)}`,
     })),
-    ...orders.rows.map((row) => ({
+    orders.rows.map((row) => ({
       kind: "order",
       id: row.id,
       primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}`,
-      targetPath: `/app/buyers/${row.buyer_id}?tab=orders`,
+      targetPath: `/app/orders?search=${encodeURIComponent("#" + row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase())}`,
     })),
-    ...lots.rows.map((row) => ({
+    lots.rows.map((row) => ({
       kind: "lot",
       id: row.id,
       primaryText: row.lot_number,
       secondaryText: `${row.food_name || "food"} • ${row.seller_name || row.seller_email || "seller"} • ${row.status}`,
       targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.food_id)}&focusLotId=${encodeURIComponent(row.id)}`,
     })),
-    ...complaints.rows.map((row) => ({
+    complaints.rows.map((row) => ({
       kind: "complaint",
       id: row.id,
       primaryText: row.subject,
       secondaryText: `${row.status} • order #${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()} • ${row.buyer_name || row.buyer_email || "buyer"}`,
       targetPath: `/app/buyers/${row.buyer_id}?tab=complaints`,
     })),
-  ].slice(0, input.limit);
+  ];
+
+  // Interleave results across all kinds so every entity type gets fair representation.
+  // Without interleaving, a flat concat + slice(0, limit) would cut off orders/lots/complaints
+  // when sellers/buyers/foods already fill the limit.
+  const data: (typeof allKinds)[0] = [];
+  for (let i = 0; data.length < input.limit; i++) {
+    let added = false;
+    for (const kindArr of allKinds) {
+      if (i < kindArr.length) {
+        data.push(kindArr[i]);
+        added = true;
+        if (data.length >= input.limit) break;
+      }
+    }
+    if (!added) break;
+  }
 
   return res.json({ data });
 });
@@ -2259,14 +2453,14 @@ adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async 
 
   const rows = await pool.query<{
     id: string;
-    buyer_id: string;
+    seller_id: string;
     admin_id: string;
     note: string;
     created_at: string;
   }>(
-    `SELECT id, buyer_id, admin_id, note, created_at::text
-     FROM buyer_notes
-     WHERE buyer_id = $1
+    `SELECT id, seller_id, admin_id, note, created_at::text
+     FROM seller_notes
+     WHERE seller_id = $1
      ORDER BY created_at DESC
      LIMIT $2`,
     [params.data.id, query.data.limit]
@@ -2275,7 +2469,7 @@ adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async 
   return res.json({
     data: rows.rows.map((row) => ({
       id: row.id,
-      buyerId: row.buyer_id,
+      sellerId: row.seller_id,
       adminId: row.admin_id,
       note: row.note,
       createdAt: row.created_at,
@@ -2303,7 +2497,7 @@ adminUserManagementRouter.post("/sellers/:id/notes", requireAuth("admin"), async
     note: string;
     created_at: string;
   }>(
-    `INSERT INTO buyer_notes (buyer_id, admin_id, note)
+    `INSERT INTO seller_notes (seller_id, admin_id, note)
      VALUES ($1, $2, $3)
      RETURNING id, note, created_at::text`,
     [params.data.id, req.auth!.userId, parsed.data.note.trim()]
@@ -2334,9 +2528,9 @@ adminUserManagementRouter.patch("/sellers/:id/notes/:noteId", requireAuth("admin
   }
 
   const updated = await pool.query<{ id: string; note: string; created_at: string }>(
-    `UPDATE buyer_notes
+    `UPDATE seller_notes
      SET note = $3
-     WHERE buyer_id = $1 AND id = $2
+     WHERE seller_id = $1 AND id = $2
      RETURNING id, note, created_at::text`,
     [params.data.id, params.data.noteId, parsed.data.note.trim()]
   );
@@ -2366,8 +2560,8 @@ adminUserManagementRouter.delete("/sellers/:id/notes/:noteId", requireAuth("admi
   }
 
   const deleted = await pool.query<{ id: string }>(
-    `DELETE FROM buyer_notes
-     WHERE buyer_id = $1 AND id = $2
+    `DELETE FROM seller_notes
+     WHERE seller_id = $1 AND id = $2
      RETURNING id`,
     [params.data.id, params.data.noteId]
   );
@@ -2392,8 +2586,8 @@ adminUserManagementRouter.get("/sellers/:id/tags", requireAuth("admin"), async (
 
   const rows = await pool.query<{ id: string; tag: string }>(
     `SELECT id, tag
-     FROM buyer_tags
-     WHERE buyer_id = $1
+     FROM seller_tags
+     WHERE seller_id = $1
      ORDER BY tag ASC`,
     [params.data.id]
   );
@@ -2423,9 +2617,9 @@ adminUserManagementRouter.post("/sellers/:id/tags", requireAuth("admin"), async 
 
   const tagValue = parsed.data.tag.trim();
   const inserted = await pool.query<{ id: string; tag: string }>(
-    `INSERT INTO buyer_tags (buyer_id, tag)
+    `INSERT INTO seller_tags (seller_id, tag)
      VALUES ($1, $2)
-     ON CONFLICT (buyer_id, tag) DO UPDATE
+     ON CONFLICT (seller_id, tag) DO UPDATE
      SET tag = EXCLUDED.tag
      RETURNING id, tag`,
     [params.data.id, tagValue]
@@ -2455,8 +2649,8 @@ adminUserManagementRouter.delete("/sellers/:id/tags", requireAuth("admin"), asyn
   }
 
   const deleted = await pool.query<{ id: string }>(
-    `DELETE FROM buyer_tags
-     WHERE buyer_id = $1 AND tag = $2
+    `DELETE FROM seller_tags
+     WHERE seller_id = $1 AND tag = $2
      RETURNING id`,
     [params.data.id, parsed.data.tag.trim()]
   );
@@ -2480,8 +2674,8 @@ adminUserManagementRouter.delete("/sellers/:id/tags/:tagId", requireAuth("admin"
   }
 
   const deleted = await pool.query<{ id: string }>(
-    `DELETE FROM buyer_tags
-     WHERE buyer_id = $1 AND id = $2
+    `DELETE FROM seller_tags
+     WHERE seller_id = $1 AND id = $2
      RETURNING id`,
     [params.data.id, params.data.tagId]
   );

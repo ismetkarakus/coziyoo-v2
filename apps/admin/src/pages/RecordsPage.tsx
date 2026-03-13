@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { Pager, ExcelExportButton, PrintButton } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
@@ -8,13 +9,15 @@ import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
 export default function RecordsPage({ language, tableKey }: { language: Language; tableKey: "orders" | "foods" }) {
+  const location = useLocation();
   const dict = DICTIONARIES[language];
+  const urlSearchQuery = tableKey === "orders" ? (new URLSearchParams(location.search).get("search") ?? "").trim() : "";
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [userNameById, setUserNameById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(urlSearchQuery);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
@@ -86,7 +89,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         total_price: "Toplam Tutar",
         estimated_delivery_time: "Tahmini Teslimat",
         delivery_address_json: "Teslimat Adresi",
-        order_id: "Order ID",
         lot_id: "Lot ID",
         food_id: "Yemek ID",
         food_name: "Yemek Adı",
@@ -131,12 +133,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   };
 
   const orderItemColumnLabelTr = (column: string): string => {
-    const normalized = String(column).trim().toLowerCase();
-    if (normalized === "id" || normalized === "order_item_id" || normalized === "orderitemid") {
-      return "Kalem ID";
-    }
     const trLabels: Record<string, string> = {
-      id: "Kalem ID",
       food_id: "Yemek ID",
       food_name: "Yemek Adı",
       quantity: "Adet",
@@ -382,8 +379,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       const body = await parseJson<{
         data: { rows: Array<Record<string, unknown>>; columns: string[] };
       }>(response);
-      const rows = (body.data.rows ?? []).filter((item) => String(item.order_id ?? "") === orderId);
-      setSelectedOrderItems(rows);
+      setSelectedOrderItems(body.data.rows ?? []);
       setSelectedOrderItemsColumns(body.data.columns ?? []);
     } finally {
       setOrderItemsLoading(false);
@@ -495,6 +491,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       })
       .catch(() => undefined);
   }
+
+  useEffect(() => {
+    if (tableKey !== "orders") return;
+    setSearch(urlSearchQuery);
+    setPage(1);
+  }, [tableKey, urlSearchQuery]);
 
   useEffect(() => {
     setLoading(true);
@@ -687,12 +689,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(raw ?? "-");
   })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
-    const withoutOrderId = selectedOrderItemsColumns.filter((column) => {
-      const normalized = String(column).trim().toLowerCase();
-      return normalized !== "order_id" && normalized !== "orderid";
-    });
-    if (!withoutOrderId.includes("food_id")) return withoutOrderId;
-    const withoutFoodName = withoutOrderId.filter((column) => column !== "food_name");
+    if (!selectedOrderItemsColumns.includes("food_id")) return selectedOrderItemsColumns;
+    const withoutFoodName = selectedOrderItemsColumns.filter((column) => column !== "food_name");
     const foodIdIndex = withoutFoodName.indexOf("food_id");
     if (foodIdIndex < 0) return withoutFoodName;
     return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];

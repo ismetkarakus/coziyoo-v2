@@ -1,30 +1,36 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton } from "../components/ui";
 import { fmt, toDisplayId } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
+type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
+
+type ComplaintRow = {
+  id: string;
+  orderNo: string;
+  complainantBuyerNo: string;
+  complainantBuyerName?: string;
+  subject: string;
+  categoryName?: string | null;
+  createdAt: string;
+  status: ComplaintStatus;
+};
+
 export default function InvestigationPage({ language }: { language: Language }) {
+  const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "in_review" | "resolved" | "closed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | ComplaintStatus>("all");
   const [page, setPage] = useState(1);
-  const [rows, setRows] = useState<
-    Array<{
-      id: string;
-      orderNo: string;
-      complainantBuyerNo: string;
-      subject: string;
-      createdAt: string;
-      status: "open" | "in_review" | "resolved" | "closed";
-    }>
-  >([]);
+  const [rows, setRows] = useState<ComplaintRow[]>([]);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
 
-  const statusText = (status: "open" | "in_review" | "resolved" | "closed") => {
+  const statusText = (status: ComplaintStatus) => {
     if (language === "tr") {
       if (status === "open") return "Açık";
       if (status === "in_review") return "İnceleniyor";
@@ -37,7 +43,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
     return "Closed";
   };
 
-  const statusClass = (status: "open" | "in_review" | "resolved" | "closed") => {
+  const statusClass = (status: ComplaintStatus) => {
     if (status === "open") return "is-pending";
     if (status === "in_review") return "is-approved";
     if (status === "resolved") return "is-done";
@@ -53,16 +59,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
       });
       const response = await request(`/v1/admin/investigations/complaints?${exportQuery.toString()}`);
-      const body = await parseJson<{
-        data?: Array<{
-          id: string;
-          orderNo: string;
-          complainantBuyerNo: string;
-          subject: string;
-          createdAt: string;
-          status: "open" | "in_review" | "resolved" | "closed";
-        }>;
-      } & ApiError>(response);
+      const body = await parseJson<{ data?: ComplaintRow[] } & ApiError>(response);
       if (response.status !== 200 || !body.data) {
         setError(body.error?.message ?? dict.investigation.requestFailed);
         return;
@@ -75,16 +72,16 @@ export default function InvestigationPage({ language }: { language: Language }) 
       const headers = [
         "Display ID",
         language === "tr" ? "Sipariş Numarası" : "Order No",
-        language === "tr" ? "Alıcı Numarası" : "Buyer No",
-        language === "tr" ? "Konu" : "Subject",
+        language === "tr" ? "Alıcı" : "Buyer",
+        language === "tr" ? "Şikayet Kategorisi" : "Complaint Category",
         language === "tr" ? "Oluşturma Tarihi" : "Created At",
         language === "tr" ? "Durum" : "Status",
       ];
       const rowsForExport = body.data.map((row) => [
         toDisplayId(row.id),
         row.orderNo,
-        row.complainantBuyerNo,
-        row.subject,
+        row.complainantBuyerName ?? row.complainantBuyerNo,
+        row.categoryName ?? "-",
         new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US"),
         statusText(row.status),
       ]);
@@ -116,14 +113,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
       try {
         const response = await request(`/v1/admin/investigations/complaints?${query.toString()}`);
         const body = await parseJson<{
-          data?: Array<{
-            id: string;
-            orderNo: string;
-            complainantBuyerNo: string;
-            subject: string;
-            createdAt: string;
-            status: "open" | "in_review" | "resolved" | "closed";
-          }>;
+          data?: ComplaintRow[];
           pagination?: { total: number; totalPages: number };
         } & ApiError>(response);
         if (response.status !== 200 || !body.data || !body.pagination) {
@@ -206,8 +196,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
               <tr>
                 <th>Display ID</th>
                 <th>{language === "tr" ? "Sipariş Numarası" : "Order No"}</th>
-                <th>{language === "tr" ? "Alıcı Numarası" : "Buyer No"}</th>
-                <th>{language === "tr" ? "Konu" : "Subject"}</th>
+                <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                <th>{language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}</th>
                 <th>{language === "tr" ? "Oluşturma Tarihi" : "Created At"}</th>
                 <th>{language === "tr" ? "Durum" : "Status"}</th>
               </tr>
@@ -223,11 +213,23 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className="investigation-click-row"
+                    onClick={() => navigate(`/app/investigation/${row.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate(`/app/investigation/${row.id}`);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
                     <td>{toDisplayId(row.id)}</td>
                     <td>{row.orderNo}</td>
-                    <td>{row.complainantBuyerNo}</td>
-                    <td>{row.subject}</td>
+                    <td>{row.complainantBuyerName ?? row.complainantBuyerNo}</td>
+                    <td>{row.categoryName ?? "-"}</td>
                     <td>{new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
                     <td>
                       <span className={`status-pill ${statusClass(row.status)}`}>{statusText(row.status)}</span>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,32 @@ import {
   StyleSheet,
   Animated,
   Alert,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'react-native';
 import {
   AudioSession,
+  AndroidAudioTypePresets,
   LiveKitRoom,
   useLocalParticipant,
+  useIOSAudioManagement,
   useParticipants,
   useRoomContext,
 } from '@livekit/react-native';
-import { ConnectionState, Track } from 'livekit-client';
+import { ConnectionState, RoomEvent } from 'livekit-client';
 import type { SessionData } from './HomeScreen';
+
+type AgentActionEnvelope = {
+  type: 'action';
+  version: string;
+  requestId: string;
+  timestamp: string;
+  action: {
+    name: 'navigate' | 'add_to_cart' | 'show_order_summary';
+    params: Record<string, unknown>;
+  };
+};
 
 type Props = {
   session: SessionData;
@@ -24,23 +39,141 @@ type Props = {
 };
 
 export default function VoiceSessionScreen({ session, onEnd }: Props) {
+  const intentionalEnd = useRef(false);
+  // Don't connect until audio session is fully configured.
+  // LiveKit docs: configureAudio must be called before connecting to a room.
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
   useEffect(() => {
-    AudioSession.startAudioSession();
+    let mounted = true;
+
+    async function setupAudioSession() {
+      setAudioReady(false);
+      setAudioError(null);
+
+      try {
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            throw new Error('Microphone permission is required to start a voice session.');
+          }
+        }
+
+        await AudioSession.configureAudio({
+          ios: { defaultOutput: 'speaker' },
+          android: { audioTypeOptions: AndroidAudioTypePresets.communication },
+        });
+
+        if (Platform.OS === 'ios') {
+          await AudioSession.setAppleAudioConfiguration({
+            audioCategory: 'playAndRecord',
+            audioCategoryOptions: ['allowBluetooth', 'defaultToSpeaker'],
+            audioMode: 'voiceChat',
+          });
+        }
+
+        await AudioSession.startAudioSession();
+
+        if (mounted) setAudioReady(true);
+      } catch (err) {
+        console.warn('[AudioSession] setup failed:', err);
+        if (mounted) {
+          setAudioError(err instanceof Error ? err.message : 'Failed to configure audio session.');
+          setAudioReady(false);
+        }
+      }
+    }
+
+    void setupAudioSession();
+
     return () => {
+      mounted = false;
       AudioSession.stopAudioSession();
     };
   }, []);
+
+  function handleDisconnected() {
+    if (intentionalEnd.current) {
+      onEnd();
+      return;
+    }
+    // Unexpected disconnect — prompt user
+    Alert.alert(
+      'Disconnected',
+      'The session was interrupted. What would you like to do?',
+      [
+        { text: 'End Session', style: 'destructive', onPress: onEnd },
+        { text: 'Dismiss', style: 'cancel' },
+      ]
+    );
+  }
+
+  function handleEnd() {
+    intentionalEnd.current = true;
+    onEnd();
+  }
+
+  function handleConnected() {
+    setSessionError(null);
+  }
+
+  function handleRoomError(error: Error) {
+    console.warn('[LiveKitRoom] connection error:', error);
+    setSessionError('Failed to connect to voice session. Please try again.');
+  }
+
+  function handleMediaDeviceFailure() {
+    setSessionError('Microphone access failed. Check iOS microphone permission and try again.');
+  }
+
+  if (audioError) {
+    return (
+      <View style={styles.setupContainer}>
+        <Text style={styles.setupTitle}>Audio setup failed</Text>
+        <Text style={styles.setupMessage}>{audioError}</Text>
+        <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
+          <Text style={styles.setupButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!audioReady) {
+    return (
+      <View style={styles.setupContainer}>
+        <Text style={styles.setupTitle}>Preparing audio…</Text>
+        <Text style={styles.setupMessage}>Configuring microphone and speaker for voice chat.</Text>
+      </View>
+    );
+  }
+
+  if (sessionError) {
+    return (
+      <View style={styles.setupContainer}>
+        <Text style={styles.setupTitle}>Connection failed</Text>
+        <Text style={styles.setupMessage}>{sessionError}</Text>
+        <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
+          <Text style={styles.setupButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <LiveKitRoom
       serverUrl={session.wsUrl}
       token={session.token}
-      connect={true}
+      connect={audioReady}
       audio={true}
       video={false}
-      onDisconnected={onEnd}
+      onConnected={handleConnected}
+      onDisconnected={handleDisconnected}
+      onError={handleRoomError}
+      onMediaDeviceFailure={handleMediaDeviceFailure}
     >
-      <SessionView onEnd={onEnd} roomName={session.roomName} />
+      <SessionView onEnd={handleEnd} roomName={session.roomName} />
     </LiveKitRoom>
   );
 }
@@ -52,8 +185,10 @@ type SessionViewProps = {
 
 function SessionView({ onEnd, roomName }: SessionViewProps) {
   const room = useRoomContext();
+  useIOSAudioManagement(room, true);
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
+  const micPrimed = useRef(false);
 
   const agentParticipant = participants.find(
     (p) => p.identity !== localParticipant.identity
@@ -64,6 +199,69 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   const connectionState = room.state;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [actionBanner, setActionBanner] = useState<string | null>(null);
+  const processedIds = useRef(new Set<string>());
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (connectionState !== ConnectionState.Connected) {
+      micPrimed.current = false;
+      return;
+    }
+    if (micPrimed.current) return;
+    micPrimed.current = true;
+
+    void localParticipant.setMicrophoneEnabled(true).catch((error) => {
+      console.warn('[LiveKitRoom] failed to enable microphone:', error);
+      micPrimed.current = false;
+    });
+  }, [connectionState, localParticipant]);
+
+  // Subscribe to agent-action data channel messages
+  useEffect(() => {
+    function handleData(
+      payload: Uint8Array,
+      _participant: unknown,
+      _kind: unknown,
+      topic?: string
+    ) {
+      if (topic !== 'agent-action') return;
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload)) as AgentActionEnvelope;
+        if (msg.type !== 'action' || !msg.requestId) return;
+        if (processedIds.current.has(msg.requestId)) return;
+        processedIds.current.add(msg.requestId);
+
+        const { name, params } = msg.action;
+        let banner: string;
+        switch (name) {
+          case 'navigate':
+            banner = `Go to: ${params.screen as string}`;
+            break;
+          case 'add_to_cart':
+            banner = `Added: ${params.productName as string} ×${params.quantity as number}`;
+            break;
+          case 'show_order_summary':
+            banner = `Order total: $${(params.total as number).toFixed(2)}`;
+            break;
+          default:
+            return;
+        }
+
+        if (bannerTimer.current) clearTimeout(bannerTimer.current);
+        setActionBanner(banner);
+        bannerTimer.current = setTimeout(() => setActionBanner(null), 3500);
+      } catch {
+        // ignore malformed messages
+      }
+    }
+
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+      if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    };
+  }, [room]);
 
   useEffect(() => {
     if (isAgentSpeaking) {
@@ -127,6 +325,12 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
+
+      {actionBanner && (
+        <View style={styles.actionBanner}>
+          <Text style={styles.actionBannerText}>{actionBanner}</Text>
+        </View>
+      )}
 
       <View style={styles.header}>
         <Text style={styles.roomLabel}>Room</Text>
@@ -195,6 +399,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  setupContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  setupTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  setupMessage: {
+    color: '#aab4d6',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  setupButton: {
+    marginTop: 8,
+    backgroundColor: '#6C63FF',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  setupButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     paddingTop: 64,
@@ -322,5 +557,21 @@ const styles = StyleSheet.create({
   controlLabel: {
     color: '#888',
     fontSize: 11,
+  },
+  actionBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#6C63FF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    zIndex: 10,
+    alignItems: 'center',
+  },
+  actionBannerText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -6,6 +6,31 @@ export type PayoutBatchStatus = "pending" | "processing" | "paid" | "failed";
 
 const DEFAULT_CURRENCY = "TRY";
 
+type Queryable = Pick<PoolClient, "query">;
+
+async function hasTables(queryable: Queryable, tables: string[]): Promise<boolean> {
+  for (const table of tables) {
+    const result = await queryable.query<{ exists: boolean }>("SELECT to_regclass($1) IS NOT NULL AS exists", [table]);
+    if (!result.rows[0]?.exists) return false;
+  }
+  return true;
+}
+
+async function hasPayoutBalanceTables(queryable: Queryable): Promise<boolean> {
+  return hasTables(queryable, ["public.seller_ledger_entries", "public.seller_payout_batches"]);
+}
+
+async function hasPayoutGenerationTables(queryable: Queryable): Promise<boolean> {
+  return hasTables(queryable, [
+    "public.seller_ledger_entries",
+    "public.seller_payout_batches",
+    "public.seller_payout_items",
+    "public.seller_bank_accounts",
+    "public.order_finance",
+    "public.finance_adjustments",
+  ]);
+}
+
 function utcDateString(input: Date): string {
   return input.toISOString().slice(0, 10);
 }
@@ -65,6 +90,18 @@ export async function getSellerBalance(sellerId: string): Promise<{
   paidOutTotal: number;
   ledgerBalance: number;
 }> {
+  const payoutTablesReady = await hasPayoutBalanceTables(pool);
+  if (!payoutTablesReady) {
+    return {
+      sellerId,
+      currency: DEFAULT_CURRENCY,
+      availableBalance: 0,
+      pendingPayoutBalance: 0,
+      paidOutTotal: 0,
+      ledgerBalance: 0,
+    };
+  }
+
   const result = await pool.query<{
     ledger_balance: string;
     pending_balance: string;
@@ -180,6 +217,12 @@ export async function generateDailyPayoutBatches(params?: {
     await client.query("BEGIN");
     const lockAcquired = await acquirePayoutGenerationLock(client);
     if (!lockAcquired) {
+      await client.query("ROLLBACK");
+      return { payoutDate, createdBatchCount: 0, createdTotalAmount: 0, skippedSellers: 0 };
+    }
+
+    const payoutTablesReady = await hasPayoutGenerationTables(client);
+    if (!payoutTablesReady) {
       await client.query("ROLLBACK");
       return { payoutDate, createdBatchCount: 0, createdTotalAmount: 0, skippedSellers: 0 };
     }

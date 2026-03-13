@@ -778,6 +778,16 @@ a {
   gap: 24px;
 }
 
+.back-nav {
+  display: flex;
+  align-items: center;
+}
+
+.back-nav-btn {
+  font-size: 0.85rem;
+  padding: 5px 12px;
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -878,6 +888,20 @@ h1 {
   outline: none;
   border-color: color-mix(in srgb, var(--color-accent) 72%, var(--color-border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.investigation-page .investigation-click-row {
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.investigation-page .investigation-click-row:hover td {
+  background: color-mix(in srgb, var(--color-subtle-bg) 78%, transparent);
+}
+
+.investigation-page .investigation-click-row:focus-visible td {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 56%, transparent);
+  outline-offset: -2px;
 }
 
 button {
@@ -2742,12 +2766,13 @@ textarea:focus {
 .buyer-ops-modal {
   width: min(520px, 100%);
   border-radius: 14px;
-  border: 1px solid var(--ops-border-default);
-  background: color-mix(in srgb, var(--ops-bg-card) 98%, transparent);
+  border: 1px solid var(--ops-border-default, var(--color-border));
+  background: color-mix(in srgb, var(--ops-bg-card, var(--color-card-bg)) 98%, transparent);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   padding: 16px;
   display: grid;
   gap: 10px;
+  color: var(--ops-text-primary, var(--color-text));
 }
 
 .buyer-ops-modal h3 {
@@ -2757,7 +2782,7 @@ textarea:focus {
 .buyer-ops-modal label {
   display: grid;
   gap: 6px;
-  color: var(--ops-text-secondary);
+  color: var(--ops-text-secondary, var(--color-secondary-text));
   font-size: var(--text-xs);
   border: 0;
   background: transparent;
@@ -2767,10 +2792,10 @@ textarea:focus {
 .buyer-ops-modal input,
 .buyer-ops-modal textarea {
   border-radius: 10px;
-  border: 1px solid var(--ops-border-default);
-  background: color-mix(in srgb, var(--ops-bg-default) 72%, transparent);
+  border: 1px solid var(--ops-border-default, var(--color-input-border));
+  background: color-mix(in srgb, var(--ops-bg-default, var(--color-input-bg)) 72%, transparent);
   padding: 10px 12px;
-  color: var(--ops-text-primary);
+  color: var(--ops-text-primary, var(--color-text));
 }
 
 .buyer-ops-modal-actions {

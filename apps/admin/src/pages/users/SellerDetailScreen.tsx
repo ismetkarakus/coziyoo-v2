@@ -1,5 +1,5 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
@@ -21,7 +21,7 @@ import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
-import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow } from "../../types/seller";
+import type { SellerFoodRow, SellerCompliancePayload, SellerAddressRow, SellerComplianceStatus } from "../../types/seller";
 import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
 import type { BuyerPagination } from "../../types/buyer";
 
@@ -70,7 +70,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [selectedEarningIds, setSelectedEarningIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [legalSaving, setLegalSaving] = useState(false);
+  const [legalSavingKey, setLegalSavingKey] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [optionalRejectTargetId, setOptionalRejectTargetId] = useState<string | null>(null);
@@ -637,10 +637,40 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const selectedIdentityDocument =
     identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
   const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
+  const legalSaving = legalSavingKey !== null;
+  const isSavingDoc = (docId: string) => legalSavingKey === `doc:${docId}`;
+  const isSavingOptional = (uploadId: string) => legalSavingKey === `optional:${uploadId}`;
+  const isSavingDocType = (docTypeCode: string) => legalSavingKey === `dtype:${docTypeCode}`;
+
+  function recomputeProfile(
+    documents: SellerCompliancePayload["documents"],
+    prev: SellerCompliancePayload["profile"]
+  ): SellerCompliancePayload["profile"] {
+    const required = documents.filter((d) => d.is_required);
+    const requiredCount = required.length;
+    const approvedRequired = required.filter((d) => d.status === "approved").length;
+    const uploadedRequired = required.filter((d) => d.status === "uploaded").length;
+    const requestedRequired = required.filter((d) => d.status === "requested").length;
+    const rejectedRequired = required.filter((d) => d.status === "rejected").length;
+    let status: SellerComplianceStatus;
+    if (requiredCount === 0) status = "not_started";
+    else if (rejectedRequired > 0) status = "rejected";
+    else if (approvedRequired === requiredCount) status = "approved";
+    else if (requestedRequired > 0) status = "in_progress";
+    else status = "under_review";
+    return {
+      ...prev,
+      status,
+      required_count: requiredCount,
+      approved_required_count: approvedRequired,
+      uploaded_required_count: uploadedRequired,
+      requested_required_count: requestedRequired,
+      rejected_required_count: rejectedRequired,
+    };
+  }
 
   async function updateDocumentStatus(documentId: string, status: "requested" | "approved" | "rejected", rejectionReasonInput?: string) {
-    setLegalSaving(true);
-    setMessage(null);
+    setLegalSavingKey(`doc:${documentId}`);
     try {
       const response = await request(`/v1/admin/compliance/${id}/documents/${documentId}`, {
         method: "PATCH",
@@ -654,7 +684,26 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      await loadSellerDetail();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const nowIso = new Date().toISOString();
+        const updatedDocuments = prev.documents.map((item) =>
+          item.id === documentId
+            ? {
+                ...item,
+                status,
+                rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
+                updated_at: nowIso,
+              }
+            : item
+        );
+        return {
+          ...prev,
+          documents: updatedDocuments,
+          profile: recomputeProfile(updatedDocuments, prev.profile),
+        };
+      });
       setMessage(dict.common.saved);
       setRejectTargetId(null);
       setRejectReason("");
@@ -663,13 +712,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
-      setLegalSaving(false);
+      setLegalSavingKey(null);
     }
   }
 
   async function updateOptionalUploadStatus(uploadId: string, status: "uploaded" | "approved" | "rejected", rejectionReasonInput?: string) {
-    setLegalSaving(true);
-    setMessage(null);
+    setLegalSavingKey(`optional:${uploadId}`);
     try {
       const response = await request(`/v1/admin/compliance/${id}/optional-uploads/${uploadId}`, {
         method: "PATCH",
@@ -683,20 +731,36 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      await loadSellerDetail();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const nowIso = new Date().toISOString();
+        return {
+          ...prev,
+          optionalUploads: prev.optionalUploads.map((item) =>
+            item.id === uploadId
+              ? {
+                  ...item,
+                  status,
+                  rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                  reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
+                  updated_at: nowIso,
+                }
+              : item
+          ),
+        };
+      });
       setMessage(dict.common.saved);
       setOptionalRejectTargetId(null);
       setOptionalRejectReason("");
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
-      setLegalSaving(false);
+      setLegalSavingKey(null);
     }
   }
 
   async function updateDocumentRequired(docTypeCode: string, required: boolean) {
-    setLegalSaving(true);
-    setMessage(null);
+    setLegalSavingKey(`dtype:${docTypeCode}`);
     try {
       const response = await request(`/v1/admin/compliance/${id}/doc-types/${encodeURIComponent(docTypeCode)}`, {
         method: "PATCH",
@@ -707,12 +771,29 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      await loadSellerDetail();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const nowIso = new Date().toISOString();
+        const updatedDocuments = prev.documents.map((item) =>
+          item.code === docTypeCode
+            ? {
+                ...item,
+                is_required: required,
+                updated_at: nowIso,
+              }
+            : item
+        );
+        return {
+          ...prev,
+          documents: updatedDocuments,
+          profile: recomputeProfile(updatedDocuments, prev.profile),
+        };
+      });
       setMessage(dict.common.saved);
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
-      setLegalSaving(false);
+      setLegalSavingKey(null);
     }
   }
 
@@ -1288,7 +1369,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <input
                                   type="checkbox"
                                   checked={row.is_required}
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={!isSuperAdmin || isSavingDocType(row.code)}
                                   onChange={(event) => {
                                     void updateDocumentRequired(row.code, event.target.checked);
                                   }}
@@ -1350,7 +1431,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1358,7 +1439,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={isSavingDoc(row.id)}
                                   onClick={() => {
                                     setRejectTargetId(row.id);
                                     setRejectReason(row.rejection_reason ?? "");
@@ -1369,7 +1450,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving}
+                                  disabled={isSavingDoc(row.id)}
                                   onClick={() => void updateDocumentStatus(row.id, "requested")}
                                 >
                                   {dict.detail.legalPend}
@@ -1425,7 +1506,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1433,7 +1514,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => {
                                     setOptionalRejectTargetId(row.id);
                                     setOptionalRejectReason(row.rejection_reason ?? "");
@@ -1444,7 +1525,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!isSuperAdmin || legalSaving || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "uploaded")}
                                 >
                                   {dict.detail.legalPend}
@@ -1461,21 +1542,31 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
           </article>
           {rejectTargetId ? (
-            <div className="buyer-ops-modal-backdrop">
-              <div className="buyer-ops-modal">
+            <div
+              className="buyer-ops-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.detail.legalRejectModalTitle}
+              onClick={() => {
+                if (isSavingDoc(rejectTargetId)) return;
+                setRejectTargetId(null);
+                setRejectReason("");
+              }}
+            >
+              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
                 <h3>{dict.detail.legalRejectModalTitle}</h3>
                 <label>
                   {dict.detail.legalRejectionReason}
                   <textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={4} />
                 </label>
                 <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" onClick={() => { setRejectTargetId(null); setRejectReason(""); }}>
+                  <button className="ghost" type="button" disabled={isSavingDoc(rejectTargetId)} onClick={() => { setRejectTargetId(null); setRejectReason(""); }}>
                     {dict.common.cancel}
                   </button>
                   <button
                     className="primary"
                     type="button"
-                    disabled={!rejectReason.trim() || legalSaving}
+                    disabled={rejectReason.trim().length < 3 || isSavingDoc(rejectTargetId)}
                     onClick={() => void updateDocumentStatus(rejectTargetId, "rejected", rejectReason.trim())}
                   >
                     {dict.detail.legalReject}
@@ -1485,21 +1576,31 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </div>
           ) : null}
           {optionalRejectTargetId ? (
-            <div className="buyer-ops-modal-backdrop">
-              <div className="buyer-ops-modal">
+            <div
+              className="buyer-ops-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.detail.optionalRejectModalTitle}
+              onClick={() => {
+                if (isSavingOptional(optionalRejectTargetId)) return;
+                setOptionalRejectTargetId(null);
+                setOptionalRejectReason("");
+              }}
+            >
+              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
                 <h3>{dict.detail.optionalRejectModalTitle}</h3>
                 <label>
                   {dict.detail.legalRejectionReason}
                   <textarea value={optionalRejectReason} onChange={(event) => setOptionalRejectReason(event.target.value)} rows={4} />
                 </label>
                 <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" onClick={() => { setOptionalRejectTargetId(null); setOptionalRejectReason(""); }}>
+                  <button className="ghost" type="button" disabled={isSavingOptional(optionalRejectTargetId)} onClick={() => { setOptionalRejectTargetId(null); setOptionalRejectReason(""); }}>
                     {dict.common.cancel}
                   </button>
                   <button
                     className="primary"
                     type="button"
-                    disabled={!optionalRejectReason.trim() || legalSaving}
+                    disabled={optionalRejectReason.trim().length < 3 || isSavingOptional(optionalRejectTargetId)}
                     onClick={() => void updateOptionalUploadStatus(optionalRejectTargetId, "rejected", optionalRejectReason.trim())}
                   >
                     {dict.detail.legalReject}
@@ -1704,9 +1805,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                         <tbody>
                                                           {lotOrders.map((order) => (
                                                             <tr key={`${lot.id}-${order.order_id}`}>
-                                                              <td>{`#${order.order_id.slice(0, 8).toUpperCase()}`}</td>
+                                                              <td>
+                                                                <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.order_id)}`}>
+                                                                  {`#${order.order_id.slice(0, 8).toUpperCase()}`}
+                                                                </Link>
+                                                              </td>
                                                               <td>{order.status}</td>
-                                                              <td>{order.buyer_id}</td>
+                                                              <td>
+                                                                {order.buyer_id ? (
+                                                                  <Link className="inline-copy" to={`/app/buyers/${order.buyer_id}`}>
+                                                                    {order.buyer_id}
+                                                                  </Link>
+                                                                ) : "-"}
+                                                              </td>
                                                               <td>{order.quantity_allocated}</td>
                                                               <td>{formatUiDate(order.created_at, language)}</td>
                                                             </tr>
@@ -1824,8 +1935,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             />
                           </td>
                           <td>{formatUiDate(order.createdAt, language)}</td>
-                          <td>{order.orderNo}</td>
-                          <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
+                          <td>
+                            <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
+                              {order.orderNo}
+                            </Link>
+                          </td>
+                          <td>
+                            {order.buyerId ? (
+                              <Link className="inline-copy" to={`/app/buyers/${order.buyerId}`}>
+                                {order.buyerName ?? order.buyerEmail ?? order.buyerId}
+                              </Link>
+                            ) : (order.buyerName ?? order.buyerEmail ?? "-")}
+                          </td>
                           <td>{foods || "-"}</td>
                           <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                           <td>{paymentText}</td>
@@ -1933,8 +2054,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           />
                         </td>
                         <td>{formatUiDate(order.createdAt, language)}</td>
-                        <td>{order.orderNo}</td>
-                        <td>{order.buyerName ?? order.buyerEmail ?? order.buyerId}</td>
+                        <td>
+                          <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
+                            {order.orderNo}
+                          </Link>
+                        </td>
+                        <td>
+                          {order.buyerId ? (
+                            <Link className="inline-copy" to={`/app/buyers/${order.buyerId}`}>
+                              {order.buyerName ?? order.buyerEmail ?? order.buyerId}
+                            </Link>
+                          ) : (order.buyerName ?? order.buyerEmail ?? "-")}
+                        </td>
                         <td>{paymentStateText(order.paymentStatus)}</td>
                         <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                       </tr>

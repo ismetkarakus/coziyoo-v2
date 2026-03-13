@@ -265,9 +265,7 @@ async function ensureSellerAssignments(sellerId: string) {
      FROM compliance_documents_list cdl
      WHERE cdl.is_active = TRUE
      ON CONFLICT (seller_id, document_list_id)
-     DO UPDATE SET
-       is_required = EXCLUDED.is_required,
-       updated_at = now()`,
+     DO NOTHING`,
     [sellerId]
   );
 }
@@ -1076,9 +1074,11 @@ adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("adm
         status: updated.rows[0].status,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("[compliance] document status update failed:", err);
     await client.query("ROLLBACK");
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance document update failed" } });
+    const detail = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Compliance document update failed", detail } });
   } finally {
     client.release();
   }
