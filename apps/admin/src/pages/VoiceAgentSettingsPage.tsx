@@ -179,11 +179,11 @@ function emptyDraft(): ServerDraft {
 }
 
 function sttToDraft(s: SttServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", textFieldName: "text", model: s.model, modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: [], authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: s.provider, baseUrl: s.baseUrl, transcribePath: s.transcribePath, synthPath: "", textFieldName: "text", model: s.model, modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: [], authHeader: s.authHeader, webhookPath: "", mcpWebhookPath: "" };
 }
 
 function ttsToDraft(s: TtsServer): ServerDraft {
-  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, textFieldName: s.textFieldName || "text", model: "", modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: objToParams(s.bodyParams ?? {}), authHeader: s.authHeader };
+  return { name: s.name, enabled: s.enabled, provider: "", baseUrl: s.baseUrl, transcribePath: "", synthPath: s.synthPath, textFieldName: s.textFieldName || "text", model: "", modelsPath: "", queryParams: objToParams(s.queryParams), bodyParams: objToParams(s.bodyParams ?? {}), authHeader: s.authHeader, webhookPath: "", mcpWebhookPath: "" };
 }
 
 function n8nToDraft(s: N8nServer): ServerDraft {
