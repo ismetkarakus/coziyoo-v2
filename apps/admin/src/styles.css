@@ -2179,6 +2179,10 @@ textarea:focus {
   box-shadow: inset 3px 0 0 color-mix(in srgb, #ff647c 66%, transparent);
 }
 
+.users-table-wrap tbody tr.buyer-risk-low td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #3dd598 62%, transparent);
+}
+
 .users-table-wrap tbody tr.buyer-risk-medium td:first-child {
   box-shadow: inset 3px 0 0 color-mix(in srgb, #f3b34a 62%, transparent);
 }
@@ -5743,6 +5747,35 @@ textarea:focus {
   color: var(--color-secondary-text);
   border-color: var(--color-border);
   background: color-mix(in srgb, var(--color-card-bg) 70%, transparent);
+}
+
+table tbody tr:has(.status-pill.is-active) td:first-child,
+table tbody tr:has(.status-pill.is-success) td:first-child,
+table tbody tr:has(.order-status-pill.is-paid) td:first-child,
+table tbody tr:has(.order-status-pill.is-done) td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #3dd598 62%, transparent);
+}
+
+table tbody tr:has(.status-pill.is-warning) td:first-child,
+table tbody tr:has(.order-status-pill.is-pending) td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #f3b34a 62%, transparent);
+}
+
+table tbody tr:has(.status-pill.is-danger) td:first-child,
+table tbody tr:has(.status-pill.is-disabled) td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #ff647c 66%, transparent);
+}
+
+table tbody tr:has(.status-pill.is-neutral) td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #7f8ba3 50%, transparent);
+}
+
+table tbody tr:has(.order-status-pill.is-approved) td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #3f84ff 62%, transparent);
+}
+
+table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #7b67e8 58%, transparent);
 }
 
 .user-type-pill {
