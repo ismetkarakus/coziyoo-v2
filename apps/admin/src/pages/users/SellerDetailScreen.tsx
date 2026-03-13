@@ -69,6 +69,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [identityViewerUrl, setIdentityViewerUrl] = useState<string | null>(null);
   const [tempComplianceUploads, setTempComplianceUploads] = useState<Record<string, TempComplianceUpload>>({});
   const [previewTarget, setPreviewTarget] = useState<SellerPreviewTarget | null>(null);
+  const [tempRejectTargetKey, setTempRejectTargetKey] = useState<ComplianceRowKey | null>(null);
+  const [tempRejectReason, setTempRejectReason] = useState("");
   const [sellerOrders, setSellerOrders] = useState<
     Array<{
       orderId: string;
@@ -284,6 +286,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setIdentityViewerUrl(null);
     setPreviewTarget(null);
     setPendingUploadKey(null);
+    setTempRejectTargetKey(null);
+    setTempRejectReason("");
     setTempComplianceUploads((prev) => {
       Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
       return {};
@@ -631,22 +635,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
 
   const legalRows = mapComplianceRows(compliance, dict, language);
-  const displayLegalRows = legalRows.map((item) => {
-    const tempUpload = tempComplianceUploads[item.key];
-    if (!tempUpload) return item;
-    const tone = sellerDocumentStatusTone(tempUpload.status);
-    const statusLabel = sellerDocumentStatusLabel(tempUpload.status, dict);
-    return {
-      ...item,
-      tone,
-      statusLabel,
-      detailText: `${statusLabel} • ${formatUiDate(tempUpload.uploadedAt, language)}`,
-      sourceType: "document" as const,
-      sourceDocumentId: null,
-      sourceFileUrl: tempUpload.fileUrl,
-      sourceDocumentStatus: tempUpload.status,
-    };
-  });
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
   const legalDocuments = [...(compliance?.documents ?? [])].sort((a, b) => {
     const rankDiff = knownDocumentCodeRank(a.code) - knownDocumentCodeRank(b.code);
@@ -955,22 +943,55 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       return;
     }
     if (previewTarget.key) {
-      setTempComplianceUploads((prev) => {
-        const current = prev[previewTarget.key!];
-        if (!current) return prev;
-        return {
-          ...prev,
-          [previewTarget.key!]: {
-            ...current,
-            status: "rejected",
-            rejectionReason: language === "tr" ? "Geçici red" : "Temporary rejection",
-          },
-        };
-      });
-      setMessage(dict.common.saved);
       setPreviewTarget(null);
+      setTempRejectTargetKey(previewTarget.key);
+      setTempRejectReason("");
     }
   }
+
+  function confirmTempReject() {
+    if (!tempRejectTargetKey) return;
+    const reason = tempRejectReason.trim();
+    if (reason.length < 3) return;
+    setTempComplianceUploads((prev) => {
+      const current = prev[tempRejectTargetKey];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [tempRejectTargetKey]: {
+          ...current,
+          status: "rejected",
+          rejectionReason: reason,
+        },
+      };
+    });
+    setTempRejectTargetKey(null);
+    setTempRejectReason("");
+    setMessage(dict.common.saved);
+  }
+
+  function cancelTempReject() {
+    setTempRejectTargetKey(null);
+    setTempRejectReason("");
+  }
+
+  const displayLegalRows = legalRows.map((item) => {
+    const tempUpload = tempComplianceUploads[item.key];
+    if (!tempUpload) return item;
+    const tone = sellerDocumentStatusTone(tempUpload.status);
+    const statusLabel = sellerDocumentStatusLabel(tempUpload.status, dict);
+    const rejectionText = tempUpload.status === "rejected" && tempUpload.rejectionReason ? ` • ${tempUpload.rejectionReason}` : "";
+    return {
+      ...item,
+      tone,
+      statusLabel,
+      detailText: `${statusLabel} • ${formatUiDate(tempUpload.uploadedAt, language)}${rejectionText}`,
+      sourceType: "document" as const,
+      sourceDocumentId: null,
+      sourceFileUrl: tempUpload.fileUrl,
+      sourceDocumentStatus: tempUpload.status,
+    };
+  });
 
   function downloadSellerOrdersAsExcel() {
     if (selectedFilteredOrders.length === 0) {
@@ -1504,6 +1525,37 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               </button>
               <button className="primary" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void acceptPreviewTarget()}>
                 {dict.detail.legalApprove}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tempRejectTargetKey ? (
+        <div
+          className="buyer-ops-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={dict.detail.legalRejectModalTitle}
+          onClick={cancelTempReject}
+        >
+          <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{dict.detail.legalRejectModalTitle}</h3>
+            <label>
+              {dict.detail.legalRejectionReason}
+              <textarea value={tempRejectReason} onChange={(event) => setTempRejectReason(event.target.value)} rows={4} />
+            </label>
+            <div className="buyer-ops-modal-actions">
+              <button className="ghost" type="button" onClick={cancelTempReject}>
+                {dict.common.cancel}
+              </button>
+              <button
+                className="primary"
+                type="button"
+                disabled={tempRejectReason.trim().length < 3}
+                onClick={confirmTempReject}
+              >
+                {dict.detail.legalReject}
               </button>
             </div>
           </div>
