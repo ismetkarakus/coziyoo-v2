@@ -28,6 +28,20 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
   const [editIsActive, setEditIsActive] = useState(true);
   const [editIsRequiredDefault, setEditIsRequiredDefault] = useState(true);
 
+  function normalizeDocumentCode(value: string) {
+    return value
+      .toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US")
+      .replace(/ı/g, "i")
+      .replace(/ğ/g, "g")
+      .replace(/ü/g, "u")
+      .replace(/ş/g, "s")
+      .replace(/ö/g, "o")
+      .replace(/ç/g, "c")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80);
+  }
+
   async function loadRows() {
     setLoading(true);
     try {
@@ -74,6 +88,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
   function closeCreateModal() {
     if (saving) return;
     setIsCreateModalOpen(false);
+    setMessage(null);
     resetCreateForm();
   }
 
@@ -247,7 +262,10 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
         <div className="panel-header">
           <h2>{dict.complianceDocuments.tableTitle}</h2>
           <div className="topbar-actions">
-            <button className="primary" type="button" disabled={!isSuperAdmin} onClick={() => setIsCreateModalOpen(true)}>
+            <button className="primary" type="button" disabled={!isSuperAdmin} onClick={() => {
+              setMessage(null);
+              setIsCreateModalOpen(true);
+            }}>
               {dict.actions.create}
             </button>
           </div>
@@ -318,14 +336,23 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
         <div className="buyer-ops-modal-backdrop">
           <div className="buyer-ops-modal">
             <h3>{dict.complianceDocuments.createDocument}</h3>
+            {message ? <div className="alert">{message}</div> : null}
             <form className="form-grid compliance-create-form" onSubmit={submitCreateForm}>
               <label>
                 {dict.complianceDocuments.code}
-                <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} disabled={!isSuperAdmin || saving} />
+                <input value={createCode} onChange={(event) => setCreateCode(normalizeDocumentCode(event.target.value))} disabled={!isSuperAdmin || saving} />
               </label>
               <label>
                 {dict.complianceDocuments.name}
-                <input value={createName} onChange={(event) => setCreateName(event.target.value)} disabled={!isSuperAdmin || saving} />
+                <input
+                  value={createName}
+                  onChange={(event) => {
+                    const nextName = event.target.value;
+                    setCreateName(nextName);
+                    setCreateCode((prev) => (prev.trim() ? prev : normalizeDocumentCode(nextName)));
+                  }}
+                  disabled={!isSuperAdmin || saving}
+                />
               </label>
               <label>
                 {dict.complianceDocuments.description}
