@@ -366,9 +366,8 @@ async function transitionHandler(
              WHERE scd.is_required = TRUE
                AND scd.status = 'approved'
                AND (
-                 cdl.validity_years IS NULL
-                 OR scd.uploaded_at IS NULL
-                 OR scd.uploaded_at + make_interval(years => cdl.validity_years) > now()
+                 COALESCE(scd.expired, FALSE) = FALSE
+                 AND (scd.expires_at IS NULL OR scd.expires_at > now())
                )
            )::text AS approved_count,
            count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'rejected')::text AS rejected_count

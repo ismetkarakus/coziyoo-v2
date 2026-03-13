@@ -246,8 +246,8 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       }
     }
 
-    const activeComplianceTypes = await client.query<{ id: string; code: string; is_required_default: boolean }>(
-      `SELECT id::text, code, is_required_default
+    const activeComplianceTypes = await client.query<{ id: string; code: string; is_required_default: boolean; validity_years: number | null }>(
+      `SELECT id::text, code, is_required_default, validity_years
        FROM compliance_documents_list
        WHERE is_active = TRUE
        ORDER BY code ASC`
@@ -286,13 +286,15 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
              reviewed_by_admin_id,
              rejection_reason,
              notes,
+             expires_at,
+             expired,
              version,
              is_current,
              created_at,
              updated_at
            )
-           VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', 1, TRUE, now(), now())`,
-          [sellerId, type.id, type.is_required_default, demoUrl]
+           VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', CASE WHEN $5 IS NOT NULL THEN now() + make_interval(years => $5) ELSE NULL END, FALSE, 1, TRUE, now(), now())`,
+          [sellerId, type.id, type.is_required_default, demoUrl, type.validity_years]
         );
       } else {
         const row = current.rows[0];
@@ -313,10 +315,12 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
                reviewed_by_admin_id = NULL,
                rejection_reason = NULL,
                notes = 'admin_demo_seed',
+               expires_at = CASE WHEN $5 IS NOT NULL THEN now() + make_interval(years => $5) ELSE NULL END,
+               expired = FALSE,
                updated_at = now()
              WHERE id = $1
                AND seller_id = $2`,
-            [row.id, sellerId, type.is_required_default, demoUrl]
+            [row.id, sellerId, type.is_required_default, demoUrl, type.validity_years]
           );
         } else {
           await client.query(
@@ -338,13 +342,15 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
                reviewed_by_admin_id,
                rejection_reason,
                notes,
+               expires_at,
+               expired,
                version,
                is_current,
                created_at,
                updated_at
              )
-             VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', $5, TRUE, now(), now())`,
-            [sellerId, type.id, type.is_required_default, demoUrl, row.version + 1]
+             VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, 'admin_demo_seed', CASE WHEN $5 IS NOT NULL THEN now() + make_interval(years => $5) ELSE NULL END, FALSE, $6, TRUE, now(), now())`,
+            [sellerId, type.id, type.is_required_default, demoUrl, type.validity_years, row.version + 1]
           );
         }
       }

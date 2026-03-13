@@ -143,18 +143,108 @@ function resolveExpiresAt(uploadedAt: string | null, validityYears: number | nul
   return expiresAt.toISOString();
 }
 
-function resolveEffectiveDocumentStatus(status: SellerDocumentStatus, uploadedAt: string | null, validityYears: number | null): SellerDocumentStatus {
-  if (!["uploaded", "approved"].includes(status)) return status;
-  const expiresAt = resolveExpiresAt(uploadedAt, validityYears);
-  if (!expiresAt) return status;
-  return Date.parse(expiresAt) <= Date.now() ? "expired" : status;
+function resolveEffectiveDocumentStatus(status: SellerDocumentStatus, expired: boolean): SellerDocumentStatus {
+  if (status === "expired" || expired) return "expired";
+  return status;
 }
 
-function resolveEffectiveOptionalStatus(status: OptionalUploadStatus, createdAt: string | null, validityYears: number | null): OptionalUploadStatus {
-  if (!["uploaded", "approved"].includes(status)) return status;
-  const expiresAt = resolveExpiresAt(createdAt, validityYears);
-  if (!expiresAt) return status;
-  return Date.parse(expiresAt) <= Date.now() ? "expired" : status;
+function resolveEffectiveOptionalStatus(status: OptionalUploadStatus, expired: boolean): OptionalUploadStatus {
+  if (status === "expired" || expired) return "expired";
+  return status;
+}
+
+async function syncSellerDocumentExpiry(client: { query: typeof pool.query }, sellerId?: string | null) {
+  await client.query(
+    `UPDATE seller_compliance_documents scd
+     SET
+       expires_at = CASE
+         WHEN scd.uploaded_at IS NOT NULL
+           AND cdl.validity_years IS NOT NULL
+           AND cdl.validity_years > 0
+         THEN scd.uploaded_at + make_interval(years => cdl.validity_years)
+         ELSE NULL
+       END,
+       expired = CASE
+         WHEN scd.status IN ('uploaded', 'approved', 'expired')
+           AND scd.uploaded_at IS NOT NULL
+           AND cdl.validity_years IS NOT NULL
+           AND cdl.validity_years > 0
+           AND scd.uploaded_at + make_interval(years => cdl.validity_years) <= now()
+         THEN TRUE
+         ELSE FALSE
+       END,
+       updated_at = CASE
+         WHEN scd.expires_at IS DISTINCT FROM CASE
+           WHEN scd.uploaded_at IS NOT NULL
+             AND cdl.validity_years IS NOT NULL
+             AND cdl.validity_years > 0
+           THEN scd.uploaded_at + make_interval(years => cdl.validity_years)
+           ELSE NULL
+         END
+         OR scd.expired IS DISTINCT FROM CASE
+           WHEN scd.status IN ('uploaded', 'approved', 'expired')
+             AND scd.uploaded_at IS NOT NULL
+             AND cdl.validity_years IS NOT NULL
+             AND cdl.validity_years > 0
+             AND scd.uploaded_at + make_interval(years => cdl.validity_years) <= now()
+           THEN TRUE
+           ELSE FALSE
+         END
+         THEN now()
+         ELSE scd.updated_at
+       END
+     FROM compliance_documents_list cdl
+     WHERE cdl.id = scd.document_list_id
+       AND ($1::uuid IS NULL OR scd.seller_id = $1::uuid)`,
+    [sellerId ?? null]
+  );
+}
+
+async function syncSellerOptionalUploadExpiry(client: { query: typeof pool.query }, sellerId?: string | null) {
+  await client.query(
+    `UPDATE seller_optional_uploads sou
+     SET
+       expires_at = CASE
+         WHEN sou.created_at IS NOT NULL
+           AND cdl.validity_years IS NOT NULL
+           AND cdl.validity_years > 0
+         THEN sou.created_at + make_interval(years => cdl.validity_years)
+         ELSE NULL
+       END,
+       expired = CASE
+         WHEN sou.status IN ('uploaded', 'approved', 'expired')
+           AND sou.created_at IS NOT NULL
+           AND cdl.validity_years IS NOT NULL
+           AND cdl.validity_years > 0
+           AND sou.created_at + make_interval(years => cdl.validity_years) <= now()
+         THEN TRUE
+         ELSE FALSE
+       END,
+       updated_at = CASE
+         WHEN sou.expires_at IS DISTINCT FROM CASE
+           WHEN sou.created_at IS NOT NULL
+             AND cdl.validity_years IS NOT NULL
+             AND cdl.validity_years > 0
+           THEN sou.created_at + make_interval(years => cdl.validity_years)
+           ELSE NULL
+         END
+         OR sou.expired IS DISTINCT FROM CASE
+           WHEN sou.status IN ('uploaded', 'approved', 'expired')
+             AND sou.created_at IS NOT NULL
+             AND cdl.validity_years IS NOT NULL
+             AND cdl.validity_years > 0
+             AND sou.created_at + make_interval(years => cdl.validity_years) <= now()
+           THEN TRUE
+           ELSE FALSE
+         END
+         THEN now()
+         ELSE sou.updated_at
+       END
+     FROM compliance_documents_list cdl
+     WHERE cdl.id = sou.document_list_id
+       AND ($1::uuid IS NULL OR sou.seller_id = $1::uuid)`,
+    [sellerId ?? null]
+  );
 }
 
 function computeSellerComplianceProfile(rows: Array<{ is_required: boolean; status: SellerDocumentStatus; updated_at: string }>): {
@@ -234,6 +324,7 @@ function computeSellerComplianceProfile(rows: Array<{ is_required: boolean; stat
 }
 
 async function getSellerDocuments(client: { query: typeof pool.query }, sellerId: string) {
+  await syncSellerDocumentExpiry(client, sellerId);
   return client.query<{
     id: string;
     seller_id: string;
@@ -257,6 +348,7 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
     is_active: boolean;
     version: number;
     is_current: boolean;
+    expired: boolean;
     expires_at: string | null;
   }>(
     `SELECT
@@ -281,7 +373,9 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
        cdl.validity_years,
        cdl.is_active,
        scd.version,
-       scd.is_current
+       scd.is_current,
+       scd.expired,
+       scd.expires_at::text
      FROM seller_compliance_documents scd
      JOIN compliance_documents_list cdl ON cdl.id = scd.document_list_id
      WHERE scd.seller_id = $1
@@ -289,14 +383,10 @@ async function getSellerDocuments(client: { query: typeof pool.query }, sellerId
     [sellerId]
   ).then((result) => ({
     ...result,
-    rows: result.rows.map((row) => {
-      const expiresAt = resolveExpiresAt(row.uploaded_at, row.validity_years);
-      return {
-        ...row,
-        expires_at: expiresAt,
-        status: resolveEffectiveDocumentStatus(row.status, row.uploaded_at, row.validity_years),
-      };
-    }),
+    rows: result.rows.map((row) => ({
+      ...row,
+      status: resolveEffectiveDocumentStatus(row.status, row.expired),
+    })),
   }));
 }
 
@@ -331,6 +421,7 @@ async function ensureSellerAssignments(sellerId: string) {
 }
 
 async function getSellerOptionalUploads(client: { query: typeof pool.query }, sellerId: string) {
+  await syncSellerOptionalUploadExpiry(client, sellerId);
   return client.query<{
     id: string;
     seller_id: string;
@@ -346,6 +437,7 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
     created_at: string;
     updated_at: string;
     validity_years: number | null;
+    expired: boolean;
     expires_at: string | null;
   }>(
     `SELECT
@@ -362,7 +454,9 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
        sou.rejection_reason,
        sou.created_at::text,
        sou.updated_at::text,
-       cdl.validity_years
+       cdl.validity_years,
+       sou.expired,
+       sou.expires_at::text
      FROM seller_optional_uploads sou
      LEFT JOIN compliance_documents_list cdl ON cdl.id = sou.document_list_id
      WHERE sou.seller_id = $1
@@ -370,14 +464,10 @@ async function getSellerOptionalUploads(client: { query: typeof pool.query }, se
     [sellerId]
   ).then((result) => ({
     ...result,
-    rows: result.rows.map((row) => {
-      const expiresAt = resolveExpiresAt(row.created_at, row.validity_years);
-      return {
-        ...row,
-        expires_at: expiresAt,
-        status: resolveEffectiveOptionalStatus(row.status, row.created_at, row.validity_years),
-      };
-    }),
+    rows: result.rows.map((row) => ({
+      ...row,
+      status: resolveEffectiveOptionalStatus(row.status, row.expired),
+    })),
   }));
 }
 
@@ -434,8 +524,8 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
   }
   const input = parsed.data;
 
-  const docType = await pool.query<{ id: string; is_required_default: boolean }>(
-    "SELECT id::text, is_required_default FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
+  const docType = await pool.query<{ id: string; is_required_default: boolean; validity_years: number | null }>(
+    "SELECT id::text, is_required_default, validity_years FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
     [input.docType]
   );
   if ((docType.rowCount ?? 0) === 0) {
@@ -445,6 +535,8 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const uploadedAt = new Date().toISOString();
+    const expiresAt = resolveExpiresAt(uploadedAt, docType.rows[0].validity_years);
     const currentRow = await client.query<{
       id: string;
       is_required: boolean;
@@ -482,14 +574,16 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
            reviewed_by_admin_id,
            rejection_reason,
            notes,
+           expires_at,
+           expired,
            version,
            is_current,
            created_at,
            updated_at
          )
-         VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, $5, 1, TRUE, now(), now())
+         VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, 1, TRUE, now(), now())
          RETURNING id::text`,
-        [req.auth!.userId, docType.rows[0].id, docType.rows[0].is_required_default, input.fileUrl, input.notes ?? null]
+        [req.auth!.userId, docType.rows[0].id, docType.rows[0].is_required_default, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
       );
       documentId = inserted.rows[0].id;
     } else {
@@ -506,16 +600,18 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
            SET
              status = 'uploaded',
              file_url = $3,
-             uploaded_at = now(),
+             uploaded_at = $4,
              reviewed_at = NULL,
              reviewed_by_admin_id = NULL,
              rejection_reason = NULL,
-             notes = $4,
+             notes = $5,
+             expires_at = $6,
+             expired = FALSE,
              updated_at = now()
            WHERE id = $1
              AND seller_id = $2
            RETURNING id::text`,
-          [current.id, req.auth!.userId, input.fileUrl, input.notes ?? null]
+          [current.id, req.auth!.userId, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
         );
         documentId = updated.rows[0].id;
       } else {
@@ -538,14 +634,16 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
              reviewed_by_admin_id,
              rejection_reason,
              notes,
+             expires_at,
+             expired,
              version,
              is_current,
              created_at,
              updated_at
            )
-           VALUES ($1, $2, $3, 'uploaded', $4, now(), NULL, NULL, NULL, $5, $6, TRUE, now(), now())
+           VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, $8, TRUE, now(), now())
            RETURNING id::text`,
-          [req.auth!.userId, docType.rows[0].id, current.is_required, input.fileUrl, input.notes ?? null, current.version + 1]
+          [req.auth!.userId, docType.rows[0].id, current.is_required, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt, current.version + 1]
         );
         documentId = inserted.rows[0].id;
       }
@@ -594,16 +692,20 @@ sellerComplianceRouter.post("/optional-uploads", requireAuth("app"), async (req,
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    let validityYears: number | null = null;
     if (input.documentListId) {
-      const docType = await client.query<{ id: string }>(
-        "SELECT id::text FROM compliance_documents_list WHERE id = $1 AND is_active = TRUE",
+      const docType = await client.query<{ id: string; validity_years: number | null }>(
+        "SELECT id::text, validity_years FROM compliance_documents_list WHERE id = $1 AND is_active = TRUE",
         [input.documentListId]
       );
       if ((docType.rowCount ?? 0) === 0) {
         await client.query("ROLLBACK");
         return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
       }
+      validityYears = docType.rows[0].validity_years;
     }
+    const createdAt = new Date().toISOString();
+    const expiresAt = resolveExpiresAt(createdAt, validityYears);
 
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO seller_optional_uploads (
@@ -613,12 +715,14 @@ sellerComplianceRouter.post("/optional-uploads", requireAuth("app"), async (req,
          custom_description,
          file_url,
          status,
+         expires_at,
+         expired,
          created_at,
          updated_at
        )
-       VALUES ($1, $2, $3, $4, $5, 'uploaded', now(), now())
+       VALUES ($1, $2, $3, $4, $5, 'uploaded', $6, FALSE, $7, now())
        RETURNING id::text`,
-      [req.auth!.userId, input.documentListId ?? null, input.customTitle?.trim() || null, input.customDescription?.trim() || null, input.fileUrl]
+      [req.auth!.userId, input.documentListId ?? null, input.customTitle?.trim() || null, input.customDescription?.trim() || null, input.fileUrl, expiresAt, createdAt]
     );
 
     await client.query("COMMIT");
@@ -644,6 +748,7 @@ sellerComplianceRouter.delete("/optional-uploads/:uploadId", requireAuth("app"),
   const archived = await pool.query<{ id: string }>(
     `UPDATE seller_optional_uploads
      SET status = 'archived',
+         expired = FALSE,
          updated_at = now()
      WHERE id = $1
        AND seller_id = $2
@@ -675,6 +780,8 @@ sellerComplianceRouter.delete("/documents/:documentId", requireAuth("app"), asyn
        reviewed_at = NULL,
        reviewed_by_admin_id = NULL,
        rejection_reason = NULL,
+       expires_at = NULL,
+       expired = FALSE,
        updated_at = now()
      WHERE id = $1
        AND seller_id = $2
@@ -718,6 +825,7 @@ adminComplianceRouter.get("/queue", requireAuth("admin"), async (_req, res) => {
        max(scd.updated_at)::text AS updated_at
      FROM seller_compliance_documents scd
      WHERE scd.is_current = TRUE
+       AND (scd.expires_at IS NULL OR scd.expires_at > now())
      GROUP BY scd.seller_id
      HAVING count(*) FILTER (WHERE scd.is_required = TRUE AND scd.status = 'uploaded') > 0
      ORDER BY max(scd.updated_at) DESC`
@@ -1072,6 +1180,10 @@ adminComplianceRouter.patch("/:sellerId/optional-uploads/:uploadId", requireAuth
        SET
          status = $3,
          rejection_reason = CASE WHEN $3 IN ('rejected', 'uploaded') THEN $4 ELSE NULL END,
+         expired = CASE
+           WHEN $3 IN ('uploaded', 'approved') AND expires_at IS NOT NULL AND expires_at <= now() THEN TRUE
+           ELSE FALSE
+         END,
          reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
          reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
          updated_at = now()
@@ -1206,6 +1318,10 @@ adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("adm
        SET
          status = $3,
          rejection_reason = CASE WHEN $3 IN ('rejected', 'requested') THEN $4 ELSE NULL END,
+         expired = CASE
+           WHEN $3 IN ('uploaded', 'approved') AND expires_at IS NOT NULL AND expires_at <= now() THEN TRUE
+           ELSE FALSE
+         END,
          reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
          reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
          notes = CASE WHEN $6::boolean THEN $7 ELSE notes END,
@@ -1367,6 +1483,7 @@ adminComplianceRouter.post("/:sellerId/approve", requireAuth("admin"), async (re
     `UPDATE seller_compliance_documents
      SET status = 'approved',
          rejection_reason = NULL,
+         expired = CASE WHEN expires_at IS NOT NULL AND expires_at <= now() THEN TRUE ELSE FALSE END,
          reviewed_at = now(),
          reviewed_by_admin_id = $2,
          notes = COALESCE($3, notes),
@@ -1393,6 +1510,7 @@ adminComplianceRouter.post("/:sellerId/reject", requireAuth("admin"), async (req
     `UPDATE seller_compliance_documents
      SET status = 'rejected',
          rejection_reason = $3,
+         expired = FALSE,
          reviewed_at = now(),
          reviewed_by_admin_id = $2,
          updated_at = now()
@@ -1419,6 +1537,7 @@ adminComplianceRouter.post("/:sellerId/request-changes", requireAuth("admin"), a
      SET status = 'requested',
          notes = COALESCE($3, notes),
          rejection_reason = NULL,
+         expired = FALSE,
          reviewed_at = NULL,
          reviewed_by_admin_id = NULL,
          updated_at = now()

@@ -27,6 +27,7 @@ adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_re
          WHERE is_required = TRUE
            AND is_current = TRUE
            AND status = 'uploaded'
+           AND (expires_at IS NULL OR expires_at > now())
          GROUP BY seller_id
        ) q`
     ),
