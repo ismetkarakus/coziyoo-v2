@@ -71,6 +71,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [previewTarget, setPreviewTarget] = useState<SellerPreviewTarget | null>(null);
   const [tempRejectTargetKey, setTempRejectTargetKey] = useState<ComplianceRowKey | null>(null);
   const [tempRejectReason, setTempRejectReason] = useState("");
+  const [tempPendingTargetKey, setTempPendingTargetKey] = useState<ComplianceRowKey | null>(null);
+  const [tempPendingReason, setTempPendingReason] = useState("");
   const [sellerOrders, setSellerOrders] = useState<
     Array<{
       orderId: string;
@@ -105,8 +107,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [legalSavingKey, setLegalSavingKey] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [pendingTargetId, setPendingTargetId] = useState<string | null>(null);
+  const [pendingReason, setPendingReason] = useState("");
   const [optionalRejectTargetId, setOptionalRejectTargetId] = useState<string | null>(null);
   const [optionalRejectReason, setOptionalRejectReason] = useState("");
+  const [optionalPendingTargetId, setOptionalPendingTargetId] = useState<string | null>(null);
+  const [optionalPendingReason, setOptionalPendingReason] = useState("");
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
@@ -288,6 +294,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setPendingUploadKey(null);
     setTempRejectTargetKey(null);
     setTempRejectReason("");
+    setTempPendingTargetKey(null);
+    setTempPendingReason("");
+    setPendingTargetId(null);
+    setPendingReason("");
+    setOptionalPendingTargetId(null);
+    setOptionalPendingReason("");
     setTempComplianceUploads((prev) => {
       Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
       return {};
@@ -724,7 +736,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         method: "PATCH",
         body: JSON.stringify({
           status,
-          rejectionReason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+          rejectionReason: status === "rejected" || status === "requested" ? (rejectionReasonInput ?? null) : null,
         }),
       });
       if (response.status !== 200) {
@@ -740,7 +752,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             ? {
                 ...item,
                 status,
-                rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                rejection_reason: status === "rejected" || status === "requested" ? (rejectionReasonInput ?? null) : null,
                 reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
                 updated_at: nowIso,
               }
@@ -755,8 +767,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setMessage(dict.common.saved);
       setRejectTargetId(null);
       setRejectReason("");
+      setPendingTargetId(null);
+      setPendingReason("");
       setOptionalRejectTargetId(null);
       setOptionalRejectReason("");
+      setOptionalPendingTargetId(null);
+      setOptionalPendingReason("");
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
@@ -771,7 +787,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         method: "PATCH",
         body: JSON.stringify({
           status,
-          rejectionReason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+          rejectionReason: status === "rejected" || status === "uploaded" ? (rejectionReasonInput ?? null) : null,
         }),
       });
       if (response.status !== 200) {
@@ -789,7 +805,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               ? {
                   ...item,
                   status,
-                  rejection_reason: status === "rejected" ? (rejectionReasonInput ?? null) : null,
+                  rejection_reason: status === "rejected" || status === "uploaded" ? (rejectionReasonInput ?? null) : null,
                   reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
                   updated_at: nowIso,
                 }
@@ -800,6 +816,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setMessage(dict.common.saved);
       setOptionalRejectTargetId(null);
       setOptionalRejectReason("");
+      setOptionalPendingTargetId(null);
+      setOptionalPendingReason("");
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
@@ -933,6 +951,22 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
   }
 
+  async function pendPreviewTarget() {
+    if (!previewTarget) return;
+    if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
+    if (previewTarget.documentId) {
+      setPendingTargetId(previewTarget.documentId);
+      setPendingReason("");
+      setPreviewTarget(null);
+      return;
+    }
+    if (previewTarget.key) {
+      setPreviewTarget(null);
+      setTempPendingTargetKey(previewTarget.key);
+      setTempPendingReason("");
+    }
+  }
+
   async function rejectPreviewTarget() {
     if (!previewTarget) return;
     if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
@@ -975,12 +1009,38 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setTempRejectReason("");
   }
 
+  function confirmTempPending() {
+    if (!tempPendingTargetKey) return;
+    const reason = tempPendingReason.trim();
+    if (reason.length < 3) return;
+    setTempComplianceUploads((prev) => {
+      const current = prev[tempPendingTargetKey];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [tempPendingTargetKey]: {
+          ...current,
+          status: "requested",
+          rejectionReason: reason,
+        },
+      };
+    });
+    setTempPendingTargetKey(null);
+    setTempPendingReason("");
+    setMessage(dict.common.saved);
+  }
+
+  function cancelTempPending() {
+    setTempPendingTargetKey(null);
+    setTempPendingReason("");
+  }
+
   const displayLegalRows = legalRows.map((item) => {
     const tempUpload = tempComplianceUploads[item.key];
     if (!tempUpload) return item;
     const tone = sellerDocumentStatusTone(tempUpload.status);
     const statusLabel = sellerDocumentStatusLabel(tempUpload.status, dict);
-    const rejectionText = tempUpload.status === "rejected" && tempUpload.rejectionReason ? ` • ${tempUpload.rejectionReason}` : "";
+    const rejectionText = tempUpload.rejectionReason ? ` • ${tempUpload.rejectionReason}` : "";
     return {
       ...item,
       tone,
@@ -1520,6 +1580,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <a className="ghost" href={previewTarget.url} target="_blank" rel="noreferrer">
                 {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
               </a>
+              <button className="ghost" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void pendPreviewTarget()}>
+                {dict.detail.legalPend}
+              </button>
               <button className="ghost" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void rejectPreviewTarget()}>
                 {dict.detail.legalReject}
               </button>
@@ -1556,6 +1619,37 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 onClick={confirmTempReject}
               >
                 {dict.detail.legalReject}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tempPendingTargetKey ? (
+        <div
+          className="buyer-ops-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={dict.detail.legalPend}
+          onClick={cancelTempPending}
+        >
+          <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>{dict.detail.legalPend}</h3>
+            <label>
+              {dict.detail.legalRejectionReason}
+              <textarea value={tempPendingReason} onChange={(event) => setTempPendingReason(event.target.value)} rows={4} />
+            </label>
+            <div className="buyer-ops-modal-actions">
+              <button className="ghost" type="button" onClick={cancelTempPending}>
+                {dict.common.cancel}
+              </button>
+              <button
+                className="primary"
+                type="button"
+                disabled={tempPendingReason.trim().length < 3}
+                onClick={confirmTempPending}
+              >
+                {dict.detail.legalPend}
               </button>
             </div>
           </div>
@@ -1734,7 +1828,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   className="ghost compliance-edit-btn"
                                   type="button"
                                   disabled={isSavingDoc(row.id)}
-                                  onClick={() => void updateDocumentStatus(row.id, "requested")}
+                                  onClick={() => {
+                                    setPendingTargetId(row.id);
+                                    setPendingReason(row.rejection_reason ?? "");
+                                  }}
                                 >
                                   {dict.detail.legalPend}
                                 </button>
@@ -1809,7 +1906,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   className="ghost compliance-edit-btn"
                                   type="button"
                                   disabled={isSavingOptional(row.id) || row.status === "archived"}
-                                  onClick={() => void updateOptionalUploadStatus(row.id, "uploaded")}
+                                  onClick={() => {
+                                    setOptionalPendingTargetId(row.id);
+                                    setOptionalPendingReason(row.rejection_reason ?? "");
+                                  }}
                                 >
                                   {dict.detail.legalPend}
                                 </button>
@@ -1858,6 +1958,40 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               </div>
             </div>
           ) : null}
+          {pendingTargetId ? (
+            <div
+              className="buyer-ops-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.detail.legalPend}
+              onClick={() => {
+                if (isSavingDoc(pendingTargetId)) return;
+                setPendingTargetId(null);
+                setPendingReason("");
+              }}
+            >
+              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
+                <h3>{dict.detail.legalPend}</h3>
+                <label>
+                  {dict.detail.legalRejectionReason}
+                  <textarea value={pendingReason} onChange={(event) => setPendingReason(event.target.value)} rows={4} />
+                </label>
+                <div className="buyer-ops-modal-actions">
+                  <button className="ghost" type="button" disabled={isSavingDoc(pendingTargetId)} onClick={() => { setPendingTargetId(null); setPendingReason(""); }}>
+                    {dict.common.cancel}
+                  </button>
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={pendingReason.trim().length < 3 || isSavingDoc(pendingTargetId)}
+                    onClick={() => void updateDocumentStatus(pendingTargetId, "requested", pendingReason.trim())}
+                  >
+                    {dict.detail.legalPend}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {optionalRejectTargetId ? (
             <div
               className="buyer-ops-modal-backdrop"
@@ -1887,6 +2021,40 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     onClick={() => void updateOptionalUploadStatus(optionalRejectTargetId, "rejected", optionalRejectReason.trim())}
                   >
                     {dict.detail.legalReject}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {optionalPendingTargetId ? (
+            <div
+              className="buyer-ops-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.detail.legalPend}
+              onClick={() => {
+                if (isSavingOptional(optionalPendingTargetId)) return;
+                setOptionalPendingTargetId(null);
+                setOptionalPendingReason("");
+              }}
+            >
+              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
+                <h3>{dict.detail.legalPend}</h3>
+                <label>
+                  {dict.detail.legalRejectionReason}
+                  <textarea value={optionalPendingReason} onChange={(event) => setOptionalPendingReason(event.target.value)} rows={4} />
+                </label>
+                <div className="buyer-ops-modal-actions">
+                  <button className="ghost" type="button" disabled={isSavingOptional(optionalPendingTargetId)} onClick={() => { setOptionalPendingTargetId(null); setOptionalPendingReason(""); }}>
+                    {dict.common.cancel}
+                  </button>
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={optionalPendingReason.trim().length < 3 || isSavingOptional(optionalPendingTargetId)}
+                    onClick={() => void updateOptionalUploadStatus(optionalPendingTargetId, "uploaded", optionalPendingReason.trim())}
+                  >
+                    {dict.detail.legalPend}
                   </button>
                 </div>
               </div>

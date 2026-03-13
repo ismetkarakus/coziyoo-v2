@@ -35,11 +35,11 @@ const UpdateDocumentStatusSchema = z
   })
   .superRefine((value, ctx) => {
     const normalized = normalizeDocumentStatus(value.status);
-    if (normalized === "rejected" && !value.rejectionReason) {
+    if ((normalized === "rejected" || normalized === "requested") && !value.rejectionReason) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["rejectionReason"],
-        message: "rejectionReason is required when status is rejected",
+        message: "rejectionReason is required when status is rejected or requested",
       });
     }
   });
@@ -71,11 +71,11 @@ const OptionalUploadStatusUpdateSchema = z
     rejectionReason: z.string().trim().min(3).max(1000).nullable().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.status === "rejected" && !value.rejectionReason) {
+    if ((value.status === "rejected" || value.status === "uploaded") && !value.rejectionReason) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["rejectionReason"],
-        message: "rejectionReason is required when status is rejected",
+        message: "rejectionReason is required when status is rejected or uploaded",
       });
     }
   });
@@ -897,7 +897,7 @@ adminComplianceRouter.patch("/:sellerId/optional-uploads/:uploadId", requireAuth
       `UPDATE seller_optional_uploads
        SET
          status = $3,
-         rejection_reason = CASE WHEN $3 = 'rejected' THEN $4 ELSE NULL END,
+         rejection_reason = CASE WHEN $3 IN ('rejected', 'uploaded') THEN $4 ELSE NULL END,
          reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
          reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
          updated_at = now()
@@ -918,7 +918,7 @@ adminComplianceRouter.patch("/:sellerId/optional-uploads/:uploadId", requireAuth
       },
       after: {
         status: updated.rows[0].status,
-        rejectionReason: parsed.data.status === "rejected" ? parsed.data.rejectionReason ?? null : null,
+        rejectionReason: parsed.data.status === "rejected" || parsed.data.status === "uploaded" ? parsed.data.rejectionReason ?? null : null,
         sellerId,
       },
     });
@@ -1030,7 +1030,7 @@ adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("adm
       `UPDATE seller_compliance_documents
        SET
          status = $3,
-         rejection_reason = CASE WHEN $3 = 'rejected' THEN $4 ELSE NULL END,
+         rejection_reason = CASE WHEN $3 IN ('rejected', 'requested') THEN $4 ELSE NULL END,
          reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
          reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
          notes = CASE WHEN $6::boolean THEN $7 ELSE notes END,
@@ -1060,7 +1060,7 @@ adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("adm
       },
       after: {
         status: updated.rows[0].status,
-        rejectionReason: normalizedStatus === "rejected" ? parsed.data.rejectionReason ?? null : null,
+        rejectionReason: normalizedStatus === "rejected" || normalizedStatus === "requested" ? parsed.data.rejectionReason ?? null : null,
         sellerId,
         docType: before.rows[0].code,
       },
