@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import importlib
 import json
 import logging
 import os
@@ -81,9 +82,40 @@ class VoiceSalesAgent(Agent):
 server = AgentServer(shutdown_process_timeout=60.0)
 
 
+def _load_turn_detector() -> object:
+    """Support current and legacy LiveKit turn-detector plugin APIs."""
+    try:
+        multilingual = importlib.import_module("livekit.plugins.turn_detector.multilingual")
+    except ModuleNotFoundError:
+        multilingual = None
+    if multilingual and hasattr(multilingual, "MultilingualModel"):
+        return multilingual.MultilingualModel()
+
+    try:
+        english = importlib.import_module("livekit.plugins.turn_detector.english")
+    except ModuleNotFoundError:
+        english = None
+    if english and hasattr(english, "EnglishModel"):
+        logger.warning(
+            "livekit turn detector multilingual model unavailable; falling back to EnglishModel"
+        )
+        return english.EnglishModel()
+
+    legacy_model = getattr(turn_detector, "EOUModel", None)
+    if legacy_model:
+        logger.warning(
+            "livekit turn detector is using legacy EOUModel API; consider upgrading worker code"
+        )
+        return legacy_model()
+
+    raise RuntimeError(
+        "Unsupported livekit.plugins.turn_detector API: expected MultilingualModel, "
+        "EnglishModel, or legacy EOUModel"
+    )
+
+
 def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
-    proc.userdata["turn_detector"] = turn_detector.EOUModel()
 
 
 server.setup_fnc = prewarm
@@ -1059,7 +1091,7 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=llm_instance,
         tts=tts_instance,
         vad=ctx.proc.userdata["vad"],
-        turn_detector=ctx.proc.userdata["turn_detector"],
+        turn_detector=_load_turn_detector(),
         allow_interruptions=True,
         min_interruption_duration=0.5,
         preemptive_generation=True,
