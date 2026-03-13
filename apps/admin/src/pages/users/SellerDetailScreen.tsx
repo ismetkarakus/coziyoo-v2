@@ -696,6 +696,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     identityDocuments.find((row) => row.url === identityViewerUrl) ?? identityDocuments[0] ?? null;
   const selectedIdentityDocumentIsPdf = /\.pdf(?:$|\?)/i.test(String(selectedIdentityDocument?.url ?? ""));
   const previewTargetIsPdf = /\.pdf(?:$|\?)/i.test(String(previewTarget?.url ?? ""));
+  const previewActionsLocked = previewTarget?.status === "approved" || previewTarget?.status === "rejected";
   const legalSaving = legalSavingKey !== null;
   const isSavingDoc = (docId: string) => legalSavingKey === `doc:${docId}`;
   const isSavingOptional = (uploadId: string) => legalSavingKey === `optional:${uploadId}`;
@@ -920,9 +921,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   async function acceptPreviewTarget() {
     if (!previewTarget) return;
+    if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
     if (previewTarget.documentId) {
       await updateDocumentStatus(previewTarget.documentId, "approved");
-      setPreviewTarget((prev) => (prev ? { ...prev, status: "approved", tone: sellerDocumentStatusTone("approved") } : prev));
+      setPreviewTarget(null);
       return;
     }
     if (previewTarget.key) {
@@ -938,13 +940,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           },
         };
       });
-      setPreviewTarget((prev) => (prev ? { ...prev, status: "approved", tone: sellerDocumentStatusTone("approved") } : prev));
       setMessage(dict.common.saved);
+      setPreviewTarget(null);
     }
   }
 
   async function rejectPreviewTarget() {
     if (!previewTarget) return;
+    if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
     if (previewTarget.documentId) {
       setRejectTargetId(previewTarget.documentId);
       setRejectReason("");
@@ -964,8 +967,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           },
         };
       });
-      setPreviewTarget((prev) => (prev ? { ...prev, status: "rejected", tone: sellerDocumentStatusTone("rejected") } : prev));
       setMessage(dict.common.saved);
+      setPreviewTarget(null);
     }
   }
 
@@ -1496,10 +1499,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <a className="ghost" href={previewTarget.url} target="_blank" rel="noreferrer">
                 {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
               </a>
-              <button className="ghost" type="button" disabled={legalSaving} onClick={() => void rejectPreviewTarget()}>
+              <button className="ghost" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void rejectPreviewTarget()}>
                 {dict.detail.legalReject}
               </button>
-              <button className="primary" type="button" disabled={legalSaving} onClick={() => void acceptPreviewTarget()}>
+              <button className="primary" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void acceptPreviewTarget()}>
                 {dict.detail.legalApprove}
               </button>
             </div>
