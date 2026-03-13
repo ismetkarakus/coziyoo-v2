@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { ExcelExportButton, PrintButton } from "../components/ui";
+import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
 import { fmt, toDisplayId, formatCurrency, formatUiDate } from "../lib/format";
 import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../lib/lots";
 import { printModalContent } from "../lib/print";
@@ -770,28 +770,20 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             </tbody>
           </table>
         </div>
-        <div className="pager">
-          <span className="panel-meta">
-            {fmt(dict.common.paginationSummary, {
-              total: pagination?.total ?? 0,
-              page,
-              totalPages: Math.max(pagination?.totalPages ?? 1, 1),
-            })}
-          </span>
-          <div className="topbar-actions">
-            <button className="ghost" disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} type="button">
-              {dict.actions.prev}
-            </button>
-            <button
-              className="ghost"
-              disabled={page >= Math.max(pagination?.totalPages ?? 1, 1)}
-              onClick={() => setPage((prev) => prev + 1)}
-              type="button"
-            >
-              {dict.actions.next}
-            </button>
-          </div>
-        </div>
+        <Pager
+          page={page}
+          totalPages={pagination?.totalPages ?? 1}
+          summary={fmt(dict.common.paginationSummary, {
+            total: pagination?.total ?? 0,
+            page,
+            totalPages: Math.max(pagination?.totalPages ?? 1, 1),
+          })}
+          prevLabel={dict.actions.prev}
+          nextLabel={dict.actions.next}
+          onPageChange={setPage}
+          onPrev={() => setPage((prev) => prev - 1)}
+          onNext={() => setPage((prev) => prev + 1)}
+        />
       </section>
       {selectedFood ? (
         <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedFood(null)}>

@@ -1275,39 +1275,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             )}
 
             {isSellerTableOpen ? (
-              <div className="buyer-v2-footer seller-v2-footer">
-                <div className="buyer-v2-pager-left">
-                  <button className="ghost buyer-v2-page-btn" type="button">10 / sayfa ▼</button>
-                  <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>
-                    Önceki
-                  </button>
-                  <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-                  <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                  <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                  <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}>
-                    Sonraki
-                  </button>
-                </div>
-                <div className="buyer-v2-pager-right">
-                  <span className="panel-meta">{`${Math.min((filters.page - 1) * filters.pageSize + 1, pagination?.total ?? 0)}-${Math.min(filters.page * filters.pageSize, pagination?.total ?? 0)} / ${pagination?.total ?? 0} kayıt`}</span>
-                  <button
-                    className="ghost buyer-v2-page-btn"
-                    type="button"
-                    disabled={filters.page <= 1}
-                    onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
-                  >
-                    ‹
-                  </button>
-                  <button
-                    className="ghost buyer-v2-page-btn"
-                    type="button"
-                    disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
-                    onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-                  >
-                    ›
-                  </button>
-                </div>
-              </div>
+              <Pager
+                page={filters.page}
+                totalPages={pagination?.totalPages ?? 1}
+                summary={fmt(dict.common.paginationSummary, {
+                  total: pagination?.total ?? 0,
+                  page: filters.page,
+                  totalPages: Math.max(pagination?.totalPages ?? 1, 1),
+                })}
+                prevLabel={dict.actions.prev}
+                nextLabel={dict.actions.next}
+                onPageChange={(nextPage) => setFilters((prev) => ({ ...prev, page: nextPage }))}
+                onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
+                onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+              />
             ) : null}
           </section>
         </section>
@@ -1751,30 +1732,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               </table>
             </div>
 
-            <div className="buyer-v2-footer">
-              <div className="buyer-v2-pager-left">
-                <button className="ghost buyer-v2-page-btn" type="button">‹</button>
-                <button className="ghost buyer-v2-page-btn" type="button">›</button>
-                <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-                <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                <button className="ghost buyer-v2-page-btn" type="button">{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                <span className="panel-meta">/ 110+ Kullanıcı</span>
-              </div>
-              <div className="buyer-v2-pager-right">
-                <button className="ghost buyer-v2-page-btn" type="button" disabled={filters.page <= 1} onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}>‹</button>
-                <button className="ghost buyer-v2-page-btn is-active" type="button">{String(filters.page)}</button>
-                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 1, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                <button className="ghost buyer-v2-page-btn" type="button" disabled>{String(Math.min(filters.page + 2, Math.max(pagination?.totalPages ?? 1, 1)))}</button>
-                <button
-                  className="ghost buyer-v2-page-btn"
-                  type="button"
-                  disabled={filters.page >= Math.max(pagination?.totalPages ?? 1, 1)}
-                  onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-                >
-                  ›
-                </button>
-              </div>
-            </div>
+            <Pager
+              page={filters.page}
+              totalPages={pagination?.totalPages ?? 1}
+              summary={fmt(dict.common.paginationSummary, {
+                total: pagination?.total ?? 0,
+                page: filters.page,
+                totalPages: Math.max(pagination?.totalPages ?? 1, 1),
+              })}
+              prevLabel={dict.actions.prev}
+              nextLabel={dict.actions.next}
+              onPageChange={(nextPage) => setFilters((prev) => ({ ...prev, page: nextPage }))}
+              onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
+              onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
+            />
             </>
           ) : (
             <div className="seller-table-placeholder">
@@ -2234,6 +2205,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           summary={fmt(dict.common.paginationSummary, { total: pagination?.total ?? 0, page: filters.page, totalPages: Math.max(pagination?.totalPages ?? 1, 1) })}
           prevLabel={dict.actions.prev}
           nextLabel={dict.actions.next}
+          onPageChange={(nextPage) => setFilters((prev) => ({ ...prev, page: nextPage }))}
           onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
           onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
         />

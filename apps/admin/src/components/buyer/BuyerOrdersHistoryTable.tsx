@@ -1,3 +1,4 @@
+import { Pager } from "../ui";
 import { formatCurrency } from "../../lib/format";
 import { paymentBadge } from "../../lib/status";
 import type { BuyerOrderRow, BuyerPagination } from "../../types/buyer";
@@ -64,28 +65,16 @@ export function BuyerOrdersHistoryTable({
           </tbody>
         </table>
       </div>
-      <div className="buyer-pagination">
-        <button
-          className="ghost"
-          type="button"
-          onClick={() => onPageChange(Math.max(1, (pagination?.page ?? 1) - 1))}
-          disabled={!pagination || pagination.page <= 1}
-        >
-          ÖNCEKİ
-        </button>
-        <span>{pagination?.page ?? 1}</span>
-        <button
-          className="ghost"
-          type="button"
-          onClick={() => onPageChange(Math.min(pagination?.totalPages ?? 1, (pagination?.page ?? 1) + 1))}
-          disabled={!pagination || (pagination.page >= pagination.totalPages)}
-        >
-          SONRAKİ
-        </button>
-        <span className="panel-meta">
-          {pagination ? `${pagination.page}/${pagination.totalPages}` : "1/1"}
-        </span>
-      </div>
+      <Pager
+        page={pagination?.page ?? 1}
+        totalPages={pagination?.totalPages ?? 1}
+        summary={pagination ? `Toplam: ${pagination.total} | Sayfa ${pagination.page} / ${pagination.totalPages}` : "Toplam: 0 | Sayfa 1 / 1"}
+        prevLabel="ÖNCEKİ"
+        nextLabel="SONRAKİ"
+        onPageChange={onPageChange}
+        onPrev={() => onPageChange(Math.max(1, (pagination?.page ?? 1) - 1))}
+        onNext={() => onPageChange(Math.min(pagination?.totalPages ?? 1, (pagination?.page ?? 1) + 1))}
+      />
     </section>
   );
 }

@@ -189,6 +189,7 @@ export default function EntitiesPage({ language }: { language: Language }) {
             summary={fmt(dict.common.paginationSummary, { total: pagination?.total ?? 0, page, totalPages: Math.max(pagination?.totalPages ?? 1, 1) })}
             prevLabel={dict.actions.prev}
             nextLabel={dict.actions.next}
+            onPageChange={setPage}
             onPrev={() => setPage((prev) => prev - 1)}
             onNext={() => setPage((prev) => prev + 1)}
           />

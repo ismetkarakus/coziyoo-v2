@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
-import { ExcelExportButton, QuickAccessMenu } from "../../components/ui";
+import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
 import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatDateTime, toRelativeTimeTR, toLocalDateKey, formatCustomDateInput, parseCustomDateToKey } from "../../lib/format";
 import { paymentBadge, orderStatusLabel } from "../../lib/status";
@@ -839,18 +839,16 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   </table>
                 </div>
 
-                <div className="buyer-ref-pager">
-                  <div>
-                    <button className="ghost" type="button" onClick={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}>Onceki</button>
-                    <button className="ghost" type="button" onClick={() => setOrdersPage(Math.min((ordersPagination?.totalPages ?? 1), (ordersPagination?.page ?? 1) + 1))}>Sonraki</button>
-                    <span>Toplam {visibleOrders.length} Siparis</span>
-                  </div>
-                  <div>
-                    <button className="ghost" type="button">1</button>
-                    <button className="ghost is-active" type="button">2</button>
-                    <button className="ghost" type="button">3</button>
-                  </div>
-                </div>
+                <Pager
+                  page={ordersPagination?.page ?? 1}
+                  totalPages={ordersPagination?.totalPages ?? 1}
+                  summary={ordersPagination ? `Toplam: ${ordersPagination.total} | Sayfa ${ordersPagination.page} / ${ordersPagination.totalPages}` : "Toplam: 0 | Sayfa 1 / 1"}
+                  prevLabel="Önceki"
+                  nextLabel="Sonraki"
+                  onPageChange={setOrdersPage}
+                  onPrev={() => setOrdersPage(Math.max(1, (ordersPagination?.page ?? 1) - 1))}
+                  onNext={() => setOrdersPage(Math.min(ordersPagination?.totalPages ?? 1, (ordersPagination?.page ?? 1) + 1))}
+                />
               </>
             ) : null}
 

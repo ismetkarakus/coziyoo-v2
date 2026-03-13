@@ -284,6 +284,7 @@ export default function AuditPage({ language }: { language: Language }) {
           summary={fmt(dict.common.paginationSummary, { total: pagination?.total ?? 0, page: filters.page, totalPages: Math.max(pagination?.totalPages ?? 1, 1) })}
           prevLabel={dict.actions.prev}
           nextLabel={dict.actions.next}
+          onPageChange={(nextPage) => setFilters((prev) => ({ ...prev, page: nextPage }))}
           onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
           onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
         />
