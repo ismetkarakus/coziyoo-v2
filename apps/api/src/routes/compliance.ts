@@ -1011,6 +1011,14 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
   } catch (error: unknown) {
     await client.query("ROLLBACK");
     console.error("[compliance] document list create failed:", error);
+    if (String((error as { code?: string } | undefined)?.code ?? "") === "42703") {
+      return res.status(500).json({
+        error: {
+          code: "DB_SCHEMA_OUTDATED",
+          message: "Database schema is missing compliance document columns. Run the compliance schema fix script.",
+        },
+      });
+    }
     if (String((error as { code?: string } | undefined)?.code ?? "") === "23505") {
       return res.status(409).json({ error: { code: "DOCUMENT_CODE_EXISTS", message: "Document code already exists" } });
     }
@@ -1134,6 +1142,14 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
   } catch (error: unknown) {
     await client.query("ROLLBACK");
     console.error("[compliance] document list update failed:", error);
+    if (String((error as { code?: string } | undefined)?.code ?? "") === "42703") {
+      return res.status(500).json({
+        error: {
+          code: "DB_SCHEMA_OUTDATED",
+          message: "Database schema is missing compliance document columns. Run the compliance schema fix script.",
+        },
+      });
+    }
     if (String((error as { code?: string } | undefined)?.code ?? "") === "23505") {
       return res.status(409).json({ error: { code: "DOCUMENT_CODE_EXISTS", message: "Document code already exists" } });
     }
