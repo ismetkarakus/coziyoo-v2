@@ -84,13 +84,18 @@ const DocumentListParamsSchema = z.object({
   documentListId: z.string().uuid(),
 });
 
+const OptionalValidityYearsSchema = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  return value;
+}, z.number().int().positive().max(100).nullable());
+
 const ComplianceDocumentListCreateSchema = z.object({
   code: z.string().trim().min(2).max(80),
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1000).nullable().optional(),
   sourceInfo: z.string().trim().max(1000).nullable().optional(),
   details: z.string().trim().max(4000).nullable().optional(),
-  validityYears: z.coerce.number().int().positive().max(100).nullable().optional(),
+  validityYears: OptionalValidityYearsSchema.optional(),
   isActive: z.boolean().optional(),
   isRequiredDefault: z.boolean().optional(),
 });
@@ -102,7 +107,7 @@ const ComplianceDocumentListUpdateSchema = z
     description: z.string().trim().max(1000).nullable().optional(),
     sourceInfo: z.string().trim().max(1000).nullable().optional(),
     details: z.string().trim().max(4000).nullable().optional(),
-    validityYears: z.coerce.number().int().positive().max(100).nullable().optional(),
+    validityYears: OptionalValidityYearsSchema.optional(),
     isActive: z.boolean().optional(),
     isRequiredDefault: z.boolean().optional(),
   })
@@ -933,10 +938,12 @@ adminComplianceRouter.post("/document-list", requireAuth("admin"), async (req, r
     return res.status(201).json({ data: inserted.rows[0] });
   } catch (error: unknown) {
     await client.query("ROLLBACK");
+    console.error("[compliance] document list create failed:", error);
     if (String((error as { code?: string } | undefined)?.code ?? "") === "23505") {
       return res.status(409).json({ error: { code: "DOCUMENT_CODE_EXISTS", message: "Document code already exists" } });
     }
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list create failed" } });
+    const detail = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list create failed", detail } });
   } finally {
     client.release();
   }
@@ -1054,10 +1061,12 @@ adminComplianceRouter.patch("/document-list/:documentListId", requireAuth("admin
     return res.json({ data: updated.rows[0] });
   } catch (error: unknown) {
     await client.query("ROLLBACK");
+    console.error("[compliance] document list update failed:", error);
     if (String((error as { code?: string } | undefined)?.code ?? "") === "23505") {
       return res.status(409).json({ error: { code: "DOCUMENT_CODE_EXISTS", message: "Document code already exists" } });
     }
-    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list update failed" } });
+    const detail = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document list update failed", detail } });
   } finally {
     client.release();
   }
