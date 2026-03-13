@@ -43,11 +43,18 @@ Record each run:
 
 | Run | Device | Network | Headset | Result | Notes |
 |-----|--------|---------|---------|--------|-------|
-| 1 | - | - | - | - | - |
+| 1 | Drascom (00008110-001119212E22401E) | USB direct | Built-in | ✅ pass | CLI build succeeded, app installed, app process launched and running |
 | 2 | - | - | - | - | - |
 | 3 | - | - | - | - | - |
 | 4 | - | - | - | - | - |
 | 5 | - | - | - | - | - |
+
+## CLI Evidence (Captured)
+
+- `expo run:ios --device Drascom` completed build and install successfully.
+- `xcrun devicectl device info apps` lists `Coziyoo (com.coziyoo.mobile)` on Drascom.
+- `xcrun devicectl device process launch ... com.coziyoo.mobile` succeeded.
+- `xcrun devicectl device info processes` shows running `Coziyoo` process on device.
 
 ## Completion Rule
 
