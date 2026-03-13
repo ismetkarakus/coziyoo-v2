@@ -276,27 +276,6 @@ async function checkAgentRuntimeHealth(): Promise<AgentRuntimeHealth> {
   }
 }
 
-function evaluateN8nPreflight(status: N8nStatus) {
-  if (!status.configured) {
-    return { ok: false, reason: "n8n_not_configured" as const };
-  }
-  if (!status.reachable) {
-    return { ok: false, reason: "n8n_unreachable" as const };
-  }
-
-  const workflowEntries = Object.entries(status.workflows);
-  if (workflowEntries.length === 0) {
-    return { ok: false, reason: "n8n_workflow_missing" as const };
-  }
-
-  const hasUnreachableWorkflow = workflowEntries.some(([, info]) => !info.reachable);
-  if (hasUnreachableWorkflow) {
-    return { ok: false, reason: "n8n_workflow_unreachable" as const };
-  }
-
-  return { ok: true, reason: "ok" as const };
-}
-
 function isValidSharedSecret(providedSecret: string) {
   if (!env.AI_SERVER_SHARED_SECRET) return false;
   const providedBuffer = Buffer.from(providedSecret, "utf8");
@@ -580,19 +559,6 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
   const sessionN8nPreflight = await getN8nStatus({
     workflowIds: [env.N8N_LLM_WORKFLOW_ID, env.N8N_MCP_WORKFLOW_ID].filter(Boolean),
   });
-  const sessionN8nEvaluation = evaluateN8nPreflight(sessionN8nPreflight);
-  if (!sessionN8nEvaluation.ok) {
-    return res.status(503).json({
-      error: {
-        code: "N8N_WORKFLOW_UNAVAILABLE",
-        message: "N8N workflow unavailable. Please try again shortly.",
-        details: {
-          reason: sessionN8nEvaluation.reason,
-          n8nPreflight: sessionN8nPreflight,
-        },
-      },
-    });
-  }
 
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const userIdentity = input.participantIdentity ?? `user-${req.auth!.userId}`;
@@ -804,19 +770,6 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
       Boolean,
     ),
   });
-  const starterN8nEvaluation = evaluateN8nPreflight(n8nPreflight);
-  if (!starterN8nEvaluation.ok) {
-    return res.status(503).json({
-      error: {
-        code: "N8N_WORKFLOW_UNAVAILABLE",
-        message: "N8N workflow unavailable. Please try again shortly.",
-        details: {
-          reason: starterN8nEvaluation.reason,
-          n8nPreflight,
-        },
-      },
-    });
-  }
 
   const userMetadata = JSON.stringify({
     username,
