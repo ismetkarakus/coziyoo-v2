@@ -1629,6 +1629,10 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.compliance-create-form {
+  grid-template-columns: 1fr;
+}
+
 .filter-grid {
   display: grid;
   gap: 12px;

@@ -318,7 +318,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
         <div className="buyer-ops-modal-backdrop">
           <div className="buyer-ops-modal">
             <h3>{dict.complianceDocuments.createDocument}</h3>
-            <form className="form-grid" onSubmit={submitCreateForm}>
+            <form className="form-grid compliance-create-form" onSubmit={submitCreateForm}>
               <label>
                 {dict.complianceDocuments.code}
                 <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} disabled={!isSuperAdmin || saving} />
