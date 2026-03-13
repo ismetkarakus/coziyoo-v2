@@ -115,6 +115,21 @@ def _load_turn_detector() -> object:
     )
 
 
+def _build_turn_detection() -> object | None:
+    """Use model-based turn detection only when explicitly enabled."""
+    if not _env_bool("VOICE_AGENT_ENABLE_TURN_DETECTION", False):
+        logger.info("Turn detection disabled; using VAD endpointing only")
+        return None
+
+    try:
+        detector = _load_turn_detector()
+        logger.info("Turn detection enabled: %s", type(detector).__name__)
+        return detector
+    except Exception as exc:
+        logger.warning("Turn detection unavailable; falling back to VAD endpointing: %s", exc)
+        return None
+
+
 def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
 
@@ -1098,7 +1113,7 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=llm_instance,
         tts=tts_instance,
         vad=ctx.proc.userdata["vad"],
-        turn_detection=_load_turn_detector(),
+        turn_detection=_build_turn_detection(),
         allow_interruptions=True,
         min_interruption_duration=0.5,
         preemptive_generation=True,
