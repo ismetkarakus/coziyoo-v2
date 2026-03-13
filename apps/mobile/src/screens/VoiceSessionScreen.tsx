@@ -188,6 +188,7 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   useIOSAudioManagement(room, true);
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
+  const micPrimed = useRef(false);
 
   const agentParticipant = participants.find(
     (p) => p.identity !== localParticipant.identity
@@ -201,6 +202,20 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   const [actionBanner, setActionBanner] = useState<string | null>(null);
   const processedIds = useRef(new Set<string>());
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (connectionState !== ConnectionState.Connected) {
+      micPrimed.current = false;
+      return;
+    }
+    if (micPrimed.current) return;
+    micPrimed.current = true;
+
+    void localParticipant.setMicrophoneEnabled(true).catch((error) => {
+      console.warn('[LiveKitRoom] failed to enable microphone:', error);
+      micPrimed.current = false;
+    });
+  }, [connectionState, localParticipant]);
 
   // Subscribe to agent-action data channel messages
   useEffect(() => {
