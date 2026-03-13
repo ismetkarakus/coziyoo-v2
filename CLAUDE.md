@@ -86,9 +86,9 @@ Production ingress via Nginx Proxy Manager (Docker):
 ### API Structure (`apps/api/src/`)
 
 - `app.ts` — Express setup, middleware registration, route mounting
-- `routes/` — 21 route files grouped by domain (`auth`, `orders`, `payments`, `livekit`, `admin/*`)
+- `routes/` — 20 route files grouped by domain (`auth`, `orders`, `payments`, `livekit`, `admin/*`)
 - `db/client.ts` — PostgreSQL pool (pg) using root `.env` vars
-- `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0013_*.sql`)
+- `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0006_*.sql`)
 - `middleware/` — Auth, CORS, content-type normalization, rate limiting, idempotency, RBAC
 
 ### Request Middleware Chain
@@ -120,7 +120,7 @@ The Python voice agent (`apps/voice-agent`) runs as a LiveKit Agents worker:
 
 ### Database Migrations
 
-Migrations live in `apps/api/src/db/migrations/` as numbered SQL files. The `db-migrate.sh` script runs all pending migrations before service start in production. When adding a migration, use the next sequential number (currently up to `0013`).
+Migrations live in `apps/api/src/db/migrations/` as numbered SQL files. The `db-migrate.sh` script runs all pending migrations before service start in production. When adding a migration, use the next sequential number (currently up to `0006`).
 
 ### CI/CD
 

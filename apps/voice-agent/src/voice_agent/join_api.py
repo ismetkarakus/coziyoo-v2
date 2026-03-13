@@ -141,8 +141,11 @@ async def request_logs(
     kind: str = Query(default="all", pattern="^(all|stt|tts|llm|n8n|session)$"),
     q: str | None = Query(default=None, max_length=120),
 ) -> dict:
+    if not request_log_file.exists():
+        return {"data": [], "count": 0, "file": str(request_log_file), "fileStatus": "not_found"}
     items = _read_request_logs(limit=limit, kind=kind, query=q)
-    return {"data": items, "count": len(items), "file": str(request_log_file)}
+    file_status = "ok" if items else "empty"
+    return {"data": items, "count": len(items), "file": str(request_log_file), "fileStatus": file_status}
 
 
 @app.post("/logs/clear")
@@ -191,10 +194,12 @@ async def logs_viewer() -> str:
     </label>
     <label>Limit <input id="limit" type="number" min="1" max="500" value="120" /></label>
     <label>Search <input id="q" type="text" placeholder="text in message" /></label>
-    <button id="refresh">Clear logs</button>
+    <button id="btn-refresh">Refresh</button>
+    <button id="btn-clear" style="color:#e88">Clear logs</button>
     <label><input id="auto" type="checkbox" checked /> auto refresh (2s)</label>
   </div>
   <div class="meta" id="meta">loading...</div>
+  <div id="empty-state" style="display:none; padding: 20px; color:#9aa4b2; font-size:13px;"></div>
   <table>
     <thead>
       <tr><th>timestamp</th><th>type</th><th>message</th></tr>
@@ -204,11 +209,13 @@ async def logs_viewer() -> str:
   <script>
     const rows = document.getElementById("rows");
     const meta = document.getElementById("meta");
+    const emptyState = document.getElementById("empty-state");
     const kind = document.getElementById("kind");
     const limit = document.getElementById("limit");
     const q = document.getElementById("q");
     const auto = document.getElementById("auto");
-    const refresh = document.getElementById("refresh");
+    const btnRefresh = document.getElementById("btn-refresh");
+    const btnClear = document.getElementById("btn-clear");
 
     function typeOf(item) {
       return (item.name || "").split(".").pop() || "-";
@@ -258,6 +265,7 @@ async def logs_viewer() -> str:
       const res = await fetch(`/logs/requests?${params.toString()}`);
       const json = await res.json();
       rows.innerHTML = "";
+      emptyState.style.display = "none";
 
       const itemsChron = [...(json.data || [])].reverse();
       const selectedKind = kind.value;
@@ -304,7 +312,7 @@ async def logs_viewer() -> str:
 
         function flushCurrent() {
           if (!current) return;
-          const hasData = current.session.length || current.sttReq || current.llmReq || current.ttsPairs.length || current.others.length;
+          const hasData = current.session.length || current.sttReq || current.n8nReq || current.llmReq || current.ttsPairs.length || current.others.length;
           if (hasData) flows.push(current);
         }
 
@@ -379,6 +387,7 @@ async def logs_viewer() -> str:
             flow.n8nReq ||
             flow.llmReq ||
             (flow.ttsPairs[0] && (flow.ttsPairs[0].req || flow.ttsPairs[0].res)) ||
+            flow.session[0] ||
             flow.others[0];
           if (!rootItem) continue;
           appendRow(rootItem, "flow", "stt -> n8n -> tts", false);
@@ -407,9 +416,19 @@ async def logs_viewer() -> str:
         }
       }
       meta.textContent = `file: ${json.file} | rows: ${json.count}`;
+
+      if (json.fileStatus === "not_found") {
+        emptyState.style.display = "block";
+        emptyState.textContent = "No sessions yet — log file does not exist. Start a voice session to see data here.";
+      } else if (json.count === 0) {
+        emptyState.style.display = "block";
+        emptyState.textContent = rows.innerHTML === "" ? "No log entries match the current filter." : "";
+      }
     }
 
-    refresh.addEventListener("click", async () => {
+    btnRefresh.addEventListener("click", load);
+    btnClear.addEventListener("click", async () => {
+      if (!confirm("Clear all log entries?")) return;
       await fetch("/logs/clear", { method: "POST" });
       await load();
     });

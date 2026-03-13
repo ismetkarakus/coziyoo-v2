@@ -17,8 +17,8 @@ services:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "1"
       WATCHPACK_POLLING: "true"
-      PGHOST: postgres
-      PGPORT: "5432"
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_SSL_MODE: ${DATABASE_SSL_MODE:-no-verify}
       AI_SERVER_URL: http://voice-agent-api:9000
       N8N_API_KEY: ${N8N_API_KEY:-change_me_n8n_api_key}
       N8N_HOST: ${N8N_HOST:-https://n8n.drascom.uk}

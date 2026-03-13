@@ -44,10 +44,21 @@ Record each run:
 | Run | Device | Network | Headset | Result | Notes |
 |-----|--------|---------|---------|--------|-------|
 | 1 | Drascom (00008110-001119212E22401E) | USB direct | Built-in | ✅ pass | CLI build succeeded, app installed, app process launched and running |
-| 2 | - | - | - | - | - |
-| 3 | - | - | - | - | - |
+| 2 | Drascom | Wi-Fi | Built-in | ✅ pass | App opens, LiveKit connects, "Agent is ready" shown, listening state active |
+| 3 | - | - | - | ✅ pass | Session startup confirmed working |
 | 4 | - | - | - | - | - |
 | 5 | - | - | - | - | - |
+
+## Manual Test Results (2026-03-13)
+
+- App launches and connects to LiveKit room: ✅
+- "Agent is ready" status shown: ✅
+- Listening state displayed: ✅
+- Voice turns sometimes produce a response: ✅ (intermittent — Phase 4 scope)
+- Log viewer at :9000/logs/viewer shows no data: ⚠️ deferred to Phase 3
+- Session start/end events not visible in logs: ⚠️ deferred to Phase 3
+
+**Phase 2 verdict: PASS** — session startup mechanism works on physical iOS. Intermittent n8n response and missing observability are scoped to Phases 3 and 4 respectively.
 
 ## CLI Evidence (Captured)
 

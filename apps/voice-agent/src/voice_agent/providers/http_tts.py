@@ -116,6 +116,7 @@ class HttpTTSChunkedStream(ChunkedStream):
                     raise Exception(f"TTS server error {resp.status}: {err_text[:200]}")
 
                 audio_bytes = await resp.read()
+                request_logger.info("TTS response bytes=%d text=%s", len(audio_bytes), self._input_text)
                 frame = _decode_audio(audio_bytes, self._tts._sample_rate, self._tts._num_channels)
                 output_emitter.initialize(
                     request_id=request_id,

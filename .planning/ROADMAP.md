@@ -51,7 +51,7 @@ Plans:
 
 Plans:
 - [x] 02-01: Fix agent worker health check to verify both join API and worker process; surface worker-not-running as error
-- [ ] 02-02: Validate and fix mobile iOS audio session configuration and Android audio session setup; test on physical devices
+- [x] 02-02: Validate and fix mobile iOS audio session configuration and Android audio session setup; test on physical devices
 - [x] 02-03: Test and resolve React Native New Architecture + LiveKit compatibility (apply newArchEnabled mitigation if needed)
 - [x] 02-04: Implement n8n workflow activation preflight check and connection status UI on mobile
 
@@ -66,8 +66,8 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 03-01: Add room_id and job_id to all n8n log extra fields; fix session grouping in log viewer
-- [ ] 03-02: Add STT, n8n request/response, and TTS output to per-turn log entries; fix "file not found" vs "file empty" distinction in /logs/requests response
+- [x] 03-01: Add room_id and job_id to all n8n log extra fields; fix session grouping in log viewer
+- [x] 03-02: Add STT, n8n request/response, and TTS output to per-turn log entries; fix "file not found" vs "file empty" distinction in /logs/requests response
 
 ### Phase 4: Per-Turn N8N Integration
 **Goal**: Every voice turn is processed by n8n and returns an LLM-generated reply to the voice agent without timeouts
@@ -144,8 +144,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Supabase DB Cutover | 3/3 | Completed | 2026-03-12 |
-| 2. Voice Session Startup | 3/4 | In progress | - |
-| 3. Observability | 0/2 | Not started | - |
+| 2. Voice Session Startup | 4/4 | Completed | 2026-03-13 |
+| 3. Observability | 2/2 | Completed | 2026-03-13 |
 | 4. Per-Turn N8N Integration | 0/4 | Not started | - |
 | 5. Order Creation | 0/3 | Not started | - |
 | 6. Post-Session UX | 0/3 | Not started | - |

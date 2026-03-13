@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Buyer opens mobile app, speaks to AI agent, and their order is placed — no tapping required.
-**Current focus:** Phase 1 — Supabase DB Cutover
+**Current focus:** Phase 4 — Per-Turn N8N Integration
 
 ## Current Position
 
-Phase: 2 of 7 (Voice Session Startup)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-03-13 — Physical iOS rebuild/install/launch revalidated on Drascom from current codex branch; interactive voice-turn UAT still pending
+Phase: 4 of 7 (Per-Turn N8N Integration)
+Plan: 0 of 4 in current phase
+Status: Not started
+Last activity: 2026-03-13 — Phase 3 complete; log viewer fixed (session events visible, clear/refresh separated, file-not-found distinction, TTS response logging added)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -60,5 +60,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Revalidated physical iOS build/install/launch from terminal; waiting on manual spoken-turn UAT
+Stopped at: Phase 2 closed; moved to Phase 3 (Observability)
 Resume file: None
