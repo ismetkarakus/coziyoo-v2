@@ -4,36 +4,6 @@ import { requireAuth } from "../middleware/auth.js";
 
 export const adminDashboardRouter = Router();
 
-async function getComplianceQueueCount() {
-  try {
-    return await pool.query<{ compliance_queue_count: string }>(
-      `SELECT count(*)::text AS compliance_queue_count
-       FROM (
-         SELECT seller_id
-         FROM seller_compliance_documents
-         WHERE is_required = TRUE
-           AND is_current = TRUE
-           AND status = 'uploaded'
-         GROUP BY seller_id
-       ) q`
-    );
-  } catch (error) {
-    if ((error as { code?: string } | undefined)?.code !== "42703") {
-      throw error;
-    }
-    return pool.query<{ compliance_queue_count: string }>(
-      `SELECT count(*)::text AS compliance_queue_count
-       FROM (
-         SELECT seller_id
-         FROM seller_compliance_documents
-         WHERE is_required = TRUE
-           AND status = 'uploaded'
-         GROUP BY seller_id
-       ) q`
-    );
-  }
-}
-
 adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_req, res) => {
   const [usersAgg, ordersAgg, complianceAgg, disputesAgg] = await Promise.all([
     pool.query<{ total_users: string; active_users: string; disabled_users: string }>(
@@ -49,7 +19,17 @@ adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_re
          count(*) FILTER (WHERE payment_completed = FALSE AND status IN ('awaiting_payment', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed'))::text AS payment_pending_orders
        FROM orders`
     ),
-    getComplianceQueueCount(),
+    pool.query<{ compliance_queue_count: string }>(
+      `SELECT count(*)::text AS compliance_queue_count
+       FROM (
+         SELECT seller_id
+         FROM seller_compliance_documents
+         WHERE is_required = TRUE
+           AND is_current = TRUE
+           AND status = 'uploaded'
+         GROUP BY seller_id
+       ) q`
+    ),
     pool.query<{ open_dispute_count: string }>(
       `SELECT count(*)::text AS open_dispute_count
        FROM payment_dispute_cases

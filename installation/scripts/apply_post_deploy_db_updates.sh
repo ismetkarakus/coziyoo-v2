@@ -114,6 +114,131 @@ SQL
   fi
 fi
 
+PATCH_KEY="compliance_document_versions_v1_20260313"
+PATCH_NOTE="Ensure seller compliance versioning columns and validity years schema exist/backfilled"
+
+log "Checking post-deploy DB patch flag: ${PATCH_KEY}"
+EXISTS="$(
+  psql "${DATABASE_URL}" -t -A \
+    -v flag_key="${PATCH_KEY}" \
+    -c "SELECT 1 FROM deployment_update_flags WHERE flag_key = :'flag_key' LIMIT 1;" 2>/dev/null | tr -d '[:space:]' || true
+)"
+
+if [[ "${EXISTS}" == "1" ]]; then
+  log "Patch already applied (${PATCH_KEY}), skipping."
+else
+  log "Applying post-deploy DB patch: ${PATCH_KEY}"
+  UPDATED_COUNT="$(
+    psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'compliance_documents_list'
+      AND column_name = 'validity_days'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'compliance_documents_list'
+      AND column_name = 'validity_years'
+  ) THEN
+    ALTER TABLE compliance_documents_list RENAME COLUMN validity_days TO validity_years;
+  END IF;
+END $$;
+
+ALTER TABLE compliance_documents_list
+  ADD COLUMN IF NOT EXISTS validity_years integer;
+
+ALTER TABLE compliance_documents_list
+  DROP CONSTRAINT IF EXISTS compliance_documents_list_validity_days_check;
+
+ALTER TABLE compliance_documents_list
+  DROP CONSTRAINT IF EXISTS compliance_documents_list_validity_years_check;
+
+ALTER TABLE compliance_documents_list
+  ADD CONSTRAINT compliance_documents_list_validity_years_check
+  CHECK (validity_years IS NULL OR validity_years > 0);
+
+ALTER TABLE seller_compliance_documents
+  ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS is_current boolean NOT NULL DEFAULT TRUE;
+
+ALTER TABLE seller_compliance_documents
+  DROP CONSTRAINT IF EXISTS seller_compliance_documents_status_check;
+
+ALTER TABLE seller_compliance_documents
+  ADD CONSTRAINT seller_compliance_documents_status_check
+  CHECK (status = ANY (ARRAY['requested'::text, 'uploaded'::text, 'approved'::text, 'rejected'::text, 'expired'::text]));
+
+ALTER TABLE seller_compliance_documents
+  DROP CONSTRAINT IF EXISTS seller_compliance_documents_version_check;
+
+ALTER TABLE seller_compliance_documents
+  ADD CONSTRAINT seller_compliance_documents_version_check
+  CHECK (version > 0);
+
+ALTER TABLE seller_optional_uploads
+  DROP CONSTRAINT IF EXISTS seller_optional_uploads_status_check;
+
+ALTER TABLE seller_optional_uploads
+  ADD CONSTRAINT seller_optional_uploads_status_check
+  CHECK (status = ANY (ARRAY['uploaded'::text, 'approved'::text, 'rejected'::text, 'archived'::text, 'expired'::text]));
+
+ALTER TABLE seller_compliance_documents
+  DROP CONSTRAINT IF EXISTS seller_compliance_documents_seller_id_document_list_id_key;
+
+WITH ranked AS (
+  SELECT
+    id,
+    row_number() OVER (
+      PARTITION BY seller_id, document_list_id
+      ORDER BY COALESCE(uploaded_at, created_at) DESC, created_at DESC, id DESC
+    ) AS row_rank,
+    count(*) OVER (PARTITION BY seller_id, document_list_id) AS total_count
+  FROM seller_compliance_documents
+),
+updated AS (
+  UPDATE seller_compliance_documents scd
+  SET
+    version = ranked.total_count - ranked.row_rank + 1,
+    is_current = (ranked.row_rank = 1)
+  FROM ranked
+  WHERE ranked.id = scd.id
+  RETURNING scd.id
+)
+SELECT count(*)::text FROM updated;
+
+DROP INDEX IF EXISTS idx_seller_compliance_documents_seller_document_current;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_seller_compliance_documents_seller_document_current
+  ON seller_compliance_documents (seller_id, document_list_id)
+  WHERE is_current = TRUE;
+SQL
+  )"
+  UPDATED_COUNT="$(printf "%s" "${UPDATED_COUNT}" | tr -d '[:space:]')"
+
+  FLAG_WRITTEN="$(
+  psql "${DATABASE_URL}" -t -A -v ON_ERROR_STOP=1 \
+    -v flag_key="${PATCH_KEY}" \
+    -v note="${PATCH_NOTE}; updated_rows=${UPDATED_COUNT}" <<'SQL'
+INSERT INTO deployment_update_flags (flag_key, note)
+VALUES (:'flag_key', :'note')
+ON CONFLICT (flag_key) DO NOTHING
+RETURNING flag_key;
+SQL
+  )"
+  FLAG_WRITTEN="$(printf "%s" "${FLAG_WRITTEN}" | tr -d '[:space:]')"
+
+  if [[ -z "${FLAG_WRITTEN}" ]]; then
+    log "Patch execution completed but flag already existed (${PATCH_KEY}); treating as applied."
+  else
+    log "Patch applied (${PATCH_KEY}). Updated rows: ${UPDATED_COUNT}"
+  fi
+fi
+
 PATCH_KEY="users_legal_hold_state_and_profile_documents_v1_20260302"
 PATCH_NOTE="Ensure users.legal_hold_state and seller_compliance_profile_documents exist/backfilled"
 
