@@ -19,6 +19,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
   const [createValidityYears, setCreateValidityYears] = useState("");
   const [createIsActive, setCreateIsActive] = useState(true);
   const [createIsRequiredDefault, setCreateIsRequiredDefault] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<ComplianceDocumentListRow | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editSourceInfo, setEditSourceInfo] = useState("");
@@ -70,6 +71,12 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
     setEditIsRequiredDefault(true);
   }
 
+  function closeCreateModal() {
+    if (saving) return;
+    setIsCreateModalOpen(false);
+    resetCreateForm();
+  }
+
   function parseValidityYears(value: string): number | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
@@ -115,6 +122,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
       }
       await loadRows();
       resetCreateForm();
+      setIsCreateModalOpen(false);
       setMessage(dict.common.saved);
     } catch {
       setMessage(dict.complianceDocuments.requestFailed);
@@ -237,69 +245,10 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
 
       <section className="panel">
         <div className="panel-header">
-          <h2>{dict.complianceDocuments.createDocument}</h2>
-          <span className="panel-meta">{isSuperAdmin ? dict.common.yes : dict.common.readOnly}</span>
-        </div>
-        <form className="form-grid" onSubmit={submitCreateForm}>
-          <label>
-            {dict.complianceDocuments.code}
-            <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} disabled={!isSuperAdmin || saving} />
-          </label>
-          <label>
-            {dict.complianceDocuments.name}
-            <input value={createName} onChange={(event) => setCreateName(event.target.value)} disabled={!isSuperAdmin || saving} />
-          </label>
-          <label>
-            {dict.complianceDocuments.description}
-            <textarea value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
-          </label>
-          <label>
-            {dict.complianceDocuments.sourceInfo}
-            <textarea value={createSourceInfo} onChange={(event) => setCreateSourceInfo(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
-          </label>
-          <label>
-            {dict.complianceDocuments.details}
-            <textarea value={createDetails} onChange={(event) => setCreateDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
-          </label>
-          <label>
-            {dict.complianceDocuments.validityYears}
-            <input value={createValidityYears} onChange={(event) => setCreateValidityYears(event.target.value)} inputMode="numeric" disabled={!isSuperAdmin || saving} />
-            <span className="panel-meta">{dict.complianceDocuments.validityYearsHint}</span>
-          </label>
-          <label>
-            {dict.complianceDocuments.active}
-            <select value={createIsActive ? "true" : "false"} onChange={(event) => setCreateIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
-              <option value="true">{dict.common.active}</option>
-              <option value="false">{dict.common.disabled}</option>
-            </select>
-          </label>
-          <label>
-            {dict.complianceDocuments.requiredDefault}
-            <select
-              value={createIsRequiredDefault ? "true" : "false"}
-              onChange={(event) => setCreateIsRequiredDefault(event.target.value === "true")}
-              disabled={!isSuperAdmin || saving}
-            >
-              <option value="true">{dict.common.yes}</option>
-              <option value="false">{dict.common.no}</option>
-            </select>
-          </label>
-          <div className="topbar-actions">
-            <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>{dict.actions.create}</button>
-            <button className="ghost" type="button" disabled={saving} onClick={() => resetCreateForm()}>
-              {dict.common.cancel}
-            </button>
-          </div>
-        </form>
-        {!isSuperAdmin ? <p className="panel-meta">{dict.users.onlySuperAdmin}</p> : null}
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
           <h2>{dict.complianceDocuments.tableTitle}</h2>
           <div className="topbar-actions">
-            <button className="ghost" type="button" onClick={() => loadRows().catch(() => setMessage(dict.complianceDocuments.requestFailed))}>
-              {dict.actions.refresh}
+            <button className="primary" type="button" disabled={!isSuperAdmin} onClick={() => setIsCreateModalOpen(true)}>
+              {dict.actions.create}
             </button>
           </div>
         </div>
@@ -364,6 +313,68 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
           </table>
         </div>
       </section>
+
+      {isCreateModalOpen ? (
+        <div className="buyer-ops-modal-backdrop">
+          <div className="buyer-ops-modal">
+            <h3>{dict.complianceDocuments.createDocument}</h3>
+            <form className="form-grid" onSubmit={submitCreateForm}>
+              <label>
+                {dict.complianceDocuments.code}
+                <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.name}
+                <input value={createName} onChange={(event) => setCreateName(event.target.value)} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.description}
+                <textarea value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.sourceInfo}
+                <textarea value={createSourceInfo} onChange={(event) => setCreateSourceInfo(event.target.value)} rows={3} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.details}
+                <textarea value={createDetails} onChange={(event) => setCreateDetails(event.target.value)} rows={4} disabled={!isSuperAdmin || saving} />
+              </label>
+              <label>
+                {dict.complianceDocuments.validityYears}
+                <input value={createValidityYears} onChange={(event) => setCreateValidityYears(event.target.value)} inputMode="numeric" disabled={!isSuperAdmin || saving} />
+                <span className="panel-meta">{dict.complianceDocuments.validityYearsHint}</span>
+              </label>
+              <label>
+                {dict.complianceDocuments.active}
+                <select value={createIsActive ? "true" : "false"} onChange={(event) => setCreateIsActive(event.target.value === "true")} disabled={!isSuperAdmin || saving}>
+                  <option value="true">{dict.common.active}</option>
+                  <option value="false">{dict.common.disabled}</option>
+                </select>
+              </label>
+              <label>
+                {dict.complianceDocuments.requiredDefault}
+                <select
+                  value={createIsRequiredDefault ? "true" : "false"}
+                  onChange={(event) => setCreateIsRequiredDefault(event.target.value === "true")}
+                  disabled={!isSuperAdmin || saving}
+                >
+                  <option value="true">{dict.common.yes}</option>
+                  <option value="false">{dict.common.no}</option>
+                </select>
+              </label>
+              <div className="buyer-ops-modal-actions">
+                <button className="ghost" type="button" disabled={saving} onClick={closeCreateModal}>
+                  {dict.common.cancel}
+                </button>
+                <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
+                  {dict.actions.create}
+                </button>
+              </div>
+            </form>
+            {!isSuperAdmin ? <p className="panel-meta">{dict.users.onlySuperAdmin}</p> : null}
+          </div>
+        </div>
+      ) : null}
 
       {editingRow ? (
         <div className="buyer-ops-modal-backdrop">
