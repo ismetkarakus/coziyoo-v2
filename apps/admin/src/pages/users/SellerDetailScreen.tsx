@@ -1685,22 +1685,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       {language === "tr" ? "Yükle" : "Upload"}
                     </button>
                     <button
-                      className="ghost compliance-edit-btn"
-                      type="button"
-                      disabled={!item.sourceFileUrl}
-                      onClick={() => {
-                        if (item.sourceDocumentId) {
-                          setPendingTargetId(item.sourceDocumentId);
-                          setPendingReason("");
-                          return;
-                        }
-                        setTempPendingTargetKey(item.key);
-                        setTempPendingReason("");
-                      }}
-                    >
-                      {dict.detail.legalPend}
-                    </button>
-                    <button
                       className="ghost compliance-edit-btn compliance-preview-btn"
                       type="button"
                       disabled={!item.sourceFileUrl}
