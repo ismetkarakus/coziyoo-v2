@@ -56,6 +56,23 @@ Record each run:
 - `xcrun devicectl device process launch ... com.coziyoo.mobile` succeeded.
 - `xcrun devicectl device info processes` shows running `Coziyoo` process on device.
 
+## CLI Evidence (2026-03-13 Revalidation)
+
+- `npm run build` in `apps/mobile` passed (`tsc --noEmit`).
+- `xcrun devicectl list devices` showed Drascom available and paired.
+- `npx expo run:ios --device "Drascom"` rebuilt, reinstalled, and started Metro for the current `codex` branch.
+- `xcrun devicectl device info apps --device BC23F9C8-DEC6-510D-8740-2EEB9DE8699D` confirmed `Coziyoo (com.coziyoo.mobile)` remains installed.
+- `xcrun devicectl device process launch --device BC23F9C8-DEC6-510D-8740-2EEB9DE8699D com.coziyoo.mobile` succeeded.
+- `xcrun devicectl device info processes --device BC23F9C8-DEC6-510D-8740-2EEB9DE8699D` showed the running `Coziyoo` app process.
+
+## Remaining Manual Validation
+
+Terminal-side validation is complete for build/install/launch. Plan `02-02` is still blocked on the spoken-turn checks in the test matrix:
+
+- confirm microphone permission prompt and revoked-permission recovery behavior
+- complete at least 2 real voice turns with clear two-way audio
+- repeat start/end cycle until 5 consecutive physical-device starts pass
+
 ## Completion Rule
 
 When all pass criteria are met, mark roadmap item `02-02` as complete and update `.planning/STATE.md` last activity with test evidence summary.

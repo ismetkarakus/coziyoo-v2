@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 Phase: 2 of 7 (Voice Session Startup)
 Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-12 — Physical iOS build/install/launch verified on Drascom; interactive voice-turn UAT pending
+Last activity: 2026-03-13 — Physical iOS rebuild/install/launch revalidated on Drascom from current codex branch; interactive voice-turn UAT still pending
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12
-Stopped at: Roadmap created — files written, traceability updated in REQUIREMENTS.md
+Last session: 2026-03-13
+Stopped at: Revalidated physical iOS build/install/launch from terminal; waiting on manual spoken-turn UAT
 Resume file: None
