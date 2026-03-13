@@ -256,8 +256,7 @@ function ServerInlineForm({ type, draft, onChange, onSave, onCancel, isSaving }:
       </label>
       {type === "stt" && field("Provider", <input style={inp} value={draft.provider} onChange={(e) => set("provider", e.target.value)} />)}
       {field("Base URL", <input style={inp} value={draft.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} placeholder={type === "n8n" ? "https://coziyoo.drascom.uk" : ""} />)}
-      {type === "n8n" && field("Brain Webhook Path", <input style={inp} value={draft.webhookPath} onChange={(e) => set("webhookPath", e.target.value)} placeholder="/webhook/coziyoo-ask" />)}
-      {type === "n8n" && field("MCP Webhook Path", <input style={inp} value={draft.mcpWebhookPath} onChange={(e) => set("mcpWebhookPath", e.target.value)} placeholder="/webhook/mcp-gateway" />)}
+      {type === "n8n" && field("Webhook Path", <input style={inp} value={draft.webhookPath} onChange={(e) => set("webhookPath", e.target.value)} placeholder="/webhook/coziyoo-ask" />)}
       {type === "stt" && field("Transcribe Path", <input style={inp} value={draft.transcribePath} onChange={(e) => set("transcribePath", e.target.value)} />)}
       {type === "tts" && field("Synth Path", <input style={inp} value={draft.synthPath} onChange={(e) => set("synthPath", e.target.value)} />)}
       {type === "tts" && field(
