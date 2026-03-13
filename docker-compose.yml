@@ -1,13 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    env_file:
-      - .env.local
-    ports:
-      - "5432:5432"
-    volumes:
-      - coziyoo_postgres_data:/var/lib/postgresql/data
-
   api:
     image: node:20-bookworm
     working_dir: /workspace
@@ -35,7 +26,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - postgres
       - voice-agent-api
 
   admin:
@@ -109,4 +99,3 @@ volumes:
   coziyoo_api_node_modules:
   coziyoo_admin_node_modules:
   coziyoo_pip_cache:
-  coziyoo_postgres_data:
