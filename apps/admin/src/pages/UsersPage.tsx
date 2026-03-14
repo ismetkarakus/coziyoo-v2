@@ -4,12 +4,10 @@ import { request, parseJson } from "../lib/api";
 import { Pager, KpiCard, ExcelExportButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth } from "../lib/format";
-import { SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
 import { compareSortValues, compareWithDir, toggleSort, type SortDir } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
 import type { UserKind, ColumnMeta, DensityMode } from "../types/users";
-import type { SellerSmartFilterKey } from "../types/seller";
 
 type SellerTableSortKey = "id" | "name" | "status" | "warnings" | "orderHealth" | "ratingTrend";
 type BuyerTableSortKey = "id" | "buyer" | "col4" | "col5" | "col6" | "col7" | "col8" | "status";
@@ -54,7 +52,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     spendTrend: "all",
   });
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "active" | "risky" | "open_complaint" | "down_spend" | null>(null);
-  const [activeSellerSmartFilter, setActiveSellerSmartFilter] = useState<SellerSmartFilterKey | null>(null);
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
   const [buyerTotalCountAll, setBuyerTotalCountAll] = useState<number | null>(null);
@@ -200,7 +197,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     });
     setBuyerQuickFilter(null);
     setBuyerTotalCountAll(null);
-    setActiveSellerSmartFilter(null);
     setBuyerActionMenuId(null);
     setCustomerIdPreview(null);
     setSellerTableSort({ key: null, dir: "desc" });
@@ -587,123 +583,27 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
   const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
   const sellerTotalFoods = (row: any): number => Number(row.totalFoods ?? 0);
-  const sellerComplaintTotal = (row: any): number => Number(row.complaintTotal ?? row.openComplaintCount ?? 0);
   const sellerComplaintUnresolved = (row: any): number => Number(row.complaintUnresolved ?? row.openComplaintCount ?? 0);
-  const sellerComplaintMadeTotal = (row: any): number => Number(row.complaintMadeTotal ?? 0);
   const sellerMissingDoc = (row: any): number => Number(row.missingDocCount ?? row.missingDocuments ?? 0);
-  const sellerSuspiciousLogin = (row: any): number =>
-    Number(row.suspiciousLoginCount ?? row.loginAnomalyCount ?? row.sameIpAccountCount ?? row.sameIpEntryCount ?? 0);
   const sellerApprovalText = (row: any): string => String(row.approvalStatus ?? row.complianceStatus ?? "").toLowerCase();
+  const sellerNeedsDocumentAttention = (row: any): boolean =>
+    sellerMissingDoc(row) > 0 || /(pending|review|in_progress|submitted)/.test(sellerApprovalText(row));
   const sellerRating = (row: any): number => Number(row.avgRating ?? row.ratingAverage ?? row.rating ?? 0);
-  const sellerTopRevenueThreshold = useMemo(() => {
-    const revenues = trRows.map((row) => sellerRevenue(row)).filter((value) => value > 0).sort((a, b) => b - a);
-    if (revenues.length === 0) return Number.POSITIVE_INFINITY;
-    const topIndex = Math.max(0, Math.ceil(revenues.length * 0.2) - 1);
-    return revenues[topIndex] ?? Number.POSITIVE_INFINITY;
-  }, [trRows]);
-  const sellerTopSellingFoodsOrderThreshold = useMemo(() => {
-    const orderCounts = trRows
-      .filter((row) => sellerTotalFoods(row) > 0)
-      .map((row) => sellerOrderCurrent(row))
-      .filter((value) => value > 0)
-      .sort((a, b) => b - a);
-    if (orderCounts.length === 0) return Number.POSITIVE_INFINITY;
-    const topIndex = Math.max(0, Math.ceil(orderCounts.length * 0.2) - 1);
-    return orderCounts[topIndex] ?? Number.POSITIVE_INFINITY;
-  }, [trRows]);
-  const sellerRiskMeta = (row: any): { level: "low" | "medium" | "high"; score: number } => {
-    let score = 0;
-    score += Math.min(sellerComplaintUnresolved(row), 3) * 24;
-    score += Math.min(sellerSuspiciousLogin(row), 2) * 22;
-    score += Math.min(sellerMissingDoc(row), 2) * 18;
-    if (sellerOrderCurrent(row) < sellerOrderPrevious(row)) score += 14;
-    if (row.status === "disabled") score += 18;
-    if (score >= 70) return { level: "high", score };
-    if (score >= 35) return { level: "medium", score };
-    return { level: "low", score };
-  };
-  const matchSellerSmartFilter = (row: any, key: SellerSmartFilterKey): boolean => {
-    if (key === "login_anomaly") return true;
-    if (key === "pending_approvals") return /(pending|review|in_progress|submitted)/.test(sellerApprovalText(row));
-    if (key === "missing_documents") return sellerMissingDoc(row) > 0;
-    if (key === "suspicious_logins") return sellerSuspiciousLogin(row) > 0;
-    if (key === "complaining_sellers") return sellerComplaintMadeTotal(row) > 0;
-    if (key === "top_selling_foods") {
-      return sellerTotalFoods(row) > 0 && sellerOrderCurrent(row) >= sellerTopSellingFoodsOrderThreshold && sellerOrderCurrent(row) > 0;
-    }
-    if (key === "top_revenue") return sellerRevenue(row) >= sellerTopRevenueThreshold && sellerRevenue(row) > 0;
-    if (key === "performance_drop") return sellerOrderCurrent(row) < sellerOrderPrevious(row);
-    if (key === "urgent_action") return sellerRiskMeta(row).level === "high";
-    return sellerComplaintTotal(row) > 0;
-  };
-  const sortSellerRowsForSmartFilter = (rowsToSort: any[], key: SellerSmartFilterKey): any[] => {
-    const scopedRows = [...rowsToSort];
-    if (key === "top_revenue") {
-      return scopedRows.sort((a, b) => sellerRevenue(b) - sellerRevenue(a));
-    }
-    if (key === "top_selling_foods") {
-      return scopedRows.sort((a, b) => sellerOrderCurrent(b) - sellerOrderCurrent(a));
-    }
-    if (key === "complaining_sellers") {
-      return scopedRows.sort((a, b) => sellerComplaintMadeTotal(b) - sellerComplaintMadeTotal(a));
-    }
-    if (key === "urgent_action") {
-      return scopedRows.sort((a, b) => sellerRiskMeta(b).score - sellerRiskMeta(a).score);
-    }
-    if (key === "complainer_sellers") {
-      return scopedRows.sort((a, b) => sellerComplaintTotal(b) - sellerComplaintTotal(a));
-    }
-    if (key === "missing_documents") {
-      return scopedRows.sort((a, b) => sellerMissingDoc(b) - sellerMissingDoc(a));
-    }
-    if (key === "suspicious_logins") {
-      return scopedRows.sort((a, b) => sellerSuspiciousLogin(b) - sellerSuspiciousLogin(a));
-    }
-    if (key === "performance_drop") {
-      return scopedRows.sort((a, b) => (sellerOrderPrevious(b) - sellerOrderCurrent(b)) - (sellerOrderPrevious(a) - sellerOrderCurrent(a)));
-    }
-    return scopedRows;
-  };
-  const sellerSmartFilterCounts = useMemo(
-    () =>
-      SELLER_SMART_FILTER_ITEMS.reduce(
-        (acc, item) => {
-          acc[item.key] = trRows.filter((row) => matchSellerSmartFilter(row, item.key)).length;
-          return acc;
-        },
-        {
-          login_anomaly: 0,
-          pending_approvals: 0,
-          missing_documents: 0,
-          suspicious_logins: 0,
-          complaining_sellers: 0,
-          top_selling_foods: 0,
-          top_revenue: 0,
-          performance_drop: 0,
-          urgent_action: 0,
-          complainer_sellers: 0,
-        } as Record<SellerSmartFilterKey, number>
-      ),
-    [trRows, sellerTopRevenueThreshold, sellerTopSellingFoodsOrderThreshold]
-  );
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
     if (isSellerPage) {
       scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
       if (activeSellerKpiFilter === "active") {
-        scopedRows = scopedRows.filter(
-          (row) => matchSellerSmartFilter(row, "missing_documents") || matchSellerSmartFilter(row, "pending_approvals")
-        );
+        scopedRows = scopedRows.filter((row) => sellerNeedsDocumentAttention(row));
+      }
+      if (activeSellerKpiFilter === "disabled") {
+        scopedRows = scopedRows.filter((row) => sellerComplaintUnresolved(row) > 0);
       }
       if (activeSellerKpiFilter === "new_today") {
         scopedRows = scopedRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey);
       }
       if (sellerStatusFilter !== "all") {
         scopedRows = scopedRows.filter((row) => row.status === sellerStatusFilter);
-      }
-      if (activeSellerSmartFilter) {
-        scopedRows = scopedRows.filter((row) => matchSellerSmartFilter(row, activeSellerSmartFilter));
-        scopedRows = sortSellerRowsForSmartFilter(scopedRows, activeSellerSmartFilter);
       }
 
       const sellerQuery = searchInput.trim().toLocaleLowerCase("tr-TR");
@@ -749,8 +649,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             return compareWithDir(a.status === "active" ? 1 : 0, b.status === "active" ? 1 : 0, sellerTableSort.dir);
           }
           if (sellerTableSort.key === "warnings") {
-            const left = (sellerComplaintUnresolved(a) * 100) + (sellerSuspiciousLogin(a) * 10) + sellerMissingDoc(a);
-            const right = (sellerComplaintUnresolved(b) * 100) + (sellerSuspiciousLogin(b) * 10) + sellerMissingDoc(b);
+            const left = (sellerComplaintUnresolved(a) * 100) + sellerMissingDoc(a);
+            const right = (sellerComplaintUnresolved(b) * 100) + sellerMissingDoc(b);
             return compareWithDir(left, right, sellerTableSort.dir);
           }
           if (sellerTableSort.key === "orderHealth") {
@@ -822,7 +722,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     });
   }, [
     activeSellerKpiFilter,
-    activeSellerSmartFilter,
     buyerFilters,
     buyerQuickFilter,
     buyerTableSort,
@@ -1111,35 +1010,22 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const activeTrSellers = trRows.filter((row) => row.status === "active").length;
     const passiveTrSellers = trRows.filter((row) => row.status === "disabled").length;
     const todayTrSellers = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
-    const primarySmartItems: SellerSmartFilterKey[] = [
-      "pending_approvals",
-      "missing_documents",
-      "suspicious_logins",
-      "complaining_sellers",
-      "complainer_sellers",
-      "top_selling_foods",
-      "top_revenue",
-      "performance_drop",
-      "urgent_action",
-    ];
 
     const applySellerKpiFilter = (mode: "all" | "active" | "disabled" | "new_today") => {
       setFilters((prev) => ({ ...prev, page: 1 }));
       setIsSellerTableOpen(true);
       if (mode === "all") {
         setSellerStatusFilter("all");
-        setActiveSellerSmartFilter(null);
         setActiveSellerKpiFilter("all");
         return;
       }
-      setActiveSellerSmartFilter(null);
       if (mode === "active") {
         setSellerStatusFilter("all");
         setActiveSellerKpiFilter("active");
         return;
       }
       if (mode === "disabled") {
-        setSellerStatusFilter("disabled");
+        setSellerStatusFilter("all");
         setActiveSellerKpiFilter("disabled");
         return;
       }
@@ -1200,38 +1086,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </KpiCard>
         </section>
 
-        <section className="buyer-v2-main-layout">
-          <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label={dict.users.v2.smartFiltersPlain}>
-            <div className="buyer-v2-smart-list seller-v2-smart-primary">
-              {primarySmartItems.map((key) => {
-                const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
-                if (!item) return null;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={`buyer-v2-smart-item ${activeSellerSmartFilter === item.key ? "is-active" : ""}`}
-                    aria-pressed={activeSellerSmartFilter === item.key}
-                    onClick={() => {
-                      setSellerStatusFilter("all");
-                      setActiveSellerKpiFilter(null);
-                      setActiveSellerSmartFilter((prev) => {
-                        const next = prev === item.key ? null : item.key;
-                        setIsSellerTableOpen(next !== null);
-                        return next;
-                      });
-                      setFilters((prev) => ({ ...prev, page: 1 }));
-                    }}
-                  >
-                    <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
-                    <span className="buyer-v2-smart-item-label">{item.label}</span>
-                    <span className="buyer-v2-smart-item-count">{sellerSmartFilterCounts[item.key] ?? 0}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
+        <section className="buyer-v2-main-layout buyer-v2-main-layout--single">
           <section className="panel buyer-v2-board seller-v2-board">
             {isSellerTableOpen ? (
               <div className="seller-v2-toolbar-row">
@@ -1304,12 +1159,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
                         const sellerName = String(row.displayName ?? row.email ?? dict.users.v2.sellerFallbackName);
                         const warningInfo = sellerComplaintUnresolved(row);
-                        const sellerRowTarget =
-                          activeSellerSmartFilter === "complainer_sellers"
-                            ? `/app/sellers/${row.id}?tab=orders`
-                            : activeSellerSmartFilter === "complaining_sellers"
-                              ? `/app/sellers/${row.id}?tab=orders`
-                              : `/app/sellers/${row.id}`;
+                        const sellerRowTarget = `/app/sellers/${row.id}`;
 
                         return (
                           <tr
