@@ -246,7 +246,7 @@ export default function DashboardPage({ language }: { language: Language }) {
         </div>
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => window.location.reload()}>{dict.actions.refresh}</button>
-          <button className="primary" type="button">{dict.actions.reviewQueue}</button>
+          <button className="primary" type="button" onClick={() => navigate("/app/compliance-documents")}>{dict.actions.reviewQueue}</button>
         </div>
       </header>
       <div className="kpi-grid">
