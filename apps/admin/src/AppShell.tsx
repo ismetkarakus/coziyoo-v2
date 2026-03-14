@@ -237,7 +237,7 @@ function AppShell({
                   <small>{admin.email}</small>
                 </div>
                 <div className="profile-menu-row">
-                  <span>{language === "tr" ? "API Durumu" : "API Status"}</span>
+                  <span>API</span>
                   <ApiHealthBadge />
                 </div>
                 <button
@@ -248,7 +248,7 @@ function AppShell({
                     setIsProfileMenuOpen(false);
                   }}
                 >
-                  {language === "tr" ? "Dil: Türkçe (EN'e geç)" : "Language: English (switch to TR)"}
+                  🌐 {language === "tr" ? "TR / EN" : "EN / TR"}
                 </button>
                 <button
                   className="profile-menu-item"
@@ -258,7 +258,7 @@ function AppShell({
                     setIsProfileMenuOpen(false);
                   }}
                 >
-                  {isDarkMode ? (language === "tr" ? "Tema: Açık" : "Theme: Light") : (language === "tr" ? "Tema: Koyu" : "Theme: Dark")}
+                  {isDarkMode ? "☀" : "☾"}
                 </button>
                 <button
                   className="profile-menu-item is-danger"
@@ -268,7 +268,7 @@ function AppShell({
                     void logout();
                   }}
                 >
-                  {dict.actions.logout}
+                  ⎋ {dict.actions.logout}
                 </button>
               </div>
             ) : null}
