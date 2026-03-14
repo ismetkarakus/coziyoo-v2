@@ -34,13 +34,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
   const subtitle =
-    language === "tr"
-      ? tableKey === "orders"
-        ? "Veritabanındaki sipariş kayıtlarını görüntüleyin."
-        : "Veritabanındaki yemek kayıtlarını görüntüleyin."
-      : tableKey === "orders"
-        ? "Browse order records from the database."
-        : "Browse food records from the database.";
+    tableKey === "orders" ? dict.records.subtitleOrders : dict.records.subtitleFoods;
 
   const orderColumns = useMemo(() => {
     if (tableKey !== "orders") return columns;
@@ -191,10 +185,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (isToday) {
       const diffMs = Math.max(0, now.getTime() - timestamp);
       const diffMin = Math.floor(diffMs / 60000);
-      if (diffMin < 1) return language === "tr" ? "az önce" : "just now";
-      if (diffMin < 60) return language === "tr" ? `${diffMin} dk önce` : `${diffMin} min ago`;
+      if (diffMin < 1) return dict.records.justNow;
+      if (diffMin < 60) return `${diffMin} ${dict.records.minAgo}`;
       const diffHours = Math.floor(diffMin / 60);
-      return language === "tr" ? `${diffHours} saat önce` : `${diffHours} hours ago`;
+      return `${diffHours} ${dict.records.hourAgo}`;
     }
     const pad2 = (num: number) => String(num).padStart(2, "0");
     return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
@@ -257,7 +251,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     };
     return map[status] ?? {
       label: status ? status.replace(/_/g, " ") : dict.common.counterpartNotFound,
-      note: isTr ? "Durum notu bulunamadı" : "Status note not found",
+      note: dict.records.statusNoteNotFound,
       toneClass: "is-pending",
     };
   };
@@ -288,7 +282,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       const done = value === true || String(value).toLowerCase() === "true";
       return (
         <span className={`status-pill ${done ? "is-success" : "is-warning"}`}>
-          {done ? (language === "tr" ? "Tamamlandı" : "Completed") : (language === "tr" ? "Bekliyor" : "Pending")}
+          {done ? dict.common.completed : dict.common.pending}
         </span>
       );
     }
@@ -329,7 +323,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (column === "status") return orderStatusMeta(value).label;
     if (column === "payment_completed") {
       const done = value === true || String(value).toLowerCase() === "true";
-      return done ? (language === "tr" ? "Tamamlandı" : "Completed") : language === "tr" ? "Bekliyor" : "Pending";
+      return done ? dict.common.completed : dict.common.pending;
     }
     if (column === "delivery_type") {
       const raw = String(value ?? "").trim().toLowerCase();
@@ -445,7 +439,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   function downloadSelectedOrdersAsExcel() {
     if (selectedOrders.length === 0) {
-      setError(language === "tr" ? "Lutfen en az bir siparis secin." : "Please select at least one order.");
+      setError(dict.records.atLeastOneOrder);
       return;
     }
     const exportColumns = ["__display_id", ...orderColumns];
@@ -494,7 +488,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     lines.push(baseHeader.map(escapeCsv).join(","));
     lines.push(baseRow.map(escapeCsv).join(","));
     lines.push("");
-    lines.push((language === "tr" ? "Sipariş Kalemleri" : "Order Items"));
+    lines.push(dict.records.orderItemsTitle);
     if (itemHeaders.length > 0) {
       lines.push(itemHeaders.map(escapeCsv).join(","));
       for (const row of itemRows) lines.push(row.map((cell) => escapeCsv(String(cell))).join(","));
@@ -671,20 +665,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       const text = String(value ?? "").trim();
       if (text) return text;
     }
-    return "Neden bilgisi bulunamadı.";
-  })();
-  const selectedStatusLabelTr = (() => {
-    const status = String(selectedOrder?.status ?? "").trim().toLowerCase();
-    if (status === "pending_seller_approval") return "Onay bekliyor";
-    if (status === "seller_approved") return "Onaylandı";
-    if (status === "awaiting_payment") return "Ödeme bekliyor";
-    if (status === "paid") return "Ödendi";
-    if (status === "preparing") return "Hazırlanıyor";
-    if (status === "ready") return "Teslime hazır";
-    if (status === "in_delivery") return "Teslimatta";
-    if (status === "delivered") return "Teslim edildi";
-    if (status === "cancelled") return "İptal";
-    return status ? status.toUpperCase() : "-";
+    return dict.records.cancelReasonNotFound;
   })();
   const selectedBuyerText = orderCellText("buyer_id", selectedOrder?.buyer_id);
   const selectedSellerText = orderCellText("seller_id", selectedOrder?.seller_id);
@@ -692,22 +673,22 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const selectedDeliveryType = (() => {
     const raw = String(selectedOrder?.delivery_type ?? "").trim().toLowerCase();
     if (!raw) return "-";
-    if (raw.includes("pickup")) return "Restorandan Teslim";
-    if (raw.includes("delivery")) return "Adrese Teslim";
-    if (raw.includes("courier")) return "Kurye";
+    if (raw.includes("pickup")) return dict.records.deliveryTypePickupRestaurant;
+    if (raw.includes("delivery")) return dict.records.deliveryTypeHome;
+    if (raw.includes("courier")) return dict.records.deliveryTypeCourier;
     return raw;
   })();
   const selectedCreatedAt = (() => {
     const raw = String(selectedOrder?.created_at ?? "").trim();
     if (!raw) return "-";
     const parsed = Date.parse(raw);
-    return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString("tr-TR");
+    return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString(language === "tr" ? "tr-TR" : "en-US");
   })();
   const selectedRequestedAt = (() => {
     const raw = String(selectedOrder?.requested_at ?? "").trim();
     if (!raw) return "-";
     const parsed = Date.parse(raw);
-    return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString("tr-TR");
+    return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString(language === "tr" ? "tr-TR" : "en-US");
   })();
   const selectedPaymentStatus = (() => {
     const raw = selectedOrder?.payment_completed;
@@ -760,7 +741,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               <button
                 className="users-search-clear"
                 type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                aria-label={dict.common.clearSearch}
                 onClick={() => {
                   setPage(1);
                   setSearch("");
@@ -774,7 +755,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         <div className="topbar-actions">
           {tableKey === "orders" ? (
             <ExcelExportButton className="primary" type="button" onClick={downloadSelectedOrdersAsExcel} language={language}>
-              {language === "tr" ? `Excel'e Aktar (${selectedOrders.length})` : `Export to Excel (${selectedOrders.length})`}
+              {fmt(dict.records.exportSelectedWithCount, { count: selectedOrders.length })}
             </ExcelExportButton>
           ) : null}
         </div>
@@ -790,7 +771,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <input
                       type="checkbox"
                       checked={allRowsSelected}
-                      aria-label={language === "tr" ? "Tumunu sec" : "Select all"}
+                      aria-label={dict.records.selectAllOrders}
                       onChange={(event) => toggleAllVisibleOrders(event.target.checked)}
                     />
                   </th>
@@ -828,7 +809,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                         <input
                           type="checkbox"
                           checked={Boolean(selectedOrderMap[String(row.id ?? "").trim()])}
-                          aria-label={language === "tr" ? "Siparisi sec" : "Select order"}
+                          aria-label={dict.records.selectOrder}
                           onClick={(event) => event.stopPropagation()}
                           onChange={(event) => toggleOrderSelection(row, event.target.checked)}
                         />
@@ -862,53 +843,53 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             <section className="records-order-section">
               <header className="records-order-head">
                 <div className="records-order-title-wrap">
-                  <h3>{`Aktif Sipariş Detayı: #${toDisplayId(selectedOrderId)}`}</h3>
+                  <h3>{`${dict.records.activeOrderDetail}: #${toDisplayId(selectedOrderId)}`}</h3>
                   <button
                     className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
                     type="button"
                     onClick={() => copyWithFeedback(selectedOrderId, "order-id")}
-                    title="Sipariş ID kopyala"
+                    title={dict.records.copyOrderId}
                   >
                     {copyFeedbackKey === "order-id" ? "✓" : "⧉"}
                   </button>
                 </div>
                 <div className="records-order-status-wrap">
-                  <span>Durumu</span>
-                  <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusLabelTr}</span>
+                  <span>{dict.records.status}</span>
+                  <span className={`status-pill order-status-pill ${selectedStatusMeta.toneClass}`}>{selectedStatusMeta.label}</span>
                 </div>
               </header>
 
               <div className="records-order-grid">
                 <article className="records-order-info-card">
-                  <span>Alıcı</span>
+                  <span>{dict.records.buyer}</span>
                   <strong>{selectedBuyerText}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>Teslimat Adresi</span>
+                  <span>{dict.records.deliveryAddress}</span>
                   <strong>{selectedDeliveryAddress}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>Satıcı</span>
+                  <span>{dict.records.seller}</span>
                   <strong>{selectedSellerText}</strong>
-                  <p className="panel-meta">{`Teslimat Tipi: ${selectedDeliveryType}`}</p>
+                  <p className="panel-meta">{`${dict.records.deliveryType}: ${selectedDeliveryType}`}</p>
                 </article>
                 <article className="records-order-info-meta">
                   <div>
-                    <span>Sipariş Tarihi</span>
+                    <span>{dict.records.orderDate}</span>
                     <strong>{selectedCreatedAt}</strong>
                   </div>
                   <div>
-                    <span>Talep Tarihi</span>
+                    <span>{dict.records.requestDate}</span>
                     <strong>{selectedRequestedAt}</strong>
                   </div>
                   <div>
-                    <span>Ödeme Durumu</span>
+                    <span>{dict.records.paymentStatus}</span>
                     <strong>{selectedPaymentStatus}</strong>
                   </div>
                 </article>
                 {selectedStatusRaw === "cancelled" ? (
                   <article className="records-order-info-card">
-                    <span>İptal Nedeni</span>
+                    <span>{dict.records.cancelReason}</span>
                     <strong>{selectedCancelReason}</strong>
                   </article>
                 ) : null}
@@ -921,23 +902,23 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
                     type="button"
                     onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                    title="UUID kopyala"
+                    title={dict.records.copyUuid}
                   >
                     {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
                   </button>
                 </div>
                 <div className="records-order-total-inline">
-                  <span>Toplam</span>
+                  <span>{dict.records.total}</span>
                   <strong>{selectedTotal}</strong>
                 </div>
               </div>
             </section>
             <section className="records-order-section">
-              <h4>Sipariş Kalemleri</h4>
+              <h4>{dict.records.orderItemsTitle}</h4>
               {orderItemsLoading ? (
                 <p className="panel-meta">{dict.common.loading}</p>
               ) : selectedOrderItems.length === 0 ? (
-                <p className="panel-meta">Kalem bulunamadı.</p>
+                <p className="panel-meta">{dict.records.noItems}</p>
               ) : (
                 <div className="table-wrap">
                   <table>
@@ -964,11 +945,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language="tr" />
               <PrintButton className="ghost" type="button" onClick={printOpenOrderDetail} language="tr" />
-              <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
-                Kapat
-              </button>
+                <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
+                  {dict.records.close}
+                </button>
+              </div>
             </div>
-          </div>
         </div>
       ) : null}
     </div>

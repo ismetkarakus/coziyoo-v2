@@ -42,13 +42,13 @@ export default function InvestigationPage({ language }: { language: Language }) 
 
   const statusText = (status: ComplaintStatus) => {
     if (language === "tr") {
-      if (status === "open") return "Açık";
-      if (status === "in_review") return "İnceleniyor";
+      if (status === "open") return dict.reviewQueue.openStatus;
+      if (status === "in_review") return dict.reviewQueue.inReviewStatus;
       if (status === "resolved") return "Çözüldü";
       return "Kapandı";
     }
-    if (status === "open") return "Open";
-    if (status === "in_review") return "In Review";
+    if (status === "open") return dict.reviewQueue.openStatus;
+    if (status === "in_review") return dict.reviewQueue.inReviewStatus;
     if (status === "resolved") return "Resolved";
     return "Closed";
   };
@@ -86,12 +86,12 @@ export default function InvestigationPage({ language }: { language: Language }) 
       }
 
       const headers = [
-        "Display ID",
-        language === "tr" ? "Sipariş Numarası" : "Order No",
-        language === "tr" ? "Alıcı" : "Buyer",
-        language === "tr" ? "Şikayet Kategorisi" : "Complaint Category",
-        language === "tr" ? "Oluşturma Tarihi" : "Created At",
-        language === "tr" ? "Durum" : "Status",
+        dict.investigation.displayId,
+        dict.investigation.orderNo,
+        dict.investigation.buyer,
+        dict.investigation.complaintCategory,
+        dict.investigation.createdAt,
+        dict.reviewQueue.status,
       ];
       const rowsForExport = body.data.map((row) => [
         toDisplayId(row.id),
@@ -193,14 +193,14 @@ export default function InvestigationPage({ language }: { language: Language }) 
           <p className="subtext">
             {presetBuyerId
               ? presetOpenOnly
-                ? `Filtre: alıcının açık şikayetleri`
-                : `Filtre: alıcının tüm şikayetleri`
+                ? dict.investigation.filterBuyerOpen
+                : dict.investigation.filterBuyerAll
               : presetComplainantType === "seller" && presetComplainantUserId
-                ? `Filtre: satıcının yaptığı şikayetler`
+                ? dict.investigation.filterSellerCreated
               : presetSellerId
                 ? presetOpenOnly
-                  ? `Filtre: satıcının açık şikayetleri`
-                  : `Filtre: satıcının tüm şikayetleri`
+                  ? dict.investigation.filterSellerOpen
+                  : dict.investigation.filterSellerAll
               : dict.investigation.subtitle}
           </p>
         </div>
@@ -224,7 +224,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
               <button
                 className="users-search-clear"
                 type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                aria-label={dict.common.clearSearch}
                 onClick={() => {
                   setPage(1);
                   setSearchInput("");
@@ -243,7 +243,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
               setStatusFilter(event.target.value as typeof statusFilter);
             }}
           >
-            <option value="all">{language === "tr" ? "Tüm Durumlar" : "All Statuses"}</option>
+            <option value="all">{dict.investigation.allStatuses}</option>
             <option value="open">{statusText("open")}</option>
             <option value="in_review">{statusText("in_review")}</option>
             <option value="resolved">{statusText("resolved")}</option>
@@ -269,7 +269,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </th>
                 <th>
                   <SortableHeader
-                    label={language === "tr" ? "Sipariş Numarası" : "Order No"}
+                    label={dict.investigation.orderNo}
                     active={tableSort.key === "order_no"}
                     dir={sortDirectionFor("order_no")}
                     onClick={() => setTableSort((prev) => toggleSort(prev, "order_no"))}
@@ -277,7 +277,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </th>
                 <th>
                   <SortableHeader
-                    label={language === "tr" ? "Şikayetçi" : "Complainant"}
+                    label={dict.investigation.complainant}
                     active={tableSort.key === "complainant"}
                     dir={sortDirectionFor("complainant")}
                     onClick={() => setTableSort((prev) => toggleSort(prev, "complainant"))}
@@ -285,7 +285,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </th>
                 <th>
                   <SortableHeader
-                    label={language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}
+                    label={dict.investigation.complaintCategory}
                     active={tableSort.key === "category"}
                     dir={sortDirectionFor("category")}
                     onClick={() => setTableSort((prev) => toggleSort(prev, "category"))}
@@ -293,7 +293,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </th>
                 <th>
                   <SortableHeader
-                    label={language === "tr" ? "Oluşturma Tarihi" : "Created At"}
+                    label={dict.investigation.createdAt}
                     active={tableSort.key === "created_at"}
                     dir={sortDirectionFor("created_at")}
                     onClick={() => setTableSort((prev) => toggleSort(prev, "created_at"))}
@@ -301,7 +301,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 </th>
                 <th>
                   <SortableHeader
-                    label={language === "tr" ? "Durum" : "Status"}
+                    label={dict.reviewQueue.status}
                     active={tableSort.key === "status"}
                     dir={sortDirectionFor("status")}
                     onClick={() => setTableSort((prev) => toggleSort(prev, "status"))}

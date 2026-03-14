@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
+import { DICTIONARIES } from "../lib/i18n";
 import { formatCurrency, formatDateTime } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
@@ -61,26 +62,27 @@ type ReviewQueuePayload = {
 };
 
 function statusMeta(language: Language, status: string): { label: string; cls: string } {
-  if (status === "uploaded") return { label: language === "tr" ? "Yüklendi" : "Uploaded", cls: "is-pending" };
-  if (status === "open") return { label: language === "tr" ? "Açık" : "Open", cls: "is-pending" };
-  if (status === "in_review") return { label: language === "tr" ? "İnceleniyor" : "In Review", cls: "is-approved" };
-  if (status === "opened") return { label: language === "tr" ? "Açıldı" : "Opened", cls: "is-pending" };
-  if (status === "under_review") return { label: language === "tr" ? "İnceleniyor" : "In Review", cls: "is-approved" };
-  if (status === "awaiting_payment") return { label: language === "tr" ? "Ödeme Bekliyor" : "Awaiting Payment", cls: "is-warning" };
-  if (status === "preparing") return { label: language === "tr" ? "Hazırlanıyor" : "Preparing", cls: "is-warning" };
-  if (status === "ready") return { label: language === "tr" ? "Hazır" : "Ready", cls: "is-approved" };
-  if (status === "in_delivery") return { label: language === "tr" ? "Yolda" : "In Delivery", cls: "is-approved" };
-  if (status === "delivered") return { label: language === "tr" ? "Teslim Edildi" : "Delivered", cls: "is-success" };
-  if (status === "completed") return { label: language === "tr" ? "Tamamlandı" : "Completed", cls: "is-success" };
+  const dict = DICTIONARIES[language];
+  if (status === "uploaded") return { label: dict.reviewQueue.uploadedStatus, cls: "is-pending" };
+  if (status === "open") return { label: dict.reviewQueue.openStatus, cls: "is-pending" };
+  if (status === "in_review") return { label: dict.reviewQueue.inReviewStatus, cls: "is-approved" };
+  if (status === "opened") return { label: dict.reviewQueue.openedStatus, cls: "is-pending" };
+  if (status === "under_review") return { label: dict.reviewQueue.inReviewStatus, cls: "is-approved" };
+  if (status === "awaiting_payment") return { label: dict.reviewQueue.awaitingPaymentStatus, cls: "is-warning" };
+  if (status === "preparing") return { label: dict.reviewQueue.preparingStatus, cls: "is-warning" };
+  if (status === "ready") return { label: dict.reviewQueue.readyStatus, cls: "is-approved" };
+  if (status === "in_delivery") return { label: dict.reviewQueue.inDeliveryStatus, cls: "is-approved" };
+  if (status === "delivered") return { label: dict.reviewQueue.deliveredStatus, cls: "is-success" };
+  if (status === "completed") return { label: dict.reviewQueue.completedStatus, cls: "is-success" };
   return { label: status, cls: "is-neutral" };
 }
 
 function priorityLabel(language: Language, priority: ComplaintQueueRow["priority"]): string {
-  if (language !== "tr") return priority;
-  if (priority === "low") return "Düşük";
-  if (priority === "medium") return "Orta";
-  if (priority === "high") return "Yüksek";
-  return "Acil";
+  const dict = DICTIONARIES[language];
+  if (priority === "low") return dict.reviewQueue.priorityLow;
+  if (priority === "medium") return dict.reviewQueue.priorityMedium;
+  if (priority === "high") return dict.reviewQueue.priorityHigh;
+  return dict.reviewQueue.priorityUrgent;
 }
 
 function SummaryCard({ title, value, tone }: { title: string; value: number; tone: string }) {
@@ -93,6 +95,7 @@ function SummaryCard({ title, value, tone }: { title: string; value: number; ton
 }
 
 export default function ReviewQueuePage({ language }: { language: Language }) {
+  const dict = DICTIONARIES[language];
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -106,34 +109,30 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
         const response = await request("/v1/admin/dashboard/review-queue");
         const body = await parseJson<{ data?: ReviewQueuePayload } & ApiError>(response);
         if (response.status !== 200 || !body.data) {
-          setMessage(body.error?.message ?? (language === "tr" ? "Bekleyen işler yüklenemedi." : "Review queue could not be loaded."));
+          setMessage(body.error?.message ?? dict.reviewQueue.loadFailed);
           return;
         }
         setData(body.data);
       } catch {
-        setMessage(language === "tr" ? "Bekleyen işler yüklenemedi." : "Review queue could not be loaded.");
+        setMessage(dict.reviewQueue.loadFailed);
       } finally {
         setLoading(false);
       }
     };
 
     void loadQueue();
-  }, [language]);
+  }, [dict.reviewQueue.loadFailed]);
 
   return (
     <div className="app review-queue-page">
       <header className="topbar">
         <div>
-          <h1>{language === "tr" ? "Bekleyen İşler" : "Review Queue"}</h1>
-          <p className="subtext">
-            {language === "tr"
-              ? "Uygunluk, ödeme, itiraz ve şikayet bekleyen kayıtlarını tek ekranda izleyin."
-              : "Track pending compliance, payment, dispute, and complaint records in one place."}
-          </p>
+          <h1>{dict.reviewQueue.title}</h1>
+          <p className="subtext">{dict.reviewQueue.subtitle}</p>
         </div>
         <div className="topbar-actions">
           <button className="ghost" type="button" onClick={() => window.location.reload()}>
-            {language === "tr" ? "Yenile" : "Refresh"}
+            {dict.actions.refresh}
           </button>
         </div>
       </header>
@@ -141,33 +140,33 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
       {message ? <div className="alert">{message}</div> : null}
 
       <section className="review-queue-summary-grid">
-        <SummaryCard title={language === "tr" ? "Onay Bekleyen Belgeler" : "Pending Compliance Documents"} value={data?.totals.compliance ?? 0} tone="warning" />
-        <SummaryCard title={language === "tr" ? "Açık Şikayet" : "Open Complaints"} value={data?.totals.complaints ?? 0} tone="danger" />
-        <SummaryCard title={language === "tr" ? "Ödeme İtirazı" : "Payment Disputes"} value={data?.totals.disputes ?? 0} tone="approved" />
-        <SummaryCard title={language === "tr" ? "Ödeme Bekleyen" : "Pending Payments"} value={data?.totals.payments ?? 0} tone="neutral" />
+        <SummaryCard title={dict.reviewQueue.pendingComplianceDocs} value={data?.totals.compliance ?? 0} tone="warning" />
+        <SummaryCard title={dict.reviewQueue.openComplaints} value={data?.totals.complaints ?? 0} tone="danger" />
+        <SummaryCard title={dict.reviewQueue.paymentDisputes} value={data?.totals.disputes ?? 0} tone="approved" />
+        <SummaryCard title={dict.reviewQueue.pendingPayments} value={data?.totals.payments ?? 0} tone="neutral" />
       </section>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>{language === "tr" ? "Onay Bekleyen Belgeler" : "Pending Compliance Documents"}</h2>
+          <h2>{dict.reviewQueue.pendingComplianceDocs}</h2>
           <span className="panel-meta">{data?.updatedAt ? formatDateTime(data.updatedAt) : "-"}</span>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>{language === "tr" ? "Satıcı" : "Seller"}</th>
-                <th>{language === "tr" ? "Doküman" : "Document"}</th>
-                <th>{language === "tr" ? "Yüklenme" : "Uploaded"}</th>
-                <th>{language === "tr" ? "Durum" : "Status"}</th>
-                <th>{language === "tr" ? "Aksiyon" : "Action"}</th>
+                <th>{dict.reviewQueue.seller}</th>
+                <th>{dict.reviewQueue.document}</th>
+                <th>{dict.reviewQueue.uploaded}</th>
+                <th>{dict.reviewQueue.status}</th>
+                <th>{dict.reviewQueue.action}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5}>{language === "tr" ? "Yükleniyor..." : "Loading..."}</td></tr>
+                <tr><td colSpan={5}>{dict.common.loading}</td></tr>
               ) : (data?.compliance.length ?? 0) === 0 ? (
-                <tr><td colSpan={5}>{language === "tr" ? "Onay bekleyen belge yok." : "No pending compliance documents."}</td></tr>
+                <tr><td colSpan={5}>{dict.reviewQueue.noPendingComplianceDocs}</td></tr>
               ) : data?.compliance.map((row) => {
                 const meta = statusMeta(language, row.status);
                 return (
@@ -176,7 +175,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                     <td>{`${row.documentName} (${row.documentCode})`}</td>
                     <td>{formatDateTime(row.uploadedAt ?? row.createdAt)}</td>
                     <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
-                    <td><button className="ghost" type="button" onClick={() => navigate(`/app/sellers/${row.sellerId}`)}>{language === "tr" ? "Aç" : "Open"}</button></td>
+                    <td><button className="ghost" type="button" onClick={() => navigate(`/app/sellers/${row.sellerId}`)}>{dict.reviewQueue.open}</button></td>
                   </tr>
                 );
               })}
@@ -188,25 +187,25 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
       <section className="review-queue-grid">
         <section className="panel">
           <div className="panel-header">
-            <h2>{language === "tr" ? "Şikayetler" : "Complaints"}</h2>
+            <h2>{dict.reviewQueue.complaints}</h2>
             <span className="panel-meta">{data?.totals.complaints ?? 0}</span>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                  <th>{language === "tr" ? "Konu" : "Subject"}</th>
-                  <th>{language === "tr" ? "Öncelik" : "Priority"}</th>
-                  <th>{language === "tr" ? "Durum" : "Status"}</th>
-                  <th>{language === "tr" ? "Aksiyon" : "Action"}</th>
+                  <th>{dict.reviewQueue.buyer}</th>
+                  <th>{dict.reviewQueue.subject}</th>
+                  <th>{dict.reviewQueue.priority}</th>
+                  <th>{dict.reviewQueue.status}</th>
+                  <th>{dict.reviewQueue.action}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5}>{language === "tr" ? "Yükleniyor..." : "Loading..."}</td></tr>
+                  <tr><td colSpan={5}>{dict.common.loading}</td></tr>
                 ) : (data?.complaints.length ?? 0) === 0 ? (
-                  <tr><td colSpan={5}>{language === "tr" ? "Bekleyen şikayet yok." : "No pending complaints."}</td></tr>
+                  <tr><td colSpan={5}>{dict.reviewQueue.noPendingComplaints}</td></tr>
                 ) : data?.complaints.map((row) => {
                   const meta = statusMeta(language, row.status);
                   return (
@@ -215,7 +214,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                       <td>{row.subject}</td>
                       <td>{priorityLabel(language, row.priority)}</td>
                       <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
-                      <td><button className="ghost" type="button" onClick={() => navigate(`/app/investigation/${row.id}`)}>{language === "tr" ? "Detay" : "Detail"}</button></td>
+                      <td><button className="ghost" type="button" onClick={() => navigate(`/app/investigation/${row.id}`)}>{dict.reviewQueue.detail}</button></td>
                     </tr>
                   );
                 })}
@@ -226,25 +225,25 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
 
         <section className="panel">
           <div className="panel-header">
-            <h2>{language === "tr" ? "Ödeme İtirazları" : "Payment Disputes"}</h2>
+            <h2>{dict.reviewQueue.paymentDisputes}</h2>
             <span className="panel-meta">{data?.totals.disputes ?? 0}</span>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>{language === "tr" ? "Sipariş" : "Order"}</th>
-                  <th>{language === "tr" ? "Alıcı / Satıcı" : "Buyer / Seller"}</th>
-                  <th>{language === "tr" ? "Neden" : "Reason"}</th>
-                  <th>{language === "tr" ? "Durum" : "Status"}</th>
-                  <th>{language === "tr" ? "Aksiyon" : "Action"}</th>
+                  <th>{dict.reviewQueue.order}</th>
+                  <th>{dict.reviewQueue.buyerSeller}</th>
+                  <th>{dict.reviewQueue.reason}</th>
+                  <th>{dict.reviewQueue.status}</th>
+                  <th>{dict.reviewQueue.action}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5}>{language === "tr" ? "Yükleniyor..." : "Loading..."}</td></tr>
+                  <tr><td colSpan={5}>{dict.common.loading}</td></tr>
                 ) : (data?.disputes.length ?? 0) === 0 ? (
-                  <tr><td colSpan={5}>{language === "tr" ? "Açık itiraz yok." : "No open disputes."}</td></tr>
+                  <tr><td colSpan={5}>{dict.reviewQueue.noOpenDisputes}</td></tr>
                 ) : data?.disputes.map((row) => {
                   const meta = statusMeta(language, row.status);
                   return (
@@ -253,7 +252,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                       <td>{`${row.buyerName} / ${row.sellerName}`}</td>
                       <td>{row.reasonCode ?? "-"}</td>
                       <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
-                      <td><button className="ghost" type="button" onClick={() => navigate("/app/entities/paymentDisputeCases")}>{language === "tr" ? "Liste" : "List"}</button></td>
+                      <td><button className="ghost" type="button" onClick={() => navigate("/app/entities/paymentDisputeCases")}>{dict.reviewQueue.list}</button></td>
                     </tr>
                   );
                 })}
@@ -265,26 +264,26 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>{language === "tr" ? "Ödeme Bekleyen Siparişler" : "Pending Payment Orders"}</h2>
+          <h2>{dict.reviewQueue.pendingPaymentOrders}</h2>
           <span className="panel-meta">{data?.totals.payments ?? 0}</span>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>{language === "tr" ? "Sipariş" : "Order"}</th>
-                <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                <th>{language === "tr" ? "Satıcı" : "Seller"}</th>
-                <th>{language === "tr" ? "Tutar" : "Amount"}</th>
-                <th>{language === "tr" ? "Durum" : "Status"}</th>
-                <th>{language === "tr" ? "Aksiyon" : "Action"}</th>
+                <th>{dict.reviewQueue.order}</th>
+                <th>{dict.reviewQueue.buyer}</th>
+                <th>{dict.reviewQueue.seller}</th>
+                <th>{dict.reviewQueue.amount}</th>
+                <th>{dict.reviewQueue.status}</th>
+                <th>{dict.reviewQueue.action}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6}>{language === "tr" ? "Yükleniyor..." : "Loading..."}</td></tr>
+                <tr><td colSpan={6}>{dict.common.loading}</td></tr>
               ) : (data?.payments.length ?? 0) === 0 ? (
-                <tr><td colSpan={6}>{language === "tr" ? "Ödeme bekleyen sipariş yok." : "No pending payment orders."}</td></tr>
+                <tr><td colSpan={6}>{dict.reviewQueue.noPendingPaymentOrders}</td></tr>
               ) : data?.payments.map((row) => {
                 const meta = statusMeta(language, row.status);
                 return (
@@ -294,7 +293,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                     <td>{row.sellerName}</td>
                     <td>{formatCurrency(row.totalAmount, language)}</td>
                     <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
-                    <td><button className="ghost" type="button" onClick={() => navigate("/app/orders")}>{language === "tr" ? "Liste" : "List"}</button></td>
+                    <td><button className="ghost" type="button" onClick={() => navigate("/app/orders")}>{dict.reviewQueue.list}</button></td>
                   </tr>
                 );
               })}
