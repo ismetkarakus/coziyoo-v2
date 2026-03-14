@@ -22,6 +22,7 @@ export function resolveBuyerDetailTab(value: string | null | undefined): BuyerDe
   if (value === "activity") return "activity";
   if (value === "notes") return "notes";
   if (value === "raw") return "raw";
+  if (value === "create_ticket") return "create_ticket";
   return "general";
 }
 

@@ -7771,6 +7771,16 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .complaint-note-date { font-size: var(--text-xs); color: var(--color-secondary-text); }
 .complaint-note-text { margin: 0; color: #dce5f7; font-size: var(--text-base); }
 
+/* Create ticket form */
+.create-ticket-form { padding: 4px 0; }
+.create-ticket-title { font-size: var(--text-xl); font-weight: var(--font-semibold); margin-bottom: 4px; }
+.create-ticket-fields { display: flex; flex-direction: column; gap: 16px; }
+.create-ticket-field { display: flex; flex-direction: column; gap: 8px; }
+.create-ticket-field input,
+.create-ticket-field textarea,
+.create-ticket-field select { width: 100%; }
+.create-ticket-success { display: flex; align-items: center; gap: 14px; background: color-mix(in srgb,#0f3d28 60%,transparent); border: 1px solid color-mix(in srgb,#3dd598 35%,transparent); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; color: #9df7d4; font-size: var(--text-sm); }
+
 .seller-json-card {
   margin-top: 12px;
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);

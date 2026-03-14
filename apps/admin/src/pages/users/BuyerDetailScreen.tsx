@@ -48,6 +48,18 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
 
+  // Create ticket tab state
+  type ComplaintCategory = { id: string; code: string; name: string };
+  const [ticketCategories, setTicketCategories] = useState<ComplaintCategory[]>([]);
+  const [ticketOrderId, setTicketOrderId] = useState("");
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketDescription, setTicketDescription] = useState("");
+  const [ticketPriority, setTicketPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
+  const [ticketCategoryId, setTicketCategoryId] = useState("");
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [ticketSuccess, setTicketSuccess] = useState<{ id: string; ticketNo?: number } | null>(null);
+
   async function loadBuyerDetail() {
     setLoading(true);
     setMessage(null);
@@ -160,6 +172,14 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   useEffect(() => {
     setActiveTab(resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
   }, [location.search]);
+
+  useEffect(() => {
+    if (activeTab !== "create_ticket" || ticketCategories.length > 0) return;
+    request("/v1/admin/investigations/complaint-categories")
+      .then((res) => parseJson<{ data?: Array<{ id: string; code: string; name: string }> }>(res))
+      .then((body) => { if (body.data) setTicketCategories(body.data); })
+      .catch(() => undefined);
+  }, [activeTab]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
@@ -485,6 +505,44 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
+  async function submitTicket() {
+    if (!ticketOrderId || !ticketSubject.trim()) {
+      setTicketError("Siparis ve konu zorunludur.");
+      return;
+    }
+    setTicketSubmitting(true);
+    setTicketError(null);
+    setTicketSuccess(null);
+    try {
+      const response = await request("/v1/admin/investigations/complaints", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: ticketOrderId,
+          complainantBuyerId: id,
+          subject: ticketSubject.trim(),
+          description: ticketDescription.trim() || undefined,
+          priority: ticketPriority,
+          categoryId: ticketCategoryId || undefined,
+        }),
+      });
+      const body = await parseJson<{ data?: { id: string } } & { error?: { message?: string } }>(response);
+      if (response.status !== 201 || !body.data) {
+        setTicketError(body.error?.message ?? "Talep olusturulamadi.");
+        return;
+      }
+      setTicketSuccess({ id: body.data.id });
+      setTicketSubject("");
+      setTicketDescription("");
+      setTicketOrderId("");
+      setTicketCategoryId("");
+      setTicketPriority("medium");
+    } catch {
+      setTicketError("Talep olusturulamadi.");
+    } finally {
+      setTicketSubmitting(false);
+    }
+  }
+
   if (loading && !row) return <div className="panel">Yükleniyor...</div>;
   if (!row) return <div className="panel">{message ?? "Kayıt bulunamadı"}</div>;
 
@@ -548,6 +606,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
                 <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
                 <button className={activeTab === "raw" ? "is-active" : ""} onClick={() => switchBuyerTab("raw")} type="button">Ham Veri</button>
+                <button className={activeTab === "create_ticket" ? "is-active" : ""} onClick={() => switchBuyerTab("create_ticket")} type="button">+ Talep Olustur</button>
               </div>
               <ExcelExportButton
                 className="primary buyer-tabs-export-btn"
@@ -799,6 +858,111 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 onAddTag={handleAddTag}
                 onDeleteTag={handleDeleteTag}
               />
+            ) : null}
+
+            {activeTab === "create_ticket" ? (
+              <div className="create-ticket-form">
+                <h3 className="create-ticket-title">Yeni Destek Talebi</h3>
+                <p className="panel-meta" style={{ marginBottom: 20 }}>Bu alıcı adına sisteme yeni bir şikayet talebi açar.</p>
+
+                {ticketError ? <div className="alert" style={{ marginBottom: 16 }}>{ticketError}</div> : null}
+                {ticketSuccess ? (
+                  <div className="create-ticket-success">
+                    <p>Talep oluşturuldu.</p>
+                    <button
+                      className="primary"
+                      type="button"
+                      onClick={() => navigate(`/app/investigation/${ticketSuccess.id}`)}
+                    >
+                      Talebi Görüntüle
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="create-ticket-fields">
+                  <label className="create-ticket-field">
+                    <span className="complaint-detail-label">Sipariş *</span>
+                    <select
+                      value={ticketOrderId}
+                      onChange={(e) => setTicketOrderId(e.target.value)}
+                      disabled={ticketSubmitting}
+                    >
+                      <option value="">-- Sipariş Seçin --</option>
+                      {orders.map((order) => (
+                        <option key={order.orderId} value={order.orderId}>
+                          {order.orderNo} — {order.sellerName ?? order.sellerEmail ?? order.sellerId.slice(0, 10)} — {new Date(order.createdAt).toLocaleDateString("tr-TR")}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="create-ticket-field">
+                    <span className="complaint-detail-label">Konu *</span>
+                    <input
+                      type="text"
+                      value={ticketSubject}
+                      onChange={(e) => setTicketSubject(e.target.value)}
+                      placeholder="Şikayet konusu..."
+                      maxLength={300}
+                      disabled={ticketSubmitting}
+                    />
+                  </label>
+
+                  <label className="create-ticket-field">
+                    <span className="complaint-detail-label">Açıklama</span>
+                    <textarea
+                      value={ticketDescription}
+                      onChange={(e) => setTicketDescription(e.target.value)}
+                      placeholder="Detaylar (isteğe bağlı)..."
+                      rows={4}
+                      disabled={ticketSubmitting}
+                    />
+                  </label>
+
+                  <div className="create-ticket-field">
+                    <span className="complaint-detail-label">Kategori</span>
+                    <select
+                      value={ticketCategoryId}
+                      onChange={(e) => setTicketCategoryId(e.target.value)}
+                      disabled={ticketSubmitting}
+                      style={{ marginTop: 8 }}
+                    >
+                      <option value="">-- Kategori Seçin --</option>
+                      {ticketCategories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="create-ticket-field">
+                    <span className="complaint-detail-label">Öncelik</span>
+                    <div className="complaint-priority-buttons" style={{ marginTop: 8 }}>
+                      {(["low", "medium", "high", "urgent"] as const).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          disabled={ticketSubmitting}
+                          className={`complaint-priority-btn priority-${p}${ticketPriority === p ? " is-active" : ""}`}
+                          onClick={() => setTicketPriority(p)}
+                        >
+                          {p === "low" ? "Düşük" : p === "medium" ? "Orta" : p === "high" ? "Yüksek" : "Acil"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="topbar-actions" style={{ marginTop: 24 }}>
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={ticketSubmitting || !ticketOrderId || !ticketSubject.trim()}
+                    onClick={() => void submitTicket()}
+                  >
+                    {ticketSubmitting ? "Kaydediliyor..." : "Talebi Oluştur"}
+                  </button>
+                </div>
+              </div>
             ) : null}
 
             {activeTab === "raw" ? (
