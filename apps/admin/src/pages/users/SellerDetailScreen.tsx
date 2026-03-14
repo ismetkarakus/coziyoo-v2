@@ -30,7 +30,7 @@ import type {
   ComplianceTone,
   SellerComplianceDocumentStatus,
 } from "../../types/seller";
-import type { AdminLotRow, AdminLotOrderRow } from "../../types/lots";
+import type { AdminLotRow } from "../../types/lots";
 import type { BuyerPagination } from "../../types/buyer";
 
 type TempComplianceUpload = {
@@ -116,15 +116,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
-  const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
   const [expandedFoodIds, setExpandedFoodIds] = useState<Record<string, boolean>>({});
-  const [expandedLotIds, setExpandedLotIds] = useState<Record<string, boolean>>({});
   const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string }>>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
   const [lotsLoading, setLotsLoading] = useState(false);
   const [lotsError, setLotsError] = useState<string | null>(null);
-  const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
-  const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
   const [flashFoodId, setFlashFoodId] = useState<string | null>(null);
   const [flashLotId, setFlashLotId] = useState<string | null>(null);
   const [pinnedFoodId, setPinnedFoodId] = useState<string | null>(null);
@@ -238,26 +234,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
   }
 
-  async function loadLotOrders(lotId: string) {
-    if (lotOrdersByLotId[lotId]) return;
-    setLotOrdersLoadingByLotId((prev) => ({ ...prev, [lotId]: true }));
-    setLotOrdersErrorByLotId((prev) => ({ ...prev, [lotId]: null }));
-    try {
-      const response = await request(`/v1/admin/lots/${lotId}/orders`);
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
-        setLotOrdersErrorByLotId((prev) => ({ ...prev, [lotId]: body.error?.message ?? dict.detail.requestFailed }));
-        return;
-      }
-      const body = await parseJson<{ data: AdminLotOrderRow[] }>(response);
-      setLotOrdersByLotId((prev) => ({ ...prev, [lotId]: body.data ?? [] }));
-    } catch {
-      setLotOrdersErrorByLotId((prev) => ({ ...prev, [lotId]: dict.detail.requestFailed }));
-    } finally {
-      setLotOrdersLoadingByLotId((prev) => ({ ...prev, [lotId]: false }));
-    }
-  }
-
   useEffect(() => {
     loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed));
   }, [id]);
@@ -270,13 +246,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setOptionalRejectTargetId(null);
     setOptionalRejectReason("");
     setLotsByFoodId({});
-    setLotOrdersByLotId({});
     setExpandedFoodIds({});
-    setExpandedLotIds({});
     setNoteItems([]);
     setTagItems([]);
-    setLotOrdersLoadingByLotId({});
-    setLotOrdersErrorByLotId({});
     setLotsError(null);
     setFlashFoodId(null);
     setFlashLotId(null);
@@ -369,10 +341,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     if (!foodRows.some((food) => food.id === resolvedFoodId)) return;
 
     setExpandedFoodIds((prev) => (prev[resolvedFoodId] ? prev : { ...prev, [resolvedFoodId]: true }));
-    if (focusLotId) {
-      setExpandedLotIds((prev) => (prev[focusLotId] ? prev : { ...prev, [focusLotId]: true }));
-      void loadLotOrders(focusLotId);
-    }
 
     setFlashFoodId(resolvedFoodId);
     setPinnedFoodId(resolvedFoodId);
@@ -2169,7 +2137,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                         <th>{dict.detail.lotProducedAt}</th>
                                         <th>{dict.detail.lotSaleWindow}</th>
                                         <th>{dict.detail.lotSnapshot}</th>
-                                        <th>{dict.detail.lotActions}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -2180,8 +2147,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                           foodAllergens: undefined,
                                           lot,
                                         });
-                                        const isLotExpanded = Boolean(expandedLotIds[lot.id]);
-                                        const lotOrders = lotOrdersByLotId[lot.id] ?? [];
                                         return (
                                           <Fragment key={lot.id}>
                                             <tr
@@ -2210,68 +2175,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                   ) : null}
                                                 </div>
                                               </td>
-                                              <td>
-                                                <button
-                                                  className="ghost"
-                                                  type="button"
-                                                  onClick={() => {
-                                                    const next = !isLotExpanded;
-                                                    setExpandedLotIds((prev) => ({ ...prev, [lot.id]: next }));
-                                                    if (next) void loadLotOrders(lot.id);
-                                                  }}
-                                                >
-                                                  {isLotExpanded ? dict.detail.hideLotOrders : dict.detail.showLotOrders}
-                                                </button>
-                                              </td>
                                             </tr>
-                                            {isLotExpanded ? (
-                                              <tr className="lot-orders-row">
-                                                <td colSpan={6}>
-                                                  {lotOrdersLoadingByLotId[lot.id] ? (
-                                                    <p className="panel-meta">{dict.common.loading}</p>
-                                                  ) : lotOrdersErrorByLotId[lot.id] ? (
-                                                    <div className="alert">{lotOrdersErrorByLotId[lot.id]}</div>
-                                                  ) : lotOrders.length === 0 ? (
-                                                    <p className="panel-meta">{dict.detail.noOrdersForLot}</p>
-                                                  ) : (
-                                                    <div className="seller-food-lot-orders-wrap">
-                                                      <table className="seller-food-lot-orders-table">
-                                                        <thead>
-                                                          <tr>
-                                                            <th>{language === "tr" ? "Sipariş" : "Order"}</th>
-                                                            <th>{language === "tr" ? "Durum" : "Status"}</th>
-                                                            <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                                                            <th>{language === "tr" ? "Adet" : "Quantity"}</th>
-                                                            <th>{language === "tr" ? "Tarih" : "Created"}</th>
-                                                          </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                          {lotOrders.map((order) => (
-                                                            <tr key={`${lot.id}-${order.order_id}`}>
-                                                              <td>
-                                                                <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.order_id)}`}>
-                                                                  {`#${order.order_id.slice(0, 8).toUpperCase()}`}
-                                                                </Link>
-                                                              </td>
-                                                              <td>{order.status}</td>
-                                                              <td>
-                                                                {order.buyer_id ? (
-                                                                  <Link className="inline-copy" to={`/app/buyers/${order.buyer_id}`}>
-                                                                    {order.buyer_id}
-                                                                  </Link>
-                                                                ) : "-"}
-                                                              </td>
-                                                              <td>{order.quantity_allocated}</td>
-                                                              <td>{formatUiDate(order.created_at, language)}</td>
-                                                            </tr>
-                                                          ))}
-                                                        </tbody>
-                                                      </table>
-                                                    </div>
-                                                  )}
-                                                </td>
-                                              </tr>
-                                            ) : null}
                                           </Fragment>
                                         );
                                       })}
