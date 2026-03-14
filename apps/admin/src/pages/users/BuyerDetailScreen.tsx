@@ -768,7 +768,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       </svg>
                     </span>
                     <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} aria-label="Tarih filtresi">
-                      <option value="all">Tum Tarihler</option>
+                      <option value="all">Bugun</option>
                       <option value="last7">Son 7 gun</option>
                       <option value="last30">Son 30 gun</option>
                       <option value="custom">Tarih Sec</option>
