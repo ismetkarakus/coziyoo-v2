@@ -4733,6 +4733,10 @@ textarea:focus {
   gap: 14px;
 }
 
+.seller-v2-page .buyer-v2-main-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .buyer-v2-smart-panel {
   padding: 12px;
   border-radius: 20px;
