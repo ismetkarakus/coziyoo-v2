@@ -6890,6 +6890,12 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   backdrop-filter: blur(12px);
 }
 
+.seller-food-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
 .seller-food-codes-card {
   margin-bottom: 14px;
   padding: 14px 16px;
