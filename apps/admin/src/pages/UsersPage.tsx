@@ -57,7 +57,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     top_revenue: 0,
     suspicious_login: 0,
     same_ip_multi_account: 0,
-    risky_seller_complaints: 0,
     complainers: 0,
   });
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
@@ -288,7 +287,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           top_revenue: Number(body.data.top_revenue ?? 0),
           suspicious_login: Number(body.data.suspicious_login ?? 0),
           same_ip_multi_account: Number(body.data.same_ip_multi_account ?? 0),
-          risky_seller_complaints: Number(body.data.risky_seller_complaints ?? 0),
           complainers: Number(body.data.complainers ?? 0),
         });
       })
@@ -1418,19 +1416,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <span className="buyer-v2-smart-item-count">{smartFilterCounts[item.key] ?? 0}</span>
                 </button>
               ))}
-              <button
-                type="button"
-                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "risky" ? "is-active" : ""}`}
-                onClick={() => {
-                  setActiveSmartFilter(null);
-                  setBuyerQuickFilter((prev) => (prev === "risky" ? null : "risky"));
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">⚠</span>
-                <span className="buyer-v2-smart-item-label">Riskli</span>
-                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.risky}</span>
-              </button>
               <button
                 type="button"
                 className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`}
