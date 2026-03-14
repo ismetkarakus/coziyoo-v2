@@ -234,7 +234,7 @@ export default function DashboardPage({ language }: { language: Language }) {
     { label: language === "tr" ? "Aktif Sipariş" : "Active Orders", value: String(metrics[3].value) },
     { label: language === "tr" ? "Ödeme Bekleyen Sipariş" : "Pending Payment Orders", value: String(metrics[4].value) },
     { label: language === "tr" ? "Bekleyen Uygunluk" : "Pending Compliance", value: String(metricValueOrMissing(data.complianceQueueCount)) },
-    { label: language === "tr" ? "Açık İtiraz" : "Open Dispute Count", value: String(metricValueOrMissing(data.openDisputeCount)) },
+    { label: language === "tr" ? "Ödeme İtirazı" : "Payment Disputes", value: String(metricValueOrMissing(data.openDisputeCount)) },
   ];
 
   return (

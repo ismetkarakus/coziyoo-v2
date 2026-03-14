@@ -143,7 +143,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
       <section className="review-queue-summary-grid">
         <SummaryCard title={language === "tr" ? "Onay Bekleyen Belgeler" : "Pending Compliance Documents"} value={data?.totals.compliance ?? 0} tone="warning" />
         <SummaryCard title={language === "tr" ? "Açık Şikayet" : "Open Complaints"} value={data?.totals.complaints ?? 0} tone="danger" />
-        <SummaryCard title={language === "tr" ? "Açık İtiraz" : "Open Disputes"} value={data?.totals.disputes ?? 0} tone="approved" />
+        <SummaryCard title={language === "tr" ? "Ödeme İtirazı" : "Payment Disputes"} value={data?.totals.disputes ?? 0} tone="approved" />
         <SummaryCard title={language === "tr" ? "Ödeme Bekleyen" : "Pending Payments"} value={data?.totals.payments ?? 0} tone="neutral" />
       </section>
 
