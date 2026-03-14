@@ -2164,7 +2164,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   <table className="seller-food-lots-table">
                                     <thead>
                                       <tr>
-                                        <th>{dict.detail.lotNumber}</th>
                                         <th>{dict.detail.lotLifecycle}</th>
                                         <th>{dict.detail.lotQuantity}</th>
                                         <th>{dict.detail.lotProducedAt}</th>
@@ -2192,7 +2191,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                                 pinnedLotId === lot.id ? "search-focus-pinned" : "",
                                               ].filter(Boolean).join(" ") || undefined}
                                             >
-                                              <td>{lot.lot_number}</td>
                                               <td>
                                                 <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
                                                   {lotLifecycleLabel(lot.lifecycle_status, language)}
@@ -2228,7 +2226,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                             </tr>
                                             {isLotExpanded ? (
                                               <tr className="lot-orders-row">
-                                                <td colSpan={7}>
+                                                <td colSpan={6}>
                                                   {lotOrdersLoadingByLotId[lot.id] ? (
                                                     <p className="panel-meta">{dict.common.loading}</p>
                                                   ) : lotOrdersErrorByLotId[lot.id] ? (
