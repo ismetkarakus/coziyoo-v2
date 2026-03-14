@@ -17,7 +17,8 @@
     "management": "Management",
     "voiceAgentSettings": "Voice Agent Settings",
     "salesCommissionSettings": "Sales Commission Setting",
-    "testScenarios": "Test Scenarios"
+    "testScenarios": "Test Scenarios",
+    "security": "Security"
   },
   "actions": {
     "logout": "Logout",

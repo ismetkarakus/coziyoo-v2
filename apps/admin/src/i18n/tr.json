@@ -17,7 +17,8 @@
     "management": "Yönetim",
     "voiceAgentSettings": "Sesli Ajan Ayarları",
     "salesCommissionSettings": "Satış Komisyon Ayarı",
-    "testScenarios": "Test Senaryoları"
+    "testScenarios": "Test Senaryoları",
+    "security": "Güvenlik"
   },
   "actions": {
     "logout": "Çıkış",

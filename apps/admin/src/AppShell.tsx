@@ -18,6 +18,7 @@ import ComplianceDocumentsPage from "./pages/ComplianceDocumentsPage";
 import VoiceAgentSettingsPage from "./pages/VoiceAgentSettingsPage";
 import SalesCommissionSettingsPage from "./pages/SalesCommissionSettingsPage";
 import AdminTestScenariosPage from "./pages/AdminTestScenariosPage";
+import SecurityPage from "./pages/SecurityPage";
 import { UserDetail } from "./pages/users/DefaultUserDetailScreen";
 import type { AdminUser, Language, Dictionary, ApiError, GlobalSearchResultItem, GlobalSearchResultKind } from "./types/core";
 
@@ -307,6 +308,7 @@ function AppShell({
         {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
         {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
         {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+        {location.pathname === "/app/security" ? <SecurityPage language={language} /> : null}
         {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
         {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
         {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
@@ -419,6 +421,7 @@ function TopNavTabs({
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
     { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
+    { to: "/app/security", active: pathname.startsWith("/app/security"), label: dict.menu.security },
     { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },
   ];
   const isManagementActive = managementItems.some((item) => item.active);

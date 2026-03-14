@@ -7,6 +7,15 @@ import { recordPresenceEvent } from "../services/user-presence.js";
 import { refreshTokenExpiresAt, signAccessToken } from "../services/token-service.js";
 import { normalizeDisplayName } from "../utils/normalize.js";
 import { generateRefreshToken, hashPassword, hashRefreshToken, verifyPassword } from "../utils/security.js";
+import {
+  normalizeIdentifier,
+  checkLoginState,
+  recordFailure,
+  recordSuccess,
+  issueUnlockToken,
+  redeemUnlockToken,
+  fireSecurityAlert,
+} from "../services/login-security.js";
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -21,6 +30,8 @@ const RegisterSchema = z.object({
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  deviceId: z.string().min(1).max(128).optional(),
+  deviceName: z.string().min(1).max(128).optional(),
   location: z.object({
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
@@ -163,16 +174,47 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
   }
 
   const input = parsed.data;
+  const normalizedEmail = normalizeIdentifier(input.email);
+  const deviceId = input.deviceId ?? null;
+  const deviceName = input.deviceName ?? null;
+  const ip = req.ip ?? null;
+  const userAgent = req.headers["user-agent"] ?? null;
+
+  const state = await checkLoginState("app", normalizedEmail);
+  if (state.softLocked) {
+    return res.status(423).json({ error: { code: "ACCOUNT_LOCKED", message: "Account is temporarily locked. Check your email to unlock." } });
+  }
+  if (state.retryAfterSeconds > 0) {
+    res.setHeader("Retry-After", String(state.retryAfterSeconds));
+    return res.status(429).json({ error: { code: "TOO_MANY_ATTEMPTS", message: "Too many failed attempts. Try again later.", retryAfterSeconds: state.retryAfterSeconds } });
+  }
+
   const userResult = await pool.query<{
     id: string;
     email: string;
     password_hash: string;
     user_type: "buyer" | "seller" | "both";
     is_active: boolean;
-  }>("SELECT id, email, password_hash, user_type, is_active FROM users WHERE email = $1", [input.email.toLowerCase()]);
+  }>("SELECT id, email, password_hash, user_type, is_active FROM users WHERE email = $1", [normalizedEmail]);
 
   const user = userResult.rows[0];
   if (!user || !user.is_active) {
+    const { newCount, justSoftLocked } = await recordFailure({
+      realm: "app",
+      identifier: normalizedEmail,
+      userId: null,
+      deviceId,
+      deviceName,
+      ip,
+      userAgent,
+      failureReason: "user_not_found_or_inactive",
+    });
+    if (justSoftLocked) {
+      fireSecurityAlert({ alertType: "soft_locked", realm: "app", identifier: normalizedEmail, count: newCount });
+      issueUnlockToken("app", normalizedEmail).catch(() => {});
+    } else if (newCount >= 3 && newCount % 3 === 0) {
+      fireSecurityAlert({ alertType: "suspicious_activity", realm: "app", identifier: normalizedEmail, count: newCount });
+    }
     await pool.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
       null,
       "login_failed",
@@ -184,6 +226,22 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
 
   const passwordOk = await verifyPassword(user.password_hash, input.password);
   if (!passwordOk) {
+    const { newCount, justSoftLocked } = await recordFailure({
+      realm: "app",
+      identifier: normalizedEmail,
+      userId: user.id,
+      deviceId,
+      deviceName,
+      ip,
+      userAgent,
+      failureReason: "wrong_password",
+    });
+    if (justSoftLocked) {
+      fireSecurityAlert({ alertType: "soft_locked", realm: "app", identifier: normalizedEmail, count: newCount });
+      issueUnlockToken("app", normalizedEmail).catch(() => {});
+    } else if (newCount >= 3 && newCount % 3 === 0) {
+      fireSecurityAlert({ alertType: "suspicious_activity", realm: "app", identifier: normalizedEmail, count: newCount });
+    }
     await pool.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
       user.id,
       "login_failed",
@@ -209,6 +267,15 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
     req.ip,
     req.headers["user-agent"] ?? null,
   ]);
+  await recordSuccess({
+    realm: "app",
+    identifier: normalizedEmail,
+    userId: user.id,
+    deviceId,
+    deviceName,
+    ip,
+    userAgent,
+  });
   await recordPresenceEvent({
     subjectType: "app_user",
     subjectId: user.id,
@@ -385,6 +452,20 @@ authRouter.post("/logout", requireAuth("app"), async (req, res) => {
     userAgent: req.headers["user-agent"] ?? null,
   });
 
+  return res.json({ data: { success: true } });
+});
+
+const UnlockSchema = z.object({ token: z.string().min(1) });
+
+authRouter.post("/unlock", async (req, res) => {
+  const parsed = UnlockSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const ok = await redeemUnlockToken(parsed.data.token);
+  if (!ok) {
+    return res.status(400).json({ error: { code: "UNLOCK_TOKEN_INVALID", message: "Invalid or expired unlock token." } });
+  }
   return res.json({ data: { success: true } });
 });
 
