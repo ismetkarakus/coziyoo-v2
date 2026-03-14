@@ -2256,42 +2256,42 @@ textarea:focus {
 .buyer-complaint-summary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.buyer-complaint-metric {
-  display: inline-grid;
-  gap: 2px;
-  min-width: 58px;
-  padding: 6px 10px;
-  border-radius: 12px;
+.buyer-complaint-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 68px;
+  padding: 6px 12px;
+  border-radius: 999px;
   border: 1px solid color-mix(in srgb, #88a4d6 24%, var(--color-border));
   background: color-mix(in srgb, #16233f 68%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  font-size: var(--text-sm);
+  line-height: 1.1;
 }
 
-.buyer-complaint-metric.is-open {
+.buyer-complaint-chip.is-open {
   border-color: color-mix(in srgb, #ff7d94 34%, var(--color-border));
   background: color-mix(in srgb, #4a1f2b 58%, transparent);
+  color: #ffd0d8;
 }
 
-.buyer-complaint-metric.is-clear {
+.buyer-complaint-chip.is-clear {
   border-color: color-mix(in srgb, #7ea2d4 18%, var(--color-border));
   background: color-mix(in srgb, #142139 52%, transparent);
 }
 
-.buyer-complaint-label {
-  font-size: 0.68rem;
+.buyer-complaint-chip strong {
+  font-size: var(--text-sm);
   line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-secondary-text);
 }
 
-.buyer-complaint-metric strong {
-  font-size: var(--text-sm);
-  line-height: 1.1;
+.buyer-complaint-chip span {
+  color: var(--color-secondary-text);
 }
 
 .complaint-open-chip {

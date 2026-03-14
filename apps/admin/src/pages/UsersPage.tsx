@@ -1787,12 +1787,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </div>
                         ) : (
                             <div className="buyer-complaint-summary">
-                              <span className="buyer-complaint-metric">
-                                <span className="buyer-complaint-label">{language === "tr" ? "Toplam" : "Total"}</span>
+                              <span className={`buyer-complaint-chip ${unresolved > 0 ? "is-open" : "is-clear"}`}>
                                 <strong>{totalComplaints}</strong>
-                              </span>
-                              <span className={`buyer-complaint-metric ${unresolved > 0 ? "is-open" : "is-clear"}`}>
-                                <span className="buyer-complaint-label">{language === "tr" ? "Açık" : "Open"}</span>
+                                <span>/</span>
                                 <strong>{unresolved}</strong>
                               </span>
                             </div>
@@ -2305,12 +2302,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </td>
                         <td>
                             <div className="buyer-complaint-summary">
-                              <span className="buyer-complaint-metric">
-                                <span className="buyer-complaint-label">{language === "tr" ? "Toplam" : "Total"}</span>
+                              <span className={`buyer-complaint-chip ${unresolved > 0 ? "is-open" : "is-clear"}`}>
                                 <strong>{totalComplaints}</strong>
-                              </span>
-                              <span className={`buyer-complaint-metric ${unresolved > 0 ? "is-open" : "is-clear"}`}>
-                                <span className="buyer-complaint-label">{language === "tr" ? "Açık" : "Open"}</span>
+                                <span>/</span>
                                 <strong>{unresolved}</strong>
                               </span>
                             </div>
