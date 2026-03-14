@@ -1112,11 +1112,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "missing_documents",
       "suspicious_logins",
       "complaining_sellers",
+      "complainer_sellers",
       "top_selling_foods",
       "top_revenue",
       "performance_drop",
       "urgent_action",
-      "complainer_sellers",
     ];
 
     const applySellerKpiFilter = (mode: "all" | "active" | "disabled" | "new_today") => {
