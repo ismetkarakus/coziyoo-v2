@@ -33,22 +33,17 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [ordersPage, setOrdersPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [smsOpen, setSmsOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
-  const [quickContactMenuOpen, setQuickContactMenuOpen] = useState(false);
-  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
   const [emailSubject, setEmailSubject] = useState("Coziyoo Destek");
   const [emailBody, setEmailBody] = useState("Merhaba,");
-  const [noteInput, setNoteInput] = useState("");
-  const [sidebarNoteMode, setSidebarNoteMode] = useState<"note" | "tag">("note");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const customDateInputRef = useRef<HTMLInputElement | null>(null);
-  const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
-  const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
 
@@ -164,21 +159,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   useEffect(() => {
     setActiveTab(resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
   }, [location.search]);
-
-  useEffect(() => {
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (quickContactMenuOpen && quickContactWrapRef.current && !quickContactWrapRef.current.contains(target)) {
-        setQuickContactMenuOpen(false);
-      }
-      if (actionMenuOpen && actionMenuWrapRef.current && !actionMenuWrapRef.current.contains(target)) {
-        setActionMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocumentMouseDown);
-    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [quickContactMenuOpen, actionMenuOpen]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
@@ -520,14 +500,34 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     <div className="app buyer-ops-page">
       <section className="buyer-ref-top buyer-ref-hero-strip">
         <article className="buyer-ref-profile-card">
-          <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
+          <button type="button" className="buyer-ref-avatar-button" onClick={() => setProfileModalOpen(true)} aria-label="Profil bilgilerini aç">
+            <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
+            <span className="buyer-ref-avatar-badge">Profil</span>
+          </button>
           <div className="buyer-ref-profile-body">
-            <h2 title={fullName}>{fullName}</h2>
-            <div className="buyer-ops-id-row">
-              <span>ID {compactUserId}</span>
-              <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
-                <span aria-hidden="true">◌</span>
-              </button>
+            <div className="buyer-ref-profile-head">
+              <div className="buyer-ref-profile-title">
+                <h2 title={fullName}>{fullName}</h2>
+                <div className="buyer-ops-id-row">
+                  <span>ID {compactUserId}</span>
+                  <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
+                    <span aria-hidden="true">◌</span>
+                  </button>
+                </div>
+              </div>
+              <QuickAccessMenu
+                language={language}
+                className="buyer-ref-quick-access"
+                email={email}
+                phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
+                smsBody={contactSmsBody}
+              />
+            </div>
+            <div className="buyer-ref-profile-meta">
+              <span>{email}</span>
+              <span>{phone}</span>
+              <span>Son giris {detailLastLoginAt}</span>
+              {risk.level === "high" ? <span className="buyer-ref-profile-risk">Risk: Yuksek</span> : null}
             </div>
           </div>
         </article>
@@ -556,143 +556,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         </article>
       </section>
 
-      <section className="buyer-ref-content">
-        <aside className="buyer-ref-right">
-          <section className="panel buyer-ops-side-card buyer-ref-contact-side">
-            <div className="panel-header">
-              <h2>Profil Bilgileri</h2>
-              <QuickAccessMenu
-                language={language}
-                className="buyer-ref-quick-access"
-                email={email}
-                phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
-                smsBody={contactSmsBody}
-              />
-            </div>
-            <div className="buyer-ref-contact-block">
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{email}</p>
-              </div>
-            </div>
-            {allAddresses.length === 0 ? (
-              <div className="buyer-ref-contact-block">
-                <div className="buyer-ref-info-row">
-                  <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Adres</p>
-                  <p className="buyer-ref-contact-value buyer-ref-info-value">Adres yok</p>
-                </div>
-              </div>
-            ) : (
-              allAddresses.map((address) => (
-                <button key={address.id} type="button" className="buyer-ref-link-block" onClick={() => openAddressInMaps(address.addressLine)}>
-                  <div className="buyer-ref-info-row">
-                    <p className="buyer-ref-contact-label">
-                      <span className="buyer-ref-side-icon" aria-hidden="true">⌂</span>
-                      {address.title || "Adres"} {address.isDefault ? "(Varsayilan)" : ""}
-                    </p>
-                    <p className="buyer-ref-contact-value buyer-ref-info-value">{address.addressLine}</p>
-                  </div>
-                </button>
-              ))
-            )}
-            <button type="button" className="buyer-ref-link-block" onClick={() => openDialer(phone)}>
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
-                <p className="buyer-ref-contact-value buyer-ref-phone-row buyer-ref-info-value">
-                  <strong>{phone}</strong>
-                  <span className="buyer-ref-online-dot" aria-hidden="true" />
-                </p>
-              </div>
-            </button>
-            <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌖</span> Giris Lokasyonlari</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{`${locations.length} lokasyon`}</p>
-              </div>
-            </button>
-            <button type="button" className="buyer-ref-link-block" onClick={() => switchBuyerTab("activity")}>
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{detailLastLoginAt}</p>
-              </div>
-              {risk.level === "high" ? <p><span className="status-pill is-warning">⚠ Yuksek</span></p> : null}
-            </button>
-            <div className="buyer-ref-contact-block">
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label">Dogum Tarihi</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{birthDateText}</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="panel buyer-ops-side-card buyer-ref-activity-card">
-            <div className="panel-header">
-              <h2>Aktivite Logu</h2>
-              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("activity")}>Ac</button>
-            </div>
-            <div className="buyer-ops-activity-mini">
-              {activityRows.slice(0, 5).map((item: any) => (
-                <article key={`general-${item.id}-${item.at}`} className="buyer-ref-click-item" onClick={() => switchBuyerTab("activity")} role="button" tabIndex={0} onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    switchBuyerTab("activity");
-                  }
-                }}>
-                  <p className="buyer-ref-activity-top"><span aria-hidden="true">•</span> {toRelativeTimeTR(item.at)}</p>
-                  <p className="buyer-ref-activity-action">{item.action}</p>
-                  <p className="panel-meta">{item.detail}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel buyer-ops-side-card buyer-ref-notes-card">
-            <div className="panel-header">
-              <h2>Notlar & Etiketler</h2>
-              <button className="ghost buyer-ops-mini-btn" type="button" onClick={() => switchBuyerTab("notes")}>Ac</button>
-            </div>
-            <div className="buyer-ops-tag-list">
-              {tagItems.map((tag) => (
-                <span key={`general-${tag}`} className="buyer-ops-tag">
-                  <span>{tag}</span>
-                  <button className="buyer-ops-tag-remove" type="button" onClick={() => void handleDeleteTag(tag)} aria-label={`Sil ${tag}`}>×</button>
-                </span>
-              ))}
-            </div>
-            <div className="buyer-ops-note-form">
-              <input
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    if (sidebarNoteMode === "tag") {
-                      void handleAddTag(noteInput).then(() => setNoteInput(""));
-                    } else {
-                      void handleAddNote(noteInput).then(() => setNoteInput(""));
-                    }
-                  }
-                }}
-              />
-              <button
-                className={`ghost ${sidebarNoteMode === "note" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => { setSidebarNoteMode("note"); void handleAddNote(noteInput).then(() => setNoteInput("")); }}
-              >
-                Not
-              </button>
-              <button
-                className={`ghost ${sidebarNoteMode === "tag" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => { setSidebarNoteMode("tag"); void handleAddTag(noteInput).then(() => setNoteInput("")); }}
-              >
-                Etiket
-              </button>
-            </div>
-            <p className="panel-meta">{noteItems.length} Not, {tagItems.length} Etiket</p>
-          </section>
-
-        </aside>
-
+      <section className="buyer-ref-content buyer-ref-content--single">
         <div className="buyer-ref-left">
           <section className="panel buyer-ref-main-panel">
             <div className="buyer-ops-tabs-head">
@@ -977,6 +841,79 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
         </div>
       </section>
+
+      {profileModalOpen ? (
+        <div
+          className="buyer-ops-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Profil bilgileri"
+          onClick={() => setProfileModalOpen(false)}
+        >
+          <div className="buyer-ops-modal buyer-ref-profile-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="buyer-ref-profile-modal-head">
+              <div>
+                <h3>Profil Bilgileri</h3>
+                <p>{fullName}</p>
+              </div>
+              <button type="button" className="ghost buyer-ops-mini-btn" onClick={() => setProfileModalOpen(false)}>Kapat</button>
+            </div>
+            <div className="buyer-ref-contact-block">
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{email}</p>
+              </div>
+            </div>
+            {allAddresses.length === 0 ? (
+              <div className="buyer-ref-contact-block">
+                <div className="buyer-ref-info-row">
+                  <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Adres</p>
+                  <p className="buyer-ref-contact-value buyer-ref-info-value">Adres yok</p>
+                </div>
+              </div>
+            ) : (
+              allAddresses.map((address) => (
+                <button key={address.id} type="button" className="buyer-ref-link-block buyer-ref-contact-block" onClick={() => openAddressInMaps(address.addressLine)}>
+                  <div className="buyer-ref-info-row">
+                    <p className="buyer-ref-contact-label">
+                      <span className="buyer-ref-side-icon" aria-hidden="true">⌂</span>
+                      {address.title || "Adres"} {address.isDefault ? "(Varsayilan)" : ""}
+                    </p>
+                    <p className="buyer-ref-contact-value buyer-ref-info-value">{address.addressLine}</p>
+                  </div>
+                </button>
+              ))
+            )}
+            <button type="button" className="buyer-ref-link-block buyer-ref-contact-block" onClick={() => openDialer(phone)}>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
+                <p className="buyer-ref-contact-value buyer-ref-phone-row buyer-ref-info-value">
+                  <strong>{phone}</strong>
+                  <span className="buyer-ref-online-dot" aria-hidden="true" />
+                </p>
+              </div>
+            </button>
+            <button type="button" className="buyer-ref-link-block buyer-ref-contact-block" onClick={() => switchBuyerTab("activity")}>
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌖</span> Giris Lokasyonlari</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{`${locations.length} lokasyon`}</p>
+              </div>
+            </button>
+            <div className="buyer-ref-contact-block">
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{detailLastLoginAt}</p>
+              </div>
+            </div>
+            <div className="buyer-ref-contact-block">
+              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-label">Dogum Tarihi</p>
+                <p className="buyer-ref-contact-value buyer-ref-info-value">{birthDateText}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {smsOpen ? (
         <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli SMS">
