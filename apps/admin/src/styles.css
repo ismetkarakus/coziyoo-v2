@@ -3046,7 +3046,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr);
   gap: 12px;
-  align-items: stretch;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
   border: 0;
@@ -3112,14 +3112,15 @@ textarea:focus {
 .buyer-ref-profile-body {
   min-width: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
 }
 
 .buyer-ref-profile-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: start;
+  align-items: center;
 }
 
 .buyer-ref-profile-title {
@@ -6259,8 +6260,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   cursor: pointer;
   border: 0;
   border-radius: 10px;
-  width: 38px;
-  height: 38px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -6275,8 +6276,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-quick-access summary svg {
-  width: 100%;
-  height: 100%;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
