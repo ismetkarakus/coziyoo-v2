@@ -170,7 +170,7 @@
       "sellerOpenTableHint": "Table opens when you click a KPI or a filter on the left.",
       "buyerKpiTotal": "Total Buyers",
       "buyerKpiActive": "Active Buyers",
-      "buyerKpiOpenComplaint": "Buyers with Open Complaints",
+      "buyerKpiOpenComplaint": "Open Complaints",
       "buyerKpiRisky": "Risky Buyers",
       "buyerQuickOpenComplaints": "Open Complaints",
       "buyerHeaderBuyer": "Buyer",

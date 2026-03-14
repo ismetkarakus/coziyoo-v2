@@ -1650,10 +1650,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 {buyerLatestComplaintStatusLabel(row)}
                               </span>
                             ) : (
-                              <>
-                                <strong>{loginAt}</strong>
-                                {risk.level === "high" ? <span className="status-pill is-warning">⚠ {dict.users.v2.riskHigh}</span> : null}
-                              </>
+                              <strong>{loginAt}</strong>
                             )}
                           </div>
                         </td>
