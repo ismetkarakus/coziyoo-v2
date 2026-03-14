@@ -737,10 +737,10 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       </svg>
                     </span>
                     <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Durum filtresi">
-                      <option value="all">Hepsi | Tumu</option>
-                      <option value="all_delivered">Hepsi | Teslim Edildi</option>
-                      <option value="all_pending">Hepsi | Bekliyor</option>
-                      <option value="all_cancelled">Hepsi | Iptal</option>
+                      <option value="all">Tumu</option>
+                      <option value="all_delivered">Teslim Edildi</option>
+                      <option value="all_pending">Bekliyor</option>
+                      <option value="all_cancelled">Iptal</option>
                     </select>
                     <span className="buyer-ref-filter-trailing" aria-hidden="true">
                       <svg viewBox="0 0 24 24" focusable="false">
