@@ -7775,6 +7775,318 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .complaint-note-date { font-size: var(--text-xs); color: var(--color-secondary-text); }
 .complaint-note-text { margin: 0; color: #dce5f7; font-size: var(--text-base); }
 
+.complaint-detail-topbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.complaint-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 78%, transparent);
+  color: #dce5f7;
+  border-radius: 14px;
+  padding: 10px 14px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.complaint-detail-back span:first-child {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+}
+
+.complaint-detail-back svg {
+  width: 100%;
+  height: 100%;
+}
+
+.complaint-detail-heading {
+  min-width: 0;
+}
+
+.complaint-ticket-layout--refresh {
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+}
+
+.complaint-ticket-main,
+.complaint-ticket-side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.complaint-summary-card,
+.complaint-content-card,
+.complaint-side-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, #161c2d 82%, var(--color-card-bg));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.complaint-summary-card {
+  padding: 28px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.complaint-summary-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.complaint-summary-ticket-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.complaint-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  border: 1px solid transparent;
+}
+
+.complaint-badge.status-open {
+  color: #66b3ff;
+  background: color-mix(in srgb, #102d4f 76%, transparent);
+  border-color: color-mix(in srgb, #3d8dff 35%, transparent);
+}
+
+.complaint-badge.status-in_review {
+  color: #ffd996;
+  background: color-mix(in srgb, #3b2b10 76%, transparent);
+  border-color: color-mix(in srgb, #f3b34a 35%, transparent);
+}
+
+.complaint-badge.status-resolved,
+.complaint-badge.status-closed {
+  color: #9df7d4;
+  background: color-mix(in srgb, #103324 76%, transparent);
+  border-color: color-mix(in srgb, #3dd598 35%, transparent);
+}
+
+.complaint-badge.priority-low {
+  color: #9df7d4;
+  background: color-mix(in srgb, #103324 76%, transparent);
+  border-color: color-mix(in srgb, #3dd598 35%, transparent);
+}
+
+.complaint-badge.priority-medium {
+  color: #ccd6ee;
+  background: color-mix(in srgb, #232c42 82%, transparent);
+  border-color: color-mix(in srgb, #4f628d 35%, transparent);
+}
+
+.complaint-badge.priority-high {
+  color: #ffd996;
+  background: color-mix(in srgb, #3b2b10 76%, transparent);
+  border-color: color-mix(in srgb, #f3b34a 35%, transparent);
+}
+
+.complaint-badge.priority-urgent {
+  color: #ffc0ca;
+  background: color-mix(in srgb, #401520 76%, transparent);
+  border-color: color-mix(in srgb, #ff647c 35%, transparent);
+}
+
+.complaint-summary-divider {
+  border-top: 1px solid color-mix(in srgb, #51607f 30%, transparent);
+}
+
+.complaint-summary-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 48px;
+}
+
+.complaint-summary-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.complaint-summary-info-value {
+  color: #f6f8fd;
+  font-size: clamp(1rem, 1.8vw, 1.18rem);
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
+.complaint-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.complaint-copy-btn {
+  flex: 0 0 auto;
+}
+
+.complaint-person-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.complaint-person-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  background: color-mix(in srgb, #161c2d 82%, var(--color-card-bg));
+  border-radius: 22px;
+  padding: 22px;
+  cursor: pointer;
+}
+
+.complaint-person-label {
+  color: #92a0bc;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+}
+
+.complaint-person-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.complaint-person-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  flex: 0 0 auto;
+}
+
+.complaint-person-avatar.type-buyer {
+  color: #66b3ff;
+  background: color-mix(in srgb, #102d4f 70%, transparent);
+  border: 1px solid color-mix(in srgb, #3d8dff 28%, transparent);
+}
+
+.complaint-person-avatar.type-seller {
+  color: #ff8496;
+  background: color-mix(in srgb, #401520 70%, transparent);
+  border: 1px solid color-mix(in srgb, #ff647c 28%, transparent);
+}
+
+.complaint-person-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.complaint-person-copy strong,
+.complaint-person-copy span {
+  overflow-wrap: anywhere;
+}
+
+.complaint-person-copy strong {
+  color: #f6f8fd;
+  font-size: clamp(1.05rem, 1.8vw, 1.24rem);
+}
+
+.complaint-person-copy span {
+  color: var(--color-secondary-text);
+}
+
+.complaint-content-card,
+.complaint-side-card {
+  padding: 22px;
+}
+
+.complaint-content-card .panel-header,
+.complaint-side-card .panel-header {
+  margin-bottom: 16px;
+}
+
+.complaint-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.complaint-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #2b3246 84%, transparent);
+  color: #f1f5ff;
+  font-weight: var(--font-semibold);
+}
+
+.complaint-description-card,
+.complaint-resolution-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.complaint-resolution-card .topbar-actions,
+.complaint-ticket-thread .topbar-actions {
+  margin-top: 12px;
+}
+
+.complaint-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.complaint-field-block + .complaint-field-block {
+  margin-top: 16px;
+}
+
+.complaint-readonly-value {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, #1a2235 84%, transparent);
+  color: #eef3ff;
+  overflow-wrap: anywhere;
+}
+
+.complaint-note-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.complaint-empty-notes {
+  margin: 0;
+  color: var(--color-secondary-text);
+  font-size: var(--text-sm);
+}
+
 /* Create ticket form */
 .create-ticket-form { padding: 4px 0; }
 .create-ticket-title { font-size: var(--text-xl); font-weight: var(--font-semibold); margin-bottom: 4px; }
@@ -8182,6 +8494,16 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   .complaint-detail-grid {
     grid-template-columns: 1fr;
     gap: 22px;
+  }
+
+  .complaint-detail-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .complaint-summary-info-grid,
+  .complaint-person-grid {
+    grid-template-columns: 1fr;
   }
 
   .shell {
@@ -8605,6 +8927,23 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
   .complaint-tree-node--subject {
     margin-left: 20px;
+  }
+
+  .complaint-summary-card,
+  .complaint-content-card,
+  .complaint-side-card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .complaint-copy-row,
+  .complaint-person-body,
+  .complaint-summary-ticket-row {
+    align-items: flex-start;
+  }
+
+  .complaint-copy-row {
+    flex-direction: column;
   }
 
   h1 {

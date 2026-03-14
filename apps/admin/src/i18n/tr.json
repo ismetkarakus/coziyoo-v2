@@ -331,7 +331,14 @@
     "priorityLabel": "Öncelik",
     "assignedAdmin": "Atanan Yönetici",
     "resolutionNote": "Çözüm Notu",
-    "unassigned": "Atanmamış"
+    "unassigned": "Atanmamış",
+    "backToComplaints": "Şikayetlere Dön",
+    "quickActions": "Hızlı İşlemler",
+    "copyId": "Kopyala",
+    "copied": "Kopyalandı",
+    "addNote": "Not Ekle",
+    "notePlaceholder": "Yeni not ekle...",
+    "emptyNotes": "Henüz not eklenmemiş"
   },
   "entities": {
     "eyebrow": "Veritabanı Gezgini",

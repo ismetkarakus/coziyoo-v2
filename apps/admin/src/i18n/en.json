@@ -331,7 +331,14 @@
     "priorityLabel": "Priority",
     "assignedAdmin": "Assigned Admin",
     "resolutionNote": "Resolution Note",
-    "unassigned": "Unassigned"
+    "unassigned": "Unassigned",
+    "backToComplaints": "Back To Complaints",
+    "quickActions": "Quick Actions",
+    "copyId": "Copy",
+    "copied": "Copied",
+    "addNote": "Add Note",
+    "notePlaceholder": "Add a new note...",
+    "emptyNotes": "No notes have been added yet"
   },
   "entities": {
     "eyebrow": "Database Explorer",
