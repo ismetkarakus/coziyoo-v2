@@ -1670,16 +1670,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
+                    const shouldOpenComplaintDetail = (isComplainersView || isOpenComplaintView) && String(row.latestComplaintId ?? "").length > 0;
+                    const buyerRowTarget = shouldOpenComplaintDetail ? `/app/investigation/${row.latestComplaintId}` : `/app/buyers/${row.id}`;
 
                     return (
                       <tr
                         key={row.id}
                         className={`is-clickable buyer-risk-${risk.level}`}
-                        onClick={() => navigate(`/app/buyers/${row.id}`)}
+                        onClick={() => navigate(buyerRowTarget)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            navigate(`/app/buyers/${row.id}`);
+                            navigate(buyerRowTarget);
                           }
                         }}
                         tabIndex={0}
