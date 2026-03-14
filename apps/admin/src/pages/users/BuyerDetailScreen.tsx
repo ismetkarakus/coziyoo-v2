@@ -502,7 +502,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         <article className="buyer-ref-profile-card">
           <button type="button" className="buyer-ref-avatar-button" onClick={() => setProfileModalOpen(true)} aria-label="Profil bilgilerini aç">
             <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
-            <span className="buyer-ref-avatar-badge" aria-hidden="true">✆</span>
           </button>
           <div className="buyer-ref-profile-body">
             <div className="buyer-ref-profile-head">
