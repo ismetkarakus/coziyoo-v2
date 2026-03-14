@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
-import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatDateTime, toRelativeTimeTR, toLocalDateKey, formatCustomDateInput, parseCustomDateToKey } from "../../lib/format";
+import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey } from "../../lib/format";
 import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -45,6 +45,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
+  const customDateInputRef = useRef<HTMLInputElement | null>(null);
   const quickContactWrapRef = useRef<HTMLDivElement | null>(null);
   const actionMenuWrapRef = useRef<HTMLDivElement | null>(null);
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
@@ -221,6 +222,16 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     return { level, reasons };
   }, [openComplaints, cancellations30d, failedPayments]);
 
+  useEffect(() => {
+    if (dateFilter !== "custom") return;
+    const input = customDateInputRef.current;
+    if (!input) return;
+    input.focus();
+    if ("showPicker" in HTMLInputElement.prototype && typeof input.showPicker === "function") {
+      input.showPicker();
+    }
+  }, [dateFilter]);
+
   const activityRows = useMemo(() => {
     const orderEvents = orders.slice(0, 5).map((order) => ({
       id: order.orderId,
@@ -259,7 +270,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     } else if (dateFilter === "last30") {
       next = next.filter((order) => new Date(order.createdAt).getTime() >= thirtyDaysAgo);
     } else if (dateFilter === "custom" && selectedDate) {
-      const selectedDateKey = parseCustomDateToKey(selectedDate);
+      const selectedDateKey = selectedDate.includes("-") ? selectedDate : parseCustomDateToKey(selectedDate);
       if (selectedDateKey) {
         next = next.filter((order) => toLocalDateKey(order.createdAt) === selectedDateKey);
       }
@@ -771,13 +782,16 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   {dateFilter === "custom" ? (
                     <label className="ghost buyer-ref-filter-btn buyer-ref-date-input-wrap">
                       <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={10}
-                        placeholder="00/00/0000"
+                        ref={customDateInputRef}
+                        type="date"
                         aria-label="Secilen tarih"
                         value={selectedDate}
-                        onChange={(event) => setSelectedDate(formatCustomDateInput(event.target.value))}
+                        onChange={(event) => setSelectedDate(event.target.value)}
+                        onClick={(event) => {
+                          if (typeof event.currentTarget.showPicker === "function") {
+                            event.currentTarget.showPicker();
+                          }
+                        }}
                       />
                     </label>
                   ) : null}
