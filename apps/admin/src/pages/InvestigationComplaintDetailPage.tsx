@@ -227,26 +227,8 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   return (
     <div className="app investigation-page">
       <header className="topbar complaint-detail-topbar">
-        <button
-          className="complaint-detail-back"
-          type="button"
-          onClick={() => {
-            if (window.history.length > 1) navigate(-1);
-            else navigate("/app/investigations");
-          }}
-        >
-          <span aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none" role="presentation">
-              <path d="M11.8 4.2L6 10l5.8 5.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <span>{dict.investigation.backToComplaints}</span>
-        </button>
         <div className="complaint-detail-heading">
           <h1>{dict.investigation.detailTitle}</h1>
-          <p className="subtext">
-            {detail ? `${dict.investigation.complaints} #${detail.ticketNo}` : dict.investigation.detailSubtitle}
-          </p>
         </div>
       </header>
 
@@ -274,10 +256,23 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     <span className="complaint-detail-label">{dict.investigation.complaintId}</span>
                     <div className="complaint-copy-row">
                       <strong className="complaint-summary-info-value">{detail.id}</strong>
-                      <button className="inline-copy complaint-copy-btn" type="button" onClick={() => void copyComplaintId()}>
-                        {copyFeedback === "copied"
-                          ? dict.investigation.copied
-                          : dict.investigation.copyId}
+                      <button
+                        className="inline-copy complaint-copy-btn"
+                        type="button"
+                        aria-label={copyFeedback === "copied" ? dict.investigation.copied : dict.investigation.copyId}
+                        title={copyFeedback === "copied" ? dict.investigation.copied : dict.investigation.copyId}
+                        onClick={() => void copyComplaintId()}
+                      >
+                        {copyFeedback === "copied" ? (
+                          <svg viewBox="0 0 20 20" fill="none" role="presentation">
+                            <path d="M4.5 10.2l3.2 3.2 7.8-7.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 20 20" fill="none" role="presentation">
+                            <rect x="7" y="3.5" width="9.5" height="11.5" rx="2" stroke="currentColor" strokeWidth="1.7" />
+                            <path d="M5.5 7H5a1.5 1.5 0 0 0-1.5 1.5V15A1.5 1.5 0 0 0 5 16.5h6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                          </svg>
+                        )}
                       </button>
                     </div>
                   </div>
