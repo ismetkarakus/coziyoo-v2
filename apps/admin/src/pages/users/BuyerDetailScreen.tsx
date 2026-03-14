@@ -523,12 +523,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 smsBody={contactSmsBody}
               />
             </div>
-            <div className="buyer-ref-profile-meta">
-              <span>{email}</span>
-              <span>{phone}</span>
-              <span>Son giris {detailLastLoginAt}</span>
-              {risk.level === "high" ? <span className="buyer-ref-profile-risk">Risk: Yuksek</span> : null}
-            </div>
           </div>
         </article>
         <article className="buyer-ops-kpi-card buyer-ref-metric">
