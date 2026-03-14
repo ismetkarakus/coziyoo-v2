@@ -415,6 +415,110 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
+}
+
+.profile-menu {
+  position: relative;
+}
+
+.profile-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 74%, transparent);
+  padding: 4px 10px 4px 4px;
+  min-height: 44px;
+}
+
+.profile-menu-trigger:hover {
+  background: color-mix(in srgb, var(--color-surface-strong) 84%, transparent);
+}
+
+.profile-menu-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 66%, transparent);
+  display: block;
+}
+
+.profile-menu-chevron {
+  color: var(--color-tertiary-text);
+  font-size: var(--text-sm);
+  transition: transform 0.2s ease;
+}
+
+.profile-menu.is-open .profile-menu-chevron {
+  transform: rotate(180deg);
+}
+
+.profile-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1300;
+  min-width: 260px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-strong);
+  box-shadow: 0 14px 26px var(--color-shadow);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.profile-menu-header {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-card-bg) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+}
+
+.profile-menu-header small {
+  color: var(--color-tertiary-text);
+  font-size: var(--text-xs);
+  word-break: break-all;
+}
+
+.profile-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 82%, transparent);
+}
+
+.profile-menu-item {
+  width: 100%;
+  text-align: left;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, var(--color-card-bg) 82%, transparent);
+  color: var(--color-text);
+  padding: 9px 10px;
+}
+
+.profile-menu-item:hover {
+  background: color-mix(in srgb, var(--color-subtle-bg) 86%, transparent);
+}
+
+.profile-menu-item.is-danger {
+  color: #ffb8b8;
+  border-color: color-mix(in srgb, #dc2626 45%, var(--color-border));
+  background: color-mix(in srgb, #561515 38%, transparent);
+}
+
+.profile-menu-item.is-danger:hover {
+  color: #ffd7d7;
+  background: color-mix(in srgb, #7a1f1f 46%, transparent);
 }
 
 .navbar-search-launch {
@@ -640,12 +744,6 @@ a {
   font-size: var(--text-sm);
 }
 
-.navbar-actions .ghost,
-.navbar-actions .theme-toggle {
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-size: var(--text-sm);
-}
 
 .navbar-email {
   color: var(--color-tertiary-text);
@@ -7698,9 +7796,9 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   }
 
   .navbar-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    width: auto;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
   }
 
   .navbar-search-launch { flex-shrink: 0; }
@@ -7763,23 +7861,16 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
     box-shadow: none;
   }
 
-  .nav-mobile-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 8px;
-    width: 100%;
-  }
-
-  .nav-mobile-actions .ghost,
-  .nav-mobile-actions .theme-toggle {
-    width: 100%;
-    text-align: left;
-    border-radius: 12px;
-  }
-
   .navbar-actions {
-    display: none;
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .profile-menu-dropdown {
+    right: 0;
+    left: auto;
+    min-width: min(320px, calc(100vw - 34px));
   }
 
   .navbar {
@@ -8163,18 +8254,9 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   }
 
   .navbar-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    justify-content: flex-end;
     gap: 8px;
-  }
-
-  .navbar-actions .navbar-email {
-    grid-column: 1 / -1;
-  }
-
-  .navbar-actions .health-chip,
-  .navbar-actions .role-chip {
-    justify-content: center;
   }
 
   button {

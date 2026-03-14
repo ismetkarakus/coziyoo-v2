@@ -44,7 +44,9 @@ function AppShell({
   const [isGlobalSearchModalOpen, setIsGlobalSearchModalOpen] = useState(false);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const globalSearchReqIdRef = useRef(0);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   async function logout() {
     const tokens = getTokens();
@@ -71,6 +73,7 @@ function AppShell({
     setGlobalSearchInput("");
     setGlobalSearchResults([]);
     setGlobalSearchLoading(false);
+    setIsProfileMenuOpen(false);
     globalSearchReqIdRef.current += 1;
   }, [location.pathname]);
 
@@ -90,6 +93,24 @@ function AppShell({
     }, 20);
     return () => window.clearTimeout(timer);
   }, [isGlobalSearchModalOpen]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!profileMenuRef.current) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!profileMenuRef.current.contains(target)) setIsProfileMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsProfileMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     const query = globalSearchQuery;
@@ -152,6 +173,19 @@ function AppShell({
   }
 
   const shouldDockSearchInput = globalSearchQuery.length >= globalSearchMinChars;
+  const profileNameSeed = String(admin.email ?? "Admin").split("@")[0] || "Admin";
+  const profileInitials =
+    profileNameSeed
+      .replace(/[^a-zA-Z0-9]+/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((chunk) => chunk[0]?.toUpperCase() ?? "")
+      .join("") || "A";
+  const profileAvatarSrc = `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#0ea5e9'/><stop offset='100%' stop-color='#22c55e'/></linearGradient></defs><rect width='80' height='80' rx='40' fill='url(#g)'/><text x='50%' y='55%' text-anchor='middle' font-family='Arial,sans-serif' font-size='30' fill='white' font-weight='700'>${profileInitials}</text></svg>`
+  )}`;
 
   return (
     <main className="shell">
@@ -168,10 +202,6 @@ function AppShell({
             dict={dict}
             isSuperAdmin={isSuperAdmin}
             language={language}
-            isDarkMode={isDarkMode}
-            onToggleDarkMode={onToggleDarkMode}
-            onToggleLanguage={onToggleLanguage}
-            onLogout={logout}
           />
         </div>
         <button
@@ -188,19 +218,61 @@ function AppShell({
           </span>
         </button>
         <div className="navbar-actions">
-          <ApiHealthBadge />
-          <button
-            className="ghost"
-            onClick={onToggleLanguage}
-            type="button"
-            aria-label={language === "tr" ? "Dili değiştir (TR/EN)" : "Toggle language (EN/TR)"}
-          >
-            {language === "tr" ? "TR / EN" : "EN / TR"}
-          </button>
-          <button className="theme-toggle" onClick={onToggleDarkMode} type="button">
-            {isDarkMode ? "☀" : "☾"}
-          </button>
-          <button className="ghost" onClick={logout} type="button">{dict.actions.logout}</button>
+          <div className={`profile-menu ${isProfileMenuOpen ? "is-open" : ""}`} ref={profileMenuRef}>
+            <button
+              className="profile-menu-trigger"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={isProfileMenuOpen}
+              aria-label={language === "tr" ? "Profil menüsünü aç" : "Open profile menu"}
+              onClick={() => setIsProfileMenuOpen((open) => !open)}
+            >
+              <img className="profile-menu-avatar" src={profileAvatarSrc} alt={language === "tr" ? "Profil resmi" : "Profile avatar"} />
+              <span className="profile-menu-chevron" aria-hidden="true">▾</span>
+            </button>
+            {isProfileMenuOpen ? (
+              <div className="profile-menu-dropdown" role="menu">
+                <div className="profile-menu-header">
+                  <strong>{profileNameSeed}</strong>
+                  <small>{admin.email}</small>
+                </div>
+                <div className="profile-menu-row">
+                  <span>{language === "tr" ? "API Durumu" : "API Status"}</span>
+                  <ApiHealthBadge />
+                </div>
+                <button
+                  className="profile-menu-item"
+                  type="button"
+                  onClick={() => {
+                    onToggleLanguage();
+                    setIsProfileMenuOpen(false);
+                  }}
+                >
+                  {language === "tr" ? "Dil: Türkçe (EN'e geç)" : "Language: English (switch to TR)"}
+                </button>
+                <button
+                  className="profile-menu-item"
+                  type="button"
+                  onClick={() => {
+                    onToggleDarkMode();
+                    setIsProfileMenuOpen(false);
+                  }}
+                >
+                  {isDarkMode ? (language === "tr" ? "Tema: Açık" : "Theme: Light") : (language === "tr" ? "Tema: Koyu" : "Theme: Dark")}
+                </button>
+                <button
+                  className="profile-menu-item is-danger"
+                  type="button"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    void logout();
+                  }}
+                >
+                  {dict.actions.logout}
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
       <section className="main">
@@ -324,19 +396,11 @@ function TopNavTabs({
   dict,
   isSuperAdmin,
   language,
-  isDarkMode,
-  onToggleDarkMode,
-  onToggleLanguage,
-  onLogout,
 }: {
   pathname: string;
   dict: Dictionary;
   isSuperAdmin: boolean;
   language: Language;
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
-  onToggleLanguage: () => void;
-  onLogout: () => void;
 }) {
   const items = [
     { to: "/app/dashboard", active: pathname === "/app/dashboard", label: dict.menu.dashboard },
@@ -527,39 +591,6 @@ function TopNavTabs({
         >
           {dict.menu.management}
         </button>
-        <div className="nav-mobile-actions">
-          <ApiHealthBadge />
-          <button
-            className="ghost"
-            onClick={() => {
-              onToggleLanguage();
-              setIsCompactNavOpen(false);
-            }}
-            type="button"
-          >
-            {dict.actions.language}
-          </button>
-          <button
-            className="theme-toggle"
-            onClick={() => {
-              onToggleDarkMode();
-              setIsCompactNavOpen(false);
-            }}
-            type="button"
-          >
-            {isDarkMode ? "☀" : "☾"}
-          </button>
-          <button
-            className="ghost"
-            onClick={() => {
-              setIsCompactNavOpen(false);
-              void onLogout();
-            }}
-            type="button"
-          >
-            {dict.actions.logout}
-          </button>
-        </div>
       </nav>
       {isManagementOpen ? (
         <div className="nav-submenu">
