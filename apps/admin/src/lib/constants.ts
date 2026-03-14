@@ -1,13 +1,4 @@
-import type { BuyerSmartFilterKey } from "../types/users";
 import type { SellerSmartFilterKey } from "../types/seller";
-
-export const BUYER_SMART_FILTER_ITEMS: Array<{ key: BuyerSmartFilterKey; label: string; icon: string }> = [
-  { key: "daily_buyer", label: "Gunun Alicisi", icon: "☀" },
-  { key: "top_revenue", label: "En Fazla Ciro", icon: "₺" },
-  { key: "suspicious_login", label: "Supheli Giris", icon: "◉" },
-  { key: "same_ip_multi_account", label: "Ayni IP'de Iki Giris", icon: "⌁" },
-  { key: "complainers", label: "En Cok Sikayet Edenler", icon: "✉" },
-];
 
 export const SELLER_SMART_FILTER_ITEMS: Array<{ key: SellerSmartFilterKey; label: string; icon: string }> = [
   { key: "login_anomaly", label: "Tüm Kayıtlar", icon: "☰" },

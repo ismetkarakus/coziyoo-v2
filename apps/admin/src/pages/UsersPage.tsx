@@ -4,11 +4,11 @@ import { request, parseJson } from "../lib/api";
 import { Pager, KpiCard, ExcelExportButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth } from "../lib/format";
-import { BUYER_SMART_FILTER_ITEMS, SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
+import { SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
 import { compareSortValues, compareWithDir, toggleSort, type SortDir } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
-import type { UserKind, ColumnMeta, DensityMode, BuyerSmartFilterKey } from "../types/users";
+import type { UserKind, ColumnMeta, DensityMode } from "../types/users";
 import type { SellerSmartFilterKey } from "../types/seller";
 
 type SellerTableSortKey = "id" | "name" | "status" | "warnings" | "orderHealth" | "ratingTrend";
@@ -54,15 +54,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     spendTrend: "all",
   });
   const [buyerQuickFilter, setBuyerQuickFilter] = useState<"all" | "active" | "risky" | "open_complaint" | "down_spend" | null>(null);
-  const [activeSmartFilter, setActiveSmartFilter] = useState<BuyerSmartFilterKey | null>(null);
   const [activeSellerSmartFilter, setActiveSellerSmartFilter] = useState<SellerSmartFilterKey | null>(null);
-  const [smartFilterCounts, setSmartFilterCounts] = useState<Record<BuyerSmartFilterKey, number>>({
-    daily_buyer: 0,
-    top_revenue: 0,
-    suspicious_login: 0,
-    same_ip_multi_account: 0,
-    complainers: 0,
-  });
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
   const [buyerTotalCountAll, setBuyerTotalCountAll] = useState<number | null>(null);
@@ -208,7 +200,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     });
     setBuyerQuickFilter(null);
     setBuyerTotalCountAll(null);
-    setActiveSmartFilter(null);
     setActiveSellerSmartFilter(null);
     setBuyerActionMenuId(null);
     setCustomerIdPreview(null);
@@ -257,7 +248,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       sortDir: filters.sortDir,
       ...(searchTerm ? { search: searchTerm } : {}),
       ...(audience ? { audience } : {}),
-      ...(isBuyerPage && activeSmartFilter ? { smartFilter: activeSmartFilter } : {}),
       ...(isAppScoped && filters.roleFilter !== "all" ? { userType: filters.roleFilter } : {}),
       ...(!isAppScoped && filters.roleFilter !== "all" ? { role: filters.roleFilter } : {}),
     });
@@ -273,7 +263,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     setRows(body.data);
     if (body.pagination) setPagination({ total: body.pagination.total, totalPages: body.pagination.totalPages });
-    if (isBuyerPage && body.pagination && !activeSmartFilter && !searchTerm) {
+    if (isBuyerPage && body.pagination && !searchTerm) {
       setBuyerTotalCountAll(body.pagination.total);
     }
     setLastUpdatedAt(new Date().toISOString());
@@ -282,25 +272,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   useEffect(() => {
     loadRows().catch(() => setError(dict.users.requestFailed));
-  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm, activeSmartFilter, isBuyerPage]);
-
-  useEffect(() => {
-    if (!isBuyerPage) return;
-    request("/v1/admin/buyers/smart-filter-counts")
-      .then(async (response) => {
-        if (response.status !== 200) return;
-        const body = await parseJson<{ data?: Partial<Record<BuyerSmartFilterKey, number>> }>(response);
-        if (!body.data) return;
-        setSmartFilterCounts({
-          daily_buyer: Number(body.data.daily_buyer ?? 0),
-          top_revenue: Number(body.data.top_revenue ?? 0),
-          suspicious_login: Number(body.data.suspicious_login ?? 0),
-          same_ip_multi_account: Number(body.data.same_ip_multi_account ?? 0),
-          complainers: Number(body.data.complainers ?? 0),
-        });
-      })
-      .catch(() => undefined);
-  }, [isBuyerPage, activeSmartFilter, buyerQuickFilter, buyerFilters.status, buyerFilters.complaint, buyerFilters.orderTrend, buyerFilters.spendTrend]);
+  }, [filters.page, filters.pageSize, filters.sortBy, filters.sortDir, filters.roleFilter, audience, searchTerm, isBuyerPage]);
 
   useEffect(() => {
     if (!isSellerPage) return;
@@ -591,33 +563,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (key === "buyer") return String(row.displayName ?? row.email ?? "");
     if (key === "status") return row.status === "active" ? 1 : 0;
     if (key === "col4") {
-      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return Number(row.complaintTotal ?? 0);
-      if (activeSmartFilter === "suspicious_login") return String(row.displayName ?? row.email ?? "");
-      if (activeSmartFilter === "same_ip_multi_account") return buyerSharedIp(row);
+      if (buyerQuickFilter === "open_complaint") return Number(row.complaintTotal ?? 0);
       return computeBuyerRisk(row).score;
     }
     if (key === "col5") {
-      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return Number(row.complaintUnresolved ?? 0);
-      if (activeSmartFilter === "suspicious_login") return buyerSuspiciousReason(row);
-      if (activeSmartFilter === "same_ip_multi_account") return Date.parse(String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "")) || 0;
+      if (buyerQuickFilter === "open_complaint") return Number(row.complaintUnresolved ?? 0);
       return Number(row.complaintTotal ?? 0);
     }
     if (key === "col6") {
-      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return buyerLatestComplaintId(row);
-      if (activeSmartFilter === "suspicious_login" || activeSmartFilter === "same_ip_multi_account") return Number(row.recentLoginCount24h ?? 0);
+      if (buyerQuickFilter === "open_complaint") return buyerLatestComplaintId(row);
       return Number(row.monthlyOrderCountCurrent ?? 0);
     }
     if (key === "col7") {
-      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return buyerLatestComplaintCreatedAtMs(row);
-      if (activeSmartFilter === "suspicious_login") return Number(row.recentLoginIpCount24h ?? 0);
-      if (activeSmartFilter === "same_ip_multi_account") return row.status === "active" ? 1 : 0;
+      if (buyerQuickFilter === "open_complaint") return buyerLatestComplaintCreatedAtMs(row);
       return Number(row.monthlySpentCurrent ?? 0);
     }
-    if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") {
+    if (buyerQuickFilter === "open_complaint") {
       return Number(row.complaintUnresolved ?? 0) > 0 ? 1 : 0;
-    }
-    if (activeSmartFilter === "suspicious_login" || activeSmartFilter === "same_ip_multi_account") {
-      return computeBuyerRisk(row).score;
     }
     return Date.parse(String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "")) || 0;
   };
@@ -724,47 +686,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       ),
     [trRows, sellerTopRevenueThreshold, sellerTopSellingFoodsOrderThreshold]
   );
-  const buyerQuickFilterCounts = useMemo(() => {
-    if (!isBuyerPage) {
-      return {
-        all: 0,
-        risky: 0,
-        open_complaint: 0,
-        down_spend: 0,
-      };
-    }
-
-    let baseRows = rows;
-    if (buyerFilters.status !== "all") {
-      baseRows = baseRows.filter((row) => row.status === buyerFilters.status);
-    }
-    if (buyerFilters.complaint === "has_unresolved") {
-      baseRows = baseRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0);
-    } else if (buyerFilters.complaint === "resolved_only") {
-      baseRows = baseRows.filter((row) => Number(row.complaintTotal ?? 0) > 0 && Number(row.complaintUnresolved ?? 0) === 0);
-    } else if (buyerFilters.complaint === "no_complaint") {
-      baseRows = baseRows.filter((row) => Number(row.complaintTotal ?? 0) === 0);
-    }
-    if (buyerFilters.orderTrend !== "all") {
-      baseRows = baseRows.filter(
-        (row) => trendDirection(Number(row.monthlyOrderCountCurrent ?? 0), Number(row.monthlyOrderCountPrevious ?? 0)) === buyerFilters.orderTrend
-      );
-    }
-    if (buyerFilters.spendTrend !== "all") {
-      baseRows = baseRows.filter(
-        (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === buyerFilters.spendTrend
-      );
-    }
-
-    return {
-      all: baseRows.length,
-      risky: baseRows.filter((row) => computeBuyerRisk(row).level !== "low").length,
-      open_complaint: baseRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0).length,
-      down_spend: baseRows.filter(
-        (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === "down"
-      ).length,
-    };
-  }, [buyerFilters, isBuyerPage, rows]);
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
     if (isSellerPage) {
@@ -840,9 +761,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
 
     if (isBuyerPage) {
-      if (buyerQuickFilter === null && activeSmartFilter === null) {
-        return [];
-      }
       if (buyerFilters.status !== "all") {
         scopedRows = scopedRows.filter((row) => row.status === buyerFilters.status);
       }
@@ -869,31 +787,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         scopedRows = scopedRows.filter((row) => row.status === "active");
       } else if (buyerQuickFilter === "open_complaint") {
         scopedRows = scopedRows.filter((row) => Number(row.complaintUnresolved ?? 0) > 0);
-      } else if (buyerQuickFilter === "down_spend") {
-        scopedRows = scopedRows.filter(
-          (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === "down"
-        );
-      }
-      if (activeSmartFilter === "complainers") {
-        scopedRows = [...scopedRows].sort(
-          (a, b) =>
-            buyerLatestComplaintCreatedAtMs(b) - buyerLatestComplaintCreatedAtMs(a) ||
-            Number(b.complaintTotal ?? 0) - Number(a.complaintTotal ?? 0)
-        );
-      }
-      if (activeSmartFilter === "suspicious_login") {
-        scopedRows = [...scopedRows].sort(
-          (a, b) =>
-            Number(b.recentLoginIpCount24h ?? 0) - Number(a.recentLoginIpCount24h ?? 0) ||
-            Number(b.recentLoginCount24h ?? 0) - Number(a.recentLoginCount24h ?? 0)
-        );
-      }
-      if (activeSmartFilter === "same_ip_multi_account") {
-        scopedRows = [...scopedRows].sort(
-          (a, b) =>
-            Number(b.recentLoginCount24h ?? 0) - Number(a.recentLoginCount24h ?? 0) ||
-            buyerSharedIp(a).localeCompare(buyerSharedIp(b), "tr")
-        );
       }
       if (buyerQuickFilter === "open_complaint") {
         scopedRows = [...scopedRows].sort(
@@ -901,16 +794,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             Number(b.complaintUnresolved ?? 0) - Number(a.complaintUnresolved ?? 0) ||
             buyerLatestComplaintCreatedAtMs(b) - buyerLatestComplaintCreatedAtMs(a)
         );
-      }
-      if (buyerQuickFilter === "down_spend") {
-        scopedRows = [...scopedRows].sort(
-          (a, b) =>
-            (Number(a.monthlySpentCurrent ?? 0) - Number(a.monthlySpentPrevious ?? 0)) -
-            (Number(b.monthlySpentCurrent ?? 0) - Number(b.monthlySpentPrevious ?? 0))
-        );
-      }
-      if (activeSmartFilter === "top_revenue") {
-        scopedRows = [...scopedRows].sort((a, b) => buyerRevenue(b) - buyerRevenue(a));
       }
       if (buyerTableSort.key) {
         scopedRows = [...scopedRows].sort((a, b) => {
@@ -935,7 +818,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }, [
     activeSellerKpiFilter,
     activeSellerSmartFilter,
-    activeSmartFilter,
     buyerFilters,
     buyerQuickFilter,
     buyerTableSort,
@@ -1194,7 +1076,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   }
 
   const showState = loading ? "loading" : error ? "error" : filteredRows.length === 0 ? "empty" : "none";
-  const isBuyerTableOpen = buyerQuickFilter !== null || activeSmartFilter !== null;
   const allVisibleBuyerRowsSelected = isBuyerPage && filteredRows.length > 0 && filteredRows.every((row) => buyerSelectedIds.includes(row.id));
 
   useEffect(() => {
@@ -1516,10 +1397,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     );
   }
   if (isBuyerPage) {
-    const isComplainersView = activeSmartFilter === "complainers";
     const isOpenComplaintView = buyerQuickFilter === "open_complaint";
-    const isSuspiciousLoginView = activeSmartFilter === "suspicious_login";
-    const isSameIpView = activeSmartFilter === "same_ip_multi_account";
     return (
       <div className="app buyer-v2-page">
         <section className="buyer-v2-kpis seller-v2-kpis">
@@ -1528,14 +1406,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label={dict.users.v2.buyerKpiTotal}
             value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}
             className="seller-v2-kpi"
-            selected={buyerQuickFilter === "all" && activeSmartFilter === null}
+            selected={buyerQuickFilter === null}
             onClick={() => {
-              if (buyerQuickFilter === "all" && activeSmartFilter === null) {
-                setBuyerQuickFilter(null);
-              } else {
-                setActiveSmartFilter(null);
-                setBuyerQuickFilter("all");
-              }
+              setBuyerQuickFilter(null);
               setFilters((prev) => ({ ...prev, page: 1 }));
             }}
           >
@@ -1551,14 +1424,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label={dict.users.v2.buyerKpiActive}
             value={new Intl.NumberFormat("tr-TR").format(activeRows.length)}
             className="seller-v2-kpi"
-            selected={buyerQuickFilter === "active" && activeSmartFilter === null}
+            selected={buyerQuickFilter === "active"}
             onClick={() => {
-              if (buyerQuickFilter === "active" && activeSmartFilter === null) {
-                setBuyerQuickFilter(null);
-              } else {
-                setActiveSmartFilter(null);
-                setBuyerQuickFilter("active");
-              }
+              setBuyerQuickFilter((prev) => (prev === "active" ? null : "active"));
               setFilters((prev) => ({ ...prev, page: 1 }));
             }}
           >
@@ -1574,6 +1442,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label={dict.users.v2.buyerKpiOpenComplaint}
             value={new Intl.NumberFormat("tr-TR").format(buyersWithOpenComplaints)}
             className="seller-v2-kpi"
+            selected={buyerQuickFilter === "open_complaint"}
+            onClick={() => {
+              setBuyerQuickFilter((prev) => (prev === "open_complaint" ? null : "open_complaint"));
+              setFilters((prev) => ({ ...prev, page: 1 }));
+            }}
           >
             <div className="seller-v2-kpi-dots">
               <span className="seller-v2-dot is-orange" /><span className="seller-v2-dot is-orange" />
@@ -1586,6 +1459,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             label={dict.users.v2.buyerKpiRisky}
             value={new Intl.NumberFormat("tr-TR").format(riskyBuyersCount)}
             className="seller-v2-kpi"
+            selected={buyerQuickFilter === "risky"}
+            onClick={() => {
+              setBuyerQuickFilter((prev) => (prev === "risky" ? null : "risky"));
+              setFilters((prev) => ({ ...prev, page: 1 }));
+            }}
           >
             <div className="seller-v2-kpi-dots">
               <span className="seller-v2-dot is-red" /><span className="seller-v2-dot is-red" />
@@ -1594,56 +1472,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           </KpiCard>
         </section>
 
-        <section className="buyer-v2-main-layout">
-          <aside className="panel buyer-v2-smart-panel" aria-label={dict.users.v2.smartFiltersPlain}>
-            <h2>{dict.users.v2.smartFiltersTitlePlain}</h2>
-            <div className="buyer-v2-smart-list">
-              {BUYER_SMART_FILTER_ITEMS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`buyer-v2-smart-item ${activeSmartFilter === item.key ? "is-active" : ""}`}
-                  aria-pressed={activeSmartFilter === item.key}
-                  onClick={() => {
-                    setBuyerQuickFilter(null);
-                    setActiveSmartFilter((prev) => (prev === item.key ? null : item.key));
-                    setFilters((prev) => ({ ...prev, page: 1 }));
-                  }}
-                >
-                  <span className="buyer-v2-smart-item-icon" aria-hidden="true">{item.icon}</span>
-                  <span className="buyer-v2-smart-item-label">{item.label}</span>
-                  <span className="buyer-v2-smart-item-count">{smartFilterCounts[item.key] ?? 0}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "open_complaint" ? "is-active" : ""}`}
-                onClick={() => {
-                  setActiveSmartFilter(null);
-                  setBuyerQuickFilter((prev) => (prev === "open_complaint" ? null : "open_complaint"));
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
-                <span className="buyer-v2-smart-item-label">{dict.users.v2.buyerQuickOpenComplaints}</span>
-                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.open_complaint}</span>
-              </button>
-              <button
-                type="button"
-                className={`buyer-v2-smart-item buyer-v2-quick-filter-item ${buyerQuickFilter === "down_spend" ? "is-active" : ""}`}
-                onClick={() => {
-                  setActiveSmartFilter(null);
-                  setBuyerQuickFilter((prev) => (prev === "down_spend" ? null : "down_spend"));
-                  setFilters((prev) => ({ ...prev, page: 1 }));
-                }}
-              >
-                <span className="buyer-v2-smart-item-icon" aria-hidden="true">↓</span>
-                <span className="buyer-v2-smart-item-label">{dict.users.v2.quickDownSpend}</span>
-                <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.down_spend}</span>
-              </button>
-            </div>
-          </aside>
-
+        <section className="buyer-v2-main-layout buyer-v2-main-layout--single">
           <section className="panel buyer-v2-board">
           <div className="buyer-v2-toolbar">
             <div className="buyer-v2-toolbar-actions-right">
@@ -1651,8 +1480,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           </div>
 
-          {isBuyerTableOpen ? (
-            <>
             <div className="table-wrap users-table-wrap buyer-v2-table-wrap density-normal" ref={buyerBoardRef}>
               <table>
                 <colgroup>
@@ -1684,11 +1511,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     </th>
                     <th><SortableHeader label={dict.users.v2.displayId} active={buyerTableSort.key === "id"} dir={buyerSortDirectionFor("id")} onClick={() => buyerHeaderSort("id")} /></th>
                     <th><SortableHeader label={dict.users.v2.buyerHeaderBuyer} active={buyerTableSort.key === "buyer"} dir={buyerSortDirectionFor("buyer")} onClick={() => buyerHeaderSort("buyer")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderTotalComplaint : isSuspiciousLoginView ? dict.users.v2.buyerHeaderSuspicion : isSameIpView ? dict.users.v2.buyerHeaderIp : dict.users.v2.buyerHeaderRisk} active={buyerTableSort.key === "col4"} dir={buyerSortDirectionFor("col4")} onClick={() => buyerHeaderSort("col4")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderOpenComplaint : isSuspiciousLoginView ? dict.users.v2.buyerHeaderReason : isSameIpView ? dict.users.v2.buyerHeaderLastLogin : dict.users.v2.buyerHeaderComplaints} active={buyerTableSort.key === "col5"} dir={buyerSortDirectionFor("col5")} onClick={() => buyerHeaderSort("col5")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintId : isSuspiciousLoginView ? dict.users.v2.buyerHeaderLogins24h : isSameIpView ? dict.users.v2.buyerHeaderLogins24h : dict.users.v2.buyerHeaderOrders1m} active={buyerTableSort.key === "col6"} dir={buyerSortDirectionFor("col6")} onClick={() => buyerHeaderSort("col6")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintDate : isSuspiciousLoginView ? dict.users.v2.buyerHeaderIpCount : isSameIpView ? dict.users.v2.buyerHeaderStatus : dict.users.v2.buyerHeaderSpend1m} active={buyerTableSort.key === "col7"} dir={buyerSortDirectionFor("col7")} onClick={() => buyerHeaderSort("col7")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderLastStatus : isSuspiciousLoginView ? dict.users.v2.buyerHeaderStatus : isSameIpView ? dict.users.v2.buyerHeaderRisk : dict.users.v2.buyerHeaderLastLogin} active={buyerTableSort.key === "col8"} dir={buyerSortDirectionFor("col8")} onClick={() => buyerHeaderSort("col8")} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderTotalComplaint : dict.users.v2.buyerHeaderRisk} active={buyerTableSort.key === "col4"} dir={buyerSortDirectionFor("col4")} onClick={() => buyerHeaderSort("col4")} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderOpenComplaint : dict.users.v2.buyerHeaderComplaints} active={buyerTableSort.key === "col5"} dir={buyerSortDirectionFor("col5")} onClick={() => buyerHeaderSort("col5")} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintId : dict.users.v2.buyerHeaderOrders1m} active={buyerTableSort.key === "col6"} dir={buyerSortDirectionFor("col6")} onClick={() => buyerHeaderSort("col6")} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintDate : dict.users.v2.buyerHeaderSpend1m} active={buyerTableSort.key === "col7"} dir={buyerSortDirectionFor("col7")} onClick={() => buyerHeaderSort("col7")} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastStatus : dict.users.v2.buyerHeaderLastLogin} active={buyerTableSort.key === "col8"} dir={buyerSortDirectionFor("col8")} onClick={() => buyerHeaderSort("col8")} /></th>
                     <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={buyerTableSort.key === "status"} dir={buyerSortDirectionFor("status")} onClick={() => buyerHeaderSort("status")} /></th>
                     <th />
                   </tr>
@@ -1726,7 +1553,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
                     const buyerRowTarget =
-                      isComplainersView || isOpenComplaintView
+                      isOpenComplaintView
                         ? `/app/buyers/${row.id}?tab=complaints`
                         : `/app/buyers/${row.id}`;
 
@@ -1763,17 +1590,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </div>
                         </td>
                         <td>
-                          {isComplainersView || isOpenComplaintView ? (
+                          {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{totalComplaints}</strong>
-                            </div>
-                          ) : isSuspiciousLoginView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{String(row.displayName ?? row.email ?? "-")}</strong>
-                            </div>
-                          ) : isSameIpView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{buyerSharedIp(row) || "-"}</strong>
                             </div>
                           ) : (
                             <span className={`risk-pill is-${risk.level}`}>
@@ -1782,17 +1601,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           )}
                         </td>
                         <td>
-                          {isComplainersView || isOpenComplaintView ? (
+                          {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{unresolved}</strong>
-                            </div>
-                          ) : isSuspiciousLoginView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{buyerSuspiciousReason(row) || "-"}</strong>
-                            </div>
-                          ) : isSameIpView ? (
-                            <div className="buyer-login-cell">
-                              <strong>{loginAt}</strong>
                             </div>
                           ) : (
                             <div className="buyer-complaint-summary">
@@ -1805,13 +1616,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           )}
                         </td>
                         <td>
-                          {isComplainersView || isOpenComplaintView ? (
+                          {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{buyerLatestComplaintId(row) ? toDisplayId(buyerLatestComplaintId(row)) : "-"}</strong>
-                            </div>
-                          ) : isSuspiciousLoginView || isSameIpView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{Number(row.recentLoginCount24h ?? 0)}</strong>
                             </div>
                           ) : (
                             <div className="buyer-orders-cell">
@@ -1824,18 +1631,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           )}
                         </td>
                         <td>
-                          {isComplainersView || isOpenComplaintView ? (
+                          {isOpenComplaintView ? (
                             <div className="buyer-login-cell">
                               <strong>{formatLoginRelativeDayMonth(String(row.latestComplaintCreatedAt ?? ""), language)}</strong>
                             </div>
-                          ) : isSuspiciousLoginView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{Number(row.recentLoginIpCount24h ?? 0)}</strong>
-                            </div>
-                          ) : isSameIpView ? (
-                            <span className="status-pill is-warning">
-                              {dict.users.v2.sharedIp}
-                            </span>
                           ) : (
                             <div className="buyer-spend-cell">
                               <strong>{formatCurrency(spendCurrent, language)}</strong>
@@ -1846,17 +1645,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td>
                           <div className="buyer-login-cell">
-                            {isComplainersView || isOpenComplaintView ? (
+                            {isOpenComplaintView ? (
                               <span className={`status-pill ${unresolved > 0 ? "is-warning" : "is-neutral"}`}>
                                 {buyerLatestComplaintStatusLabel(row)}
-                              </span>
-                            ) : isSuspiciousLoginView ? (
-                              <span className={`status-pill ${risk.level === "high" ? "is-warning" : "is-neutral"}`}>
-                                {risk.level === "high" ? dict.users.v2.riskHigh : dict.users.v2.watchLabel}
-                              </span>
-                            ) : isSameIpView ? (
-                              <span className={`risk-pill is-${risk.level}`}>
-                                {risk.level === "high" ? dict.users.v2.riskHigh : risk.level === "medium" ? dict.users.v2.riskMedium : dict.users.v2.riskLow}
                               </span>
                             ) : (
                               <>
@@ -1947,12 +1738,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               onPrev={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
               onNext={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
             />
-            </>
-          ) : (
-            <div className="seller-table-placeholder">
-              {dict.users.v2.sellerOpenTableHint}
-            </div>
-          )}
           </section>
         </section>
       </div>

@@ -4546,6 +4546,10 @@ textarea:focus {
   align-items: start;
 }
 
+.buyer-v2-main-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .seller-v2-page .buyer-v2-main-layout {
   grid-template-columns: calc((100% - ((var(--buyer-v2-kpi-columns) - 1) * var(--buyer-v2-kpi-gap))) / var(--buyer-v2-kpi-columns)) minmax(0, 1fr);
   gap: 14px;
