@@ -51,6 +51,21 @@ export type BuyerReviewRow = {
   updatedAt: string;
 };
 
+export type BuyerComplaintRow = {
+  id: string;
+  orderId: string;
+  orderNo: string;
+  subject: string;
+  description: string | null;
+  categoryId: string | null;
+  categoryCode: string | null;
+  categoryName: string | null;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "open" | "in_review" | "resolved" | "closed";
+  createdAt: string;
+  resolvedAt: string | null;
+};
+
 export type BuyerCancellationRow = {
   orderId: string;
   orderNo: string;

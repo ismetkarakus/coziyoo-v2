@@ -3554,6 +3554,93 @@ adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), 
   });
 });
 
+adminUserManagementRouter.get("/users/:id/buyer-complaints", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = BuyerListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const buyer = await ensureBuyerUser(params.data.id);
+  if (!buyer.ok) {
+    return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+
+  const total = await pool.query<{ count: string }>(
+    `SELECT count(*)::text AS count
+     FROM complaints c
+     WHERE ${COMPLAINANT_TYPE_SQL} = 'buyer'
+       AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1`,
+    [params.data.id]
+  );
+
+  const rows = await pool.query<{
+    id: string;
+    order_id: string;
+    subject: string;
+    description: string | null;
+    category_id: string | null;
+    category_code: string | null;
+    category_name: string | null;
+    priority: "low" | "medium" | "high" | "urgent";
+    status: "open" | "in_review" | "resolved" | "closed";
+    created_at: string;
+    resolved_at: string | null;
+  }>(
+    `SELECT
+       c.id::text,
+       c.order_id::text,
+       c.subject,
+       c.description,
+       c.category_id::text,
+       cat.code AS category_code,
+       cat.name AS category_name,
+       c.priority,
+       c.status,
+       c.created_at::text,
+       c.resolved_at::text
+     FROM complaints c
+     LEFT JOIN complaint_categories cat ON cat.id = c.category_id
+     WHERE ${COMPLAINANT_TYPE_SQL} = 'buyer'
+       AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1
+     ORDER BY c.created_at ${sortDir}, c.id ${sortDir}
+     LIMIT $2 OFFSET $3`,
+    [params.data.id, query.data.pageSize, offset]
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      orderId: row.order_id,
+      orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      subject: row.subject,
+      description: row.description,
+      categoryId: row.category_id,
+      categoryCode: row.category_code,
+      categoryName: row.category_name,
+      priority: row.priority,
+      status: row.status,
+      createdAt: row.created_at,
+      resolvedAt: row.resolved_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
 adminUserManagementRouter.get("/users/:id/buyer-cancellations", requireAuth("admin"), async (req, res) => {
   const params = UuidParamSchema.safeParse(req.params);
   if (!params.success) {

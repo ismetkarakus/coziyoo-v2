@@ -8,7 +8,7 @@ import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { BuyerDetailTab } from "../../types/users";
-import type { BuyerDetail, BuyerContactInfo, BuyerLoginLocation, BuyerOrderRow, BuyerCancellationRow, BuyerReviewRow, BuyerSummaryMetrics, BuyerPagination } from "../../types/buyer";
+import type { BuyerDetail, BuyerContactInfo, BuyerLoginLocation, BuyerOrderRow, BuyerCancellationRow, BuyerComplaintRow, BuyerReviewRow, BuyerSummaryMetrics, BuyerPagination } from "../../types/buyer";
 
 type BuyerNoteItem = {
   id: string;
@@ -27,6 +27,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [summary, setSummary] = useState<BuyerSummaryMetrics | null>(null);
   const [ordersPagination, setOrdersPagination] = useState<BuyerPagination | null>(null);
   const [reviews, setReviews] = useState<BuyerReviewRow[]>([]);
+  const [complaints, setComplaints] = useState<BuyerComplaintRow[]>([]);
   const [cancellations, setCancellations] = useState<BuyerCancellationRow[]>([]);
   const [locations, setLocations] = useState<BuyerLoginLocation[]>([]);
   const [ordersPage, setOrdersPage] = useState(1);
@@ -61,6 +62,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         summaryResponse,
         ordersResponse,
         reviewsResponse,
+        complaintsResponse,
         cancellationsResponse,
         locationsResponse,
         notesResponse,
@@ -71,6 +73,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         request(`/v1/admin/users/${id}/buyer-summary`),
         request(`/v1/admin/users/${id}/buyer-orders?page=${ordersPage}&pageSize=5&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-reviews?page=1&pageSize=5&sortDir=desc`),
+        request(`/v1/admin/users/${id}/buyer-complaints?page=1&pageSize=20&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-cancellations?page=1&pageSize=5&sortDir=desc`),
         request(`/v1/admin/users/${id}/login-locations?page=1&pageSize=5&sortDir=desc`),
         request(`/v1/admin/buyers/${id}/notes?limit=50`),
@@ -111,6 +114,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         setReviews(body.data);
       } else {
         setReviews([]);
+      }
+
+      if (complaintsResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerComplaintRow[] }>(complaintsResponse);
+        setComplaints(body.data);
+      } else {
+        setComplaints([]);
       }
 
       if (cancellationsResponse.status === 200) {
@@ -304,6 +314,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       filteredRows: visibleOrders,
     },
     reviews,
+    complaints,
     cancellations,
     loginLocations: locations,
     notes: noteItems.map((item) => item.note),
@@ -312,7 +323,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const buyerTabSummary = [
     { key: "orders" as const, label: "Siparisler", count: orders.length, lastAt: orders[0]?.createdAt ?? null },
     { key: "payments" as const, label: "Odemeler", count: orders.length, lastAt: orders[0]?.updatedAt ?? orders[0]?.createdAt ?? null },
-    { key: "complaints" as const, label: "Sikayetler", count: cancellations.length, lastAt: cancellations[0]?.cancelledAt ?? null },
+    { key: "complaints" as const, label: "Sikayetler", count: complaints.length, lastAt: complaints[0]?.createdAt ?? null },
     { key: "reviews" as const, label: "Yorumlar & Puanlar", count: reviews.length, lastAt: reviews[0]?.createdAt ?? null },
     { key: "activity" as const, label: "Aktivite Logu", count: activityRows.length, lastAt: activityRows[0]?.at ?? null },
     { key: "notes" as const, label: "Notlar & Etiketler", count: noteItems.length + tagItems.length, lastAt: noteItems[0]?.createdAt ?? null },
@@ -872,20 +883,22 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   <thead>
                     <tr>
                       <th>Tarih / Saat</th>
+                      <th>Sikayet</th>
                       <th>Siparis No</th>
-                      <th>Tutar</th>
-                      <th>Sebep</th>
+                      <th>Kategori</th>
+                      <th>Durum</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {cancellations.length === 0 ? (
-                      <tr><td colSpan={4}>Sikayet kaydi bulunamadi.</td></tr>
-                    ) : cancellations.map((item) => (
-                      <tr key={`${item.orderId}-${item.cancelledAt}`}>
-                        <td>{formatDateTime(item.cancelledAt)}</td>
+                    {complaints.length === 0 ? (
+                      <tr><td colSpan={5}>Sikayet kaydi bulunamadi.</td></tr>
+                    ) : complaints.map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatDateTime(item.createdAt)}</td>
+                        <td>{item.subject}</td>
                         <td className="buyer-order-no">{item.orderNo}</td>
-                        <td>{formatCurrency(item.totalAmount, "tr")}</td>
-                        <td>{item.reason ?? "-"}</td>
+                        <td>{item.categoryName ?? item.categoryCode ?? "-"}</td>
+                        <td>{item.status}</td>
                       </tr>
                     ))}
                   </tbody>
