@@ -591,6 +591,31 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (key === "urgent_action") return sellerRiskMeta(row).level === "high";
     return sellerComplaintTotal(row) > 0;
   };
+  const sortSellerRowsForSmartFilter = (rowsToSort: any[], key: SellerSmartFilterKey): any[] => {
+    const scopedRows = [...rowsToSort];
+    if (key === "top_revenue") {
+      return scopedRows.sort((a, b) => sellerRevenue(b) - sellerRevenue(a));
+    }
+    if (key === "top_selling_foods") {
+      return scopedRows.sort((a, b) => sellerOrderCurrent(b) - sellerOrderCurrent(a));
+    }
+    if (key === "urgent_action") {
+      return scopedRows.sort((a, b) => sellerRiskMeta(b).score - sellerRiskMeta(a).score);
+    }
+    if (key === "complainer_sellers") {
+      return scopedRows.sort((a, b) => sellerComplaintTotal(b) - sellerComplaintTotal(a));
+    }
+    if (key === "missing_documents") {
+      return scopedRows.sort((a, b) => sellerMissingDoc(b) - sellerMissingDoc(a));
+    }
+    if (key === "suspicious_logins") {
+      return scopedRows.sort((a, b) => sellerSuspiciousLogin(b) - sellerSuspiciousLogin(a));
+    }
+    if (key === "performance_drop") {
+      return scopedRows.sort((a, b) => (sellerOrderPrevious(b) - sellerOrderCurrent(b)) - (sellerOrderPrevious(a) - sellerOrderCurrent(a)));
+    }
+    return scopedRows;
+  };
   const sellerSmartFilterCounts = useMemo(
     () =>
       SELLER_SMART_FILTER_ITEMS.reduce(
@@ -665,9 +690,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       }
       if (activeSellerSmartFilter) {
         scopedRows = scopedRows.filter((row) => matchSellerSmartFilter(row, activeSellerSmartFilter));
-        if (activeSellerSmartFilter === "top_revenue") {
-          scopedRows = [...scopedRows].sort((a, b) => sellerRevenue(b) - sellerRevenue(a));
-        }
+        scopedRows = sortSellerRowsForSmartFilter(scopedRows, activeSellerSmartFilter);
       }
 
       const sellerQuery = searchInput.trim().toLocaleLowerCase("tr-TR");
