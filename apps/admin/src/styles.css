@@ -6251,6 +6251,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .seller-quick-access {
   position: relative;
   justify-self: end;
+  z-index: 40;
 }
 
 .seller-quick-access summary {
@@ -6302,7 +6303,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: color-mix(in srgb, #0f1a2e 94%, transparent);
   box-shadow: 0 12px 26px rgba(7, 12, 22, 0.45);
   overflow: hidden;
-  z-index: 5;
+  z-index: 60;
 }
 
 .seller-quick-access-menu a,
