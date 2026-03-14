@@ -23,7 +23,11 @@ export const QuickAccessMenu = forwardRef<HTMLDetailsElement, QuickAccessMenuPro
 
   return (
     <details className={detailsClassName} ref={ref}>
-      <summary aria-label={summaryLabel}>✆</summary>
+      <summary aria-label={summaryLabel}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6.6 3.8h3.1l1.3 4.2-1.9 1.9a14.2 14.2 0 0 0 5 5l1.9-1.9 4.2 1.3v3.1a1.8 1.8 0 0 1-1.8 1.8A15.6 15.6 0 0 1 4.8 5.6 1.8 1.8 0 0 1 6.6 3.8Z" />
+        </svg>
+      </summary>
       <div className="seller-quick-access-menu">
         {hasEmail ? (
           <a href={`mailto:${contactEmail}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>

@@ -166,7 +166,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const contactPhoneHrefValue = String(phone).replace(/[^\d+]/g, "");
   const contactHasPhone = contactPhoneHrefValue.length > 0 && phone.toLowerCase() !== "bilinmiyor";
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
-  const compactUserId = row?.id ? `${row.id.slice(0, 10)}...` : "-";
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = formatLoginRelativeDayMonth(detailLastLoginAtRaw, language);
@@ -351,14 +350,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     setEmailOpen(false);
   }
 
-  function copyBuyerId() {
-    if (!row?.id) return;
-    navigator.clipboard
-      .writeText(row.id)
-      .then(() => setMessage("Alici ID kopyalandi."))
-      .catch(() => setMessage("Kopyalama basarisiz."));
-  }
-
   function openAddressInMaps(address: string | null | undefined) {
     const value = String(address ?? "").trim();
     if (!value || value.toLowerCase() === "adres yok") {
@@ -507,12 +498,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
             <div className="buyer-ref-profile-head">
               <div className="buyer-ref-profile-title">
                 <h2 title={fullName}>{fullName}</h2>
-                <div className="buyer-ops-id-row">
-                  <span>ID {compactUserId}</span>
-                  <button type="button" className="ghost buyer-ops-mini-btn" onClick={copyBuyerId}>
-                    <span aria-hidden="true">◌</span>
-                  </button>
-                </div>
               </div>
               <QuickAccessMenu
                 language={language}

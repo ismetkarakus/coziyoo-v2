@@ -6264,19 +6264,32 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #062033;
-  font-weight: var(--font-bold);
-  font-size: 1rem;
-  background: linear-gradient(180deg, #84d1ff, #63b9eb);
-  box-shadow: 0 6px 16px rgba(76, 170, 232, 0.3);
+  color: color-mix(in srgb, #a9c7ff 92%, white);
+  background: transparent;
+  box-shadow: none;
 }
 
 .seller-quick-access summary::-webkit-details-marker {
   display: none;
 }
 
+.seller-quick-access summary svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.seller-quick-access summary:hover,
+.seller-quick-access summary:focus-visible {
+  color: color-mix(in srgb, #d4e3ff 96%, white);
+}
+
 .seller-quick-access[open] summary {
-  filter: brightness(1.04);
+  color: color-mix(in srgb, #d4e3ff 96%, white);
 }
 
 .seller-quick-access-menu {
