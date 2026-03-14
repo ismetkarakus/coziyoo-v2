@@ -4753,9 +4753,9 @@ textarea:focus {
   vertical-align: middle;
 }
 
-.buyer-v2-table-wrap thead th:not(:nth-child(3)),
-.buyer-v2-table-wrap tbody td:not(:nth-child(3)) {
-  text-align: center;
+.buyer-v2-table-wrap thead th,
+.buyer-v2-table-wrap tbody td {
+  text-align: left;
 }
 
 .buyer-v2-check-col {
@@ -4830,7 +4830,7 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap .buyer-complaint-cell {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .buyer-v2-table-wrap .buyer-complaint-cell strong {
@@ -4839,7 +4839,7 @@ textarea:focus {
 }
 
 .buyer-v2-table-wrap .buyer-complaint-summary {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .buyer-v2-table-wrap .complaint-open-chip {
@@ -4852,7 +4852,7 @@ textarea:focus {
 .buyer-spend-cell {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
   font-weight: var(--font-bold);
 }
