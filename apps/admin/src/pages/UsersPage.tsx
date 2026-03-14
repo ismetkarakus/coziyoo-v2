@@ -544,6 +544,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     String(row.latestComplaintDescription ?? row.latestComplaintSubject ?? row.latestComplaintCategoryName ?? "").trim();
   const buyerLatestComplaintSeller = (row: any): string =>
     String(row.latestComplaintSellerName ?? row.latestComplaintSellerEmail ?? row.latestComplaintSellerId ?? "").trim();
+  const buyerLatestComplaintId = (row: any): string => String(row.latestComplaintId ?? "").trim();
   const buyerSuspiciousReason = (row: any): string => {
     const reasons: string[] = [];
     const ipCount = Number(row.recentLoginIpCount24h ?? 0);
@@ -557,6 +558,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const buyerLatestComplaintCreatedAtMs = (row: any): number => {
     const parsed = Date.parse(String(row.latestComplaintCreatedAt ?? ""));
     return Number.isNaN(parsed) ? 0 : parsed;
+  };
+  const buyerLatestComplaintStatusLabel = (row: any): string => {
+    const value = String(row.latestComplaintStatus ?? "").trim().toLowerCase();
+    if (value === "open") return "Açık";
+    if (value === "in_review") return "İnceleniyor";
+    if (value === "resolved") return "Çözüldü";
+    if (value === "closed") return "Kapalı";
+    return Number(row.complaintUnresolved ?? 0) > 0 ? "Açık" : "Kapalı";
   };
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
@@ -1431,7 +1440,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             icon="◔"
             iconVariant="warn"
             colorVariant="orange"
-            label="Şikayetli Alıcı"
+            label="Açık Şikayetli Alıcı"
             value={new Intl.NumberFormat("tr-TR").format(buyersWithOpenComplaints)}
             className="seller-v2-kpi"
           >
@@ -1485,7 +1494,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 }}
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
-                <span className="buyer-v2-smart-item-label">Şikayetli</span>
+                <span className="buyer-v2-smart-item-label">En Çok Açık Şikayetli Alıcılar</span>
                 <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.open_complaint}</span>
               </button>
               <button
@@ -1629,11 +1638,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     </th>
                     <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                     <th>Alıcı</th>
-                    <th>{isComplainersView ? "Şikayet" : isOpenComplaintView ? "Şikayet Alan" : isSuspiciousLoginView ? "Şüphe" : isSameIpView ? "IP" : "Risk"}</th>
-                    <th>{isComplainersView ? "Sebep" : isOpenComplaintView ? "Sebep" : isSuspiciousLoginView ? "Neden" : isSameIpView ? "Son Giriş" : "Şikayet"}</th>
-                    <th>{isComplainersView ? "Şikayet Alan" : isOpenComplaintView ? "Açık Şikayet" : isSuspiciousLoginView ? "24s Giriş" : isSameIpView ? "24s Giriş" : "Sipariş (1 Ay)"}</th>
-                    <th>{isComplainersView ? "Oluşturma" : isOpenComplaintView ? "Durum" : isSuspiciousLoginView ? "IP Sayısı" : isSameIpView ? "Durum" : "Harcama (1 Ay)"}</th>
-                    <th>{isComplainersView ? "Şikayet Durumu" : isOpenComplaintView ? "Son Giriş" : isSuspiciousLoginView ? "Durum" : isSameIpView ? "Risk" : "Son Giris"}</th>
+                    <th>{isComplainersView || isOpenComplaintView ? "Toplam Şikayet" : isSuspiciousLoginView ? "Şüphe" : isSameIpView ? "IP" : "Risk"}</th>
+                    <th>{isComplainersView || isOpenComplaintView ? "Açık Şikayet" : isSuspiciousLoginView ? "Neden" : isSameIpView ? "Son Giriş" : "Şikayet"}</th>
+                    <th>{isComplainersView || isOpenComplaintView ? "Son Şikayet ID" : isSuspiciousLoginView ? "24s Giriş" : isSameIpView ? "24s Giriş" : "Sipariş (1 Ay)"}</th>
+                    <th>{isComplainersView || isOpenComplaintView ? "Son Şikayet Tarihi" : isSuspiciousLoginView ? "IP Sayısı" : isSameIpView ? "Durum" : "Harcama (1 Ay)"}</th>
+                    <th>{isComplainersView || isOpenComplaintView ? "Son Durum" : isSuspiciousLoginView ? "Durum" : isSameIpView ? "Risk" : "Son Giris"}</th>
                     <th>Durum</th>
                     <th />
                   </tr>
@@ -1670,8 +1679,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
-                    const shouldOpenComplaintDetail = (isComplainersView || isOpenComplaintView) && String(row.latestComplaintId ?? "").length > 0;
-                    const buyerRowTarget = shouldOpenComplaintDetail ? `/app/investigation/${row.latestComplaintId}` : `/app/buyers/${row.id}`;
+                    const buyerRowTarget = `/app/buyers/${row.id}`;
 
                     return (
                       <tr
@@ -1706,13 +1714,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </div>
                         </td>
                         <td>
-                          {isComplainersView ? (
+                          {isComplainersView || isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
-                              <strong>{buyerLatestComplaintSubject(row) || "-"}</strong>
-                            </div>
-                          ) : isOpenComplaintView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{buyerLatestComplaintSeller(row) || "-"}</strong>
+                              <strong>{totalComplaints}</strong>
                             </div>
                           ) : isSuspiciousLoginView ? (
                             <div className="buyer-complaint-cell">
@@ -1731,7 +1735,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         <td>
                           {isComplainersView || isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
-                              <strong title={buyerLatestComplaintReason(row) || "-"}>{buyerLatestComplaintReason(row) || "-"}</strong>
+                              <strong>{unresolved}</strong>
                             </div>
                           ) : isSuspiciousLoginView ? (
                             <div className="buyer-complaint-cell">
@@ -1749,14 +1753,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           )}
                         </td>
                         <td>
-                          {isComplainersView ? (
+                          {isComplainersView || isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
-                              <strong>{buyerLatestComplaintSeller(row) || "-"}</strong>
-                            </div>
-                          ) : isOpenComplaintView ? (
-                            <div className="buyer-complaint-cell">
-                              <strong>{unresolved}</strong>
-                              {totalComplaints > unresolved ? <span>{`/ ${totalComplaints} toplam`}</span> : null}
+                              <strong>{buyerLatestComplaintId(row) ? toDisplayId(buyerLatestComplaintId(row)) : "-"}</strong>
                             </div>
                           ) : isSuspiciousLoginView || isSameIpView ? (
                             <div className="buyer-complaint-cell">
@@ -1773,14 +1772,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           )}
                         </td>
                         <td>
-                          {isComplainersView ? (
+                          {isComplainersView || isOpenComplaintView ? (
                             <div className="buyer-login-cell">
                               <strong>{formatLoginRelativeDayMonth(String(row.latestComplaintCreatedAt ?? ""), language)}</strong>
                             </div>
-                          ) : isOpenComplaintView ? (
-                            <span className={`status-pill ${unresolved > 0 ? "is-warning" : "is-neutral"}`}>
-                              {unresolved > 0 ? "Açık" : "Kapalı"}
-                            </span>
                           ) : isSuspiciousLoginView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{Number(row.recentLoginIpCount24h ?? 0)}</strong>
@@ -1799,9 +1794,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td>
                           <div className="buyer-login-cell">
-                            {isComplainersView ? (
+                            {isComplainersView || isOpenComplaintView ? (
                               <span className={`status-pill ${unresolved > 0 ? "is-warning" : "is-neutral"}`}>
-                                {unresolved > 0 ? "Açık" : "Kapalı"}
+                                {buyerLatestComplaintStatusLabel(row)}
                               </span>
                             ) : isSuspiciousLoginView ? (
                               <span className={`status-pill ${risk.level === "high" ? "is-warning" : "is-neutral"}`}>
