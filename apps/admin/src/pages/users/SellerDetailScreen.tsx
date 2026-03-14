@@ -133,15 +133,24 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const spiceHints = useMemo(() => ([
     "karabiber", "pul biber", "kimyon", "nane", "kekik", "isot", "paprika", "sumak", "tarcin", "yenibahar", "zerdecal",
   ]), []);
-  const allergenHints = useMemo(() => ([
-    "gluten", "un", "sut", "peynir", "yogurt", "yumurta", "balik", "karides", "midye", "susam", "fistik", "findik", "ceviz", "badem", "soya", "laktoz",
-  ]), []);
-
   function splitFoodItems(value: string): string[] {
     return value
       .split(/[,;\n]/g)
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  function renderFoodMetaPills(items: string[], emptyLabel = "-") {
+    if (items.length === 0) {
+      return <span className="seller-food-inline-empty">{emptyLabel}</span>;
+    }
+    return (
+      <span className="seller-food-inline-pills">
+        {items.map((item) => (
+          <span key={item} className="seller-food-inline-pill">{item}</span>
+        ))}
+      </span>
+    );
   }
 
   async function loadSellerDetail() {
@@ -2133,7 +2142,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     const ingredientItems = splitFoodItems(ingredientsText);
                     const lowerIngredients = ingredientItems.map((item) => item.toLocaleLowerCase("tr-TR"));
                     const spices = ingredientItems.filter((item, index) => spiceHints.some((hint) => lowerIngredients[index].includes(hint)));
-                    const allergens = ingredientItems.filter((item, index) => allergenHints.some((hint) => lowerIngredients[index].includes(hint)));
+                    const allergens = Array.isArray(food.allergens) ? food.allergens.filter((item) => String(item ?? "").trim()) : [];
                     return (
                       <Fragment key={food.id}>
                         <tr
@@ -2173,15 +2182,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             <strong>{`${food.name} (${food.code || "-"})`}</strong>
                             <div className="panel-meta">
                               <strong className="seller-food-subheading">{language === "tr" ? "Malzemeler:" : "Ingredients:"}</strong>{" "}
-                              {ingredientItems.length > 0 ? ingredientItems.join(", ") : (language === "tr" ? "Belirtilmemiş" : "Not specified")}
+                              {renderFoodMetaPills(ingredientItems, language === "tr" ? "Belirtilmemiş" : "Not specified")}
                             </div>
                             <div className="panel-meta">
                               <strong className="seller-food-subheading">{language === "tr" ? "Baharatlar:" : "Spices:"}</strong>{" "}
-                              {spices.length > 0 ? spices.join(", ") : "-"}
+                              {renderFoodMetaPills(spices)}
                             </div>
                             <div className="panel-meta">
                               <strong className="seller-food-subheading">{language === "tr" ? "Alerjenler:" : "Allergens:"}</strong>{" "}
-                              {allergens.length > 0 ? allergens.join(", ") : "-"}
+                              {renderFoodMetaPills(allergens)}
                             </div>
                           </td>
                           <td>
@@ -2244,7 +2253,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                           const diff = computeFoodLotDiff({
                                             foodRecipe: food.recipe,
                                             foodIngredients: food.ingredients,
-                                            foodAllergens: undefined,
+                                            foodAllergens: food.allergens,
                                             lot,
                                           });
                                           return (

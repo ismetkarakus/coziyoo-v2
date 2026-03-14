@@ -6823,6 +6823,30 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   line-height: 1.35;
 }
 
+.seller-food-inline-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.seller-food-inline-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #86a9d8 30%, var(--color-border));
+  background: color-mix(in srgb, #183154 24%, var(--color-card-bg));
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+}
+
+.seller-food-inline-empty {
+  color: var(--color-secondary-text);
+}
+
 .seller-food-meta {
   display: flex;
   align-items: center;

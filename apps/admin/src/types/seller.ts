@@ -20,6 +20,7 @@ export type SellerFoodRow = {
   description: string | null;
   recipe: string | null;
   ingredients: string | null;
+  allergens: string[];
   price: number;
   imageUrl: string | null;
   status: "active" | "disabled";

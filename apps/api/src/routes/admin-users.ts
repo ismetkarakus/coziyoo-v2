@@ -494,7 +494,7 @@ async function getBuyerRiskSnapshot(userId: string) {
   };
 }
 
-function ingredientsTextFromJson(value: unknown): string | null {
+function textItemsFromJson(value: unknown): string[] {
   const acc: string[] = [];
 
   const pushIf = (raw: unknown) => {
@@ -529,7 +529,11 @@ function ingredientsTextFromJson(value: unknown): string | null {
   };
 
   walk(value);
-  const unique = Array.from(new Set(acc.map((item) => item.trim()).filter(Boolean)));
+  return Array.from(new Set(acc.map((item) => item.trim()).filter(Boolean)));
+}
+
+function ingredientsTextFromJson(value: unknown): string | null {
+  const unique = textItemsFromJson(value);
   return unique.length > 0 ? unique.join(", ") : null;
 }
 
@@ -2345,6 +2349,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     description: string | null;
     recipe: string | null;
     ingredients_json: unknown;
+    allergens_json: unknown;
     price: string;
     image_url: string | null;
     is_active: boolean;
@@ -2358,6 +2363,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
        description,
        recipe,
        ingredients_json,
+       allergens_json,
        price::text,
        image_url,
        is_active,
@@ -2380,6 +2386,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       description: row.description,
       recipe: row.recipe,
       ingredients: ingredientsTextFromJson(row.ingredients_json),
+      allergens: textItemsFromJson(row.allergens_json),
       price: Number(row.price),
       imageUrl: row.image_url,
       status: row.is_active ? "active" : "disabled",
