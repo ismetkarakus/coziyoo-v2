@@ -93,6 +93,9 @@ const UpdateAdminUserRoleSchema = z.object({
 const UuidParamSchema = z.object({
   id: z.string().uuid(),
 });
+
+const COMPLAINANT_TYPE_SQL = "COALESCE(to_jsonb(c) ->> 'complainant_type', 'buyer')";
+
 const UserAddressParamsSchema = z.object({
   id: z.string().uuid(),
   addressId: z.string().uuid(),
@@ -355,7 +358,7 @@ function buyerSmartFilterConditionSql(filter: BuyerSmartFilter): string {
   return `EXISTS (
     SELECT 1
     FROM complaints c
-    WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer'
+    WHERE ${COMPLAINANT_TYPE_SQL} = 'buyer'
       AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id
   )`;
 }
@@ -437,7 +440,7 @@ async function getBuyerRiskSnapshot(userId: string) {
     pool.query<{ open_count: string }>(
       `SELECT count(*)::text AS open_count
        FROM complaints
-       WHERE COALESCE(complainant_type, 'buyer') = 'buyer'
+       WHERE COALESCE(to_jsonb(complaints) ->> 'complainant_type', 'buyer') = 'buyer'
          AND COALESCE(complainant_user_id, complainant_buyer_id) = $1
          AND status IN ('open', 'in_review')`,
       [userId]
@@ -654,7 +657,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   }
   if (complainantType && complainantUserId) {
     params.push(complainantType, complainantUserId);
-    where.push(`c.complainant_type = $${params.length - 1} AND c.complainant_user_id = $${params.length}`);
+    where.push(`COALESCE(to_jsonb(c) ->> 'complainant_type', 'buyer') = $${params.length - 1} AND c.complainant_user_id = $${params.length}`);
   }
   if (sellerId) {
     params.push(sellerId);
@@ -710,7 +713,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     `SELECT
        c.id::text,
        c.order_id::text,
-       COALESCE(c.complainant_type, 'buyer') AS complainant_type,
+       ${COMPLAINANT_TYPE_SQL} AS complainant_type,
        COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
        COALESCE(NULLIF(actor.display_name, ''), NULLIF(actor.full_name, ''), NULLIF(actor.email, ''), COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text)) AS complainant_name,
        c.subject,
@@ -824,21 +827,21 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
     `SELECT
        c.id::text,
        c.order_id::text,
-       COALESCE(c.complainant_type, 'buyer') AS complainant_type,
+       ${COMPLAINANT_TYPE_SQL} AS complainant_type,
        COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
        actor.display_name AS complainant_name,
        actor.email AS complainant_email,
-       CASE WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN 'buyer' ELSE 'seller' END AS complained_against_type,
+       CASE WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN 'buyer' ELSE 'seller' END AS complained_against_type,
        CASE
-         WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN o.buyer_id::text
+         WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN o.buyer_id::text
          ELSE o.seller_id::text
        END AS complained_against_user_id,
        CASE
-         WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN buyer_target.display_name
+         WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN buyer_target.display_name
          ELSE seller_target.display_name
        END AS complained_against_name,
        CASE
-         WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN buyer_target.email
+         WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN buyer_target.email
          ELSE seller_target.email
        END AS complained_against_email,
        c.subject,
@@ -1536,7 +1539,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
          c.subject,
          c.status,
          c.order_id::text,
-         COALESCE(c.complainant_type, 'buyer') AS complainant_type,
+         ${COMPLAINANT_TYPE_SQL} AS complainant_type,
          COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_id,
          actor.display_name AS complainant_name,
          actor.email AS complainant_email,
@@ -1707,7 +1710,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
   const latestComplaintWhereSql =
     input.audience === "seller"
       ? "o.seller_id = u.id"
-      : "COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id AND COALESCE(c.complainant_type, 'buyer') = 'buyer'";
+      : `COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id AND ${COMPLAINANT_TYPE_SQL} = 'buyer'`;
 
   const total = await pool.query<{ count: string }>(
     `SELECT count(*)::text AS count FROM users u ${whereSql}`,
@@ -1817,7 +1820,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
          count(*) FILTER (WHERE c.status IN ('resolved', 'closed'))::int AS complaint_resolved,
          count(*) FILTER (WHERE c.status IN ('open', 'in_review'))::int AS complaint_unresolved
        FROM complaints c
-       WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer'
+       WHERE ${COMPLAINANT_TYPE_SQL} = 'buyer'
          AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id
      ) complaint_made_stats ON TRUE
      LEFT JOIN LATERAL (
@@ -2568,8 +2571,8 @@ adminUserManagementRouter.get("/buyers/:id", requireAuth("admin"), async (req, r
       `SELECT
          (SELECT count(*)::text FROM orders o WHERE o.buyer_id = $1) AS total_orders,
          (SELECT COALESCE(sum(o.total_price), 0)::text FROM orders o WHERE o.buyer_id = $1 AND o.payment_completed = TRUE) AS total_spent,
-         (SELECT count(*)::text FROM complaints c WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer' AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1) AS complaint_total,
-         (SELECT count(*)::text FROM complaints c WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer' AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1 AND c.status IN ('open', 'in_review')) AS complaint_unresolved`,
+         (SELECT count(*)::text FROM complaints c WHERE ${COMPLAINANT_TYPE_SQL} = 'buyer' AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1) AS complaint_total,
+         (SELECT count(*)::text FROM complaints c WHERE ${COMPLAINANT_TYPE_SQL} = 'buyer' AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1 AND c.status IN ('open', 'in_review')) AS complaint_unresolved`,
       [params.data.id]
     ),
     pool.query<{
@@ -3445,7 +3448,7 @@ adminUserManagementRouter.get("/users/:id/buyer-summary", requireAuth("admin"), 
        count(*) FILTER (WHERE status IN ('resolved', 'closed'))::text AS resolved_complaints,
        count(*) FILTER (WHERE status IN ('open', 'in_review'))::text AS unresolved_complaints
      FROM complaints
-     WHERE COALESCE(complainant_type, 'buyer') = 'buyer'
+     WHERE COALESCE(to_jsonb(complaints) ->> 'complainant_type', 'buyer') = 'buyer'
        AND COALESCE(complainant_user_id, complainant_buyer_id) = $1`,
     [params.data.id]
   );
