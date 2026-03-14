@@ -597,9 +597,18 @@ class N8nLLMStream(llm.LLMStream):
                 )
             )
             return
+        except APIStatusError as exc:
+            n8n_request_logger.error(
+                "N8N response path=webhook http_error=%s — not falling back to execution API",
+                exc,
+            )
+            raise
         except Exception as exc:
             webhook_error = exc
-            n8n_request_logger.warning("N8N response path=webhook error=%s", exc)
+            n8n_request_logger.error(
+                "N8N response path=webhook error=%s — falling back to execution API (last resort, unreliable for per-turn flow)",
+                exc,
+            )
 
         try:
             answer = await self._run_execution_api(session=session, payload=payload)
@@ -650,9 +659,19 @@ class N8nLLMStream(llm.LLMStream):
             if not answer:
                 answer = _deep_find_answer(parsed)
             if not answer:
+                n8n_request_logger.error(
+                    "N8N webhook returned 200 but no answer text found. "
+                    "Check that the n8n workflow has a 'Respond to Webhook' node that returns {replyText}. "
+                    "Raw response (first 500 chars): %s",
+                    str(parsed)[:500],
+                )
                 raise APIConnectionError("n8n webhook returned empty answer", retryable=False)
             return answer
 
+    # ── Execution API fallback (last resort) ─────────────────────────────────────
+    # This path is single-poll with a fixed 600ms sleep. It requires N8N_API_KEY
+    # and is not reliable for per-turn latency. Use only when webhook path is
+    # unavailable at the network level.
     async def _run_execution_api(self, *, session: aiohttp.ClientSession, payload: dict[str, Any]) -> str:
         create_url = f"{self._base_url}/api/v1/executions"
         create_payload = {
