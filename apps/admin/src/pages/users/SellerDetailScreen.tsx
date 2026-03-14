@@ -510,6 +510,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       return haystack.includes(query);
     });
   }, [sellerOrders, ordersStatusFilter, ordersPaymentFilter, ordersSearch, language]);
+  const hasExpandedFood = useMemo(() => Object.values(expandedFoodIds).some(Boolean), [expandedFoodIds]);
 
   const filteredSellerEarnings = useMemo(() => {
     const now = Date.now();
@@ -2066,6 +2067,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           data-food-row-id={food.id}
                           className={[
                             "foods-main-row",
+                            foodExpanded ? "is-expanded" : "",
+                            hasExpandedFood && !foodExpanded ? "is-background-muted" : "",
                             flashFoodId === food.id ? "search-focus-flash" : "",
                             pinnedFoodId === food.id ? "search-focus-pinned" : "",
                           ].filter(Boolean).join(" ") || undefined}
@@ -2113,76 +2116,78 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         {foodExpanded ? (
                           <tr className="foods-lots-expanded-row">
                             <td colSpan={6}>
-                              <div className="seller-food-codes-card">
-                                <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
-                                <div className="seller-food-codes-list">
-                                  <span className="seller-food-code-chip is-id">{`ID: ${food.id}`}</span>
-                                  <span className="seller-food-code-chip is-food">{`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}</span>
-                                  {foodLots.map((lot) => (
-                                    <span key={`code-${food.id}-${lot.id}`} className="seller-food-code-chip is-lot">{`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}</span>
-                                  ))}
+                              <div className="seller-food-detail-sheet">
+                                <div className="seller-food-codes-card">
+                                  <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
+                                  <div className="seller-food-codes-list">
+                                    <span className="seller-food-code-chip is-id">{`ID: ${food.id}`}</span>
+                                    <span className="seller-food-code-chip is-food">{`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}</span>
+                                    {foodLots.map((lot) => (
+                                      <span key={`code-${food.id}-${lot.id}`} className="seller-food-code-chip is-lot">{`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}</span>
+                                    ))}
+                                  </div>
                                 </div>
+                                {lotsLoading ? (
+                                  <p className="panel-meta">{dict.common.loading}</p>
+                                ) : foodLots.length === 0 ? (
+                                  <p className="panel-meta">{dict.detail.noLotsForFood}</p>
+                                ) : (
+                                  <div className="seller-food-lots-table-wrap">
+                                    <table className="seller-food-lots-table">
+                                      <thead>
+                                        <tr>
+                                          <th>{dict.detail.lotLifecycle}</th>
+                                          <th>{dict.detail.lotQuantity}</th>
+                                          <th>{dict.detail.lotProducedAt}</th>
+                                          <th>{dict.detail.lotSaleWindow}</th>
+                                          <th>{dict.detail.lotSnapshot}</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {foodLots.map((lot) => {
+                                          const diff = computeFoodLotDiff({
+                                            foodRecipe: food.recipe,
+                                            foodIngredients: food.ingredients,
+                                            foodAllergens: undefined,
+                                            lot,
+                                          });
+                                          return (
+                                            <Fragment key={lot.id}>
+                                              <tr
+                                                data-lot-row-id={lot.id}
+                                                className={[
+                                                  flashLotId === lot.id ? "search-focus-flash" : "",
+                                                  pinnedLotId === lot.id ? "search-focus-pinned" : "",
+                                                ].filter(Boolean).join(" ") || undefined}
+                                              >
+                                                <td>
+                                                  <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
+                                                    {lotLifecycleLabel(lot.lifecycle_status, language)}
+                                                  </span>
+                                                </td>
+                                                <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
+                                                <td>{formatUiDate(lot.produced_at, language)}</td>
+                                                <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                                                <td>
+                                                  <div className="lot-diff-badges">
+                                                    {diff.hasMissingSnapshot ? <span className="status-pill is-danger">{dict.detail.lotSnapshotMissing}</span> : null}
+                                                    {diff.recipeChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span> : null}
+                                                    {diff.ingredientsChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span> : null}
+                                                    {diff.allergensChanged ? <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span> : null}
+                                                    {!diff.hasMissingSnapshot && !diff.recipeChanged && !diff.ingredientsChanged && !diff.allergensChanged ? (
+                                                      <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
+                                                    ) : null}
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            </Fragment>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
                               </div>
-                              {lotsLoading ? (
-                                <p className="panel-meta">{dict.common.loading}</p>
-                              ) : foodLots.length === 0 ? (
-                                <p className="panel-meta">{dict.detail.noLotsForFood}</p>
-                              ) : (
-                                <div className="seller-food-lots-table-wrap">
-                                  <table className="seller-food-lots-table">
-                                    <thead>
-                                      <tr>
-                                        <th>{dict.detail.lotLifecycle}</th>
-                                        <th>{dict.detail.lotQuantity}</th>
-                                        <th>{dict.detail.lotProducedAt}</th>
-                                        <th>{dict.detail.lotSaleWindow}</th>
-                                        <th>{dict.detail.lotSnapshot}</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {foodLots.map((lot) => {
-                                        const diff = computeFoodLotDiff({
-                                          foodRecipe: food.recipe,
-                                          foodIngredients: food.ingredients,
-                                          foodAllergens: undefined,
-                                          lot,
-                                        });
-                                        return (
-                                          <Fragment key={lot.id}>
-                                            <tr
-                                              data-lot-row-id={lot.id}
-                                              className={[
-                                                flashLotId === lot.id ? "search-focus-flash" : "",
-                                                pinnedLotId === lot.id ? "search-focus-pinned" : "",
-                                              ].filter(Boolean).join(" ") || undefined}
-                                            >
-                                              <td>
-                                                <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
-                                                  {lotLifecycleLabel(lot.lifecycle_status, language)}
-                                                </span>
-                                              </td>
-                                              <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                                              <td>{formatUiDate(lot.produced_at, language)}</td>
-                                              <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                                              <td>
-                                                <div className="lot-diff-badges">
-                                                  {diff.hasMissingSnapshot ? <span className="status-pill is-danger">{dict.detail.lotSnapshotMissing}</span> : null}
-                                                  {diff.recipeChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span> : null}
-                                                  {diff.ingredientsChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span> : null}
-                                                  {diff.allergensChanged ? <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span> : null}
-                                                  {!diff.hasMissingSnapshot && !diff.recipeChanged && !diff.ingredientsChanged && !diff.allergensChanged ? (
-                                                    <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
-                                                  ) : null}
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          </Fragment>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
                             </td>
                           </tr>
                         ) : null}
