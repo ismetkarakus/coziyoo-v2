@@ -119,7 +119,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
   const [expandedFoodIds, setExpandedFoodIds] = useState<Record<string, boolean>>({});
-  const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string }>>([]);
+  const [noteItems, setNoteItems] = useState<Array<{ id: string; note: string; createdAt: string; createdByUsername?: string | null }>>([]);
   const [tagItems, setTagItems] = useState<string[]>([]);
   const [lotsLoading, setLotsLoading] = useState(false);
   const [lotsError, setLotsError] = useState<string | null>(null);
@@ -210,7 +210,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       }
 
       if (notesResponse.status === 200) {
-        const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string }> }>(notesResponse);
+        const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string; createdByUsername?: string | null }> }>(notesResponse);
         setNoteItems(Array.isArray(body.data) ? body.data : []);
       } else {
         setNoteItems([]);
@@ -1165,9 +1165,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         body: JSON.stringify({ note: text }),
       });
       if (response.status >= 200 && response.status < 300) {
-        const body = await parseJson<{ data?: { id: string; note: string; createdAt: string } } & ApiError>(response);
+        const body = await parseJson<{ data?: { id: string; note: string; createdAt: string; createdByUsername?: string | null } } & ApiError>(response);
         if (body.data?.id) {
-          setNoteItems((prev) => [body.data as { id: string; note: string; createdAt: string }, ...prev]);
+          setNoteItems((prev) => [body.data as { id: string; note: string; createdAt: string; createdByUsername?: string | null }, ...prev]);
         } else {
           await loadSellerDetail();
         }
@@ -1233,9 +1233,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         body: JSON.stringify({ note: newText }),
       });
       if (response.status === 200) {
-        const body = await parseJson<{ data?: { id: string; note: string; createdAt: string } } & ApiError>(response);
+        const body = await parseJson<{ data?: { id: string; note: string; createdAt: string; createdByUsername?: string | null } } & ApiError>(response);
         if (body.data?.id) {
-          setNoteItems((prev) => prev.map((item) => (item.id === noteId ? (body.data as { id: string; note: string; createdAt: string }) : item)));
+          setNoteItems((prev) => prev.map((item) => (item.id === noteId ? (body.data as { id: string; note: string; createdAt: string; createdByUsername?: string | null }) : item)));
         }
         return;
       }

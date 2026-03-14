@@ -2707,11 +2707,19 @@ adminUserManagementRouter.get("/buyers/:id/notes", requireAuth("admin"), async (
     admin_id: string;
     note: string;
     created_at: string;
+    created_by_username: string | null;
   }>(
-    `SELECT id, buyer_id, admin_id, note, created_at::text
-     FROM buyer_notes
-     WHERE buyer_id = $1
-     ORDER BY created_at DESC
+    `SELECT
+       n.id,
+       n.buyer_id,
+       n.admin_id,
+       n.note,
+       n.created_at::text,
+       split_part(a.email, '@', 1) AS created_by_username
+     FROM buyer_notes n
+     LEFT JOIN admin_users a ON a.id = n.admin_id
+     WHERE n.buyer_id = $1
+     ORDER BY n.created_at DESC
      LIMIT $2`,
     [params.data.id, query.data.limit]
   );
@@ -2723,6 +2731,7 @@ adminUserManagementRouter.get("/buyers/:id/notes", requireAuth("admin"), async (
       adminId: row.admin_id,
       note: row.note,
       createdAt: row.created_at,
+      createdByUsername: row.created_by_username,
     })),
   });
 });
@@ -2746,10 +2755,15 @@ adminUserManagementRouter.post("/buyers/:id/notes", requireAuth("admin"), async 
     id: string;
     note: string;
     created_at: string;
+    created_by_username: string | null;
   }>(
     `INSERT INTO buyer_notes (buyer_id, admin_id, note)
      VALUES ($1, $2, $3)
-     RETURNING id, note, created_at::text`,
+     RETURNING
+       id,
+       note,
+       created_at::text,
+       (SELECT split_part(email, '@', 1) FROM admin_users WHERE id = admin_id) AS created_by_username`,
     [params.data.id, req.auth!.userId, parsed.data.note.trim()]
   );
 
@@ -2758,6 +2772,7 @@ adminUserManagementRouter.post("/buyers/:id/notes", requireAuth("admin"), async 
       id: inserted.rows[0]?.id,
       note: inserted.rows[0]?.note,
       createdAt: inserted.rows[0]?.created_at,
+      createdByUsername: inserted.rows[0]?.created_by_username ?? null,
     },
   });
 });
@@ -2777,11 +2792,15 @@ adminUserManagementRouter.patch("/buyers/:id/notes/:noteId", requireAuth("admin"
     return res.status(buyer.status).json({ error: { code: buyer.code, message: buyer.message } });
   }
 
-  const updated = await pool.query<{ id: string; note: string; created_at: string }>(
+  const updated = await pool.query<{ id: string; note: string; created_at: string; created_by_username: string | null }>(
     `UPDATE buyer_notes
      SET note = $3
      WHERE buyer_id = $1 AND id = $2
-     RETURNING id, note, created_at::text`,
+     RETURNING
+       id,
+       note,
+       created_at::text,
+       (SELECT split_part(email, '@', 1) FROM admin_users WHERE id = admin_id) AS created_by_username`,
     [params.data.id, params.data.noteId, parsed.data.note.trim()]
   );
 
@@ -2794,6 +2813,7 @@ adminUserManagementRouter.patch("/buyers/:id/notes/:noteId", requireAuth("admin"
       id: updated.rows[0]?.id,
       note: updated.rows[0]?.note,
       createdAt: updated.rows[0]?.created_at,
+      createdByUsername: updated.rows[0]?.created_by_username ?? null,
     },
   });
 });
@@ -2958,11 +2978,19 @@ adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async 
     admin_id: string;
     note: string;
     created_at: string;
+    created_by_username: string | null;
   }>(
-    `SELECT id, seller_id, admin_id, note, created_at::text
-     FROM seller_notes
-     WHERE seller_id = $1
-     ORDER BY created_at DESC
+    `SELECT
+       n.id,
+       n.seller_id,
+       n.admin_id,
+       n.note,
+       n.created_at::text,
+       split_part(a.email, '@', 1) AS created_by_username
+     FROM seller_notes n
+     LEFT JOIN admin_users a ON a.id = n.admin_id
+     WHERE n.seller_id = $1
+     ORDER BY n.created_at DESC
      LIMIT $2`,
     [params.data.id, query.data.limit]
   );
@@ -2974,6 +3002,7 @@ adminUserManagementRouter.get("/sellers/:id/notes", requireAuth("admin"), async 
       adminId: row.admin_id,
       note: row.note,
       createdAt: row.created_at,
+      createdByUsername: row.created_by_username,
     })),
   });
 });
@@ -2997,10 +3026,15 @@ adminUserManagementRouter.post("/sellers/:id/notes", requireAuth("admin"), async
     id: string;
     note: string;
     created_at: string;
+    created_by_username: string | null;
   }>(
     `INSERT INTO seller_notes (seller_id, admin_id, note)
      VALUES ($1, $2, $3)
-     RETURNING id, note, created_at::text`,
+     RETURNING
+       id,
+       note,
+       created_at::text,
+       (SELECT split_part(email, '@', 1) FROM admin_users WHERE id = admin_id) AS created_by_username`,
     [params.data.id, req.auth!.userId, parsed.data.note.trim()]
   );
 
@@ -3009,6 +3043,7 @@ adminUserManagementRouter.post("/sellers/:id/notes", requireAuth("admin"), async
       id: inserted.rows[0]?.id,
       note: inserted.rows[0]?.note,
       createdAt: inserted.rows[0]?.created_at,
+      createdByUsername: inserted.rows[0]?.created_by_username ?? null,
     },
   });
 });
@@ -3028,11 +3063,15 @@ adminUserManagementRouter.patch("/sellers/:id/notes/:noteId", requireAuth("admin
     return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
   }
 
-  const updated = await pool.query<{ id: string; note: string; created_at: string }>(
+  const updated = await pool.query<{ id: string; note: string; created_at: string; created_by_username: string | null }>(
     `UPDATE seller_notes
      SET note = $3
      WHERE seller_id = $1 AND id = $2
-     RETURNING id, note, created_at::text`,
+     RETURNING
+       id,
+       note,
+       created_at::text,
+       (SELECT split_part(email, '@', 1) FROM admin_users WHERE id = admin_id) AS created_by_username`,
     [params.data.id, params.data.noteId, parsed.data.note.trim()]
   );
 
@@ -3045,6 +3084,7 @@ adminUserManagementRouter.patch("/sellers/:id/notes/:noteId", requireAuth("admin
       id: updated.rows[0]?.id,
       note: updated.rows[0]?.note,
       createdAt: updated.rows[0]?.created_at,
+      createdByUsername: updated.rows[0]?.created_by_username ?? null,
     },
   });
 });

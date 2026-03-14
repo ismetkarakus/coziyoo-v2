@@ -14,6 +14,7 @@ type BuyerNoteItem = {
   id: string;
   note: string;
   createdAt: string;
+  createdByUsername?: string | null;
 };
 
 function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionary; language: Language }) {
@@ -133,7 +134,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       }
 
       if (notesResponse.status === 200) {
-        const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string }> }>(notesResponse);
+        const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string; createdByUsername?: string | null }> }>(notesResponse);
         setNoteItems(body.data);
       } else {
         setNoteItems([]);

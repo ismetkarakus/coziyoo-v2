@@ -4141,10 +4141,14 @@ textarea:focus {
 
 .seller-notes-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   padding: 0;
   align-items: start;
+}
+
+.seller-notes-layout--single {
+  grid-template-columns: 1fr;
 }
 
 .seller-notes-col {
@@ -4161,11 +4165,71 @@ textarea:focus {
   color: #e6ebf7;
 }
 
+.seller-notes-tags-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  position: relative;
+}
+
+.seller-notes-tag-label {
+  flex: 0 0 auto;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: #d7e0f2;
+}
+
+.seller-notes-plus-btn {
+  min-height: 32px !important;
+  min-width: 32px !important;
+  width: 32px;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(117, 180, 255, 0.8) !important;
+  background: linear-gradient(180deg, #2f90ff, #1671d8) !important;
+  color: #eef6ff !important;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.seller-notes-tag-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 180px;
+  z-index: 12;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(116, 155, 223, 0.45);
+  background: linear-gradient(180deg, rgba(21, 31, 50, 0.98), rgba(15, 24, 41, 0.98));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+.seller-notes-tag-popover input {
+  min-height: 32px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(115, 166, 236, 0.8);
+  background: linear-gradient(180deg, rgba(14, 23, 45, 0.92), rgba(11, 20, 40, 0.92));
+  color: #e8eefb;
+  padding: 0 10px;
+}
+
 .seller-notes-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+}
+
+.seller-notes-input-row--compact input {
+  min-height: 34px;
+}
+
+.seller-notes-input-row--compact .seller-notes-add-btn {
+  min-height: 34px !important;
+  padding: 0 14px !important;
 }
 
 .seller-notes-input-row input {
@@ -4213,17 +4277,28 @@ textarea:focus {
 
 .seller-note-item-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   align-items: center;
   gap: 8px;
 }
 
 .seller-note-item-meta {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
   color: #aeb9cf;
   font-size: var(--text-sm);
+}
+
+.seller-note-item-meta--todo {
+  align-items: flex-end;
+}
+
+.seller-note-item-author {
+  color: #d2dbeb;
+  font-size: 0.78rem;
+  font-weight: var(--font-semibold);
 }
 
 .seller-note-inline-edit {
@@ -4238,8 +4313,10 @@ textarea:focus {
 }
 
 .seller-tag-list {
-  min-height: 34px;
+  min-height: 32px;
+  flex: 1;
   align-content: flex-start;
+  margin-right: 4px;
 }
 
 .seller-notes-panel .buyer-ops-tag {
@@ -4398,6 +4475,17 @@ textarea:focus {
 }
 
 :root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-input-row input {
+  border-color: color-mix(in srgb, #8fa8dc 34%, var(--ops-border-default));
+  background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
+  color: #1b2b4a;
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-tag-popover {
+  border-color: color-mix(in srgb, #8ea7db 34%, var(--ops-border-default));
+  background: linear-gradient(180deg, rgba(247, 251, 255, 0.98), rgba(238, 246, 255, 0.95));
+}
+
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-notes-tag-popover input {
   border-color: color-mix(in srgb, #8fa8dc 34%, var(--ops-border-default));
   background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
   color: #1b2b4a;

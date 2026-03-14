@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatNoteStamp } from "../lib/format";
 import type { Language } from "../types/core";
 
-type NoteItem = { id: string; note: string; createdAt: string };
+type NoteItem = { id: string; note: string; createdAt: string; createdByUsername?: string | null };
 
 type NotesPanelProps = {
   noteItems: NoteItem[];
@@ -29,28 +29,44 @@ export function NotesPanel({
 }: NotesPanelProps) {
   const tr = language === "tr";
   const [noteInput, setNoteInput] = useState("");
-  const [tagInput, setTagInput] = useState("");
+  const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
+  const [tagPopoverInput, setTagPopoverInput] = useState("");
   const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const tagPopoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
       const target = event.target as Node | null;
-      if (!target || !listRef.current) return;
-      if (openNoteMenuId && !listRef.current.contains(target)) {
+      if (!target) return;
+      if (openNoteMenuId && listRef.current && !listRef.current.contains(target)) {
         if (editingNoteId) {
           void saveNote(editingNoteId);
         } else {
           setOpenNoteMenuId(null);
         }
       }
+      if (tagPopoverOpen && tagPopoverRef.current && !tagPopoverRef.current.contains(target)) {
+        setTagPopoverOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [openNoteMenuId, editingNoteId]);
+  }, [openNoteMenuId, editingNoteId, tagPopoverOpen]);
+
+  useEffect(() => {
+    if (!tagPopoverOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setTagPopoverOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [tagPopoverOpen]);
 
   function openNoteCard(noteId: string) {
     if (editingNoteId && editingNoteId !== noteId) {
@@ -68,10 +84,11 @@ export function NotesPanel({
   }
 
   async function handleAddTag() {
-    const trimmed = tagInput.trim();
+    const trimmed = tagPopoverInput.trim();
     if (!trimmed) return;
     await onAddTag(trimmed);
-    setTagInput("");
+    setTagPopoverInput("");
+    setTagPopoverOpen(false);
   }
 
   async function saveNote(noteId: string) {
@@ -113,10 +130,57 @@ export function NotesPanel({
           {`${noteItems.length} ${tr ? "Not" : "Notes"} | ${tagItems.length} ${tr ? "Etiket" : "Tags"}`}
         </span>
       </div>
-      <div className="seller-notes-layout">
-        <div className="seller-notes-col">
+      <div className="seller-notes-layout seller-notes-layout--single">
+        <div className="seller-notes-col seller-notes-col--tags">
+          <div className="seller-notes-tags-head" ref={tagPopoverRef}>
+            <span className="seller-notes-tag-label">{tr ? "Etiket" : "Tag"}</span>
+            <div className="buyer-ops-tag-list seller-tag-list">
+              {tagItems.map((tag) => (
+                <span key={tag} className="buyer-ops-tag">
+                  <span>{tag}</span>
+                  <button
+                    className="buyer-ops-tag-remove"
+                    type="button"
+                    onClick={() => void onDeleteTag(tag)}
+                    aria-label={`${tr ? "Sil" : "Delete"} ${tag}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <button
+              className="ghost seller-notes-plus-btn"
+              type="button"
+              onClick={() => setTagPopoverOpen((prev) => !prev)}
+              aria-label={tr ? "Etiket ekle" : "Add tag"}
+            >
+              +
+            </button>
+            {tagPopoverOpen ? (
+              <div className="seller-notes-tag-popover">
+                <input
+                  autoFocus
+                  value={tagPopoverInput}
+                  onChange={(event) => setTagPopoverInput(event.target.value)}
+                  placeholder={tr ? "Etiket gir..." : "Enter tag..."}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    void handleAddTag();
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+          {tagItems.length === 0 ? (
+            <p className="panel-meta">{tr ? "Henüz etiket eklenmemiş." : "No tags yet."}</p>
+          ) : null}
+        </div>
+
+        <div className="seller-notes-col seller-notes-col--notes">
           <p className="seller-notes-col-title">{tr ? "Notlar" : "Notes"}</p>
-          <div className="seller-notes-input-row">
+          <div className="seller-notes-input-row seller-notes-input-row--compact">
             <input
               value={noteInput}
               onChange={(event) => setNoteInput(event.target.value)}
@@ -128,7 +192,7 @@ export function NotesPanel({
               }}
             />
             <button className="ghost seller-notes-add-btn" type="button" onClick={() => void handleAddNote()}>
-              {tr ? "Not Ekle" : "Add Note"}
+              {tr ? "Kaydet" : "Save"}
             </button>
           </div>
           <div className="buyer-ref-note-list seller-note-list" ref={listRef}>
@@ -173,10 +237,11 @@ export function NotesPanel({
                       />
                     </div>
                   ) : (
-                    <div className="seller-note-item-row">
+                    <div className="seller-note-item-row seller-note-item-row--todo">
                       <p>{note.note}</p>
-                      <div className="seller-note-item-meta">
+                      <div className="seller-note-item-meta seller-note-item-meta--todo">
                         <span>{formatNoteStamp(note.createdAt, language)}</span>
+                        <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
                         <button
                           className="ghost seller-note-inline-edit"
                           type="button"
@@ -206,43 +271,6 @@ export function NotesPanel({
               ))
             )}
           </div>
-        </div>
-
-        <div className="seller-notes-col">
-          <p className="seller-notes-col-title">{tr ? "Etiketler" : "Tags"}</p>
-          <div className="seller-notes-input-row">
-            <input
-              value={tagInput}
-              onChange={(event) => setTagInput(event.target.value)}
-              placeholder={tr ? "Etiket yaz..." : "Type tag..."}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                void handleAddTag();
-              }}
-            />
-            <button className="ghost seller-notes-add-btn is-tag" type="button" onClick={() => void handleAddTag()}>
-              {tr ? "Etiket Ekle" : "Add Tag"}
-            </button>
-          </div>
-          <div className="buyer-ops-tag-list seller-tag-list">
-            {tagItems.map((tag) => (
-              <span key={tag} className="buyer-ops-tag">
-                <span>{tag}</span>
-                <button
-                  className="buyer-ops-tag-remove"
-                  type="button"
-                  onClick={() => void onDeleteTag(tag)}
-                  aria-label={`${tr ? "Sil" : "Delete"} ${tag}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          {tagItems.length === 0 ? (
-            <p className="panel-meta">{tr ? "Henüz etiket eklenmemiş." : "No tags yet."}</p>
-          ) : null}
         </div>
       </div>
     </section>
