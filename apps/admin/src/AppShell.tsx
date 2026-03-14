@@ -40,6 +40,7 @@ function AppShell({
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const globalSearchModalShellRef = useRef<HTMLDivElement | null>(null);
   const [globalSearchInput, setGlobalSearchInput] = useState("");
   const [isGlobalSearchModalOpen, setIsGlobalSearchModalOpen] = useState(false);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
@@ -89,6 +90,18 @@ function AppShell({
       globalSearchInputRef.current?.focus();
     }, 20);
     return () => window.clearTimeout(timer);
+  }, [isGlobalSearchModalOpen]);
+
+  useEffect(() => {
+    if (!isGlobalSearchModalOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (globalSearchModalShellRef.current?.contains(target)) return;
+      setIsGlobalSearchModalOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [isGlobalSearchModalOpen]);
 
   useEffect(() => {
@@ -243,8 +256,8 @@ function AppShell({
         {location.pathname.startsWith("/app/admins/") ? <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
       </section>
       {isGlobalSearchModalOpen ? (
-        <div className={`global-search-modal ${shouldDockSearchInput ? "is-docked" : ""}`} role="dialog" aria-modal="true" onClick={() => setIsGlobalSearchModalOpen(false)}>
-          <div className="global-search-modal-shell" onClick={(event) => event.stopPropagation()}>
+        <div className={`global-search-modal ${shouldDockSearchInput ? "is-docked" : ""}`} role="dialog" aria-modal="true">
+          <div className="global-search-modal-shell" ref={globalSearchModalShellRef}>
             <div className="global-search-input-shell">
               <label className="global-search-input-wrap">
                 <span className="global-search-input-icon" aria-hidden="true">⌕</span>
@@ -280,13 +293,6 @@ function AppShell({
                     ×
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  className="global-search-cancel"
-                  onClick={() => setIsGlobalSearchModalOpen(false)}
-                >
-                  {language === "tr" ? "İptal" : "Cancel"}
-                </button>
               </label>
             </div>
             <div className="global-search-results-shell">
