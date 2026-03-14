@@ -539,6 +539,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const totalBuyersCount = buyerTotalCountAll ?? pagination?.total ?? rows.length;
   const totalRevenue30d = rows.reduce((acc, row) => acc + Number(row.monthlySpentCurrent ?? 0), 0);
   const activeRatio = totalBuyersCount > 0 ? Math.round((activeRows.length / totalBuyersCount) * 100) : 0;
+  const buyerRevenue = (row: any): number => Number(row.monthlySpentCurrent ?? row.totalSpent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
   const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
@@ -732,6 +733,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         scopedRows = scopedRows.filter(
           (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === "down"
         );
+      }
+      if (activeSmartFilter === "top_revenue") {
+        scopedRows = [...scopedRows].sort((a, b) => buyerRevenue(b) - buyerRevenue(a));
       }
     }
 
