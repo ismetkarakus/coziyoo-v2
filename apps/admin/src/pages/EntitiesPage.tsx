@@ -111,7 +111,7 @@ export default function EntitiesPage({ language }: { language: Language }) {
               <button
                 className="users-search-clear"
                 type="button"
-                aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+                aria-label={dict.common.clearSearch}
                 onClick={() => {
                   setPage(1);
                   setSearch("");
@@ -155,7 +155,7 @@ export default function EntitiesPage({ language }: { language: Language }) {
             <table>
               <thead>
                 <tr>
-                  <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
+                  <th>{dict.users.v2.displayId}</th>
                   {columns.map((column) => (
                     <th key={column}>{formatTableHeader(column)}</th>
                   ))}

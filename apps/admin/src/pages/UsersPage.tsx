@@ -144,15 +144,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const pageTitle =
     kind === "app" ? dict.users.titleApp : kind === "buyers" ? dict.users.titleBuyers : kind === "sellers" ? dict.users.titleSellers : dict.users.titleAdmins;
-  const pageTitleView = isSellerPage ? (language === "tr" ? "Satıcı Yönetimi" : "Seller Management") : pageTitle;
+  const pageTitleView = isSellerPage ? dict.users.titleSellers : pageTitle;
   const unifiedSearchPlaceholder =
     isSellerPage
-      ? language === "tr"
-        ? "Satıcı ID, e-posta, yemek no ile ara..."
-        : "Search seller ID, email, food no..."
-      : language === "tr"
-        ? "Alıcı/Satıcı ID, e-posta, yemek no ile ara..."
-        : "Search buyer/seller ID, email, food no...";
+      ? dict.users.v2.sellerSearchPlaceholder
+      : dict.users.v2.globalSearchPlaceholder;
   const renderUnifiedSearch = (compact = false) => (
     <div className={`users-search-wrap ${compact ? "users-search-wrap--compact" : ""}`.trim()}>
       <span className="users-search-icon" aria-hidden="true">
@@ -165,12 +161,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         className={`users-search-input ${compact ? "users-search-input--compact" : ""}`.trim()}
         value={searchInput}
         onChange={(event) => setSearchInput(event.target.value)}
+        placeholder={unifiedSearchPlaceholder}
       />
       {searchInput.trim().length > 0 ? (
         <button
           className="users-search-clear"
           type="button"
-          aria-label={language === "tr" ? "Aramayı temizle" : "Clear search"}
+          aria-label={dict.common.clearSearch}
           onClick={() => setSearchInput("")}
         >
           ×
@@ -561,9 +558,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const reasons: string[] = [];
     const ipCount = Number(row.recentLoginIpCount24h ?? 0);
     const loginCount = Number(row.recentLoginCount24h ?? 0);
-    if (ipCount >= 2) reasons.push(`${ipCount} farkli IP`);
-    if (row.recentLoginLocationSpread) reasons.push("konum farki yuksek");
-    if (loginCount >= 2) reasons.push(`${loginCount} giris / 24s`);
+    if (ipCount >= 2) reasons.push(`${ipCount} ${dict.users.v2.suspiciousDifferentIp}`);
+    if (row.recentLoginLocationSpread) reasons.push(dict.users.v2.suspiciousHighLocationDiff);
+    if (loginCount >= 2) reasons.push(`${loginCount} ${dict.users.v2.suspiciousLoginsPer24h}`);
     return reasons.join(" • ");
   };
   const buyerSharedIp = (row: any): string => String(row.recentLoginSharedIp ?? row.recentLoginPrimaryIp ?? "").trim();
@@ -573,11 +570,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   };
   const buyerLatestComplaintStatusLabel = (row: any): string => {
     const value = String(row.latestComplaintStatus ?? "").trim().toLowerCase();
-    if (value === "open") return "Açık";
-    if (value === "in_review") return "İnceleniyor";
-    if (value === "resolved") return "Çözüldü";
-    if (value === "closed") return "Kapalı";
-    return Number(row.complaintUnresolved ?? 0) > 0 ? "Açık" : "Kapalı";
+    if (value === "open") return dict.users.v2.complaintStatusOpen;
+    if (value === "in_review") return dict.users.v2.complaintStatusInReview;
+    if (value === "resolved") return dict.users.v2.complaintStatusResolved;
+    if (value === "closed") return dict.users.v2.complaintStatusClosed;
+    return Number(row.complaintUnresolved ?? 0) > 0 ? dict.users.v2.complaintStatusOpen : dict.users.v2.complaintStatusClosed;
   };
   const sellerHeaderSort = (key: SellerTableSortKey) => {
     setSellerTableSort((prev) => toggleSort(prev, key));
@@ -955,17 +952,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
     if (mapped === "id") return "ID";
-    if (mapped === "displayName") return isSellerPage ? (language === "tr" ? "Satıcı Adı" : "Seller Name") : language === "tr" ? "Ad Soyad" : "Full Name";
-    if (mapped === "email") return language === "tr" ? "E-Posta" : "Email";
-    if (mapped === "phone") return language === "tr" ? "Telefon" : "Phone";
+    if (mapped === "displayName") return isSellerPage ? dict.users.v2.columnSellerName : dict.users.v2.columnFullName;
+    if (mapped === "email") return dict.users.v2.columnEmail;
+    if (mapped === "phone") return dict.users.v2.columnPhone;
     if (mapped === "status") return dict.users.status;
-    if (mapped === "totalFoods") return language === "tr" ? "Yemek" : "Foods";
+    if (mapped === "totalFoods") return dict.users.v2.columnFoods;
     if (mapped === "role") return dict.users.role;
-    if (mapped === "countryCode") return language === "tr" ? "Ülke" : "Country";
-    if (mapped === "language") return language === "tr" ? "Dil" : "Language";
-    if (mapped === "createdAt") return language === "tr" ? "Kayıt Tarihi" : "Created At";
-    if (mapped === "updatedAt") return language === "tr" ? "Son Güncelleme" : "Updated At";
-    if (mapped === "lastLoginAt") return language === "tr" ? "Son Giriş" : "Last Login";
+    if (mapped === "countryCode") return dict.users.v2.columnCountry;
+    if (mapped === "language") return dict.users.v2.columnLanguage;
+    if (mapped === "createdAt") return dict.users.v2.columnCreatedAt;
+    if (mapped === "updatedAt") return dict.users.v2.columnUpdatedAt;
+    if (mapped === "lastLoginAt") return dict.users.v2.columnLastLogin;
     return mapped;
   }
 
@@ -1017,7 +1014,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (mapped === "status") {
       const status = value === "disabled" ? "disabled" : "active";
-      return <span className={`status-pill ${status === "active" ? "is-active" : "is-disabled"}`}>{status === "active" ? "Aktif" : "Pasif"}</span>;
+      return (
+        <span className={`status-pill ${status === "active" ? "is-active" : "is-disabled"}`}>
+          {status === "active" ? dict.users.v2.statusActive : dict.users.v2.statusPassive}
+        </span>
+      );
     }
     if (mapped === "totalFoods") {
       const count = Number(value ?? 0);
@@ -1062,11 +1063,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (mapped === "countryCode") {
       const cc = String(value ?? "").toUpperCase();
       if (isSellerPage) return cc || "TR";
-      if (cc === "TR") return "Türkiye";
-      if (cc === "US") return "United States";
-      if (cc === "IT") return "Italy";
-      if (cc === "JP") return "Japan";
-      if (cc === "FR") return "France";
+      if (cc === "TR") return dict.users.v2.countryTurkey;
+      if (cc === "US") return dict.users.v2.countryUnitedStates;
+      if (cc === "IT") return dict.users.v2.countryItaly;
+      if (cc === "JP") return dict.users.v2.countryJapan;
+      if (cc === "FR") return dict.users.v2.countryFrance;
       return cc || "-";
     }
     if (mapped === "language" && isSellerPage) {
@@ -1100,14 +1101,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     const mapped = columnMappings[columnName] ?? columnName;
     const value = row[mapped];
     if (mapped === "id") return String(value ?? "");
-    if (mapped === "status") return value === "disabled" ? (language === "tr" ? "Pasif" : "Disabled") : language === "tr" ? "Aktif" : "Active";
+    if (mapped === "status") return value === "disabled" ? dict.users.v2.statusPassive : dict.users.v2.statusActive;
     if (mapped === "countryCode") {
       const cc = String(value ?? "").toUpperCase();
-      if (cc === "TR") return "Türkiye";
-      if (cc === "US") return "United States";
-      if (cc === "IT") return "Italy";
-      if (cc === "JP") return "Japan";
-      if (cc === "FR") return "France";
+      if (cc === "TR") return dict.users.v2.countryTurkey;
+      if (cc === "US") return dict.users.v2.countryUnitedStates;
+      if (cc === "IT") return dict.users.v2.countryItaly;
+      if (cc === "JP") return dict.users.v2.countryJapan;
+      if (cc === "FR") return dict.users.v2.countryFrance;
       return cc || "-";
     }
     if (mapped === "language" && isSellerPage) {
@@ -1134,11 +1135,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (!isBuyerPage) return;
     const headers = [
       ...tableColumns.map((column) => resolveColumnLabel(column)),
-      language === "tr" ? "Toplam Şikayet" : "Total Complaints",
-      language === "tr" ? "Çözülen Şikayet" : "Resolved Complaints",
-      language === "tr" ? "Çözülmeyen Şikayet" : "Unresolved Complaints",
-      language === "tr" ? "Sipariş Trendi (30g/önceki 30g)" : "Order Trend (30d/prev 30d)",
-      language === "tr" ? "Harcama Trendi (30g/önceki 30g)" : "Spend Trend (30d/prev 30d)",
+      dict.users.v2.buyerExportTotalComplaints,
+      dict.users.v2.buyerExportResolvedComplaints,
+      dict.users.v2.buyerExportUnresolvedComplaints,
+      dict.users.v2.buyerExportOrderTrend,
+      dict.users.v2.buyerExportSpendTrend,
     ];
 
     const rowsForExport = filteredRows.map((row) => [
@@ -1163,12 +1164,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   function downloadSellersAsExcel() {
     if (!isSellerPage) return;
-    const headers = ["Satici Adi", "E-Posta", "Satici ID", "Durum", "Yemek Sayisi", "Aylik Siparis", "Aylik Ciro"];
+    const headers = [
+      dict.users.v2.sellersExportSellerName,
+      dict.users.v2.sellersExportEmail,
+      dict.users.v2.sellersExportSellerId,
+      dict.users.v2.sellersExportStatus,
+      dict.users.v2.sellersExportFoodCount,
+      dict.users.v2.sellersExportMonthlyOrders,
+      dict.users.v2.sellersExportMonthlyRevenue,
+    ];
     const rowsForExport = filteredRows.map((row) => [
       String(row.displayName ?? row.email ?? ""),
       String(row.email ?? ""),
       String(row.id ?? ""),
-      row.status === "disabled" ? "Pasif" : "Aktif",
+      row.status === "disabled" ? dict.users.v2.statusPassive : dict.users.v2.statusActive,
       String(sellerTotalFoods(row)),
       String(sellerOrderCurrent(row)),
       formatCurrency(sellerRevenue(row), language),
@@ -1256,7 +1265,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className="app buyer-v2-page seller-v2-page">
         <section className="buyer-v2-kpis seller-v2-kpis">
           <KpiCard
-            icon="👥" label="Toplam Satıcı"
+            icon="👥" label={dict.users.v2.sellerKpiTotal}
             value={new Intl.NumberFormat("tr-TR").format(totalTrSellers)}
             selected={activeSellerKpiFilter === "all"}
             onClick={() => applySellerKpiFilter("all")}
@@ -1268,7 +1277,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           </KpiCard>
           <KpiCard
-            icon="✓" iconVariant="good" colorVariant="green" label="Aktif Satıcı"
+            icon="✓" iconVariant="good" colorVariant="green" label={dict.users.v2.sellerKpiActive}
             value={new Intl.NumberFormat("tr-TR").format(activeTrSellers)}
             selected={activeSellerKpiFilter === "active"}
             onClick={() => applySellerKpiFilter("active")}
@@ -1280,7 +1289,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           </KpiCard>
           <KpiCard
-            icon="◔" iconVariant="warn" colorVariant="orange" label="Pasif Satıcı"
+            icon="◔" iconVariant="warn" colorVariant="orange" label={dict.users.v2.sellerKpiPassive}
             value={new Intl.NumberFormat("tr-TR").format(passiveTrSellers)}
             selected={activeSellerKpiFilter === "disabled"}
             onClick={() => applySellerKpiFilter("disabled")}
@@ -1292,7 +1301,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </div>
           </KpiCard>
           <KpiCard
-            icon="☀" iconVariant="good" label="Bugün Yeni Satıcı"
+            icon="☀" iconVariant="good" label={dict.users.v2.sellerKpiNewToday}
             value={new Intl.NumberFormat("tr-TR").format(todayTrSellers)}
             selected={activeSellerKpiFilter === "new_today"}
             onClick={() => applySellerKpiFilter("new_today")}
@@ -1306,7 +1315,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </section>
 
         <section className="buyer-v2-main-layout">
-          <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label="Akıllı filtreler">
+          <aside className="panel buyer-v2-smart-panel seller-v2-smart-panel" aria-label={dict.users.v2.smartFiltersPlain}>
             <div className="buyer-v2-smart-list seller-v2-smart-primary">
               {primarySmartItems.map((key) => {
                 const item = SELLER_SMART_FILTER_ITEMS.find((entry) => entry.key === key);
@@ -1353,7 +1362,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       }))
                     }
                   >
-                    Güncelleme: Yeni → Eski {filters.sortDir === "desc" ? "Azalan" : "Artan"} ▼
+                    {dict.users.v2.sellerSortUpdated} {filters.sortDir === "desc" ? dict.users.v2.sellerSortDesc : dict.users.v2.sellerSortAsc} ▼
                   </button>
                 </div>
                 <div className="seller-v2-toolbar-right">
@@ -1379,12 +1388,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <thead>
                     <tr>
                       <th className="buyer-v2-check-col"><input type="checkbox" /></th>
-                      <th><SortableHeader label={language === "tr" ? "Display ID" : "Display ID"} active={sellerTableSort.key === "id"} dir={sellerSortDirectionFor("id")} onClick={() => sellerHeaderSort("id")} /></th>
-                      <th><SortableHeader label="Mağaza Adı" active={sellerTableSort.key === "name"} dir={sellerSortDirectionFor("name")} onClick={() => sellerHeaderSort("name")} /></th>
-                      <th><SortableHeader label="Durum" active={sellerTableSort.key === "status"} dir={sellerSortDirectionFor("status")} onClick={() => sellerHeaderSort("status")} /></th>
-                      <th><SortableHeader label="Uyarılar" active={sellerTableSort.key === "warnings"} dir={sellerSortDirectionFor("warnings")} onClick={() => sellerHeaderSort("warnings")} /></th>
-                      <th><SortableHeader label="Sipariş Sağlığı" active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
-                      <th><SortableHeader label="Rating Trend" active={sellerTableSort.key === "ratingTrend"} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => sellerHeaderSort("ratingTrend")} /></th>
+                      <th><SortableHeader label={dict.users.v2.displayId} active={sellerTableSort.key === "id"} dir={sellerSortDirectionFor("id")} onClick={() => sellerHeaderSort("id")} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderShop} active={sellerTableSort.key === "name"} dir={sellerSortDirectionFor("name")} onClick={() => sellerHeaderSort("name")} /></th>
+                      <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={sellerTableSort.key === "status"} dir={sellerSortDirectionFor("status")} onClick={() => sellerHeaderSort("status")} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderWarnings} active={sellerTableSort.key === "warnings"} dir={sellerSortDirectionFor("warnings")} onClick={() => sellerHeaderSort("warnings")} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderHealth} active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderRatingTrend} active={sellerTableSort.key === "ratingTrend"} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => sellerHeaderSort("ratingTrend")} /></th>
                       <th />
                     </tr>
                   </thead>
@@ -1407,7 +1416,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const ratingValue = sellerRating(row);
                         const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
                         const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
-                        const sellerName = String(row.displayName ?? row.email ?? "Satıcı");
+                        const sellerName = String(row.displayName ?? row.email ?? dict.users.v2.sellerFallbackName);
                         const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget =
@@ -1469,7 +1478,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                   navigate(sellerRowTarget);
                                 }}
                               >
-                                <span aria-hidden="true">{row.status === "active" ? "◉ Detay ▾" : "◉ Aktif Yap"}</span>
+                                <span aria-hidden="true">{row.status === "active" ? dict.users.v2.sellerActionDetail : dict.users.v2.sellerActionActivate}</span>
                               </button>
                             </td>
                           </tr>
@@ -1481,7 +1490,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               </div>
             ) : (
               <div className="seller-table-placeholder">
-                KPI veya soldaki filtrelerden birine tıklayınca tablo açılır.
+                {dict.users.v2.sellerOpenTableHint}
               </div>
             )}
 
@@ -1516,7 +1525,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         <section className="buyer-v2-kpis seller-v2-kpis">
           <KpiCard
             icon="👥"
-            label="Toplam Alıcı"
+            label={dict.users.v2.buyerKpiTotal}
             value={new Intl.NumberFormat("tr-TR").format(totalBuyersCount)}
             className="seller-v2-kpi"
             selected={buyerQuickFilter === "all" && activeSmartFilter === null}
@@ -1539,7 +1548,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             icon="✓"
             iconVariant="good"
             colorVariant="green"
-            label="Aktif Alıcı"
+            label={dict.users.v2.buyerKpiActive}
             value={new Intl.NumberFormat("tr-TR").format(activeRows.length)}
             className="seller-v2-kpi"
             selected={buyerQuickFilter === "active" && activeSmartFilter === null}
@@ -1562,7 +1571,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             icon="◔"
             iconVariant="warn"
             colorVariant="orange"
-            label="Açık Şikayetli Alıcı"
+            label={dict.users.v2.buyerKpiOpenComplaint}
             value={new Intl.NumberFormat("tr-TR").format(buyersWithOpenComplaints)}
             className="seller-v2-kpi"
           >
@@ -1574,7 +1583,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <KpiCard
             icon="🛡"
             iconVariant="danger"
-            label="Riskli Alıcı"
+            label={dict.users.v2.buyerKpiRisky}
             value={new Intl.NumberFormat("tr-TR").format(riskyBuyersCount)}
             className="seller-v2-kpi"
           >
@@ -1586,8 +1595,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         </section>
 
         <section className="buyer-v2-main-layout">
-          <aside className="panel buyer-v2-smart-panel" aria-label="Akilli filtreler">
-            <h2>Akilli Filtreler</h2>
+          <aside className="panel buyer-v2-smart-panel" aria-label={dict.users.v2.smartFiltersPlain}>
+            <h2>{dict.users.v2.smartFiltersTitlePlain}</h2>
             <div className="buyer-v2-smart-list">
               {BUYER_SMART_FILTER_ITEMS.map((item) => (
                 <button
@@ -1616,7 +1625,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 }}
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
-                <span className="buyer-v2-smart-item-label">Açık Şikayetler</span>
+                <span className="buyer-v2-smart-item-label">{dict.users.v2.buyerQuickOpenComplaints}</span>
                 <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.open_complaint}</span>
               </button>
               <button
@@ -1629,7 +1638,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 }}
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">↓</span>
-                <span className="buyer-v2-smart-item-label">Azalan Harcama</span>
+                <span className="buyer-v2-smart-item-label">{dict.users.v2.quickDownSpend}</span>
                 <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.down_spend}</span>
               </button>
             </div>
@@ -1673,14 +1682,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         }}
                       />
                     </th>
-                    <th><SortableHeader label={language === "tr" ? "Display ID" : "Display ID"} active={buyerTableSort.key === "id"} dir={buyerSortDirectionFor("id")} onClick={() => buyerHeaderSort("id")} /></th>
-                    <th><SortableHeader label="Alıcı" active={buyerTableSort.key === "buyer"} dir={buyerSortDirectionFor("buyer")} onClick={() => buyerHeaderSort("buyer")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Toplam Şikayet" : isSuspiciousLoginView ? "Şüphe" : isSameIpView ? "IP" : "Risk"} active={buyerTableSort.key === "col4"} dir={buyerSortDirectionFor("col4")} onClick={() => buyerHeaderSort("col4")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Açık Şikayet" : isSuspiciousLoginView ? "Neden" : isSameIpView ? "Son Giriş" : "Şikayet"} active={buyerTableSort.key === "col5"} dir={buyerSortDirectionFor("col5")} onClick={() => buyerHeaderSort("col5")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Son Şikayet ID" : isSuspiciousLoginView ? "24s Giriş" : isSameIpView ? "24s Giriş" : "Sipariş (1 Ay)"} active={buyerTableSort.key === "col6"} dir={buyerSortDirectionFor("col6")} onClick={() => buyerHeaderSort("col6")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Son Şikayet Tarihi" : isSuspiciousLoginView ? "IP Sayısı" : isSameIpView ? "Durum" : "Harcama (1 Ay)"} active={buyerTableSort.key === "col7"} dir={buyerSortDirectionFor("col7")} onClick={() => buyerHeaderSort("col7")} /></th>
-                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Son Durum" : isSuspiciousLoginView ? "Durum" : isSameIpView ? "Risk" : "Son Giris"} active={buyerTableSort.key === "col8"} dir={buyerSortDirectionFor("col8")} onClick={() => buyerHeaderSort("col8")} /></th>
-                    <th><SortableHeader label="Durum" active={buyerTableSort.key === "status"} dir={buyerSortDirectionFor("status")} onClick={() => buyerHeaderSort("status")} /></th>
+                    <th><SortableHeader label={dict.users.v2.displayId} active={buyerTableSort.key === "id"} dir={buyerSortDirectionFor("id")} onClick={() => buyerHeaderSort("id")} /></th>
+                    <th><SortableHeader label={dict.users.v2.buyerHeaderBuyer} active={buyerTableSort.key === "buyer"} dir={buyerSortDirectionFor("buyer")} onClick={() => buyerHeaderSort("buyer")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderTotalComplaint : isSuspiciousLoginView ? dict.users.v2.buyerHeaderSuspicion : isSameIpView ? dict.users.v2.buyerHeaderIp : dict.users.v2.buyerHeaderRisk} active={buyerTableSort.key === "col4"} dir={buyerSortDirectionFor("col4")} onClick={() => buyerHeaderSort("col4")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderOpenComplaint : isSuspiciousLoginView ? dict.users.v2.buyerHeaderReason : isSameIpView ? dict.users.v2.buyerHeaderLastLogin : dict.users.v2.buyerHeaderComplaints} active={buyerTableSort.key === "col5"} dir={buyerSortDirectionFor("col5")} onClick={() => buyerHeaderSort("col5")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintId : isSuspiciousLoginView ? dict.users.v2.buyerHeaderLogins24h : isSameIpView ? dict.users.v2.buyerHeaderLogins24h : dict.users.v2.buyerHeaderOrders1m} active={buyerTableSort.key === "col6"} dir={buyerSortDirectionFor("col6")} onClick={() => buyerHeaderSort("col6")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintDate : isSuspiciousLoginView ? dict.users.v2.buyerHeaderIpCount : isSameIpView ? dict.users.v2.buyerHeaderStatus : dict.users.v2.buyerHeaderSpend1m} active={buyerTableSort.key === "col7"} dir={buyerSortDirectionFor("col7")} onClick={() => buyerHeaderSort("col7")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? dict.users.v2.buyerHeaderLastStatus : isSuspiciousLoginView ? dict.users.v2.buyerHeaderStatus : isSameIpView ? dict.users.v2.buyerHeaderRisk : dict.users.v2.buyerHeaderLastLogin} active={buyerTableSort.key === "col8"} dir={buyerSortDirectionFor("col8")} onClick={() => buyerHeaderSort("col8")} /></th>
+                    <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={buyerTableSort.key === "status"} dir={buyerSortDirectionFor("status")} onClick={() => buyerHeaderSort("status")} /></th>
                     <th />
                   </tr>
                 </thead>
@@ -1768,7 +1777,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </div>
                           ) : (
                             <span className={`risk-pill is-${risk.level}`}>
-                              {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
+                              {risk.level === "high" ? dict.users.v2.riskHigh : risk.level === "medium" ? dict.users.v2.riskMedium : dict.users.v2.riskLow}
                             </span>
                           )}
                         </td>
@@ -1781,11 +1790,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <div className="buyer-complaint-cell">
                               <strong>{buyerSuspiciousReason(row) || "-"}</strong>
                             </div>
-                        ) : isSameIpView ? (
-                          <div className="buyer-login-cell">
-                            <strong>{loginAt}</strong>
-                          </div>
-                        ) : (
+                          ) : isSameIpView ? (
+                            <div className="buyer-login-cell">
+                              <strong>{loginAt}</strong>
+                            </div>
+                          ) : (
                             <div className="buyer-complaint-summary">
                               <span className={`buyer-complaint-chip ${unresolved > 0 ? "is-open" : "is-clear"}`}>
                                 <strong>{totalComplaints}</strong>
@@ -1825,7 +1834,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </div>
                           ) : isSameIpView ? (
                             <span className="status-pill is-warning">
-                              Ortak IP
+                              {dict.users.v2.sharedIp}
                             </span>
                           ) : (
                             <div className="buyer-spend-cell">
@@ -1843,23 +1852,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                               </span>
                             ) : isSuspiciousLoginView ? (
                               <span className={`status-pill ${risk.level === "high" ? "is-warning" : "is-neutral"}`}>
-                                {risk.level === "high" ? "Yüksek" : "İzle"}
+                                {risk.level === "high" ? dict.users.v2.riskHigh : dict.users.v2.watchLabel}
                               </span>
                             ) : isSameIpView ? (
                               <span className={`risk-pill is-${risk.level}`}>
-                                {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
+                                {risk.level === "high" ? dict.users.v2.riskHigh : risk.level === "medium" ? dict.users.v2.riskMedium : dict.users.v2.riskLow}
                               </span>
                             ) : (
                               <>
                                 <strong>{loginAt}</strong>
-                                {risk.level === "high" ? <span className="status-pill is-warning">⚠ Yuksek</span> : null}
+                                {risk.level === "high" ? <span className="status-pill is-warning">⚠ {dict.users.v2.riskHigh}</span> : null}
                               </>
                             )}
                           </div>
                         </td>
                         <td>
                           <span className={`status-pill ${row.status === "active" ? "is-active" : "is-neutral"}`}>
-                            {row.status === "active" ? "Aktif" : "Pasif"}
+                            {row.status === "active" ? dict.users.v2.statusActive : dict.users.v2.statusPassive}
                           </span>
                         </td>
                         <td className="cell-actions buyer-v2-row-actions">
@@ -1887,7 +1896,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                   window.location.href = `mailto:${email}`;
                                 }}
                               >
-                                Hızlı E-posta
+                                {dict.users.v2.quickEmail}
                               </button>
                               <button
                                 type="button"
@@ -1911,7 +1920,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                   window.location.href = `tel:${phoneHref}`;
                                 }}
                               >
-                                Telefon
+                                {dict.users.v2.phone}
                               </button>
                             </div>
                           ) : null}
@@ -1941,7 +1950,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </>
           ) : (
             <div className="seller-table-placeholder">
-              KPI veya soldaki filtrelerden birine tıklayınca tablo açılır.
+              {dict.users.v2.sellerOpenTableHint}
             </div>
           )}
           </section>
@@ -1963,10 +1972,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <circle cx="12" cy="12" r="3.2" />
                 </svg>
               </div>
-              <strong>{language === "tr" ? "Müşteri ID" : "Customer ID"}</strong>
+              <strong>{dict.users.v2.customerId}</strong>
               <code>{customerIdPreview}</code>
               <button className="ghost" type="button" onClick={() => setCustomerIdPreview(null)}>
-                {language === "tr" ? "Kapat" : "Close"}
+                {dict.records.close}
               </button>
             </div>
           ) : null}
@@ -1999,13 +2008,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         {!isSellerPage && !isBuyerPage ? (
           <div className="density-switch users-density-floating" role="group" aria-label="Table density">
             <button type="button" className={density === "compact" ? "is-active" : ""} onClick={() => setDensity("compact")}>
-              {language === "tr" ? "Kompakt" : "Compact"}
+              {dict.users.v2.densityCompact}
             </button>
             <button type="button" className={density === "normal" ? "is-active" : ""} onClick={() => setDensity("normal")}>
-              {language === "tr" ? "Normal" : "Normal"}
+              {dict.users.v2.densityNormal}
             </button>
             <button type="button" className={density === "comfortable" ? "is-active" : ""} onClick={() => setDensity("comfortable")}>
-              {language === "tr" ? "Rahat" : "Comfort"}
+              {dict.users.v2.densityComfort}
             </button>
           </div>
         ) : null}
@@ -2013,13 +2022,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <>
             <article>
               <div className="users-kpi-row">
-                <p>{language === "tr" ? "Toplam Alıcı" : "Total Buyers"}</p>
+                <p>{dict.users.v2.totalBuyersLabel}</p>
                 <strong className="users-kpi-value">{totalBuyersCount}</strong>
               </div>
             </article>
             <article>
               <div className="users-kpi-row users-kpi-row-progress">
-                <p>{language === "tr" ? "Aktif Oranı" : "Active Ratio"}</p>
+                <p>{dict.users.v2.activeRatioLabel}</p>
                 <strong className="users-kpi-value is-active">%{activeRatio}</strong>
               </div>
               <div className="users-kpi-progress">
@@ -2028,13 +2037,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             </article>
             <article>
               <div className="users-kpi-row">
-                <p>{language === "tr" ? "Şikayetli Alıcı" : "Buyers with Complaints"}</p>
+                <p>{dict.users.v2.buyersWithComplaintsLabel}</p>
                 <strong className="users-kpi-value">{buyersWithOpenComplaints}</strong>
               </div>
             </article>
             <article>
               <div className="users-kpi-row">
-                <p>{language === "tr" ? "Riskli Alıcı" : "Risky Buyers"}</p>
+                <p>{dict.users.v2.riskyBuyersLabel}</p>
                 <strong className="users-kpi-value">{riskyBuyersCount}</strong>
               </div>
             </article>
@@ -2043,25 +2052,25 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <>
             <article>
               <div className="users-kpi-row">
-                <p>{isSellerPage ? (language === "tr" ? "Toplam TR Satıcı" : "Total TR Sellers") : language === "tr" ? "Toplam Alıcılar" : "Total Buyers"}</p>
+                <p>{isSellerPage ? dict.users.v2.totalTrSellersLabel : dict.users.v2.totalBuyersPluralLabel}</p>
                 <strong className="users-kpi-value">{isSellerPage ? trRows.length : pagination?.total ?? rows.length}</strong>
               </div>
             </article>
             <article>
               <div className="users-kpi-row">
-                <p>{isSellerPage ? (language === "tr" ? "Aktif TR Satıcı" : "Active TR Sellers") : language === "tr" ? "Aktif Alıcılar" : "Active Buyers"}</p>
+                <p>{isSellerPage ? dict.users.v2.activeTrSellersLabel : dict.users.v2.activeBuyersPluralLabel}</p>
                 <strong className="users-kpi-value is-active">{isSellerPage ? trRows.filter((row) => row.status === "active").length : activeRows.length}</strong>
               </div>
             </article>
             <article>
               <div className="users-kpi-row">
-                <p>{isSellerPage ? (language === "tr" ? "Pasif TR Satıcı" : "Disabled TR Sellers") : language === "tr" ? "Pasif Alıcılar" : "Disabled Buyers"}</p>
+                <p>{isSellerPage ? dict.users.v2.passiveTrSellersLabel : dict.users.v2.passiveBuyersPluralLabel}</p>
                 <strong className="users-kpi-value">{isSellerPage ? trRows.filter((row) => row.status === "disabled").length : passiveRows.length}</strong>
               </div>
             </article>
             <article>
               <div className="users-kpi-row">
-                <p>{isSellerPage ? (language === "tr" ? "Bugün Yeni TR Satıcı" : "New TR Sellers Today") : language === "tr" ? "Bugün Yeni" : "New Today"}</p>
+                <p>{isSellerPage ? dict.users.v2.newTrSellersTodayLabel : dict.users.v2.newTodayLabel}</p>
                 <strong className="users-kpi-value">{newToday}</strong>
               </div>
             </article>
@@ -2078,34 +2087,34 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   value={buyerFilterDraft.status}
                   onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, status: event.target.value as typeof prev.status }))}
                 >
-                  <option value="all">{language === "tr" ? "Durum: Tümü" : "Status: All"}</option>
-                  <option value="active">{language === "tr" ? "Durum: Aktif" : "Status: Active"}</option>
-                  <option value="disabled">{language === "tr" ? "Durum: Pasif" : "Status: Disabled"}</option>
+                  <option value="all">{dict.users.v2.statusAll}</option>
+                  <option value="active">{dict.users.v2.statusActiveFilter}</option>
+                  <option value="disabled">{dict.users.v2.statusDisabledFilter}</option>
                 </select>
                 <select
                   value={buyerFilterDraft.complaint}
                   onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, complaint: event.target.value as typeof prev.complaint }))}
                 >
-                  <option value="all">{language === "tr" ? "Şikayet: Tümü" : "Complaints: All"}</option>
-                  <option value="has_unresolved">{language === "tr" ? "Şikayet: Çözülmeyen var" : "Complaints: Has unresolved"}</option>
-                  <option value="resolved_only">{language === "tr" ? "Şikayet: Sadece çözülen" : "Complaints: Resolved only"}</option>
-                  <option value="no_complaint">{language === "tr" ? "Şikayet: Yok" : "Complaints: None"}</option>
+                  <option value="all">{dict.users.v2.complaintsAll}</option>
+                  <option value="has_unresolved">{dict.users.v2.complaintsHasUnresolved}</option>
+                  <option value="resolved_only">{dict.users.v2.complaintsResolvedOnly}</option>
+                  <option value="no_complaint">{dict.users.v2.complaintsNone}</option>
                 </select>
                 <select
                   value={buyerFilterDraft.orderTrend}
                   onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, orderTrend: event.target.value as typeof prev.orderTrend }))}
                 >
-                  <option value="all">{language === "tr" ? "Sipariş Trendi: Tümü" : "Order Trend: All"}</option>
-                  <option value="up">{language === "tr" ? "Sipariş Trendi: Artan" : "Order Trend: Up"}</option>
-                  <option value="down">{language === "tr" ? "Sipariş Trendi: Azalan" : "Order Trend: Down"}</option>
+                  <option value="all">{dict.users.v2.orderTrendAll}</option>
+                  <option value="up">{dict.users.v2.orderTrendUp}</option>
+                  <option value="down">{dict.users.v2.orderTrendDown}</option>
                 </select>
                 <select
                   value={buyerFilterDraft.spendTrend}
                   onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, spendTrend: event.target.value as typeof prev.spendTrend }))}
                 >
-                  <option value="all">{language === "tr" ? "Harcama Trendi: Tümü" : "Spend Trend: All"}</option>
-                  <option value="up">{language === "tr" ? "Harcama Trendi: Artan" : "Spend Trend: Up"}</option>
-                  <option value="down">{language === "tr" ? "Harcama Trendi: Azalan" : "Spend Trend: Down"}</option>
+                  <option value="all">{dict.users.v2.spendTrendAll}</option>
+                  <option value="up">{dict.users.v2.spendTrendUp}</option>
+                  <option value="down">{dict.users.v2.spendTrendDown}</option>
                 </select>
                 <button
                   type="button"
@@ -2115,7 +2124,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     setFilters((prev) => ({ ...prev, page: 1 }));
                   }}
                 >
-                  {language === "tr" ? "Tümü" : "All"}
+                  {dict.users.v2.quickAll}
                 </button>
                 <button
                   type="button"
@@ -2125,7 +2134,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     setFilters((prev) => ({ ...prev, page: 1 }));
                   }}
                 >
-                  {language === "tr" ? "Riskli" : "Risky"}
+                  {dict.users.v2.quickRisky}
                 </button>
                 <button
                   type="button"
@@ -2135,7 +2144,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     setFilters((prev) => ({ ...prev, page: 1 }));
                   }}
                 >
-                  {language === "tr" ? "Açık Şikayetli" : "Open Complaints"}
+                  {dict.users.v2.quickOpenComplaints}
                 </button>
                 <button
                   type="button"
@@ -2145,28 +2154,28 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     setFilters((prev) => ({ ...prev, page: 1 }));
                   }}
                 >
-                  {language === "tr" ? "Azalan Harcama" : "Down Spend"}
+                  {dict.users.v2.quickDownSpend}
                 </button>
               </div>
             ) : null}
             {isSellerPage ? (
               <>
                 <button type="button" className={`chip ${sellerStatusFilter === "all" ? "is-active" : ""}`} onClick={() => setSellerStatusFilter("all")}>
-                  {language === "tr" ? "Tüm TR" : "All TR"}
+                  {dict.users.v2.allTr}
                 </button>
                 <button
                   type="button"
                   className={`chip ${sellerStatusFilter === "active" ? "is-active" : ""}`}
                   onClick={() => setSellerStatusFilter("active")}
                 >
-                  {language === "tr" ? "Aktif" : "Active"}
+                  {dict.users.v2.statusActive}
                 </button>
                 <button
                   type="button"
                   className={`chip ${sellerStatusFilter === "disabled" ? "is-active" : ""}`}
                   onClick={() => setSellerStatusFilter("disabled")}
                 >
-                  {language === "tr" ? "Pasif" : "Disabled"}
+                  {dict.users.v2.statusPassive}
                 </button>
               </>
             ) : null}
@@ -2179,17 +2188,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   setFilters((prev) => ({ ...prev, page: 1 }));
                 }}
               >
-                {language === "tr" ? "Son 7 Gün" : "Last 7 Days"}
+                {dict.users.v2.last7Days}
               </button>
             ) : null}
             {!isSellerPage && !isBuyerPage ? <span className={`chip ${showState === "loading" ? "is-active" : ""}`}>{dict.common.loading}</span> : null}
             {!isSellerPage && !isBuyerPage ? (
-              <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{language === "tr" ? "Hiç alıcı bulunamadı" : "No buyers found"}</span>
+              <span className={`chip ${showState === "empty" ? "is-active" : ""}`}>{dict.users.v2.noBuyersFound}</span>
             ) : null}
-            {!isSellerPage && !isBuyerPage ? <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{language === "tr" ? "Bir hata oluştu" : "An error occurred"}</span> : null}
+            {!isSellerPage && !isBuyerPage ? <span className={`chip ${showState === "error" ? "is-active" : ""}`}>{dict.users.v2.genericError}</span> : null}
             {showState === "error" && !isBuyerPage ? (
               <button className="chip is-active" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>
-                {language === "tr" ? "Yeniden Dene" : "Retry"}
+                {dict.users.v2.retry}
               </button>
             ) : null}
           </div>
@@ -2205,14 +2214,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               }))
             }
           >
-            {isSellerPage
-              ? language === "tr"
-                ? "Güncelleme: Yeni → Eski "
-                : "Updated: New → Old "
-              : language === "tr"
-                ? "Sırala: Kayıt Tarihi • "
-                : "Sort: Created Date • "}
-            {filters.sortDir === "desc" ? (language === "tr" ? "Azalan" : "Desc") : language === "tr" ? "Artan" : "Asc"} ▼
+            {isSellerPage ? `${dict.users.v2.sortUpdatedDate} ` : `${dict.users.v2.sortCreatedDate} `}
+            {filters.sortDir === "desc" ? dict.users.v2.sellerSortDesc : dict.users.v2.sellerSortAsc} ▼
           </button>
           {!isSellerPage ? (
             <button
@@ -2225,7 +2228,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 setFilters((prev) => ({ ...prev, page: 1 }));
               }}
             >
-              {language === "tr" ? "Filtrele" : "Filter"}
+              {dict.users.v2.filterButton}
             </button>
           ) : null}
         </div>
@@ -2235,13 +2238,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               <tr>
                 {isBuyerPage ? (
                   <>
-                    <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
-                    <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                    <th>{language === "tr" ? "Risk" : "Risk"}</th>
-                    <th>{language === "tr" ? "Şikayet" : "Complaints"}</th>
-                    <th>{language === "tr" ? "Sipariş (1 Ay)" : "Orders (1 Month)"}</th>
-                    <th>{language === "tr" ? "Harcama (1 Ay)" : "Spend (1 Month)"}</th>
-                    <th>{language === "tr" ? "Durum" : "Status"}</th>
+                    <th>{dict.users.v2.displayId}</th>
+                    <th>{dict.users.v2.buyerHeaderBuyer}</th>
+                    <th>{dict.users.v2.buyerHeaderRisk}</th>
+                    <th>{dict.users.v2.buyerHeaderComplaints}</th>
+                    <th>{dict.users.v2.buyerHeaderOrders1m}</th>
+                    <th>{dict.users.v2.buyerHeaderSpend1m}</th>
+                    <th>{dict.users.v2.buyerHeaderStatus}</th>
                     <th>{dict.users.actions}</th>
                   </>
                 ) : (
@@ -2297,10 +2300,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </td>
                           <td>
                             <span className={`risk-pill is-${risk.level}`}>
-                              {risk.level === "high" ? (language === "tr" ? "Yüksek" : "High") : risk.level === "medium" ? (language === "tr" ? "Orta" : "Medium") : language === "tr" ? "Düşük" : "Low"}
+                              {risk.level === "high" ? dict.users.v2.riskHigh : risk.level === "medium" ? dict.users.v2.riskMedium : dict.users.v2.riskLow}
                             </span>
                           </td>
-                        <td>
+                          <td>
                             <div className="buyer-complaint-summary">
                               <span className={`buyer-complaint-chip ${unresolved > 0 ? "is-open" : "is-clear"}`}>
                                 <strong>{totalComplaints}</strong>
@@ -2323,14 +2326,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </td>
                           <td>
                             <span className={`status-pill ${row.status === "active" ? "is-active" : "is-neutral"}`}>
-                              {row.status === "active" ? (language === "tr" ? "Aktif" : "Active") : language === "tr" ? "Pasif" : "Passive"}
+                              {row.status === "active" ? dict.users.v2.statusActive : dict.users.v2.statusPassive}
                             </span>
                           </td>
                           <td className="cell-actions">
                             <button
                               className="ghost action-menu-btn"
                               type="button"
-                              aria-label={language === "tr" ? "Aksiyon menüsü" : "Action menu"}
+                              aria-label={dict.users.v2.actionMenu}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 navigate(`/app/buyers/${row.id}`);
@@ -2362,7 +2365,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 )
                               }
                             >
-                              <span aria-hidden="true">◉ Detay</span>
+                              <span aria-hidden="true">◉ {dict.actions.detail}</span>
                               <span className="sr-only">{dict.actions.detail}</span>
                             </button>
                           ) : null}
@@ -2370,16 +2373,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <button
                               className="ghost action-btn"
                               type="button"
-                              title={language === "tr" ? "Pasif Yap" : "Disable"}
+                              title={dict.users.v2.disableAction}
                               aria-label={dict.actions.toggleStatus}
                               onClick={() => toggleStatusAction(row)}
                             >
-                              <span aria-hidden="true">◔ {language === "tr" ? "Pasif Yap" : "Disable"}</span>
+                              <span aria-hidden="true">◔ {dict.users.v2.disableAction}</span>
                               <span className="sr-only">{dict.actions.toggleStatus}</span>
                             </button>
                           ) : !isSellerPage ? (
                             <button className="ghost action-btn" type="button" disabled title={dict.users.onlySuperAdmin}>
-                              Yetkiniz yok
+                              {dict.users.v2.noPermission}
                             </button>
                           ) : null}
                         </td>
@@ -2409,9 +2412,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className={`drawer-overlay ${isDrawerOpen ? "is-open" : ""}`} onClick={closeDrawer}>
         <aside className={`form-drawer ${isDrawerOpen ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
           <div className="form-drawer-header">
-            <h2>{drawerMode === "edit" ? "Edit User" : createTitle}</h2>
+            <h2>{drawerMode === "edit" ? dict.users.v2.editUser : createTitle}</h2>
             <button className="ghost" type="button" onClick={closeDrawer} disabled={saving}>
-              Close
+              {dict.users.v2.close}
             </button>
           </div>
 
@@ -2454,7 +2457,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 </label>
               )}
               <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
-                {saving ? "Saving..." : dict.actions.create}
+                {saving ? dict.users.v2.saving : dict.actions.create}
               </button>
             </form>
           ) : null}
@@ -2470,7 +2473,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 <input name="password" type="password" disabled={!isSuperAdmin || saving} />
               </label>
               <button className="primary" type="submit" disabled={!isSuperAdmin || saving}>
-                {saving ? "Saving..." : dict.actions.save}
+                {saving ? dict.users.v2.saving : dict.actions.save}
               </button>
             </form>
           ) : null}
@@ -2484,7 +2487,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <div className="form-drawer-header">
             <h2>{dict.users.visibleColumns}</h2>
             <button className="ghost" type="button" onClick={() => setIsColumnsModalOpen(false)}>
-              Close
+              {dict.users.v2.close}
             </button>
           </div>
           <p className="panel-meta">{tableKey}</p>
@@ -2514,17 +2517,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       <div className={`drawer-overlay ${pendingStatusChange ? "is-open" : ""}`} onClick={() => setPendingStatusChange(null)}>
         <section className={`settings-modal ${pendingStatusChange ? "is-open" : ""}`} onClick={(event) => event.stopPropagation()}>
           <div className="form-drawer-header">
-            <h2>{language === "tr" ? "Durum Değişikliğini Onayla" : "Confirm Status Change"}</h2>
+            <h2>{dict.users.v2.confirmStatusChange}</h2>
           </div>
           <p className="panel-meta">
-            {pendingStatusChange?.next === "active" ? (language === "tr" ? "Kullanıcı aktif yapılacak." : "User will be activated.") : (language === "tr" ? "Kullanıcı pasif yapılacak." : "User will be disabled.")}
+            {pendingStatusChange?.next === "active" ? dict.users.v2.userWillActivate : dict.users.v2.userWillDisable}
           </p>
           <div className="topbar-actions">
             <button className="ghost" type="button" onClick={() => setPendingStatusChange(null)}>
-              {language === "tr" ? "Vazgeç" : "Cancel"}
+              {dict.common.cancel}
             </button>
             <button className="primary" type="button" onClick={() => confirmStatusChange().catch(() => setError(dict.users.updateFailed))}>
-              {language === "tr" ? "Onayla" : "Confirm"}
+              {dict.users.v2.confirm}
             </button>
           </div>
         </section>

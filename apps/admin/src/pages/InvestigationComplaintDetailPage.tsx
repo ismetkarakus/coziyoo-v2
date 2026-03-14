@@ -51,16 +51,10 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const [error, setError] = useState<string | null>(null);
 
   const statusText = (status: ComplaintStatus) => {
-    if (language === "tr") {
-      if (status === "open") return "Açık";
-      if (status === "in_review") return "İnceleniyor";
-      if (status === "resolved") return "Çözüldü";
-      return "Kapandı";
-    }
-    if (status === "open") return "Open";
-    if (status === "in_review") return "In Review";
-    if (status === "resolved") return "Resolved";
-    return "Closed";
+    if (status === "open") return dict.investigation.complaintStatusOpen;
+    if (status === "in_review") return dict.investigation.complaintStatusInReview;
+    if (status === "resolved") return dict.investigation.complaintStatusResolved;
+    return dict.investigation.complaintStatusClosed;
   };
 
   const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
@@ -70,7 +64,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const complainedAgainstLabel = detail
     ? `${detail.complainedAgainstName}${detail.complainedAgainstEmail ? ` (${detail.complainedAgainstEmail})` : ""}`
     : "";
-  const categoryLabel = detail?.categoryName ?? (language === "tr" ? "Kategori yok" : "No category");
+  const categoryLabel = detail?.categoryName ?? dict.investigation.noCategory;
   const subjectLabel = detail?.subject ?? "-";
 
   async function loadData() {
@@ -159,8 +153,8 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     <div className="app investigation-page">
       <header className="topbar">
         <div>
-          <h1>{language === "tr" ? "Şikayet Detayı" : "Complaint Detail"}</h1>
-          <p className="subtext">{language === "tr" ? "Şikayetin tüm detaylarını inceleyin." : "Inspect all complaint details."}</p>
+          <h1>{dict.investigation.detailTitle}</h1>
+          <p className="subtext">{dict.investigation.detailSubtitle}</p>
         </div>
       </header>
 
@@ -172,7 +166,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
           <>
             <div className="complaint-detail-card">
               <div className="complaint-status-strip">
-                <div className="complaint-status-strip-label">{language === "tr" ? "Şikayet Durumu" : "Complaint Status"}</div>
+                <div className="complaint-status-strip-label">{dict.investigation.complaintStatusLabel}</div>
                 <div className="complaint-status-strip-options">
                   {(["open", "in_review", "resolved", "closed"] as ComplaintStatus[]).map((status) => (
                     <button
@@ -206,19 +200,19 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
               <div className="complaint-detail-grid">
                 <div className="complaint-detail-field">
-                  <span className="complaint-detail-label">{language === "tr" ? "Şikayet ID" : "Complaint ID"}</span>
+                  <span className="complaint-detail-label">{dict.investigation.complaintId}</span>
                   <strong className="complaint-detail-value">{detail.id}</strong>
                 </div>
                 <div className="complaint-detail-field">
-                  <span className="complaint-detail-label">{language === "tr" ? "Şikayet Tarihi" : "Complaint Date"}</span>
+                  <span className="complaint-detail-label">{dict.investigation.complaintDate}</span>
                   <strong className="complaint-detail-value">{complaintDate}</strong>
                 </div>
                 <div className="complaint-detail-field complaint-detail-field--wide">
-                  <span className="complaint-detail-label">{language === "tr" ? "Şikayetçi" : "Complainant"}</span>
+                  <span className="complaint-detail-label">{dict.investigation.complainant}</span>
                   <strong className="complaint-detail-value">{complainantLabel}</strong>
                 </div>
                 <div className="complaint-detail-field complaint-detail-field--wide">
-                  <span className="complaint-detail-label">{language === "tr" ? "Şikayet Edilen" : "Complained Against"}</span>
+                  <span className="complaint-detail-label">{dict.investigation.complainedAgainst}</span>
                   <strong className="complaint-detail-value">{complainedAgainstLabel}</strong>
                 </div>
               </div>
@@ -226,7 +220,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
               <div className="complaint-detail-divider" />
 
               <div className="complaint-tree">
-                <div className="complaint-tree-heading">{language === "tr" ? "Şikayetler" : "Complaints"}</div>
+                <div className="complaint-tree-heading">{dict.investigation.complaints}</div>
                 <div className="complaint-tree-node complaint-tree-node--category">
                   <span className="complaint-tree-branch" aria-hidden="true" />
                   <span className="complaint-tree-folder" aria-hidden="true">
@@ -249,15 +243,15 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
               </div>
 
               <div className="complaint-description-card">
-                <span className="complaint-detail-label">{language === "tr" ? "Sebep / Açıklama" : "Reason / Description"}</span>
+                <span className="complaint-detail-label">{dict.investigation.reasonDescription}</span>
                 <p>{detail.description ?? "-"}</p>
               </div>
             </div>
 
             <div className="complaint-notes-card">
-              <p className="panel-meta">{language === "tr" ? "Notlar" : "Notes"}</p>
+              <p className="panel-meta">{dict.investigation.notes}</p>
               <label>
-                {language === "tr" ? "Yeni Not" : "New Note"}
+                {dict.investigation.newNote}
                 <textarea value={noteInput} onChange={(event) => setNoteInput(event.target.value)} rows={3} />
               </label>
               <div className="topbar-actions" style={{ marginTop: 10 }}>
@@ -270,9 +264,9 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <table>
                   <thead>
                     <tr>
-                      <th>{language === "tr" ? "Not" : "Note"}</th>
-                      <th>{language === "tr" ? "Yazan Yönetici" : "Admin"}</th>
-                      <th>{language === "tr" ? "Tarih" : "Date"}</th>
+                      <th>{dict.investigation.note}</th>
+                      <th>{dict.investigation.noteAdmin}</th>
+                      <th>{dict.investigation.noteDate}</th>
                     </tr>
                   </thead>
                   <tbody>
