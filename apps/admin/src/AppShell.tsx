@@ -5,6 +5,7 @@ import { setTokens, setAdmin, getTokens } from "./lib/auth";
 import { DICTIONARIES } from "./lib/i18n";
 import ApiHealthBadge from "./components/ApiHealthBadge";
 import DashboardPage from "./pages/DashboardPage";
+import ReviewQueuePage from "./pages/ReviewQueuePage";
 import UsersPage from "./pages/UsersPage";
 import InvestigationPage from "./pages/InvestigationPage";
 import InvestigationComplaintDetailPage from "./pages/InvestigationComplaintDetailPage";
@@ -215,6 +216,7 @@ function AppShell({
           </div>
         ) : null}
         {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
+        {location.pathname === "/app/review-queue" ? <ReviewQueuePage language={language} /> : null}
         {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
         {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}

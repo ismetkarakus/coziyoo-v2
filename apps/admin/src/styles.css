@@ -3434,6 +3434,55 @@ textarea:focus {
   font-weight: var(--font-medium);
 }
 
+.review-queue-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.review-queue-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-queue-summary-card strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.review-queue-summary-card.is-warning {
+  border-color: color-mix(in srgb, #f4b740 48%, rgba(255, 255, 255, 0.14));
+}
+
+.review-queue-summary-card.is-danger {
+  border-color: color-mix(in srgb, #ef6b73 52%, rgba(255, 255, 255, 0.14));
+}
+
+.review-queue-summary-card.is-approved {
+  border-color: color-mix(in srgb, #4c8dff 52%, rgba(255, 255, 255, 0.14));
+}
+
+.review-queue-summary-card.is-neutral {
+  border-color: color-mix(in srgb, #7e8aa6 52%, rgba(255, 255, 255, 0.14));
+}
+
+.review-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1100px) {
+  .review-queue-summary-grid,
+  .review-queue-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .buyer-ref-export-btn {
   white-space: nowrap;
 }
