@@ -5,6 +5,7 @@ export type SellerSmartFilterKey =
   | "pending_approvals"
   | "missing_documents"
   | "suspicious_logins"
+  | "complaining_sellers"
   | "top_selling_foods"
   | "top_revenue"
   | "performance_drop"

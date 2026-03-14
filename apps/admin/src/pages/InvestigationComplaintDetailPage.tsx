@@ -9,12 +9,14 @@ type ComplaintDetail = {
   id: string;
   orderId: string;
   orderNo: string;
-  complainantBuyerId: string;
-  complainantBuyerName: string;
-  complainantBuyerEmail: string | null;
-  sellerId: string;
-  sellerName: string;
-  sellerEmail: string | null;
+  complainantType: "buyer" | "seller";
+  complainantUserId: string;
+  complainantName: string;
+  complainantEmail: string | null;
+  complainedAgainstType: "buyer" | "seller";
+  complainedAgainstUserId: string;
+  complainedAgainstName: string;
+  complainedAgainstEmail: string | null;
   subject: string;
   description: string | null;
   categoryId: string | null;
@@ -63,10 +65,10 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
   const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
   const complainantLabel = detail
-    ? `${detail.complainantBuyerName}${detail.complainantBuyerEmail ? ` (${detail.complainantBuyerEmail})` : ""}`
+    ? `${detail.complainantName}${detail.complainantEmail ? ` (${detail.complainantEmail})` : ""}`
     : "";
   const complainedAgainstLabel = detail
-    ? `${detail.sellerName}${detail.sellerEmail ? ` (${detail.sellerEmail})` : ""}`
+    ? `${detail.complainedAgainstName}${detail.complainedAgainstEmail ? ` (${detail.complainedAgainstEmail})` : ""}`
     : "";
   const categoryLabel = detail?.categoryName ?? (language === "tr" ? "Kategori yok" : "No category");
   const subjectLabel = detail?.subject ?? "-";

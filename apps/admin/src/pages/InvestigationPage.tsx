@@ -11,8 +11,9 @@ type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
 type ComplaintRow = {
   id: string;
   orderNo: string;
-  complainantBuyerNo: string;
-  complainantBuyerName?: string;
+  complainantType: "buyer" | "seller";
+  complainantUserId: string;
+  complainantName?: string;
   subject: string;
   categoryName?: string | null;
   createdAt: string;
@@ -25,6 +26,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
   const dict = DICTIONARIES[language];
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const presetBuyerId = queryParams.get("complainantBuyerId") ?? "";
+  const presetComplainantType = queryParams.get("complainantType") ?? "";
+  const presetComplainantUserId = queryParams.get("complainantUserId") ?? "";
   const presetSellerId = queryParams.get("sellerId") ?? "";
   const presetOpenOnly = queryParams.get("openOnly") === "true";
   const [searchInput, setSearchInput] = useState("");
@@ -62,6 +65,9 @@ export default function InvestigationPage({ language }: { language: Language }) 
         pageSize: "5000",
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
+        ...(presetComplainantType && presetComplainantUserId
+          ? { complainantType: presetComplainantType, complainantUserId: presetComplainantUserId }
+          : {}),
         ...(presetSellerId ? { sellerId: presetSellerId } : {}),
         ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
@@ -88,7 +94,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
       const rowsForExport = body.data.map((row) => [
         toDisplayId(row.id),
         row.orderNo,
-        row.complainantBuyerName ?? row.complainantBuyerNo,
+        row.complainantName ?? row.complainantUserId,
         row.categoryName ?? "-",
         new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US"),
         statusText(row.status),
@@ -116,6 +122,9 @@ export default function InvestigationPage({ language }: { language: Language }) 
         pageSize: "20",
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
+        ...(presetComplainantType && presetComplainantUserId
+          ? { complainantType: presetComplainantType, complainantUserId: presetComplainantUserId }
+          : {}),
         ...(presetSellerId ? { sellerId: presetSellerId } : {}),
         ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
@@ -141,7 +150,17 @@ export default function InvestigationPage({ language }: { language: Language }) 
     };
 
     loadComplaints().catch(() => setError(dict.investigation.requestFailed));
-  }, [dict.investigation.requestFailed, page, presetBuyerId, presetSellerId, presetOpenOnly, searchInput, statusFilter]);
+  }, [
+    dict.investigation.requestFailed,
+    page,
+    presetBuyerId,
+    presetComplainantType,
+    presetComplainantUserId,
+    presetSellerId,
+    presetOpenOnly,
+    searchInput,
+    statusFilter,
+  ]);
 
   return (
     <div className="app investigation-page">
@@ -153,6 +172,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
               ? presetOpenOnly
                 ? `Filtre: alıcının açık şikayetleri`
                 : `Filtre: alıcının tüm şikayetleri`
+              : presetComplainantType === "seller" && presetComplainantUserId
+                ? `Filtre: satıcının yaptığı şikayetler`
               : presetSellerId
                 ? presetOpenOnly
                   ? `Filtre: satıcının açık şikayetleri`
@@ -217,7 +238,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
               <tr>
                 <th>Display ID</th>
                 <th>{language === "tr" ? "Sipariş Numarası" : "Order No"}</th>
-                <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                <th>{language === "tr" ? "Şikayetçi" : "Complainant"}</th>
                 <th>{language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}</th>
                 <th>{language === "tr" ? "Oluşturma Tarihi" : "Created At"}</th>
                 <th>{language === "tr" ? "Durum" : "Status"}</th>
@@ -249,7 +270,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                   >
                     <td>{toDisplayId(row.id)}</td>
                     <td>{row.orderNo}</td>
-                    <td>{row.complainantBuyerName ?? row.complainantBuyerNo}</td>
+                    <td>{row.complainantName ?? row.complainantUserId}</td>
                     <td>{row.categoryName ?? "-"}</td>
                     <td>{new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
                     <td>

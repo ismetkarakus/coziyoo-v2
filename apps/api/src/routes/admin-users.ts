@@ -139,6 +139,7 @@ const GlobalAdminSearchQuerySchema = z.object({
   q: z.string().trim().min(1).max(120),
   limit: z.coerce.number().int().positive().max(30).default(12),
 });
+const ComplaintComplainantTypeSchema = z.enum(["buyer", "seller"]);
 const InvestigationComplaintsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
@@ -146,6 +147,8 @@ const InvestigationComplaintsQuerySchema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   categoryId: z.string().uuid().optional(),
   complainantBuyerId: z.string().uuid().optional(),
+  complainantType: ComplaintComplainantTypeSchema.optional(),
+  complainantUserId: z.string().uuid().optional(),
   sellerId: z.string().uuid().optional(),
   openOnly: z
     .union([z.literal("true"), z.literal("false"), z.boolean()])
@@ -160,12 +163,38 @@ const CreateComplaintCategorySchema = z.object({
 });
 const CreateComplaintSchema = z.object({
   orderId: z.string().uuid(),
-  complainantBuyerId: z.string().uuid(),
+  complainantBuyerId: z.string().uuid().optional(),
+  complainantType: ComplaintComplainantTypeSchema.optional(),
+  complainantUserId: z.string().uuid().optional(),
   subject: z.string().trim().min(3).max(300),
   description: z.string().trim().max(4000).optional(),
   categoryId: z.string().uuid().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   assignedAdminId: z.string().uuid().optional(),
+}).superRefine((value, ctx) => {
+  const hasLegacyBuyer = Boolean(value.complainantBuyerId);
+  const hasGeneralActor = Boolean(value.complainantType && value.complainantUserId);
+  if (!hasLegacyBuyer && !hasGeneralActor) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Complainant is required",
+      path: ["complainantUserId"],
+    });
+  }
+  if (value.complainantType && !value.complainantUserId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "complainantUserId is required with complainantType",
+      path: ["complainantUserId"],
+    });
+  }
+  if (value.complainantUserId && !value.complainantType) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "complainantType is required with complainantUserId",
+      path: ["complainantType"],
+    });
+  }
 });
 const UpdateComplaintSchema = z.object({
   subject: z.string().trim().min(3).max(300).optional(),
@@ -326,7 +355,8 @@ function buyerSmartFilterConditionSql(filter: BuyerSmartFilter): string {
   return `EXISTS (
     SELECT 1
     FROM complaints c
-    WHERE c.complainant_buyer_id = u.id
+    WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer'
+      AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id
   )`;
 }
 
@@ -360,12 +390,55 @@ async function ensureSellerUser(userId: string) {
   return { ok: true as const, user: row };
 }
 
+async function resolveComplaintComplainant(input: z.infer<typeof CreateComplaintSchema>) {
+  if (input.complainantType && input.complainantUserId) {
+    if (input.complainantType === "seller") {
+      const seller = await ensureSellerUser(input.complainantUserId);
+      if (!seller.ok) return seller;
+      return {
+        ok: true as const,
+        complainantType: "seller" as const,
+        complainantUserId: seller.user.id,
+        complainantBuyerId: null,
+      };
+    }
+
+    const buyer = await ensureBuyerUser(input.complainantUserId);
+    if (!buyer.ok) return buyer;
+    return {
+      ok: true as const,
+      complainantType: "buyer" as const,
+      complainantUserId: buyer.user.id,
+      complainantBuyerId: buyer.user.id,
+    };
+  }
+
+  if (input.complainantBuyerId) {
+    const buyer = await ensureBuyerUser(input.complainantBuyerId);
+    if (!buyer.ok) return buyer;
+    return {
+      ok: true as const,
+      complainantType: "buyer" as const,
+      complainantUserId: buyer.user.id,
+      complainantBuyerId: buyer.user.id,
+    };
+  }
+
+  return {
+    ok: false as const,
+    status: 400,
+    code: "VALIDATION_ERROR",
+    message: "Complainant is required",
+  };
+}
+
 async function getBuyerRiskSnapshot(userId: string) {
   const [complaintStats, cancellationStats, failedPaymentStats] = await Promise.all([
     pool.query<{ open_count: string }>(
       `SELECT count(*)::text AS open_count
        FROM complaints
-       WHERE complainant_buyer_id = $1
+       WHERE COALESCE(complainant_type, 'buyer') = 'buyer'
+         AND COALESCE(complainant_user_id, complainant_buyer_id) = $1
          AND status IN ('open', 'in_review')`,
       [userId]
     ),
@@ -557,7 +630,8 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const { page, pageSize, status, priority, categoryId, complainantBuyerId, sellerId, openOnly, search } = parsed.data;
+  const { page, pageSize, status, priority, categoryId, complainantBuyerId, complainantType, complainantUserId, sellerId, openOnly, search } =
+    parsed.data;
   const offset = (page - 1) * pageSize;
 
   const where: string[] = [];
@@ -578,6 +652,10 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     params.push(complainantBuyerId);
     where.push(`c.complainant_buyer_id = $${params.length}`);
   }
+  if (complainantType && complainantUserId) {
+    params.push(complainantType, complainantUserId);
+    where.push(`c.complainant_type = $${params.length - 1} AND c.complainant_user_id = $${params.length}`);
+  }
   if (sellerId) {
     params.push(sellerId);
     where.push(`o.seller_id = $${params.length}`);
@@ -591,7 +669,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
       lower(c.subject) LIKE $${params.length}
       OR lower(COALESCE(c.description, '')) LIKE $${params.length}
       OR lower(o.id::text) LIKE $${params.length}
-      OR lower(c.complainant_buyer_id::text) LIKE $${params.length}
+      OR lower(COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text)) LIKE $${params.length}
       OR lower(COALESCE(cat.name, '')) LIKE $${params.length}
       OR lower(COALESCE(cat.code, '')) LIKE $${params.length}
     )`);
@@ -613,8 +691,9 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   const rows = await pool.query<{
     id: string;
     order_id: string;
-    complainant_buyer_id: string;
-    complainant_buyer_name: string | null;
+    complainant_type: "buyer" | "seller";
+    complainant_user_id: string;
+    complainant_name: string | null;
     subject: string;
     description: string | null;
     category_id: string | null;
@@ -631,8 +710,9 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     `SELECT
        c.id::text,
        c.order_id::text,
-       c.complainant_buyer_id::text,
-       COALESCE(NULLIF(b.display_name, ''), NULLIF(b.full_name, ''), NULLIF(b.email, ''), c.complainant_buyer_id::text) AS complainant_buyer_name,
+       COALESCE(c.complainant_type, 'buyer') AS complainant_type,
+       COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
+       COALESCE(NULLIF(actor.display_name, ''), NULLIF(actor.full_name, ''), NULLIF(actor.email, ''), COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text)) AS complainant_name,
        c.subject,
        c.description,
        c.category_id::text,
@@ -647,7 +727,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
        c.status
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
-     LEFT JOIN users b ON b.id = c.complainant_buyer_id
+     LEFT JOIN users actor ON actor.id = COALESCE(c.complainant_user_id, c.complainant_buyer_id)
      LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
      ${whereSql}
@@ -663,8 +743,9 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     data: rows.rows.map((row) => ({
       id: row.id,
       orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
-      complainantBuyerNo: row.complainant_buyer_id,
-      complainantBuyerName: row.complainant_buyer_name ?? row.complainant_buyer_id,
+      complainantType: row.complainant_type,
+      complainantUserId: row.complainant_user_id,
+      complainantName: row.complainant_name ?? row.complainant_user_id,
       subject: row.subject,
       description: row.description,
       categoryId: row.category_id,
@@ -719,12 +800,14 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
   const detail = await pool.query<{
     id: string;
     order_id: string;
-    complainant_buyer_id: string;
-    complainant_buyer_name: string | null;
-    complainant_buyer_email: string | null;
-    seller_id: string;
-    seller_name: string | null;
-    seller_email: string | null;
+    complainant_type: "buyer" | "seller";
+    complainant_user_id: string;
+    complainant_name: string | null;
+    complainant_email: string | null;
+    complained_against_type: "buyer" | "seller";
+    complained_against_user_id: string;
+    complained_against_name: string | null;
+    complained_against_email: string | null;
     subject: string;
     description: string | null;
     category_id: string | null;
@@ -741,12 +824,23 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
     `SELECT
        c.id::text,
        c.order_id::text,
-       c.complainant_buyer_id::text,
-       b.display_name AS complainant_buyer_name,
-       b.email AS complainant_buyer_email,
-       o.seller_id::text,
-       s.display_name AS seller_name,
-       s.email AS seller_email,
+       COALESCE(c.complainant_type, 'buyer') AS complainant_type,
+       COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
+       actor.display_name AS complainant_name,
+       actor.email AS complainant_email,
+       CASE WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN 'buyer' ELSE 'seller' END AS complained_against_type,
+       CASE
+         WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN o.buyer_id::text
+         ELSE o.seller_id::text
+       END AS complained_against_user_id,
+       CASE
+         WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN buyer_target.display_name
+         ELSE seller_target.display_name
+       END AS complained_against_name,
+       CASE
+         WHEN COALESCE(c.complainant_type, 'buyer') = 'seller' THEN buyer_target.email
+         ELSE seller_target.email
+       END AS complained_against_email,
        c.subject,
        c.description,
        c.category_id::text,
@@ -761,8 +855,9 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
        c.status
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
-     LEFT JOIN users b ON b.id = c.complainant_buyer_id
-     LEFT JOIN users s ON s.id = o.seller_id
+     LEFT JOIN users actor ON actor.id = COALESCE(c.complainant_user_id, c.complainant_buyer_id)
+     LEFT JOIN users seller_target ON seller_target.id = o.seller_id
+     LEFT JOIN users buyer_target ON buyer_target.id = o.buyer_id
      LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
      WHERE c.id = $1
@@ -780,12 +875,14 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
       id: row.id,
       orderId: row.order_id,
       orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
-      complainantBuyerId: row.complainant_buyer_id,
-      complainantBuyerName: row.complainant_buyer_name ?? row.complainant_buyer_email ?? row.complainant_buyer_id,
-      complainantBuyerEmail: row.complainant_buyer_email,
-      sellerId: row.seller_id,
-      sellerName: row.seller_name ?? row.seller_email ?? row.seller_id,
-      sellerEmail: row.seller_email,
+      complainantType: row.complainant_type,
+      complainantUserId: row.complainant_user_id,
+      complainantName: row.complainant_name ?? row.complainant_email ?? row.complainant_user_id,
+      complainantEmail: row.complainant_email,
+      complainedAgainstType: row.complained_against_type,
+      complainedAgainstUserId: row.complained_against_user_id,
+      complainedAgainstName: row.complained_against_name ?? row.complained_against_email ?? row.complained_against_user_id,
+      complainedAgainstEmail: row.complained_against_email,
       subject: row.subject,
       description: row.description,
       categoryId: row.category_id,
@@ -919,6 +1016,27 @@ adminUserManagementRouter.post("/investigations/complaints", requireAuth("admin"
   }
 
   const input = parsed.data;
+  const complainant = await resolveComplaintComplainant(input);
+  if (!complainant.ok) {
+    return res.status(complainant.status).json({ error: { code: complainant.code, message: complainant.message } });
+  }
+  const orderActors = await pool.query<{ buyer_id: string; seller_id: string }>(
+    "SELECT buyer_id::text, seller_id::text FROM orders WHERE id = $1 LIMIT 1",
+    [input.orderId]
+  );
+  const orderActorRow = orderActors.rows[0];
+  if (!orderActorRow) {
+    return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
+  }
+  const expectedComplainantId = complainant.complainantType === "seller" ? orderActorRow.seller_id : orderActorRow.buyer_id;
+  if (expectedComplainantId !== complainant.complainantUserId) {
+    return res.status(409).json({
+      error: {
+        code: "COMPLAINANT_ORDER_MISMATCH",
+        message: "Complainant must belong to the selected order",
+      },
+    });
+  }
   const created = await pool.query<{
     id: string;
     created_at: string;
@@ -926,6 +1044,8 @@ adminUserManagementRouter.post("/investigations/complaints", requireAuth("admin"
     `INSERT INTO complaints (
        order_id,
        complainant_buyer_id,
+       complainant_type,
+       complainant_user_id,
        subject,
        description,
        category_id,
@@ -933,11 +1053,13 @@ adminUserManagementRouter.post("/investigations/complaints", requireAuth("admin"
        assigned_admin_id,
        status
      )
-     VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, 'open')
+     VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9, 'open')
      RETURNING id::text, created_at::text`,
     [
       input.orderId,
-      input.complainantBuyerId,
+      complainant.complainantBuyerId,
+      complainant.complainantType,
+      complainant.complainantUserId,
       input.subject,
       input.description ?? null,
       input.categoryId ?? null,
@@ -1402,9 +1524,10 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       subject: string;
       status: string;
       order_id: string;
-      buyer_id: string;
-      buyer_name: string | null;
-      buyer_email: string | null;
+      complainant_type: "buyer" | "seller";
+      complainant_id: string;
+      complainant_name: string | null;
+      complainant_email: string | null;
       created_at: string;
     }>(
       "complaints",
@@ -1413,12 +1536,13 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
          c.subject,
          c.status,
          c.order_id::text,
-         c.complainant_buyer_id::text AS buyer_id,
-         b.display_name AS buyer_name,
-         b.email AS buyer_email,
+         COALESCE(c.complainant_type, 'buyer') AS complainant_type,
+         COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_id,
+         actor.display_name AS complainant_name,
+         actor.email AS complainant_email,
          c.created_at::text
        FROM complaints c
-       LEFT JOIN users b ON b.id = c.complainant_buyer_id
+       LEFT JOIN users actor ON actor.id = COALESCE(c.complainant_user_id, c.complainant_buyer_id)
        WHERE
          lower(c.id::text) LIKE $1
          OR lower(c.order_id::text) LIKE $1
@@ -1473,8 +1597,8 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       kind: "complaint",
       id: row.id,
       primaryText: row.subject,
-      secondaryText: `${row.status} • order #${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()} • ${row.buyer_name || row.buyer_email || "buyer"}`,
-      targetPath: `/app/buyers/${row.buyer_id}?tab=complaints`,
+      secondaryText: `${row.status} • order #${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()} • ${row.complainant_name || row.complainant_email || row.complainant_type}`,
+      targetPath: `/app/investigation/${row.id}`,
     })),
   ];
 
@@ -1570,6 +1694,20 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
   const offset = (input.page - 1) * input.pageSize;
   const sortField = appSortFieldMap[input.sortBy];
   const sortDir = input.sortDir === "asc" ? "ASC" : "DESC";
+  const complaintTotalSelect =
+    input.audience === "seller" ? "COALESCE(complaint_received_stats.complaint_total, 0)::int" : "COALESCE(complaint_made_stats.complaint_total, 0)::int";
+  const complaintResolvedSelect =
+    input.audience === "seller"
+      ? "COALESCE(complaint_received_stats.complaint_resolved, 0)::int"
+      : "COALESCE(complaint_made_stats.complaint_resolved, 0)::int";
+  const complaintUnresolvedSelect =
+    input.audience === "seller"
+      ? "COALESCE(complaint_received_stats.complaint_unresolved, 0)::int"
+      : "COALESCE(complaint_made_stats.complaint_unresolved, 0)::int";
+  const latestComplaintWhereSql =
+    input.audience === "seller"
+      ? "o.seller_id = u.id"
+      : "COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id AND COALESCE(c.complainant_type, 'buyer') = 'buyer'";
 
   const total = await pool.query<{ count: string }>(
     `SELECT count(*)::text AS count FROM users u ${whereSql}`,
@@ -1596,6 +1734,9 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     complaint_total: number;
     complaint_resolved: number;
     complaint_unresolved: number;
+    complaint_made_total: number;
+    complaint_made_resolved: number;
+    complaint_made_unresolved: number;
     monthly_order_count_current: number;
     monthly_order_count_previous: number;
     monthly_spent_current: string;
@@ -1632,9 +1773,12 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.created_at::text,
        u.updated_at::text,
        COALESCE(food_stats.total_foods, 0)::int AS total_foods,
-       COALESCE(complaint_stats.complaint_total, 0)::int AS complaint_total,
-       COALESCE(complaint_stats.complaint_resolved, 0)::int AS complaint_resolved,
-       COALESCE(complaint_stats.complaint_unresolved, 0)::int AS complaint_unresolved,
+       ${complaintTotalSelect} AS complaint_total,
+       ${complaintResolvedSelect} AS complaint_resolved,
+       ${complaintUnresolvedSelect} AS complaint_unresolved,
+       COALESCE(complaint_made_stats.complaint_total, 0)::int AS complaint_made_total,
+       COALESCE(complaint_made_stats.complaint_resolved, 0)::int AS complaint_made_resolved,
+       COALESCE(complaint_made_stats.complaint_unresolved, 0)::int AS complaint_made_unresolved,
        COALESCE(order_stats.monthly_order_count_current, 0)::int AS monthly_order_count_current,
        COALESCE(order_stats.monthly_order_count_previous, 0)::int AS monthly_order_count_previous,
        COALESCE(order_stats.monthly_spent_current, 0)::text AS monthly_spent_current,
@@ -1673,8 +1817,18 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
          count(*) FILTER (WHERE c.status IN ('resolved', 'closed'))::int AS complaint_resolved,
          count(*) FILTER (WHERE c.status IN ('open', 'in_review'))::int AS complaint_unresolved
        FROM complaints c
-       WHERE c.complainant_buyer_id = u.id
-     ) complaint_stats ON TRUE
+       WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer'
+         AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id
+     ) complaint_made_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         count(*)::int AS complaint_total,
+         count(*) FILTER (WHERE c.status IN ('resolved', 'closed'))::int AS complaint_resolved,
+         count(*) FILTER (WHERE c.status IN ('open', 'in_review'))::int AS complaint_unresolved
+       FROM complaints c
+       JOIN orders o ON o.id = c.order_id
+       WHERE o.seller_id = u.id
+     ) complaint_received_stats ON TRUE
      LEFT JOIN LATERAL (
        SELECT
          count(*) FILTER (WHERE o.created_at >= (now() - interval '30 days'))::int AS monthly_order_count_current,
@@ -1734,7 +1888,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        JOIN orders o ON o.id = c.order_id
        LEFT JOIN users s ON s.id = o.seller_id
        LEFT JOIN complaint_categories cat ON cat.id = c.category_id
-       WHERE c.complainant_buyer_id = u.id
+       WHERE ${latestComplaintWhereSql}
        ORDER BY c.created_at DESC, c.id DESC
        LIMIT 1
      ) latest_complaint ON TRUE
@@ -1765,6 +1919,9 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       complaintTotal: Number(row.complaint_total ?? 0),
       complaintResolved: Number(row.complaint_resolved ?? 0),
       complaintUnresolved: Number(row.complaint_unresolved ?? 0),
+      complaintMadeTotal: Number(row.complaint_made_total ?? 0),
+      complaintMadeResolved: Number(row.complaint_made_resolved ?? 0),
+      complaintMadeUnresolved: Number(row.complaint_made_unresolved ?? 0),
       monthlyOrderCountCurrent: Number(row.monthly_order_count_current ?? 0),
       monthlyOrderCountPrevious: Number(row.monthly_order_count_previous ?? 0),
       monthlySpentCurrent: Number(row.monthly_spent_current ?? 0),
@@ -2411,8 +2568,8 @@ adminUserManagementRouter.get("/buyers/:id", requireAuth("admin"), async (req, r
       `SELECT
          (SELECT count(*)::text FROM orders o WHERE o.buyer_id = $1) AS total_orders,
          (SELECT COALESCE(sum(o.total_price), 0)::text FROM orders o WHERE o.buyer_id = $1 AND o.payment_completed = TRUE) AS total_spent,
-         (SELECT count(*)::text FROM complaints c WHERE c.complainant_buyer_id = $1) AS complaint_total,
-         (SELECT count(*)::text FROM complaints c WHERE c.complainant_buyer_id = $1 AND c.status IN ('open', 'in_review')) AS complaint_unresolved`,
+         (SELECT count(*)::text FROM complaints c WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer' AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1) AS complaint_total,
+         (SELECT count(*)::text FROM complaints c WHERE COALESCE(c.complainant_type, 'buyer') = 'buyer' AND COALESCE(c.complainant_user_id, c.complainant_buyer_id) = $1 AND c.status IN ('open', 'in_review')) AS complaint_unresolved`,
       [params.data.id]
     ),
     pool.query<{
@@ -3283,12 +3440,13 @@ adminUserManagementRouter.get("/users/:id/buyer-summary", requireAuth("admin"), 
     resolved_complaints: string;
     unresolved_complaints: string;
   }>(
-    `SELECT
+     `SELECT
        count(*)::text AS total_complaints,
        count(*) FILTER (WHERE status IN ('resolved', 'closed'))::text AS resolved_complaints,
        count(*) FILTER (WHERE status IN ('open', 'in_review'))::text AS unresolved_complaints
      FROM complaints
-     WHERE complainant_buyer_id = $1`,
+     WHERE COALESCE(complainant_type, 'buyer') = 'buyer'
+       AND COALESCE(complainant_user_id, complainant_buyer_id) = $1`,
     [params.data.id]
   );
 

@@ -573,6 +573,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const sellerTotalFoods = (row: any): number => Number(row.totalFoods ?? 0);
   const sellerComplaintTotal = (row: any): number => Number(row.complaintTotal ?? row.openComplaintCount ?? 0);
   const sellerComplaintUnresolved = (row: any): number => Number(row.complaintUnresolved ?? row.openComplaintCount ?? 0);
+  const sellerComplaintMadeTotal = (row: any): number => Number(row.complaintMadeTotal ?? 0);
   const sellerMissingDoc = (row: any): number => Number(row.missingDocCount ?? row.missingDocuments ?? 0);
   const sellerSuspiciousLogin = (row: any): number =>
     Number(row.suspiciousLoginCount ?? row.loginAnomalyCount ?? row.sameIpAccountCount ?? row.sameIpEntryCount ?? 0);
@@ -610,6 +611,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (key === "pending_approvals") return /(pending|review|in_progress|submitted)/.test(sellerApprovalText(row));
     if (key === "missing_documents") return sellerMissingDoc(row) > 0;
     if (key === "suspicious_logins") return sellerSuspiciousLogin(row) > 0;
+    if (key === "complaining_sellers") return sellerComplaintMadeTotal(row) > 0;
     if (key === "top_selling_foods") {
       return sellerTotalFoods(row) > 0 && sellerOrderCurrent(row) >= sellerTopSellingFoodsOrderThreshold && sellerOrderCurrent(row) > 0;
     }
@@ -625,6 +627,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     }
     if (key === "top_selling_foods") {
       return scopedRows.sort((a, b) => sellerOrderCurrent(b) - sellerOrderCurrent(a));
+    }
+    if (key === "complaining_sellers") {
+      return scopedRows.sort((a, b) => sellerComplaintMadeTotal(b) - sellerComplaintMadeTotal(a));
     }
     if (key === "urgent_action") {
       return scopedRows.sort((a, b) => sellerRiskMeta(b).score - sellerRiskMeta(a).score);
@@ -655,6 +660,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           pending_approvals: 0,
           missing_documents: 0,
           suspicious_logins: 0,
+          complaining_sellers: 0,
           top_selling_foods: 0,
           top_revenue: 0,
           performance_drop: 0,
@@ -1105,6 +1111,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       "pending_approvals",
       "missing_documents",
       "suspicious_logins",
+      "complaining_sellers",
       "top_selling_foods",
       "top_revenue",
       "performance_drop",
@@ -1295,7 +1302,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget =
-                          activeSellerSmartFilter === "complainer_sellers" ? `/app/investigation?sellerId=${row.id}` : `/app/sellers/${row.id}`;
+                          activeSellerSmartFilter === "complainer_sellers"
+                            ? `/app/investigation?sellerId=${row.id}`
+                            : activeSellerSmartFilter === "complaining_sellers"
+                              ? `/app/investigation?complainantType=seller&complainantUserId=${row.id}`
+                              : `/app/sellers/${row.id}`;
 
                         return (
                           <tr

@@ -372,7 +372,9 @@ CREATE TABLE public.complaint_categories (
 CREATE TABLE public.complaints (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     order_id uuid NOT NULL,
-    complainant_buyer_id uuid NOT NULL,
+    complainant_buyer_id uuid,
+    complainant_type text NOT NULL,
+    complainant_user_id uuid NOT NULL,
     subject text NOT NULL,
     status text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -382,6 +384,7 @@ CREATE TABLE public.complaints (
     resolved_at timestamp with time zone,
     resolution_note text,
     assigned_admin_id uuid,
+    CONSTRAINT complaints_complainant_type_check CHECK ((complainant_type = ANY (ARRAY['buyer'::text, 'seller'::text]))),
     CONSTRAINT complaints_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text]))),
     CONSTRAINT complaints_status_check CHECK ((status = ANY (ARRAY['open'::text, 'in_review'::text, 'resolved'::text, 'closed'::text])))
 );
@@ -1602,6 +1605,13 @@ CREATE INDEX idx_complaints_buyer ON public.complaints USING btree (complainant_
 
 
 --
+-- Name: idx_complaints_complainant_actor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_complaints_complainant_actor ON public.complaints USING btree (complainant_type, complainant_user_id);
+
+
+--
 -- Name: idx_complaints_category; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2005,6 +2015,14 @@ ALTER TABLE ONLY public.complaints
 
 ALTER TABLE ONLY public.complaints
     ADD CONSTRAINT complaints_complainant_buyer_id_fkey FOREIGN KEY (complainant_buyer_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: complaints complaints_complainant_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.complaints
+    ADD CONSTRAINT complaints_complainant_user_id_fkey FOREIGN KEY (complainant_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
 
 --
