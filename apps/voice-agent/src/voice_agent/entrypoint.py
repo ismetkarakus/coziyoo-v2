@@ -445,11 +445,11 @@ def _resolve_n8n_webhook(
     webhook_path: str = "",
     webhook_url: str = "",
 ) -> str:
-    explicit = _normalize_base_url(webhook_url or os.getenv("N8N_LLM_WEBHOOK_URL", ""))
+    explicit = _normalize_base_url(webhook_url)
     if explicit:
         return explicit
 
-    raw_path = (webhook_path or "").strip() or (os.getenv("N8N_LLM_WEBHOOK_PATH", "") or "").strip()
+    raw_path = (webhook_path or "").strip()
     parsed_path = urlparse(raw_path) if raw_path else None
     if parsed_path and parsed_path.scheme and parsed_path.netloc:
         return _normalize_base_url(raw_path)
