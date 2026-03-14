@@ -690,6 +690,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     let scopedRows = rows;
     if (isSellerPage) {
       scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
+      if (activeSellerKpiFilter === "active") {
+        scopedRows = scopedRows.filter(
+          (row) => matchSellerSmartFilter(row, "missing_documents") || matchSellerSmartFilter(row, "pending_approvals")
+        );
+      }
       if (activeSellerKpiFilter === "new_today") {
         scopedRows = scopedRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey);
       }
@@ -1129,7 +1134,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       }
       setActiveSellerSmartFilter(null);
       if (mode === "active") {
-        setSellerStatusFilter("active");
+        setSellerStatusFilter("all");
         setActiveSellerKpiFilter("active");
         return;
       }
