@@ -15,4 +15,5 @@ export type BuyerSmartFilterKey =
   | "top_revenue"
   | "suspicious_login"
   | "same_ip_multi_account"
+  | "risky_seller_complaints"
   | "complainers";

@@ -6,6 +6,7 @@ export const BUYER_SMART_FILTER_ITEMS: Array<{ key: BuyerSmartFilterKey; label: 
   { key: "top_revenue", label: "En Fazla Ciro", icon: "₺" },
   { key: "suspicious_login", label: "Supheli Giris", icon: "◉" },
   { key: "same_ip_multi_account", label: "Ayni IP'de Iki Giris", icon: "⌁" },
+  { key: "risky_seller_complaints", label: "Riskli Satici Sikayet", icon: "⚠" },
   { key: "complainers", label: "Sikayetciler", icon: "✉" },
 ];
 

@@ -57,6 +57,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     top_revenue: 0,
     suspicious_login: 0,
     same_ip_multi_account: 0,
+    risky_seller_complaints: 0,
     complainers: 0,
   });
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
@@ -287,6 +288,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           top_revenue: Number(body.data.top_revenue ?? 0),
           suspicious_login: Number(body.data.suspicious_login ?? 0),
           same_ip_multi_account: Number(body.data.same_ip_multi_account ?? 0),
+          risky_seller_complaints: Number(body.data.risky_seller_complaints ?? 0),
           complainers: Number(body.data.complainers ?? 0),
         });
       })
