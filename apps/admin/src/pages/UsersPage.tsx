@@ -57,7 +57,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     top_revenue: 0,
     suspicious_login: 0,
     same_ip_multi_account: 0,
-    risky_seller_complaints: 0,
     complainers: 0,
   });
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
@@ -288,7 +287,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           top_revenue: Number(body.data.top_revenue ?? 0),
           suspicious_login: Number(body.data.suspicious_login ?? 0),
           same_ip_multi_account: Number(body.data.same_ip_multi_account ?? 0),
-          risky_seller_complaints: Number(body.data.risky_seller_complaints ?? 0),
           complainers: Number(body.data.complainers ?? 0),
         });
       })
@@ -540,6 +538,16 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const totalRevenue30d = rows.reduce((acc, row) => acc + Number(row.monthlySpentCurrent ?? 0), 0);
   const activeRatio = totalBuyersCount > 0 ? Math.round((activeRows.length / totalBuyersCount) * 100) : 0;
   const buyerRevenue = (row: any): number => Number(row.monthlySpentCurrent ?? row.totalSpent ?? row.totalRevenue ?? row.revenue ?? 0);
+  const buyerLatestComplaintSubject = (row: any): string =>
+    String(row.latestComplaintSubject ?? row.latestComplaintCategoryName ?? "").trim();
+  const buyerLatestComplaintReason = (row: any): string =>
+    String(row.latestComplaintDescription ?? row.latestComplaintSubject ?? row.latestComplaintCategoryName ?? "").trim();
+  const buyerLatestComplaintSeller = (row: any): string =>
+    String(row.latestComplaintSellerName ?? row.latestComplaintSellerEmail ?? row.latestComplaintSellerId ?? "").trim();
+  const buyerLatestComplaintCreatedAtMs = (row: any): number => {
+    const parsed = Date.parse(String(row.latestComplaintCreatedAt ?? ""));
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
   const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
@@ -755,6 +763,27 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       } else if (buyerQuickFilter === "down_spend") {
         scopedRows = scopedRows.filter(
           (row) => trendDirection(Number(row.monthlySpentCurrent ?? 0), Number(row.monthlySpentPrevious ?? 0)) === "down"
+        );
+      }
+      if (activeSmartFilter === "complainers") {
+        scopedRows = [...scopedRows].sort(
+          (a, b) =>
+            buyerLatestComplaintCreatedAtMs(b) - buyerLatestComplaintCreatedAtMs(a) ||
+            Number(b.complaintTotal ?? 0) - Number(a.complaintTotal ?? 0)
+        );
+      }
+      if (buyerQuickFilter === "open_complaint") {
+        scopedRows = [...scopedRows].sort(
+          (a, b) =>
+            Number(b.complaintUnresolved ?? 0) - Number(a.complaintUnresolved ?? 0) ||
+            buyerLatestComplaintCreatedAtMs(b) - buyerLatestComplaintCreatedAtMs(a)
+        );
+      }
+      if (buyerQuickFilter === "down_spend") {
+        scopedRows = [...scopedRows].sort(
+          (a, b) =>
+            (Number(a.monthlySpentCurrent ?? 0) - Number(a.monthlySpentPrevious ?? 0)) -
+            (Number(b.monthlySpentCurrent ?? 0) - Number(b.monthlySpentPrevious ?? 0))
         );
       }
       if (activeSmartFilter === "top_revenue") {
@@ -1323,6 +1352,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     );
   }
   if (isBuyerPage) {
+    const isComplainersView = activeSmartFilter === "complainers";
+    const isOpenComplaintView = buyerQuickFilter === "open_complaint";
     return (
       <div className="app buyer-v2-page">
         <section className="buyer-v2-kpis seller-v2-kpis">
@@ -1572,11 +1603,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     </th>
                     <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                     <th>Alıcı</th>
-                    <th>Risk</th>
-                    <th>Şikayet</th>
-                    <th>Sipariş (1 Ay)</th>
-                    <th>Harcama (1 Ay)</th>
-                    <th>Son Giris</th>
+                    <th>{isComplainersView ? "Şikayet" : isOpenComplaintView ? "Şikayet Alan" : "Risk"}</th>
+                    <th>{isComplainersView ? "Sebep" : isOpenComplaintView ? "Sebep" : "Şikayet"}</th>
+                    <th>{isComplainersView ? "Şikayet Alan" : isOpenComplaintView ? "Açık Şikayet" : "Sipariş (1 Ay)"}</th>
+                    <th>{isComplainersView ? "Oluşturma" : isOpenComplaintView ? "Durum" : "Harcama (1 Ay)"}</th>
+                    <th>{isComplainersView ? "Şikayet Durumu" : isOpenComplaintView ? "Son Giriş" : "Son Giris"}</th>
                     <th>Durum</th>
                     <th />
                   </tr>
@@ -1647,36 +1678,81 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           </div>
                         </td>
                         <td>
-                          <span className={`risk-pill is-${risk.level}`}>
-                            {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
-                          </span>
+                          {isComplainersView ? (
+                            <div className="buyer-complaint-cell">
+                              <strong>{buyerLatestComplaintSubject(row) || "-"}</strong>
+                            </div>
+                          ) : isOpenComplaintView ? (
+                            <div className="buyer-complaint-cell">
+                              <strong>{buyerLatestComplaintSeller(row) || "-"}</strong>
+                            </div>
+                          ) : (
+                            <span className={`risk-pill is-${risk.level}`}>
+                              {risk.level === "high" ? "Yüksek" : risk.level === "medium" ? "Orta" : "Düşük"}
+                            </span>
+                          )}
                         </td>
                         <td>
-                          <div className="buyer-complaint-cell">
-                            <strong>{totalComplaints}</strong>
-                            {unresolved > 0 ? <span className="complaint-open-chip">{`◀ ${unresolved} Açık`}</span> : null}
-                          </div>
+                          {isComplainersView || isOpenComplaintView ? (
+                            <div className="buyer-complaint-cell">
+                              <strong title={buyerLatestComplaintReason(row) || "-"}>{buyerLatestComplaintReason(row) || "-"}</strong>
+                            </div>
+                          ) : (
+                            <div className="buyer-complaint-cell">
+                              <strong>{totalComplaints}</strong>
+                              {unresolved > 0 ? <span className="complaint-open-chip">{`◀ ${unresolved} Açık`}</span> : null}
+                            </div>
+                          )}
                         </td>
                         <td>
-                          <div className="buyer-orders-cell">
-                            <strong>{orderCurrent}</strong>
-                            <span className={`buyer-trend ${orderTrendMeta.className}`}>{orderTrendMeta.symbol}</span>
-                            {orderDelta !== 0 ? (
-                              <span className={`buyer-delta ${orderDelta > 0 ? "is-up" : "is-down"}`}>{Math.abs(orderDelta)}</span>
-                            ) : null}
-                          </div>
+                          {isComplainersView ? (
+                            <div className="buyer-complaint-cell">
+                              <strong>{buyerLatestComplaintSeller(row) || "-"}</strong>
+                            </div>
+                          ) : isOpenComplaintView ? (
+                            <div className="buyer-complaint-cell">
+                              <strong>{unresolved}</strong>
+                              {totalComplaints > unresolved ? <span>{`/ ${totalComplaints} toplam`}</span> : null}
+                            </div>
+                          ) : (
+                            <div className="buyer-orders-cell">
+                              <strong>{orderCurrent}</strong>
+                              <span className={`buyer-trend ${orderTrendMeta.className}`}>{orderTrendMeta.symbol}</span>
+                              {orderDelta !== 0 ? (
+                                <span className={`buyer-delta ${orderDelta > 0 ? "is-up" : "is-down"}`}>{Math.abs(orderDelta)}</span>
+                              ) : null}
+                            </div>
+                          )}
                         </td>
                         <td>
-                          <div className="buyer-spend-cell">
-                            <strong>{formatCurrency(spendCurrent, language)}</strong>
-                            <span className={`buyer-trend ${spendTrendMeta.className}`}>{spendTrendMeta.symbol}</span>
-                            {spendDelta === 0 ? <span className="buyer-dot">•</span> : null}
-                          </div>
+                          {isComplainersView ? (
+                            <div className="buyer-login-cell">
+                              <strong>{formatLoginRelativeDayMonth(String(row.latestComplaintCreatedAt ?? ""), language)}</strong>
+                            </div>
+                          ) : isOpenComplaintView ? (
+                            <span className={`status-pill ${unresolved > 0 ? "is-warning" : "is-neutral"}`}>
+                              {unresolved > 0 ? "Açık" : "Kapalı"}
+                            </span>
+                          ) : (
+                            <div className="buyer-spend-cell">
+                              <strong>{formatCurrency(spendCurrent, language)}</strong>
+                              <span className={`buyer-trend ${spendTrendMeta.className}`}>{spendTrendMeta.symbol}</span>
+                              {spendDelta === 0 ? <span className="buyer-dot">•</span> : null}
+                            </div>
+                          )}
                         </td>
                         <td>
                           <div className="buyer-login-cell">
-                            <strong>{loginAt}</strong>
-                            {risk.level === "high" ? <span className="status-pill is-warning">⚠ Yuksek</span> : null}
+                            {isComplainersView ? (
+                              <span className={`status-pill ${unresolved > 0 ? "is-warning" : "is-neutral"}`}>
+                                {unresolved > 0 ? "Açık" : "Kapalı"}
+                              </span>
+                            ) : (
+                              <>
+                                <strong>{loginAt}</strong>
+                                {risk.level === "high" ? <span className="status-pill is-warning">⚠ Yuksek</span> : null}
+                              </>
+                            )}
                           </div>
                         </td>
                         <td>

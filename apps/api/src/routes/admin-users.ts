@@ -20,7 +20,6 @@ const AppUserListQuerySchema = z.object({
     "top_revenue",
     "suspicious_login",
     "same_ip_multi_account",
-    "risky_seller_complaints",
     "complainers",
   ]).optional(),
   search: z.string().min(1).max(120).optional(),
@@ -314,23 +313,6 @@ function buyerSmartFilterConditionSql(filter: BuyerSmartFilter): string {
           WHERE ul2.ip = ul.ip
             AND ul2.user_id <> u.id
             AND ul2.created_at >= (now() - interval '24 hours')
-        )
-    )`;
-  }
-
-  if (filter === "risky_seller_complaints") {
-    return `EXISTS (
-      SELECT 1
-      FROM complaints c
-      JOIN orders o ON o.id = c.order_id
-      WHERE c.complainant_buyer_id = u.id
-        AND o.seller_id IN (
-          SELECT os.seller_id
-          FROM complaints cs
-          JOIN orders os ON os.id = cs.order_id
-          WHERE cs.status IN ('open', 'in_review')
-          GROUP BY os.seller_id
-          HAVING count(*) >= 2
         )
     )`;
   }
@@ -1602,6 +1584,15 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     monthly_spent_current: string;
     monthly_spent_previous: string;
     last_online_at: string | null;
+    latest_complaint_id: string | null;
+    latest_complaint_subject: string | null;
+    latest_complaint_description: string | null;
+    latest_complaint_status: string | null;
+    latest_complaint_created_at: string | null;
+    latest_complaint_category_name: string | null;
+    latest_complaint_seller_id: string | null;
+    latest_complaint_seller_name: string | null;
+    latest_complaint_seller_email: string | null;
   }>(
     `SELECT
        u.id,
@@ -1633,7 +1624,16 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
            FROM auth_sessions s
            WHERE s.user_id = u.id
          )
-       ) AS last_online_at
+       ) AS last_online_at,
+       latest_complaint.id AS latest_complaint_id,
+       latest_complaint.subject AS latest_complaint_subject,
+       latest_complaint.description AS latest_complaint_description,
+       latest_complaint.status AS latest_complaint_status,
+       latest_complaint.created_at AS latest_complaint_created_at,
+       latest_complaint.category_name AS latest_complaint_category_name,
+       latest_complaint.seller_id AS latest_complaint_seller_id,
+       latest_complaint.seller_name AS latest_complaint_seller_name,
+       latest_complaint.seller_email AS latest_complaint_seller_email
      FROM users u
      LEFT JOIN LATERAL (
        SELECT count(*)::int AS total_foods
@@ -1663,6 +1663,25 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        WHERE p.subject_type = 'app_user'
          AND p.subject_id = u.id
      ) presence_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         c.id::text AS id,
+         c.subject,
+         c.description,
+         c.status,
+         c.created_at::text AS created_at,
+         cat.name AS category_name,
+         o.seller_id::text AS seller_id,
+         s.display_name AS seller_name,
+         s.email AS seller_email
+       FROM complaints c
+       JOIN orders o ON o.id = c.order_id
+       LEFT JOIN users s ON s.id = o.seller_id
+       LEFT JOIN complaint_categories cat ON cat.id = c.category_id
+       WHERE c.complainant_buyer_id = u.id
+       ORDER BY c.created_at DESC, c.id DESC
+       LIMIT 1
+     ) latest_complaint ON TRUE
      ${whereSql}
      ORDER BY ${sortField} ${sortDir}, u.id ${sortDir}
      LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
@@ -1695,6 +1714,15 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       monthlySpentCurrent: Number(row.monthly_spent_current ?? 0),
       monthlySpentPrevious: Number(row.monthly_spent_previous ?? 0),
       lastOnlineAt: row.last_online_at,
+      latestComplaintId: row.latest_complaint_id,
+      latestComplaintSubject: row.latest_complaint_subject,
+      latestComplaintDescription: row.latest_complaint_description,
+      latestComplaintStatus: row.latest_complaint_status,
+      latestComplaintCreatedAt: row.latest_complaint_created_at,
+      latestComplaintCategoryName: row.latest_complaint_category_name,
+      latestComplaintSellerId: row.latest_complaint_seller_id,
+      latestComplaintSellerName: row.latest_complaint_seller_name,
+      latestComplaintSellerEmail: row.latest_complaint_seller_email,
     })),
     pagination: {
       mode: "offset",
@@ -1712,7 +1740,6 @@ adminUserManagementRouter.get("/buyers/smart-filter-counts", requireAuth("admin"
   const topRevenueSql = buyerSmartFilterConditionSql("top_revenue");
   const suspiciousLoginSql = buyerSmartFilterConditionSql("suspicious_login");
   const sameIpSql = buyerSmartFilterConditionSql("same_ip_multi_account");
-  const riskySellerSql = buyerSmartFilterConditionSql("risky_seller_complaints");
   const complainersSql = buyerSmartFilterConditionSql("complainers");
 
   const counts = await pool.query<{
@@ -1720,7 +1747,6 @@ adminUserManagementRouter.get("/buyers/smart-filter-counts", requireAuth("admin"
     top_revenue: number;
     suspicious_login: number;
     same_ip_multi_account: number;
-    risky_seller_complaints: number;
     complainers: number;
   }>(
     `SELECT
@@ -1728,7 +1754,6 @@ adminUserManagementRouter.get("/buyers/smart-filter-counts", requireAuth("admin"
        count(*) FILTER (WHERE ${buyerScopeSql} AND ${topRevenueSql})::int AS top_revenue,
        count(*) FILTER (WHERE ${buyerScopeSql} AND ${suspiciousLoginSql})::int AS suspicious_login,
        count(*) FILTER (WHERE ${buyerScopeSql} AND ${sameIpSql})::int AS same_ip_multi_account,
-       count(*) FILTER (WHERE ${buyerScopeSql} AND ${riskySellerSql})::int AS risky_seller_complaints,
        count(*) FILTER (WHERE ${buyerScopeSql} AND ${complainersSql})::int AS complainers
      FROM users u`
   );
@@ -1739,7 +1764,6 @@ adminUserManagementRouter.get("/buyers/smart-filter-counts", requireAuth("admin"
       top_revenue: Number(counts.rows[0]?.top_revenue ?? 0),
       suspicious_login: Number(counts.rows[0]?.suspicious_login ?? 0),
       same_ip_multi_account: Number(counts.rows[0]?.same_ip_multi_account ?? 0),
-      risky_seller_complaints: Number(counts.rows[0]?.risky_seller_complaints ?? 0),
       complainers: Number(counts.rows[0]?.complainers ?? 0),
     },
   });
