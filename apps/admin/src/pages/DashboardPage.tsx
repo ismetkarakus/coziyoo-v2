@@ -11,24 +11,23 @@ function DataTableCard({
   valueLabel,
   rows,
   updatedAt,
-  language,
+  dict,
 }: {
   title: string;
   metricLabel: string;
   valueLabel: string;
   rows: Array<{ label: string; value: string }>;
   updatedAt: string;
-  language: Language;
+  dict: Dictionary;
 }) {
-  const isTr = language === "tr";
   const axisLabels = ["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30"];
   const queuePoints = [6, 4.5, 6, 5, 4, 4.1, 6.5];
   const sparkPoints = [6.2, 6.1, 5.8, 6.3, 6.2, 6, 5.9, 5.7];
   const queueRows = [
-    { name: isTr ? "Yazdırma" : "Print", count: 14, tone: "dot-blue" },
-    { name: isTr ? "İndirme" : "Download", count: 26, tone: "dot-cyan" },
-    { name: isTr ? "Mesaj / İş" : "Message / Job", count: 36, tone: "dot-teal" },
-    { name: isTr ? "Medya" : "Media", count: 24, tone: "dot-red" },
+    { name: dict.dashboard.queuePrint, count: 14, tone: "dot-blue" },
+    { name: dict.dashboard.queueDownload, count: 26, tone: "dot-cyan" },
+    { name: dict.dashboard.queueMessageJob, count: 36, tone: "dot-teal" },
+    { name: dict.dashboard.queueMedia, count: 24, tone: "dot-red" },
   ];
 
   return (
@@ -50,21 +49,21 @@ function DataTableCard({
               </div>
             ))}
           </div>
-          <p className="kpi-updated">{isTr ? "Son Güncelleme" : "Last Updated"}: {updatedAt}</p>
+          <p className="kpi-updated">{dict.dashboard.lastUpdated}: {updatedAt}</p>
         </div>
         <div className="kpi-right">
-          <h3>{isTr ? "İşlem Yoğunluğu Testi" : "Job Load Test"}</h3>
+          <h3>{dict.dashboard.jobLoadTest}</h3>
           <LineChart labels={axisLabels} points={queuePoints} max={10} />
           <div className="chart-legend">
-            <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
-            <span><i className="dot dot-teal" />{isTr ? "İşlemde" : "Processing"}</span>
-            <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
+            <span><i className="dot dot-blue" />{dict.dashboard.waiting}</span>
+            <span><i className="dot dot-teal" />{dict.dashboard.processing}</span>
+            <span><i className="dot dot-red" />{dict.dashboard.failed}</span>
           </div>
           <div className="queue-list">
             {queueRows.map((row) => (
               <div className="queue-row" key={row.name}>
                 <span className="queue-name"><i className={`dot ${row.tone}`} />{row.name}</span>
-                <span className="queue-status">{row.count} {isTr ? "Dosya" : "Files"}</span>
+                <span className="queue-status">{row.count} {dict.dashboard.files}</span>
               </div>
             ))}
           </div>
@@ -73,9 +72,9 @@ function DataTableCard({
       <div className="line-chart-wrap">
         <SparklineChart labels={["16:30", "19:30", "22:30", "01:30", "04:30", "07:30", "10:30", "13:30"]} points={sparkPoints} />
         <div className="chart-legend compact">
-          <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
-          <span><i className="dot dot-cyan" />{isTr ? "İşlemde" : "Processing"}</span>
-          <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
+          <span><i className="dot dot-blue" />{dict.dashboard.waiting}</span>
+          <span><i className="dot dot-cyan" />{dict.dashboard.processing}</span>
+          <span><i className="dot dot-red" />{dict.dashboard.failed}</span>
         </div>
       </div>
     </article>
@@ -87,7 +86,6 @@ function ActionCard({
   dict,
   updatedAt,
   queueSummary,
-  language,
   onOpenCompliance,
   onViewDisputes,
   onInspectAppUsers,
@@ -97,13 +95,11 @@ function ActionCard({
   dict: Dictionary;
   updatedAt: string;
   queueSummary: { waiting: number; processing: number; failed: number };
-  language: Language;
   onOpenCompliance: () => void;
   onViewDisputes: () => void;
   onInspectAppUsers: () => void;
   onInspectAdminUsers: () => void;
 }) {
-  const isTr = language === "tr";
   const total = Math.max(queueSummary.waiting + queueSummary.processing + queueSummary.failed, 1);
   const radius = 64;
   const circumference = 2 * Math.PI * radius;
@@ -124,15 +120,15 @@ function ActionCard({
       </div>
       <div className="queue-state-card">
         <div className="queue-state-header">
-          <h3>{isTr ? "İşlem Durumu" : "Processing Status"}</h3>
+          <h3>{dict.dashboard.processingStatus}</h3>
           <span>{updatedAt}</span>
         </div>
         <div className="queue-state-content">
           <div className="queue-state-labels">
-            <p>{isTr ? "Yazdırma İşleri" : "Print Jobs"}</p>
-            <p>{isTr ? "İndirme İşleri" : "Download Jobs"}</p>
-            <p>{isTr ? "Mesaj / Görev İşleri" : "Message / Task Jobs"}</p>
-            <p>{isTr ? "Medya İşleri" : "Media Jobs"}</p>
+            <p>{dict.dashboard.printJobs}</p>
+            <p>{dict.dashboard.downloadJobs}</p>
+            <p>{dict.dashboard.messageTaskJobs}</p>
+            <p>{dict.dashboard.mediaJobs}</p>
           </div>
           <div className="donut-wrap">
             <svg className="donut-chart" viewBox="0 0 160 160" role="presentation" aria-hidden="true">
@@ -166,11 +162,11 @@ function ActionCard({
           </div>
         </div>
         <div className="chart-legend compact">
-          <span><i className="dot dot-blue" />{isTr ? "Bekliyor" : "Waiting"}</span>
-          <span><i className="dot dot-cyan" />{isTr ? "İşlemde" : "Processing"}</span>
-          <span><i className="dot dot-red" />{isTr ? "Hata Verdi" : "Failed"}</span>
+          <span><i className="dot dot-blue" />{dict.dashboard.waiting}</span>
+          <span><i className="dot dot-cyan" />{dict.dashboard.processing}</span>
+          <span><i className="dot dot-red" />{dict.dashboard.failed}</span>
         </div>
-        <p className="queue-foot">{isTr ? "Son Güncelleme" : "Last Updated"}: {updatedAt}</p>
+        <p className="queue-foot">{dict.dashboard.lastUpdated}: {updatedAt}</p>
       </div>
     </article>
   );
@@ -219,22 +215,22 @@ export default function DashboardPage({ language }: { language: Language }) {
     value: string | number;
     trailingIcon?: "refresh";
   }> = [
-    { key: "totalUsers", label: language === "tr" ? "Toplam Kullanıcı" : "Total Users", icon: "users", value: metricValueOrMissing(data.totalUsers) },
-    { key: "activeUsers", label: language === "tr" ? "Aktif Kullanıcı" : "Active Users", icon: "users", value: metricValueOrMissing(data.activeUsers) },
-    { key: "disabledUsers", label: language === "tr" ? "Pasif Kullanıcı" : "Disabled Users", icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
-    { key: "activeOrders", label: language === "tr" ? "Aktif Sipariş" : "Active Orders", icon: "orders", value: metricValueOrMissing(data.activeOrders) },
-    { key: "paymentPendingOrders", label: language === "tr" ? "Ödeme Bekleyen" : "Pending Payments", icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
-    { key: "updatedAt", label: language === "tr" ? "Son Güncelleme" : "Last Updated", icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
+    { key: "totalUsers", label: dict.dashboard.totalUsers, icon: "users", value: metricValueOrMissing(data.totalUsers) },
+    { key: "activeUsers", label: dict.dashboard.activeUsers, icon: "users", value: metricValueOrMissing(data.activeUsers) },
+    { key: "disabledUsers", label: dict.dashboard.disabledUsers, icon: "lock", value: metricValueOrMissing(data.disabledUsers) },
+    { key: "activeOrders", label: dict.dashboard.activeOrders, icon: "orders", value: metricValueOrMissing(data.activeOrders) },
+    { key: "paymentPendingOrders", label: dict.dashboard.pendingPayments, icon: "mail", value: metricValueOrMissing(data.paymentPendingOrders) },
+    { key: "updatedAt", label: dict.dashboard.lastUpdated, icon: "clock", value: updatedAtDisplay, trailingIcon: "refresh" },
   ];
 
   const tableRows = [
-    { label: language === "tr" ? "Toplam Kullanıcı" : "Total Users", value: String(metrics[0].value) },
-    { label: language === "tr" ? "Aktif Kullanıcı" : "Active Users", value: String(metrics[1].value) },
-    { label: language === "tr" ? "Pasif Kullanıcı" : "Disabled Users", value: String(metrics[2].value) },
-    { label: language === "tr" ? "Aktif Sipariş" : "Active Orders", value: String(metrics[3].value) },
-    { label: language === "tr" ? "Ödeme Bekleyen Sipariş" : "Pending Payment Orders", value: String(metrics[4].value) },
-    { label: language === "tr" ? "Bekleyen Uygunluk" : "Pending Compliance", value: String(metricValueOrMissing(data.complianceQueueCount)) },
-    { label: language === "tr" ? "Ödeme İtirazı" : "Payment Disputes", value: String(metricValueOrMissing(data.openDisputeCount)) },
+    { label: dict.dashboard.totalUsers, value: String(metrics[0].value) },
+    { label: dict.dashboard.activeUsers, value: String(metrics[1].value) },
+    { label: dict.dashboard.disabledUsers, value: String(metrics[2].value) },
+    { label: dict.dashboard.activeOrders, value: String(metrics[3].value) },
+    { label: dict.dashboard.pendingPaymentOrders, value: String(metrics[4].value) },
+    { label: dict.dashboard.pendingCompliance, value: String(metricValueOrMissing(data.complianceQueueCount)) },
+    { label: dict.dashboard.paymentDisputes, value: String(metricValueOrMissing(data.openDisputeCount)) },
   ];
 
   return (
@@ -261,14 +257,13 @@ export default function DashboardPage({ language }: { language: Language }) {
           valueLabel={dict.dashboard.value}
           rows={tableRows}
           updatedAt={updatedAtDisplay}
-          language={language}
+          dict={dict}
         />
         <ActionCard
           title={dict.dashboard.quickActions}
           dict={dict}
           updatedAt={updatedAtDisplay}
           queueSummary={{ waiting: 24, processing: 7, failed: 3 }}
-          language={language}
           onOpenCompliance={() => navigate("/app/compliance-documents")}
           onViewDisputes={() => navigate("/app/investigation")}
           onInspectAppUsers={() => navigate("/app/users")}

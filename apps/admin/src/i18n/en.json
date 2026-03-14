@@ -84,7 +84,30 @@
     "value": "Value",
     "quickActions": "Quick Actions",
     "loadFailed": "Failed to load dashboard",
-    "requestFailed": "Dashboard request failed"
+    "requestFailed": "Dashboard request failed",
+    "lastUpdated": "Last Updated",
+    "jobLoadTest": "Job Load Test",
+    "waiting": "Waiting",
+    "processing": "Processing",
+    "failed": "Failed",
+    "files": "Files",
+    "processingStatus": "Processing Status",
+    "printJobs": "Print Jobs",
+    "downloadJobs": "Download Jobs",
+    "messageTaskJobs": "Message / Task Jobs",
+    "mediaJobs": "Media Jobs",
+    "queuePrint": "Print",
+    "queueDownload": "Download",
+    "queueMessageJob": "Message / Job",
+    "queueMedia": "Media",
+    "totalUsers": "Total Users",
+    "activeUsers": "Active Users",
+    "disabledUsers": "Disabled Users",
+    "activeOrders": "Active Orders",
+    "pendingPayments": "Pending Payments",
+    "pendingPaymentOrders": "Pending Payment Orders",
+    "pendingCompliance": "Pending Compliance",
+    "paymentDisputes": "Payment Disputes"
   },
   "users": {
     "eyebrowApp": "Application Users",
@@ -636,7 +659,8 @@
     "validationError": "Commission rate must be between 0 and 100.",
     "saveError": "Failed to save commission setting.",
     "loadError": "Failed to load commission setting.",
-    "saved": "Commission setting saved."
+    "saved": "Commission setting saved.",
+    "latestRecord": "Latest record"
   },
   "records": {
     "subtitleOrders": "Browse order records from the database.",

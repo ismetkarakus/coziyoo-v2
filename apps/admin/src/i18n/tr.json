@@ -84,7 +84,30 @@
     "value": "Değer",
     "quickActions": "Hızlı Aksiyonlar",
     "loadFailed": "Panel verileri yüklenemedi",
-    "requestFailed": "Panel isteği başarısız"
+    "requestFailed": "Panel isteği başarısız",
+    "lastUpdated": "Son Guncelleme",
+    "jobLoadTest": "Islem Yogunlugu Testi",
+    "waiting": "Bekliyor",
+    "processing": "Islemde",
+    "failed": "Hata Verdi",
+    "files": "Dosya",
+    "processingStatus": "Islem Durumu",
+    "printJobs": "Yazdirma Isleri",
+    "downloadJobs": "Indirme Isleri",
+    "messageTaskJobs": "Mesaj / Gorev Isleri",
+    "mediaJobs": "Medya Isleri",
+    "queuePrint": "Yazdirma",
+    "queueDownload": "Indirme",
+    "queueMessageJob": "Mesaj / Is",
+    "queueMedia": "Medya",
+    "totalUsers": "Toplam Kullanici",
+    "activeUsers": "Aktif Kullanici",
+    "disabledUsers": "Pasif Kullanici",
+    "activeOrders": "Aktif Siparis",
+    "pendingPayments": "Odeme Bekleyen",
+    "pendingPaymentOrders": "Odeme Bekleyen Siparis",
+    "pendingCompliance": "Bekleyen Uygunluk",
+    "paymentDisputes": "Odeme Itirazi"
   },
   "users": {
     "eyebrowApp": "Uygulama Kullanıcıları",
@@ -636,7 +659,8 @@
     "validationError": "Komisyon oranı 0 ile 100 arasında olmalıdır.",
     "saveError": "Komisyon ayarı kaydedilemedi.",
     "loadError": "Komisyon ayarı yüklenemedi.",
-    "saved": "Komisyon ayarı kaydedildi."
+    "saved": "Komisyon ayarı kaydedildi.",
+    "latestRecord": "Son kayit"
   },
   "records": {
     "subtitleOrders": "Veritabanındaki sipariş kayıtlarını görüntüleyin.",

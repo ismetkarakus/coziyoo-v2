@@ -107,9 +107,7 @@ export default function SalesCommissionSettingsPage({ language }: { language: La
 
         {latest ? (
           <p className="panel-meta">
-            {language === "tr"
-              ? `Son kayıt: %${latest.commissionRatePercent} • ${latest.createdByEmail ?? latest.createdByAdminId} • ${latest.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}`
-              : `Latest record: %${latest.commissionRatePercent} • ${latest.createdByEmail ?? latest.createdByAdminId} • ${latest.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}`}
+            {`${dict.salesCommissionSettings.latestRecord}: %${latest.commissionRatePercent} • ${latest.createdByEmail ?? latest.createdByAdminId} • ${latest.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}`}
           </p>
         ) : null}
 
