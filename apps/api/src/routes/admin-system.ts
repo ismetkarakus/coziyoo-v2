@@ -186,6 +186,91 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       }
     }
 
+    const seededOrders = await client.query<{ id: string }>(
+      `SELECT id::text
+       FROM orders
+       WHERE buyer_id = $1
+         AND seller_id = $2
+       ORDER BY created_at ASC, id ASC`,
+      [buyerId, sellerId]
+    );
+
+    const complaintSeeds = [
+      {
+        actorType: "buyer" as const,
+        actorUserId: buyerId,
+        actorBuyerId: buyerId,
+        subject: "Teslimat gecikti",
+        description: "Demo alici sikayeti: siparis planlanan saate gore gec teslim edildi.",
+        priority: "medium" as const,
+        status: "open" as const,
+      },
+      {
+        actorType: "buyer" as const,
+        actorUserId: buyerId,
+        actorBuyerId: buyerId,
+        subject: "Porsiyon beklenenden kucuktu",
+        description: "Demo alici sikayeti: urun boyutu beklentiyi karsilamadi.",
+        priority: "low" as const,
+        status: "resolved" as const,
+      },
+      {
+        actorType: "seller" as const,
+        actorUserId: sellerId,
+        actorBuyerId: null,
+        subject: "Alici teslimatta ulasilamazdi",
+        description: "Demo satici sikayeti: kurye teslimat aninda aliciya ulasamadi.",
+        priority: "medium" as const,
+        status: "open" as const,
+      },
+      {
+        actorType: "seller" as const,
+        actorUserId: sellerId,
+        actorBuyerId: null,
+        subject: "Odeme sonrasi siparis degisikligi talebi",
+        description: "Demo satici sikayeti: alici odeme sonrasinda kapsamli siparis degisikligi talep etti.",
+        priority: "high" as const,
+        status: "in_review" as const,
+      },
+    ];
+
+    let complaintsCreated = 0;
+    for (const [index, order] of seededOrders.rows.entries()) {
+      const seed = complaintSeeds[index];
+      if (!seed) break;
+
+      const existingComplaint = await client.query<{ id: string }>(
+        `SELECT id::text
+         FROM complaints
+         WHERE order_id = $1
+           AND complainant_type = $2
+           AND complainant_user_id = $3
+           AND subject = $4
+         LIMIT 1`,
+        [order.id, seed.actorType, seed.actorUserId, seed.subject]
+      );
+      if ((existingComplaint.rowCount ?? 0) > 0) continue;
+
+      const insertedComplaint = await client.query<{ id: string }>(
+        `INSERT INTO complaints (
+           order_id,
+           complainant_buyer_id,
+           complainant_type,
+           complainant_user_id,
+           subject,
+           description,
+           priority,
+           status,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() - ($9::int * interval '1 hour'), now())
+         RETURNING id::text`,
+        [order.id, seed.actorBuyerId, seed.actorType, seed.actorUserId, seed.subject, seed.description, seed.priority, seed.status, index + 1]
+      );
+      complaintsCreated += insertedComplaint.rowCount ?? 0;
+    }
+
     const existingComplianceTypes = await client.query<{ count: string }>(
       "SELECT count(*)::text AS count FROM compliance_documents_list WHERE is_active = TRUE"
     );
@@ -367,6 +452,7 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
         defaultPassword,
         foodsCreated: (existingFoods.rowCount ?? 0) === 0 ? foodNames.length : 0,
         ordersCreated: count === 0 ? foods.rows.length : 0,
+        complaintsCreated,
         complianceDocTypesActive,
         complianceDocsUpserted,
         complianceFallbackTypesCreated,
