@@ -15,6 +15,7 @@ export function resolveSellerDetailTab(value: string | null | undefined): Seller
 
 export function resolveBuyerDetailTab(value: string | null | undefined): BuyerDetailTab {
   if (value === "general") return "general";
+  if (value === "orders") return "orders";
   if (value === "payments") return "payments";
   if (value === "complaints") return "complaints";
   if (value === "reviews") return "reviews";
