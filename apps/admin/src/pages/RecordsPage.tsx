@@ -689,8 +689,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(raw ?? "-");
   })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
-    if (!selectedOrderItemsColumns.includes("food_id")) return selectedOrderItemsColumns;
-    const withoutFoodName = selectedOrderItemsColumns.filter((column) => column !== "food_name");
+    const baseColumns = selectedOrderItemsColumns.filter((column) => column !== "created_at");
+    if (!baseColumns.includes("food_id")) return baseColumns;
+    const withoutFoodName = baseColumns.filter((column) => column !== "food_name");
     const foodIdIndex = withoutFoodName.indexOf("food_id");
     if (foodIdIndex < 0) return withoutFoodName;
     return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];
