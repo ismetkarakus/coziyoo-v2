@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { ExcelExportButton, Pager } from "../components/ui";
+import { ExcelExportButton, Pager, SortableHeader } from "../components/ui";
 import { fmt, toDisplayId } from "../lib/format";
+import { compareSortValues, compareWithDir, toggleSort, type TableSortState } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
 
 type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
@@ -37,6 +38,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<ComplaintRow[]>([]);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
+  const [tableSort, setTableSort] = useState<TableSortState<string>>({ key: null, dir: "desc" });
 
   const statusText = (status: ComplaintStatus) => {
     if (language === "tr") {
@@ -162,6 +164,27 @@ export default function InvestigationPage({ language }: { language: Language }) 
     statusFilter,
   ]);
 
+  const sortDirectionFor = (column: string) => (tableSort.key === column ? tableSort.dir : "desc");
+  const sortValue = (row: ComplaintRow, column: string): string | number => {
+    if (column === "display_id") return row.id;
+    if (column === "created_at") {
+      const parsed = Date.parse(row.createdAt);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+    if (column === "status") return row.status;
+    if (column === "order_no") return row.orderNo;
+    if (column === "complainant") return row.complainantName ?? row.complainantUserId;
+    return row.categoryName ?? "";
+  };
+  const visibleRows = useMemo(() => {
+    if (!tableSort.key) return rows;
+    return [...rows].sort((a, b) => {
+      const result = compareWithDir(sortValue(a, tableSort.key as string), sortValue(b, tableSort.key as string), tableSort.dir);
+      if (result !== 0) return result;
+      return compareSortValues(a.id, b.id);
+    });
+  }, [rows, tableSort]);
+
   return (
     <div className="app investigation-page">
       <header className="topbar topbar-with-centered-search">
@@ -236,12 +259,54 @@ export default function InvestigationPage({ language }: { language: Language }) 
           <table>
             <thead>
               <tr>
-                <th>Display ID</th>
-                <th>{language === "tr" ? "Sipariş Numarası" : "Order No"}</th>
-                <th>{language === "tr" ? "Şikayetçi" : "Complainant"}</th>
-                <th>{language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}</th>
-                <th>{language === "tr" ? "Oluşturma Tarihi" : "Created At"}</th>
-                <th>{language === "tr" ? "Durum" : "Status"}</th>
+                <th>
+                  <SortableHeader
+                    label="Display ID"
+                    active={tableSort.key === "display_id"}
+                    dir={sortDirectionFor("display_id")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "display_id"))}
+                  />
+                </th>
+                <th>
+                  <SortableHeader
+                    label={language === "tr" ? "Sipariş Numarası" : "Order No"}
+                    active={tableSort.key === "order_no"}
+                    dir={sortDirectionFor("order_no")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "order_no"))}
+                  />
+                </th>
+                <th>
+                  <SortableHeader
+                    label={language === "tr" ? "Şikayetçi" : "Complainant"}
+                    active={tableSort.key === "complainant"}
+                    dir={sortDirectionFor("complainant")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "complainant"))}
+                  />
+                </th>
+                <th>
+                  <SortableHeader
+                    label={language === "tr" ? "Şikayet Kategorisi" : "Complaint Category"}
+                    active={tableSort.key === "category"}
+                    dir={sortDirectionFor("category")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "category"))}
+                  />
+                </th>
+                <th>
+                  <SortableHeader
+                    label={language === "tr" ? "Oluşturma Tarihi" : "Created At"}
+                    active={tableSort.key === "created_at"}
+                    dir={sortDirectionFor("created_at")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "created_at"))}
+                  />
+                </th>
+                <th>
+                  <SortableHeader
+                    label={language === "tr" ? "Durum" : "Status"}
+                    active={tableSort.key === "status"}
+                    dir={sortDirectionFor("status")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "status"))}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -254,7 +319,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                   <td colSpan={6}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                visibleRows.map((row) => (
                   <tr
                     key={row.id}
                     className="investigation-click-row"

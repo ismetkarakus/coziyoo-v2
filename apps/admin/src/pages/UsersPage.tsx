@@ -1,14 +1,18 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
-import { Pager, KpiCard, ExcelExportButton } from "../components/ui";
+import { Pager, KpiCard, ExcelExportButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth } from "../lib/format";
 import { BUYER_SMART_FILTER_ITEMS, SELLER_SMART_FILTER_ITEMS } from "../lib/constants";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
+import { compareSortValues, compareWithDir, toggleSort, type SortDir } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
 import type { UserKind, ColumnMeta, DensityMode, BuyerSmartFilterKey } from "../types/users";
 import type { SellerSmartFilterKey } from "../types/seller";
+
+type SellerTableSortKey = "id" | "name" | "status" | "warnings" | "orderHealth" | "ratingTrend";
+type BuyerTableSortKey = "id" | "buyer" | "col4" | "col5" | "col6" | "col7" | "col8" | "status";
 
 function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
   const dict = DICTIONARIES[language];
@@ -92,6 +96,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const audience = kind === "buyers" ? "buyer" : kind === "sellers" ? "seller" : null;
   const [fields, setFields] = useState<ColumnMeta[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+  const [sellerTableSort, setSellerTableSort] = useState<{ key: SellerTableSortKey | null; dir: SortDir }>({
+    key: null,
+    dir: "desc",
+  });
+  const [buyerTableSort, setBuyerTableSort] = useState<{ key: BuyerTableSortKey | null; dir: SortDir }>({
+    key: null,
+    dir: "desc",
+  });
 
   const columnMappings = useMemo(() => {
     if (isAppScoped) {
@@ -205,6 +217,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     setActiveSellerSmartFilter(null);
     setBuyerActionMenuId(null);
     setCustomerIdPreview(null);
+    setSellerTableSort({ key: null, dir: "desc" });
+    setBuyerTableSort({ key: null, dir: "desc" });
   }, [kind]);
 
   useEffect(() => {
@@ -567,6 +581,51 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (value === "closed") return "Kapalı";
     return Number(row.complaintUnresolved ?? 0) > 0 ? "Açık" : "Kapalı";
   };
+  const sellerHeaderSort = (key: SellerTableSortKey) => {
+    setSellerTableSort((prev) => toggleSort(prev, key));
+  };
+  const buyerHeaderSort = (key: BuyerTableSortKey) => {
+    setBuyerTableSort((prev) => toggleSort(prev, key));
+  };
+  const sellerSortDirectionFor = (key: SellerTableSortKey): SortDir =>
+    sellerTableSort.key === key ? sellerTableSort.dir : "desc";
+  const buyerSortDirectionFor = (key: BuyerTableSortKey): SortDir =>
+    buyerTableSort.key === key ? buyerTableSort.dir : "desc";
+  const buyerSortValue = (row: any, key: BuyerTableSortKey): string | number => {
+    if (key === "id") return String(row.id ?? "");
+    if (key === "buyer") return String(row.displayName ?? row.email ?? "");
+    if (key === "status") return row.status === "active" ? 1 : 0;
+    if (key === "col4") {
+      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return Number(row.complaintTotal ?? 0);
+      if (activeSmartFilter === "suspicious_login") return String(row.displayName ?? row.email ?? "");
+      if (activeSmartFilter === "same_ip_multi_account") return buyerSharedIp(row);
+      return computeBuyerRisk(row).score;
+    }
+    if (key === "col5") {
+      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return Number(row.complaintUnresolved ?? 0);
+      if (activeSmartFilter === "suspicious_login") return buyerSuspiciousReason(row);
+      if (activeSmartFilter === "same_ip_multi_account") return Date.parse(String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "")) || 0;
+      return Number(row.complaintTotal ?? 0);
+    }
+    if (key === "col6") {
+      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return buyerLatestComplaintId(row);
+      if (activeSmartFilter === "suspicious_login" || activeSmartFilter === "same_ip_multi_account") return Number(row.recentLoginCount24h ?? 0);
+      return Number(row.monthlyOrderCountCurrent ?? 0);
+    }
+    if (key === "col7") {
+      if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") return buyerLatestComplaintCreatedAtMs(row);
+      if (activeSmartFilter === "suspicious_login") return Number(row.recentLoginIpCount24h ?? 0);
+      if (activeSmartFilter === "same_ip_multi_account") return row.status === "active" ? 1 : 0;
+      return Number(row.monthlySpentCurrent ?? 0);
+    }
+    if (activeSmartFilter === "complainers" || buyerQuickFilter === "open_complaint") {
+      return Number(row.complaintUnresolved ?? 0) > 0 ? 1 : 0;
+    }
+    if (activeSmartFilter === "suspicious_login" || activeSmartFilter === "same_ip_multi_account") {
+      return computeBuyerRisk(row).score;
+    }
+    return Date.parse(String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "")) || 0;
+  };
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
   const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
@@ -753,6 +812,36 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           .sort((a, b) => (b.score - a.score) || (a.index - b.index))
           .map((item) => item.row);
       }
+      if (sellerTableSort.key) {
+        scopedRows = [...scopedRows].sort((a, b) => {
+          if (sellerTableSort.key === "id") {
+            return compareWithDir(String(a.id ?? ""), String(b.id ?? ""), sellerTableSort.dir);
+          }
+          if (sellerTableSort.key === "name") {
+            return compareWithDir(
+              String(a.displayName ?? a.email ?? ""),
+              String(b.displayName ?? b.email ?? ""),
+              sellerTableSort.dir
+            );
+          }
+          if (sellerTableSort.key === "status") {
+            return compareWithDir(a.status === "active" ? 1 : 0, b.status === "active" ? 1 : 0, sellerTableSort.dir);
+          }
+          if (sellerTableSort.key === "warnings") {
+            const left = (sellerComplaintUnresolved(a) * 100) + (sellerSuspiciousLogin(a) * 10) + sellerMissingDoc(a);
+            const right = (sellerComplaintUnresolved(b) * 100) + (sellerSuspiciousLogin(b) * 10) + sellerMissingDoc(b);
+            return compareWithDir(left, right, sellerTableSort.dir);
+          }
+          if (sellerTableSort.key === "orderHealth") {
+            const left = sellerOrderCurrent(a) * 1_000_000 + sellerRevenue(a);
+            const right = sellerOrderCurrent(b) * 1_000_000 + sellerRevenue(b);
+            return compareWithDir(left, right, sellerTableSort.dir);
+          }
+          const left = Number(a.ratingTrend ?? a.ratingDelta ?? 0);
+          const right = Number(b.ratingTrend ?? b.ratingDelta ?? 0);
+          return compareWithDir(left, right, sellerTableSort.dir);
+        });
+      }
     }
 
     if (isBuyerPage) {
@@ -828,6 +917,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       if (activeSmartFilter === "top_revenue") {
         scopedRows = [...scopedRows].sort((a, b) => buyerRevenue(b) - buyerRevenue(a));
       }
+      if (buyerTableSort.key) {
+        scopedRows = [...scopedRows].sort((a, b) => {
+          const result = compareWithDir(
+            buyerSortValue(a, buyerTableSort.key as BuyerTableSortKey),
+            buyerSortValue(b, buyerTableSort.key as BuyerTableSortKey),
+            buyerTableSort.dir
+          );
+          if (result !== 0) return result;
+          return compareSortValues(String(a.id ?? ""), String(b.id ?? ""));
+        });
+      }
     }
 
     if (!last7DaysOnly) return scopedRows;
@@ -837,7 +937,22 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const created = Date.parse(String(row.createdAt ?? ""));
       return !Number.isNaN(created) && now - created <= sevenDays;
     });
-  }, [activeSellerKpiFilter, activeSellerSmartFilter, activeSmartFilter, buyerFilters, buyerQuickFilter, isBuyerPage, isSellerPage, last7DaysOnly, rows, searchInput, sellerStatusFilter, todayKey]);
+  }, [
+    activeSellerKpiFilter,
+    activeSellerSmartFilter,
+    activeSmartFilter,
+    buyerFilters,
+    buyerQuickFilter,
+    buyerTableSort,
+    isBuyerPage,
+    isSellerPage,
+    last7DaysOnly,
+    rows,
+    searchInput,
+    sellerStatusFilter,
+    sellerTableSort,
+    todayKey,
+  ]);
 
   function resolveColumnLabel(columnName: string): string {
     const mapped = columnMappings[columnName] ?? columnName;
@@ -1270,12 +1385,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <thead>
                     <tr>
                       <th className="buyer-v2-check-col"><input type="checkbox" /></th>
-                      <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
-                      <th>Mağaza Adı</th>
-                      <th>Durum</th>
-                      <th>Uyarılar</th>
-                      <th>Sipariş Sağlığı</th>
-                      <th>Rating Trend</th>
+                      <th><SortableHeader label={language === "tr" ? "Display ID" : "Display ID"} active={sellerTableSort.key === "id"} dir={sellerSortDirectionFor("id")} onClick={() => sellerHeaderSort("id")} /></th>
+                      <th><SortableHeader label="Mağaza Adı" active={sellerTableSort.key === "name"} dir={sellerSortDirectionFor("name")} onClick={() => sellerHeaderSort("name")} /></th>
+                      <th><SortableHeader label="Durum" active={sellerTableSort.key === "status"} dir={sellerSortDirectionFor("status")} onClick={() => sellerHeaderSort("status")} /></th>
+                      <th><SortableHeader label="Uyarılar" active={sellerTableSort.key === "warnings"} dir={sellerSortDirectionFor("warnings")} onClick={() => sellerHeaderSort("warnings")} /></th>
+                      <th><SortableHeader label="Sipariş Sağlığı" active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
+                      <th><SortableHeader label="Rating Trend" active={sellerTableSort.key === "ratingTrend"} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => sellerHeaderSort("ratingTrend")} /></th>
                       <th />
                     </tr>
                   </thead>
@@ -1649,14 +1764,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         }}
                       />
                     </th>
-                    <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
-                    <th>Alıcı</th>
-                    <th>{isComplainersView || isOpenComplaintView ? "Toplam Şikayet" : isSuspiciousLoginView ? "Şüphe" : isSameIpView ? "IP" : "Risk"}</th>
-                    <th>{isComplainersView || isOpenComplaintView ? "Açık Şikayet" : isSuspiciousLoginView ? "Neden" : isSameIpView ? "Son Giriş" : "Şikayet"}</th>
-                    <th>{isComplainersView || isOpenComplaintView ? "Son Şikayet ID" : isSuspiciousLoginView ? "24s Giriş" : isSameIpView ? "24s Giriş" : "Sipariş (1 Ay)"}</th>
-                    <th>{isComplainersView || isOpenComplaintView ? "Son Şikayet Tarihi" : isSuspiciousLoginView ? "IP Sayısı" : isSameIpView ? "Durum" : "Harcama (1 Ay)"}</th>
-                    <th>{isComplainersView || isOpenComplaintView ? "Son Durum" : isSuspiciousLoginView ? "Durum" : isSameIpView ? "Risk" : "Son Giris"}</th>
-                    <th>Durum</th>
+                    <th><SortableHeader label={language === "tr" ? "Display ID" : "Display ID"} active={buyerTableSort.key === "id"} dir={buyerSortDirectionFor("id")} onClick={() => buyerHeaderSort("id")} /></th>
+                    <th><SortableHeader label="Alıcı" active={buyerTableSort.key === "buyer"} dir={buyerSortDirectionFor("buyer")} onClick={() => buyerHeaderSort("buyer")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Toplam Şikayet" : isSuspiciousLoginView ? "Şüphe" : isSameIpView ? "IP" : "Risk"} active={buyerTableSort.key === "col4"} dir={buyerSortDirectionFor("col4")} onClick={() => buyerHeaderSort("col4")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Açık Şikayet" : isSuspiciousLoginView ? "Neden" : isSameIpView ? "Son Giriş" : "Şikayet"} active={buyerTableSort.key === "col5"} dir={buyerSortDirectionFor("col5")} onClick={() => buyerHeaderSort("col5")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Son Şikayet ID" : isSuspiciousLoginView ? "24s Giriş" : isSameIpView ? "24s Giriş" : "Sipariş (1 Ay)"} active={buyerTableSort.key === "col6"} dir={buyerSortDirectionFor("col6")} onClick={() => buyerHeaderSort("col6")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Son Şikayet Tarihi" : isSuspiciousLoginView ? "IP Sayısı" : isSameIpView ? "Durum" : "Harcama (1 Ay)"} active={buyerTableSort.key === "col7"} dir={buyerSortDirectionFor("col7")} onClick={() => buyerHeaderSort("col7")} /></th>
+                    <th><SortableHeader label={isComplainersView || isOpenComplaintView ? "Son Durum" : isSuspiciousLoginView ? "Durum" : isSameIpView ? "Risk" : "Son Giris"} active={buyerTableSort.key === "col8"} dir={buyerSortDirectionFor("col8")} onClick={() => buyerHeaderSort("col8")} /></th>
+                    <th><SortableHeader label="Durum" active={buyerTableSort.key === "status"} dir={buyerSortDirectionFor("status")} onClick={() => buyerHeaderSort("status")} /></th>
                     <th />
                   </tr>
                 </thead>
