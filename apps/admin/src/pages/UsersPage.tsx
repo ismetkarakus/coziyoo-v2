@@ -1303,9 +1303,9 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget =
                           activeSellerSmartFilter === "complainer_sellers"
-                            ? `/app/investigation?sellerId=${row.id}`
+                            ? `/app/sellers/${row.id}?tab=orders`
                             : activeSellerSmartFilter === "complaining_sellers"
-                              ? `/app/investigation?complainantType=seller&complainantUserId=${row.id}`
+                              ? `/app/sellers/${row.id}?tab=orders`
                               : `/app/sellers/${row.id}`;
 
                         return (
