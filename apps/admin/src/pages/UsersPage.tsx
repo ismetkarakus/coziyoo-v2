@@ -1694,7 +1694,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
                     const buyerRowTarget =
                       isComplainersView || isOpenComplaintView
-                        ? `/app/investigation?complainantBuyerId=${row.id}${isOpenComplaintView ? "&openOnly=true" : ""}`
+                        ? `/app/buyers/${row.id}?tab=complaints`
                         : `/app/buyers/${row.id}`;
 
                     return (
