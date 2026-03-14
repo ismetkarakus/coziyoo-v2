@@ -6258,10 +6258,15 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   cursor: pointer;
   border: 0;
   border-radius: 10px;
-  padding: 6px 12px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #062033;
   font-weight: var(--font-bold);
-  font-size: clamp(0.82rem, 0.84vw, 0.92rem);
+  font-size: 1rem;
   background: linear-gradient(180deg, #84d1ff, #63b9eb);
   box-shadow: 0 6px 16px rgba(76, 170, 232, 0.3);
 }

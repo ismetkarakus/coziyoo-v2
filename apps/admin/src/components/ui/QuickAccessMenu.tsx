@@ -23,7 +23,7 @@ export const QuickAccessMenu = forwardRef<HTMLDetailsElement, QuickAccessMenuPro
 
   return (
     <details className={detailsClassName} ref={ref}>
-      <summary>{summaryLabel}</summary>
+      <summary aria-label={summaryLabel}>✆</summary>
       <div className="seller-quick-access-menu">
         {hasEmail ? (
           <a href={`mailto:${contactEmail}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
