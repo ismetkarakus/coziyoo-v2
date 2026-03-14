@@ -145,6 +145,11 @@ const InvestigationComplaintsQuerySchema = z.object({
   status: z.enum(["open", "in_review", "resolved", "closed"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   categoryId: z.string().uuid().optional(),
+  complainantBuyerId: z.string().uuid().optional(),
+  openOnly: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .transform((value) => value === true || value === "true"),
   search: z.string().min(1).max(120).optional(),
 });
 const CreateComplaintCategorySchema = z.object({
@@ -551,7 +556,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const { page, pageSize, status, priority, categoryId, search } = parsed.data;
+  const { page, pageSize, status, priority, categoryId, complainantBuyerId, openOnly, search } = parsed.data;
   const offset = (page - 1) * pageSize;
 
   const where: string[] = [];
@@ -567,6 +572,13 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   if (categoryId) {
     params.push(categoryId);
     where.push(`c.category_id = $${params.length}`);
+  }
+  if (complainantBuyerId) {
+    params.push(complainantBuyerId);
+    where.push(`c.complainant_buyer_id = $${params.length}`);
+  }
+  if (openOnly) {
+    where.push(`c.status IN ('open', 'in_review')`);
   }
   if (search && search.trim()) {
     params.push(`%${search.trim().toLowerCase()}%`);

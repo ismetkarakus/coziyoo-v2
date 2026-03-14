@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager } from "../components/ui";
@@ -21,7 +21,11 @@ type ComplaintRow = {
 
 export default function InvestigationPage({ language }: { language: Language }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const dict = DICTIONARIES[language];
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const presetBuyerId = queryParams.get("complainantBuyerId") ?? "";
+  const presetOpenOnly = queryParams.get("openOnly") === "true";
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +60,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
         page: "1",
         pageSize: "5000",
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
+        ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
       });
       const response = await request(`/v1/admin/investigations/complaints?${exportQuery.toString()}`);
@@ -107,6 +113,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
         page: String(page),
         pageSize: "20",
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
+        ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
       });
 
@@ -130,14 +138,20 @@ export default function InvestigationPage({ language }: { language: Language }) 
     };
 
     loadComplaints().catch(() => setError(dict.investigation.requestFailed));
-  }, [dict.investigation.requestFailed, page, searchInput, statusFilter]);
+  }, [dict.investigation.requestFailed, page, presetBuyerId, presetOpenOnly, searchInput, statusFilter]);
 
   return (
     <div className="app investigation-page">
       <header className="topbar topbar-with-centered-search">
         <div>
           <h1>{dict.investigation.title}</h1>
-          <p className="subtext">{dict.investigation.subtitle}</p>
+          <p className="subtext">
+            {presetBuyerId
+              ? presetOpenOnly
+                ? `Filtre: alıcının açık şikayetleri`
+                : `Filtre: alıcının tüm şikayetleri`
+              : dict.investigation.subtitle}
+          </p>
         </div>
         <div className="topbar-search-center">
           <div className="users-search-wrap users-search-wrap--compact">

@@ -1679,7 +1679,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     const displayNameRaw = String(row.displayName ?? row.email ?? "-");
                     const displaySeedMatch = displayNameRaw.match(/^apiseedbuyer\d{4,}.*?(\d+)$/i);
                     const normalizedDisplayName = displaySeedMatch ? `nbuyer${displaySeedMatch[1]}` : displayNameRaw;
-                    const buyerRowTarget = `/app/buyers/${row.id}`;
+                    const buyerRowTarget =
+                      isComplainersView || isOpenComplaintView
+                        ? `/app/investigation?complainantBuyerId=${row.id}${isOpenComplaintView ? "&openOnly=true" : ""}`
+                        : `/app/buyers/${row.id}`;
 
                     return (
                       <tr
