@@ -562,6 +562,21 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setSelectedEarningIds((prev) => prev.filter((id) => visible.has(id)));
   }, [filteredSellerEarnings]);
 
+  useEffect(() => {
+    if (activeTab !== "foods" || !hasExpandedFood) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest(".seller-food-detail-sheet")) return;
+      if (target.closest(".foods-toggle-btn")) return;
+      setExpandedFoodIds({});
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [activeTab, hasExpandedFood]);
+
   function printIdentityDetails() {
     if (!identityViewerOpen) return;
     printModalContent(identityModalPrintRef.current);
