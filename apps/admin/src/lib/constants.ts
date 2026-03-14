@@ -18,5 +18,5 @@ export const SELLER_SMART_FILTER_ITEMS: Array<{ key: SellerSmartFilterKey; label
   { key: "top_revenue", label: "En Çok Ciro Yapan", icon: "₺" },
   { key: "performance_drop", label: "Düşen Performans", icon: "◔" },
   { key: "urgent_action", label: "Acil Müdahale", icon: "⚑" },
-  { key: "complainer_sellers", label: "Şikayetli Satıcılar", icon: "✉" },
+  { key: "complainer_sellers", label: "En Çok Şikayet Alan Satıcılar", icon: "✉" },
 ];
