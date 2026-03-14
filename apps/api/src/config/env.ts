@@ -80,6 +80,7 @@ const EnvSchema = z.object({
   N8N_API_KEY: z.string().min(1).optional(),
   N8N_LLM_WORKFLOW_ID: z.string().min(1).default("6KFFgjd26nF0kNCA"),
   N8N_MCP_WORKFLOW_ID: z.string().min(1).default("XYiIkxpa4PlnddQt"),
+  N8N_LLM_WEBHOOK_URL: z.string().url().optional(),
   N8N_LLM_WEBHOOK_PATH: z.string().default(""),
   N8N_MCP_WEBHOOK_PATH: z.string().default(""),
   PAYOUT_SCHEDULER_ENABLED: boolFromEnv.optional(),

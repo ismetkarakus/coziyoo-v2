@@ -144,7 +144,9 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         workflowId: strOrNull(defaultN8nServer.workflowId) ?? env.N8N_LLM_WORKFLOW_ID,
         mcpWorkflowId: strOrNull(defaultN8nServer.mcpWorkflowId) ?? env.N8N_MCP_WORKFLOW_ID,
         webhookUrl:
-          strOrNull(defaultN8nServer.webhookUrl ?? defaultN8nServer.endpoint ?? defaultN8nServer.url) ?? null,
+          strOrNull(env.N8N_LLM_WEBHOOK_URL) ??
+          strOrNull(defaultN8nServer.webhookUrl ?? defaultN8nServer.endpoint ?? defaultN8nServer.url) ??
+          null,
         webhookPath: strOrNull(defaultN8nServer.webhookPath) ?? (env.N8N_LLM_WEBHOOK_PATH || null),
         mcpWebhookPath: strOrNull(defaultN8nServer.mcpWebhookPath) ?? (env.N8N_MCP_WEBHOOK_PATH || null),
         authHeader: strOrNull(defaultN8nServer.authHeader),
@@ -154,7 +156,9 @@ export function resolveProviders(settings: StarterAgentSettings | null): Resolve
         workflowId: strOrNull(legacyN8n.workflowId) ?? env.N8N_LLM_WORKFLOW_ID,
         mcpWorkflowId: strOrNull(legacyN8n.mcpWorkflowId) ?? env.N8N_MCP_WORKFLOW_ID,
         webhookUrl:
-          strOrNull(legacyN8n.webhookUrl ?? legacyN8n.endpoint ?? legacyN8n.url) ?? null,
+          strOrNull(env.N8N_LLM_WEBHOOK_URL) ??
+          strOrNull(legacyN8n.webhookUrl ?? legacyN8n.endpoint ?? legacyN8n.url) ??
+          null,
         webhookPath: strOrNull(legacyN8n.webhookPath) ?? (env.N8N_LLM_WEBHOOK_PATH || null),
         mcpWebhookPath: strOrNull(legacyN8n.mcpWebhookPath) ?? (env.N8N_MCP_WEBHOOK_PATH || null),
         authHeader: strOrNull(legacyN8n.authHeader),
