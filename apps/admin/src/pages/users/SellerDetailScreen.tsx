@@ -97,6 +97,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [ordersPaymentFilter, setOrdersPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("all");
   const [ordersSearch, setOrdersSearch] = useState("");
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [selectedFoodIds, setSelectedFoodIds] = useState<string[]>([]);
   const [earningsDateFilter, setEarningsDateFilter] = useState<"all" | "last7" | "last30" | "custom">("all");
   const [earningsSelectedDate, setEarningsSelectedDate] = useState("");
   const [earningsPaymentFilter, setEarningsPaymentFilter] = useState<"all" | "successful" | "pending" | "failed">("successful");
@@ -563,6 +564,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [filteredSellerEarnings]);
 
   useEffect(() => {
+    const visible = new Set(foodRows.map((food) => food.id));
+    setSelectedFoodIds((prev) => prev.filter((id) => visible.has(id)));
+  }, [foodRows]);
+
+  useEffect(() => {
     if (activeTab !== "foods" || !hasExpandedFood) return;
 
     const onPointerDown = (event: MouseEvent) => {
@@ -1025,117 +1031,40 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     };
   });
 
-  function downloadCsvFile(filename: string, headers: string[], rows: Array<Array<string | number>>) {
-    const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
-    const csv = [headers, ...rows].map((line) => line.map((cell) => escapeCsv(String(cell ?? ""))).join(",")).join("\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function buildSellerFoodExportRows(targetFoods: SellerFoodRow[]) {
-    return targetFoods.flatMap((food) => {
-      const foodLots = lotsByFoodId[food.id] ?? [];
-      const metadata = foodMetadataByName(food.name);
-      const ingredientsText = sanitizeSeedText(resolveFoodIngredients(food.ingredients, food.recipe, metadata?.ingredients ?? null, language)) ?? "";
-      const ingredientItems = splitFoodItems(ingredientsText);
-      const lowerIngredients = ingredientItems.map((item) => item.toLocaleLowerCase("tr-TR"));
-      const spices = ingredientItems.filter((item, index) => spiceHints.some((hint) => lowerIngredients[index].includes(hint)));
-      const allergens = ingredientItems.filter((item, index) => allergenHints.some((hint) => lowerIngredients[index].includes(hint)));
-      const baseRow = [
-        food.id,
-        food.code || "-",
-        food.name,
-        food.status === "active" ? dict.common.active : dict.common.disabled,
-        formatCurrency(food.price, language),
-        formatUiDate(food.updatedAt, language),
-        ingredientItems.join(", ") || "-",
-        spices.join(", ") || "-",
-        allergens.join(", ") || "-",
-      ];
-
-      if (foodLots.length === 0) {
-        return [[...baseRow, "-", "-", "-", "-", "-", language === "tr" ? "Lot yok" : "No lot"]];
-      }
-
-      return foodLots.map((lot) => {
-        const diff = computeFoodLotDiff({
-          foodRecipe: food.recipe,
-          foodIngredients: food.ingredients,
-          foodAllergens: undefined,
-          lot,
-        });
-        const snapshotText = [
-          diff.hasMissingSnapshot ? dict.detail.lotSnapshotMissing : null,
-          diff.recipeChanged ? dict.detail.lotDiffRecipe : null,
-          diff.ingredientsChanged ? dict.detail.lotDiffIngredients : null,
-          diff.allergensChanged ? dict.detail.lotDiffAllergens : null,
-        ].filter(Boolean).join(" | ") || dict.detail.lotSnapshotOk;
-
-        return [
-          ...baseRow,
-          lot.lot_number,
-          lotLifecycleLabel(lot.lifecycle_status, language),
-          `${lot.quantity_available}/${lot.quantity_produced}`,
-          formatUiDate(lot.produced_at, language),
-          `${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`,
-          snapshotText,
-        ];
-      });
-    });
-  }
-
-  function downloadSellerFoodsAsExcel() {
-    if (foodRows.length === 0) {
+  async function downloadSellerFoodsAsExcel(foodIds?: string[]) {
+    const scopedIds = Array.isArray(foodIds) ? foodIds.filter(Boolean) : [];
+    if (scopedIds.length === 0 && foodRows.length === 0) {
       setMessage(language === "tr" ? "Disa aktarilacak yemek kaydi bulunamadi." : "No foods to export.");
       return;
     }
+    if (scopedIds.length > 0 && !foodRows.some((food) => scopedIds.includes(food.id))) {
+      setMessage(language === "tr" ? "Secili yemek bulunamadi." : "Selected foods not found.");
+      return;
+    }
 
-    const headers = [
-      language === "tr" ? "Yemek ID" : "Food ID",
-      language === "tr" ? "Yemek Kodu" : "Food Code",
-      language === "tr" ? "Yemek" : "Food",
-      language === "tr" ? "Durum" : "Status",
-      language === "tr" ? "Fiyat" : "Price",
-      language === "tr" ? "Son Güncelleme" : "Updated At",
-      language === "tr" ? "Malzemeler" : "Ingredients",
-      language === "tr" ? "Baharatlar" : "Spices",
-      language === "tr" ? "Alerjenler" : "Allergens",
-      language === "tr" ? "Lot No" : "Lot No",
-      language === "tr" ? "Yaşam Döngüsü" : "Lifecycle",
-      language === "tr" ? "Adet (Mevcut/Üretilen)" : "Quantity (Available/Produced)",
-      language === "tr" ? "Üretim Tarihi" : "Produced At",
-      language === "tr" ? "Satış Aralığı" : "Sale Window",
-      language === "tr" ? "Snapshot" : "Snapshot",
-    ];
+    const query = new URLSearchParams();
+    if (scopedIds.length === 1) query.set("foodId", scopedIds[0]);
+    else if (scopedIds.length > 1) query.set("foodIds", scopedIds.join(","));
 
-    downloadCsvFile(`seller-foods-${new Date().toISOString().slice(0, 10)}.csv`, headers, buildSellerFoodExportRows(foodRows));
-  }
-
-  function downloadSingleFoodAsExcel(food: SellerFoodRow) {
-    const headers = [
-      language === "tr" ? "Yemek ID" : "Food ID",
-      language === "tr" ? "Yemek Kodu" : "Food Code",
-      language === "tr" ? "Yemek" : "Food",
-      language === "tr" ? "Durum" : "Status",
-      language === "tr" ? "Fiyat" : "Price",
-      language === "tr" ? "Son Güncelleme" : "Updated At",
-      language === "tr" ? "Malzemeler" : "Ingredients",
-      language === "tr" ? "Baharatlar" : "Spices",
-      language === "tr" ? "Alerjenler" : "Allergens",
-      language === "tr" ? "Lot No" : "Lot No",
-      language === "tr" ? "Yaşam Döngüsü" : "Lifecycle",
-      language === "tr" ? "Adet (Mevcut/Üretilen)" : "Quantity (Available/Produced)",
-      language === "tr" ? "Üretim Tarihi" : "Produced At",
-      language === "tr" ? "Satış Aralığı" : "Sale Window",
-      language === "tr" ? "Snapshot" : "Snapshot",
-    ];
-
-    downloadCsvFile(`seller-food-${(food.code || food.id).slice(0, 24)}-${new Date().toISOString().slice(0, 10)}.csv`, headers, buildSellerFoodExportRows([food]));
+    try {
+      const response = await request(`/v1/admin/users/${id}/seller-foods/export${query.size ? `?${query.toString()}` : ""}`);
+      if (response.status !== 200) {
+        const body = await parseJson<ApiError>(response);
+        setMessage(body.error?.message ?? (language === "tr" ? "Excel dışa aktarma başarısız." : "Excel export failed."));
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const matchedFileName = disposition.match(/filename="([^"]+)"/i)?.[1];
+      anchor.href = url;
+      anchor.download = matchedFileName ?? `seller-foods-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setMessage(language === "tr" ? "Excel dışa aktarma başarısız." : "Excel export failed.");
+    }
   }
 
   function downloadSellerOrdersAsExcel() {
@@ -1344,7 +1273,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const canExportActiveSellerTab = activeTab === "orders" || activeTab === "wallet" || activeTab === "foods";
   const exportActiveSellerTabAsExcel = () => {
     if (activeTab === "foods") {
-      downloadSellerFoodsAsExcel();
+      void downloadSellerFoodsAsExcel(selectedFoodIds);
       return;
     }
     if (activeTab === "orders") {
@@ -1434,8 +1363,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             type="button"
             onClick={exportActiveSellerTabAsExcel}
             disabled={!canExportActiveSellerTab}
-            labelTr={activeTab === "foods" ? "Tüm Yemekleri Excel'e Aktar" : undefined}
-            labelEn={activeTab === "foods" ? "Export All Foods to Excel" : undefined}
+            labelTr={activeTab === "foods" ? (selectedFoodIds.length > 0 ? `Seçili Yemekleri Excel'e Aktar (${selectedFoodIds.length})` : "Tüm Yemekleri Excel'e Aktar") : undefined}
+            labelEn={activeTab === "foods" ? (selectedFoodIds.length > 0 ? `Export Selected Foods to Excel (${selectedFoodIds.length})` : "Export All Foods to Excel") : undefined}
             language={language}
           />
         </div>
@@ -2174,6 +2103,16 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <table className="foods-lots-main-table">
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={foodRows.length > 0 && foodRows.every((food) => selectedFoodIds.includes(food.id))}
+                        aria-label={language === "tr" ? "Tum yemekleri sec" : "Select all foods"}
+                        onChange={(event) => {
+                          setSelectedFoodIds(event.target.checked ? foodRows.map((food) => food.id) : []);
+                        }}
+                      />
+                    </th>
                     <th>{dict.detail.lotActions}</th>
                     <th>{dict.detail.foodName}</th>
                     <th>{dict.detail.foodStatus}</th>
@@ -2207,6 +2146,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             pinnedFoodId === food.id ? "search-focus-pinned" : "",
                           ].filter(Boolean).join(" ") || undefined}
                         >
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedFoodIds.includes(food.id)}
+                              aria-label={language === "tr" ? "Yemegi sec" : "Select food"}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) => {
+                                setSelectedFoodIds((prev) => (
+                                  event.target.checked ? [...new Set([...prev, food.id])] : prev.filter((id) => id !== food.id)
+                                ));
+                              }}
+                            />
+                          </td>
                           <td>
                             <button
                               className="ghost foods-toggle-btn"
@@ -2249,7 +2201,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         </tr>
                         {foodExpanded ? (
                           <tr className="foods-lots-expanded-row">
-                            <td colSpan={6}>
+                            <td colSpan={7}>
                               <div className="seller-food-detail-sheet">
                                 <div className="seller-food-codes-card">
                                   <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
@@ -2265,7 +2217,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   <ExcelExportButton
                                     className="ghost"
                                     type="button"
-                                    onClick={() => downloadSingleFoodAsExcel(food)}
+                                    onClick={() => void downloadSellerFoodsAsExcel([food.id])}
                                     labelTr="Bu Yemeği Excel'e Aktar"
                                     labelEn="Export This Food to Excel"
                                     language={language}

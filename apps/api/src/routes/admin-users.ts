@@ -1,5 +1,6 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
+import * as XLSX from "xlsx";
 import { pool } from "../db/client.js";
 import { requireSuperAdmin } from "../middleware/admin-rbac.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -118,6 +119,19 @@ const SellerFoodsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(200).default(20),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
+});
+const SellerFoodsExportQuerySchema = z.object({
+  foodId: z.string().uuid().optional(),
+  foodIds: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return [];
+      return value.split(",").map((item) => item.trim()).filter(Boolean);
+    })
+    .refine((value) => value.every((item) => z.string().uuid().safeParse(item).success), {
+      message: "foodIds must contain valid UUID values",
+    }),
 });
 const InvestigationSearchQuerySchema = z.object({
   q: z.string().min(2).max(120),
@@ -454,6 +468,48 @@ function ingredientsTextFromJson(value: unknown): string | null {
   walk(value);
   const unique = Array.from(new Set(acc.map((item) => item.trim()).filter(Boolean)));
   return unique.length > 0 ? unique.join(", ") : null;
+}
+
+function stableExportStringify(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim().toLowerCase();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return `[${value.map((entry) => stableExportStringify(entry)).join(",")}]`;
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return `{${keys.map((key) => `${key}:${stableExportStringify(obj[key])}`).join(",")}}`;
+  }
+  return String(value);
+}
+
+function lotSnapshotSummary(params: {
+  foodRecipe: string | null;
+  foodIngredients: unknown;
+  foodAllergens: unknown;
+  lotRecipe: string | null;
+  lotIngredients: unknown;
+  lotAllergens: unknown;
+}): string {
+  const hasMissingSnapshot = !params.lotRecipe || params.lotIngredients == null || params.lotAllergens == null;
+  const notes: string[] = [];
+  if (hasMissingSnapshot) notes.push("Snapshot missing");
+  if (stableExportStringify(params.foodRecipe) !== stableExportStringify(params.lotRecipe)) notes.push("Recipe changed");
+  if (stableExportStringify(params.foodIngredients) !== stableExportStringify(params.lotIngredients)) notes.push("Ingredients changed");
+  if (stableExportStringify(params.foodAllergens) !== stableExportStringify(params.lotAllergens)) notes.push("Allergens changed");
+  return notes.join(" | ") || "Snapshot OK";
+}
+
+function lotLifecycleForExport(status: string, saleStartsAt: string | null, saleEndsAt: string | null): string {
+  if (status === "recalled") return "Recalled";
+  if (status === "discarded") return "Discarded";
+  if (status === "depleted") return "Depleted";
+  const now = Date.now();
+  const start = saleStartsAt ? Date.parse(saleStartsAt) : Number.NaN;
+  const end = saleEndsAt ? Date.parse(saleEndsAt) : Number.NaN;
+  if (Number.isFinite(end) && end < now) return "Expired";
+  if (Number.isFinite(start) && start > now) return "Planned";
+  return "On Sale";
 }
 
 adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin"), async (req, res) => {
@@ -2042,6 +2098,151 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
     },
   });
+});
+
+adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = SellerFoodsExportQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: query.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const scopedFoodIds = query.data.foodIds.length > 0
+    ? query.data.foodIds
+    : query.data.foodId
+      ? [query.data.foodId]
+      : [];
+
+  const foods = await pool.query<{
+    id: string;
+    name: string;
+    recipe: string | null;
+    ingredients_json: unknown;
+    allergens_json: unknown;
+    price: string;
+    is_active: boolean;
+    updated_at: string;
+  }>(
+    `SELECT
+       id,
+       name,
+       recipe,
+       ingredients_json,
+       allergens_json,
+       price::text,
+       is_active,
+       updated_at::text
+     FROM foods
+     WHERE seller_id = $1
+       AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
+     ORDER BY updated_at DESC, id DESC`,
+    [params.data.id, scopedFoodIds.length > 0 ? scopedFoodIds : null]
+  );
+
+  const lots = await pool.query<{
+    id: string;
+    food_id: string;
+    lot_number: string;
+    produced_at: string | null;
+    sale_starts_at: string | null;
+    sale_ends_at: string | null;
+    recipe_snapshot: string | null;
+    ingredients_snapshot_json: unknown;
+    allergens_snapshot_json: unknown;
+    quantity_produced: number;
+    quantity_available: number;
+    status: string;
+  }>(
+    `SELECT
+       id::text,
+       food_id::text,
+       lot_number,
+       produced_at::text,
+       sale_starts_at::text,
+       sale_ends_at::text,
+       recipe_snapshot,
+       ingredients_snapshot_json,
+       allergens_snapshot_json,
+       quantity_produced,
+       quantity_available,
+       status
+     FROM production_lots
+     WHERE seller_id = $1
+       AND ($2::uuid[] IS NULL OR food_id = ANY($2::uuid[]))
+     ORDER BY produced_at DESC, created_at DESC`,
+    [params.data.id, scopedFoodIds.length > 0 ? scopedFoodIds : null]
+  );
+
+  const lotsByFoodId = new Map<string, typeof lots.rows>();
+  for (const lot of lots.rows) {
+    const current = lotsByFoodId.get(lot.food_id) ?? [];
+    current.push(lot);
+    lotsByFoodId.set(lot.food_id, current);
+  }
+
+  const worksheetRows = foods.rows.flatMap((food) => {
+    const foodCode = `FD-${food.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`;
+    const ingredientText = ingredientsTextFromJson(food.ingredients_json) ?? "";
+    const ingredientItems = ingredientText
+      .split(/[,;\n]/g)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const lowerIngredients = ingredientItems.map((item) => item.toLocaleLowerCase("tr-TR"));
+    const spiceHints = ["karabiber", "pul biber", "kimyon", "nane", "kekik", "isot", "paprika", "sumak", "tarcin", "yenibahar", "zerdecal"];
+    const allergenHints = ["gluten", "un", "sut", "peynir", "yogurt", "yumurta", "balik", "karides", "midye", "susam", "fistik", "findik", "ceviz", "badem", "soya", "laktoz"];
+    const spices = ingredientItems.filter((item, index) => spiceHints.some((hint) => lowerIngredients[index]?.includes(hint)));
+    const allergens = ingredientItems.filter((item, index) => allergenHints.some((hint) => lowerIngredients[index]?.includes(hint)));
+    const baseRow = {
+      "Food ID": food.id,
+      "Food Code": foodCode,
+      Food: food.name,
+      Status: food.is_active ? "Active" : "Disabled",
+      Price: Number(food.price),
+      "Updated At": food.updated_at,
+      Ingredients: ingredientItems.join(", ") || "-",
+      Spices: spices.join(", ") || "-",
+      Allergens: allergens.join(", ") || "-",
+    };
+    const foodLots = lotsByFoodId.get(food.id) ?? [];
+    if (foodLots.length === 0) {
+      return [{ ...baseRow, "Lot No": "-", Lifecycle: "-", "Quantity (Available/Produced)": "-", "Produced At": "-", "Sale Window": "-", Snapshot: "No lot" }];
+    }
+    return foodLots.map((lot) => ({
+      ...baseRow,
+      "Lot No": lot.lot_number,
+      Lifecycle: lotLifecycleForExport(lot.status, lot.sale_starts_at, lot.sale_ends_at),
+      "Quantity (Available/Produced)": `${lot.quantity_available}/${lot.quantity_produced}`,
+      "Produced At": lot.produced_at ?? "-",
+      "Sale Window": `${lot.sale_starts_at ?? "-"} - ${lot.sale_ends_at ?? "-"}`,
+      Snapshot: lotSnapshotSummary({
+        foodRecipe: food.recipe,
+        foodIngredients: food.ingredients_json,
+        foodAllergens: food.allergens_json,
+        lotRecipe: lot.recipe_snapshot,
+        lotIngredients: lot.ingredients_snapshot_json,
+        lotAllergens: lot.allergens_snapshot_json,
+      }),
+    }));
+  });
+
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Foods");
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  const suffix = scopedFoodIds.length === 1 ? "food" : scopedFoodIds.length > 1 ? "selected-foods" : "foods";
+  const fileName = `seller-${suffix}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  res.setHeader("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("content-disposition", `attachment; filename="${fileName}"`);
+  return res.send(buffer);
 });
 
 adminUserManagementRouter.get("/buyers/:id", requireAuth("admin"), async (req, res) => {
