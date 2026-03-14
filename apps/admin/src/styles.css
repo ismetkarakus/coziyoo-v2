@@ -3093,10 +3093,11 @@ textarea:focus {
   font-size: clamp(1.16rem, 1.42vw, 1.66rem);
   line-height: 1.04;
   letter-spacing: -0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+  overflow-wrap: anywhere;
 }
 
 .buyer-ref-profile-card p {
@@ -3130,9 +3131,6 @@ textarea:focus {
 .buyer-ref-profile-body h2,
 .buyer-ref-profile-body .buyer-ops-id-row {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .buyer-ref-quick-access-wrap {
