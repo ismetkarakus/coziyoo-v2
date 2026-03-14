@@ -1298,7 +1298,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
                         const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
                         const sellerName = String(row.displayName ?? row.email ?? dict.users.v2.sellerFallbackName);
-                        const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget =
                           activeSellerSmartFilter === "complainer_sellers"
@@ -1328,15 +1327,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                               </div>
                             </td>
                             <td>
-                              <span className={`seller-v2-like-pill ${row.status === "active" ? "is-good" : ""}`}>
-                                👍 {row.status === "active" ? 1 : 0}
+                              <span className={`status-pill ${row.status === "active" ? "is-active" : "is-disabled"}`}>
+                                {row.status === "active" ? "Aktif" : "Pasif"}
                               </span>
                             </td>
                             <td>
                               <div className="seller-v2-warning-cell">
-                                <span className={`seller-v2-tag ${warningA === "A" ? "is-red" : ""}`}>{warningA}</span>
                                 <span>{warningInfo}</span>
-                                <span>◔ {sellerMissingDoc(row)}</span>
                               </div>
                             </td>
                             <td>

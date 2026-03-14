@@ -162,7 +162,7 @@
       "sellerSortDesc": "Desc",
       "sellerSortAsc": "Asc",
       "sellerHeaderShop": "Shop Name",
-      "sellerHeaderWarnings": "Warnings",
+      "sellerHeaderWarnings": "Complaint Count",
       "sellerHeaderOrderHealth": "Order Health",
       "sellerHeaderRatingTrend": "Rating Trend",
       "sellerFallbackName": "Seller",
