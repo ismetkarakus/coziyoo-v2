@@ -3032,6 +3032,7 @@ textarea:focus {
 .buyer-ref-top > * {
   min-width: 0;
   margin-block: 6px;
+  overflow: visible;
 }
 
 .buyer-ref-profile-card,
@@ -3048,9 +3049,11 @@ textarea:focus {
   gap: 12px;
   align-items: center;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   border: 0;
   background: transparent;
+  position: relative;
+  z-index: 20;
 }
 
 .buyer-ref-avatar-button {
@@ -3336,6 +3339,7 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, #6d82bb 22%, var(--ops-border-default));
   border-radius: 14px;
   padding: 4px 6px;
+  overflow: visible;
   background:
     linear-gradient(90deg, rgba(27, 37, 67, 0.75), rgba(16, 22, 40, 0.58)),
     radial-gradient(120% 140% at 0% 10%, rgba(83, 109, 176, 0.25), rgba(21, 30, 54, 0));
