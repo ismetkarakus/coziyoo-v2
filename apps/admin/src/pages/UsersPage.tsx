@@ -1781,14 +1781,20 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <div className="buyer-complaint-cell">
                               <strong>{buyerSuspiciousReason(row) || "-"}</strong>
                             </div>
-                          ) : isSameIpView ? (
-                            <div className="buyer-login-cell">
-                              <strong>{loginAt}</strong>
-                            </div>
-                          ) : (
-                            <div className="buyer-complaint-cell">
-                              <strong>{totalComplaints}</strong>
-                              {unresolved > 0 ? <span className="complaint-open-chip">{`◀ ${unresolved} Açık`}</span> : null}
+                        ) : isSameIpView ? (
+                          <div className="buyer-login-cell">
+                            <strong>{loginAt}</strong>
+                          </div>
+                        ) : (
+                            <div className="buyer-complaint-summary">
+                              <span className="buyer-complaint-metric">
+                                <span className="buyer-complaint-label">{language === "tr" ? "Toplam" : "Total"}</span>
+                                <strong>{totalComplaints}</strong>
+                              </span>
+                              <span className={`buyer-complaint-metric ${unresolved > 0 ? "is-open" : "is-clear"}`}>
+                                <span className="buyer-complaint-label">{language === "tr" ? "Açık" : "Open"}</span>
+                                <strong>{unresolved}</strong>
+                              </span>
                             </div>
                           )}
                         </td>
@@ -2297,12 +2303,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                               {risk.level === "high" ? (language === "tr" ? "Yüksek" : "High") : risk.level === "medium" ? (language === "tr" ? "Orta" : "Medium") : language === "tr" ? "Düşük" : "Low"}
                             </span>
                           </td>
-                          <td>
-                            <div className="buyer-complaint-cell">
-                              <strong>{totalComplaints}</strong>
-                              {unresolved > 0 ? <span className="complaint-open-chip">{`${unresolved} ${language === "tr" ? "Açık" : "Open"}`}</span> : null}
+                        <td>
+                            <div className="buyer-complaint-summary">
+                              <span className="buyer-complaint-metric">
+                                <span className="buyer-complaint-label">{language === "tr" ? "Toplam" : "Total"}</span>
+                                <strong>{totalComplaints}</strong>
+                              </span>
+                              <span className={`buyer-complaint-metric ${unresolved > 0 ? "is-open" : "is-clear"}`}>
+                                <span className="buyer-complaint-label">{language === "tr" ? "Açık" : "Open"}</span>
+                                <strong>{unresolved}</strong>
+                              </span>
                             </div>
-                          </td>
+                        </td>
                           <td>
                             <div className={`buyer-trend ${orderTrendMeta.className}`}>
                               <strong>{Number(row.monthlyOrderCountCurrent ?? 0)}</strong>
