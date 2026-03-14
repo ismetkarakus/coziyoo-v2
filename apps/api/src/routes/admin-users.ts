@@ -1410,7 +1410,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       id: row.id,
       primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}`,
-      targetPath: `/app/orders?search=${encodeURIComponent("#" + row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase())}`,
+      targetPath: `/app/orders?search=${encodeURIComponent(row.id)}`,
     })),
     lots.rows.map((row) => ({
       kind: "lot",
