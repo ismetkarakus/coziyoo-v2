@@ -64,10 +64,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     complainers: 0,
   });
   const [buyerSelectedIds, setBuyerSelectedIds] = useState<string[]>([]);
-  const [buyerFilterMenuOpen, setBuyerFilterMenuOpen] = useState(false);
   const [buyerActionMenuId, setBuyerActionMenuId] = useState<string | null>(null);
   const [buyerTotalCountAll, setBuyerTotalCountAll] = useState<number | null>(null);
-  const buyerFilterWrapRef = useRef<HTMLDivElement | null>(null);
   const buyerBoardRef = useRef<HTMLDivElement | null>(null);
   const [customerIdPreview, setCustomerIdPreview] = useState<string | null>(null);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
@@ -1201,10 +1199,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       const target = event.target as Node | null;
       if (!target) return;
 
-      if (buyerFilterMenuOpen && buyerFilterWrapRef.current && !buyerFilterWrapRef.current.contains(target)) {
-        setBuyerFilterMenuOpen(false);
-      }
-
       if (buyerActionMenuId && buyerBoardRef.current) {
         const actionRoot = (target as HTMLElement).closest(".buyer-v2-row-actions");
         if (!actionRoot) {
@@ -1215,7 +1209,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
     document.addEventListener("mousedown", onDocumentMouseDown);
     return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [buyerActionMenuId, buyerFilterMenuOpen, isBuyerPage]);
+  }, [buyerActionMenuId, isBuyerPage]);
 
   if (isSellerPage) {
     const totalTrSellers = trRows.length;
@@ -1622,7 +1616,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                 }}
               >
                 <span className="buyer-v2-smart-item-icon" aria-hidden="true">✉</span>
-                <span className="buyer-v2-smart-item-label">En Çok Açık Şikayetli Alıcılar</span>
+                <span className="buyer-v2-smart-item-label">Açık Şikayetler</span>
                 <span className="buyer-v2-smart-item-count">{buyerQuickFilterCounts.open_complaint}</span>
               </button>
               <button
@@ -1643,91 +1637,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
           <section className="panel buyer-v2-board">
           <div className="buyer-v2-toolbar">
-            <div className="buyer-v2-toolbar-actions-left">
-              <div className="buyer-v2-filter-wrap" ref={buyerFilterWrapRef}>
-                <button className="ghost buyer-v2-toolbar-btn" type="button" onClick={() => setBuyerFilterMenuOpen((prev) => !prev)}>
-                  <svg viewBox="0 0 24 24" role="presentation" aria-hidden="true">
-                    <path d="M3 6h18M7 12h10M10 18h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  Filtreler ▾
-                </button>
-                {buyerFilterMenuOpen ? (
-                  <div className="buyer-v2-filter-menu">
-                    <label>
-                      Durum
-                      <select
-                        value={buyerFilterDraft.status}
-                        onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, status: event.target.value as typeof prev.status }))}
-                      >
-                        <option value="all">Tümü</option>
-                        <option value="active">Aktif</option>
-                        <option value="disabled">Pasif</option>
-                      </select>
-                    </label>
-                    <label>
-                      Şikayet
-                      <select
-                        value={buyerFilterDraft.complaint}
-                        onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, complaint: event.target.value as typeof prev.complaint }))}
-                      >
-                        <option value="all">Tümü</option>
-                        <option value="has_unresolved">Açık Şikayetli</option>
-                        <option value="resolved_only">Sadece Çözülen</option>
-                        <option value="no_complaint">Yok</option>
-                      </select>
-                    </label>
-                    <label>
-                      Sipariş Trendi
-                      <select
-                        value={buyerFilterDraft.orderTrend}
-                        onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, orderTrend: event.target.value as typeof prev.orderTrend }))}
-                      >
-                        <option value="all">Tümü</option>
-                        <option value="up">Artan</option>
-                        <option value="down">Azalan</option>
-                      </select>
-                    </label>
-                    <label>
-                      Harcama Trendi
-                      <select
-                        value={buyerFilterDraft.spendTrend}
-                        onChange={(event) => setBuyerFilterDraft((prev) => ({ ...prev, spendTrend: event.target.value as typeof prev.spendTrend }))}
-                      >
-                        <option value="all">Tümü</option>
-                        <option value="up">Artan</option>
-                        <option value="down">Azalan</option>
-                      </select>
-                    </label>
-                    <div className="buyer-v2-filter-menu-actions">
-                      <button
-                        className="ghost"
-                        type="button"
-                        onClick={() => {
-                          setBuyerFilterDraft({ status: "all", complaint: "all", orderTrend: "all", spendTrend: "all" });
-                          setBuyerFilters({ status: "all", complaint: "all", orderTrend: "all", spendTrend: "all" });
-                          setFilters((prev) => ({ ...prev, page: 1 }));
-                          setBuyerFilterMenuOpen(false);
-                        }}
-                      >
-                        Sıfırla
-                      </button>
-                      <button
-                        className="primary"
-                        type="button"
-                        onClick={() => {
-                          setBuyerFilters(buyerFilterDraft);
-                          setFilters((prev) => ({ ...prev, page: 1 }));
-                          setBuyerFilterMenuOpen(false);
-                        }}
-                      >
-                        Uygula
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <button className="ghost buyer-v2-icon-btn" type="button" onClick={() => loadRows().catch(() => setError(dict.users.requestFailed))}>⟳</button>
-            </div>
             <div className="buyer-v2-toolbar-actions-right">
               <ExcelExportButton className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel} language={language} />
             </div>
