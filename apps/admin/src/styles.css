@@ -3025,12 +3025,13 @@ textarea:focus {
 .buyer-ref-top {
   margin-top: 0;
   display: grid;
-  grid-template-columns: minmax(320px, 1.5fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: var(--buyer-ref-col-gap);
 }
 
 .buyer-ref-top > * {
   min-width: 0;
+  margin-block: 6px;
 }
 
 .buyer-ref-profile-card,
@@ -3041,7 +3042,7 @@ textarea:focus {
 }
 
 .buyer-ref-profile-card {
-  padding: 10px 12px;
+  padding: 0 12px;
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr);
   gap: 12px;
@@ -3214,7 +3215,7 @@ textarea:focus {
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, #6d82ba 20%, var(--ops-border-default));
   background: linear-gradient(180deg, rgba(31, 42, 74, 0.78), rgba(24, 34, 60, 0.74));
-  padding: 7px 9px;
+  padding: 0 9px;
   display: grid;
   grid-template-rows: auto auto;
   align-content: center;
@@ -8171,7 +8172,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   }
 
   .buyer-ref-top {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
 
   .buyer-ref-content {
@@ -8569,6 +8570,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
   .buyer-ref-profile-card {
     grid-template-columns: 1fr;
+    padding-inline: 12px;
   }
 
   .buyer-ref-avatar {
