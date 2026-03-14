@@ -1,6 +1,5 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
-import * as XLSX from "xlsx";
 import { pool } from "../db/client.js";
 import { requireSuperAdmin } from "../middleware/admin-rbac.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -510,6 +509,58 @@ function lotLifecycleForExport(status: string, saleStartsAt: string | null, sale
   if (Number.isFinite(end) && end < now) return "Expired";
   if (Number.isFinite(start) && start > now) return "Planned";
   return "On Sale";
+}
+
+function escapeSpreadsheetXml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function createExcelXmlBuffer(rows: Array<Record<string, string | number>>, sheetName: string): Buffer {
+  const headers = Array.from(
+    rows.reduce((acc, row) => {
+      for (const key of Object.keys(row)) acc.add(key);
+      return acc;
+    }, new Set<string>())
+  );
+
+  const headerRowXml = headers
+    .map((header) => `<Cell ss:StyleID="header"><Data ss:Type="String">${escapeSpreadsheetXml(header)}</Data></Cell>`)
+    .join("");
+
+  const dataRowsXml = rows.map((row) => {
+    const cells = headers.map((header) => {
+      const value = row[header] ?? "";
+      const isNumber = typeof value === "number" && Number.isFinite(value);
+      return `<Cell><Data ss:Type="${isNumber ? "Number" : "String"}">${escapeSpreadsheetXml(value)}</Data></Cell>`;
+    }).join("");
+    return `<Row>${cells}</Row>`;
+  }).join("");
+
+  const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="header">
+   <Font ss:Bold="1"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="${escapeSpreadsheetXml(sheetName)}">
+  <Table>
+   <Row>${headerRowXml}</Row>
+   ${dataRowsXml}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+  return Buffer.from(xml, "utf8");
 }
 
 adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin"), async (req, res) => {
@@ -2234,13 +2285,10 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
     }));
   });
 
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Foods");
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  const buffer = createExcelXmlBuffer(worksheetRows, "Foods");
   const suffix = scopedFoodIds.length === 1 ? "food" : scopedFoodIds.length > 1 ? "selected-foods" : "foods";
-  const fileName = `seller-${suffix}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-  res.setHeader("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  const fileName = `seller-${suffix}-${new Date().toISOString().slice(0, 10)}.xls`;
+  res.setHeader("content-type", "application/vnd.ms-excel; charset=utf-8");
   res.setHeader("content-disposition", `attachment; filename="${fileName}"`);
   return res.send(buffer);
 });

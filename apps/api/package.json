@@ -21,7 +21,6 @@
     "jsonwebtoken": "^9.0.3",
     "livekit-server-sdk": "^2.15.0",
     "pg": "^8.18.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
