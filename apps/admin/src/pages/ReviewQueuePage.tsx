@@ -141,7 +141,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
       {message ? <div className="alert">{message}</div> : null}
 
       <section className="review-queue-summary-grid">
-        <SummaryCard title={language === "tr" ? "Bekleyen Uygunluk" : "Pending Compliance"} value={data?.totals.compliance ?? 0} tone="warning" />
+        <SummaryCard title={language === "tr" ? "Onay Bekleyen Belgeler" : "Pending Compliance Documents"} value={data?.totals.compliance ?? 0} tone="warning" />
         <SummaryCard title={language === "tr" ? "Açık Şikayet" : "Open Complaints"} value={data?.totals.complaints ?? 0} tone="danger" />
         <SummaryCard title={language === "tr" ? "Açık İtiraz" : "Open Disputes"} value={data?.totals.disputes ?? 0} tone="approved" />
         <SummaryCard title={language === "tr" ? "Ödeme Bekleyen" : "Pending Payments"} value={data?.totals.payments ?? 0} tone="neutral" />
@@ -149,7 +149,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>{language === "tr" ? "Uygunluk Kuyruğu" : "Compliance Queue"}</h2>
+          <h2>{language === "tr" ? "Onay Bekleyen Belgeler" : "Pending Compliance Documents"}</h2>
           <span className="panel-meta">{data?.updatedAt ? formatDateTime(data.updatedAt) : "-"}</span>
         </div>
         <div className="table-wrap">
@@ -167,7 +167,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
               {loading ? (
                 <tr><td colSpan={5}>{language === "tr" ? "Yükleniyor..." : "Loading..."}</td></tr>
               ) : (data?.compliance.length ?? 0) === 0 ? (
-                <tr><td colSpan={5}>{language === "tr" ? "Bekleyen uygunluk kaydı yok." : "No pending compliance records."}</td></tr>
+                <tr><td colSpan={5}>{language === "tr" ? "Onay bekleyen belge yok." : "No pending compliance documents."}</td></tr>
               ) : data?.compliance.map((row) => {
                 const meta = statusMeta(language, row.status);
                 return (
