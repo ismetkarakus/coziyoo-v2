@@ -25,6 +25,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
   const dict = DICTIONARIES[language];
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const presetBuyerId = queryParams.get("complainantBuyerId") ?? "";
+  const presetSellerId = queryParams.get("sellerId") ?? "";
   const presetOpenOnly = queryParams.get("openOnly") === "true";
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,6 +62,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
         pageSize: "5000",
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
+        ...(presetSellerId ? { sellerId: presetSellerId } : {}),
         ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
       });
@@ -114,6 +116,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
         pageSize: "20",
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
+        ...(presetSellerId ? { sellerId: presetSellerId } : {}),
         ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
       });
@@ -138,7 +141,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
     };
 
     loadComplaints().catch(() => setError(dict.investigation.requestFailed));
-  }, [dict.investigation.requestFailed, page, presetBuyerId, presetOpenOnly, searchInput, statusFilter]);
+  }, [dict.investigation.requestFailed, page, presetBuyerId, presetSellerId, presetOpenOnly, searchInput, statusFilter]);
 
   return (
     <div className="app investigation-page">
@@ -150,6 +153,10 @@ export default function InvestigationPage({ language }: { language: Language }) 
               ? presetOpenOnly
                 ? `Filtre: alıcının açık şikayetleri`
                 : `Filtre: alıcının tüm şikayetleri`
+              : presetSellerId
+                ? presetOpenOnly
+                  ? `Filtre: satıcının açık şikayetleri`
+                  : `Filtre: satıcının tüm şikayetleri`
               : dict.investigation.subtitle}
           </p>
         </div>

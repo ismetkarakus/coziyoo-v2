@@ -146,6 +146,7 @@ const InvestigationComplaintsQuerySchema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   categoryId: z.string().uuid().optional(),
   complainantBuyerId: z.string().uuid().optional(),
+  sellerId: z.string().uuid().optional(),
   openOnly: z
     .union([z.literal("true"), z.literal("false"), z.boolean()])
     .optional()
@@ -556,7 +557,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const { page, pageSize, status, priority, categoryId, complainantBuyerId, openOnly, search } = parsed.data;
+  const { page, pageSize, status, priority, categoryId, complainantBuyerId, sellerId, openOnly, search } = parsed.data;
   const offset = (page - 1) * pageSize;
 
   const where: string[] = [];
@@ -576,6 +577,10 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   if (complainantBuyerId) {
     params.push(complainantBuyerId);
     where.push(`c.complainant_buyer_id = $${params.length}`);
+  }
+  if (sellerId) {
+    params.push(sellerId);
+    where.push(`o.seller_id = $${params.length}`);
   }
   if (openOnly) {
     where.push(`c.status IN ('open', 'in_review')`);

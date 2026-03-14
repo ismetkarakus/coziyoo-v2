@@ -1294,16 +1294,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const sellerName = String(row.displayName ?? row.email ?? "Satıcı");
                         const warningA = sellerSuspiciousLogin(row) > 0 ? "A" : "•";
                         const warningInfo = sellerComplaintUnresolved(row);
+                        const sellerRowTarget =
+                          activeSellerSmartFilter === "complainer_sellers" ? `/app/investigation?sellerId=${row.id}` : `/app/sellers/${row.id}`;
 
                         return (
                           <tr
                             key={row.id}
                             className="is-clickable"
-                            onClick={() => navigate(`/app/sellers/${row.id}`)}
+                            onClick={() => navigate(sellerRowTarget)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
                                 event.preventDefault();
-                                navigate(`/app/sellers/${row.id}`);
+                                navigate(sellerRowTarget);
                               }
                             }}
                             tabIndex={0}
@@ -1344,7 +1346,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  navigate(`/app/sellers/${row.id}`);
+                                  navigate(sellerRowTarget);
                                 }}
                               >
                                 <span aria-hidden="true">{row.status === "active" ? "◉ Detay ▾" : "◉ Aktif Yap"}</span>
