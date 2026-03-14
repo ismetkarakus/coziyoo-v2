@@ -7,6 +7,7 @@ type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
 
 type ComplaintDetail = {
   id: string;
+  ticketNo: number;
   orderId: string;
   orderNo: string;
   complainantType: "buyer" | "seller";
@@ -48,6 +49,9 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const [loading, setLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [savingPriority, setSavingPriority] = useState(false);
+  const [resolutionNoteInput, setResolutionNoteInput] = useState("");
+  const [savingResolutionNote, setSavingResolutionNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const statusText = (status: ComplaintStatus) => {
@@ -55,6 +59,13 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     if (status === "in_review") return dict.investigation.complaintStatusInReview;
     if (status === "resolved") return dict.investigation.complaintStatusResolved;
     return dict.investigation.complaintStatusClosed;
+  };
+
+  const priorityText = (p: ComplaintDetail["priority"]) => {
+    if (p === "low") return dict.reviewQueue.priorityLow;
+    if (p === "medium") return dict.reviewQueue.priorityMedium;
+    if (p === "high") return dict.reviewQueue.priorityHigh;
+    return dict.reviewQueue.priorityUrgent;
   };
 
   const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
@@ -89,6 +100,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
       setDetail(detailBody.data);
       setNotes(notesBody.data);
+      setResolutionNoteInput(detailBody.data.resolutionNote ?? "");
     } catch {
       setError(dict.investigation.requestFailed);
     } finally {
@@ -119,6 +131,50 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
       setError(dict.investigation.requestFailed);
     } finally {
       setSavingStatus(false);
+    }
+  }
+
+  async function updatePriority(p: ComplaintDetail["priority"]) {
+    if (!detail || savingPriority) return;
+    setSavingPriority(true);
+    setError(null);
+    try {
+      const response = await request(`/v1/admin/investigations/complaints/${detail.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ priority: p }),
+      });
+      const body = await parseJson<{ data?: { priority: ComplaintDetail["priority"] } } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
+        setError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      setDetail((prev) => (prev ? { ...prev, priority: body.data!.priority } : prev));
+    } catch {
+      setError(dict.investigation.requestFailed);
+    } finally {
+      setSavingPriority(false);
+    }
+  }
+
+  async function saveResolutionNote() {
+    if (!detail || savingResolutionNote) return;
+    setSavingResolutionNote(true);
+    setError(null);
+    try {
+      const response = await request(`/v1/admin/investigations/complaints/${detail.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ resolutionNote: resolutionNoteInput }),
+      });
+      const body = await parseJson<{ data?: { resolutionNote: string | null } } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
+        setError(body.error?.message ?? dict.investigation.requestFailed);
+        return;
+      }
+      setDetail((prev) => (prev ? { ...prev, resolutionNote: body.data!.resolutionNote } : prev));
+    } catch {
+      setError(dict.investigation.requestFailed);
+    } finally {
+      setSavingResolutionNote(false);
     }
   }
 
@@ -163,8 +219,16 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
         {error ? <div className="alert">{error}</div> : null}
 
         {detail ? (
-          <>
-            <div className="complaint-detail-card">
+          <div className="complaint-ticket-layout">
+            {/* Left column */}
+            <div className="complaint-ticket-main">
+              {/* Header */}
+              <div className="complaint-ticket-header">
+                <span className="complaint-ticket-no">#{detail.ticketNo}</span>
+                <h2 className="complaint-ticket-subject">{detail.subject}</h2>
+              </div>
+
+              {/* Status strip */}
               <div className="complaint-status-strip">
                 <div className="complaint-status-strip-label">{dict.investigation.complaintStatusLabel}</div>
                 <div className="complaint-status-strip-options">
@@ -198,6 +262,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </div>
               </div>
 
+              {/* Metadata grid */}
               <div className="complaint-detail-grid">
                 <div className="complaint-detail-field">
                   <span className="complaint-detail-label">{dict.investigation.complaintId}</span>
@@ -217,8 +282,35 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </div>
               </div>
 
-              <div className="complaint-detail-divider" />
+              {/* Priority selector */}
+              <div className="complaint-detail-field" style={{ marginTop: 16 }}>
+                <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
+                <div className="complaint-priority-buttons" style={{ marginTop: 8 }}>
+                  {(["low", "medium", "high", "urgent"] as ComplaintDetail["priority"][]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={savingPriority}
+                      className={`complaint-priority-btn priority-${p}${detail.priority === p ? " is-active" : ""}`}
+                      onClick={() => void updatePriority(p)}
+                    >
+                      {priorityText(p)}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
+              {/* Assigned admin */}
+              <div className="complaint-detail-field" style={{ marginTop: 14 }}>
+                <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
+                <strong className="complaint-detail-value">
+                  {detail.assignedAdminEmail ?? dict.investigation.unassigned}
+                </strong>
+              </div>
+
+              <div className="complaint-detail-divider" style={{ marginTop: 20 }} />
+
+              {/* Category + subject tree */}
               <div className="complaint-tree">
                 <div className="complaint-tree-heading">{dict.investigation.complaints}</div>
                 <div className="complaint-tree-node complaint-tree-node--category">
@@ -242,14 +334,53 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </div>
               </div>
 
+              {/* Description */}
               <div className="complaint-description-card">
                 <span className="complaint-detail-label">{dict.investigation.reasonDescription}</span>
                 <p>{detail.description ?? "-"}</p>
               </div>
+
+              {/* Resolution note (only when resolved or closed) */}
+              {(detail.status === "resolved" || detail.status === "closed") ? (
+                <div style={{ marginTop: 16 }}>
+                  <label className="complaint-detail-label">{dict.investigation.resolutionNote}</label>
+                  <textarea
+                    value={resolutionNoteInput}
+                    onChange={(event) => setResolutionNoteInput(event.target.value)}
+                    rows={3}
+                    style={{ marginTop: 8, width: "100%" }}
+                  />
+                  <div className="topbar-actions" style={{ marginTop: 8 }}>
+                    <button className="primary" type="button" disabled={savingResolutionNote} onClick={() => void saveResolutionNote()}>
+                      {savingResolutionNote ? dict.common.loading : dict.actions.save}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
-            <div className="complaint-notes-card">
+            {/* Right column — notes thread */}
+            <div className="complaint-ticket-thread">
               <p className="panel-meta">{dict.investigation.notes}</p>
+
+              <div className="complaint-notes-thread">
+                {notes.length === 0 ? (
+                  <p style={{ color: "var(--color-secondary-text)", fontSize: "var(--text-sm)" }}>{dict.common.noRecords}</p>
+                ) : (
+                  notes.map((item) => (
+                    <div key={item.id} className="complaint-note-item">
+                      <div className="complaint-note-meta">
+                        <span className="complaint-note-author">{item.createdByAdminEmail ?? item.createdByAdminId}</span>
+                        <span className="complaint-note-date">
+                          {new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}
+                        </span>
+                      </div>
+                      <p className="complaint-note-text">{item.note}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+
               <label>
                 {dict.investigation.newNote}
                 <textarea value={noteInput} onChange={(event) => setNoteInput(event.target.value)} rows={3} />
@@ -259,35 +390,8 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                   {savingNote ? dict.common.loading : dict.actions.save}
                 </button>
               </div>
-
-              <div className="table-wrap" style={{ marginTop: 10 }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{dict.investigation.note}</th>
-                      <th>{dict.investigation.noteAdmin}</th>
-                      <th>{dict.investigation.noteDate}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {notes.length === 0 ? (
-                      <tr>
-                        <td colSpan={3}>{dict.common.noRecords}</td>
-                      </tr>
-                    ) : (
-                      notes.map((item) => (
-                        <tr key={item.id}>
-                          <td>{item.note}</td>
-                          <td>{item.createdByAdminEmail ?? item.createdByAdminId}</td>
-                          <td>{new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
             </div>
-          </>
+          </div>
         ) : null}
       </section>
     </div>

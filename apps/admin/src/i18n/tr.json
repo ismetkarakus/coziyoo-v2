@@ -326,7 +326,12 @@
     "complaintStatusOpen": "Acik",
     "complaintStatusInReview": "Inceleniyor",
     "complaintStatusResolved": "Cozuldu",
-    "complaintStatusClosed": "Kapandi"
+    "complaintStatusClosed": "Kapandi",
+    "ticketNo": "Talep #",
+    "priorityLabel": "Öncelik",
+    "assignedAdmin": "Atanan Yönetici",
+    "resolutionNote": "Çözüm Notu",
+    "unassigned": "Atanmamış"
   },
   "entities": {
     "eyebrow": "Veritabanı Gezgini",

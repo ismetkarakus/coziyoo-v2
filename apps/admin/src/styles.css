@@ -7736,6 +7736,32 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   margin-top: 16px;
 }
 
+/* Ticket layout */
+.complaint-ticket-layout { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .complaint-ticket-layout { grid-template-columns: 1fr; } }
+
+/* Ticket header */
+.complaint-ticket-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
+.complaint-ticket-no { font-size: clamp(1.6rem,3vw,2rem); font-weight: var(--font-bold); color: #89a8f7; }
+.complaint-ticket-subject { font-size: clamp(1.2rem,2vw,1.5rem); font-weight: var(--font-semibold); color: #f6f8fd; margin: 0; }
+
+/* Priority buttons */
+.complaint-priority-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.complaint-priority-btn { padding: 4px 14px; border-radius: 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-secondary-text); cursor: pointer; font-size: var(--text-sm); transition: all 0.15s; }
+.complaint-priority-btn.is-active.priority-low    { color:#9df7d4; border-color:color-mix(in srgb,#3dd598 45%,transparent); background:color-mix(in srgb,#0f3d28 60%,transparent); }
+.complaint-priority-btn.is-active.priority-medium { color:var(--color-secondary-text); border-color:var(--color-border); background:color-mix(in srgb,#1e2640 70%,transparent); }
+.complaint-priority-btn.is-active.priority-high   { color:#ffd996; border-color:color-mix(in srgb,#f3b34a 45%,transparent); background:color-mix(in srgb,#3d2a0a 60%,transparent); }
+.complaint-priority-btn.is-active.priority-urgent { color:#ffc0ca; border-color:color-mix(in srgb,#ff647c 45%,transparent); background:color-mix(in srgb,#3d0f18 60%,transparent); }
+
+/* Notes thread (right column) */
+.complaint-ticket-thread { border: 1px solid color-mix(in srgb,var(--color-border) 78%,transparent); border-radius: 22px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; }
+.complaint-notes-thread { display: flex; flex-direction: column; gap: 12px; max-height: 480px; overflow-y: auto; }
+.complaint-note-item { background: color-mix(in srgb,var(--color-subtle-bg) 60%,transparent); border-radius: 12px; padding: 12px 14px; }
+.complaint-note-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.complaint-note-author { font-size: var(--text-sm); font-weight: var(--font-semibold); color: #89a8f7; }
+.complaint-note-date { font-size: var(--text-xs); color: var(--color-secondary-text); }
+.complaint-note-text { margin: 0; color: #dce5f7; font-size: var(--text-base); }
+
 .seller-json-card {
   margin-top: 12px;
   border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);

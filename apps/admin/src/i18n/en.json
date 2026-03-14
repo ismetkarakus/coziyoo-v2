@@ -326,7 +326,12 @@
     "complaintStatusOpen": "Open",
     "complaintStatusInReview": "In Review",
     "complaintStatusResolved": "Resolved",
-    "complaintStatusClosed": "Closed"
+    "complaintStatusClosed": "Closed",
+    "ticketNo": "Ticket #",
+    "priorityLabel": "Priority",
+    "assignedAdmin": "Assigned Admin",
+    "resolutionNote": "Resolution Note",
+    "unassigned": "Unassigned"
   },
   "entities": {
     "eyebrow": "Database Explorer",

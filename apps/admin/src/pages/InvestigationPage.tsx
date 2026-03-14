@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, SortableHeader } from "../components/ui";
-import { fmt, toDisplayId } from "../lib/format";
+import { fmt } from "../lib/format";
 import { compareSortValues, compareWithDir, toggleSort, type TableSortState } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
 
@@ -11,6 +11,7 @@ type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
 
 type ComplaintRow = {
   id: string;
+  ticketNo: number;
   orderNo: string;
   complainantType: "buyer" | "seller";
   complainantUserId: string;
@@ -19,6 +20,7 @@ type ComplaintRow = {
   categoryName?: string | null;
   createdAt: string;
   status: ComplaintStatus;
+  priority: "low" | "medium" | "high" | "urgent";
 };
 
 export default function InvestigationPage({ language }: { language: Language }) {
@@ -86,20 +88,22 @@ export default function InvestigationPage({ language }: { language: Language }) 
       }
 
       const headers = [
-        dict.investigation.displayId,
+        dict.investigation.ticketNo,
         dict.investigation.orderNo,
         dict.investigation.buyer,
         dict.investigation.complaintCategory,
         dict.investigation.createdAt,
         dict.reviewQueue.status,
+        dict.investigation.priorityLabel,
       ];
       const rowsForExport = body.data.map((row) => [
-        toDisplayId(row.id),
+        `#${row.ticketNo}`,
         row.orderNo,
         row.complainantName ?? row.complainantUserId,
         row.categoryName ?? "-",
         new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US"),
         statusText(row.status),
+        row.priority,
       ]);
       const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
       const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
@@ -166,7 +170,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
 
   const sortDirectionFor = (column: string) => (tableSort.key === column ? tableSort.dir : "desc");
   const sortValue = (row: ComplaintRow, column: string): string | number => {
-    if (column === "display_id") return row.id;
+    if (column === "ticket_no") return row.ticketNo;
     if (column === "created_at") {
       const parsed = Date.parse(row.createdAt);
       return Number.isNaN(parsed) ? 0 : parsed;
@@ -261,10 +265,10 @@ export default function InvestigationPage({ language }: { language: Language }) 
               <tr>
                 <th>
                   <SortableHeader
-                    label="Display ID"
-                    active={tableSort.key === "display_id"}
-                    dir={sortDirectionFor("display_id")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "display_id"))}
+                    label={dict.investigation.ticketNo}
+                    active={tableSort.key === "ticket_no"}
+                    dir={sortDirectionFor("ticket_no")}
+                    onClick={() => setTableSort((prev) => toggleSort(prev, "ticket_no"))}
                   />
                 </th>
                 <th>
@@ -307,16 +311,17 @@ export default function InvestigationPage({ language }: { language: Language }) 
                     onClick={() => setTableSort((prev) => toggleSort(prev, "status"))}
                   />
                 </th>
+                <th>{dict.investigation.priorityLabel}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6}>{dict.common.loading}</td>
+                  <td colSpan={7}>{dict.common.loading}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>{dict.common.noRecords}</td>
+                  <td colSpan={7}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
                 visibleRows.map((row) => (
@@ -333,13 +338,16 @@ export default function InvestigationPage({ language }: { language: Language }) 
                     role="button"
                     tabIndex={0}
                   >
-                    <td>{toDisplayId(row.id)}</td>
+                    <td>#{row.ticketNo}</td>
                     <td>{row.orderNo}</td>
                     <td>{row.complainantName ?? row.complainantUserId}</td>
                     <td>{row.categoryName ?? "-"}</td>
                     <td>{new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
                     <td>
                       <span className={`status-pill ${statusClass(row.status)}`}>{statusText(row.status)}</span>
+                    </td>
+                    <td>
+                      <span className={`status-pill is-neutral priority-${row.priority}`}>{row.priority}</span>
                     </td>
                   </tr>
                 ))

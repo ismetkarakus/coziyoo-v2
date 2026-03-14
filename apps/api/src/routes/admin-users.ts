@@ -698,6 +698,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   const rows = await pool.query<{
     id: string;
     order_id: string;
+    ticket_no: number;
     complainant_type: "buyer" | "seller";
     complainant_user_id: string;
     complainant_name: string | null;
@@ -717,6 +718,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     `SELECT
        c.id::text,
        c.order_id::text,
+       c.ticket_no,
        ${COMPLAINANT_TYPE_SQL} AS complainant_type,
        COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
        COALESCE(NULLIF(actor.display_name, ''), NULLIF(actor.full_name, ''), NULLIF(actor.email, ''), COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text)) AS complainant_name,
@@ -749,6 +751,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   return res.json({
     data: rows.rows.map((row) => ({
       id: row.id,
+      ticketNo: row.ticket_no,
       orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       complainantType: row.complainant_type,
       complainantUserId: row.complainant_user_id,
@@ -807,6 +810,7 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
   const detail = await pool.query<{
     id: string;
     order_id: string;
+    ticket_no: number;
     complainant_type: "buyer" | "seller";
     complainant_user_id: string;
     complainant_name: string | null;
@@ -831,6 +835,7 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
     `SELECT
        c.id::text,
        c.order_id::text,
+       c.ticket_no,
        ${COMPLAINANT_TYPE_SQL} AS complainant_type,
        COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
        actor.display_name AS complainant_name,
@@ -880,6 +885,7 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
   return res.json({
     data: {
       id: row.id,
+      ticketNo: row.ticket_no,
       orderId: row.order_id,
       orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       complainantType: row.complainant_type,
