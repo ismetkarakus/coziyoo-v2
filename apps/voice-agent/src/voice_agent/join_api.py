@@ -15,6 +15,12 @@ from .config.settings import get_settings
 
 logger = logging.getLogger("coziyoo-voice-agent-join")
 settings = get_settings()
+# Fail fast at startup — do not serve requests with a missing or weak secret
+if not settings.ai_server_shared_secret or len(settings.ai_server_shared_secret) < 16:
+    raise RuntimeError(
+        "AI_SERVER_SHARED_SECRET is required and must be at least 16 characters. "
+        "Set it in .env or the environment before starting the join API."
+    )
 app = FastAPI(title="coziyoo-voice-agent-join")
 request_log_file = Path(
     os.getenv("VOICE_AGENT_REQUEST_LOG_FILE", "/workspace/.runtime/voice-agent-requests.log")

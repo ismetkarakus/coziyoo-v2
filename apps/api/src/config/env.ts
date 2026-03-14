@@ -36,7 +36,7 @@ const EnvSchema = z.object({
   LIVEKIT_API_SECRET: z.string().min(8).optional(),
   LIVEKIT_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().max(86_400).default(3600),
   LIVEKIT_AGENT_IDENTITY: z.string().min(3).max(128).default("coziyoo-ai-agent"),
-  AI_SERVER_SHARED_SECRET: z.string().min(16).optional(),
+  AI_SERVER_SHARED_SECRET: z.string().min(16),
   AI_SERVER_URL: z.string().url().optional(),
   AI_SERVER_LIVEKIT_JOIN_PATH: z.string().default("/livekit/agent-session"),
   AI_SERVER_TIMEOUT_MS: z.coerce.number().int().positive().max(60_000).default(10_000),

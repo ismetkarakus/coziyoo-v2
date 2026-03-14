@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import sys
 import threading
 import time
 import uuid
@@ -1149,6 +1150,13 @@ async def entrypoint(ctx: JobContext) -> None:
 
 def main() -> None:
     _configure_logging()
+    # Validate required secrets before doing anything else
+    if not settings.ai_server_shared_secret or len(settings.ai_server_shared_secret) < 16:
+        logger.critical(
+            "AI_SERVER_SHARED_SECRET is required and must be at least 16 characters. "
+            "Set it in .env or the environment before starting the voice agent worker."
+        )
+        sys.exit(1)
     _start_worker_heartbeat()
     cli.run_app(server)
 
