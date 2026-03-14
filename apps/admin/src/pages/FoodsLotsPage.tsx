@@ -1,16 +1,17 @@
-import { Fragment, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
 import { fmt, toDisplayId, formatCurrency, formatUiDate } from "../lib/format";
-import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel } from "../lib/lots";
 import { printModalContent } from "../lib/print";
 import type { Language, ApiError } from "../types/core";
-import type { AdminLotRow, AdminLotOrderRow } from "../types/lots";
+import type { AdminLotRow } from "../types/lots";
 
 export default function FoodsLotsPage({ language }: { language: Language }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const dict = DICTIONARIES[language];
   const [rows, setRows] = useState<
     Array<{
@@ -37,10 +38,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
   const [lotsLoadingByFoodId, setLotsLoadingByFoodId] = useState<Record<string, boolean>>({});
   const [lotsErrorByFoodId, setLotsErrorByFoodId] = useState<Record<string, string | null>>({});
-  const [expandedLotIds, setExpandedLotIds] = useState<Record<string, boolean>>({});
-  const [lotOrdersByLotId, setLotOrdersByLotId] = useState<Record<string, AdminLotOrderRow[]>>({});
-  const [lotOrdersLoadingByLotId, setLotOrdersLoadingByLotId] = useState<Record<string, boolean>>({});
-  const [lotOrdersErrorByLotId, setLotOrdersErrorByLotId] = useState<Record<string, string | null>>({});
   const foodModalPrintRef = useRef<HTMLDivElement | null>(null);
   const [selectedFood, setSelectedFood] = useState<{
     id: string;
@@ -55,6 +52,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     ingredientsJson: unknown;
     allergensJson: unknown;
   } | null>(null);
+  const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
   const [selectedFoodMap, setSelectedFoodMap] = useState<Record<string, {
     id: string;
     code: string;
@@ -68,6 +66,18 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     ingredientsJson: unknown;
     allergensJson: unknown;
   }>>({});
+  const initialSearch = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("search");
+    return value ? value.trim() : "";
+  }, [location.search]);
+  const focusFoodId = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("foodId");
+    return value ? value.trim() : "";
+  }, [location.search]);
+  const focusLotId = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("lotId");
+    return value ? value.trim() : "";
+  }, [location.search]);
   const pageSize = 20;
 
   const toPrettyJson = (value: unknown) => {
@@ -299,28 +309,9 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     }
   }
 
-  async function loadLotOrders(lotId: string) {
-    if (lotOrdersByLotId[lotId]) return;
-    setLotOrdersLoadingByLotId((prev) => ({ ...prev, [lotId]: true }));
-    setLotOrdersErrorByLotId((prev) => ({ ...prev, [lotId]: null }));
-    try {
-      const response = await request(`/v1/admin/lots/${lotId}/orders`);
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
-        setLotOrdersErrorByLotId((prev) => ({ ...prev, [lotId]: body.error?.message ?? dict.detail.requestFailed }));
-        return;
-      }
-      const body = await parseJson<{ data: AdminLotOrderRow[] }>(response);
-      setLotOrdersByLotId((prev) => ({ ...prev, [lotId]: body.data ?? [] }));
-    } catch {
-      setLotOrdersErrorByLotId((prev) => ({ ...prev, [lotId]: dict.detail.requestFailed }));
-    } finally {
-      setLotOrdersLoadingByLotId((prev) => ({ ...prev, [lotId]: false }));
-    }
-  }
-
   const selectedFoodAllergenSummary = selectedFood ? explainAllergens(selectedFood) : [];
   const selectedFoodLots = selectedFood ? (lotsByFoodId[selectedFood.id] ?? []) : [];
+  const selectedLot = selectedFoodLots.find((lot) => lot.id === selectedLotId) ?? null;
   const selectedFoods = Object.values(selectedFoodMap);
   const allFoodsSelected =
     rows.length > 0 &&
@@ -372,6 +363,26 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     const query = new URLSearchParams({ tab: "foods", focusFoodId: foodId });
     if (focusLotId) query.set("focusLotId", focusLotId);
     navigate(`/app/sellers/${sellerId}?${query.toString()}`);
+  }
+
+  function openFoodDetail(food: {
+    id: string;
+    code: string;
+    name: string;
+    sellerId: string;
+    isActive: boolean;
+    price: number;
+    updatedAt: string;
+    recipe: string | null;
+    description: string | null;
+    ingredientsJson: unknown;
+    allergensJson: unknown;
+  }, lotId?: string) {
+    setSelectedFood(food);
+    setSelectedLotId(lotId ?? null);
+    if (!lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) {
+      void loadFoodLots(food.id);
+    }
   }
 
   function downloadSelectedFoodsAsExcel() {
@@ -482,6 +493,18 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     printModalContent(foodModalPrintRef.current);
   }
 
+  useEffect(() => {
+    setSearch(initialSearch);
+    setPage(1);
+  }, [initialSearch]);
+
+  useEffect(() => {
+    if (!focusFoodId) return;
+    const food = rows.find((row) => row.id === focusFoodId);
+    if (!food) return;
+    openFoodDetail(food, focusLotId || undefined);
+  }, [focusFoodId, focusLotId, rows]);
+
   return (
     <div className="app">
       <header className="topbar topbar-with-centered-search">
@@ -572,7 +595,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                       <tr
                         className="foods-main-row"
                         onClick={() => {
-                          setSelectedFood(food);
+                          openFoodDetail(food);
                           if (!lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) void loadFoodLots(food.id);
                         }}
                       >
@@ -658,104 +681,24 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                                   <thead>
                                     <tr>
                                       <th>{dict.detail.lotNumber}</th>
-                                      <th>{dict.detail.lotLifecycle}</th>
-                                      <th>{dict.detail.lotQuantity}</th>
                                       <th>{dict.detail.lotProducedAt}</th>
                                       <th>{dict.detail.lotSaleWindow}</th>
-                                      <th>{dict.detail.lotSnapshot}</th>
                                       <th>{dict.detail.lotActions}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {lots.map((lot) => {
-                                      const diff = computeFoodLotDiff({
-                                        foodRecipe: food.recipe,
-                                        foodIngredients: food.ingredientsJson,
-                                        foodAllergens: food.allergensJson,
-                                        lot,
-                                      });
-                                      const lotExpanded = Boolean(expandedLotIds[lot.id]);
-                                      const lotOrders = lotOrdersByLotId[lot.id] ?? [];
-                                      return (
-                                        <Fragment key={lot.id}>
-                                          <tr>
-                                            <td>{lot.lot_number}</td>
-                                            <td>
-                                              <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
-                                                {lotLifecycleLabel(lot.lifecycle_status, language)}
-                                              </span>
-                                            </td>
-                                            <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                                            <td>{formatUiDate(lot.produced_at, language)}</td>
-                                            <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                                            <td>
-                                              <div className="lot-diff-badges">
-                                                {diff.hasMissingSnapshot ? <span className="status-pill is-danger">{dict.detail.lotSnapshotMissing}</span> : null}
-                                                {diff.recipeChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span> : null}
-                                                {diff.ingredientsChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span> : null}
-                                                {diff.allergensChanged ? <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span> : null}
-                                                {!diff.hasMissingSnapshot && !diff.recipeChanged && !diff.ingredientsChanged && !diff.allergensChanged ? (
-                                                  <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
-                                                ) : null}
-                                              </div>
-                                            </td>
-                                            <td>
-                                              <button
-                                                className="ghost"
-                                                type="button"
-                                                onClick={() => {
-                                                  const next = !lotExpanded;
-                                                  setExpandedLotIds((prev) => ({ ...prev, [lot.id]: next }));
-                                                  if (next) {
-                                                    void loadLotOrders(lot.id);
-                                                  }
-                                                }}
-                                              >
-                                                {lotExpanded ? dict.detail.hideLotOrders : dict.detail.showLotOrders}
-                                              </button>
-                                            </td>
-                                          </tr>
-                                          {lotExpanded ? (
-                                            <tr className="lot-orders-row">
-                                              <td colSpan={7}>
-                                                {lotOrdersLoadingByLotId[lot.id] ? (
-                                                  <p className="panel-meta">{dict.common.loading}</p>
-                                                ) : lotOrdersErrorByLotId[lot.id] ? (
-                                                  <div className="alert">{lotOrdersErrorByLotId[lot.id]}</div>
-                                                ) : lotOrders.length === 0 ? (
-                                                  <p className="panel-meta">{dict.detail.noOrdersForLot}</p>
-                                                ) : (
-                                                  <div className="seller-food-lot-orders-wrap">
-                                                    <table className="seller-food-lot-orders-table">
-                                                      <thead>
-                                                        <tr>
-                                                          <th>{language === "tr" ? "Sipariş" : "Order"}</th>
-                                                          <th>{language === "tr" ? "Durum" : "Status"}</th>
-                                                          <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                                                          <th>{language === "tr" ? "Adet" : "Quantity"}</th>
-                                                          <th>{language === "tr" ? "Tarih" : "Created"}</th>
-                                                        </tr>
-                                                      </thead>
-                                                      <tbody>
-                                                        {lotOrders.map((order) => (
-                                                          <tr key={`${lot.id}-${order.order_id}`}>
-                                                            <td>{`#${order.order_id.slice(0, 10).toUpperCase()}`}</td>
-                                                            <td>{order.status}</td>
-                                                            <td>{order.buyer_id}</td>
-                                                            <td>{order.quantity_allocated}</td>
-                                                            <td>{formatUiDate(order.created_at, language)}</td>
-                                                          </tr>
-                                                        ))}
-                                                      </tbody>
-                                                    </table>
-                                                  </div>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          ) : null}
-                                        </Fragment>
-                                      );
-                                    })}
+                                    {lots.map((lot) => (
+                                      <tr key={lot.id}>
+                                        <td>{lot.lot_number}</td>
+                                        <td>{formatUiDate(lot.produced_at, language)}</td>
+                                        <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                                        <td>
+                                          <button className="ghost" type="button" onClick={() => openFoodDetail(food, lot.id)}>
+                                            {language === "tr" ? "Detay Göster" : "Show Detail"}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
                                   </tbody>
                                 </table>
                               </div>
@@ -786,7 +729,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
         />
       </section>
       {selectedFood ? (
-        <div className="buyer-ops-modal-backdrop" onClick={() => setSelectedFood(null)}>
+        <div className="buyer-ops-modal-backdrop" onClick={() => {
+          setSelectedFood(null);
+          setSelectedLotId(null);
+        }}>
           <div ref={foodModalPrintRef} className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <h3>Yemek Detayı</h3>
             <div className="foods-detail-grid">
@@ -808,16 +754,28 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               </div>
               <div>
                 <span className="panel-meta">{dict.detail.foodPrice}</span>
-                <strong>{formatCurrency(selectedFood.price, "tr")}</strong>
+                <strong>{formatCurrency(selectedFood.price, language)}</strong>
               </div>
               <div>
                 <span className="panel-meta">{dict.detail.updatedAtLabel}</span>
-                <strong>{formatUiDate(selectedFood.updatedAt, "tr")}</strong>
+                <strong>{formatUiDate(selectedFood.updatedAt, language)}</strong>
               </div>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
+              <p className="foods-detail-paragraph">{selectedFood.description?.trim() || "-"}</p>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
+              <p className="foods-detail-paragraph">{selectedFood.recipe?.trim() || "-"}</p>
             </div>
             <div className="foods-detail-text-block">
               <h4>İçerikler</h4>
               <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
+            </div>
+            <div className="foods-detail-text-block">
+              <h4>{language === "tr" ? "Ham Alerjen Verisi" : "Raw Allergen Data"}</h4>
+              <p className="foods-detail-paragraph">{toReadableText(selectedFood.allergensJson)}</p>
             </div>
             <div className="foods-detail-text-block">
               <h4>Alerjen Durumu</h4>
@@ -848,6 +806,51 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                 </div>
               )}
             </div>
+            {selectedLot ? (
+              <div className="foods-detail-text-block foods-detail-lot-focus">
+                <h4>{language === "tr" ? "Seçili Lot Detayı" : "Selected Lot Detail"}</h4>
+                <div className="foods-detail-grid">
+                  <div>
+                    <span className="panel-meta">{dict.detail.lotNumber}</span>
+                    <strong>{selectedLot.lot_number}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.lotLifecycle}</span>
+                    <strong>{lotLifecycleLabel(selectedLot.lifecycle_status, language)}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.lotQuantity}</span>
+                    <strong>{`${selectedLot.quantity_available}/${selectedLot.quantity_produced}`}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.lotProducedAt}</span>
+                    <strong>{formatUiDate(selectedLot.produced_at, language)}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.lotSaleWindow}</span>
+                    <strong>{`${formatUiDate(selectedLot.sale_starts_at, language)} - ${formatUiDate(selectedLot.sale_ends_at, language)}`}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{language === "tr" ? "SKT / TETT" : "Use By / Best Before"}</span>
+                    <strong>{`${formatUiDate(selectedLot.use_by, language)} / ${formatUiDate(selectedLot.best_before, language)}`}</strong>
+                  </div>
+                </div>
+                <div className="foods-detail-text-block">
+                  <h4>{language === "tr" ? "Lot Tarif Snapshot" : "Lot Recipe Snapshot"}</h4>
+                  <p className="foods-detail-paragraph">{selectedLot.recipe_snapshot?.trim() || "-"}</p>
+                </div>
+                <div className="foods-detail-grid">
+                  <div className="foods-detail-text-block">
+                    <h4>{language === "tr" ? "Lot Malzeme Snapshot" : "Lot Ingredients Snapshot"}</h4>
+                    <p className="foods-detail-paragraph">{toReadableText(selectedLot.ingredients_snapshot_json)}</p>
+                  </div>
+                  <div className="foods-detail-text-block">
+                    <h4>{language === "tr" ? "Lot Alerjen Snapshot" : "Lot Allergens Snapshot"}</h4>
+                    <p className="foods-detail-paragraph">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="foods-detail-text-block">
               {selectedFoodLots.length === 0 ? (
                 <p className="panel-meta">{dict.detail.noLotsForFood}</p>
@@ -860,15 +863,17 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                         <th>{dict.detail.lotLifecycle}</th>
                         <th>{dict.detail.lotQuantity}</th>
                         <th>{dict.detail.lotProducedAt}</th>
+                        <th>{dict.detail.lotSaleWindow}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedFoodLots.map((lot) => (
-                        <tr key={`modal-lot-${lot.id}`}>
+                        <tr key={`modal-lot-${lot.id}`} className={lot.id === selectedLotId ? "foods-detail-lot-row is-selected" : undefined}>
                           <td>{lot.lot_number}</td>
-                          <td>{lotLifecycleLabel(lot.lifecycle_status, "tr")}</td>
+                          <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
                           <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                          <td>{formatUiDate(lot.produced_at, "tr")}</td>
+                          <td>{formatUiDate(lot.produced_at, language)}</td>
+                          <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -877,9 +882,12 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               )}
             </div>
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost" type="button" onClick={downloadSelectedFoodDetailAsExcel} language="tr" />
-              <PrintButton className="ghost" type="button" onClick={printSelectedFoodDetail} language="tr" />
-              <button className="primary" type="button" onClick={() => setSelectedFood(null)}>
+              <ExcelExportButton className="ghost" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
+              <PrintButton className="ghost" type="button" onClick={printSelectedFoodDetail} language={language} />
+              <button className="primary" type="button" onClick={() => {
+                setSelectedFood(null);
+                setSelectedLotId(null);
+              }}>
                 Kapat
               </button>
             </div>

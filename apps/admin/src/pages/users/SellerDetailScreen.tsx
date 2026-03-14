@@ -1,5 +1,5 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
@@ -16,7 +16,7 @@ import {
   knownDocumentCodeRank,
 } from "../../lib/compliance";
 import { resolveSellerDetailTab } from "../../lib/routing";
-import { fetchAllAdminLots, computeFoodLotDiff, lotLifecycleClass, lotLifecycleLabel } from "../../lib/lots";
+import { fetchAllAdminLots } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -55,6 +55,7 @@ type SellerPreviewTarget = {
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
@@ -376,6 +377,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const timer = window.setTimeout(() => setFlashLotId(null), 2200);
     return () => window.clearTimeout(timer);
   }, [flashLotId]);
+
+  function openFoodDetailPage(foodId: string, lotId?: string) {
+    const params = new URLSearchParams({
+      foodId,
+      search: foodId,
+    });
+    if (lotId) params.set("lotId", lotId);
+    navigate(`/app/foods?${params.toString()}`);
+  }
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2241,53 +2251,32 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                     <table className="seller-food-lots-table">
                                       <thead>
                                         <tr>
-                                          <th>{dict.detail.lotLifecycle}</th>
-                                          <th>{dict.detail.lotQuantity}</th>
+                                          <th>{dict.detail.lotNumber}</th>
                                           <th>{dict.detail.lotProducedAt}</th>
                                           <th>{dict.detail.lotSaleWindow}</th>
-                                          <th>{dict.detail.lotSnapshot}</th>
+                                          <th>{dict.detail.lotActions}</th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {foodLots.map((lot) => {
-                                          const diff = computeFoodLotDiff({
-                                            foodRecipe: food.recipe,
-                                            foodIngredients: food.ingredients,
-                                            foodAllergens: food.allergens,
-                                            lot,
-                                          });
-                                          return (
-                                            <Fragment key={lot.id}>
-                                              <tr
-                                                data-lot-row-id={lot.id}
-                                                className={[
-                                                  flashLotId === lot.id ? "search-focus-flash" : "",
-                                                  pinnedLotId === lot.id ? "search-focus-pinned" : "",
-                                                ].filter(Boolean).join(" ") || undefined}
-                                              >
-                                                <td>
-                                                  <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
-                                                    {lotLifecycleLabel(lot.lifecycle_status, language)}
-                                                  </span>
-                                                </td>
-                                                <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                                                <td>{formatUiDate(lot.produced_at, language)}</td>
-                                                <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                                                <td>
-                                                  <div className="lot-diff-badges">
-                                                    {diff.hasMissingSnapshot ? <span className="status-pill is-danger">{dict.detail.lotSnapshotMissing}</span> : null}
-                                                    {diff.recipeChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span> : null}
-                                                    {diff.ingredientsChanged ? <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span> : null}
-                                                    {diff.allergensChanged ? <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span> : null}
-                                                    {!diff.hasMissingSnapshot && !diff.recipeChanged && !diff.ingredientsChanged && !diff.allergensChanged ? (
-                                                      <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
-                                                    ) : null}
-                                                  </div>
-                                                </td>
-                                              </tr>
-                                            </Fragment>
-                                          );
-                                        })}
+                                        {foodLots.map((lot) => (
+                                          <tr
+                                            key={lot.id}
+                                            data-lot-row-id={lot.id}
+                                            className={[
+                                              flashLotId === lot.id ? "search-focus-flash" : "",
+                                              pinnedLotId === lot.id ? "search-focus-pinned" : "",
+                                            ].filter(Boolean).join(" ") || undefined}
+                                          >
+                                            <td>{lot.lot_number}</td>
+                                            <td>{formatUiDate(lot.produced_at, language)}</td>
+                                            <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                                            <td>
+                                              <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
+                                                {language === "tr" ? "Detay Göster" : "Show Detail"}
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        ))}
                                       </tbody>
                                     </table>
                                   </div>
