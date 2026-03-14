@@ -1593,6 +1593,11 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     latest_complaint_seller_id: string | null;
     latest_complaint_seller_name: string | null;
     latest_complaint_seller_email: string | null;
+    recent_login_count_24h: number;
+    recent_login_ip_count_24h: number;
+    recent_login_primary_ip: string | null;
+    recent_login_shared_ip: string | null;
+    recent_login_location_spread: boolean;
   }>(
     `SELECT
        u.id,
@@ -1633,7 +1638,12 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        latest_complaint.category_name AS latest_complaint_category_name,
        latest_complaint.seller_id AS latest_complaint_seller_id,
        latest_complaint.seller_name AS latest_complaint_seller_name,
-       latest_complaint.seller_email AS latest_complaint_seller_email
+       latest_complaint.seller_email AS latest_complaint_seller_email,
+       COALESCE(login_stats.recent_login_count_24h, 0)::int AS recent_login_count_24h,
+       COALESCE(login_stats.recent_login_ip_count_24h, 0)::int AS recent_login_ip_count_24h,
+       login_stats.recent_login_primary_ip,
+       login_stats.recent_login_shared_ip,
+       COALESCE(login_stats.recent_login_location_spread, FALSE) AS recent_login_location_spread
      FROM users u
      LEFT JOIN LATERAL (
        SELECT count(*)::int AS total_foods
@@ -1663,6 +1673,35 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        WHERE p.subject_type = 'app_user'
          AND p.subject_id = u.id
      ) presence_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         count(*)::int AS recent_login_count_24h,
+         count(DISTINCT COALESCE(NULLIF(ul.ip, ''), 'no-ip'))::int AS recent_login_ip_count_24h,
+         (
+           array_agg(NULLIF(ul.ip, '') ORDER BY ul.created_at DESC)
+           FILTER (WHERE NULLIF(ul.ip, '') IS NOT NULL)
+         )[1] AS recent_login_primary_ip,
+         (
+           array_agg(DISTINCT NULLIF(ul.ip, ''))
+           FILTER (
+             WHERE NULLIF(ul.ip, '') IS NOT NULL
+               AND EXISTS (
+                 SELECT 1
+                 FROM user_login_locations ul2
+                 WHERE ul2.ip = ul.ip
+                   AND ul2.user_id <> u.id
+                   AND ul2.created_at >= (now() - interval '24 hours')
+               )
+           )
+         )[1] AS recent_login_shared_ip,
+         (
+           (max(ul.latitude) - min(ul.latitude)) > 1
+           OR (max(ul.longitude) - min(ul.longitude)) > 1
+         ) AS recent_login_location_spread
+       FROM user_login_locations ul
+       WHERE ul.user_id = u.id
+         AND ul.created_at >= (now() - interval '24 hours')
+     ) login_stats ON TRUE
      LEFT JOIN LATERAL (
        SELECT
          c.id::text AS id,
@@ -1723,6 +1762,11 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       latestComplaintSellerId: row.latest_complaint_seller_id,
       latestComplaintSellerName: row.latest_complaint_seller_name,
       latestComplaintSellerEmail: row.latest_complaint_seller_email,
+      recentLoginCount24h: Number(row.recent_login_count_24h ?? 0),
+      recentLoginIpCount24h: Number(row.recent_login_ip_count_24h ?? 0),
+      recentLoginPrimaryIp: row.recent_login_primary_ip,
+      recentLoginSharedIp: row.recent_login_shared_ip,
+      recentLoginLocationSpread: Boolean(row.recent_login_location_spread),
     })),
     pagination: {
       mode: "offset",
