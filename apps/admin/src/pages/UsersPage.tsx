@@ -1133,7 +1133,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       <th><SortableHeader label={dict.users.v2.sellerHeaderShop} active={sellerTableSort.key === "name"} dir={sellerSortDirectionFor("name")} onClick={() => sellerHeaderSort("name")} /></th>
                       <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={sellerTableSort.key === "status"} dir={sellerSortDirectionFor("status")} onClick={() => sellerHeaderSort("status")} /></th>
                       <th><SortableHeader label={dict.users.v2.sellerHeaderWarnings} active={sellerTableSort.key === "warnings"} dir={sellerSortDirectionFor("warnings")} onClick={() => sellerHeaderSort("warnings")} /></th>
-                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderHealth} active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderCount} active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
+                      <th>{dict.users.v2.sellerHeaderOrderHealth}</th>
                       <th><SortableHeader label={dict.users.v2.sellerHeaderRatingTrend} active={sellerTableSort.key === "ratingTrend"} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => sellerHeaderSort("ratingTrend")} /></th>
                       <th />
                     </tr>
@@ -1142,12 +1143,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                     {loading ? (
                       Array.from({ length: 6 }).map((_, index) => (
                         <tr key={`skeleton-seller-${index}`}>
-                          <td colSpan={8} className="table-skeleton"><span /></td>
+                          <td colSpan={9} className="table-skeleton"><span /></td>
                         </tr>
                       ))
                     ) : filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={8}>{dict.common.noRecords}</td>
+                        <td colSpan={9}>{dict.common.noRecords}</td>
                       </tr>
                     ) : (
                       filteredRows.map((row) => {
@@ -1193,10 +1194,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </td>
                             <td>
                               <div className="seller-v2-health-cell">
-                                <span className="seller-v2-health-orders">{orderCurrent} {language === "tr" ? "sipariş" : "orders"}</span>
-                                <span className="seller-v2-health-revenue">{revenueFormatted}</span>
+                                <span>{orderCurrent}</span>
                                 <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
                               </div>
+                            </td>
+                            <td>
+                              {revenueFormatted}
                             </td>
                             <td>
                               <span className="seller-v2-rating">
