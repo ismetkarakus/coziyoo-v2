@@ -259,6 +259,7 @@ export function mapComplianceRows(
       sourceFileUrl: docMeta?.fileUrl ?? null,
       sourceDocumentStatus: docMeta?.status ?? null,
       sourceRejectionReason: docMeta?.rejectionReason ?? null,
+      sourceDate: dateText !== "-" ? dateText : null,
     };
   });
 }

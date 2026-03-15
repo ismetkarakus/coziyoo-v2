@@ -50,7 +50,8 @@ type SellerPreviewTarget = {
   isOptional: boolean;
   status: SellerComplianceDocumentStatus;
   tone: ComplianceTone;
-  detailText?: string;
+  date?: string | null;
+  rejectionReason?: string | null;
 };
 
 const COMPLIANCE_DOC_KEY_TOKENS: Record<ComplianceRowKey, string[]> = {
@@ -906,7 +907,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       isOptional: false,
       status: row.sourceDocumentStatus ?? "uploaded",
       tone: row.tone,
-      detailText: row.detailText,
+      date: row.sourceDate ?? null,
+      rejectionReason: row.sourceRejectionReason ?? null,
     });
     setPreviewAction(null);
     setPreviewActionReason("");
@@ -920,8 +922,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     tone: ComplianceTone,
     isOptional: boolean,
     action?: "reject" | "pending",
+    rejectionReason?: string | null,
+    date?: string | null,
   ) {
-    setPreviewTarget({ title, url: fileUrl, documentId, isOptional, status, tone });
+    setPreviewTarget({ title, url: fileUrl, documentId, isOptional, status, tone, rejectionReason: rejectionReason ?? null, date: date ?? null });
     setPreviewAction(action ?? null);
     setPreviewActionReason("");
   }
@@ -1671,8 +1675,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <span className={`status-pill compliance-status-pill is-${previewTarget.tone}`}>
                 {sellerDocumentStatusLabel(previewTarget.status, dict)}
               </span>
+              {previewTarget.date ? <span className="panel-meta">{previewTarget.date}</span> : null}
             </div>
-            {previewTarget.detailText ? <p className="panel-meta">{previewTarget.detailText}</p> : null}
+            {previewTarget.rejectionReason ? (
+              <p className="panel-meta">
+                <strong>{previewTarget.status === "rejected" ? dict.detail.legalRejectionReason : dict.detail.legalPendingReason}:</strong>{" "}
+                {previewTarget.rejectionReason}
+              </p>
+            ) : null}
             <div className="seller-doc-viewer-preview seller-doc-preview-single">
               {previewTargetIsPdf ? (
                 <iframe src={previewTarget.url} title={previewTarget.title} />
@@ -1973,7 +1983,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   <button
                                     className="ghost compliance-edit-btn compliance-preview-btn"
                                     type="button"
-                                    onClick={() => openDocumentPreview(row.id, row.file_url!, row.name, row.status, sellerDocumentStatusTone(row.status), false)}
+                                    onClick={() => openDocumentPreview(row.id, row.file_url!, row.name, row.status, sellerDocumentStatusTone(row.status), false, undefined, row.rejection_reason, formatUiDate(row.reviewed_at ?? row.uploaded_at, language))}
                                   >
                                     <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
                                   </button>
@@ -1992,7 +2002,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "reject");
+                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "reject", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.uploaded_at, language));
                                     }
                                   }}
                                 >
@@ -2004,7 +2014,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "pending");
+                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "pending", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.uploaded_at, language));
                                     }
                                   }}
                                 >
@@ -2062,7 +2072,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   <button
                                     className="ghost compliance-edit-btn compliance-preview-btn"
                                     type="button"
-                                    onClick={() => openDocumentPreview(row.id, row.file_url!, title, row.status as SellerComplianceDocumentStatus, tone, true)}
+                                    onClick={() => openDocumentPreview(row.id, row.file_url!, title, row.status as SellerComplianceDocumentStatus, tone, true, undefined, row.rejection_reason, formatUiDate(row.reviewed_at ?? row.created_at, language))}
                                   >
                                     <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
                                   </button>
@@ -2081,7 +2091,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "reject");
+                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "reject", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.created_at, language));
                                     }
                                   }}
                                 >
@@ -2093,7 +2103,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "pending");
+                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "pending", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.created_at, language));
                                     }
                                   }}
                                 >

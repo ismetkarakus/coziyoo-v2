@@ -134,6 +134,7 @@ export type ComplianceRowViewModel = {
   sourceFileUrl?: string | null;
   sourceDocumentStatus?: SellerComplianceDocumentStatus | null;
   sourceRejectionReason?: string | null;
+  sourceDate?: string | null;
 };
 
 export type ComplianceSource = {
