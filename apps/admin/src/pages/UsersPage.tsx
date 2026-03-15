@@ -1498,7 +1498,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=${isOpenComplaintView ? "complaints" : "orders"}`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=orders`); }}
                         >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
@@ -1516,7 +1516,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=${isOpenComplaintView ? "complaints" : "payments"}`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=payments`); }}
                         >
                           {isOpenComplaintView ? (
                             <div className="buyer-login-cell">
@@ -1532,7 +1532,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=${isOpenComplaintView ? "complaints" : "activity"}`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=activity`); }}
                         >
                           <div className="buyer-login-cell">
                             {isOpenComplaintView ? (
