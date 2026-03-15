@@ -3615,6 +3615,103 @@ adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), 
   });
 });
 
+const SellerReviewsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+  rating: z.coerce.number().int().min(1).max(5).optional(),
+});
+
+adminUserManagementRouter.get("/users/:id/seller-reviews", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const query = SellerReviewsQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: query.error.flatten() } });
+  }
+
+  const seller = await ensureSellerUser(params.data.id);
+  if (!seller.ok) {
+    return res.status(seller.status).json({ error: { code: seller.code, message: seller.message } });
+  }
+
+  const offset = (query.data.page - 1) * query.data.pageSize;
+  const sortDir = query.data.sortDir === "asc" ? "ASC" : "DESC";
+  const conditions: string[] = ["r.seller_id = $1"];
+  const sqlParams: unknown[] = [params.data.id];
+
+  if (query.data.rating !== undefined) {
+    sqlParams.push(query.data.rating);
+    conditions.push(`r.rating = $${sqlParams.length}`);
+  }
+
+  const whereClause = conditions.join(" AND ");
+
+  const total = await pool.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM reviews r WHERE ${whereClause}`,
+    sqlParams
+  );
+
+  sqlParams.push(query.data.pageSize, offset);
+  const rows = await pool.query<{
+    id: string;
+    order_id: string;
+    food_id: string;
+    food_name: string;
+    buyer_id: string;
+    buyer_name: string | null;
+    rating: number;
+    comment: string | null;
+    is_verified_purchase: boolean;
+    created_at: string;
+  }>(
+    `SELECT
+       r.id,
+       r.order_id,
+       r.food_id,
+       f.name AS food_name,
+       r.buyer_id,
+       u.display_name AS buyer_name,
+       r.rating,
+       r.comment,
+       r.is_verified_purchase,
+       r.created_at::text
+     FROM reviews r
+     JOIN foods f ON f.id = r.food_id
+     LEFT JOIN users u ON u.id = r.buyer_id
+     WHERE ${whereClause}
+     ORDER BY r.created_at ${sortDir}, r.id ${sortDir}
+     LIMIT $${sqlParams.length - 1} OFFSET $${sqlParams.length}`,
+    sqlParams
+  );
+
+  const totalCount = Number(total.rows[0]?.count ?? 0);
+  return res.json({
+    data: rows.rows.map((row) => ({
+      id: row.id,
+      orderId: row.order_id,
+      foodId: row.food_id,
+      foodName: row.food_name,
+      buyerId: row.buyer_id,
+      buyerName: row.buyer_name,
+      rating: row.rating,
+      comment: row.comment,
+      isVerifiedPurchase: row.is_verified_purchase,
+      createdAt: row.created_at,
+    })),
+    pagination: {
+      mode: "offset",
+      page: query.data.page,
+      pageSize: query.data.pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / query.data.pageSize)),
+    },
+  });
+});
+
 adminUserManagementRouter.get("/users/:id/buyer-complaints", requireAuth("admin"), async (req, res) => {
   const params = UuidParamSchema.safeParse(req.params);
   if (!params.success) {

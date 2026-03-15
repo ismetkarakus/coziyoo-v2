@@ -131,6 +131,24 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [flashLotId, setFlashLotId] = useState<string | null>(null);
   const [pinnedFoodId, setPinnedFoodId] = useState<string | null>(null);
   const [pinnedLotId, setPinnedLotId] = useState<string | null>(null);
+  const [reviewRows, setReviewRows] = useState<Array<{
+    id: string;
+    orderId: string;
+    foodId: string;
+    foodName: string;
+    buyerId: string;
+    buyerName: string | null;
+    rating: number;
+    comment: string | null;
+    isVerifiedPurchase: boolean;
+    createdAt: string;
+  }>>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [reviewsTotalPages, setReviewsTotalPages] = useState(1);
+  const [reviewsTotalCount, setReviewsTotalCount] = useState(0);
+  const [reviewRatingFilter, setReviewRatingFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
+  const [reviewSortDir, setReviewSortDir] = useState<"desc" | "asc">("desc");
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
   const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -416,6 +434,29 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const timer = window.setTimeout(() => setFlashLotId(null), 2200);
     return () => window.clearTimeout(timer);
   }, [flashLotId]);
+
+  async function fetchSellerReviews(page: number, ratingFilter: "all" | "1" | "2" | "3" | "4" | "5", sortDir: "asc" | "desc") {
+    setReviewsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: "20", sortDir });
+      if (ratingFilter !== "all") params.set("rating", ratingFilter);
+      const response = await request(`/v1/admin/users/${id}/seller-reviews?${params.toString()}`);
+      if (response.status !== 200) return;
+      const body = await parseJson<{ data: typeof reviewRows; pagination: { total: number; totalPages: number } }>(response);
+      setReviewRows(body.data ?? []);
+      setReviewsTotalPages(body.pagination?.totalPages ?? 1);
+      setReviewsTotalCount(body.pagination?.total ?? 0);
+    } catch {
+      // silently ignore
+    } finally {
+      setReviewsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== "reviews") return;
+    void fetchSellerReviews(reviewsPage, reviewRatingFilter, reviewSortDir);
+  }, [activeTab, reviewsPage, reviewRatingFilter, reviewSortDir]);
 
   function openFoodDetailPage(foodId: string, lotId?: string) {
     const params = new URLSearchParams({
@@ -1356,6 +1397,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "wallet", label: dict.detail.sellerTabs.wallet },
     { key: "identity", label: language === "tr" ? "Uygunluk" : "Compliance" },
     { key: "security", label: dict.detail.sellerTabs.security },
+    { key: "reviews", label: dict.detail.sellerTabs.reviews },
     { key: "notes", label: dict.detail.sellerTabs.notes },
     { key: "raw", label: dict.detail.sellerTabs.raw },
   ] as const;
@@ -2540,6 +2582,84 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
+      {activeTab === "reviews" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.reviews}</h2>
+            {reviewsTotalCount > 0 ? <span className="panel-meta">({reviewsTotalCount})</span> : null}
+          </div>
+          <div className="seller-detail-filter-row">
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Yıldız" : "Stars"}</span>
+              <select value={reviewRatingFilter} onChange={(event) => { setReviewRatingFilter(event.target.value as typeof reviewRatingFilter); setReviewsPage(1); }}>
+                <option value="all">{language === "tr" ? "Hepsi" : "All"}</option>
+                <option value="5">★★★★★ (5)</option>
+                <option value="4">★★★★☆ (4)</option>
+                <option value="3">★★★☆☆ (3)</option>
+                <option value="2">★★☆☆☆ (2)</option>
+                <option value="1">★☆☆☆☆ (1)</option>
+              </select>
+            </label>
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Sıralama" : "Sort"}</span>
+              <select value={reviewSortDir} onChange={(event) => { setReviewSortDir(event.target.value as "asc" | "desc"); setReviewsPage(1); }}>
+                <option value="desc">{language === "tr" ? "En Yeni" : "Newest"}</option>
+                <option value="asc">{language === "tr" ? "En Eski" : "Oldest"}</option>
+              </select>
+            </label>
+          </div>
+          {reviewsLoading ? (
+            <p className="panel-meta">{dict.common.loading}</p>
+          ) : reviewRows.length === 0 ? (
+            <p className="panel-meta">{dict.common.noRecords}</p>
+          ) : (
+            <>
+              <div className="buyer-ops-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{language === "tr" ? "Tarih" : "Date"}</th>
+                      <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
+                      <th>{language === "tr" ? "Yemek" : "Food"}</th>
+                      <th>{language === "tr" ? "Puan" : "Rating"}</th>
+                      <th>{language === "tr" ? "Yorum" : "Comment"}</th>
+                      <th>{language === "tr" ? "Doğrulanmış" : "Verified"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviewRows.map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatUiDate(item.createdAt, language)}</td>
+                        <td>{item.buyerName ?? <span className="panel-meta">-</span>}</td>
+                        <td>{item.foodName}</td>
+                        <td>
+                          <span className="review-stars" title={`${item.rating}/5`}>
+                            {"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}
+                          </span>
+                        </td>
+                        <td>{item.comment ?? <span className="panel-meta">-</span>}</td>
+                        <td>{item.isVerifiedPurchase ? (language === "tr" ? "✓ Evet" : "✓ Yes") : <span className="panel-meta">-</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {reviewsTotalPages > 1 ? (
+                <div className="seller-detail-filter-row" style={{ marginTop: 12 }}>
+                  <button className="ghost" type="button" disabled={reviewsPage <= 1} onClick={() => setReviewsPage((p) => p - 1)}>
+                    {language === "tr" ? "← Önceki" : "← Prev"}
+                  </button>
+                  <span className="panel-meta">{reviewsPage} / {reviewsTotalPages}</span>
+                  <button className="ghost" type="button" disabled={reviewsPage >= reviewsTotalPages} onClick={() => setReviewsPage((p) => p + 1)}>
+                    {language === "tr" ? "Sonraki →" : "Next →"}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
+
       {activeTab === "security" ? (
         <section className="panel">
           <div className="panel-header">
@@ -2581,7 +2701,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "security" && activeTab !== "notes" && activeTab !== "raw" ? (
+      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "security" && activeTab !== "reviews" && activeTab !== "notes" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>

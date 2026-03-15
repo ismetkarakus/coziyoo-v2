@@ -8,6 +8,7 @@ export function resolveSellerDetailTab(value: string | null | undefined): Seller
   if (value === "wallet") return "wallet";
   if (value === "legal") return "legal";
   if (value === "security") return "security";
+  if (value === "reviews") return "reviews";
   if (value === "notes") return "notes";
   if (value === "raw") return "raw";
   return "identity";
