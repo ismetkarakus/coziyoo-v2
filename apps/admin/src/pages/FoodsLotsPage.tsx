@@ -500,6 +500,8 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
         language === "tr" ? "Tarif Değişti" : "Recipe Changed",
         language === "tr" ? "İçerik Değişti" : "Ingredients Changed",
         language === "tr" ? "Alerjen Değişti" : "Allergens Changed",
+        language === "tr" ? "Lot Tarif" : "Lot Recipe",
+        language === "tr" ? "Lot Alerjen" : "Lot Allergens",
       ].map(escapeCsv).join(","));
       for (const lot of selectedFoodLots) {
         const diff = computeFoodLotDiff({
@@ -519,6 +521,8 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             diff.recipeChanged ? yes : no,
             diff.ingredientsChanged ? yes : no,
             diff.allergensChanged ? yes : no,
+            diff.ingredientsChanged ? toReadableText(lot.ingredients_snapshot_json) : "",
+            diff.allergensChanged ? toReadableText(lot.allergens_snapshot_json) : "",
           ].map(escapeCsv).join(",")
         );
       }
