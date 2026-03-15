@@ -42,7 +42,7 @@ type ComplaintNote = {
   createdAt: string;
 };
 
-export default function InvestigationComplaintDetailPage({ language, complaintId }: { language: Language; complaintId: string }) {
+export default function InvestigationComplaintDetailPage({ language, complaintId, onClose }: { language: Language; complaintId: string; onClose?: () => void }) {
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const currentAdmin = getAdmin();
@@ -202,7 +202,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     <div className="app investigation-page">
       <header className="topbar complaint-detail-topbar">
         <div className="back-nav complaint-detail-back-nav">
-          <button className="ghost back-nav-btn" type="button" onClick={() => navigate("/app/investigation")}>← {dict.actions.prev}</button>
+          <button className="ghost back-nav-btn" type="button" onClick={() => onClose ? onClose() : navigate("/app/investigation")}>← {dict.actions.prev}</button>
           <div className="complaint-detail-heading">
             <h1>{dict.investigation.detailTitle}</h1>
           </div>

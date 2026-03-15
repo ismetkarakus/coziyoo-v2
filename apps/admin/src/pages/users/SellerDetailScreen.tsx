@@ -2,6 +2,7 @@ import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, use
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
+import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { NotesPanel } from "../../components/NotesPanel";
 import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, sanitizeSeedText } from "../../lib/format";
 import {
@@ -168,6 +169,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [complaintsTotalCount, setComplaintsTotalCount] = useState(0);
   const [complaintsStatusFilter, setComplaintsStatusFilter] = useState<"all" | "open" | "in_review" | "resolved" | "closed">("all");
   const [complaintsSortDir, setComplaintsSortDir] = useState<"desc" | "asc">("desc");
+  const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
   const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -2764,7 +2766,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         closed: "is-neutral",
                       };
                       return (
-                        <tr key={item.id}>
+                        <tr
+                          key={item.id}
+                          className="investigation-click-row"
+                          onClick={() => setSelectedComplaintId(item.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedComplaintId(item.id);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                        >
                           <td>{item.createdAt ? item.createdAt.slice(0, 10) : "-"}</td>
                           <td>{item.orderNo}</td>
                           <td>{item.complainantName ?? <span className="panel-meta">-</span>}</td>
@@ -2803,6 +2817,26 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
+      {selectedComplaintId ? (
+        <div
+          className="buyer-ops-modal-backdrop complaint-detail-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedComplaintId(null)}
+        >
+          <div
+            className="buyer-ops-modal complaint-detail-modal-shell"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <InvestigationComplaintDetailPage
+              language={language}
+              complaintId={selectedComplaintId}
+              onClose={() => setSelectedComplaintId(null)}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {activeTab === "notes" ? (
         <NotesPanel
           noteItems={noteItems}
@@ -2835,7 +2869,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
 
-      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "security" && activeTab !== "reviews" && activeTab !== "notes" && activeTab !== "raw" ? (
+      {activeTab !== "general" && activeTab !== "identity" && activeTab !== "legal" && activeTab !== "foods" && activeTab !== "orders" && activeTab !== "wallet" && activeTab !== "security" && activeTab !== "reviews" && activeTab !== "complaints" && activeTab !== "notes" && activeTab !== "raw" ? (
         <section className="panel">
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>
