@@ -321,10 +321,10 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <label className="complaint-field-block">
                   <span className="complaint-detail-label">{dict.investigation.newNote}</span>
                   <textarea
-                    className="complaint-note-input"
+                    className="complaint-note-input complaint-note-input--compact"
                     value={noteInput}
                     onChange={(event) => setNoteInput(event.target.value)}
-                    rows={4}
+                    rows={1}
                     placeholder={dict.investigation.notePlaceholder}
                   />
                 </label>
