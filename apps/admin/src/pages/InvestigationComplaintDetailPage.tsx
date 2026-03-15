@@ -250,6 +250,50 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     <span className="complaint-ticket-no">#{detail.ticketNo}</span>
                     <span className={`complaint-badge status-${detail.status}`}>{statusText(detail.status)}</span>
                     <span className={`complaint-badge priority-${detail.priority}`}>{priorityText(detail.priority)}</span>
+                    <div className="complaint-quick-actions-inline complaint-quick-actions-inline--header">
+                      <label className="complaint-quick-action-item">
+                        <span className="complaint-quick-action-head">
+                          <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
+                          <span className={`complaint-badge status-${detail.status}`}>{statusText(detail.status)}</span>
+                        </span>
+                        <select
+                          className="complaint-quick-action-select"
+                          value={detail.status}
+                          disabled={savingStatus}
+                          onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
+                        >
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>{statusText(status)}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="complaint-quick-action-item">
+                        <span className="complaint-quick-action-head">
+                          <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
+                          <span className={`complaint-badge priority-${detail.priority}`}>{priorityText(detail.priority)}</span>
+                        </span>
+                        <select
+                          className="complaint-quick-action-select"
+                          value={detail.priority}
+                          disabled={savingPriority}
+                          onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
+                        >
+                          {priorityOptions.map((priority) => (
+                            <option key={priority} value={priority}>{priorityText(priority)}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="complaint-quick-action-item">
+                        <span className="complaint-quick-action-head">
+                          <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
+                        </span>
+                        <div className="complaint-quick-action-value">
+                          {detail.assignedAdminEmail ?? dict.investigation.unassigned}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <h2 className="complaint-ticket-subject">{detail.subject}</h2>
                 </div>
@@ -285,54 +329,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                   <div className="complaint-summary-info">
                     <span className="complaint-detail-label">{dict.investigation.complaintDate}</span>
                     <strong className="complaint-summary-info-value">{complaintDate}</strong>
-                  </div>
-                </div>
-                <div className="complaint-summary-divider" />
-
-                <div className="complaint-quick-actions-inline">
-                  <div className="complaint-quick-actions-title">{dict.investigation.quickActions}</div>
-
-                  <label className="complaint-quick-action-item">
-                    <span className="complaint-quick-action-head">
-                      <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
-                      <span className={`complaint-badge status-${detail.status}`}>{statusText(detail.status)}</span>
-                    </span>
-                    <select
-                      className="complaint-quick-action-select"
-                      value={detail.status}
-                      disabled={savingStatus}
-                      onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
-                    >
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>{statusText(status)}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="complaint-quick-action-item">
-                    <span className="complaint-quick-action-head">
-                      <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
-                      <span className={`complaint-badge priority-${detail.priority}`}>{priorityText(detail.priority)}</span>
-                    </span>
-                    <select
-                      className="complaint-quick-action-select"
-                      value={detail.priority}
-                      disabled={savingPriority}
-                      onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
-                    >
-                      {priorityOptions.map((priority) => (
-                        <option key={priority} value={priority}>{priorityText(priority)}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="complaint-quick-action-item">
-                    <span className="complaint-quick-action-head">
-                      <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
-                    </span>
-                    <div className="complaint-quick-action-value">
-                      {detail.assignedAdminEmail ?? dict.investigation.unassigned}
-                    </div>
                   </div>
                 </div>
               </div>
