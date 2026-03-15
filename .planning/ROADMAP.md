@@ -19,6 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Order Creation** - N8N detects confirmed intent and creates order in database
 - [ ] **Phase 6: Post-Session UX** - User sees live conversation state and order summary after session
 - [ ] **Phase 7: User Memory** - Agent remembers user preferences and past orders across sessions
+- [ ] **Phase 8: Lots in Foods** - Sellers can define lot sizes for food items; buyers and voice agent interact with lot-based pricing
 
 ## Phase Details
 
@@ -136,10 +137,26 @@ Plans:
 - [ ] 07-03: Implement n8n memory write on preference/detail capture during conversation
 - [ ] 07-04: Wire voice agent to fetch and pass user long-term memory at session start
 
+### Phase 8: Lots in Foods
+**Goal**: Admin can see lot lifecycle status and ingredient/allergen variations per lot clearly, and export that data as a report
+**Depends on**: None (admin panel only — independent of voice agent phases)
+**Requirements**: LOTS-01, LOTS-02, LOTS-03, LOTS-04, LOTS-05
+**Success Criteria** (what must be TRUE):
+  1. Inline lot rows in FoodsLotsPage show lifecycle status (color-coded pill), quantity, and a variation badge when a lot's snapshot differs from the current food recipe/ingredients/allergens
+  2. Lot detail modal calls `computeFoodLotDiff()` and highlights which fields (recipe / ingredients / allergens) changed versus the base food
+  3. Foods table has a "has variations" filter to surface only foods with at least one lot that diverges from the current recipe
+  4. Excel export includes diff status (recipe changed / ingredients changed / allergens changed) per lot row
+**Plans**: 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Lifecycle status pill and quantity columns in inline lot rows (LOTS-01)
+- [ ] 08-02-PLAN.md — Variation badges in inline lot rows and diff highlights in lot detail modal (LOTS-02, LOTS-03)
+- [ ] 08-03-PLAN.md — Has-variations filter chip and Excel export diff columns (LOTS-04, LOTS-05)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -150,3 +167,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 5. Order Creation | 0/3 | Not started | - |
 | 6. Post-Session UX | 0/3 | Not started | - |
 | 7. User Memory | 0/4 | Not started | - |
+| 8. Lots in Foods | 0/3 | Not started | - |
