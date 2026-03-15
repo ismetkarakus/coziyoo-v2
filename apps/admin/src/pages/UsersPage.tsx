@@ -9,7 +9,7 @@ import { compareSortValues, compareWithDir, toggleSort, type SortDir } from "../
 import type { Language, ApiError } from "../types/core";
 import type { UserKind, ColumnMeta, DensityMode } from "../types/users";
 
-type SellerTableSortKey = "id" | "name" | "status" | "warnings" | "orderHealth" | "ratingTrend";
+type SellerTableSortKey = "id" | "name" | "status" | "warnings" | "orderHealth" | "revenue" | "ratingTrend";
 type BuyerTableSortKey = "id" | "buyer" | "col4" | "col5" | "col6" | "col7" | "col8" | "status";
 
 function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
@@ -654,9 +654,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             return compareWithDir(left, right, sellerTableSort.dir);
           }
           if (sellerTableSort.key === "orderHealth") {
-            const left = sellerOrderCurrent(a) * 1_000_000 + sellerRevenue(a);
-            const right = sellerOrderCurrent(b) * 1_000_000 + sellerRevenue(b);
-            return compareWithDir(left, right, sellerTableSort.dir);
+            return compareWithDir(sellerOrderCurrent(a), sellerOrderCurrent(b), sellerTableSort.dir);
+          }
+          if (sellerTableSort.key === "revenue") {
+            return compareWithDir(sellerRevenue(a), sellerRevenue(b), sellerTableSort.dir);
           }
           const left = Number(a.ratingTrend ?? a.ratingDelta ?? 0);
           const right = Number(b.ratingTrend ?? b.ratingDelta ?? 0);
@@ -1134,7 +1135,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={sellerTableSort.key === "status"} dir={sellerSortDirectionFor("status")} onClick={() => sellerHeaderSort("status")} /></th>
                       <th><SortableHeader label={dict.users.v2.sellerHeaderWarnings} active={sellerTableSort.key === "warnings"} dir={sellerSortDirectionFor("warnings")} onClick={() => sellerHeaderSort("warnings")} /></th>
                       <th><SortableHeader label={dict.users.v2.sellerHeaderOrderCount} active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
-                      <th>{dict.users.v2.sellerHeaderOrderHealth}</th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderHealth} active={sellerTableSort.key === "revenue"} dir={sellerSortDirectionFor("revenue")} onClick={() => sellerHeaderSort("revenue")} /></th>
                       <th><SortableHeader label={dict.users.v2.sellerHeaderRatingTrend} active={sellerTableSort.key === "ratingTrend"} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => sellerHeaderSort("ratingTrend")} /></th>
                       <th />
                     </tr>
