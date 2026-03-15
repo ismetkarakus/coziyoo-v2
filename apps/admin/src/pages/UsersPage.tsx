@@ -1156,7 +1156,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const orderMeta = trendArrow(orderCurrent, orderPrevious);
                         const ratingValue = sellerRating(row);
                         const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
-                        const revenueTag = `N.${Math.max(1, Math.round(sellerRevenue(row) / 1000))}T`;
+                        const revenueFormatted = formatCurrency(sellerRevenue(row), language);
                         const sellerName = String(row.displayName ?? row.email ?? dict.users.v2.sellerFallbackName);
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget = `/app/sellers/${row.id}`;
@@ -1193,7 +1193,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </td>
                             <td>
                               <div className="seller-v2-health-cell">
-                                <span className="seller-v2-health-pill">{revenueTag}</span>
+                                <span className="seller-v2-health-orders">{orderCurrent} {language === "tr" ? "sipariş" : "orders"}</span>
+                                <span className="seller-v2-health-revenue">{revenueFormatted}</span>
                                 <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
                               </div>
                             </td>
