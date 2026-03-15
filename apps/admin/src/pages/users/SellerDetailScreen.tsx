@@ -764,11 +764,31 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           rejectionReason: status === "rejected" || status === "requested" ? (rejectionReasonInput ?? null) : null,
         }),
       });
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
+      const body = await parseJson<{ data?: { documentId: string; status: "requested" | "uploaded" | "approved" | "rejected" | "expired" } } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
+      const nowIso = new Date().toISOString();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        const updatedDocuments = prev.documents.map((item) =>
+          item.id === body.data!.documentId
+            ? {
+                ...item,
+                status: body.data!.status,
+                rejection_reason: body.data!.status === "rejected" || body.data!.status === "requested" ? (rejectionReasonInput ?? null) : null,
+                reviewed_at: body.data!.status === "approved" || body.data!.status === "rejected" ? nowIso : null,
+                updated_at: nowIso,
+              }
+            : item
+        );
+        return {
+          ...prev,
+          documents: updatedDocuments,
+          profile: recomputeProfile(updatedDocuments, prev.profile),
+        };
+      });
       await loadSellerDetail();
       setMessage(dict.common.saved);
       setRejectTargetId(null);
@@ -796,11 +816,29 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           rejectionReason: status === "rejected" || status === "uploaded" ? (rejectionReasonInput ?? null) : null,
         }),
       });
-      if (response.status !== 200) {
-        const body = await parseJson<ApiError>(response);
+      const body = await parseJson<{ data?: { uploadId: string; status: "uploaded" | "approved" | "rejected" | "archived" | "expired" } } & ApiError>(response);
+      if (response.status !== 200 || !body.data) {
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
+      const nowIso = new Date().toISOString();
+      setCompliance((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          optionalUploads: prev.optionalUploads.map((item) =>
+            item.id === body.data!.uploadId
+              ? {
+                  ...item,
+                  status: body.data!.status,
+                  rejection_reason: body.data!.status === "rejected" || body.data!.status === "uploaded" ? (rejectionReasonInput ?? null) : null,
+                  reviewed_at: body.data!.status === "approved" || body.data!.status === "rejected" ? nowIso : null,
+                  updated_at: nowIso,
+                }
+              : item
+          ),
+        };
+      });
       await loadSellerDetail();
       setMessage(dict.common.saved);
       setOptionalRejectTargetId(null);
