@@ -2323,71 +2323,44 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           </td>
                         </tr>
                         {foodExpanded ? (
-                          <tr className="foods-lots-expanded-row">
-                            <td colSpan={7}>
-                              <div className="seller-food-detail-sheet">
-                                <div className="seller-food-codes-card">
-                                  <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
-                                  <div className="seller-food-codes-list">
-                                    <span className="seller-food-code-chip is-id">{`ID: ${food.id}`}</span>
-                                    <span className="seller-food-code-chip is-food">{`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${food.code || "-"}`}</span>
-                                    {foodLots.map((lot) => (
-                                      <span key={`code-${food.id}-${lot.id}`} className="seller-food-code-chip is-lot">{`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}</span>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="seller-food-detail-actions">
-                                  <ExcelExportButton
-                                    className="ghost"
-                                    type="button"
-                                    onClick={() => void downloadSellerFoodsAsExcel([food.id])}
-                                    labelTr="Bu Yemeği Excel'e Aktar"
-                                    labelEn="Export This Food to Excel"
-                                    language={language}
-                                  />
-                                </div>
-                                {lotsLoading ? (
-                                  <p className="panel-meta">{dict.common.loading}</p>
-                                ) : foodLots.length === 0 ? (
-                                  <p className="panel-meta">{dict.detail.noLotsForFood}</p>
-                                ) : (
-                                  <div className="seller-food-lots-table-wrap">
-                                    <table className="seller-food-lots-table">
-                                      <thead>
-                                        <tr>
-                                          <th>{dict.detail.lotNumber}</th>
-                                          <th>{dict.detail.lotProducedAt}</th>
-                                          <th>{dict.detail.lotSaleWindow}</th>
-                                          <th>{dict.detail.lotActions}</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {foodLots.map((lot) => (
-                                          <tr
-                                            key={lot.id}
-                                            data-lot-row-id={lot.id}
-                                            className={[
-                                              flashLotId === lot.id ? "search-focus-flash" : "",
-                                              pinnedLotId === lot.id ? "search-focus-pinned" : "",
-                                            ].filter(Boolean).join(" ") || undefined}
-                                          >
-                                            <td>{lot.lot_number}</td>
-                                            <td>{formatTableDateTime(lot.produced_at)}</td>
-                                            <td>{`${formatTableDateTime(lot.sale_starts_at)} - ${formatTableDateTime(lot.sale_ends_at)}`}</td>
-                                            <td>
-                                              <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
-                                                {language === "tr" ? "Detay Göster" : "Show Detail"}
-                                              </button>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
+                          lotsLoading ? (
+                            <tr className="food-tree-lot-row food-tree-lot-loading">
+                              <td colSpan={7}><span className="food-tree-connector">└</span> {dict.common.loading}</td>
+                            </tr>
+                          ) : foodLots.length === 0 ? (
+                            <tr className="food-tree-lot-row food-tree-lot-empty">
+                              <td colSpan={7}><span className="food-tree-connector">└</span> {dict.detail.noLotsForFood}</td>
+                            </tr>
+                          ) : (
+                            foodLots.map((lot, lotIdx) => (
+                              <tr
+                                key={lot.id}
+                                data-lot-row-id={lot.id}
+                                className={[
+                                  "food-tree-lot-row",
+                                  lotIdx === foodLots.length - 1 ? "food-tree-lot-row--last" : "",
+                                  flashLotId === lot.id ? "search-focus-flash" : "",
+                                  pinnedLotId === lot.id ? "search-focus-pinned" : "",
+                                ].filter(Boolean).join(" ") || undefined}
+                              >
+                                <td className="food-tree-indent-cell" />
+                                <td className="food-tree-connector-cell">
+                                  <span className="food-tree-connector">{lotIdx === foodLots.length - 1 ? "└" : "├"}</span>
+                                </td>
+                                <td className="food-tree-dates-cell">
+                                  <span className="food-tree-date-item">{formatTableDateTime(lot.produced_at)}</span>
+                                  <span className="food-tree-date-sep">→</span>
+                                  <span className="food-tree-date-item">{`${formatTableDateTime(lot.sale_starts_at)} – ${formatTableDateTime(lot.sale_ends_at)}`}</span>
+                                </td>
+                                <td colSpan={3} />
+                                <td>
+                                  <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
+                                    {language === "tr" ? "Detay" : "Detail"}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )
                         ) : null}
                       </Fragment>
                     );

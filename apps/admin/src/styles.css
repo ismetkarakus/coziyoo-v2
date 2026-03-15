@@ -7371,6 +7371,59 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: transparent;
 }
 
+.food-tree-lot-row td {
+  padding: 5px 8px;
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-card-bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  font-size: var(--text-sm);
+}
+
+.food-tree-lot-row--last td {
+  border-bottom: none;
+}
+
+.food-tree-indent-cell {
+  width: 28px;
+}
+
+.food-tree-connector-cell {
+  width: 24px;
+  text-align: center;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.food-tree-connector {
+  color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  font-family: monospace;
+  font-size: 0.95rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.food-tree-dates-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.food-tree-date-item {
+  color: var(--color-secondary-text);
+}
+
+.food-tree-date-sep {
+  color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  font-size: var(--text-xs);
+}
+
+.food-tree-lot-loading,
+.food-tree-lot-empty {
+  color: var(--color-tertiary-text);
+  font-size: var(--text-sm);
+  padding-left: 52px;
+}
+
 .foods-toggle-btn {
   min-width: 34px;
   padding: 4px 10px;
