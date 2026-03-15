@@ -4,7 +4,6 @@ import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, SortableHeader } from "../components/ui";
 import { fmt } from "../lib/format";
-import { compareSortValues, compareWithDir, toggleSort, type TableSortState } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
 
 type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
@@ -41,7 +40,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<ComplaintRow[]>([]);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
-  const [tableSort, setTableSort] = useState<TableSortState<string>>({ key: null, dir: "desc" });
+  const [sortBy, setSortBy] = useState<"createdAt" | "ticketNo" | "orderNo" | "complainant" | "category" | "status" | "priority">("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const statusText = (status: ComplaintStatus) => {
     if (language === "tr") {
@@ -66,6 +66,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
   async function downloadComplaintsAsExcel() {
     try {
       const baseParams = {
+        sortBy,
+        sortDir,
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
         ...(presetComplainantType && presetComplainantUserId
@@ -153,6 +155,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
       const query = new URLSearchParams({
         page: String(page),
         pageSize: "20",
+        sortBy,
+        sortDir,
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
         ...(presetComplainantType && presetComplainantUserId
@@ -197,28 +201,21 @@ export default function InvestigationPage({ language }: { language: Language }) 
     statusFilter,
     fromDate,
     toDate,
+    sortBy,
+    sortDir,
   ]);
 
-  const sortDirectionFor = (column: string) => (tableSort.key === column ? tableSort.dir : "desc");
-  const sortValue = (row: ComplaintRow, column: string): string | number => {
-    if (column === "ticket_no") return row.ticketNo;
-    if (column === "created_at") {
-      const parsed = Date.parse(row.createdAt);
-      return Number.isNaN(parsed) ? 0 : parsed;
+  const sortDirectionFor = (column: typeof sortBy): "asc" | "desc" => (sortBy === column ? sortDir : "desc");
+  const isSortActive = (column: typeof sortBy) => sortBy === column;
+  const toggleServerSort = (column: typeof sortBy) => {
+    setPage(1);
+    if (sortBy === column) {
+      setSortDir((prev) => (prev === "desc" ? "asc" : "desc"));
+      return;
     }
-    if (column === "status") return row.status;
-    if (column === "order_no") return row.orderNo;
-    if (column === "complainant") return row.complainantName ?? row.complainantUserId;
-    return row.categoryName ?? "";
+    setSortBy(column);
+    setSortDir("desc");
   };
-  const visibleRows = useMemo(() => {
-    if (!tableSort.key) return rows;
-    return [...rows].sort((a, b) => {
-      const result = compareWithDir(sortValue(a, tableSort.key as string), sortValue(b, tableSort.key as string), tableSort.dir);
-      if (result !== 0) return result;
-      return compareSortValues(a.id, b.id);
-    });
-  }, [rows, tableSort]);
 
   return (
     <div className="app investigation-page">
@@ -319,49 +316,49 @@ export default function InvestigationPage({ language }: { language: Language }) 
                 <th>
                   <SortableHeader
                     label={dict.investigation.ticketNo}
-                    active={tableSort.key === "ticket_no"}
-                    dir={sortDirectionFor("ticket_no")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "ticket_no"))}
+                    active={isSortActive("ticketNo")}
+                    dir={sortDirectionFor("ticketNo")}
+                    onClick={() => toggleServerSort("ticketNo")}
                   />
                 </th>
                 <th>
                   <SortableHeader
                     label={dict.investigation.orderNo}
-                    active={tableSort.key === "order_no"}
-                    dir={sortDirectionFor("order_no")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "order_no"))}
+                    active={isSortActive("orderNo")}
+                    dir={sortDirectionFor("orderNo")}
+                    onClick={() => toggleServerSort("orderNo")}
                   />
                 </th>
                 <th>
                   <SortableHeader
                     label={dict.investigation.complainant}
-                    active={tableSort.key === "complainant"}
+                    active={isSortActive("complainant")}
                     dir={sortDirectionFor("complainant")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "complainant"))}
+                    onClick={() => toggleServerSort("complainant")}
                   />
                 </th>
                 <th>
                   <SortableHeader
                     label={dict.investigation.complaintCategory}
-                    active={tableSort.key === "category"}
+                    active={isSortActive("category")}
                     dir={sortDirectionFor("category")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "category"))}
+                    onClick={() => toggleServerSort("category")}
                   />
                 </th>
                 <th>
                   <SortableHeader
                     label={dict.investigation.createdAt}
-                    active={tableSort.key === "created_at"}
-                    dir={sortDirectionFor("created_at")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "created_at"))}
+                    active={isSortActive("createdAt")}
+                    dir={sortDirectionFor("createdAt")}
+                    onClick={() => toggleServerSort("createdAt")}
                   />
                 </th>
                 <th>
                   <SortableHeader
                     label={dict.reviewQueue.status}
-                    active={tableSort.key === "status"}
+                    active={isSortActive("status")}
                     dir={sortDirectionFor("status")}
-                    onClick={() => setTableSort((prev) => toggleSort(prev, "status"))}
+                    onClick={() => toggleServerSort("status")}
                   />
                 </th>
                 <th>{dict.investigation.priorityLabel}</th>
@@ -377,7 +374,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                   <td colSpan={7}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
-                visibleRows.map((row) => (
+                rows.map((row) => (
                   <tr
                     key={row.id}
                     className="investigation-click-row"

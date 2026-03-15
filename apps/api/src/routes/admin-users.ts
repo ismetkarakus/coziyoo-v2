@@ -164,6 +164,8 @@ const ComplaintComplainantTypeSchema = z.enum(["buyer", "seller"]);
 const InvestigationComplaintsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.enum(["createdAt", "ticketNo", "orderNo", "complainant", "category", "status", "priority"]).default("createdAt"),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
   status: z.enum(["open", "in_review", "resolved", "closed"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   categoryId: z.string().uuid().optional(),
@@ -667,6 +669,8 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   const {
     page,
     pageSize,
+    sortBy,
+    sortDir,
     status,
     priority,
     categoryId,
@@ -730,6 +734,18 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     where.push(`c.created_at::date <= $${params.length}::date`);
   }
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const complaintsSortFieldMap: Record<(typeof parsed.data)["sortBy"], string> = {
+    createdAt: "c.created_at",
+    ticketNo: "c.ticket_no",
+    orderNo: "o.id",
+    complainant:
+      "COALESCE(NULLIF(actor.display_name, ''), NULLIF(actor.full_name, ''), NULLIF(actor.email, ''), COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text))",
+    category: "COALESCE(cat.name, '')",
+    status: "c.status",
+    priority: "c.priority",
+  };
+  const orderBy = complaintsSortFieldMap[sortBy];
+  const orderDir = sortDir === "asc" ? "ASC" : "DESC";
 
   const countResult = await pool.query<{ count: string }>(
     `SELECT count(*)::text AS count
@@ -786,7 +802,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
      LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
      ${whereSql}
-     ORDER BY c.created_at DESC
+     ORDER BY ${orderBy} ${orderDir}, c.id ${orderDir}
      LIMIT ${limitParam} OFFSET ${offsetParam}`,
     params
   );

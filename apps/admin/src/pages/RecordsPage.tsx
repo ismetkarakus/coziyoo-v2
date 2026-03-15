@@ -5,7 +5,6 @@ import { Pager, ExcelExportButton, PrintButton, SortableHeader } from "../compon
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
 import { printModalContent } from "../lib/print";
-import { compareSortValues, compareWithDir, toggleSort, type TableSortState } from "../lib/sort";
 import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
@@ -28,7 +27,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
   const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
-  const [tableSort, setTableSort] = useState<TableSortState<string>>({ key: null, dir: "desc" });
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
   const pageSize = 20;
 
@@ -65,32 +65,15 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     () => (tableKey === "orders" ? ["__display_id", ...orderColumns] : orderColumns),
     [orderColumns, tableKey]
   );
-  const sortDirectionFor = (column: string) => (tableSort.key === column ? tableSort.dir : "desc");
-  const sortableValue = (row: Record<string, unknown>, column: string): string | number => {
-    if (column === "__display_id") return String(row.id ?? "");
-    if (column === "buyer_id" || column === "seller_id") {
-      const raw = String(row[column] ?? "").trim();
-      return userNameById[raw] ?? raw;
-    }
-    const raw = row[column];
-    if (column.endsWith("_at")) {
-      const parsed = Date.parse(String(raw ?? ""));
-      return Number.isNaN(parsed) ? 0 : parsed;
-    }
-    if (typeof raw === "number") return raw;
-    if (typeof raw === "boolean") return raw ? 1 : 0;
-    const numeric = Number(raw);
-    if (!Number.isNaN(numeric) && String(raw ?? "").trim().length > 0) return numeric;
-    return String(raw ?? "");
+  const apiSortKeyFor = (column: string) => (column === "__display_id" ? "id" : column);
+  const sortDirectionFor = (column: string): "asc" | "desc" => (sortBy === apiSortKeyFor(column) ? sortDir : "desc");
+  const isSortActive = (column: string) => sortBy === apiSortKeyFor(column);
+  const toggleServerSort = (column: string) => {
+    const nextSortBy = apiSortKeyFor(column);
+    setPage(1);
+    setSortBy(nextSortBy);
+    setSortDir((prev) => (sortBy === nextSortBy ? (prev === "desc" ? "asc" : "desc") : "desc"));
   };
-  const visibleRows = useMemo(() => {
-    if (!tableSort.key) return rows;
-    return [...rows].sort((a, b) => {
-      const result = compareWithDir(sortableValue(a, tableSort.key as string), sortableValue(b, tableSort.key as string), tableSort.dir);
-      if (result !== 0) return result;
-      return compareSortValues(String(a.id ?? ""), String(b.id ?? ""));
-    });
-  }, [rows, tableSort, userNameById]);
   const allRowsSelected =
     tableKey === "orders" &&
     rows.length > 0 &&
@@ -525,7 +508,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }, [tableKey, urlSearchQuery]);
 
   useEffect(() => {
-    setTableSort({ key: null, dir: "desc" });
+    setSortBy(null);
+    setSortDir("desc");
   }, [tableKey]);
 
   useEffect(() => {
@@ -535,7 +519,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const query = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
-      sortDir: "desc",
+      ...(sortBy ? { sortBy, sortDir } : {}),
       ...(search ? { search } : {}),
     });
 
@@ -568,7 +552,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         setError(dict.entities.recordsRequestFailed);
         setLoading(false);
       });
-  }, [dict.entities.loadRecordsFailed, dict.entities.recordsRequestFailed, page, pageSize, search, tableKey]);
+  }, [dict.entities.loadRecordsFailed, dict.entities.recordsRequestFailed, page, pageSize, search, sortBy, sortDir, tableKey]);
 
   useEffect(() => {
     if (tableKey !== "orders") return;
@@ -780,9 +764,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <th key={column}>
                     <SortableHeader
                       label={tableKey === "orders" ? orderColumnLabel(column) : formatTableHeader(column)}
-                      active={tableSort.key === column}
+                      active={isSortActive(column)}
                       dir={sortDirectionFor(column)}
-                      onClick={() => setTableSort((prev) => toggleSort(prev, column))}
+                      onClick={() => toggleServerSort(column)}
                     />
                   </th>
                 ))}
@@ -798,7 +782,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 2 : orderColumns.length), 1)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
-                visibleRows.map((row, index) => (
+                rows.map((row, index) => (
                   <tr
                     key={`${tableKey}-${index}`}
                     className={tableKey === "orders" ? "records-order-row" : undefined}
