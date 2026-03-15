@@ -3014,6 +3014,11 @@ textarea:focus {
   font-size: var(--text-xs);
 }
 
+.complaint-detail-modal-shell .complaint-notes-compact .topbar-actions .primary {
+  padding: 6px 14px;
+  font-size: var(--text-sm);
+}
+
 .buyer-ops-modal h3 {
   font-size: var(--text-md);
 }
@@ -8449,19 +8454,21 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   padding: 10px 12px;
   font-size: 1rem;
   line-height: 1.5;
-  background: #f3f5f8;
-  color: #111827;
-  border: 1px solid #cbd5e1;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-input-border);
+  border-radius: 10px;
 }
 
 .complaint-note-input::placeholder {
-  color: #6b7280;
+  color: var(--color-input-placeholder);
   opacity: 1;
 }
 
 .complaint-note-input:focus {
-  border-color: #6e86bd;
-  box-shadow: 0 0 0 2px rgba(110, 134, 189, 0.2);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  outline: none;
 }
 
 .complaint-note-input--compact {
