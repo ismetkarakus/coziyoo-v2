@@ -4,7 +4,7 @@ import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
 import { fmt, toDisplayId, formatCurrency, formatUiDate } from "../lib/format";
-import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass } from "../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff } from "../lib/lots";
 import { printModalContent } from "../lib/print";
 import type { Language, ApiError } from "../types/core";
 import type { AdminLotRow } from "../types/lots";
@@ -653,28 +653,57 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                                       <th>{dict.detail.lotQuantity}</th>
                                       <th>{dict.detail.lotProducedAt}</th>
                                       <th>{dict.detail.lotSaleWindow}</th>
+                                      <th>{language === "tr" ? "Fark" : "Diff"}</th>
                                       <th>{dict.detail.lotActions}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {lots.map((lot) => (
-                                      <tr key={lot.id}>
-                                        <td>{lot.lot_number}</td>
-                                        <td>
-                                          <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
-                                            {lotLifecycleLabel(lot.lifecycle_status, language)}
-                                          </span>
-                                        </td>
-                                        <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                                        <td>{formatUiDate(lot.produced_at, language)}</td>
-                                        <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                                        <td>
-                                          <button className="ghost" type="button" onClick={() => openFoodDetail(food, lot.id)}>
-                                            {language === "tr" ? "Detay Göster" : "Show Detail"}
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                    {lots.map((lot) => {
+                                      const diff = computeFoodLotDiff({
+                                        foodRecipe: food.recipe,
+                                        foodIngredients: food.ingredientsJson,
+                                        foodAllergens: food.allergensJson,
+                                        lot,
+                                      });
+                                      return (
+                                        <tr key={lot.id}>
+                                          <td>{lot.lot_number}</td>
+                                          <td>
+                                            <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
+                                              {lotLifecycleLabel(lot.lifecycle_status, language)}
+                                            </span>
+                                          </td>
+                                          <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
+                                          <td>{formatUiDate(lot.produced_at, language)}</td>
+                                          <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                                          <td>
+                                            {diff.hasMissingSnapshot || diff.recipeChanged || diff.ingredientsChanged || diff.allergensChanged ? (
+                                              <div className="lot-diff-badges">
+                                                {diff.hasMissingSnapshot && (
+                                                  <span className="status-pill is-neutral">{dict.detail.lotSnapshotMissing}</span>
+                                                )}
+                                                {diff.recipeChanged && (
+                                                  <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span>
+                                                )}
+                                                {diff.ingredientsChanged && (
+                                                  <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span>
+                                                )}
+                                                {diff.allergensChanged && (
+                                                  <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
+                                            )}
+                                          </td>
+                                          <td>
+                                            <button className="ghost" type="button" onClick={() => openFoodDetail(food, lot.id)}>
+                                              {language === "tr" ? "Detay Göster" : "Show Detail"}
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>
@@ -840,18 +869,47 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                         <th>{dict.detail.lotQuantity}</th>
                         <th>{dict.detail.lotProducedAt}</th>
                         <th>{dict.detail.lotSaleWindow}</th>
+                        <th>{language === "tr" ? "Fark Durumu" : "Diff Status"}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedFoodLots.map((lot) => (
-                        <tr key={`modal-lot-${lot.id}`} className={lot.id === selectedLotId ? "foods-detail-lot-row is-selected" : undefined}>
-                          <td>{lot.lot_number}</td>
-                          <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
-                          <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                          <td>{formatUiDate(lot.produced_at, language)}</td>
-                          <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                        </tr>
-                      ))}
+                      {selectedFoodLots.map((lot) => {
+                        const diff = computeFoodLotDiff({
+                          foodRecipe: selectedFood.recipe,
+                          foodIngredients: selectedFood.ingredientsJson,
+                          foodAllergens: selectedFood.allergensJson,
+                          lot,
+                        });
+                        return (
+                          <tr key={`modal-lot-${lot.id}`} className={lot.id === selectedLotId ? "foods-detail-lot-row is-selected" : undefined}>
+                            <td>{lot.lot_number}</td>
+                            <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
+                            <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
+                            <td>{formatUiDate(lot.produced_at, language)}</td>
+                            <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                            <td>
+                              {diff.hasMissingSnapshot || diff.recipeChanged || diff.ingredientsChanged || diff.allergensChanged ? (
+                                <div className="lot-diff-badges">
+                                  {diff.hasMissingSnapshot && (
+                                    <span className="status-pill is-neutral">{dict.detail.lotSnapshotMissing}</span>
+                                  )}
+                                  {diff.recipeChanged && (
+                                    <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span>
+                                  )}
+                                  {diff.ingredientsChanged && (
+                                    <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span>
+                                  )}
+                                  {diff.allergensChanged && (
+                                    <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
