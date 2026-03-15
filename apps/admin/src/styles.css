@@ -117,57 +117,67 @@
 }
 
 :root.dark {
-  color: #edf2fb;
-  background-color: #070b13;
+  color: oklch(0.94 0.008 255);
+  background-color: oklch(0.135 0.008 255);
 
-  --color-text: #edf2fb;
-  --color-bg: #070b13;
-  --color-bg-gradient-1: rgba(71, 97, 144, 0.23);
-  --color-bg-gradient-2: rgba(47, 63, 95, 0.18);
-  --color-bg-gradient-3: #070b13;
-  --color-white: #232730;
-  --color-secondary-text: #c5cedf;
-  --color-tertiary-text: #9da8be;
-  --color-muted-text: #8d99af;
-  --color-border: rgba(255, 255, 255, 0.12);
-  --color-card-bg: #1a1f2a;
-  --color-subtle-bg: #202635;
-  --color-link: #ecf1fb;
-  --color-shadow: rgba(0, 0, 0, 0.45);
-  --color-error-bg: #3d2622;
-  --color-error-border: #704a40;
-  --color-info-bg: #1f3d2d;
-  --color-accent: #2d7dff;
-  --color-accent-soft: #1a305a;
-  --color-input-bg: #171d29;
-  --color-input-border: rgba(255, 255, 255, 0.14);
-  --color-input-border-strong: rgba(255, 255, 255, 0.3);
-  --color-input-placeholder: #7f8ca2;
-  --color-surface: rgba(17, 21, 30, 0.84);
-  --color-surface-strong: rgba(30, 34, 43, 0.9);
+  --color-text: oklch(0.94 0.008 255);
+  --color-bg: oklch(0.135 0.008 255);
+  --color-bg-gradient-1: oklch(0.4 0.08 255 / 0.23);
+  --color-bg-gradient-2: oklch(0.35 0.06 255 / 0.18);
+  --color-bg-gradient-3: oklch(0.135 0.008 255);
+  --color-white: oklch(0.22 0.01 255);
+  --color-secondary-text: oklch(0.88 0.008 255);
+  --color-tertiary-text: oklch(0.7 0.01 255);
+  --color-muted-text: oklch(0.65 0.01 255);
+  --color-border: oklch(0.25 0.01 255);
+  --color-card-bg: oklch(0.18 0.01 255);
+  --color-subtle-bg: oklch(0.22 0.01 255);
+  --color-link: oklch(0.94 0.008 255);
+  --color-shadow: oklch(0 0 0 / 0.45);
+  --color-error-bg: oklch(0.22 0.04 25);
+  --color-error-border: oklch(0.38 0.06 25);
+  --color-info-bg: oklch(0.25 0.04 160);
+  --color-accent: oklch(0.6 0.18 255);
+  --color-accent-soft: oklch(0.25 0.05 255);
+  --color-input-bg: oklch(0.16 0.01 255);
+  --color-input-border: oklch(0.3 0.01 255);
+  --color-input-border-strong: oklch(0.4 0.01 255);
+  --color-input-placeholder: oklch(0.6 0.01 255);
+  --color-surface: oklch(0.14 0.008 255 / 0.84);
+  --color-surface-strong: oklch(0.18 0.01 255 / 0.9);
+
+  /* ── Status / semantic colors ─────────────────────────────────────────── */
+  --color-success: oklch(0.6 0.16 160);
+  --color-success-bg: oklch(0.25 0.04 160);
+  --color-warning: oklch(0.75 0.18 60);
+  --color-warning-bg: oklch(0.26 0.04 80);
+  --color-destructive: oklch(0.6 0.2 25);
+  --color-destructive-bg: oklch(0.22 0.04 25);
+
+  /* ── KPI card backgrounds ─────────────────────────────────────────────── */
   --buyer-v2-kpi-bg: linear-gradient(
     160deg,
-    color-mix(in srgb, #1c2947 70%, transparent),
-    color-mix(in srgb, #111829 92%, transparent)
+    color-mix(in oklch, oklch(0.25 0.08 255) 70%, transparent),
+    color-mix(in oklch, oklch(0.18 0.05 255) 92%, transparent)
   );
-  --seller-v2-kpi-bg: radial-gradient(120% 150% at 8% 0%, rgba(92, 113, 170, 0.16), rgba(18, 27, 49, 0.1)),
-    linear-gradient(160deg, color-mix(in srgb, #1b2744 72%, transparent), color-mix(in srgb, #0f1629 92%, transparent));
-  --seller-v2-kpi-bg-green: radial-gradient(130% 150% at 18% 0%, rgba(47, 140, 102, 0.3), rgba(17, 31, 44, 0.2)),
-    linear-gradient(160deg, color-mix(in srgb, #1c2c43 74%, transparent), color-mix(in srgb, #0f1629 92%, transparent));
-  --seller-v2-kpi-bg-orange: radial-gradient(130% 150% at 18% 0%, rgba(153, 89, 40, 0.24), rgba(23, 27, 42, 0.24)),
-    linear-gradient(160deg, color-mix(in srgb, #1d253e 74%, transparent), color-mix(in srgb, #121528 92%, transparent));
-  --buyer-v2-smart-item-bg: color-mix(in srgb, #121a2d 86%, transparent);
-  --buyer-v2-smart-item-active-bg: color-mix(in srgb, #2a2133 82%, transparent);
-  --buyer-v2-filter-menu-bg: color-mix(in srgb, #121a2d 94%, transparent);
-  --users-search-border: color-mix(in srgb, #4e5f8e 45%, var(--color-border));
-  --users-search-bg: linear-gradient(180deg, color-mix(in srgb, #1a2542 78%, transparent), color-mix(in srgb, #131d33 86%, transparent));
-  --users-search-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(22, 34, 58, 0.35);
-  --users-search-focus-border: color-mix(in srgb, #6a8fff 65%, var(--color-border));
-  --users-search-focus-ring: color-mix(in srgb, #2d7dff 24%, transparent);
-  --users-search-icon: color-mix(in srgb, #9cb0d9 85%, #ffffff);
-  --users-search-placeholder: color-mix(in srgb, #7f8fb1 92%, #dbe3f4);
-  --users-search-clear: color-mix(in srgb, #aec2ea 88%, #ffffff);
-  --users-search-clear-hover: color-mix(in srgb, #4f669c 35%, transparent);
+  --seller-v2-kpi-bg: radial-gradient(120% 150% at 8% 0%, oklch(0.45 0.1 255 / 0.16), oklch(0.22 0.06 255 / 0.1)),
+    linear-gradient(160deg, color-mix(in oklch, oklch(0.24 0.07 255) 72%, transparent), color-mix(in oklch, oklch(0.18 0.04 255) 92%, transparent));
+  --seller-v2-kpi-bg-green: radial-gradient(130% 150% at 18% 0%, oklch(0.55 0.16 160 / 0.3), oklch(0.22 0.05 160 / 0.2)),
+    linear-gradient(160deg, color-mix(in oklch, oklch(0.24 0.05 160) 74%, transparent), color-mix(in oklch, oklch(0.18 0.04 160) 92%, transparent));
+  --seller-v2-kpi-bg-orange: radial-gradient(130% 150% at 18% 0%, oklch(0.6 0.18 60 / 0.24), oklch(0.22 0.04 60 / 0.24)),
+    linear-gradient(160deg, color-mix(in oklch, oklch(0.24 0.05 60) 74%, transparent), color-mix(in oklch, oklch(0.18 0.04 60) 92%, transparent));
+  --buyer-v2-smart-item-bg: color-mix(in oklch, oklch(0.2 0.05 255) 86%, transparent);
+  --buyer-v2-smart-item-active-bg: color-mix(in oklch, oklch(0.22 0.04 60) 82%, transparent);
+  --buyer-v2-filter-menu-bg: color-mix(in oklch, oklch(0.2 0.05 255) 94%, transparent);
+  --users-search-border: color-mix(in oklch, oklch(0.4 0.07 255) 45%, oklch(0.25 0.01 255));
+  --users-search-bg: linear-gradient(180deg, color-mix(in oklch, oklch(0.22 0.07 255) 78%, transparent), color-mix(in oklch, oklch(0.2 0.05 255) 86%, transparent));
+  --users-search-shadow: inset 0 1px 0 oklch(1 0 0 / 0.07), 0 0 0 1px oklch(0.2 0.06 255 / 0.35);
+  --users-search-focus-border: color-mix(in oklch, oklch(0.6 0.14 255) 65%, oklch(0.25 0.01 255));
+  --users-search-focus-ring: oklch(0.6 0.18 255 / 0.24);
+  --users-search-icon: oklch(0.7 0.08 255);
+  --users-search-placeholder: oklch(0.6 0.06 255);
+  --users-search-clear: oklch(0.75 0.07 255);
+  --users-search-clear-hover: oklch(0.45 0.08 255 / 0.35);
 
   color-scheme: dark;
 }
@@ -2959,6 +2969,21 @@ textarea:focus {
   display: grid;
   gap: 10px;
   color: var(--ops-text-primary, var(--color-text));
+}
+
+.complaint-detail-modal-backdrop {
+  z-index: 950;
+}
+
+.complaint-detail-modal-shell {
+  width: min(1180px, 96vw);
+  max-height: min(92vh, 980px);
+  overflow: auto;
+  padding: 16px;
+}
+
+.complaint-detail-modal-shell .app {
+  gap: 12px;
 }
 
 .buyer-ops-modal h3 {

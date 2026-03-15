@@ -63,6 +63,7 @@ function AppShell({
   }
 
   const isSuperAdmin = admin.role === "super_admin";
+  const isInvestigationDetailModal = location.pathname.startsWith("/app/investigation/");
   const pathParts = location.pathname.split("/").filter(Boolean);
   const isDetailPage = pathParts.length > 2;
   const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
@@ -277,7 +278,7 @@ function AppShell({
         </div>
       </header>
       <section className="main">
-        {isDetailPage && parentPath ? (
+        {isDetailPage && parentPath && !isInvestigationDetailModal ? (
           <div className="back-nav">
             <button
               type="button"
@@ -296,12 +297,25 @@ function AppShell({
         {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
         {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
         {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname === "/app/investigation" ? <InvestigationPage language={language} /> : null}
-        {location.pathname.startsWith("/app/investigation/") ? (
-          <InvestigationComplaintDetailPage
-            language={language}
-            complaintId={location.pathname.split("/").at(-1) ?? ""}
-          />
+        {location.pathname === "/app/investigation" || isInvestigationDetailModal ? <InvestigationPage language={language} /> : null}
+        {isInvestigationDetailModal ? (
+          <div
+            className="buyer-ops-modal-backdrop complaint-detail-modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-label={dict.investigation.detailTitle}
+            onClick={() => navigate("/app/investigation")}
+          >
+            <div
+              className="buyer-ops-modal complaint-detail-modal-shell"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <InvestigationComplaintDetailPage
+                language={language}
+                complaintId={location.pathname.split("/").at(-1) ?? ""}
+              />
+            </div>
+          </div>
         ) : null}
         {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
         {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
