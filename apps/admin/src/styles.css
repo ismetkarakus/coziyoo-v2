@@ -7368,7 +7368,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .foods-lots-expanded-row td {
   padding: 0 0 14px;
-  background: transparent;
+  background: var(--color-subtle-bg);
 }
 
 .food-tree-lot-row td {
