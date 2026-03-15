@@ -7780,7 +7780,13 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 /* Ticket header */
 .complaint-ticket-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
 .complaint-ticket-no { font-size: clamp(1.6rem,3vw,2rem); font-weight: var(--font-bold); color: #89a8f7; }
-.complaint-ticket-subject { font-size: clamp(1.2rem,2vw,1.5rem); font-weight: var(--font-semibold); color: #f6f8fd; margin: 0; }
+.complaint-ticket-subject {
+  font-size: clamp(1.02rem, 1.4vw, 1.2rem);
+  font-weight: var(--font-semibold);
+  color: #f6f8fd;
+  margin: 0;
+  text-align: left;
+}
 
 /* Priority buttons */
 .complaint-priority-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -7929,6 +7935,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-items: center;
   border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, #1a2338 32%, transparent);
@@ -7937,7 +7944,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .complaint-choice-list {
   display: inline-flex;
-  align-self: flex-start;
+  align-self: center;
+  justify-content: center;
   border: 1px solid color-mix(in srgb, #89a8f7 45%, var(--color-border));
   border-radius: 10px;
   overflow: hidden;
@@ -8219,17 +8227,26 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .complaint-description-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
   gap: 12px;
   flex-wrap: wrap;
 }
 
 .complaint-description-category {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.complaint-description-header h2 {
+  margin: 0;
+  font-size: clamp(1rem, 1.25vw, 1.1rem);
+  font-weight: var(--font-semibold);
 }
 
 .complaint-tag-list {
@@ -8284,6 +8301,19 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   padding: 10px 12px;
   font-size: 1rem;
   line-height: 1.5;
+  background: #f3f5f8;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+.complaint-note-input::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.complaint-note-input:focus {
+  border-color: #6e86bd;
+  box-shadow: 0 0 0 2px rgba(110, 134, 189, 0.2);
 }
 
 .complaint-note-input--compact {
