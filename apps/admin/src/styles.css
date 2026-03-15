@@ -3002,6 +3002,18 @@ textarea:focus {
   gap: 12px;
 }
 
+.complaint-detail-modal-shell .complaint-ticket-no {
+  font-size: var(--text-xl);
+}
+
+.complaint-detail-modal-shell .complaint-ticket-date {
+  font-size: var(--text-sm);
+}
+
+.complaint-detail-modal-shell .complaint-detail-label {
+  font-size: var(--text-xs);
+}
+
 .buyer-ops-modal h3 {
   font-size: var(--text-md);
 }
