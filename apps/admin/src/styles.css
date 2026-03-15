@@ -7771,9 +7771,9 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .complaint-notes-thread { display: flex; flex-direction: column; gap: 12px; max-height: 480px; overflow-y: auto; }
 .complaint-note-item { background: color-mix(in srgb,var(--color-subtle-bg) 60%,transparent); border-radius: 12px; padding: 12px 14px; }
 .complaint-note-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.complaint-note-author { font-size: var(--text-sm); font-weight: var(--font-semibold); color: #89a8f7; }
-.complaint-note-date { font-size: var(--text-xs); color: var(--color-secondary-text); }
-.complaint-note-text { margin: 0; color: #dce5f7; font-size: var(--text-base); }
+.complaint-note-author { font-size: var(--text-base); font-weight: var(--font-semibold); color: #89a8f7; }
+.complaint-note-date { font-size: var(--text-sm); color: var(--color-secondary-text); }
+.complaint-note-text { margin: 0; color: #dce5f7; font-size: 1rem; line-height: 1.55; }
 .complaint-note-replying { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb,#1b2540 78%,transparent); color: var(--color-secondary-text); font-size: var(--text-sm); }
 
 .complaint-detail-topbar {
@@ -7894,6 +7894,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .complaint-badge-select {
   appearance: none;
   -webkit-appearance: none;
+  border: 1px solid transparent;
+  font: inherit;
   cursor: pointer;
   padding-right: 32px;
   background-image:
@@ -7904,6 +7906,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
     calc(100% - 12px) calc(50% - 2px);
   background-size: 6px 6px, 6px 6px;
   background-repeat: no-repeat;
+  box-shadow: none;
 }
 
 .complaint-badge.status-open {
@@ -8130,10 +8133,22 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   gap: 8px;
 }
 
+.complaint-ticket-thread .complaint-detail-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+}
+
+.complaint-ticket-thread .primary,
+.complaint-ticket-thread .ghost {
+  font-size: var(--text-sm);
+}
+
 .complaint-note-input {
   width: 100%;
   resize: vertical;
   min-height: 120px;
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .complaint-note-input--compact {

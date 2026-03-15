@@ -53,8 +53,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [savingPriority, setSavingPriority] = useState(false);
-  const [resolutionNoteInput, setResolutionNoteInput] = useState("");
-  const [savingResolutionNote, setSavingResolutionNote] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -103,7 +101,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
       setDetail(detailBody.data);
       setNotes(notesBody.data);
-      setResolutionNoteInput(detailBody.data.resolutionNote ?? "");
     } catch {
       setError(dict.investigation.requestFailed);
     } finally {
@@ -156,28 +153,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
       setError(dict.investigation.requestFailed);
     } finally {
       setSavingPriority(false);
-    }
-  }
-
-  async function saveResolutionNote() {
-    if (!detail || savingResolutionNote) return;
-    setSavingResolutionNote(true);
-    setError(null);
-    try {
-      const response = await request(`/v1/admin/investigations/complaints/${detail.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ resolutionNote: resolutionNoteInput }),
-      });
-      const body = await parseJson<{ data?: { resolutionNote: string | null } } & ApiError>(response);
-      if (response.status !== 200 || !body.data) {
-        setError(body.error?.message ?? dict.investigation.requestFailed);
-        return;
-      }
-      setDetail((prev) => (prev ? { ...prev, resolutionNote: body.data!.resolutionNote } : prev));
-    } catch {
-      setError(dict.investigation.requestFailed);
-    } finally {
-      setSavingResolutionNote(false);
     }
   }
 
@@ -415,25 +390,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </div>
               </div>
 
-              {detail.status === "resolved" || detail.status === "closed" ? (
-                <div className="complaint-content-card complaint-resolution-card">
-                  <div className="panel-header">
-                    <h2>{dict.investigation.resolutionNote}</h2>
-                  </div>
-                  <textarea
-                    className="complaint-note-input"
-                    value={resolutionNoteInput}
-                    onChange={(event) => setResolutionNoteInput(event.target.value)}
-                    rows={3}
-                    placeholder={dict.investigation.resolutionNote}
-                  />
-                  <div className="topbar-actions">
-                    <button className="primary" type="button" disabled={savingResolutionNote} onClick={() => void saveResolutionNote()}>
-                      {savingResolutionNote ? dict.common.loading : dict.actions.save}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         ) : null}
