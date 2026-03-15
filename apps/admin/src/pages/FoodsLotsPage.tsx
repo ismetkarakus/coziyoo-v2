@@ -873,7 +873,30 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             ) : null}
             {selectedLot ? (
               <div className="foods-detail-text-block foods-detail-lot-focus">
-                <h4>{language === "tr" ? "Seçili Lot Detayı" : "Selected Lot Detail"}</h4>
+                {(() => {
+                  const lotDiff = computeFoodLotDiff({
+                    foodRecipe: selectedFood.recipe,
+                    foodIngredients: selectedFood.ingredientsJson,
+                    foodAllergens: selectedFood.allergensJson,
+                    lot: selectedLot,
+                  });
+                  const changed = [
+                    lotDiff.recipeChanged && (language === "tr" ? "Tarif" : "Recipe"),
+                    lotDiff.ingredientsChanged && (language === "tr" ? "İçerikler" : "Ingredients"),
+                    lotDiff.allergensChanged && (language === "tr" ? "Alerjenler" : "Allergens"),
+                  ].filter(Boolean) as string[];
+                  if (changed.length === 0) return null;
+                  return (
+                    <div className="lot-diff-alert">
+                      <span className="lot-diff-alert-icon">⚠</span>
+                      <span>
+                        {language === "tr"
+                          ? `Bu lot ana yemekten farklı: ${changed.join(", ")}`
+                          : `This lot differs from the base food: ${changed.join(", ")}`}
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div className="foods-detail-grid">
                   <div>
                     <span className="panel-meta">{dict.detail.lotNumber}</span>

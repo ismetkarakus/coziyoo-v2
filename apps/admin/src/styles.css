@@ -7582,6 +7582,26 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: color-mix(in srgb, #14264a 74%, transparent);
 }
 
+.lot-diff-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #c97600 22%, transparent);
+  border: 1px solid color-mix(in srgb, #e89a2a 60%, transparent);
+  color: #f0b848;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.lot-diff-alert-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
 .foods-detail-lot-row.is-selected td {
   background: color-mix(in srgb, #2d7dff 16%, var(--color-card-bg));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #7faeff 45%, transparent);
