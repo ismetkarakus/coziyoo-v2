@@ -1949,7 +1949,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!row.is_current || isSavingDoc(row.id)}
+                                  disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => void updateDocumentStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -1957,7 +1957,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!row.is_current || isSavingDoc(row.id)}
+                                  disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     setRejectTargetId(row.id);
                                     setRejectReason(row.rejection_reason ?? "");
@@ -1968,7 +1968,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={!row.is_current || isSavingDoc(row.id)}
+                                  disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     setPendingTargetId(row.id);
                                     setPendingReason(row.rejection_reason ?? "");
@@ -2027,7 +2027,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => void updateOptionalUploadStatus(row.id, "approved")}
                                 >
                                   {dict.detail.legalApprove}
@@ -2035,7 +2035,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     setOptionalRejectTargetId(row.id);
                                     setOptionalRejectReason(row.rejection_reason ?? "");
@@ -2046,7 +2046,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
-                                  disabled={isSavingOptional(row.id) || row.status === "archived"}
+                                  disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     setOptionalPendingTargetId(row.id);
                                     setOptionalPendingReason(row.rejection_reason ?? "");
