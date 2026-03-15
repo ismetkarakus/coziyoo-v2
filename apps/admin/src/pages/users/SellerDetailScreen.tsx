@@ -211,6 +211,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       } else {
         setCompliance(null);
       }
+      setTempComplianceUploads((prev) => {
+        Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
+        return {};
+      });
 
       if (foodsResponse.status === 200) {
         const foodsBody = await parseJson<{
@@ -789,6 +793,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           profile: recomputeProfile(updatedDocuments, prev.profile),
         };
       });
+      setTempComplianceUploads((prev) => {
+        Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
+        return {};
+      });
       await loadSellerDetail();
       setMessage(dict.common.saved);
       setRejectTargetId(null);
@@ -838,6 +846,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               : item
           ),
         };
+      });
+      setTempComplianceUploads((prev) => {
+        Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
+        return {};
       });
       await loadSellerDetail();
       setMessage(dict.common.saved);
