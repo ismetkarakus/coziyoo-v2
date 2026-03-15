@@ -37,6 +37,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
   const [lotsLoadingByFoodId, setLotsLoadingByFoodId] = useState<Record<string, boolean>>({});
   const [lotsErrorByFoodId, setLotsErrorByFoodId] = useState<Record<string, string | null>>({});
+  const [filterVariationsOnly, setFilterVariationsOnly] = useState(false);
   const foodModalPrintRef = useRef<HTMLDivElement | null>(null);
   const [selectedFood, setSelectedFood] = useState<{
     id: string;
@@ -319,6 +320,35 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       return id.length > 0 && Boolean(selectedFoodMap[id]);
     });
 
+  const foodIdsWithVariations = useMemo(() => {
+    const set = new Set<string>();
+    for (const food of rows) {
+      const lots = lotsByFoodId[food.id];
+      if (!lots) continue;
+      for (const lot of lots) {
+        const diff = computeFoodLotDiff({
+          foodRecipe: food.recipe,
+          foodIngredients: food.ingredientsJson,
+          foodAllergens: food.allergensJson,
+          lot,
+        });
+        if (diff.recipeChanged || diff.ingredientsChanged || diff.allergensChanged || diff.hasMissingSnapshot) {
+          set.add(food.id);
+          break;
+        }
+      }
+    }
+    return set;
+  }, [rows, lotsByFoodId]);
+
+  const displayRows = filterVariationsOnly
+    ? rows.filter((food) => {
+        const lotsLoaded = Boolean(lotsByFoodId[food.id]);
+        if (!lotsLoaded) return true;
+        return foodIdsWithVariations.has(food.id);
+      })
+    : rows;
+
   function toggleFoodSelection(food: {
     id: string;
     code: string;
@@ -456,14 +486,33 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     if (selectedFoodLots.length === 0) {
       lines.push(language === "tr" ? "Lot bulunamadı" : "No lots");
     } else {
-      lines.push([dict.detail.lotNumber, dict.detail.lotLifecycle, dict.detail.lotQuantity, dict.detail.lotProducedAt].map(escapeCsv).join(","));
+      lines.push([
+        dict.detail.lotNumber,
+        dict.detail.lotLifecycle,
+        dict.detail.lotQuantity,
+        dict.detail.lotProducedAt,
+        language === "tr" ? "Tarif Değişti" : "Recipe Changed",
+        language === "tr" ? "İçerik Değişti" : "Ingredients Changed",
+        language === "tr" ? "Alerjen Değişti" : "Allergens Changed",
+      ].map(escapeCsv).join(","));
       for (const lot of selectedFoodLots) {
+        const diff = computeFoodLotDiff({
+          foodRecipe: selectedFood.recipe,
+          foodIngredients: selectedFood.ingredientsJson,
+          foodAllergens: selectedFood.allergensJson,
+          lot,
+        });
+        const yes = language === "tr" ? "Evet" : "Yes";
+        const no = language === "tr" ? "Hayır" : "No";
         lines.push(
           [
             lot.lot_number,
             lotLifecycleLabel(lot.lifecycle_status, language),
             `${lot.quantity_available}/${lot.quantity_produced}`,
             formatUiDate(lot.produced_at, language),
+            diff.recipeChanged ? yes : no,
+            diff.ingredientsChanged ? yes : no,
+            diff.allergensChanged ? yes : no,
           ].map(escapeCsv).join(",")
         );
       }
@@ -542,6 +591,15 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
 
       <section className="panel">
         {error ? <div className="alert">{error}</div> : null}
+        <div className="seller-food-filter-chips">
+          <button
+            className={`chip${filterVariationsOnly ? " is-active" : ""}`}
+            type="button"
+            onClick={() => setFilterVariationsOnly((prev) => !prev)}
+          >
+            {language === "tr" ? "Fark içerenler" : "Has variations"}
+          </button>
+        </div>
         <div className="table-wrap">
           <table className="foods-lots-main-table">
             <thead>
@@ -574,7 +632,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   <td colSpan={10}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
-                rows.map((food) => {
+                displayRows.map((food) => {
                   const lots = lotsByFoodId[food.id] ?? [];
                   const activeLots = lots.filter((lot) => lot.lifecycle_status === "on_sale").length;
                   const recalledLots = lots.filter((lot) => lot.lifecycle_status === "recalled").length;
