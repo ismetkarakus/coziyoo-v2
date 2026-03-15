@@ -623,7 +623,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   />
                 </th>
                 <th>{dict.detail.lotActions}</th>
-                <th>{language === "tr" ? "Display ID" : "Display ID"}</th>
                 <th>{dict.detail.foodName}</th>
                 <th>{dict.detail.foodSeller}</th>
                 <th>{dict.detail.foodStatus}</th>
@@ -682,7 +681,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                             {foodExpanded ? "−" : "+"}
                           </button>
                         </td>
-                        <td>{toDisplayId(food.id)}</td>
                         <td>
                           <strong>{food.name}</strong>
                         </td>
