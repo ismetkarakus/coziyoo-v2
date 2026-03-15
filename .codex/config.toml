@@ -1,1 +1,3 @@
-
+[mcp_servers.supabase]
+command = "/Users/drascom/Work/coziyoo-v2/scripts/mcp/start-supabase-remote-mcp.sh"
+enabled = true
