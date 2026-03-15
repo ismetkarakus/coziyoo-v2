@@ -10,7 +10,25 @@ import { hashPassword } from "../utils/security.js";
 const AppUserListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
-  sortBy: z.enum(["createdAt", "updatedAt", "email", "displayName", "userType", "status"]).default("createdAt"),
+  sortBy: z
+    .enum([
+      "id",
+      "createdAt",
+      "updatedAt",
+      "email",
+      "displayName",
+      "userType",
+      "status",
+      "complaintTotal",
+      "complaintUnresolved",
+      "monthlyOrderCountCurrent",
+      "monthlySpentCurrent",
+      "lastOnlineAt",
+      "latestComplaintId",
+      "latestComplaintCreatedAt",
+      "avgRating",
+    ])
+    .default("createdAt"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
   status: z.enum(["active", "disabled"]).optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
@@ -242,12 +260,21 @@ const BuyerNoteUpdateBodySchema = z.object({
 const DISPLAY_ID_LENGTH = 10;
 
 const appSortFieldMap: Record<AppUserListQuery["sortBy"], string> = {
+  id: "u.id",
   createdAt: "u.created_at",
   updatedAt: "u.updated_at",
   email: "u.email",
   displayName: "u.display_name",
   userType: "u.user_type",
   status: "u.is_active",
+  complaintTotal: "complaint_total",
+  complaintUnresolved: "complaint_unresolved",
+  monthlyOrderCountCurrent: "COALESCE(order_stats.monthly_order_count_current, 0)",
+  monthlySpentCurrent: "COALESCE(order_stats.monthly_spent_current, 0)",
+  lastOnlineAt: "COALESCE(last_online_at, '')",
+  latestComplaintId: "COALESCE(latest_complaint_id, '')",
+  latestComplaintCreatedAt: "COALESCE(latest_complaint_created_at, '')",
+  avgRating: "COALESCE(review_stats.avg_rating, 0)",
 };
 
 const adminSortFieldMap: Record<AdminUserListQuery["sortBy"], string> = {

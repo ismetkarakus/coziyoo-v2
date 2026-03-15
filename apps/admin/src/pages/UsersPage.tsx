@@ -5,7 +5,6 @@ import { Pager, KpiCard, ExcelExportButton, SortableHeader } from "../components
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth } from "../lib/format";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
-import { compareSortValues, compareWithDir, toggleSort, type SortDir } from "../lib/sort";
 import type { Language, ApiError } from "../types/core";
 import type { UserKind, ColumnMeta, DensityMode } from "../types/users";
 
@@ -83,14 +82,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const audience = kind === "buyers" ? "buyer" : kind === "sellers" ? "seller" : null;
   const [fields, setFields] = useState<ColumnMeta[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-  const [sellerTableSort, setSellerTableSort] = useState<{ key: SellerTableSortKey | null; dir: SortDir }>({
-    key: null,
-    dir: "desc",
-  });
-  const [buyerTableSort, setBuyerTableSort] = useState<{ key: BuyerTableSortKey | null; dir: SortDir }>({
-    key: null,
-    dir: "desc",
-  });
 
   const columnMappings = useMemo(() => {
     if (isAppScoped) {
@@ -199,8 +190,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     setBuyerTotalCountAll(null);
     setBuyerActionMenuId(null);
     setCustomerIdPreview(null);
-    setSellerTableSort({ key: null, dir: "desc" });
-    setBuyerTableSort({ key: null, dir: "desc" });
   }, [kind]);
 
   useEffect(() => {
@@ -544,41 +533,38 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     if (value === "closed") return dict.users.v2.complaintStatusClosed;
     return Number(row.complaintUnresolved ?? 0) > 0 ? dict.users.v2.complaintStatusOpen : dict.users.v2.complaintStatusClosed;
   };
-  const sellerHeaderSort = (key: SellerTableSortKey) => {
-    setSellerTableSort((prev) => toggleSort(prev, key));
+  const toggleApiSort = (sortBy: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      sortBy,
+      sortDir: prev.sortBy === sortBy ? (prev.sortDir === "desc" ? "asc" : "desc") : "desc",
+      page: 1,
+    }));
   };
-  const buyerHeaderSort = (key: BuyerTableSortKey) => {
-    setBuyerTableSort((prev) => toggleSort(prev, key));
+  const headerSortDir = (sortBy: string): "asc" | "desc" => (filters.sortBy === sortBy ? filters.sortDir : "desc");
+  const isSortActive = (sortBy: string): boolean => filters.sortBy === sortBy;
+
+  const sellerSortByMap: Record<SellerTableSortKey, string> = {
+    id: "id",
+    name: "displayName",
+    status: "status",
+    warnings: "complaintUnresolved",
+    orderHealth: "monthlyOrderCountCurrent",
+    revenue: "monthlySpentCurrent",
+    ratingTrend: "avgRating",
   };
-  const sellerSortDirectionFor = (key: SellerTableSortKey): SortDir =>
-    sellerTableSort.key === key ? sellerTableSort.dir : "desc";
-  const buyerSortDirectionFor = (key: BuyerTableSortKey): SortDir =>
-    buyerTableSort.key === key ? buyerTableSort.dir : "desc";
-  const buyerSortValue = (row: any, key: BuyerTableSortKey): string | number => {
-    if (key === "id") return String(row.id ?? "");
-    if (key === "buyer") return String(row.displayName ?? row.email ?? "");
-    if (key === "status") return row.status === "active" ? 1 : 0;
-    if (key === "col4") {
-      if (buyerQuickFilter === "open_complaint") return Number(row.complaintTotal ?? 0);
-      return computeBuyerRisk(row).score;
-    }
-    if (key === "col5") {
-      if (buyerQuickFilter === "open_complaint") return Number(row.complaintUnresolved ?? 0);
-      return Number(row.complaintTotal ?? 0);
-    }
-    if (key === "col6") {
-      if (buyerQuickFilter === "open_complaint") return buyerLatestComplaintId(row);
-      return Number(row.monthlyOrderCountCurrent ?? 0);
-    }
-    if (key === "col7") {
-      if (buyerQuickFilter === "open_complaint") return buyerLatestComplaintCreatedAtMs(row);
-      return Number(row.monthlySpentCurrent ?? 0);
-    }
-    if (buyerQuickFilter === "open_complaint") {
-      return Number(row.complaintUnresolved ?? 0) > 0 ? 1 : 0;
-    }
-    return Date.parse(String(row.lastOnlineAt ?? row.lastLoginAt ?? row.last_login_at ?? "")) || 0;
+  const buyerSortByMap = (key: BuyerTableSortKey): string => {
+    if (key === "id") return "id";
+    if (key === "buyer") return "displayName";
+    if (key === "status") return "status";
+    if (key === "col4") return "complaintTotal";
+    if (key === "col5") return "complaintUnresolved";
+    if (key === "col6") return buyerQuickFilter === "open_complaint" ? "latestComplaintId" : "monthlyOrderCountCurrent";
+    if (key === "col7") return buyerQuickFilter === "open_complaint" ? "latestComplaintCreatedAt" : "monthlySpentCurrent";
+    return "lastOnlineAt";
   };
+  const sellerSortDirectionFor = (key: SellerTableSortKey): "asc" | "desc" => headerSortDir(sellerSortByMap[key]);
+  const buyerSortDirectionFor = (key: BuyerTableSortKey): "asc" | "desc" => headerSortDir(buyerSortByMap(key));
   const sellerRevenue = (row: any): number => Number(row.monthlyRevenue ?? row.monthlySpentCurrent ?? row.totalRevenue ?? row.revenue ?? 0);
   const sellerOrderCurrent = (row: any): number => Number(row.monthlyOrderCountCurrent ?? row.orderCount30d ?? row.totalOrders ?? 0);
   const sellerOrderPrevious = (row: any): number => Number(row.monthlyOrderCountPrevious ?? row.orderCountPrev30d ?? 0);
@@ -633,37 +619,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           .sort((a, b) => (b.score - a.score) || (a.index - b.index))
           .map((item) => item.row);
       }
-      if (sellerTableSort.key) {
-        scopedRows = [...scopedRows].sort((a, b) => {
-          if (sellerTableSort.key === "id") {
-            return compareWithDir(String(a.id ?? ""), String(b.id ?? ""), sellerTableSort.dir);
-          }
-          if (sellerTableSort.key === "name") {
-            return compareWithDir(
-              String(a.displayName ?? a.email ?? ""),
-              String(b.displayName ?? b.email ?? ""),
-              sellerTableSort.dir
-            );
-          }
-          if (sellerTableSort.key === "status") {
-            return compareWithDir(a.status === "active" ? 1 : 0, b.status === "active" ? 1 : 0, sellerTableSort.dir);
-          }
-          if (sellerTableSort.key === "warnings") {
-            const left = (sellerComplaintUnresolved(a) * 100) + sellerMissingDoc(a);
-            const right = (sellerComplaintUnresolved(b) * 100) + sellerMissingDoc(b);
-            return compareWithDir(left, right, sellerTableSort.dir);
-          }
-          if (sellerTableSort.key === "orderHealth") {
-            return compareWithDir(sellerOrderCurrent(a), sellerOrderCurrent(b), sellerTableSort.dir);
-          }
-          if (sellerTableSort.key === "revenue") {
-            return compareWithDir(sellerRevenue(a), sellerRevenue(b), sellerTableSort.dir);
-          }
-          const left = Number(a.ratingTrend ?? a.ratingDelta ?? 0);
-          const right = Number(b.ratingTrend ?? b.ratingDelta ?? 0);
-          return compareWithDir(left, right, sellerTableSort.dir);
-        });
-      }
     }
 
     if (isBuyerPage) {
@@ -701,17 +656,6 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
             buyerLatestComplaintCreatedAtMs(b) - buyerLatestComplaintCreatedAtMs(a)
         );
       }
-      if (buyerTableSort.key) {
-        scopedRows = [...scopedRows].sort((a, b) => {
-          const result = compareWithDir(
-            buyerSortValue(a, buyerTableSort.key as BuyerTableSortKey),
-            buyerSortValue(b, buyerTableSort.key as BuyerTableSortKey),
-            buyerTableSort.dir
-          );
-          if (result !== 0) return result;
-          return compareSortValues(String(a.id ?? ""), String(b.id ?? ""));
-        });
-      }
     }
 
     if (!last7DaysOnly) return scopedRows;
@@ -725,14 +669,12 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     activeSellerKpiFilter,
     buyerFilters,
     buyerQuickFilter,
-    buyerTableSort,
     isBuyerPage,
     isSellerPage,
     last7DaysOnly,
     rows,
     searchInput,
     sellerStatusFilter,
-    sellerTableSort,
     todayKey,
   ]);
 
@@ -1130,13 +1072,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   <thead>
                     <tr>
                       <th className="buyer-v2-check-col"><input type="checkbox" /></th>
-                      <th><SortableHeader label={dict.users.v2.displayId} active={sellerTableSort.key === "id"} dir={sellerSortDirectionFor("id")} onClick={() => sellerHeaderSort("id")} /></th>
-                      <th><SortableHeader label={dict.users.v2.sellerHeaderShop} active={sellerTableSort.key === "name"} dir={sellerSortDirectionFor("name")} onClick={() => sellerHeaderSort("name")} /></th>
-                      <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={sellerTableSort.key === "status"} dir={sellerSortDirectionFor("status")} onClick={() => sellerHeaderSort("status")} /></th>
-                      <th><SortableHeader label={dict.users.v2.sellerHeaderWarnings} active={sellerTableSort.key === "warnings"} dir={sellerSortDirectionFor("warnings")} onClick={() => sellerHeaderSort("warnings")} /></th>
-                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderCount} active={sellerTableSort.key === "orderHealth"} dir={sellerSortDirectionFor("orderHealth")} onClick={() => sellerHeaderSort("orderHealth")} /></th>
-                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderHealth} active={sellerTableSort.key === "revenue"} dir={sellerSortDirectionFor("revenue")} onClick={() => sellerHeaderSort("revenue")} /></th>
-                      <th><SortableHeader label={dict.users.v2.sellerHeaderRatingTrend} active={sellerTableSort.key === "ratingTrend"} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => sellerHeaderSort("ratingTrend")} /></th>
+                      <th><SortableHeader label={dict.users.v2.displayId} active={isSortActive(sellerSortByMap.id)} dir={sellerSortDirectionFor("id")} onClick={() => toggleApiSort(sellerSortByMap.id)} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderShop} active={isSortActive(sellerSortByMap.name)} dir={sellerSortDirectionFor("name")} onClick={() => toggleApiSort(sellerSortByMap.name)} /></th>
+                      <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={isSortActive(sellerSortByMap.status)} dir={sellerSortDirectionFor("status")} onClick={() => toggleApiSort(sellerSortByMap.status)} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderWarnings} active={isSortActive(sellerSortByMap.warnings)} dir={sellerSortDirectionFor("warnings")} onClick={() => toggleApiSort(sellerSortByMap.warnings)} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderCount} active={isSortActive(sellerSortByMap.orderHealth)} dir={sellerSortDirectionFor("orderHealth")} onClick={() => toggleApiSort(sellerSortByMap.orderHealth)} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderOrderHealth} active={isSortActive(sellerSortByMap.revenue)} dir={sellerSortDirectionFor("revenue")} onClick={() => toggleApiSort(sellerSortByMap.revenue)} /></th>
+                      <th><SortableHeader label={dict.users.v2.sellerHeaderRatingTrend} active={isSortActive(sellerSortByMap.ratingTrend)} dir={sellerSortDirectionFor("ratingTrend")} onClick={() => toggleApiSort(sellerSortByMap.ratingTrend)} /></th>
                       <th />
                     </tr>
                   </thead>
@@ -1381,14 +1323,14 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         }}
                       />
                     </th>
-                    <th><SortableHeader label={dict.users.v2.displayId} active={buyerTableSort.key === "id"} dir={buyerSortDirectionFor("id")} onClick={() => buyerHeaderSort("id")} /></th>
-                    <th><SortableHeader label={dict.users.v2.buyerHeaderBuyer} active={buyerTableSort.key === "buyer"} dir={buyerSortDirectionFor("buyer")} onClick={() => buyerHeaderSort("buyer")} /></th>
-                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderTotalComplaint : dict.users.v2.buyerHeaderRisk} active={buyerTableSort.key === "col4"} dir={buyerSortDirectionFor("col4")} onClick={() => buyerHeaderSort("col4")} /></th>
-                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderOpenComplaint : dict.users.v2.buyerHeaderComplaints} active={buyerTableSort.key === "col5"} dir={buyerSortDirectionFor("col5")} onClick={() => buyerHeaderSort("col5")} /></th>
-                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintId : dict.users.v2.buyerHeaderOrders1m} active={buyerTableSort.key === "col6"} dir={buyerSortDirectionFor("col6")} onClick={() => buyerHeaderSort("col6")} /></th>
-                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintDate : dict.users.v2.buyerHeaderSpend1m} active={buyerTableSort.key === "col7"} dir={buyerSortDirectionFor("col7")} onClick={() => buyerHeaderSort("col7")} /></th>
-                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastStatus : dict.users.v2.buyerHeaderLastLogin} active={buyerTableSort.key === "col8"} dir={buyerSortDirectionFor("col8")} onClick={() => buyerHeaderSort("col8")} /></th>
-                    <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={buyerTableSort.key === "status"} dir={buyerSortDirectionFor("status")} onClick={() => buyerHeaderSort("status")} /></th>
+                    <th><SortableHeader label={dict.users.v2.displayId} active={isSortActive(buyerSortByMap("id"))} dir={buyerSortDirectionFor("id")} onClick={() => toggleApiSort(buyerSortByMap("id"))} /></th>
+                    <th><SortableHeader label={dict.users.v2.buyerHeaderBuyer} active={isSortActive(buyerSortByMap("buyer"))} dir={buyerSortDirectionFor("buyer")} onClick={() => toggleApiSort(buyerSortByMap("buyer"))} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderTotalComplaint : dict.users.v2.buyerHeaderRisk} active={isSortActive(buyerSortByMap("col4"))} dir={buyerSortDirectionFor("col4")} onClick={() => toggleApiSort(buyerSortByMap("col4"))} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderOpenComplaint : dict.users.v2.buyerHeaderComplaints} active={isSortActive(buyerSortByMap("col5"))} dir={buyerSortDirectionFor("col5")} onClick={() => toggleApiSort(buyerSortByMap("col5"))} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintId : dict.users.v2.buyerHeaderOrders1m} active={isSortActive(buyerSortByMap("col6"))} dir={buyerSortDirectionFor("col6")} onClick={() => toggleApiSort(buyerSortByMap("col6"))} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastComplaintDate : dict.users.v2.buyerHeaderSpend1m} active={isSortActive(buyerSortByMap("col7"))} dir={buyerSortDirectionFor("col7")} onClick={() => toggleApiSort(buyerSortByMap("col7"))} /></th>
+                    <th><SortableHeader label={isOpenComplaintView ? dict.users.v2.buyerHeaderLastStatus : dict.users.v2.buyerHeaderLastLogin} active={isSortActive(buyerSortByMap("col8"))} dir={buyerSortDirectionFor("col8")} onClick={() => toggleApiSort(buyerSortByMap("col8"))} /></th>
+                    <th><SortableHeader label={dict.users.v2.buyerHeaderStatus} active={isSortActive(buyerSortByMap("status"))} dir={buyerSortDirectionFor("status")} onClick={() => toggleApiSort(buyerSortByMap("status"))} /></th>
                     <th />
                   </tr>
                 </thead>
