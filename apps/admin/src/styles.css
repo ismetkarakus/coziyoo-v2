@@ -3015,6 +3015,18 @@ textarea:focus {
   gap: 8px;
 }
 
+.buyer-ops-modal-actions > a.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  text-decoration: none;
+}
+
 .excel-export-btn {
   min-height: 36px;
   border-radius: 10px;
