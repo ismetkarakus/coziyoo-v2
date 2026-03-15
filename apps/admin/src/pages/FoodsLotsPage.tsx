@@ -797,78 +797,80 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           setSelectedLotId(null);
         }}>
           <div ref={foodModalPrintRef} className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>Yemek Detayı</h3>
-            <div className="foods-detail-grid">
-              <div>
-                <span className="panel-meta">ID</span>
-                <strong>{selectedFood.id}</strong>
-              </div>
-              <div>
-                <span className="panel-meta">{dict.detail.foodName}</span>
-                <strong>{selectedFood.name}</strong>
-              </div>
-              <div>
-                <span className="panel-meta">{dict.detail.foodSeller}</span>
-                <strong>{sellerNameById[selectedFood.sellerId] ?? toDisplayId(selectedFood.sellerId)}</strong>
-              </div>
-              <div>
-                <span className="panel-meta">{dict.detail.foodStatus}</span>
-                <strong>{selectedFood.isActive ? dict.common.active : dict.common.disabled}</strong>
-              </div>
-              <div>
-                <span className="panel-meta">{dict.detail.foodPrice}</span>
-                <strong>{formatCurrency(selectedFood.price, language)}</strong>
-              </div>
-              <div>
-                <span className="panel-meta">{dict.detail.updatedAtLabel}</span>
-                <strong>{formatUiDate(selectedFood.updatedAt, language)}</strong>
-              </div>
-            </div>
-            <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
-              <p className="foods-detail-paragraph">{selectedFood.description?.trim() || "-"}</p>
-            </div>
-            <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
-              <p className="foods-detail-paragraph">{selectedFood.recipe?.trim() || "-"}</p>
-            </div>
-            <div className="foods-detail-text-block">
-              <h4>İçerikler</h4>
-              <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
-            </div>
-            <div className="foods-detail-text-block">
-              <h4>{language === "tr" ? "Ham Alerjen Verisi" : "Raw Allergen Data"}</h4>
-              <p className="foods-detail-paragraph">{toReadableText(selectedFood.allergensJson)}</p>
-            </div>
-            <div className="foods-detail-text-block">
-              <h4>Alerjen Durumu</h4>
-              {selectedFoodAllergenSummary.length === 0 ? (
-                <p className="panel-meta">
-                  Alerjen yok.
-                </p>
-              ) : (
-                <div className="foods-allergen-status-list">
-                  {selectedFoodAllergenSummary.map((row) => {
-                    const tone = row.status === "contains" ? "is-danger" : row.status === "may" ? "is-warning" : "is-neutral";
-                    const statusText =
-                      row.status === "contains"
-                        ? "İçerir"
-                        : row.status === "may"
-                          ? "İçerebilir"
-                          : "Bahsedildi";
-                    return (
-                      <article key={row.key} className="foods-allergen-status-item">
-                        <div className="foods-allergen-status-head">
-                          <strong>{row.label}</strong>
-                          <span className={`status-pill ${tone}`}>{statusText}</span>
-                        </div>
-                        <p className="panel-meta">{row.note}</p>
-                      </article>
-                    );
-                  })}
+            <h3>{selectedLot ? (language === "tr" ? "Lot Detayı" : "Lot Detail") : "Yemek Detayı"}</h3>
+            {!selectedLot ? (
+              <>
+                <div className="foods-detail-grid">
+                  <div>
+                    <span className="panel-meta">ID</span>
+                    <strong>{selectedFood.id}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.foodName}</span>
+                    <strong>{selectedFood.name}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.foodSeller}</span>
+                    <strong>{sellerNameById[selectedFood.sellerId] ?? toDisplayId(selectedFood.sellerId)}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.foodStatus}</span>
+                    <strong>{selectedFood.isActive ? dict.common.active : dict.common.disabled}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.foodPrice}</span>
+                    <strong>{formatCurrency(selectedFood.price, language)}</strong>
+                  </div>
+                  <div>
+                    <span className="panel-meta">{dict.detail.updatedAtLabel}</span>
+                    <strong>{formatUiDate(selectedFood.updatedAt, language)}</strong>
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="foods-detail-text-block">
+                  <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
+                  <p className="foods-detail-paragraph">{selectedFood.description?.trim() || "-"}</p>
+                </div>
+                <div className="foods-detail-text-block">
+                  <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
+                  <p className="foods-detail-paragraph">{selectedFood.recipe?.trim() || "-"}</p>
+                </div>
+                <div className="foods-detail-text-block">
+                  <h4>İçerikler</h4>
+                  <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
+                </div>
+                <div className="foods-detail-text-block">
+                  <h4>{language === "tr" ? "Ham Alerjen Verisi" : "Raw Allergen Data"}</h4>
+                  <p className="foods-detail-paragraph">{toReadableText(selectedFood.allergensJson)}</p>
+                </div>
+                <div className="foods-detail-text-block">
+                  <h4>Alerjen Durumu</h4>
+                  {selectedFoodAllergenSummary.length === 0 ? (
+                    <p className="panel-meta">Alerjen yok.</p>
+                  ) : (
+                    <div className="foods-allergen-status-list">
+                      {selectedFoodAllergenSummary.map((row) => {
+                        const tone = row.status === "contains" ? "is-danger" : row.status === "may" ? "is-warning" : "is-neutral";
+                        const statusText =
+                          row.status === "contains"
+                            ? "İçerir"
+                            : row.status === "may"
+                              ? "İçerebilir"
+                              : "Bahsedildi";
+                        return (
+                          <article key={row.key} className="foods-allergen-status-item">
+                            <div className="foods-allergen-status-head">
+                              <strong>{row.label}</strong>
+                              <span className={`status-pill ${tone}`}>{statusText}</span>
+                            </div>
+                            <p className="panel-meta">{row.note}</p>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
             {selectedLot ? (
               <div className="foods-detail-text-block foods-detail-lot-focus">
                 <h4>{language === "tr" ? "Seçili Lot Detayı" : "Selected Lot Detail"}</h4>
@@ -914,65 +916,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                 </div>
               </div>
             ) : null}
-            <div className="foods-detail-text-block">
-              {selectedFoodLots.length === 0 ? (
-                <p className="panel-meta">{dict.detail.noLotsForFood}</p>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{dict.detail.lotNumber}</th>
-                        <th>{dict.detail.lotLifecycle}</th>
-                        <th>{dict.detail.lotQuantity}</th>
-                        <th>{dict.detail.lotProducedAt}</th>
-                        <th>{dict.detail.lotSaleWindow}</th>
-                        <th>{language === "tr" ? "Fark Durumu" : "Diff Status"}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedFoodLots.map((lot) => {
-                        const diff = computeFoodLotDiff({
-                          foodRecipe: selectedFood.recipe,
-                          foodIngredients: selectedFood.ingredientsJson,
-                          foodAllergens: selectedFood.allergensJson,
-                          lot,
-                        });
-                        return (
-                          <tr key={`modal-lot-${lot.id}`} className={lot.id === selectedLotId ? "foods-detail-lot-row is-selected" : undefined}>
-                            <td>{lot.lot_number}</td>
-                            <td>{lotLifecycleLabel(lot.lifecycle_status, language)}</td>
-                            <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
-                            <td>{formatUiDate(lot.produced_at, language)}</td>
-                            <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                            <td>
-                              {diff.hasMissingSnapshot || diff.recipeChanged || diff.ingredientsChanged || diff.allergensChanged ? (
-                                <div className="lot-diff-badges">
-                                  {diff.hasMissingSnapshot && (
-                                    <span className="status-pill is-neutral">{dict.detail.lotSnapshotMissing}</span>
-                                  )}
-                                  {diff.recipeChanged && (
-                                    <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span>
-                                  )}
-                                  {diff.ingredientsChanged && (
-                                    <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span>
-                                  )}
-                                  {diff.allergensChanged && (
-                                    <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="status-pill is-success">{dict.detail.lotSnapshotOk}</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton className="ghost" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
               <PrintButton className="ghost" type="button" onClick={printSelectedFoodDetail} language={language} />
