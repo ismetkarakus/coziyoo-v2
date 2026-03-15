@@ -1001,6 +1001,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         return;
       }
 
+      setTempComplianceUploads((prev) => {
+        const current = prev[rowKey];
+        if (!current) return prev;
+        URL.revokeObjectURL(current.fileUrl);
+        const next = { ...prev };
+        delete next[rowKey];
+        return next;
+      });
       await loadSellerDetail();
       setMessage(dict.common.saved);
     } catch {
@@ -1117,7 +1125,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   const displayLegalRows = legalRows.map((item) => {
     const tempUpload = tempComplianceUploads[item.key];
-    if (!tempUpload) return item;
+    if (!tempUpload || item.sourceDocumentId) return item;
     const tone = sellerDocumentStatusTone(tempUpload.status);
     const statusLabel = sellerDocumentStatusLabel(tempUpload.status, dict);
     const rejectionText = tempUpload.rejectionReason ? ` • ${tempUpload.rejectionReason}` : "";
