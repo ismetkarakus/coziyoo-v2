@@ -8020,6 +8020,21 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   margin-bottom: 16px;
 }
 
+.complaint-description-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.complaint-description-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .complaint-tag-list {
   display: flex;
   flex-wrap: wrap;

@@ -285,11 +285,12 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
               </div>
 
               <div className="complaint-content-card complaint-description-card">
-                <div className="panel-header">
+                <div className="panel-header complaint-description-header">
                   <h2>{dict.investigation.reasonDescription}</h2>
-                </div>
-                <div className="complaint-tag-list">
-                  <span className="complaint-tag">{categoryLabel}</span>
+                  <div className="complaint-description-category">
+                    <span className="complaint-detail-label">{dict.investigation.complaintCategory}</span>
+                    <span className="complaint-tag">{categoryLabel}</span>
+                  </div>
                 </div>
                 <p>{detail.description ?? "-"}</p>
               </div>
