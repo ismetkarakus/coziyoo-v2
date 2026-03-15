@@ -6014,16 +6014,14 @@ textarea:focus {
   gap: 12px;
   border: 1px solid color-mix(in srgb, #6e84b8 22%, var(--color-border));
   border-radius: 16px;
-  background:
-    radial-gradient(120% 160% at 0% 0%, rgba(82, 120, 198, 0.18), transparent 62%),
-    linear-gradient(116deg, rgba(22, 31, 54, 0.96), rgba(12, 19, 38, 0.97));
-  box-shadow: 0 26px 48px rgba(0, 0, 0, 0.45);
+  background: var(--color-card-bg);
+  box-shadow: 0 26px 48px rgba(0, 0, 0, 0.18);
 }
 
 .records-order-section {
   border: 1px solid color-mix(in srgb, #7a91c5 24%, var(--color-border));
   border-radius: 14px;
-  background: color-mix(in srgb, #0f1f3e 74%, transparent);
+  background: var(--color-subtle-bg);
   padding: 13px;
   display: grid;
   gap: 12px;
@@ -7537,10 +7535,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   overflow: auto;
   border: 1px solid color-mix(in srgb, #6e84b8 22%, var(--color-border));
   border-radius: 16px;
-  background:
-    radial-gradient(120% 160% at 0% 0%, rgba(82, 120, 198, 0.2), transparent 62%),
-    linear-gradient(116deg, rgba(22, 31, 54, 0.95), rgba(12, 19, 38, 0.96));
-  box-shadow: 0 26px 48px rgba(0, 0, 0, 0.45);
+  background: var(--color-card-bg);
+  box-shadow: 0 26px 48px rgba(0, 0, 0, 0.18);
 }
 
 .foods-detail-modal h3 {
@@ -7579,7 +7575,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   padding: 14px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, #90b7ff 28%, var(--color-border));
-  background: color-mix(in srgb, #14264a 74%, transparent);
+  background: var(--color-subtle-bg);
 }
 
 .foods-detail-text-block--warn {
