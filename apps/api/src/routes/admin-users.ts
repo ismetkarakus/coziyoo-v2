@@ -158,6 +158,8 @@ const InvestigationComplaintsQuerySchema = z.object({
     .optional()
     .transform((value) => value === true || value === "true"),
   search: z.string().min(1).max(120).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 const CreateComplaintCategorySchema = z.object({
   code: z.string().trim().min(2).max(64).regex(/^[a-z0-9_]+$/),
@@ -637,7 +639,21 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  const { page, pageSize, status, priority, categoryId, complainantBuyerId, complainantType, complainantUserId, sellerId, openOnly, search } =
+  const {
+    page,
+    pageSize,
+    status,
+    priority,
+    categoryId,
+    complainantBuyerId,
+    complainantType,
+    complainantUserId,
+    sellerId,
+    openOnly,
+    search,
+    from,
+    to,
+  } =
     parsed.data;
   const offset = (page - 1) * pageSize;
 
@@ -680,6 +696,14 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
       OR lower(COALESCE(cat.name, '')) LIKE $${params.length}
       OR lower(COALESCE(cat.code, '')) LIKE $${params.length}
     )`);
+  }
+  if (from) {
+    params.push(from);
+    where.push(`c.created_at::date >= $${params.length}::date`);
+  }
+  if (to) {
+    params.push(to);
+    where.push(`c.created_at::date <= $${params.length}::date`);
   }
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 

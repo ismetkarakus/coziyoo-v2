@@ -37,6 +37,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | ComplaintStatus>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<ComplaintRow[]>([]);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
@@ -75,6 +77,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
         ...(presetSellerId ? { sellerId: presetSellerId } : {}),
         ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
+        ...(fromDate ? { from: fromDate } : {}),
+        ...(toDate ? { to: toDate } : {}),
       });
       const response = await request(`/v1/admin/investigations/complaints?${exportQuery.toString()}`);
       const body = await parseJson<{ data?: ComplaintRow[] } & ApiError>(response);
@@ -134,6 +138,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
         ...(presetSellerId ? { sellerId: presetSellerId } : {}),
         ...(presetOpenOnly ? { openOnly: "true" } : {}),
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
+        ...(fromDate ? { from: fromDate } : {}),
+        ...(toDate ? { to: toDate } : {}),
       });
 
       try {
@@ -166,6 +172,8 @@ export default function InvestigationPage({ language }: { language: Language }) 
     presetOpenOnly,
     searchInput,
     statusFilter,
+    fromDate,
+    toDate,
   ]);
 
   const sortDirectionFor = (column: string) => (tableSort.key === column ? tableSort.dir : "desc");
@@ -240,6 +248,28 @@ export default function InvestigationPage({ language }: { language: Language }) 
           </div>
         </div>
         <div className="topbar-actions">
+          <input
+            className="investigation-date-input"
+            type="date"
+            value={fromDate}
+            aria-label={dict.audit.from}
+            max={toDate || undefined}
+            onChange={(event) => {
+              setPage(1);
+              setFromDate(event.target.value);
+            }}
+          />
+          <input
+            className="investigation-date-input"
+            type="date"
+            value={toDate}
+            aria-label={dict.audit.to}
+            min={fromDate || undefined}
+            onChange={(event) => {
+              setPage(1);
+              setToDate(event.target.value);
+            }}
+          />
           <select
             value={statusFilter}
             onChange={(event) => {
