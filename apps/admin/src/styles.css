@@ -7839,11 +7839,6 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   flex-wrap: wrap;
 }
 
-.complaint-quick-action-select {
-  min-width: 150px;
-  width: auto;
-}
-
 .complaint-quick-action-value {
   color: #f6f8fd;
   font-weight: var(--font-semibold);
@@ -7888,6 +7883,27 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   border: 1px solid transparent;
+}
+
+.complaint-badge-label {
+  color: #92a0bc;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+}
+
+.complaint-badge-select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 32px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
 }
 
 .complaint-badge.status-open {

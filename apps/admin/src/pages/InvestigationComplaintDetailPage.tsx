@@ -248,43 +248,29 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <div className="complaint-summary-meta">
                   <div className="complaint-summary-ticket-row">
                     <span className="complaint-ticket-no">#{detail.ticketNo}</span>
-                    <span className={`complaint-badge status-${detail.status}`}>{statusText(detail.status)}</span>
-                    <span className={`complaint-badge priority-${detail.priority}`}>{priorityText(detail.priority)}</span>
+                    <span className="complaint-badge-label">{dict.investigation.complaintStatusLabel}</span>
+                    <select
+                      className={`complaint-badge complaint-badge-select status-${detail.status}`}
+                      value={detail.status}
+                      disabled={savingStatus}
+                      onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>{statusText(status)}</option>
+                      ))}
+                    </select>
+                    <span className="complaint-badge-label">{dict.investigation.priorityLabel}</span>
+                    <select
+                      className={`complaint-badge complaint-badge-select priority-${detail.priority}`}
+                      value={detail.priority}
+                      disabled={savingPriority}
+                      onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
+                    >
+                      {priorityOptions.map((priority) => (
+                        <option key={priority} value={priority}>{priorityText(priority)}</option>
+                      ))}
+                    </select>
                     <div className="complaint-quick-actions-inline complaint-quick-actions-inline--header">
-                      <label className="complaint-quick-action-item">
-                        <span className="complaint-quick-action-head">
-                          <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
-                          <span className={`complaint-badge status-${detail.status}`}>{statusText(detail.status)}</span>
-                        </span>
-                        <select
-                          className="complaint-quick-action-select"
-                          value={detail.status}
-                          disabled={savingStatus}
-                          onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
-                        >
-                          {statusOptions.map((status) => (
-                            <option key={status} value={status}>{statusText(status)}</option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="complaint-quick-action-item">
-                        <span className="complaint-quick-action-head">
-                          <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
-                          <span className={`complaint-badge priority-${detail.priority}`}>{priorityText(detail.priority)}</span>
-                        </span>
-                        <select
-                          className="complaint-quick-action-select"
-                          value={detail.priority}
-                          disabled={savingPriority}
-                          onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
-                        >
-                          {priorityOptions.map((priority) => (
-                            <option key={priority} value={priority}>{priorityText(priority)}</option>
-                          ))}
-                        </select>
-                      </label>
-
                       <div className="complaint-quick-action-item">
                         <span className="complaint-quick-action-head">
                           <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
