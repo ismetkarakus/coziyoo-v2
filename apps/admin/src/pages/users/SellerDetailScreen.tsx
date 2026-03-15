@@ -18,7 +18,7 @@ import {
   normalizeComplianceToken,
 } from "../../lib/compliance";
 import { resolveSellerDetailTab } from "../../lib/routing";
-import { fetchAllAdminLots } from "../../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -2294,18 +2294,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           </td>
                           <td>
                             <strong>{`${food.name} (${food.code || "-"})`}</strong>
-                            <div className="panel-meta">
-                              <strong className="seller-food-subheading">{language === "tr" ? "Malzemeler:" : "Ingredients:"}</strong>{" "}
-                              {renderFoodMetaPills(ingredientItems, language === "tr" ? "Belirtilmemiş" : "Not specified")}
-                            </div>
-                            <div className="panel-meta">
-                              <strong className="seller-food-subheading">{language === "tr" ? "Baharatlar:" : "Spices:"}</strong>{" "}
-                              {renderFoodMetaPills(spices)}
-                            </div>
-                            <div className="panel-meta">
-                              <strong className="seller-food-subheading">{language === "tr" ? "Alerjenler:" : "Allergens:"}</strong>{" "}
-                              {renderFoodMetaPills(allergens)}
-                            </div>
                           </td>
                           <td>
                             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
@@ -2323,44 +2311,78 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           </td>
                         </tr>
                         {foodExpanded ? (
-                          lotsLoading ? (
-                            <tr className="food-tree-lot-row food-tree-lot-loading">
-                              <td colSpan={7}><span className="food-tree-connector">└</span> {dict.common.loading}</td>
-                            </tr>
-                          ) : foodLots.length === 0 ? (
-                            <tr className="food-tree-lot-row food-tree-lot-empty">
-                              <td colSpan={7}><span className="food-tree-connector">└</span> {dict.detail.noLotsForFood}</td>
-                            </tr>
-                          ) : (
-                            foodLots.map((lot, lotIdx) => (
-                              <tr
-                                key={lot.id}
-                                data-lot-row-id={lot.id}
-                                className={[
-                                  "food-tree-lot-row",
-                                  lotIdx === foodLots.length - 1 ? "food-tree-lot-row--last" : "",
-                                  flashLotId === lot.id ? "search-focus-flash" : "",
-                                  pinnedLotId === lot.id ? "search-focus-pinned" : "",
-                                ].filter(Boolean).join(" ") || undefined}
-                              >
-                                <td className="food-tree-indent-cell" />
-                                <td className="food-tree-connector-cell">
-                                  <span className="food-tree-connector">{lotIdx === foodLots.length - 1 ? "└" : "├"}</span>
-                                </td>
-                                <td className="food-tree-dates-cell">
-                                  <span className="food-tree-date-item">{formatTableDateTime(lot.produced_at)}</span>
-                                  <span className="food-tree-date-sep">→</span>
-                                  <span className="food-tree-date-item">{`${formatTableDateTime(lot.sale_starts_at)} – ${formatTableDateTime(lot.sale_ends_at)}`}</span>
-                                </td>
-                                <td colSpan={3} />
-                                <td>
-                                  <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
-                                    {language === "tr" ? "Detay" : "Detail"}
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )
+                          <tr className="foods-lots-expanded-row">
+                            <td colSpan={7}>
+                              {lotsLoading ? (
+                                <p className="panel-meta">{dict.common.loading}</p>
+                              ) : foodLots.length === 0 ? (
+                                <p className="panel-meta">{dict.detail.noLotsForFood}</p>
+                              ) : (
+                                <div className="seller-food-lots-table-wrap">
+                                  <table className="seller-food-lots-table">
+                                    <thead>
+                                      <tr>
+                                        <th>{dict.detail.lotNumber}</th>
+                                        <th>{dict.detail.lotLifecycle}</th>
+                                        <th>{dict.detail.lotQuantity}</th>
+                                        <th>{dict.detail.lotProducedAt}</th>
+                                        <th>{dict.detail.lotSaleWindow}</th>
+                                        <th>{language === "tr" ? "Fark" : "Diff"}</th>
+                                        <th>{dict.detail.lotActions}</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {foodLots.map((lot) => {
+                                        const diff = computeFoodLotDiff({
+                                          foodRecipe: food.recipe ?? null,
+                                          foodIngredients: food.ingredients ?? null,
+                                          foodAllergens: food.allergens ?? null,
+                                          lot,
+                                        });
+                                        return (
+                                          <tr
+                                            key={lot.id}
+                                            data-lot-row-id={lot.id}
+                                            className={[
+                                              flashLotId === lot.id ? "search-focus-flash" : "",
+                                              pinnedLotId === lot.id ? "search-focus-pinned" : "",
+                                            ].filter(Boolean).join(" ") || undefined}
+                                          >
+                                            <td>{lot.lot_number}</td>
+                                            <td>
+                                              <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
+                                                {lotLifecycleLabel(lot.lifecycle_status, language)}
+                                              </span>
+                                            </td>
+                                            <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
+                                            <td>{formatTableDateTime(lot.produced_at)}</td>
+                                            <td>{`${formatTableDateTime(lot.sale_starts_at)} – ${formatTableDateTime(lot.sale_ends_at)}`}</td>
+                                            <td>
+                                              {diff.hasMissingSnapshot || diff.recipeChanged || diff.ingredientsChanged || diff.allergensChanged ? (
+                                                <div className="lot-diff-badges">
+                                                  {diff.hasMissingSnapshot && <span className="status-pill is-neutral">{dict.detail.lotSnapshotMissing}</span>}
+                                                  {diff.recipeChanged && <span className="status-pill is-warning">{dict.detail.lotDiffRecipe}</span>}
+                                                  {diff.ingredientsChanged && <span className="status-pill is-warning">{dict.detail.lotDiffIngredients}</span>}
+                                                  {diff.allergensChanged && <span className="status-pill is-danger">{dict.detail.lotDiffAllergens}</span>}
+                                                </div>
+                                              ) : (
+                                                <span className="status-pill is-active">{dict.detail.lotSnapshotOk}</span>
+                                              )}
+                                            </td>
+                                            <td>
+                                              <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
+                                                {language === "tr" ? "Detay" : "Detail"}
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
                         ) : null}
                       </Fragment>
                     );
