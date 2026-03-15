@@ -74,6 +74,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
   const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
   const categoryLabel = detail?.categoryName ?? dict.investigation.noCategory;
+  const descriptionText = detail?.description?.trim() || (language === "tr" ? "Açıklama girilmemiş" : "No description provided");
   const currentAdminLabel = currentAdmin?.email ?? dict.investigation.unassigned;
 
   useEffect(() => {
@@ -323,7 +324,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     </div>
                   </div>
                 </div>
-                <p className="complaint-description-body">{detail.description ?? "-"}</p>
+                <p className="complaint-description-body">{descriptionText}</p>
               </div>
 
               <div className="complaint-content-card complaint-ticket-thread">
