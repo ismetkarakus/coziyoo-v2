@@ -186,10 +186,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setLoading(true);
     setMessage(null);
     setLotsError(null);
+    const bust = Date.now();
     try {
       const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse, addressesResponse, notesResponse, tagsResponse] = await Promise.all([
-        request(endpoint),
-        request(`/v1/admin/compliance/${id}`),
+        request(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${bust}`),
+        request(`/v1/admin/compliance/${id}?t=${bust}`),
         request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`),
         request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`),
         request(`/v1/admin/users/${id}/addresses`),
