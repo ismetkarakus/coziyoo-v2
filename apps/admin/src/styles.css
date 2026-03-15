@@ -2,86 +2,95 @@
 
 :root {
   font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #121722;
-  background-color: #f3f6fb;
+  color: oklch(0.22 0.02 255);
+  background-color: oklch(0.977 0.003 247);
 
-  --color-text: #121722;
-  --color-bg: #f3f6fb;
-  --color-bg-gradient-1: rgba(114, 140, 183, 0.14);
-  --color-bg-gradient-2: rgba(94, 115, 151, 0.08);
-  --color-bg-gradient-3: #f3f6fb;
-  --color-white: #ffffff;
-  --color-secondary-text: #3e4a5d;
-  --color-tertiary-text: #63738a;
-  --color-muted-text: #7a8799;
-  --color-border: rgba(17, 24, 39, 0.14);
-  --color-card-bg: #eaf0f9;
-  --color-subtle-bg: #eef3fc;
-  --color-link: #172033;
-  --color-shadow: rgba(17, 24, 39, 0.12);
-  --color-error-bg: #ffe9e3;
-  --color-error-border: #f2b8a8;
-  --color-info-bg: #eaf8f0;
-  --color-accent: #2d7dff;
-  --color-accent-soft: #d8e8ff;
-  --color-input-bg: #ffffff;
-  --color-input-border: rgba(17, 24, 39, 0.18);
-  --color-input-border-strong: rgba(17, 24, 39, 0.32);
-  --color-input-placeholder: #7e8da4;
-  --color-surface: rgba(255, 255, 255, 0.8);
-  --color-surface-strong: rgba(255, 255, 255, 0.92);
+  --color-text: oklch(0.22 0.02 255);
+  --color-bg: oklch(0.977 0.003 247);
+  --color-bg-gradient-1: oklch(0.68 0.06 255 / 0.14);
+  --color-bg-gradient-2: oklch(0.6 0.05 255 / 0.08);
+  --color-bg-gradient-3: oklch(0.977 0.003 247);
+  --color-white: oklch(1 0 0);
+  --color-secondary-text: oklch(0.35 0.02 255);
+  --color-tertiary-text: oklch(0.55 0.015 255);
+  --color-muted-text: oklch(0.62 0.012 255);
+  --color-border: oklch(0.91 0.01 247);
+  --color-card-bg: oklch(1 0 0);
+  --color-subtle-bg: oklch(0.955 0.008 247);
+  --color-link: oklch(0.22 0.02 255);
+  --color-shadow: oklch(0.22 0.02 255 / 0.12);
+  --color-error-bg: oklch(0.96 0.04 25);
+  --color-error-border: oklch(0.85 0.08 25);
+  --color-info-bg: oklch(0.96 0.04 160);
+  --color-accent: oklch(0.52 0.18 255);
+  --color-accent-soft: oklch(0.93 0.04 255);
+  --color-input-bg: oklch(1 0 0);
+  --color-input-border: oklch(0.88 0.01 247);
+  --color-input-border-strong: oklch(0.78 0.02 247);
+  --color-input-placeholder: oklch(0.6 0.015 255);
+  --color-surface: oklch(1 0 0 / 0.8);
+  --color-surface-strong: oklch(1 0 0 / 0.92);
+
+  /* ── Status / semantic colors ─────────────────────────────────────────── */
+  --color-success: oklch(0.55 0.16 160);
+  --color-success-bg: oklch(0.96 0.04 160);
+  --color-warning: oklch(0.65 0.18 60);
+  --color-warning-bg: oklch(0.97 0.04 80);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-bg: oklch(0.96 0.04 25);
+
+  /* ── KPI card backgrounds ─────────────────────────────────────────────── */
   --buyer-v2-kpi-bg: linear-gradient(
     160deg,
-    color-mix(in srgb, #dbe8ff 88%, var(--color-card-bg)),
-    color-mix(in srgb, #edf3ff 94%, var(--color-card-bg))
+    color-mix(in oklch, oklch(0.85 0.06 255) 88%, oklch(1 0 0)),
+    color-mix(in oklch, oklch(0.92 0.04 255) 94%, oklch(1 0 0))
   );
   --seller-v2-kpi-bg: radial-gradient(
       120% 150% at 8% 0%,
-      color-mix(in srgb, #86a4e8 22%, transparent),
-      color-mix(in srgb, #cad8f7 40%, transparent)
+      color-mix(in oklch, oklch(0.7 0.1 255) 22%, transparent),
+      color-mix(in oklch, oklch(0.85 0.06 255) 40%, transparent)
     ),
     linear-gradient(
       160deg,
-      color-mix(in srgb, #dce8ff 90%, var(--color-card-bg)),
-      color-mix(in srgb, #eef4ff 95%, var(--color-card-bg))
+      color-mix(in oklch, oklch(0.88 0.06 255) 90%, oklch(1 0 0)),
+      color-mix(in oklch, oklch(0.93 0.04 255) 95%, oklch(1 0 0))
     );
   --seller-v2-kpi-bg-green: radial-gradient(
       130% 150% at 18% 0%,
-      color-mix(in srgb, #2f8c66 24%, transparent),
-      color-mix(in srgb, #d8f2e7 48%, transparent)
+      color-mix(in oklch, oklch(0.55 0.16 160) 24%, transparent),
+      color-mix(in oklch, oklch(0.88 0.07 160) 48%, transparent)
     ),
     linear-gradient(
       160deg,
-      color-mix(in srgb, #daf2e7 92%, var(--color-card-bg)),
-      color-mix(in srgb, #effaf4 96%, var(--color-card-bg))
+      color-mix(in oklch, oklch(0.9 0.06 160) 92%, oklch(1 0 0)),
+      color-mix(in oklch, oklch(0.95 0.03 160) 96%, oklch(1 0 0))
     );
   --seller-v2-kpi-bg-orange: radial-gradient(
       130% 150% at 18% 0%,
-      color-mix(in srgb, #d08945 20%, transparent),
-      color-mix(in srgb, #fae7d2 46%, transparent)
+      color-mix(in oklch, oklch(0.65 0.18 60) 20%, transparent),
+      color-mix(in oklch, oklch(0.88 0.08 60) 46%, transparent)
     ),
     linear-gradient(
       160deg,
-      color-mix(in srgb, #f8e9d9 92%, var(--color-card-bg)),
-      color-mix(in srgb, #fdf3e8 96%, var(--color-card-bg))
+      color-mix(in oklch, oklch(0.93 0.05 60) 92%, oklch(1 0 0)),
+      color-mix(in oklch, oklch(0.96 0.03 80) 96%, oklch(1 0 0))
     );
-  --buyer-v2-smart-item-bg: color-mix(in srgb, #e3ecff 82%, var(--color-card-bg));
-  --buyer-v2-smart-item-active-bg: color-mix(in srgb, #f6ead6 78%, var(--color-card-bg));
-  --buyer-v2-filter-menu-bg: color-mix(in srgb, #eef3ff 92%, var(--color-card-bg));
-  --users-search-border: color-mix(in srgb, #97abd8 42%, var(--color-border));
+  --buyer-v2-smart-item-bg: color-mix(in oklch, oklch(0.88 0.05 255) 82%, oklch(1 0 0));
+  --buyer-v2-smart-item-active-bg: color-mix(in oklch, oklch(0.9 0.05 60) 78%, oklch(1 0 0));
+  --buyer-v2-filter-menu-bg: color-mix(in oklch, oklch(0.92 0.04 255) 92%, oklch(1 0 0));
+  --users-search-border: color-mix(in oklch, oklch(0.7 0.08 255) 42%, oklch(0.91 0.01 247));
   --users-search-bg: linear-gradient(
     180deg,
-    color-mix(in srgb, #edf3ff 94%, var(--color-card-bg)),
-    color-mix(in srgb, #e5edff 90%, var(--color-card-bg))
+    color-mix(in oklch, oklch(0.94 0.04 255) 94%, oklch(1 0 0)),
+    color-mix(in oklch, oklch(0.92 0.04 255) 90%, oklch(1 0 0))
   );
-  --users-search-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 0 0 1px rgba(139, 160, 207, 0.22);
-  --users-search-focus-border: color-mix(in srgb, #5f89f3 62%, var(--color-border));
-  --users-search-focus-ring: color-mix(in srgb, #2d7dff 20%, transparent);
-  --users-search-icon: color-mix(in srgb, #5d74a8 80%, #ffffff);
-  --users-search-placeholder: color-mix(in srgb, #6f82aa 88%, #e7eefc);
-  --users-search-clear: color-mix(in srgb, #627bb1 84%, #ffffff);
-  --users-search-clear-hover: color-mix(in srgb, #90a9dc 24%, transparent);
-
+  --users-search-shadow: inset 0 1px 0 oklch(1 0 0 / 0.72), 0 0 0 1px oklch(0.7 0.08 255 / 0.22);
+  --users-search-focus-border: color-mix(in oklch, oklch(0.62 0.14 255) 62%, oklch(0.91 0.01 247));
+  --users-search-focus-ring: oklch(0.52 0.18 255 / 0.2);
+  --users-search-icon: oklch(0.55 0.1 255);
+  --users-search-placeholder: oklch(0.6 0.08 255);
+  --users-search-clear: oklch(0.55 0.1 255);
+  --users-search-clear-hover: oklch(0.65 0.08 255 / 0.24);
 
   /* ── Typography scale ────────────────────────────────────────────────── */
   --text-xs:   0.75rem;   /* badges, captions, table headers, meta         */
@@ -100,6 +109,8 @@
   --font-medium:   500;
   --font-semibold: 600;
   --font-bold:     700;
+
+  --radius: 0.5rem;
 
   color-scheme: light;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -7906,6 +7917,57 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   overflow-wrap: anywhere;
 }
 
+.complaint-compact-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, #161c2d 82%, var(--color-card-bg));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.complaint-people-inline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.complaint-person-inline {
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, #1f273b 62%, transparent);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.complaint-person-inline strong {
+  color: #f6f8fd;
+  font-size: var(--text-sm);
+}
+
+.complaint-person-inline span {
+  color: var(--color-secondary-text);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.complaint-person-inline .complaint-detail-label {
+  color: #9eb0d8;
+}
+
+.complaint-notes-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .complaint-summary-card,
 .complaint-content-card,
 .complaint-side-card {
@@ -8763,6 +8825,10 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
   .complaint-summary-info-grid,
   .complaint-person-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .complaint-people-inline {
     grid-template-columns: 1fr;
   }
 
