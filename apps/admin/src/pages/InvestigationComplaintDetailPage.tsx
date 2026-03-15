@@ -132,12 +132,12 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
         method: "PATCH",
         body: JSON.stringify({ status: nextStatus }),
       });
-      const body = await parseJson<{ data?: { status: ComplaintStatus } } & ApiError>(response);
+      const body = await parseJson<{ data?: { status: ComplaintStatus; priority: ComplaintDetail["priority"] } } & ApiError>(response);
       if (response.status !== 200 || !body.data) {
         setError(body.error?.message ?? dict.investigation.requestFailed);
         return;
       }
-      setDetail((prev) => (prev ? { ...prev, status: body.data!.status } : prev));
+      setDetail((prev) => (prev ? { ...prev, status: body.data!.status, priority: body.data!.priority } : prev));
     } catch {
       setError(dict.investigation.requestFailed);
     } finally {

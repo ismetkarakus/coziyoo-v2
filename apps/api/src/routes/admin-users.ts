@@ -1102,12 +1102,14 @@ adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("a
 
   const input = parsed.data;
   const status = input.status;
+  const priorityValue = input.priority ?? ((status === "resolved" || status === "closed") ? "low" : undefined);
   const resolvedAtValue = input.resolvedAt !== undefined
     ? input.resolvedAt
     : (status === "resolved" || status === "closed" ? new Date() : undefined);
 
   const updated = await pool.query<{
     id: string;
+    priority: string;
     status: string;
     resolved_at: string | null;
   }>(
@@ -1122,7 +1124,7 @@ adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("a
        resolution_note = CASE WHEN $11::boolean THEN $12 ELSE resolution_note END,
        assigned_admin_id = CASE WHEN $13::boolean THEN $14 ELSE assigned_admin_id END
      WHERE id = $1
-     RETURNING id::text, status, resolved_at::text`,
+     RETURNING id::text, priority, status, resolved_at::text`,
     [
       params.data.id,
       input.subject ?? null,
@@ -1130,7 +1132,7 @@ adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("a
       input.description ?? null,
       input.categoryId !== undefined,
       input.categoryId ?? null,
-      input.priority ?? null,
+      priorityValue ?? null,
       input.status ?? null,
       resolvedAtValue !== undefined,
       resolvedAtValue ? resolvedAtValue.toISOString() : null,
@@ -1148,6 +1150,7 @@ adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("a
   return res.json({
     data: {
       id: updated.rows[0].id,
+      priority: updated.rows[0].priority,
       status: updated.rows[0].status,
       resolvedAt: updated.rows[0].resolved_at,
     },
