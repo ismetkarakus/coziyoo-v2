@@ -14,6 +14,7 @@ import {
   optionalUploadStatusTone,
   extractPhoneFromChecks,
   knownDocumentCodeRank,
+  normalizeComplianceToken,
 } from "../../lib/compliance";
 import { resolveSellerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots } from "../../lib/lots";
@@ -51,6 +52,15 @@ type SellerPreviewTarget = {
   tone: ComplianceTone;
   detailText?: string;
   isTemporary?: boolean;
+};
+
+const COMPLIANCE_DOC_KEY_TOKENS: Record<ComplianceRowKey, string[]> = {
+  foodBusiness: ["gida_isletme", "isletme_belgesi", "food_business", "business_license", "food_license"],
+  taxPlate: ["vergi_levhasi", "tax_plate", "tax_document", "tax", "vergi"],
+  kvkk: ["kvkk", "privacy", "kisisel_veri", "gdpr"],
+  foodSafetyTraining: ["gida_guvenligi_egitimi", "food_safety_training", "hygiene_training", "egitim"],
+  phoneVerification: ["telefon", "phone", "sms", "phone_verification", "telefon_dogrulama"],
+  workplaceInsurance: ["is_yeri_sigortasi", "workplace_insurance", "insurance", "sigorta"],
 };
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
@@ -139,6 +149,24 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       .split(/[,;\n]/g)
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  function resolveDocTypeCodeFromRowKey(key: ComplianceRowKey): string | null {
+    const docs = compliance?.documents ?? [];
+    if (docs.length === 0) return null;
+    const tokens = COMPLIANCE_DOC_KEY_TOKENS[key];
+    for (const doc of docs) {
+      if (!doc.is_current) continue;
+      const haystacks = [
+        normalizeComplianceToken(doc.doc_type),
+        normalizeComplianceToken(doc.code),
+        normalizeComplianceToken(doc.name),
+      ];
+      if (haystacks.some((item) => tokens.some((token) => item.includes(token)))) {
+        return doc.code;
+      }
+    }
+    return null;
   }
 
   function renderFoodMetaPills(items: string[], emptyLabel = "-") {
@@ -876,11 +904,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   function triggerComplianceUpload(key: ComplianceRowKey) {
+    if (!isSuperAdmin) return;
     setPendingUploadKey(key);
     complianceUploadInputRef.current?.click();
   }
 
-  function handleComplianceFileChange(event: FormEvent<HTMLInputElement>) {
+  async function handleComplianceFileChange(event: FormEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file || !pendingUploadKey) {
@@ -888,34 +917,66 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       return;
     }
 
-    const nextUrl = URL.createObjectURL(file);
-    setTempComplianceUploads((prev) => {
-      const current = prev[pendingUploadKey];
-      if (current) URL.revokeObjectURL(current.fileUrl);
-      return {
-        ...prev,
-        [pendingUploadKey]: {
-          key: pendingUploadKey,
+    const rowKey = pendingUploadKey;
+    const docType = resolveDocTypeCodeFromRowKey(rowKey);
+    if (!docType) {
+      setMessage(language === "tr" ? "Doküman tipi bulunamadı." : "Document type was not found.");
+      setPendingUploadKey(null);
+      input.value = "";
+      return;
+    }
+
+    setLegalSavingKey(`upload:${rowKey}`);
+    try {
+      const presignResponse = await request(`/v1/admin/compliance/${id}/documents/presign-upload`, {
+        method: "POST",
+        body: JSON.stringify({
+          docType,
           fileName: file.name,
-          fileUrl: nextUrl,
-          uploadedAt: new Date().toISOString(),
-          status: "uploaded",
-          rejectionReason: null,
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (presignResponse.status !== 200) {
+        const body = await parseJson<ApiError>(presignResponse);
+        setMessage(body.error?.message ?? dict.detail.requestFailed);
+        return;
+      }
+
+      const presignBody = await parseJson<{ data: { uploadUrl: string; fileUrl: string } }>(presignResponse);
+      const upload = await fetch(presignBody.data.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
         },
-      };
-    });
-    setPreviewTarget({
-      title: file.name,
-      url: nextUrl,
-      key: pendingUploadKey,
-      documentId: null,
-      status: "uploaded",
-      tone: sellerDocumentStatusTone("uploaded"),
-      detailText: `${sellerDocumentStatusLabel("uploaded", dict)} • ${formatUiDate(new Date().toISOString(), language)}`,
-      isTemporary: true,
-    });
-    setPendingUploadKey(null);
-    input.value = "";
+        body: file,
+      });
+      if (!upload.ok) {
+        setMessage(language === "tr" ? "Dosya depolamaya yüklenemedi." : "File upload to storage failed.");
+        return;
+      }
+
+      const completeResponse = await request(`/v1/admin/compliance/${id}/documents/upload`, {
+        method: "POST",
+        body: JSON.stringify({
+          docType,
+          fileUrl: presignBody.data.fileUrl,
+        }),
+      });
+      if (completeResponse.status !== 201) {
+        const body = await parseJson<ApiError>(completeResponse);
+        setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
+        return;
+      }
+
+      await loadSellerDetail();
+      setMessage(dict.common.saved);
+    } catch {
+      setMessage(dict.detail.requestFailed);
+    } finally {
+      setLegalSavingKey(null);
+      setPendingUploadKey(null);
+      input.value = "";
+    }
   }
 
   function closePreviewTarget() {
@@ -1719,7 +1780,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     <p className="panel-meta">{item.detailText}</p>
                   </div>
                   <div className="legal-doc-actions">
-                    <button className="ghost compliance-edit-btn" type="button" onClick={() => triggerComplianceUpload(item.key)}>
+                    <button
+                      className="ghost compliance-edit-btn"
+                      type="button"
+                      disabled={!isSuperAdmin || legalSavingKey === `upload:${item.key}`}
+                      onClick={() => triggerComplianceUpload(item.key)}
+                    >
                       {language === "tr" ? "Yükle" : "Upload"}
                     </button>
                     <button

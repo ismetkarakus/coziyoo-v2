@@ -1,5 +1,9 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
+import { randomUUID } from "node:crypto";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { z } from "zod";
+import { env } from "../config/env.js";
 import { pool } from "../db/client.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -13,6 +17,12 @@ const UploadDocumentSchema = z.object({
   docType: z.string().trim().min(2).max(80),
   fileUrl: z.string().url(),
   notes: z.string().trim().max(1500).optional(),
+});
+
+const PresignDocumentUploadSchema = z.object({
+  docType: z.string().trim().min(2).max(80),
+  fileName: z.string().trim().min(1).max(255),
+  contentType: z.string().trim().min(3).max(120).optional(),
 });
 
 const ComplianceDocumentParamSchema = z.object({
@@ -136,6 +146,82 @@ type SellerComplianceProfileStatus = "not_started" | "in_progress" | "under_revi
 export const sellerComplianceRouter = Router();
 export const adminComplianceRouter = Router();
 let ensureComplianceDocumentValiditySchemaPromise: Promise<void> | null = null;
+let s3Client: S3Client | null = null;
+
+function isS3StorageConfigured() {
+  return Boolean(env.S3_ENDPOINT && env.S3_BUCKET_SELLER_DOCS && env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY);
+}
+
+function getS3Client() {
+  if (!isS3StorageConfigured()) {
+    throw new Error("S3_STORAGE_NOT_CONFIGURED");
+  }
+  if (s3Client) return s3Client;
+  s3Client = new S3Client({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+    credentials: {
+      accessKeyId: env.S3_ACCESS_KEY_ID!,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY!,
+    },
+  });
+  return s3Client;
+}
+
+function sanitizeFileName(value: string) {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[^\w.\-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 120);
+  return normalized || "document.bin";
+}
+
+function buildSellerDocumentStorageKey(sellerId: string, docType: string, fileName: string) {
+  const normalizedType = docType.toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+  return `seller/${sellerId}/documents/${normalizedType}/${Date.now()}-${randomUUID().slice(0, 8)}-${sanitizeFileName(fileName)}`;
+}
+
+function toStoragePointer(bucket: string, key: string) {
+  return `s3://${bucket}/${key}`;
+}
+
+function parseStoragePointer(value: string | null | undefined): { bucket: string; key: string } | null {
+  if (!value) return null;
+  if (!value.startsWith("s3://")) return null;
+  const raw = value.slice("s3://".length);
+  const splitIndex = raw.indexOf("/");
+  if (splitIndex <= 0 || splitIndex >= raw.length - 1) return null;
+  return {
+    bucket: raw.slice(0, splitIndex),
+    key: raw.slice(splitIndex + 1),
+  };
+}
+
+async function signStorageGetUrl(value: string | null) {
+  if (!value) return null;
+  const pointer = parseStoragePointer(value);
+  if (!pointer) return value;
+  const client = getS3Client();
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: pointer.bucket,
+      Key: pointer.key,
+    }),
+    { expiresIn: env.S3_SIGNED_URL_TTL_SECONDS }
+  );
+}
+
+async function hydrateSignedFileUrls<T extends { file_url: string | null }>(rows: T[]): Promise<T[]> {
+  return Promise.all(
+    rows.map(async (row) => ({
+      ...row,
+      file_url: await signStorageGetUrl(row.file_url),
+    }))
+  );
+}
 
 function normalizeDocumentStatus(value: string): SellerDocumentStatus {
   return value === "pending" ? "requested" : (value as SellerDocumentStatus);
@@ -557,7 +643,9 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
   const optionalUploads = await getSellerOptionalUploads(pool, req.auth!.userId);
-  const currentDocs = filterCurrentDocuments(docs.rows);
+  const docsWithSignedUrls = await hydrateSignedFileUrls(docs.rows);
+  const optionalUploadsWithSignedUrls = await hydrateSignedFileUrls(optionalUploads.rows);
+  const currentDocs = filterCurrentDocuments(docsWithSignedUrls);
   const profile = computeSellerComplianceProfile(currentDocs);
   return res.json({
     data: {
@@ -572,7 +660,7 @@ sellerComplianceRouter.get("/profile", requireAuth("app"), async (req, res) => {
         updated_at: profile.updatedAt,
       },
       documents: currentDocs,
-      optionalUploads: optionalUploads.rows,
+      optionalUploads: optionalUploadsWithSignedUrls,
     },
   });
 });
@@ -743,7 +831,8 @@ sellerComplianceRouter.get("/documents", requireAuth("app"), async (req, res) =>
   }
   await ensureSellerAssignments(req.auth!.userId);
   const docs = await getSellerDocuments(pool, req.auth!.userId);
-  return res.json({ data: filterCurrentDocuments(docs.rows) });
+  const docsWithSignedUrls = await hydrateSignedFileUrls(docs.rows);
+  return res.json({ data: filterCurrentDocuments(docsWithSignedUrls) });
 });
 
 sellerComplianceRouter.get("/optional-uploads", requireAuth("app"), async (req, res) => {
@@ -752,7 +841,8 @@ sellerComplianceRouter.get("/optional-uploads", requireAuth("app"), async (req, 
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
   }
   const uploads = await getSellerOptionalUploads(pool, req.auth!.userId);
-  return res.json({ data: uploads.rows });
+  const uploadsWithSignedUrls = await hydrateSignedFileUrls(uploads.rows);
+  return res.json({ data: uploadsWithSignedUrls });
 });
 
 sellerComplianceRouter.post("/optional-uploads", requireAuth("app"), async (req, res) => {
@@ -1229,13 +1319,224 @@ adminComplianceRouter.delete("/document-list/:documentListId", requireAuth("admi
   }
 });
 
+adminComplianceRouter.post("/:sellerId/documents/presign-upload", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const parsed = PresignDocumentUploadSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  if (!isS3StorageConfigured()) {
+    return res.status(503).json({ error: { code: "STORAGE_NOT_CONFIGURED", message: "S3 storage is not configured" } });
+  }
+
+  const docType = await pool.query<{ id: string }>(
+    "SELECT id::text FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
+    [parsed.data.docType]
+  );
+  if ((docType.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
+  }
+
+  try {
+    const key = buildSellerDocumentStorageKey(sellerId, parsed.data.docType, parsed.data.fileName);
+    const bucket = env.S3_BUCKET_SELLER_DOCS!;
+    const client = getS3Client();
+    const uploadUrl = await getSignedUrl(
+      client,
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: parsed.data.contentType || "application/octet-stream",
+      }),
+      { expiresIn: env.S3_SIGNED_URL_TTL_SECONDS }
+    );
+    return res.json({
+      data: {
+        uploadUrl,
+        fileUrl: toStoragePointer(bucket, key),
+        objectKey: key,
+        expiresInSeconds: env.S3_SIGNED_URL_TTL_SECONDS,
+      },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Upload URL generation failed", detail } });
+  }
+});
+
+adminComplianceRouter.post("/:sellerId/documents/upload", requireAuth("admin"), async (req, res) => {
+  const sellerId = String(req.params.sellerId ?? "");
+  if (!z.string().uuid().safeParse(sellerId).success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
+  }
+  const parsed = UploadDocumentSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+  const input = parsed.data;
+
+  const docType = await pool.query<{ id: string; is_required_default: boolean; validity_years: number | null }>(
+    "SELECT id::text, is_required_default, validity_years FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
+    [input.docType]
+  );
+  if ((docType.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "DOCUMENT_TYPE_NOT_FOUND", message: "Document type not found" } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const uploadedAt = new Date().toISOString();
+    const expiresAt = resolveExpiresAt(uploadedAt, docType.rows[0].validity_years);
+    const currentRow = await client.query<{
+      id: string;
+      is_required: boolean;
+      version: number;
+      status: SellerDocumentStatus;
+      file_url: string | null;
+      uploaded_at: string | null;
+    }>(
+      `SELECT
+         id::text,
+         is_required,
+         version,
+         status,
+         file_url,
+         uploaded_at::text
+       FROM seller_compliance_documents
+       WHERE seller_id = $1
+         AND document_list_id = $2
+         AND is_current = TRUE
+       FOR UPDATE`,
+      [sellerId, docType.rows[0].id]
+    );
+
+    const before = currentRow.rows[0]
+      ? {
+          status: currentRow.rows[0].status,
+          fileUrl: currentRow.rows[0].file_url,
+        }
+      : null;
+
+    let documentId: string;
+    if ((currentRow.rowCount ?? 0) === 0) {
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO seller_compliance_documents (
+           seller_id,
+           document_list_id,
+           is_required,
+           status,
+           file_url,
+           uploaded_at,
+           reviewed_at,
+           reviewed_by_admin_id,
+           rejection_reason,
+           notes,
+           expires_at,
+           expired,
+           version,
+           is_current,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, 1, TRUE, now(), now())
+         RETURNING id::text`,
+        [sellerId, docType.rows[0].id, docType.rows[0].is_required_default, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
+      );
+      documentId = inserted.rows[0].id;
+    } else {
+      const current = currentRow.rows[0];
+      const canReuseCurrentVersion =
+        current.version === 1 &&
+        current.status === "requested" &&
+        current.file_url === null &&
+        current.uploaded_at === null;
+
+      if (canReuseCurrentVersion) {
+        const updated = await client.query<{ id: string }>(
+          `UPDATE seller_compliance_documents
+           SET
+             status = 'uploaded',
+             file_url = $3,
+             uploaded_at = $4,
+             reviewed_at = NULL,
+             reviewed_by_admin_id = NULL,
+             rejection_reason = NULL,
+             notes = $5,
+             expires_at = $6,
+             expired = FALSE,
+             updated_at = now()
+           WHERE id = $1
+             AND seller_id = $2
+           RETURNING id::text`,
+          [current.id, sellerId, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
+        );
+        documentId = updated.rows[0].id;
+      } else {
+        await client.query(
+          `UPDATE seller_compliance_documents
+           SET is_current = FALSE,
+               updated_at = now()
+           WHERE id = $1`,
+          [current.id]
+        );
+        const inserted = await client.query<{ id: string }>(
+          `INSERT INTO seller_compliance_documents (
+             seller_id,
+             document_list_id,
+             is_required,
+             status,
+             file_url,
+             uploaded_at,
+             reviewed_at,
+             reviewed_by_admin_id,
+             rejection_reason,
+             notes,
+             expires_at,
+             expired,
+             version,
+             is_current,
+             created_at,
+             updated_at
+           )
+           VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, $8, TRUE, now(), now())
+           RETURNING id::text`,
+          [sellerId, docType.rows[0].id, current.is_required, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt, current.version + 1]
+        );
+        documentId = inserted.rows[0].id;
+      }
+    }
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "compliance_document_uploaded_by_admin",
+      entityType: "seller_compliance_documents",
+      entityId: documentId,
+      before,
+      after: { sellerId, docType: input.docType, fileUrl: input.fileUrl, status: "uploaded" },
+    });
+
+    await client.query("COMMIT");
+    return res.status(201).json({ data: { documentId } });
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Document upload failed" } });
+  } finally {
+    client.release();
+  }
+});
+
 adminComplianceRouter.get("/:sellerId/optional-uploads", requireAuth("admin"), async (req, res) => {
   const sellerId = String(req.params.sellerId ?? "");
   if (!z.string().uuid().safeParse(sellerId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid sellerId" } });
   }
   const uploads = await getSellerOptionalUploads(pool, sellerId);
-  return res.json({ data: uploads.rows });
+  const uploadsWithSignedUrls = await hydrateSignedFileUrls(uploads.rows);
+  return res.json({ data: uploadsWithSignedUrls });
 });
 
 adminComplianceRouter.patch("/:sellerId/optional-uploads/:uploadId", requireAuth("admin"), async (req, res) => {
@@ -1330,7 +1631,9 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
   await ensureSellerAssignments(sellerId);
   const docs = await getSellerDocuments(pool, sellerId);
   const optionalUploads = await getSellerOptionalUploads(pool, sellerId);
-  const currentDocs = filterCurrentDocuments(docs.rows);
+  const docsWithSignedUrls = await hydrateSignedFileUrls(docs.rows);
+  const optionalUploadsWithSignedUrls = await hydrateSignedFileUrls(optionalUploads.rows);
+  const currentDocs = filterCurrentDocuments(docsWithSignedUrls);
   const profile = computeSellerComplianceProfile(currentDocs);
 
   return res.json({
@@ -1347,7 +1650,7 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
         updated_at: profile.updatedAt,
       },
       checks: [],
-      documents: docs.rows.map((row) => ({
+      documents: docsWithSignedUrls.map((row) => ({
         ...row,
         doc_type: row.code,
       })),
@@ -1360,7 +1663,7 @@ adminComplianceRouter.get("/:sellerId", requireAuth("admin"), async (req, res) =
         required: row.is_required,
         updated_at: row.updated_at,
       })),
-      optionalUploads: optionalUploads.rows,
+      optionalUploads: optionalUploadsWithSignedUrls,
     },
   });
 });
