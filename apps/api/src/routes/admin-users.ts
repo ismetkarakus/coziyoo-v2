@@ -1739,6 +1739,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     input.audience === "seller"
       ? "o.seller_id = u.id"
       : `COALESCE(c.complainant_user_id, c.complainant_buyer_id) = u.id AND ${COMPLAINANT_TYPE_SQL} = 'buyer'`;
+  const orderStatsWhereSql = input.audience === "seller" ? "o.seller_id = u.id" : "o.buyer_id = u.id";
 
   const total = await pool.query<{ count: string }>(
     `SELECT count(*)::text AS count FROM users u ${whereSql}`,
@@ -1873,7 +1874,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
          COALESCE(sum(CASE WHEN o.payment_completed = TRUE AND o.created_at >= (now() - interval '30 days') THEN o.total_price ELSE 0 END), 0) AS monthly_spent_current,
          COALESCE(sum(CASE WHEN o.payment_completed = TRUE AND o.created_at < (now() - interval '30 days') AND o.created_at >= (now() - interval '60 days') THEN o.total_price ELSE 0 END), 0) AS monthly_spent_previous
        FROM orders o
-       WHERE o.buyer_id = u.id
+       WHERE ${orderStatsWhereSql}
      ) order_stats ON TRUE
      LEFT JOIN LATERAL (
        SELECT max(p.happened_at)::text AS last_online_at
