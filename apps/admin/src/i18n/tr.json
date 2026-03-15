@@ -682,7 +682,7 @@
     "selectOrder": "Siparişi seç",
     "atLeastOneOrder": "Lütfen en az bir sipariş seçin.",
     "orderItemsTitle": "Sipariş Kalemleri",
-    "activeOrderDetail": "Aktif Sipariş Detayı",
+    "activeOrderDetail": "Sipariş Detayı",
     "copyOrderId": "Sipariş ID kopyala",
     "copyUuid": "UUID kopyala",
     "status": "Durumu",

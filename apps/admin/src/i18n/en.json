@@ -682,7 +682,7 @@
     "selectOrder": "Select order",
     "atLeastOneOrder": "Please select at least one order.",
     "orderItemsTitle": "Order Items",
-    "activeOrderDetail": "Active Order Detail",
+    "activeOrderDetail": "Order Detail",
     "copyOrderId": "Copy Order ID",
     "copyUuid": "Copy UUID",
     "status": "Status",

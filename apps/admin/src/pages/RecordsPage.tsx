@@ -871,7 +871,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                 <article className="records-order-info-card">
                   <span>{dict.records.seller}</span>
                   <strong>{selectedSellerText}</strong>
-                  <p className="panel-meta">{`${dict.records.deliveryType}: ${selectedDeliveryType}`}</p>
                 </article>
                 <article className="records-order-info-meta">
                   <div>
@@ -883,8 +882,16 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <strong>{selectedRequestedAt}</strong>
                   </div>
                   <div>
+                    <span>{dict.records.deliveryType}</span>
+                    <strong>{selectedDeliveryType}</strong>
+                  </div>
+                  <div>
                     <span>{dict.records.paymentStatus}</span>
                     <strong>{selectedPaymentStatus}</strong>
+                  </div>
+                  <div>
+                    <span>{dict.records.total}</span>
+                    <strong>{selectedTotal}</strong>
                   </div>
                 </article>
                 {selectedStatusRaw === "cancelled" ? (
@@ -893,24 +900,6 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <strong>{selectedCancelReason}</strong>
                   </article>
                 ) : null}
-              </div>
-
-              <div className="records-order-summary-inline">
-                <div className="records-order-uuid-row records-order-uuid-row-standalone">
-                  <span className="records-order-uuid-text">{`UUID: ${shortUuid(selectedOrderId)}`}</span>
-                  <button
-                    className={`ghost records-copy-btn ${copyFeedbackKey === "uuid" ? "is-copied" : ""}`}
-                    type="button"
-                    onClick={() => copyWithFeedback(selectedOrderId, "uuid")}
-                    title={dict.records.copyUuid}
-                  >
-                    {copyFeedbackKey === "uuid" ? "✓" : "⧉"}
-                  </button>
-                </div>
-                <div className="records-order-total-inline">
-                  <span>{dict.records.total}</span>
-                  <strong>{selectedTotal}</strong>
-                </div>
               </div>
             </section>
             <section className="records-order-section">
