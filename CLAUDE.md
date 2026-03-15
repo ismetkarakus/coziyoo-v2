@@ -88,7 +88,10 @@ Production ingress via Nginx Proxy Manager (Docker):
 - `app.ts` — Express setup, middleware registration, route mounting
 - `routes/` — 20 route files grouped by domain (`auth`, `orders`, `payments`, `livekit`, `admin/*`)
 - `db/client.ts` — PostgreSQL pool (pg) using root `.env` vars
-- `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0006_*.sql`)
+- `config/env.ts` — Zod-validated env schema; loads `.env.local` then `.env`
+- `services/` — Business logic layer (order state machine, payouts, outbox, Ollama, N8N, TTS, etc.)
+- `db/client.ts` — PostgreSQL pool (pg) using root `.env` vars
+- `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0012_*.sql`)
 - `middleware/` — Auth, CORS, content-type normalization, rate limiting, idempotency, RBAC
 
 ### Request Middleware Chain
@@ -113,6 +116,15 @@ The Python voice agent (`apps/voice-agent`) runs as a LiveKit Agents worker:
 - **UI actions:** sent to mobile client via LiveKit data channel (deterministic JSON commands)
 - **End-of-call:** fires N8N webhook to trigger order processing workflows
 
+### Admin Panel (`apps/admin/src/`)
+
+- `AppShell.tsx` — main layout with nav, global search, dark mode, language toggle
+- `lib/api.ts` — `request()` wrapper: auto-refreshes JWT on 401, reads base URL from `VITE_API_BASE_URL`
+- `lib/auth.ts` — token storage helpers
+- `lib/i18n.ts` + `i18n/en.json` / `i18n/tr.json` — English and Turkish UI strings
+- `pages/` — one file per admin page (Dashboard, Users, ReviewQueue, Compliance, Security, etc.)
+- `components/ui.tsx` — shared UI primitives; `NotesPanel.tsx` — reusable notes sidebar
+
 ### Shared Packages
 
 - `packages/shared-types` — TypeScript types shared across API, admin, mobile (`@coziyoo/shared-types`)
@@ -120,7 +132,7 @@ The Python voice agent (`apps/voice-agent`) runs as a LiveKit Agents worker:
 
 ### Database Migrations
 
-Migrations live in `apps/api/src/db/migrations/` as numbered SQL files. The `db-migrate.sh` script runs all pending migrations before service start in production. When adding a migration, use the next sequential number (currently up to `0006`).
+Migrations live in `apps/api/src/db/migrations/` as numbered SQL files. The `db-migrate.sh` script runs all pending migrations before service start in production. When adding a migration, use the next sequential number (currently up to `0012`).
 
 ### CI/CD
 
@@ -133,8 +145,9 @@ Root `.env` is the single source of truth for all services (API reads it directl
 - **API:** `API_PORT`, `APP_JWT_SECRET`, `ADMIN_JWT_SECRET`
 - **Database:** `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `DATABASE_URL`
 - **LiveKit:** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+- **S3:** `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET_SELLER_DOCS`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (seller compliance document storage)
 - **External:** `OLLAMA_BASE_URL`, `N8N_HOST`, `TTS_API_KEY`, `SPEECH_TO_TEXT_API_KEY`, `PAYMENT_WEBHOOK_SECRET`
-- **CORS:** `CORS_ALLOWED_ORIGINS` (comma-separated list)
+- **CORS:** `CORS_ALLOWED_ORIGINS` (comma-separated list, supports `*` and `://*.domain` wildcards)
 
 Installation-specific VPS settings (domains, OS passwords) go in `installation/config.env`.
 
