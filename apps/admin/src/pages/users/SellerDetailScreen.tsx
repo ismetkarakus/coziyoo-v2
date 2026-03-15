@@ -769,26 +769,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      setCompliance((prev) => {
-        if (!prev) return prev;
-        const nowIso = new Date().toISOString();
-        const updatedDocuments = prev.documents.map((item) =>
-          item.id === documentId
-            ? {
-                ...item,
-                status,
-                rejection_reason: status === "rejected" || status === "requested" ? (rejectionReasonInput ?? null) : null,
-                reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
-                updated_at: nowIso,
-              }
-            : item
-        );
-        return {
-          ...prev,
-          documents: updatedDocuments,
-          profile: recomputeProfile(updatedDocuments, prev.profile),
-        };
-      });
+      await loadSellerDetail();
       setMessage(dict.common.saved);
       setRejectTargetId(null);
       setRejectReason("");
@@ -820,24 +801,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(body.error?.message ?? dict.detail.legalUpdateFailed);
         return;
       }
-      setCompliance((prev) => {
-        if (!prev) return prev;
-        const nowIso = new Date().toISOString();
-        return {
-          ...prev,
-          optionalUploads: prev.optionalUploads.map((item) =>
-            item.id === uploadId
-              ? {
-                  ...item,
-                  status,
-                  rejection_reason: status === "rejected" || status === "uploaded" ? (rejectionReasonInput ?? null) : null,
-                  reviewed_at: status === "approved" || status === "rejected" ? nowIso : null,
-                  updated_at: nowIso,
-                }
-              : item
-          ),
-        };
-      });
+      await loadSellerDetail();
       setMessage(dict.common.saved);
       setOptionalRejectTargetId(null);
       setOptionalRejectReason("");
