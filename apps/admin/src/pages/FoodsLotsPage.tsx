@@ -4,7 +4,7 @@ import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
 import { fmt, toDisplayId, formatCurrency, formatUiDate } from "../lib/format";
-import { fetchAllAdminLots, lotLifecycleLabel } from "../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass } from "../lib/lots";
 import { printModalContent } from "../lib/print";
 import type { Language, ApiError } from "../types/core";
 import type { AdminLotRow } from "../types/lots";
@@ -649,16 +649,30 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                                   <thead>
                                     <tr>
                                       <th>{dict.detail.lotNumber}</th>
+                                      <th>{dict.detail.lotLifecycle}</th>
+                                      <th>{dict.detail.lotQuantity}</th>
                                       <th>{dict.detail.lotProducedAt}</th>
                                       <th>{dict.detail.lotSaleWindow}</th>
+                                      <th>{dict.detail.lotActions}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {lots.map((lot) => (
                                       <tr key={lot.id}>
                                         <td>{lot.lot_number}</td>
+                                        <td>
+                                          <span className={`status-pill ${lotLifecycleClass(lot.lifecycle_status)}`}>
+                                            {lotLifecycleLabel(lot.lifecycle_status, language)}
+                                          </span>
+                                        </td>
+                                        <td>{`${lot.quantity_available}/${lot.quantity_produced}`}</td>
                                         <td>{formatUiDate(lot.produced_at, language)}</td>
                                         <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                                        <td>
+                                          <button className="ghost" type="button" onClick={() => openFoodDetail(food, lot.id)}>
+                                            {language === "tr" ? "Detay Göster" : "Show Detail"}
+                                          </button>
+                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
