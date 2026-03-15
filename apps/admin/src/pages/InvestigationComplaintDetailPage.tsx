@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
+import { getAdmin } from "../lib/auth";
 import { DICTIONARIES } from "../lib/i18n";
 import type { Language, ApiError } from "../types/core";
 
@@ -45,6 +46,7 @@ type ComplaintNote = {
 export default function InvestigationComplaintDetailPage({ language, complaintId }: { language: Language; complaintId: string }) {
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
+  const currentAdmin = getAdmin();
   const [detail, setDetail] = useState<ComplaintDetail | null>(null);
   const [notes, setNotes] = useState<ComplaintNote[]>([]);
   const [noteInput, setNoteInput] = useState("");
@@ -72,6 +74,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
   const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
   const categoryLabel = detail?.categoryName ?? dict.investigation.noCategory;
+  const currentAdminLabel = currentAdmin?.email ?? dict.investigation.unassigned;
 
   useEffect(() => {
     if (copyFeedback === "idle") return;
@@ -251,7 +254,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                           <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
                         </span>
                         <div className="complaint-quick-action-value">
-                          {detail.assignedAdminEmail ?? dict.investigation.unassigned}
+                          {currentAdminLabel}
                         </div>
                       </div>
                     </div>

@@ -8152,7 +8152,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .complaint-note-input--compact {
-  min-height: 48px;
+  min-height: 38px;
 }
 
 .complaint-empty-notes {
