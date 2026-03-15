@@ -236,7 +236,6 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           actorType: "buyer" as const,
           actorUserId: buyerId,
           actorBuyerId: buyerId,
-          subject: `${seller.displayName} teslimat gecikti`,
           description: `${seller.displayName} icin demo alici sikayeti: siparis planlanan saate gore gec teslim edildi.`,
           priority: "medium" as const,
           status: "open" as const,
@@ -245,7 +244,6 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           actorType: "buyer" as const,
           actorUserId: buyerId,
           actorBuyerId: buyerId,
-          subject: `${seller.displayName} porsiyon beklenenden kucuktu`,
           description: `${seller.displayName} icin demo alici sikayeti: urun boyutu beklentiyi karsilamadi.`,
           priority: "low" as const,
           status: sellerIndex === 2 ? "in_review" as const : "resolved" as const,
@@ -254,7 +252,6 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           actorType: "seller" as const,
           actorUserId: seller.id,
           actorBuyerId: null,
-          subject: `${seller.displayName} aliciya ulasilamadi`,
           description: `${seller.displayName} icin demo satici sikayeti: teslimat aninda aliciya ulasilamadi.`,
           priority: sellerIndex === 2 ? "high" as const : "medium" as const,
           status: "open" as const,
@@ -263,7 +260,6 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           actorType: "seller" as const,
           actorUserId: seller.id,
           actorBuyerId: null,
-          subject: `${seller.displayName} siparis degisikligi talebi`,
           description: `${seller.displayName} icin demo satici sikayeti: odeme sonrasinda kapsamli siparis degisikligi talep edildi.`,
           priority: "high" as const,
           status: "in_review" as const,
@@ -280,9 +276,9 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
            WHERE order_id = $1
              AND complainant_type = $2
              AND complainant_user_id = $3
-             AND subject = $4
+             AND description = $4
            LIMIT 1`,
-          [order.id, seed.actorType, seed.actorUserId, seed.subject]
+          [order.id, seed.actorType, seed.actorUserId, seed.description]
         );
         if ((existingComplaint.rowCount ?? 0) > 0) continue;
 
@@ -292,16 +288,15 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
              complainant_buyer_id,
              complainant_type,
              complainant_user_id,
-             subject,
              description,
              priority,
              status,
              created_at,
              updated_at
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() - ($9::int * interval '1 hour'), now())
+           VALUES ($1, $2, $3, $4, $5, $6, $7, now() - ($8::int * interval '1 hour'), now())
            RETURNING id::text`,
-          [order.id, seed.actorBuyerId, seed.actorType, seed.actorUserId, seed.subject, seed.description, seed.priority, seed.status, index + 1]
+          [order.id, seed.actorBuyerId, seed.actorType, seed.actorUserId, seed.description, seed.priority, seed.status, index + 1]
         );
         complaintsCreated += insertedComplaint.rowCount ?? 0;
       }

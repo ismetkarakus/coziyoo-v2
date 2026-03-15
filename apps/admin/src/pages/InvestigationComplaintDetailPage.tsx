@@ -20,7 +20,6 @@ type ComplaintDetail = {
   complainedAgainstUserId: string;
   complainedAgainstName: string;
   complainedAgainstEmail: string | null;
-  subject: string;
   description: string | null;
   categoryId: string | null;
   categoryCode: string | null;
@@ -233,7 +232,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                       </div>
                     </div>
                   </div>
-                  <h2 className="complaint-ticket-subject">{detail.subject}</h2>
                   <div className="complaint-choice-groups">
                     <div className="complaint-choice-group">
                       <span className="complaint-badge-label">{dict.investigation.complaintStatusLabel}</span>
@@ -317,10 +315,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     <div className="complaint-description-row">
                       <span className="complaint-detail-label">{dict.investigation.complaintCategory}</span>
                       <span className="complaint-description-value">{categoryLabel}</span>
-                    </div>
-                    <div className="complaint-description-row">
-                      <span className="complaint-detail-label">{dict.reviewQueue.subject}</span>
-                      <span className="complaint-description-value">{detail.subject}</span>
                     </div>
                   </div>
                 </div>

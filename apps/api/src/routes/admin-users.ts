@@ -171,8 +171,7 @@ const CreateComplaintSchema = z.object({
   complainantBuyerId: z.string().uuid().optional(),
   complainantType: ComplaintComplainantTypeSchema.optional(),
   complainantUserId: z.string().uuid().optional(),
-  subject: z.string().trim().min(3).max(300),
-  description: z.string().trim().max(4000).optional(),
+  description: z.string().trim().min(3).max(4000),
   categoryId: z.string().uuid().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   assignedAdminId: z.string().uuid().optional(),
@@ -202,7 +201,6 @@ const CreateComplaintSchema = z.object({
   }
 });
 const UpdateComplaintSchema = z.object({
-  subject: z.string().trim().min(3).max(300).optional(),
   description: z.string().trim().max(4000).nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
@@ -689,8 +687,7 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
   if (search && search.trim()) {
     params.push(`%${search.trim().toLowerCase()}%`);
     where.push(`(
-      lower(c.subject) LIKE $${params.length}
-      OR lower(COALESCE(c.description, '')) LIKE $${params.length}
+      lower(COALESCE(c.description, '')) LIKE $${params.length}
       OR lower(o.id::text) LIKE $${params.length}
       OR lower(COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text)) LIKE $${params.length}
       OR lower(COALESCE(cat.name, '')) LIKE $${params.length}
@@ -726,7 +723,6 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
     complainant_type: "buyer" | "seller";
     complainant_user_id: string;
     complainant_name: string | null;
-    subject: string;
     description: string | null;
     category_id: string | null;
     category_code: string | null;
@@ -746,7 +742,6 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
        ${COMPLAINANT_TYPE_SQL} AS complainant_type,
        COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) AS complainant_user_id,
        COALESCE(NULLIF(actor.display_name, ''), NULLIF(actor.full_name, ''), NULLIF(actor.email, ''), COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text)) AS complainant_name,
-       c.subject,
        c.description,
        c.category_id::text,
        cat.code AS category_code,
@@ -780,7 +775,6 @@ adminUserManagementRouter.get("/investigations/complaints", requireAuth("admin")
       complainantType: row.complainant_type,
       complainantUserId: row.complainant_user_id,
       complainantName: row.complainant_name ?? row.complainant_user_id,
-      subject: row.subject,
       description: row.description,
       categoryId: row.category_id,
       categoryCode: row.category_code,
@@ -843,7 +837,6 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
     complained_against_user_id: string;
     complained_against_name: string | null;
     complained_against_email: string | null;
-    subject: string;
     description: string | null;
     category_id: string | null;
     category_code: string | null;
@@ -877,7 +870,6 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
          WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN buyer_target.email
          ELSE seller_target.email
        END AS complained_against_email,
-       c.subject,
        c.description,
        c.category_id::text,
        cat.code AS category_code,
@@ -920,7 +912,6 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
       complainedAgainstUserId: row.complained_against_user_id,
       complainedAgainstName: row.complained_against_name ?? row.complained_against_email ?? row.complained_against_user_id,
       complainedAgainstEmail: row.complained_against_email,
-      subject: row.subject,
       description: row.description,
       categoryId: row.category_id,
       categoryCode: row.category_code,
@@ -1083,22 +1074,20 @@ adminUserManagementRouter.post("/investigations/complaints", requireAuth("admin"
        complainant_buyer_id,
        complainant_type,
        complainant_user_id,
-       subject,
        description,
        category_id,
        priority,
        assigned_admin_id,
        status
      )
-     VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9, 'open')
+     VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, 'open')
      RETURNING id::text, created_at::text`,
     [
       input.orderId,
       complainant.complainantBuyerId,
       complainant.complainantType,
       complainant.complainantUserId,
-      input.subject,
-      input.description ?? null,
+      input.description,
       input.categoryId ?? null,
       input.priority,
       input.assignedAdminId ?? null,
@@ -1144,19 +1133,17 @@ adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("a
   }>(
     `UPDATE complaints
      SET
-       subject = COALESCE($2, subject),
-       description = CASE WHEN $3::boolean THEN $4 ELSE description END,
-       category_id = CASE WHEN $5::boolean THEN $6 ELSE category_id END,
-       priority = COALESCE($7, priority),
-       status = COALESCE($8, status),
-       resolved_at = CASE WHEN $9::boolean THEN $10 ELSE resolved_at END,
-       resolution_note = CASE WHEN $11::boolean THEN $12 ELSE resolution_note END,
-       assigned_admin_id = CASE WHEN $13::boolean THEN $14 ELSE assigned_admin_id END
+       description = CASE WHEN $2::boolean THEN $3 ELSE description END,
+       category_id = CASE WHEN $4::boolean THEN $5 ELSE category_id END,
+       priority = COALESCE($6, priority),
+       status = COALESCE($7, status),
+       resolved_at = CASE WHEN $8::boolean THEN $9 ELSE resolved_at END,
+       resolution_note = CASE WHEN $10::boolean THEN $11 ELSE resolution_note END,
+       assigned_admin_id = CASE WHEN $12::boolean THEN $13 ELSE assigned_admin_id END
      WHERE id = $1
      RETURNING id::text, priority, status, resolved_at::text`,
     [
       params.data.id,
-      input.subject ?? null,
       input.description !== undefined,
       input.description ?? null,
       input.categoryId !== undefined,
@@ -1566,7 +1553,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
     ),
     safeQuery<{
       id: string;
-      subject: string;
+      description: string | null;
       status: string;
       order_id: string;
       complainant_type: "buyer" | "seller";
@@ -1578,7 +1565,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       "complaints",
       `SELECT
          c.id::text,
-         c.subject,
+         c.description,
          c.status,
          c.order_id::text,
          ${COMPLAINANT_TYPE_SQL} AS complainant_type,
@@ -1592,7 +1579,6 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
          lower(c.id::text) LIKE $1
          OR lower(c.order_id::text) LIKE $1
          OR lower('#' || substring(c.order_id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
-         OR lower(c.subject) LIKE $1
          OR lower(coalesce(c.description, '')) LIKE $1
          OR regexp_replace(lower(c.id::text), '[^a-z0-9]', '', 'g') LIKE $2
          OR regexp_replace(lower(c.order_id::text), '[^a-z0-9]', '', 'g') LIKE $2
@@ -1641,7 +1627,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
     complaints.rows.map((row) => ({
       kind: "complaint",
       id: row.id,
-      primaryText: row.subject,
+      primaryText: row.description?.trim() || `Complaint #${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       secondaryText: `${row.status} • order #${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()} • ${row.complainant_name || row.complainant_email || row.complainant_type}`,
       targetPath: `/app/investigation/${row.id}`,
     })),
@@ -1788,7 +1774,6 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     monthly_spent_previous: string;
     last_online_at: string | null;
     latest_complaint_id: string | null;
-    latest_complaint_subject: string | null;
     latest_complaint_description: string | null;
     latest_complaint_status: string | null;
     latest_complaint_created_at: string | null;
@@ -1837,7 +1822,6 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
          )
        ) AS last_online_at,
        latest_complaint.id AS latest_complaint_id,
-       latest_complaint.subject AS latest_complaint_subject,
        latest_complaint.description AS latest_complaint_description,
        latest_complaint.status AS latest_complaint_status,
        latest_complaint.created_at AS latest_complaint_created_at,
@@ -1921,7 +1905,6 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
      LEFT JOIN LATERAL (
        SELECT
          c.id::text AS id,
-         c.subject,
          c.description,
          c.status,
          c.created_at::text AS created_at,
@@ -1973,7 +1956,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       monthlySpentPrevious: Number(row.monthly_spent_previous ?? 0),
       lastOnlineAt: row.last_online_at,
       latestComplaintId: row.latest_complaint_id,
-      latestComplaintSubject: row.latest_complaint_subject,
+      latestComplaintSubject: row.latest_complaint_description,
       latestComplaintDescription: row.latest_complaint_description,
       latestComplaintStatus: row.latest_complaint_status,
       latestComplaintCreatedAt: row.latest_complaint_created_at,
@@ -3662,7 +3645,6 @@ adminUserManagementRouter.get("/users/:id/buyer-complaints", requireAuth("admin"
   const rows = await pool.query<{
     id: string;
     order_id: string;
-    subject: string;
     description: string | null;
     category_id: string | null;
     category_code: string | null;
@@ -3675,7 +3657,6 @@ adminUserManagementRouter.get("/users/:id/buyer-complaints", requireAuth("admin"
     `SELECT
        c.id::text,
        c.order_id::text,
-       c.subject,
        c.description,
        c.category_id::text,
        cat.code AS category_code,
@@ -3699,7 +3680,6 @@ adminUserManagementRouter.get("/users/:id/buyer-complaints", requireAuth("admin"
       id: row.id,
       orderId: row.order_id,
       orderNo: `#${row.order_id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
-      subject: row.subject,
       description: row.description,
       categoryId: row.category_id,
       categoryCode: row.category_code,

@@ -55,7 +55,6 @@ export type BuyerComplaintRow = {
   id: string;
   orderId: string;
   orderNo: string;
-  subject: string;
   description: string | null;
   categoryId: string | null;
   categoryCode: string | null;

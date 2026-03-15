@@ -52,7 +52,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   type ComplaintCategory = { id: string; code: string; name: string };
   const [ticketCategories, setTicketCategories] = useState<ComplaintCategory[]>([]);
   const [ticketOrderId, setTicketOrderId] = useState("");
-  const [ticketSubject, setTicketSubject] = useState("");
   const [ticketDescription, setTicketDescription] = useState("");
   const [ticketPriority, setTicketPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
   const [ticketCategoryId, setTicketCategoryId] = useState("");
@@ -506,8 +505,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }
 
   async function submitTicket() {
-    if (!ticketOrderId || !ticketSubject.trim()) {
-      setTicketError("Siparis ve konu zorunludur.");
+    if (!ticketOrderId || !ticketDescription.trim()) {
+      setTicketError("Siparis ve aciklama zorunludur.");
       return;
     }
     setTicketSubmitting(true);
@@ -519,8 +518,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         body: JSON.stringify({
           orderId: ticketOrderId,
           complainantBuyerId: id,
-          subject: ticketSubject.trim(),
-          description: ticketDescription.trim() || undefined,
+          description: ticketDescription.trim(),
           priority: ticketPriority,
           categoryId: ticketCategoryId || undefined,
         }),
@@ -531,7 +529,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         return;
       }
       setTicketSuccess({ id: body.data.id });
-      setTicketSubject("");
       setTicketDescription("");
       setTicketOrderId("");
       setTicketCategoryId("");
@@ -785,7 +782,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   <thead>
                     <tr>
                       <th>Tarih / Saat</th>
-                      <th>Sikayet</th>
+                      <th>Aciklama</th>
                       <th>Siparis No</th>
                       <th>Kategori</th>
                       <th>Durum</th>
@@ -797,7 +794,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                     ) : complaints.map((item) => (
                       <tr key={item.id}>
                         <td>{formatDateTime(item.createdAt)}</td>
-                        <td>{item.subject}</td>
+                        <td>{item.description?.trim() || "-"}</td>
                         <td className="buyer-order-no">{item.orderNo}</td>
                         <td>{item.categoryName ?? item.categoryCode ?? "-"}</td>
                         <td>{item.status}</td>
@@ -897,23 +894,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   </label>
 
                   <label className="create-ticket-field">
-                    <span className="complaint-detail-label">Konu *</span>
-                    <input
-                      type="text"
-                      value={ticketSubject}
-                      onChange={(e) => setTicketSubject(e.target.value)}
-                      placeholder="Şikayet konusu..."
-                      maxLength={300}
-                      disabled={ticketSubmitting}
-                    />
-                  </label>
-
-                  <label className="create-ticket-field">
-                    <span className="complaint-detail-label">Açıklama</span>
+                    <span className="complaint-detail-label">Açıklama *</span>
                     <textarea
                       value={ticketDescription}
                       onChange={(e) => setTicketDescription(e.target.value)}
-                      placeholder="Detaylar (isteğe bağlı)..."
+                      placeholder="Detayları girin..."
                       rows={4}
                       disabled={ticketSubmitting}
                     />
@@ -956,7 +941,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   <button
                     className="primary"
                     type="button"
-                    disabled={ticketSubmitting || !ticketOrderId || !ticketSubject.trim()}
+                    disabled={ticketSubmitting || !ticketOrderId || !ticketDescription.trim()}
                     onClick={() => void submitTicket()}
                   >
                     {ticketSubmitting ? "Kaydediliyor..." : "Talebi Oluştur"}

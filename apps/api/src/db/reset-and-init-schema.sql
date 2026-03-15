@@ -375,7 +375,6 @@ CREATE TABLE public.complaints (
     complainant_buyer_id uuid,
     complainant_type text NOT NULL,
     complainant_user_id uuid NOT NULL,
-    subject text NOT NULL,
     status text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     description text,

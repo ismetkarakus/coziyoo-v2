@@ -16,7 +16,6 @@ type ComplaintRow = {
   complainantType: "buyer" | "seller";
   complainantUserId: string;
   complainantName?: string;
-  subject: string;
   categoryName?: string | null;
   createdAt: string;
   status: ComplaintStatus;

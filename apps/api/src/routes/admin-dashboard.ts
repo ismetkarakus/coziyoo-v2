@@ -120,7 +120,7 @@ adminDashboardRouter.get("/dashboard/review-queue", requireAuth("admin"), async 
       id: string;
       order_id: string;
       buyer_name: string | null;
-      subject: string;
+      description: string | null;
       priority: "low" | "medium" | "high" | "urgent";
       status: "open" | "in_review";
       created_at: string;
@@ -129,7 +129,7 @@ adminDashboardRouter.get("/dashboard/review-queue", requireAuth("admin"), async 
          c.id::text,
          c.order_id::text,
          COALESCE(NULLIF(b.display_name, ''), NULLIF(b.full_name, ''), NULLIF(b.email, ''), c.complainant_buyer_id::text) AS buyer_name,
-         c.subject,
+         c.description,
          c.priority,
          c.status,
          c.created_at::text
@@ -211,7 +211,7 @@ adminDashboardRouter.get("/dashboard/review-queue", requireAuth("admin"), async 
         id: row.id,
         orderId: row.order_id,
         buyerName: row.buyer_name ?? row.order_id,
-        subject: row.subject,
+        description: row.description,
         priority: row.priority,
         status: row.status,
         createdAt: row.created_at,

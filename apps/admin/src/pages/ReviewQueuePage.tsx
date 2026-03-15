@@ -27,7 +27,7 @@ type ComplaintQueueRow = {
   id: string;
   orderId: string;
   buyerName: string;
-  subject: string;
+  description: string | null;
   priority: "low" | "medium" | "high" | "urgent";
   status: "open" | "in_review";
   createdAt: string;
@@ -195,7 +195,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
               <thead>
                 <tr>
                   <th>{dict.reviewQueue.buyer}</th>
-                  <th>{dict.reviewQueue.subject}</th>
+                  <th>{dict.investigation.reasonDescription}</th>
                   <th>{dict.reviewQueue.priority}</th>
                   <th>{dict.reviewQueue.status}</th>
                   <th>{dict.reviewQueue.action}</th>
@@ -211,7 +211,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                   return (
                     <tr key={row.id}>
                       <td>{row.buyerName}</td>
-                      <td>{row.subject}</td>
+                      <td>{row.description?.trim() || "-"}</td>
                       <td>{priorityLabel(language, row.priority)}</td>
                       <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
                       <td><button className="ghost" type="button" onClick={() => navigate(`/app/investigation/${row.id}`)}>{dict.reviewQueue.detail}</button></td>
