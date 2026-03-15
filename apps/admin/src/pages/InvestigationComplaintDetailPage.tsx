@@ -292,7 +292,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
             <div className="complaint-summary-divider" />
 
             <div className="complaint-description-header">
-              <h2>{dict.investigation.reasonDescription}</h2>
               <div className="complaint-description-meta">
                 <div className="complaint-description-row">
                   <span className="complaint-detail-label">{dict.investigation.complaintCategory}</span>
@@ -300,6 +299,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </div>
               </div>
             </div>
+            <span className="complaint-detail-label complaint-description-label">{dict.investigation.reasonDescription}</span>
             <p className="complaint-description-body">{descriptionText}</p>
 
             <div className="complaint-summary-divider" />

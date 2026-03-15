@@ -8353,15 +8353,14 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .complaint-description-value {
   color: #dbe5fa;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-medium);
   text-align: left;
 }
 
-.complaint-description-header h2 {
-  margin: 0;
-  font-size: clamp(1rem, 1.25vw, 1.1rem);
-  font-weight: var(--font-semibold);
+.complaint-description-label {
+  display: inline-flex;
+  margin-top: -2px;
 }
 
 .complaint-description-card,
