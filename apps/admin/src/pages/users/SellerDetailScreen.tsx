@@ -1822,6 +1822,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <div>
                     <strong>{item.label}</strong>
                     <p className="panel-meta">{item.detailText}</p>
+                    {item.sourceRejectionReason ? (
+                      <p className="panel-meta legal-doc-note">
+                        {item.sourceDocumentStatus === "rejected"
+                          ? dict.detail.legalRejectionReason
+                          : dict.detail.legalPendingReason}
+                        {": "}
+                        {item.sourceRejectionReason}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="legal-doc-actions">
                     <button
@@ -1929,7 +1938,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         <th>{dict.detail.legalStatus}</th>
                         <th>{dict.detail.legalExpiresAt}</th>
                         <th>{dict.detail.legalReviewedAt}</th>
-                        <th>{dict.detail.legalRejectionReason}</th>
+                        <th>{dict.detail.legalNote}</th>
                         <th>{dict.detail.legalActions}</th>
                       </tr>
                     </thead>
@@ -2026,7 +2035,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         <th>{dict.detail.legalFile}</th>
                         <th>{dict.detail.legalStatus}</th>
                         <th>{dict.detail.legalReviewedAt}</th>
-                        <th>{dict.detail.legalRejectionReason}</th>
+                        <th>{dict.detail.legalNote}</th>
                         <th>{dict.detail.legalActions}</th>
                       </tr>
                     </thead>

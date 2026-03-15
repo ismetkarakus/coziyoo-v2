@@ -530,6 +530,7 @@
     "legalReviewedAt": "İnceleme",
     "legalRejectionReason": "Red Nedeni",
     "legalPendingReason": "Bekleme Alma Nedeni",
+    "legalNote": "Gerekçe",
     "legalFile": "Dosya",
     "legalOpenFile": "Dosyayı Aç",
     "legalHistorical": "Eski Versiyon",

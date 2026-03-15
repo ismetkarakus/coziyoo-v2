@@ -130,7 +130,7 @@ export function mapComplianceRows(
   const checks = payload?.checks ?? [];
 
   const docByKey = new Map<ComplianceRowKey, ComplianceSource>();
-  const docMetaByKey = new Map<ComplianceRowKey, { id: string; fileUrl: string | null; status: SellerComplianceDocumentStatus }>();
+  const docMetaByKey = new Map<ComplianceRowKey, { id: string; fileUrl: string | null; status: SellerComplianceDocumentStatus; rejectionReason: string | null }>();
   const checkByKey = new Map<ComplianceRowKey, ComplianceSource>();
 
   const keyMatchers: Array<{ key: ComplianceRowKey; tokens: string[] }> = [
@@ -183,6 +183,7 @@ export function mapComplianceRows(
         id: doc.id,
         fileUrl: doc.file_url,
         status: doc.status,
+        rejectionReason: doc.rejection_reason ?? null,
       });
     }
   }
@@ -257,6 +258,7 @@ export function mapComplianceRows(
       sourceDocumentId: docMeta?.id ?? null,
       sourceFileUrl: docMeta?.fileUrl ?? null,
       sourceDocumentStatus: docMeta?.status ?? null,
+      sourceRejectionReason: docMeta?.rejectionReason ?? null,
     };
   });
 }

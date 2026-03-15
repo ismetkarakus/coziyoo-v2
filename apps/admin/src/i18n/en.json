@@ -530,6 +530,7 @@
     "legalReviewedAt": "Reviewed At",
     "legalRejectionReason": "Rejection Reason",
     "legalPendingReason": "Reason for Hold",
+    "legalNote": "Note",
     "legalFile": "File",
     "legalOpenFile": "Open File",
     "legalHistorical": "Historical",
