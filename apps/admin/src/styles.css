@@ -7425,6 +7425,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .foods-lots-expanded-row .seller-food-lots-table-wrap {
+  margin-left: 40px;
   border-radius: 0;
   border: 1px solid var(--color-border);
   background: var(--color-card-bg);
