@@ -287,6 +287,44 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     <strong className="complaint-summary-info-value">{complaintDate}</strong>
                   </div>
                 </div>
+                <div className="complaint-summary-divider" />
+
+                <div className="complaint-quick-actions-inline">
+                  <div className="complaint-quick-actions-title">{dict.investigation.quickActions}</div>
+
+                  <label className="complaint-field-block complaint-field-block--inline">
+                    <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
+                    <select
+                      value={detail.status}
+                      disabled={savingStatus}
+                      onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>{statusText(status)}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="complaint-field-block complaint-field-block--inline">
+                    <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
+                    <select
+                      value={detail.priority}
+                      disabled={savingPriority}
+                      onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
+                    >
+                      {priorityOptions.map((priority) => (
+                        <option key={priority} value={priority}>{priorityText(priority)}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="complaint-field-block complaint-field-block--inline">
+                    <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
+                    <div className="complaint-readonly-value">
+                      {detail.assignedAdminEmail ?? dict.investigation.unassigned}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="complaint-person-grid">
@@ -323,43 +361,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     </div>
                   </div>
                 </button>
-              </div>
-
-              <div className="complaint-quick-actions-inline">
-                <div className="complaint-quick-actions-title">{dict.investigation.quickActions}</div>
-
-                <label className="complaint-field-block complaint-field-block--inline">
-                  <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
-                  <select
-                    value={detail.status}
-                    disabled={savingStatus}
-                    onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>{statusText(status)}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="complaint-field-block complaint-field-block--inline">
-                  <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
-                  <select
-                    value={detail.priority}
-                    disabled={savingPriority}
-                    onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
-                  >
-                    {priorityOptions.map((priority) => (
-                      <option key={priority} value={priority}>{priorityText(priority)}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="complaint-field-block complaint-field-block--inline">
-                  <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
-                  <div className="complaint-readonly-value">
-                    {detail.assignedAdminEmail ?? dict.investigation.unassigned}
-                  </div>
-                </div>
               </div>
 
               <div className="complaint-content-card complaint-description-card">
