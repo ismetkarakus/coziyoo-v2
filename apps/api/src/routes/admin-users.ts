@@ -1102,7 +1102,12 @@ adminUserManagementRouter.patch("/investigations/complaints/:id", requireAuth("a
 
   const input = parsed.data;
   const status = input.status;
-  const priorityValue = input.priority ?? ((status === "resolved" || status === "closed") ? "low" : undefined);
+  const priorityValue = input.priority
+    ?? ((status === "resolved" || status === "closed")
+      ? "low"
+      : (status === "open" || status === "in_review")
+        ? "medium"
+        : undefined);
   const resolvedAtValue = input.resolvedAt !== undefined
     ? input.resolvedAt
     : (status === "resolved" || status === "closed" ? new Date() : undefined);
