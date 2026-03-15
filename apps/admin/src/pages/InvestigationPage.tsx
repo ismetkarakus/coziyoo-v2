@@ -66,9 +66,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
 
   async function downloadComplaintsAsExcel() {
     try {
-      const exportQuery = new URLSearchParams({
-        page: "1",
-        pageSize: "5000",
+      const baseParams = {
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(presetBuyerId ? { complainantBuyerId: presetBuyerId } : {}),
         ...(presetComplainantType && presetComplainantUserId
@@ -79,14 +77,40 @@ export default function InvestigationPage({ language }: { language: Language }) 
         ...(searchInput.trim() ? { search: searchInput.trim() } : {}),
         ...(fromDate ? { from: fromDate } : {}),
         ...(toDate ? { to: toDate } : {}),
+      };
+
+      const firstQuery = new URLSearchParams({
+        page: "1",
+        pageSize: "100",
+        ...baseParams,
       });
-      const response = await request(`/v1/admin/investigations/complaints?${exportQuery.toString()}`);
-      const body = await parseJson<{ data?: ComplaintRow[] } & ApiError>(response);
-      if (response.status !== 200 || !body.data) {
-        setError(body.error?.message ?? dict.investigation.requestFailed);
+      const firstResponse = await request(`/v1/admin/investigations/complaints?${firstQuery.toString()}`);
+      const firstBody = await parseJson<{
+        data?: ComplaintRow[];
+        pagination?: { totalPages: number };
+      } & ApiError>(firstResponse);
+      if (firstResponse.status !== 200 || !firstBody.data || !firstBody.pagination) {
+        setError(firstBody.error?.message ?? dict.investigation.requestFailed);
         return;
       }
-      if (body.data.length === 0) {
+
+      const exportedRows: ComplaintRow[] = [...firstBody.data];
+      for (let currentPage = 2; currentPage <= firstBody.pagination.totalPages; currentPage += 1) {
+        const query = new URLSearchParams({
+          page: String(currentPage),
+          pageSize: "100",
+          ...baseParams,
+        });
+        const response = await request(`/v1/admin/investigations/complaints?${query.toString()}`);
+        const body = await parseJson<{ data?: ComplaintRow[] } & ApiError>(response);
+        if (response.status !== 200 || !body.data) {
+          setError(body.error?.message ?? dict.investigation.requestFailed);
+          return;
+        }
+        exportedRows.push(...body.data);
+      }
+
+      if (exportedRows.length === 0) {
         setError(dict.common.noRecords);
         return;
       }
@@ -100,7 +124,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
         dict.reviewQueue.status,
         dict.investigation.priorityLabel,
       ];
-      const rowsForExport = body.data.map((row) => [
+      const rowsForExport = exportedRows.map((row) => [
         `#${row.ticketNo}`,
         row.orderNo,
         row.complainantName ?? row.complainantUserId,
