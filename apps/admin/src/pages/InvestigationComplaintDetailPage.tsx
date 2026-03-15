@@ -242,7 +242,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
         {error ? <div className="alert">{error}</div> : null}
 
         {detail ? (
-          <div className="complaint-ticket-layout complaint-ticket-layout--refresh">
+          <div className="complaint-ticket-layout complaint-ticket-layout--refresh complaint-ticket-layout--single">
             <div className="complaint-ticket-main">
               <div className="complaint-summary-card">
                 <div className="complaint-summary-meta">
@@ -325,6 +325,43 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </button>
               </div>
 
+              <div className="complaint-quick-actions-inline">
+                <div className="complaint-quick-actions-title">{dict.investigation.quickActions}</div>
+
+                <label className="complaint-field-block complaint-field-block--inline">
+                  <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
+                  <select
+                    value={detail.status}
+                    disabled={savingStatus}
+                    onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
+                  >
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>{statusText(status)}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="complaint-field-block complaint-field-block--inline">
+                  <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
+                  <select
+                    value={detail.priority}
+                    disabled={savingPriority}
+                    onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
+                  >
+                    {priorityOptions.map((priority) => (
+                      <option key={priority} value={priority}>{priorityText(priority)}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="complaint-field-block complaint-field-block--inline">
+                  <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
+                  <div className="complaint-readonly-value">
+                    {detail.assignedAdminEmail ?? dict.investigation.unassigned}
+                  </div>
+                </div>
+              </div>
+
               <div className="complaint-content-card complaint-description-card">
                 <div className="panel-header complaint-description-header">
                   <h2>{dict.investigation.reasonDescription}</h2>
@@ -404,47 +441,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                   </div>
                 </div>
               ) : null}
-            </div>
-
-            <div className="complaint-ticket-side">
-              <div className="complaint-side-card">
-                <div className="panel-header">
-                  <h2>{dict.investigation.quickActions}</h2>
-                </div>
-
-                <label className="complaint-field-block">
-                  <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
-                  <select
-                    value={detail.status}
-                    disabled={savingStatus}
-                    onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>{statusText(status)}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="complaint-field-block">
-                  <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
-                  <select
-                    value={detail.priority}
-                    disabled={savingPriority}
-                    onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
-                  >
-                    {priorityOptions.map((priority) => (
-                      <option key={priority} value={priority}>{priorityText(priority)}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="complaint-field-block">
-                  <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
-                  <div className="complaint-readonly-value">
-                    {detail.assignedAdminEmail ?? dict.investigation.unassigned}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         ) : null}

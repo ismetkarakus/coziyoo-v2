@@ -7795,11 +7795,29 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   gap: 24px;
 }
 
+.complaint-ticket-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .complaint-ticket-main,
 .complaint-ticket-side {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.complaint-quick-actions-inline {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.complaint-quick-actions-title {
+  color: #f6f8fd;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  margin-right: 4px;
 }
 
 .complaint-summary-card,
@@ -8066,8 +8084,17 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   gap: 8px;
 }
 
+.complaint-field-block--inline {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
 .complaint-field-block + .complaint-field-block {
   margin-top: 16px;
+}
+
+.complaint-field-block--inline + .complaint-field-block--inline {
+  margin-top: 0;
 }
 
 .complaint-readonly-value {
