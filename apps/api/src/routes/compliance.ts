@@ -1594,7 +1594,14 @@ adminComplianceRouter.patch("/:sellerId/optional-uploads/:uploadId", requireAuth
            ELSE FALSE
          END,
          reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
-         reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
+         reviewed_by_admin_id = CASE
+           WHEN $3 IN ('approved', 'rejected') THEN (
+             SELECT id
+             FROM admin_users
+             WHERE id = $5
+           )
+           ELSE NULL
+         END,
          updated_at = now()
        WHERE id = $1
          AND seller_id = $2
@@ -1734,7 +1741,14 @@ adminComplianceRouter.patch("/:sellerId/documents/:documentId", requireAuth("adm
            ELSE FALSE
          END,
          reviewed_at = CASE WHEN $3 IN ('approved', 'rejected') THEN now() ELSE NULL END,
-         reviewed_by_admin_id = CASE WHEN $3 IN ('approved', 'rejected') THEN $5 ELSE NULL END,
+         reviewed_by_admin_id = CASE
+           WHEN $3 IN ('approved', 'rejected') THEN (
+             SELECT id
+             FROM admin_users
+             WHERE id = $5
+           )
+           ELSE NULL
+         END,
          notes = CASE WHEN $6::boolean THEN $7 ELSE notes END,
          updated_at = now()
        WHERE id = $1
