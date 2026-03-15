@@ -7424,6 +7424,28 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   padding-left: 52px;
 }
 
+.foods-lots-expanded-row .seller-food-lots-table-wrap {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-card-bg);
+  box-shadow: none;
+}
+
+.foods-lots-expanded-row .seller-food-lots-table {
+  font-size: var(--text-sm);
+}
+
+.foods-lots-expanded-row .seller-food-lots-table thead th {
+  background: color-mix(in srgb, var(--color-card-bg) 90%, #ffffff 10%);
+  font-weight: 600;
+}
+
+.foods-lots-expanded-row .seller-food-lots-table th,
+.foods-lots-expanded-row .seller-food-lots-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
 .foods-toggle-btn {
   min-width: 34px;
   padding: 4px 10px;

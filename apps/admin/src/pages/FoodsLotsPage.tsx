@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
@@ -10,7 +10,6 @@ import type { Language, ApiError } from "../types/core";
 import type { AdminLotRow } from "../types/lots";
 
 export default function FoodsLotsPage({ language }: { language: Language }) {
-  const navigate = useNavigate();
   const location = useLocation();
   const dict = DICTIONARIES[language];
   const [rows, setRows] = useState<
@@ -356,15 +355,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     });
   }
 
-  function openSellerFoodDetail(food: { sellerId: string; id: string }, focusLotId?: string) {
-    const sellerId = String(food.sellerId ?? "").trim();
-    const foodId = String(food.id ?? "").trim();
-    if (!sellerId || !foodId) return;
-    const query = new URLSearchParams({ tab: "foods", focusFoodId: foodId });
-    if (focusLotId) query.set("focusLotId", focusLotId);
-    navigate(`/app/sellers/${sellerId}?${query.toString()}`);
-  }
-
   function openFoodDetail(food: {
     id: string;
     code: string;
@@ -586,7 +576,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               ) : (
                 rows.map((food) => {
                   const lots = lotsByFoodId[food.id] ?? [];
-                  const resolvedFoodCode = food.code || `F-${String(food.id).slice(0, 8)}`;
                   const activeLots = lots.filter((lot) => lot.lifecycle_status === "on_sale").length;
                   const recalledLots = lots.filter((lot) => lot.lifecycle_status === "recalled").length;
                   const foodExpanded = Boolean(expandedFoodIds[food.id]);
@@ -648,27 +637,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                       {foodExpanded ? (
                         <tr className="foods-lots-expanded-row">
                           <td colSpan={10}>
-                            <div className="seller-food-codes-card">
-                              <strong>{language === "tr" ? "Kodlar & Yemek ID" : "Codes & Food ID"}</strong>
-                              <div className="seller-food-codes-list">
-                                <button className="seller-food-code-chip is-id is-link" type="button" onClick={() => openSellerFoodDetail(food)}>
-                                  {`ID: ${food.id}`}
-                                </button>
-                                <button className="seller-food-code-chip is-food is-link" type="button" onClick={() => openSellerFoodDetail(food)}>
-                                  {`${language === "tr" ? "Yemek Kodu" : "Food Code"}: ${resolvedFoodCode}`}
-                                </button>
-                                {lots.map((lot) => (
-                                  <button
-                                    key={`code-${food.id}-${lot.id}`}
-                                    className="seller-food-code-chip is-lot is-link"
-                                    type="button"
-                                    onClick={() => openSellerFoodDetail(food, lot.id)}
-                                  >
-                                    {`${language === "tr" ? "Lot" : "Lot"}: ${lot.lot_number}`}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
                             {lotsLoadingByFoodId[food.id] ? (
                               <p className="panel-meta">{dict.common.loading}</p>
                             ) : lotsErrorByFoodId[food.id] ? (
@@ -683,7 +651,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                                       <th>{dict.detail.lotNumber}</th>
                                       <th>{dict.detail.lotProducedAt}</th>
                                       <th>{dict.detail.lotSaleWindow}</th>
-                                      <th>{dict.detail.lotActions}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -692,11 +659,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                                         <td>{lot.lot_number}</td>
                                         <td>{formatUiDate(lot.produced_at, language)}</td>
                                         <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
-                                        <td>
-                                          <button className="ghost" type="button" onClick={() => openFoodDetail(food, lot.id)}>
-                                            {language === "tr" ? "Detay Göster" : "Show Detail"}
-                                          </button>
-                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
