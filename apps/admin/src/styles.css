@@ -8286,9 +8286,9 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .complaint-description-body {
   margin: 0;
   border-radius: 12px;
-  border: 1px solid #cbd5e1;
-  background: #eef2f7;
-  color: #111827;
+  border: 1px solid var(--color-input-border);
+  background: color-mix(in srgb, var(--color-subtle-bg) 62%, transparent);
+  color: var(--color-text);
   padding: 12px 14px;
   line-height: 1.55;
   white-space: pre-wrap;
