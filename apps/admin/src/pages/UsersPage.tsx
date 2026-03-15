@@ -1456,12 +1456,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           />
                         </td>
                         <td>{toDisplayId(row.id)}</td>
-                        <td>
+                        <td
+                          className="cell-link"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=general`); }}
+                        >
                           <div className="buyer-user-cell">
                             <strong className="buyer-user-name" title={displayNameRaw}>{normalizedDisplayName}</strong>
                           </div>
                         </td>
-                        <td>
+                        <td
+                          className="cell-link"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=complaints`); }}
+                        >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{totalComplaints}</strong>
@@ -1472,7 +1478,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </span>
                           )}
                         </td>
-                        <td>
+                        <td
+                          className="cell-link"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=complaints`); }}
+                        >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{unresolved}</strong>
@@ -1487,7 +1496,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </div>
                           )}
                         </td>
-                        <td>
+                        <td
+                          className="cell-link"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=${isOpenComplaintView ? "complaints" : "orders"}`); }}
+                        >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
                               <strong>{buyerLatestComplaintId(row) ? toDisplayId(buyerLatestComplaintId(row)) : "-"}</strong>
@@ -1502,7 +1514,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </div>
                           )}
                         </td>
-                        <td>
+                        <td
+                          className="cell-link"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=${isOpenComplaintView ? "complaints" : "payments"}`); }}
+                        >
                           {isOpenComplaintView ? (
                             <div className="buyer-login-cell">
                               <strong>{formatLoginRelativeDayMonth(String(row.latestComplaintCreatedAt ?? ""), language)}</strong>
@@ -1515,7 +1530,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </div>
                           )}
                         </td>
-                        <td>
+                        <td
+                          className="cell-link"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=${isOpenComplaintView ? "complaints" : "activity"}`); }}
+                        >
                           <div className="buyer-login-cell">
                             {isOpenComplaintView ? (
                               <span className={`status-pill ${unresolved > 0 ? "is-warning" : "is-neutral"}`}>
