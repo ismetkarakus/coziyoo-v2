@@ -80,6 +80,14 @@
 - **REL-02**: Structured outcome signals (order_placed / no_order / error) from n8n to API
 - **REL-03**: Outbox pattern for reliable event delivery if n8n is temporarily unavailable
 
+### Lots in Foods (LOTS)
+
+- [ ] **LOTS-01**: Inline lot rows in FoodsLotsPage show lifecycle status (color-coded pill using `lotLifecycleClass()`), quantity available/produced, and sale window
+- [ ] **LOTS-02**: Variation badge appears on lot rows when `computeFoodLotDiff()` detects that a lot's snapshot differs from the current food recipe, ingredients, or allergens
+- [ ] **LOTS-03**: Lot detail modal highlights which specific fields (recipe / ingredients / allergens) changed versus the current food recipe, using `computeFoodLotDiff()` diff result
+- [ ] **LOTS-04**: Main foods table has a "has variations" filter that shows only foods with at least one lot whose snapshot differs from the current food
+- [ ] **LOTS-05**: Excel export for lot detail includes diff status (recipe changed / ingredients changed / allergens changed) per lot row
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -125,11 +133,17 @@ Updated during roadmap creation.
 | MEM-02 | Phase 7 | Pending |
 | MEM-03 | Phase 7 | Pending |
 | MEM-04 | Phase 7 | Pending |
+| LOTS-01 | Phase 8 | Pending |
+| LOTS-02 | Phase 8 | Pending |
+| LOTS-03 | Phase 8 | Pending |
+| LOTS-04 | Phase 8 | Pending |
+| LOTS-05 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 28 total
 - Mapped to phases: 28
 - Unmapped: 0 ✓
+- Phase 8 (LOTS): 5 requirements added 2026-03-15
 
 ---
 *Requirements defined: 2026-03-12*
