@@ -1786,6 +1786,10 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
     recent_login_primary_ip: string | null;
     recent_login_shared_ip: string | null;
     recent_login_location_spread: boolean;
+    avg_rating: string | null;
+    avg_rating_current: string | null;
+    avg_rating_previous: string | null;
+    review_count: string;
   }>(
     `SELECT
        u.id,
@@ -1833,7 +1837,11 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        COALESCE(login_stats.recent_login_ip_count_24h, 0)::int AS recent_login_ip_count_24h,
        login_stats.recent_login_primary_ip,
        login_stats.recent_login_shared_ip,
-       COALESCE(login_stats.recent_login_location_spread, FALSE) AS recent_login_location_spread
+       COALESCE(login_stats.recent_login_location_spread, FALSE) AS recent_login_location_spread,
+       review_stats.avg_rating,
+       review_stats.avg_rating_current,
+       review_stats.avg_rating_previous,
+       COALESCE(review_stats.review_count, 0)::text AS review_count
      FROM users u
      LEFT JOIN LATERAL (
        SELECT count(*)::int AS total_foods
@@ -1920,6 +1928,15 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        ORDER BY c.created_at DESC, c.id DESC
        LIMIT 1
      ) latest_complaint ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         avg(r.rating)::numeric(3,2) AS avg_rating,
+         avg(r.rating) FILTER (WHERE r.created_at >= now() - interval '30 days')::numeric(3,2) AS avg_rating_current,
+         avg(r.rating) FILTER (WHERE r.created_at < now() - interval '30 days' AND r.created_at >= now() - interval '60 days')::numeric(3,2) AS avg_rating_previous,
+         count(*)::text AS review_count
+       FROM reviews r
+       WHERE r.seller_id = u.id
+     ) review_stats ON TRUE
      ${whereSql}
      ORDER BY ${sortField} ${sortDir}, u.id ${sortDir}
      LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
@@ -1969,6 +1986,11 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
       recentLoginPrimaryIp: row.recent_login_primary_ip,
       recentLoginSharedIp: row.recent_login_shared_ip,
       recentLoginLocationSpread: Boolean(row.recent_login_location_spread),
+      avgRating: row.avg_rating !== null ? Number(row.avg_rating) : null,
+      reviewCount: Number(row.review_count ?? 0),
+      ratingTrend: row.avg_rating_current !== null && row.avg_rating_previous !== null
+        ? Number(row.avg_rating_current) - Number(row.avg_rating_previous)
+        : null,
     })),
     pagination: {
       mode: "offset",
@@ -2037,6 +2059,8 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
     created_at: string;
     updated_at: string;
     total_foods: number;
+    avg_rating: string | null;
+    review_count: string;
   }>(
     `SELECT
        id,
@@ -2057,7 +2081,9 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
          SELECT count(*)::int
          FROM foods f
          WHERE f.seller_id = users.id
-       ) AS total_foods
+       ) AS total_foods,
+       (SELECT avg(r.rating)::numeric(3,2) FROM reviews r WHERE r.seller_id = users.id) AS avg_rating,
+       (SELECT count(*)::text FROM reviews r WHERE r.seller_id = users.id) AS review_count
      FROM users
      WHERE id = $1`,
     [params.data.id]
@@ -2085,6 +2111,8 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalFoods: Number(row.total_foods ?? 0),
+      avgRating: row.avg_rating !== null ? Number(row.avg_rating) : null,
+      reviewCount: Number(row.review_count ?? 0),
     },
   });
 });

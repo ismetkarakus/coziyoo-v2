@@ -715,11 +715,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         : row.role === "both"
           ? dict.users.userTypeBoth
           : String(row.role ?? "-");
-  const ratingSource = foodRows
-    .map(() => 4)
-    .filter((value) => Number.isFinite(value) && value > 0);
-  const avgRating = ratingSource.length > 0 ? ratingSource.reduce((sum, value) => sum + value, 0) / ratingSource.length : 4;
-  const roundedStars = Math.max(0, Math.min(5, Math.round(avgRating)));
+  const avgRating = row.avgRating != null ? Number(row.avgRating) : null;
+  const roundedStars = avgRating != null ? Math.max(0, Math.min(5, Math.round(avgRating))) : 0;
   const contactEmail = String(row.email ?? "").trim();
   const contactPhone = phone;
   const contactPhoneHrefValue = contactPhone.replace(/[^\d+]/g, "");
@@ -1441,13 +1438,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <h1>{row.displayName ?? row.email}</h1>
                 <span className={`seller-account-status ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
               </div>
-              <div className="seller-rating-row" aria-label={`rating ${avgRating.toFixed(1)}`}>
-                <span className="rating-value">{avgRating.toFixed(1)}</span>
-                <span className="rating-stars" aria-hidden="true">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
-                  ))}
-                </span>
+              <div className="seller-rating-row" aria-label={`rating ${avgRating != null ? avgRating.toFixed(1) : "-"}`}>
+                <span className="rating-value">{avgRating != null ? avgRating.toFixed(1) : "-"}</span>
+                {avgRating != null ? (
+                  <span className="rating-stars" aria-hidden="true">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="panel-meta">{row.reviewCount > 0 ? "" : (language === "tr" ? "henüz yorum yok" : "no reviews yet")}</span>
+                )}
               </div>
             </div>
           </div>
