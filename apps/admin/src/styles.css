@@ -9593,8 +9593,48 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   border-right-color: var(--color-border);
 }
 
+:root:not(.dark) .complaint-badge-label {
+  color: var(--color-tertiary-text);
+}
+
 :root:not(.dark) .complaint-choice-chip:hover:not(:disabled) {
   background: var(--color-accent-soft);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.status-open {
+  color: #1a4f9c;
+  background: color-mix(in srgb, #bedaff 70%, transparent);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.status-in_review {
+  color: #7c4a00;
+  background: color-mix(in srgb, #ffe0a0 70%, transparent);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.status-resolved,
+:root:not(.dark) .complaint-choice-chip.is-active.status-closed {
+  color: #1a5e3a;
+  background: color-mix(in srgb, #b2f5d8 70%, transparent);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.priority-low {
+  color: #1a5e3a;
+  background: color-mix(in srgb, #b2f5d8 70%, transparent);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.priority-medium {
+  color: #1a4f9c;
+  background: color-mix(in srgb, #bedaff 70%, transparent);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.priority-high {
+  color: #7c4a00;
+  background: color-mix(in srgb, #ffe0a0 70%, transparent);
+}
+
+:root:not(.dark) .complaint-choice-chip.is-active.priority-urgent {
+  color: #7c1a28;
+  background: color-mix(in srgb, #ffc0ca 70%, transparent);
 }
 
 :root:not(.dark) .complaint-person-inline {

@@ -4,7 +4,7 @@ import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { NotesPanel } from "../../components/NotesPanel";
-import { formatUiDate, maskEmail, formatCurrency, normalizeImageUrl, sanitizeSeedText } from "../../lib/format";
+import { formatUiDate, formatTableDateTime, maskEmail, formatCurrency, normalizeImageUrl, sanitizeSeedText } from "../../lib/format";
 import {
   initialsFromName,
   mapComplianceRows,
@@ -2313,7 +2313,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             </span>
                           </td>
                           <td>{formatCurrency(food.price, language)}</td>
-                          <td>{formatUiDate(food.updatedAt, language)}</td>
+                          <td>{formatTableDateTime(food.updatedAt)}</td>
                           <td>
                             <div className="lot-summary-cell">
                               <span>{`${dict.detail.lotsTitle}: ${foodLots.length}`}</span>
@@ -2372,8 +2372,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                             ].filter(Boolean).join(" ") || undefined}
                                           >
                                             <td>{lot.lot_number}</td>
-                                            <td>{formatUiDate(lot.produced_at, language)}</td>
-                                            <td>{`${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`}</td>
+                                            <td>{formatTableDateTime(lot.produced_at)}</td>
+                                            <td>{`${formatTableDateTime(lot.sale_starts_at)} - ${formatTableDateTime(lot.sale_ends_at)}`}</td>
                                             <td>
                                               <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
                                                 {language === "tr" ? "Detay Göster" : "Show Detail"}
@@ -2779,7 +2779,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           role="button"
                           tabIndex={0}
                         >
-                          <td>{item.createdAt ? item.createdAt.slice(0, 10) : "-"}</td>
+                          <td>{formatTableDateTime(item.createdAt)}</td>
                           <td>{item.orderNo}</td>
                           <td>{item.complainantName ?? <span className="panel-meta">-</span>}</td>
                           <td>{item.categoryName ?? <span className="panel-meta">-</span>}</td>
