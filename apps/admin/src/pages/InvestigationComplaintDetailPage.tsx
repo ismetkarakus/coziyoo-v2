@@ -312,12 +312,18 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
               <div className="complaint-content-card complaint-description-card">
                 <div className="panel-header complaint-description-header">
                   <h2>{dict.investigation.reasonDescription}</h2>
-                  <div className="complaint-description-category">
-                    <span className="complaint-detail-label">{dict.investigation.complaintCategory}</span>
-                    <span className="complaint-tag">{categoryLabel}</span>
+                  <div className="complaint-description-meta">
+                    <div className="complaint-description-row">
+                      <span className="complaint-detail-label">{dict.investigation.complaintCategory}</span>
+                      <span className="complaint-description-value">{categoryLabel}</span>
+                    </div>
+                    <div className="complaint-description-row">
+                      <span className="complaint-detail-label">{dict.reviewQueue.subject}</span>
+                      <span className="complaint-description-value">{detail.subject}</span>
+                    </div>
                   </div>
                 </div>
-                <p>{detail.description ?? "-"}</p>
+                <p className="complaint-description-body">{detail.description ?? "-"}</p>
               </div>
 
               <div className="complaint-content-card complaint-ticket-thread">
@@ -325,8 +331,11 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                   {notes.length === 0 ? (
                     <p className="complaint-empty-notes">{dict.investigation.emptyNotes}</p>
                   ) : (
-                    notes.map((item) => (
-                      <div key={item.id} className="complaint-note-item">
+                    notes.map((item) => {
+                      const isOwn = (currentAdmin?.id && item.createdByAdminId === currentAdmin.id)
+                        || (currentAdmin?.email && item.createdByAdminEmail === currentAdmin.email);
+                      return (
+                      <div key={item.id} className={`complaint-note-item ${isOwn ? "complaint-note-item--outgoing" : "complaint-note-item--incoming"}`}>
                         <div className="complaint-note-meta">
                           <span className="complaint-note-author">{item.createdByAdminEmail ?? item.createdByAdminId}</span>
                           <span className="complaint-note-date">
@@ -335,7 +344,8 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                         </div>
                         <p className="complaint-note-text">{item.note}</p>
                       </div>
-                    ))
+                    );
+                    })
                   )}
                 </div>
 
