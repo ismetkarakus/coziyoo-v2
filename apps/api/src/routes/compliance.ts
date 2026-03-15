@@ -274,6 +274,17 @@ async function ensureComplianceDocumentValiditySchema() {
                   ADD COLUMN validity_years integer;
               END IF;
             END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'seller_compliance_documents'
+                AND column_name = 'notes'
+            ) THEN
+              ALTER TABLE seller_compliance_documents
+                ADD COLUMN notes text;
+            END IF;
           END
           $$;
         `);
