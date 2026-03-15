@@ -312,6 +312,12 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const selectedFoodAllergenSummary = selectedFood ? explainAllergens(selectedFood) : [];
   const selectedFoodLots = selectedFood ? (lotsByFoodId[selectedFood.id] ?? []) : [];
   const selectedLot = selectedFoodLots.find((lot) => lot.id === selectedLotId) ?? null;
+  const lotDiff = selectedLot && selectedFood ? computeFoodLotDiff({
+    foodRecipe: selectedFood.recipe,
+    foodIngredients: selectedFood.ingredientsJson,
+    foodAllergens: selectedFood.allergensJson,
+    lot: selectedLot,
+  }) : null;
   const selectedFoods = Object.values(selectedFoodMap);
   const allFoodsSelected =
     rows.length > 0 &&
@@ -873,30 +879,16 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             ) : null}
             {selectedLot ? (
               <div className="foods-detail-text-block foods-detail-lot-focus">
-                {(() => {
-                  const lotDiff = computeFoodLotDiff({
-                    foodRecipe: selectedFood.recipe,
-                    foodIngredients: selectedFood.ingredientsJson,
-                    foodAllergens: selectedFood.allergensJson,
-                    lot: selectedLot,
-                  });
-                  const changed = [
-                    lotDiff.recipeChanged && (language === "tr" ? "Tarif" : "Recipe"),
-                    lotDiff.ingredientsChanged && (language === "tr" ? "İçerikler" : "Ingredients"),
-                    lotDiff.allergensChanged && (language === "tr" ? "Alerjenler" : "Allergens"),
-                  ].filter(Boolean) as string[];
-                  if (changed.length === 0) return null;
-                  return (
-                    <div className="lot-diff-alert">
-                      <span className="lot-diff-alert-icon">⚠</span>
-                      <span>
-                        {language === "tr"
-                          ? `Bu lot ana yemekten farklı: ${changed.join(", ")}`
-                          : `This lot differs from the base food: ${changed.join(", ")}`}
-                      </span>
-                    </div>
-                  );
-                })()}
+                {lotDiff && (lotDiff.recipeChanged || lotDiff.ingredientsChanged || lotDiff.allergensChanged) ? (
+                  <div className="lot-diff-alert">
+                    <span className="lot-diff-alert-icon">⚠</span>
+                    <span>
+                      {language === "tr"
+                        ? `Bu lot ana yemekten farklı: ${[lotDiff.recipeChanged && "Tarif", lotDiff.ingredientsChanged && "İçerikler", lotDiff.allergensChanged && "Alerjenler"].filter(Boolean).join(", ")}`
+                        : `This lot differs from the base food: ${[lotDiff.recipeChanged && "Recipe", lotDiff.ingredientsChanged && "Ingredients", lotDiff.allergensChanged && "Allergens"].filter(Boolean).join(", ")}`}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="foods-detail-grid">
                   <div>
                     <span className="panel-meta">{dict.detail.lotNumber}</span>
@@ -924,16 +916,16 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   </div>
                 </div>
                 <div className="foods-detail-text-block">
-                  <h4>{language === "tr" ? "Lot Tarif Snapshot" : "Lot Recipe Snapshot"}</h4>
+                  <h4>{language === "tr" ? "Ana Yemek Tarif" : "Base Food Recipe"}</h4>
                   <p className="foods-detail-paragraph">{selectedLot.recipe_snapshot?.trim() || "-"}</p>
                 </div>
                 <div className="foods-detail-grid">
-                  <div className="foods-detail-text-block">
-                    <h4>{language === "tr" ? "Lot Malzeme Snapshot" : "Lot Ingredients Snapshot"}</h4>
+                  <div className={`foods-detail-text-block${lotDiff?.ingredientsChanged ? " foods-detail-text-block--warn" : ""}`}>
+                    <h4>{language === "tr" ? "Lot Tarif" : "Lot Recipe"}</h4>
                     <p className="foods-detail-paragraph">{toReadableText(selectedLot.ingredients_snapshot_json)}</p>
                   </div>
-                  <div className="foods-detail-text-block">
-                    <h4>{language === "tr" ? "Lot Alerjen Snapshot" : "Lot Allergens Snapshot"}</h4>
+                  <div className={`foods-detail-text-block${lotDiff?.allergensChanged ? " foods-detail-text-block--warn" : ""}`}>
+                    <h4>{language === "tr" ? "Lot Alerjen" : "Lot Allergens"}</h4>
                     <p className="foods-detail-paragraph">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
                   </div>
                 </div>

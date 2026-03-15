@@ -7582,6 +7582,17 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: color-mix(in srgb, #14264a 74%, transparent);
 }
 
+.foods-detail-text-block--warn {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #c97600 18%, transparent);
+  border: 1px solid color-mix(in srgb, #e89a2a 50%, transparent);
+}
+
+.foods-detail-text-block--warn h4 {
+  color: #f0b848;
+}
+
 .lot-diff-alert {
   display: flex;
   align-items: center;
