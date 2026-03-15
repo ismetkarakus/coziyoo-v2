@@ -288,6 +288,9 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <div className="panel-header">
                   <h2>{dict.investigation.reasonDescription}</h2>
                 </div>
+                <div className="complaint-tag-list">
+                  <span className="complaint-tag">{categoryLabel}</span>
+                </div>
                 <p>{detail.description ?? "-"}</p>
               </div>
 
@@ -391,15 +394,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                       </div>
                     </div>
                   </button>
-                </div>
-              </div>
-
-              <div className="complaint-side-card">
-                <div className="panel-header">
-                  <h2>{dict.investigation.complaintCategory}</h2>
-                </div>
-                <div className="complaint-tag-list">
-                  <span className="complaint-tag">{categoryLabel}</span>
                 </div>
               </div>
 
