@@ -289,6 +289,42 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 </div>
               </div>
 
+              <div className="complaint-person-grid">
+                <button
+                  className="complaint-person-card"
+                  type="button"
+                  onClick={() => navigate(userPathFor(detail.complainantType, detail.complainantUserId))}
+                >
+                  <span className="complaint-person-label">{dict.investigation.complainant}</span>
+                  <div className="complaint-person-body">
+                    <span className={`complaint-person-avatar type-${detail.complainantType}`}>
+                      {detail.complainantName.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="complaint-person-copy">
+                      <strong>{detail.complainantName}</strong>
+                      <span>{detail.complainantEmail ?? detail.complainantUserId}</span>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  className="complaint-person-card"
+                  type="button"
+                  onClick={() => navigate(userPathFor(detail.complainedAgainstType, detail.complainedAgainstUserId))}
+                >
+                  <span className="complaint-person-label">{dict.investigation.complainedAgainst}</span>
+                  <div className="complaint-person-body">
+                    <span className={`complaint-person-avatar type-${detail.complainedAgainstType}`}>
+                      {detail.complainedAgainstName.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="complaint-person-copy">
+                      <strong>{detail.complainedAgainstName}</strong>
+                      <span>{detail.complainedAgainstEmail ?? detail.complainedAgainstUserId}</span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
               <div className="complaint-content-card complaint-description-card">
                 <div className="panel-header complaint-description-header">
                   <h2>{dict.investigation.reasonDescription}</h2>
@@ -371,47 +407,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
             </div>
 
             <div className="complaint-ticket-side">
-              <div className="complaint-side-card">
-                <div className="panel-header">
-                  <h2>{dict.investigation.complainant}</h2>
-                </div>
-                <div className="complaint-person-grid complaint-person-grid--sidebar">
-                  <button
-                    className="complaint-person-card"
-                    type="button"
-                    onClick={() => navigate(userPathFor(detail.complainantType, detail.complainantUserId))}
-                  >
-                    <span className="complaint-person-label">{dict.investigation.complainant}</span>
-                    <div className="complaint-person-body">
-                      <span className={`complaint-person-avatar type-${detail.complainantType}`}>
-                        {detail.complainantName.slice(0, 2).toUpperCase()}
-                      </span>
-                      <div className="complaint-person-copy">
-                        <strong>{detail.complainantName}</strong>
-                        <span>{detail.complainantEmail ?? detail.complainantUserId}</span>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    className="complaint-person-card"
-                    type="button"
-                    onClick={() => navigate(userPathFor(detail.complainedAgainstType, detail.complainedAgainstUserId))}
-                  >
-                    <span className="complaint-person-label">{dict.investigation.complainedAgainst}</span>
-                    <div className="complaint-person-body">
-                      <span className={`complaint-person-avatar type-${detail.complainedAgainstType}`}>
-                        {detail.complainedAgainstName.slice(0, 2).toUpperCase()}
-                      </span>
-                      <div className="complaint-person-copy">
-                        <strong>{detail.complainedAgainstName}</strong>
-                        <span>{detail.complainedAgainstEmail ?? detail.complainedAgainstUserId}</span>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
               <div className="complaint-side-card">
                 <div className="panel-header">
                   <h2>{dict.investigation.quickActions}</h2>
