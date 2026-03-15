@@ -53,7 +53,7 @@ export function complianceToneFromStatus(status: string | null | undefined): Com
   if (!normalized) return "warning";
   if (["verified", "approved", "active", "completed", "tamamlandi"].includes(normalized)) return "success";
   if (["rejected", "declined", "failed", "expired"].includes(normalized)) return "danger";
-  if (["pending", "submitted", "under_review", "in_progress", "not_started", "unknown"].includes(normalized)) return "warning";
+  if (["pending", "requested", "uploaded", "submitted", "under_review", "in_progress", "not_started", "unknown"].includes(normalized)) return "warning";
   return "neutral";
 }
 
@@ -226,9 +226,14 @@ export function mapComplianceRows(
     const checkSource = checkByKey.get(meta.key) ?? null;
     const source = documentSource ?? checkSource ?? null;
     const sourceType: "document" | "check" | "fallback" = documentSource ? "document" : checkSource ? "check" : "fallback";
-    const tone = complianceToneFromStatus(source?.status ?? null);
-    const statusLabel =
-      tone === "success" && sourceType === "check" ? dict.detail.sellerStatus.validated : complianceLabelFromTone(tone, dict, sourceType);
+    const isDocumentSource = sourceType === "document" && Boolean(source?.status);
+    const documentStatus = (source?.status ?? "requested") as SellerComplianceDocumentStatus;
+    const tone = isDocumentSource ? sellerDocumentStatusTone(documentStatus) : complianceToneFromStatus(source?.status ?? null);
+    const statusLabel = isDocumentSource
+      ? sellerDocumentStatusLabel(documentStatus, dict)
+      : tone === "success" && sourceType === "check"
+        ? dict.detail.sellerStatus.validated
+        : complianceLabelFromTone(tone, dict, sourceType);
     const date = pickComplianceSourceDate(
       source ?? {
         status: null,
