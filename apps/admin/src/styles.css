@@ -7937,8 +7937,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .complaint-ticket-date {
   color: #a7b3ce;
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
 }
 
 .complaint-choice-groups {
