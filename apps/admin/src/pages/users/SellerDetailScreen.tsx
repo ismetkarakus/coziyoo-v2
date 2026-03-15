@@ -149,6 +149,25 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [reviewsTotalCount, setReviewsTotalCount] = useState(0);
   const [reviewRatingFilter, setReviewRatingFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
   const [reviewSortDir, setReviewSortDir] = useState<"desc" | "asc">("desc");
+  const [complaintRows, setComplaintRows] = useState<Array<{
+    id: string;
+    orderId: string;
+    orderNo: string;
+    description: string | null;
+    categoryCode: string | null;
+    categoryName: string | null;
+    priority: "low" | "medium" | "high" | "urgent";
+    status: "open" | "in_review" | "resolved" | "closed";
+    complainantName: string | null;
+    createdAt: string;
+    resolvedAt: string | null;
+  }>>([]);
+  const [complaintsLoading, setComplaintsLoading] = useState(false);
+  const [complaintsPage, setComplaintsPage] = useState(1);
+  const [complaintsTotalPages, setComplaintsTotalPages] = useState(1);
+  const [complaintsTotalCount, setComplaintsTotalCount] = useState(0);
+  const [complaintsStatusFilter, setComplaintsStatusFilter] = useState<"all" | "open" | "in_review" | "resolved" | "closed">("all");
+  const [complaintsSortDir, setComplaintsSortDir] = useState<"desc" | "asc">("desc");
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
   const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -457,6 +476,30 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     if (activeTab !== "reviews") return;
     void fetchSellerReviews(reviewsPage, reviewRatingFilter, reviewSortDir);
   }, [activeTab, reviewsPage, reviewRatingFilter, reviewSortDir]);
+
+  async function fetchSellerComplaints(page: number, statusFilter: typeof complaintsStatusFilter, sortDir: "asc" | "desc") {
+    setComplaintsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: "20", sortDir });
+      const response = await request(`/v1/admin/users/${id}/seller-complaints?${params.toString()}`);
+      if (response.status !== 200) return;
+      const body = await parseJson<{ data: typeof complaintRows; pagination: { total: number; totalPages: number } }>(response);
+      const allRows = body.data ?? [];
+      const filtered = statusFilter === "all" ? allRows : allRows.filter((r) => r.status === statusFilter);
+      setComplaintRows(filtered);
+      setComplaintsTotalPages(body.pagination?.totalPages ?? 1);
+      setComplaintsTotalCount(body.pagination?.total ?? 0);
+    } catch {
+      // silently ignore
+    } finally {
+      setComplaintsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== "complaints") return;
+    void fetchSellerComplaints(complaintsPage, complaintsStatusFilter, complaintsSortDir);
+  }, [activeTab, complaintsPage, complaintsStatusFilter, complaintsSortDir]);
 
   function openFoodDetailPage(foodId: string, lotId?: string) {
     const params = new URLSearchParams({
@@ -1395,6 +1438,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     { key: "identity", label: language === "tr" ? "Uygunluk" : "Compliance" },
     { key: "security", label: dict.detail.sellerTabs.security },
     { key: "reviews", label: dict.detail.sellerTabs.reviews },
+    { key: "complaints", label: dict.detail.sellerTabs.complaints },
     { key: "notes", label: dict.detail.sellerTabs.notes },
     { key: "raw", label: dict.detail.sellerTabs.raw },
   ] as const;
@@ -2652,6 +2696,95 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   </button>
                   <span className="panel-meta">{reviewsPage} / {reviewsTotalPages}</span>
                   <button className="ghost" type="button" disabled={reviewsPage >= reviewsTotalPages} onClick={() => setReviewsPage((p) => p + 1)}>
+                    {language === "tr" ? "Sonraki →" : "Next →"}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {activeTab === "complaints" ? (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{dict.detail.sellerTabs.complaints}</h2>
+            {complaintsTotalCount > 0 ? <span className="panel-meta">({complaintsTotalCount})</span> : null}
+          </div>
+          <div className="seller-detail-filter-row">
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Durum" : "Status"}</span>
+              <select value={complaintsStatusFilter} onChange={(event) => { setComplaintsStatusFilter(event.target.value as typeof complaintsStatusFilter); setComplaintsPage(1); }}>
+                <option value="all">{language === "tr" ? "Hepsi" : "All"}</option>
+                <option value="open">{language === "tr" ? "Açık" : "Open"}</option>
+                <option value="in_review">{language === "tr" ? "İncelemede" : "In Review"}</option>
+                <option value="resolved">{language === "tr" ? "Çözüldü" : "Resolved"}</option>
+                <option value="closed">{language === "tr" ? "Kapalı" : "Closed"}</option>
+              </select>
+            </label>
+            <label className="ghost seller-detail-filter-item">
+              <span>{language === "tr" ? "Sıralama" : "Sort"}</span>
+              <select value={complaintsSortDir} onChange={(event) => { setComplaintsSortDir(event.target.value as "asc" | "desc"); setComplaintsPage(1); }}>
+                <option value="desc">{language === "tr" ? "En Yeni" : "Newest"}</option>
+                <option value="asc">{language === "tr" ? "En Eski" : "Oldest"}</option>
+              </select>
+            </label>
+          </div>
+          {complaintsLoading ? (
+            <p className="panel-meta">{dict.common.loading}</p>
+          ) : complaintRows.length === 0 ? (
+            <p className="panel-meta">{dict.common.noRecords}</p>
+          ) : (
+            <>
+              <div className="buyer-ops-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{language === "tr" ? "Tarih" : "Date"}</th>
+                      <th>{language === "tr" ? "Sipariş" : "Order"}</th>
+                      <th>{language === "tr" ? "Şikayet Eden" : "Complainant"}</th>
+                      <th>{language === "tr" ? "Kategori" : "Category"}</th>
+                      <th>{language === "tr" ? "Öncelik" : "Priority"}</th>
+                      <th>{language === "tr" ? "Durum" : "Status"}</th>
+                      <th>{language === "tr" ? "Açıklama" : "Description"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {complaintRows.map((item) => {
+                      const priorityLabel: Record<string, string> = language === "tr"
+                        ? { low: "Düşük", medium: "Orta", high: "Yüksek", urgent: "Acil" }
+                        : { low: "Low", medium: "Medium", high: "High", urgent: "Urgent" };
+                      const statusLabel: Record<string, string> = language === "tr"
+                        ? { open: "Açık", in_review: "İncelemede", resolved: "Çözüldü", closed: "Kapalı" }
+                        : { open: "Open", in_review: "In Review", resolved: "Resolved", closed: "Closed" };
+                      const statusTone: Record<string, string> = {
+                        open: "is-danger",
+                        in_review: "is-warning",
+                        resolved: "is-success",
+                        closed: "is-neutral",
+                      };
+                      return (
+                        <tr key={item.id}>
+                          <td>{item.createdAt ? item.createdAt.slice(0, 10) : "-"}</td>
+                          <td>{item.orderNo}</td>
+                          <td>{item.complainantName ?? <span className="panel-meta">-</span>}</td>
+                          <td>{item.categoryName ?? <span className="panel-meta">-</span>}</td>
+                          <td>{priorityLabel[item.priority] ?? item.priority}</td>
+                          <td><span className={`status-pill ${statusTone[item.status] ?? ""}`}>{statusLabel[item.status] ?? item.status}</span></td>
+                          <td style={{ maxWidth: 280, whiteSpace: "normal" }}>{item.description ?? <span className="panel-meta">-</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {complaintsTotalPages > 1 ? (
+                <div className="seller-detail-filter-row" style={{ marginTop: 12 }}>
+                  <button className="ghost" type="button" disabled={complaintsPage <= 1} onClick={() => setComplaintsPage((p) => p - 1)}>
+                    {language === "tr" ? "← Önceki" : "← Prev"}
+                  </button>
+                  <span className="panel-meta">{complaintsPage} / {complaintsTotalPages}</span>
+                  <button className="ghost" type="button" disabled={complaintsPage >= complaintsTotalPages} onClick={() => setComplaintsPage((p) => p + 1)}>
                     {language === "tr" ? "Sonraki →" : "Next →"}
                   </button>
                 </div>

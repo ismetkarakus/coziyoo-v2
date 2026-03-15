@@ -1178,7 +1178,10 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           >
                             <td className="buyer-v2-check-col"><input type="checkbox" onClick={(event) => event.stopPropagation()} /></td>
                             <td>{toDisplayId(row.id)}</td>
-                            <td>
+                            <td
+                              className="cell-link"
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=general`); }}
+                            >
                               <div className="seller-v2-shop-cell">
                                 <strong>{sellerName}</strong>
                               </div>
@@ -1188,21 +1191,33 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 {row.status === "active" ? "Aktif" : "Pasif"}
                               </span>
                             </td>
-                            <td>
+                            <td
+                              className="cell-link"
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=complaints`); }}
+                            >
                               <div className="seller-v2-warning-cell">
                                 <span>{warningInfo}</span>
                               </div>
                             </td>
-                            <td>
+                            <td
+                              className="cell-link"
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=orders`); }}
+                            >
                               <div className="seller-v2-health-cell">
                                 <span>{orderCurrent}</span>
                                 <span className={`buyer-trend ${orderMeta.className}`}>{orderMeta.symbol}</span>
                               </div>
                             </td>
-                            <td>
+                            <td
+                              className="cell-link"
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=wallet`); }}
+                            >
                               {revenueFormatted}
                             </td>
-                            <td>
+                            <td
+                              className="cell-link"
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=reviews`); }}
+                            >
                               <span className="seller-v2-rating">
                                 {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({ratingTrend >= 0 ? "+" : ""}{ratingTrend.toFixed(1)})
                               </span>

@@ -1710,6 +1710,14 @@ th {
   padding-inline: 8px !important;
 }
 
+.cell-link {
+  cursor: pointer;
+}
+
+.cell-link:hover {
+  background-color: var(--color-accent-soft);
+}
+
 .cell-actions > * {
   display: inline-flex;
   vertical-align: middle;
