@@ -8145,14 +8145,16 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .complaint-note-input {
   width: 100%;
-  resize: vertical;
+  resize: none;
+  overflow-y: hidden;
   min-height: 120px;
+  padding: 10px 12px;
   font-size: 1rem;
   line-height: 1.5;
 }
 
 .complaint-note-input--compact {
-  min-height: 38px;
+  min-height: 44px;
 }
 
 .complaint-empty-notes {

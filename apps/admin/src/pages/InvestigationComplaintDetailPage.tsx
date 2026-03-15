@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { getAdmin } from "../lib/auth";
@@ -47,6 +47,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const currentAdmin = getAdmin();
+  const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [detail, setDetail] = useState<ComplaintDetail | null>(null);
   const [notes, setNotes] = useState<ComplaintNote[]>([]);
   const [noteInput, setNoteInput] = useState("");
@@ -81,6 +82,13 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     const timeout = window.setTimeout(() => setCopyFeedback("idle"), 1800);
     return () => window.clearTimeout(timeout);
   }, [copyFeedback]);
+
+  useEffect(() => {
+    const textarea = noteInputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [noteInput]);
 
   async function loadData() {
     setLoading(true);
@@ -379,6 +387,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     {replyToNote ? (language === "tr" ? "Ek not ekle" : "Add addendum") : dict.investigation.newNote}
                   </span>
                   <textarea
+                    ref={noteInputRef}
                     className="complaint-note-input complaint-note-input--compact"
                     value={noteInput}
                     onChange={(event) => setNoteInput(event.target.value)}
