@@ -9551,3 +9551,110 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   color: var(--color-text);
   border-bottom-color: color-mix(in srgb, #90a9da 30%, var(--color-border));
 }
+
+/* ── Complaint detail – light mode overrides ──────────────────────────── */
+:root:not(.dark) .complaint-compact-card {
+  background: var(--color-card-bg);
+  box-shadow: 0 1px 4px var(--color-shadow);
+}
+
+:root:not(.dark) .complaint-ticket-no {
+  color: var(--color-accent);
+}
+
+:root:not(.dark) .complaint-ticket-date {
+  color: var(--color-secondary-text);
+}
+
+:root:not(.dark) .complaint-detail-label {
+  color: var(--color-tertiary-text);
+}
+
+:root:not(.dark) .complaint-badge-label {
+  color: var(--color-secondary-text);
+}
+
+:root:not(.dark) .complaint-quick-action-value,
+:root:not(.dark) .complaint-quick-actions-title {
+  color: var(--color-text);
+}
+
+:root:not(.dark) .complaint-choice-group {
+  background: var(--color-subtle-bg);
+  border-color: var(--color-border);
+}
+
+:root:not(.dark) .complaint-choice-list {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+:root:not(.dark) .complaint-choice-chip {
+  color: var(--color-accent);
+  border-right-color: var(--color-border);
+}
+
+:root:not(.dark) .complaint-choice-chip:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+}
+
+:root:not(.dark) .complaint-person-inline {
+  background: var(--color-subtle-bg);
+  border-color: var(--color-border);
+}
+
+:root:not(.dark) .complaint-person-inline .complaint-detail-label {
+  color: var(--color-tertiary-text);
+}
+
+:root:not(.dark) .complaint-person-inline strong {
+  color: var(--color-text);
+}
+
+:root:not(.dark) .complaint-person-inline span {
+  color: var(--color-secondary-text);
+}
+
+:root:not(.dark) .complaint-summary-divider {
+  border-top-color: var(--color-border);
+}
+
+:root:not(.dark) .complaint-description-value {
+  color: var(--color-secondary-text);
+}
+
+:root:not(.dark) .complaint-description-body {
+  background: var(--color-subtle-bg);
+  border-color: var(--color-input-border);
+  color: var(--color-text);
+}
+
+:root:not(.dark) .complaint-note-item--incoming {
+  background: var(--color-subtle-bg);
+  border-color: var(--color-border);
+}
+
+:root:not(.dark) .complaint-note-item--outgoing {
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+:root:not(.dark) .complaint-note-author {
+  color: var(--color-accent);
+}
+
+:root:not(.dark) .complaint-note-date {
+  color: var(--color-tertiary-text);
+}
+
+:root:not(.dark) .complaint-note-text {
+  color: var(--color-text);
+}
+
+:root:not(.dark) .complaint-note-replying {
+  background: var(--color-subtle-bg);
+  border: 1px solid var(--color-border);
+}
+
+:root:not(.dark) .complaint-empty-notes {
+  color: var(--color-tertiary-text);
+}
