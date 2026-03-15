@@ -6090,7 +6090,7 @@ textarea:focus {
   border: 1px solid color-mix(in srgb, #758aba 20%, var(--color-border));
   border-radius: 12px;
   padding: 12px;
-  background: color-mix(in srgb, #0f1e3d 72%, transparent);
+  background: var(--color-subtle-bg);
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -7270,7 +7270,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   overflow-x: auto;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, #5f82b6 18%, var(--color-border));
-  background: color-mix(in srgb, #0e1729 72%, var(--color-card-bg));
+  background: var(--color-card-bg);
 }
 
 .seller-food-lots-table {
@@ -7288,7 +7288,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-food-lots-table thead th {
-  background: color-mix(in srgb, #13223d 88%, var(--color-card-bg));
+  background: var(--color-subtle-bg);
 }
 
 .lot-diff-badges {
