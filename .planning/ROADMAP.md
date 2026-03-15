@@ -149,8 +149,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Lifecycle status pill and quantity columns in inline lot rows (LOTS-01)
-- [ ] 08-02-PLAN.md — Variation badges in inline lot rows and diff highlights in lot detail modal (LOTS-02, LOTS-03)
+- [x] 08-01-PLAN.md — Lifecycle status pill and quantity columns in inline lot rows (LOTS-01)
+- [x] 08-02-PLAN.md — Variation badges in inline lot rows and diff highlights in lot detail modal (LOTS-02, LOTS-03)
 - [ ] 08-03-PLAN.md — Has-variations filter chip and Excel export diff columns (LOTS-04, LOTS-05)
 
 ## Progress
@@ -167,4 +167,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. Order Creation | 0/3 | Not started | - |
 | 6. Post-Session UX | 0/3 | Not started | - |
 | 7. User Memory | 0/4 | Not started | - |
-| 8. Lots in Foods | 0/3 | Not started | - |
+| 8. Lots in Foods | 2/3 | In progress | - |
