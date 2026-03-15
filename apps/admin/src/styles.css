@@ -7770,10 +7770,13 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .complaint-ticket-thread { border: 1px solid color-mix(in srgb,var(--color-border) 78%,transparent); border-radius: 22px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; }
 .complaint-notes-thread { display: flex; flex-direction: column; gap: 12px; max-height: 480px; overflow-y: auto; }
 .complaint-note-item { background: color-mix(in srgb,var(--color-subtle-bg) 60%,transparent); border-radius: 12px; padding: 12px 14px; }
-.complaint-note-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.complaint-note-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
 .complaint-note-author { font-size: var(--text-sm); font-weight: var(--font-semibold); color: #89a8f7; }
+.complaint-note-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .complaint-note-date { font-size: var(--text-xs); color: var(--color-secondary-text); }
 .complaint-note-text { margin: 0; color: #dce5f7; font-size: var(--text-base); }
+.complaint-note-plus-btn { width: 28px; height: 28px; border: 1px solid color-mix(in srgb,var(--color-border) 78%,transparent); border-radius: 999px; background: color-mix(in srgb,#1d2640 82%,transparent); color: #f4f7ff; font-size: 1rem; line-height: 1; cursor: pointer; }
+.complaint-note-replying { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb,#1b2540 78%,transparent); color: var(--color-secondary-text); font-size: var(--text-sm); }
 
 .complaint-detail-topbar {
   display: flex;

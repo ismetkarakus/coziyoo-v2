@@ -48,6 +48,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const [detail, setDetail] = useState<ComplaintDetail | null>(null);
   const [notes, setNotes] = useState<ComplaintNote[]>([]);
   const [noteInput, setNoteInput] = useState("");
+  const [replyToNote, setReplyToNote] = useState<ComplaintNote | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
@@ -182,8 +183,11 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
 
   async function saveNote() {
     if (!detail || savingNote) return;
-    const note = noteInput.trim();
-    if (!note) return;
+    const rawNote = noteInput.trim();
+    if (!rawNote) return;
+    const note = replyToNote
+      ? `${language === "tr" ? "Ek not" : "Addendum"} • ${replyToNote.createdByAdminEmail ?? replyToNote.createdByAdminId} • ${new Date(replyToNote.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}\n${rawNote}`
+      : rawNote;
     setSavingNote(true);
     setError(null);
     try {
@@ -197,6 +201,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
         return;
       }
       setNoteInput("");
+      setReplyToNote(null);
       const notesRes = await request(`/v1/admin/investigations/complaints/${detail.id}/notes`);
       const notesBody = await parseJson<{ data?: ComplaintNote[] } & ApiError>(notesRes);
       if (notesRes.status === 200 && notesBody.data) setNotes(notesBody.data);
@@ -296,10 +301,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
               </div>
 
               <div className="complaint-content-card complaint-ticket-thread">
-                <div className="panel-header">
-                  <h2>{dict.investigation.notes}</h2>
-                </div>
-
                 <div className="complaint-notes-thread">
                   {notes.length === 0 ? (
                     <p className="complaint-empty-notes">{dict.investigation.emptyNotes}</p>
@@ -308,9 +309,20 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                       <div key={item.id} className="complaint-note-item">
                         <div className="complaint-note-meta">
                           <span className="complaint-note-author">{item.createdByAdminEmail ?? item.createdByAdminId}</span>
-                          <span className="complaint-note-date">
-                            {new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}
-                          </span>
+                          <div className="complaint-note-actions">
+                            <span className="complaint-note-date">
+                              {new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}
+                            </span>
+                            <button
+                              className="complaint-note-plus-btn"
+                              type="button"
+                              onClick={() => setReplyToNote(item)}
+                              aria-label={language === "tr" ? "Bu nota ek yap" : "Add to this note"}
+                              title={language === "tr" ? "Bu nota ek yap" : "Add to this note"}
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                         <p className="complaint-note-text">{item.note}</p>
                       </div>
@@ -318,8 +330,21 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                   )}
                 </div>
 
+                {replyToNote ? (
+                  <div className="complaint-note-replying">
+                    <span>
+                      {language === "tr" ? "Ek yapılacak not:" : "Adding to note:"} {replyToNote.createdByAdminEmail ?? replyToNote.createdByAdminId}
+                    </span>
+                    <button className="ghost" type="button" onClick={() => setReplyToNote(null)}>
+                      {language === "tr" ? "Vazgeç" : "Cancel"}
+                    </button>
+                  </div>
+                ) : null}
+
                 <label className="complaint-field-block">
-                  <span className="complaint-detail-label">{dict.investigation.newNote}</span>
+                  <span className="complaint-detail-label">
+                    {replyToNote ? (language === "tr" ? "Ek not ekle" : "Add addendum") : dict.investigation.newNote}
+                  </span>
                   <textarea
                     className="complaint-note-input complaint-note-input--compact"
                     value={noteInput}
