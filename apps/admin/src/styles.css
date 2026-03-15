@@ -7806,8 +7806,23 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   gap: 12px;
 }
 
+.complaint-detail-back-nav {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.complaint-detail-back-nav::after {
+  content: "";
+}
+
 .complaint-detail-heading {
   min-width: 0;
+  grid-column: 2;
+  justify-self: center;
+  text-align: center;
 }
 
 .complaint-detail-heading .subtext {
@@ -7896,6 +7911,100 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.complaint-ticket-date {
+  color: #a7b3ce;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.complaint-choice-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.complaint-choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, #1a2338 32%, transparent);
+  padding: 12px;
+}
+
+.complaint-choice-list {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid color-mix(in srgb, #89a8f7 45%, var(--color-border));
+  border-radius: 10px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.complaint-choice-chip {
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, #89a8f7 35%, var(--color-border));
+  border-radius: 0;
+  background: transparent;
+  color: color-mix(in srgb, #8fb6ff 82%, #c7d1ea);
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.complaint-choice-chip:last-child {
+  border-right: 0;
+}
+
+.complaint-choice-chip:hover:not(:disabled) {
+  background: color-mix(in srgb, #1e3057 28%, transparent);
+}
+
+.complaint-choice-chip:disabled {
+  cursor: default;
+  opacity: 0.95;
+}
+
+.complaint-choice-chip.is-active.status-open {
+  color: #e6f1ff;
+  background: color-mix(in srgb, #204f86 64%, transparent);
+}
+
+.complaint-choice-chip.is-active.status-in_review {
+  color: #ffe6b8;
+  background: color-mix(in srgb, #6d4c14 62%, transparent);
+}
+
+.complaint-choice-chip.is-active.status-resolved,
+.complaint-choice-chip.is-active.status-closed {
+  color: #cdfbe8;
+  background: color-mix(in srgb, #1f6147 62%, transparent);
+}
+
+.complaint-choice-chip.is-active.priority-low {
+  color: #cdfbe8;
+  background: color-mix(in srgb, #1f6147 62%, transparent);
+}
+
+.complaint-choice-chip.is-active.priority-medium {
+  color: #f0f5ff;
+  background: color-mix(in srgb, #31466f 62%, transparent);
+}
+
+.complaint-choice-chip.is-active.priority-high {
+  color: #ffe6b8;
+  background: color-mix(in srgb, #6d4c14 62%, transparent);
+}
+
+.complaint-choice-chip.is-active.priority-urgent {
+  color: #ffd6de;
+  background: color-mix(in srgb, #6c2231 62%, transparent);
 }
 
 .complaint-badge {
@@ -8602,6 +8711,10 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
   .complaint-summary-info-grid,
   .complaint-person-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .complaint-choice-groups {
     grid-template-columns: 1fr;
   }
 

@@ -56,7 +56,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [savingPriority, setSavingPriority] = useState(false);
-  const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">("idle");
   const [error, setError] = useState<string | null>(null);
 
   const statusText = (status: ComplaintStatus) => {
@@ -76,12 +75,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const complaintDate = detail ? new Date(detail.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US") : "";
   const categoryLabel = detail?.categoryName ?? dict.investigation.noCategory;
   const currentAdminLabel = currentAdmin?.email ?? dict.investigation.unassigned;
-
-  useEffect(() => {
-    if (copyFeedback === "idle") return;
-    const timeout = window.setTimeout(() => setCopyFeedback("idle"), 1800);
-    return () => window.clearTimeout(timeout);
-  }, [copyFeedback]);
 
   useEffect(() => {
     const textarea = noteInputRef.current;
@@ -198,16 +191,6 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
     }
   }
 
-  async function copyComplaintId() {
-    if (!detail) return;
-    try {
-      await navigator.clipboard.writeText(detail.id);
-      setCopyFeedback("copied");
-    } catch {
-      setCopyFeedback("failed");
-    }
-  }
-
   const userPathFor = (type: "buyer" | "seller", userId: string) => (
     type === "buyer" ? `/app/buyers/${userId}` : `/app/sellers/${userId}`
   );
@@ -218,8 +201,11 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   return (
     <div className="app investigation-page">
       <header className="topbar complaint-detail-topbar">
-        <div className="complaint-detail-heading">
-          <h1>{dict.investigation.detailTitle}</h1>
+        <div className="back-nav complaint-detail-back-nav">
+          <button className="ghost back-nav-btn" type="button" onClick={() => navigate("/app/investigation")}>← {dict.actions.prev}</button>
+          <div className="complaint-detail-heading">
+            <h1>{dict.investigation.detailTitle}</h1>
+          </div>
         </div>
       </header>
 
@@ -234,28 +220,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <div className="complaint-summary-meta">
                   <div className="complaint-summary-ticket-row">
                     <span className="complaint-ticket-no">#{detail.ticketNo}</span>
-                    <span className="complaint-badge-label">{dict.investigation.complaintStatusLabel}</span>
-                    <select
-                      className={`complaint-badge complaint-badge-select status-${detail.status}`}
-                      value={detail.status}
-                      disabled={savingStatus}
-                      onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
-                    >
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>{statusText(status)}</option>
-                      ))}
-                    </select>
-                    <span className="complaint-badge-label">{dict.investigation.priorityLabel}</span>
-                    <select
-                      className={`complaint-badge complaint-badge-select priority-${detail.priority}`}
-                      value={detail.priority}
-                      disabled={savingPriority}
-                      onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
-                    >
-                      {priorityOptions.map((priority) => (
-                        <option key={priority} value={priority}>{priorityText(priority)}</option>
-                      ))}
-                    </select>
+                    <span className="complaint-ticket-date">{complaintDate}</span>
                     <div className="complaint-quick-actions-inline complaint-quick-actions-inline--header">
                       <div className="complaint-quick-action-item">
                         <span className="complaint-quick-action-head">
@@ -268,41 +233,44 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     </div>
                   </div>
                   <h2 className="complaint-ticket-subject">{detail.subject}</h2>
+                  <div className="complaint-choice-groups">
+                    <div className="complaint-choice-group">
+                      <span className="complaint-badge-label">{dict.investigation.complaintStatusLabel}</span>
+                      <div className="complaint-choice-list">
+                        {statusOptions.map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            className={`complaint-choice-chip status-${status} ${detail.status === status ? "is-active" : ""}`.trim()}
+                            disabled={savingStatus || detail.status === status}
+                            onClick={() => void updateStatus(status)}
+                          >
+                            {statusText(status)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="complaint-choice-group">
+                      <span className="complaint-badge-label">{dict.investigation.priorityLabel}</span>
+                      <div className="complaint-choice-list">
+                        {priorityOptions.map((priority) => (
+                          <button
+                            key={priority}
+                            type="button"
+                            className={`complaint-choice-chip priority-${priority} ${detail.priority === priority ? "is-active" : ""}`.trim()}
+                            disabled={savingPriority || detail.priority === priority}
+                            onClick={() => void updatePriority(priority)}
+                          >
+                            {priorityText(priority)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="complaint-summary-divider" />
-
-                <div className="complaint-summary-info-grid">
-                  <div className="complaint-summary-info">
-                    <span className="complaint-detail-label">{dict.investigation.complaintId}</span>
-                    <div className="complaint-copy-row">
-                      <strong className="complaint-summary-info-value">{detail.id}</strong>
-                      <button
-                        className="inline-copy complaint-copy-btn"
-                        type="button"
-                        aria-label={copyFeedback === "copied" ? dict.investigation.copied : dict.investigation.copyId}
-                        title={copyFeedback === "copied" ? dict.investigation.copied : dict.investigation.copyId}
-                        onClick={() => void copyComplaintId()}
-                      >
-                        {copyFeedback === "copied" ? (
-                          <svg viewBox="0 0 20 20" fill="none" role="presentation">
-                            <path d="M4.5 10.2l3.2 3.2 7.8-7.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 20 20" fill="none" role="presentation">
-                            <rect x="7" y="3.5" width="9.5" height="11.5" rx="2" stroke="currentColor" strokeWidth="1.7" />
-                            <path d="M5.5 7H5a1.5 1.5 0 0 0-1.5 1.5V15A1.5 1.5 0 0 0 5 16.5h6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="complaint-summary-info">
-                    <span className="complaint-detail-label">{dict.investigation.complaintDate}</span>
-                    <strong className="complaint-summary-info-value">{complaintDate}</strong>
-                  </div>
-                </div>
               </div>
 
               <div className="complaint-person-grid">
