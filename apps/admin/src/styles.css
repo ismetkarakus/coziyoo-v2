@@ -7556,7 +7556,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   border: 1px solid color-mix(in srgb, #7a91c5 24%, var(--color-border));
   border-radius: 12px;
   padding: 11px 12px;
-  background: color-mix(in srgb, #0f1f3e 74%, transparent);
+  background: var(--color-subtle-bg);
   display: grid;
   gap: 5px;
 }
@@ -7624,7 +7624,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
   border-radius: 10px;
   padding: 10px;
-  background: color-mix(in srgb, #0f1a34 80%, transparent);
+  background: var(--color-subtle-bg);
   font-family: inherit;
   font-size: var(--text-md);
   line-height: 1.45;
@@ -7638,7 +7638,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
   border-radius: 10px;
   padding: 10px;
-  background: color-mix(in srgb, #0f1a34 80%, transparent);
+  background: var(--color-subtle-bg);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 240px;
@@ -7660,7 +7660,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
   border-radius: 10px;
   padding: 10px;
-  background: color-mix(in srgb, #122041 76%, transparent);
+  background: var(--color-subtle-bg);
   display: grid;
   gap: 4px;
   flex: 1 1 240px;
