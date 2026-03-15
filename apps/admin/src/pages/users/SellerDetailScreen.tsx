@@ -169,6 +169,24 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return null;
   }
 
+  function resolveDocumentIdFromRowKey(key: ComplianceRowKey): string | null {
+    const docs = compliance?.documents ?? [];
+    if (docs.length === 0) return null;
+    const tokens = COMPLIANCE_DOC_KEY_TOKENS[key];
+    const matched = docs.filter((doc) => {
+      if (!doc.is_current) return false;
+      const haystacks = [
+        normalizeComplianceToken(doc.doc_type),
+        normalizeComplianceToken(doc.code),
+        normalizeComplianceToken(doc.name),
+      ];
+      return haystacks.some((item) => tokens.some((token) => item.includes(token)));
+    });
+    if (matched.length === 0) return null;
+    matched.sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || ""));
+    return matched[0]?.id ?? null;
+  }
+
   function renderFoodMetaPills(items: string[], emptyLabel = "-") {
     if (items.length === 0) {
       return <span className="seller-food-inline-empty">{emptyLabel}</span>;
@@ -1001,59 +1019,42 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   async function acceptPreviewTarget() {
     if (!previewTarget) return;
     if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
-    if (previewTarget.documentId) {
-      await updateDocumentStatus(previewTarget.documentId, "approved");
+    const targetDocumentId = previewTarget.documentId ?? (previewTarget.key ? resolveDocumentIdFromRowKey(previewTarget.key) : null);
+    if (targetDocumentId) {
+      await updateDocumentStatus(targetDocumentId, "approved");
       setPreviewTarget(null);
       return;
     }
-    if (previewTarget.key) {
-      setTempComplianceUploads((prev) => {
-        const current = prev[previewTarget.key!];
-        if (!current) return prev;
-        return {
-          ...prev,
-          [previewTarget.key!]: {
-            ...current,
-            status: "approved",
-            rejectionReason: null,
-          },
-        };
-      });
-      setMessage(dict.common.saved);
-      setPreviewTarget(null);
-    }
+    setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
+    setPreviewTarget(null);
   }
 
   async function pendPreviewTarget() {
     if (!previewTarget) return;
     if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
-    if (previewTarget.documentId) {
-      setPendingTargetId(previewTarget.documentId);
+    const targetDocumentId = previewTarget.documentId ?? (previewTarget.key ? resolveDocumentIdFromRowKey(previewTarget.key) : null);
+    if (targetDocumentId) {
+      setPendingTargetId(targetDocumentId);
       setPendingReason("");
       setPreviewTarget(null);
       return;
     }
-    if (previewTarget.key) {
-      setPreviewTarget(null);
-      setTempPendingTargetKey(previewTarget.key);
-      setTempPendingReason("");
-    }
+    setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
+    setPreviewTarget(null);
   }
 
   async function rejectPreviewTarget() {
     if (!previewTarget) return;
     if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
-    if (previewTarget.documentId) {
-      setRejectTargetId(previewTarget.documentId);
+    const targetDocumentId = previewTarget.documentId ?? (previewTarget.key ? resolveDocumentIdFromRowKey(previewTarget.key) : null);
+    if (targetDocumentId) {
+      setRejectTargetId(targetDocumentId);
       setRejectReason("");
       setPreviewTarget(null);
       return;
     }
-    if (previewTarget.key) {
-      setPreviewTarget(null);
-      setTempRejectTargetKey(previewTarget.key);
-      setTempRejectReason("");
-    }
+    setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
+    setPreviewTarget(null);
   }
 
   function confirmTempReject() {
@@ -1062,7 +1063,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     if (reason.length < 3) return;
     setTempComplianceUploads((prev) => {
       const current = prev[tempRejectTargetKey];
-      if (!current) return prev;
+      if (!current) {
+        setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
+        return prev;
+      }
       return {
         ...prev,
         [tempRejectTargetKey]: {
@@ -1088,7 +1092,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     if (reason.length < 3) return;
     setTempComplianceUploads((prev) => {
       const current = prev[tempPendingTargetKey];
-      if (!current) return prev;
+      if (!current) {
+        setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
+        return prev;
+      }
       return {
         ...prev,
         [tempPendingTargetKey]: {
