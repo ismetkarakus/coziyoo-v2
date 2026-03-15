@@ -46,12 +46,11 @@ type TempComplianceUpload = {
 type SellerPreviewTarget = {
   title: string;
   url: string;
-  key?: ComplianceRowKey;
-  documentId?: string | null;
+  documentId: string;
+  isOptional: boolean;
   status: SellerComplianceDocumentStatus;
   tone: ComplianceTone;
   detailText?: string;
-  isTemporary?: boolean;
 };
 
 const COMPLIANCE_DOC_KEY_TOKENS: Record<ComplianceRowKey, string[]> = {
@@ -80,6 +79,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [identityViewerUrl, setIdentityViewerUrl] = useState<string | null>(null);
   const [tempComplianceUploads, setTempComplianceUploads] = useState<Record<string, TempComplianceUpload>>({});
   const [previewTarget, setPreviewTarget] = useState<SellerPreviewTarget | null>(null);
+  const [previewAction, setPreviewAction] = useState<"reject" | "pending" | null>(null);
+  const [previewActionReason, setPreviewActionReason] = useState("");
   const [tempRejectTargetKey, setTempRejectTargetKey] = useState<ComplianceRowKey | null>(null);
   const [tempRejectReason, setTempRejectReason] = useState("");
   const [tempPendingTargetKey, setTempPendingTargetKey] = useState<ComplianceRowKey | null>(null);
@@ -117,14 +118,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [legalSavingKey, setLegalSavingKey] = useState<string | null>(null);
-  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [pendingTargetId, setPendingTargetId] = useState<string | null>(null);
-  const [pendingReason, setPendingReason] = useState("");
-  const [optionalRejectTargetId, setOptionalRejectTargetId] = useState<string | null>(null);
-  const [optionalRejectReason, setOptionalRejectReason] = useState("");
-  const [optionalPendingTargetId, setOptionalPendingTargetId] = useState<string | null>(null);
-  const [optionalPendingReason, setOptionalPendingReason] = useState("");
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [, setFoodImageErrors] = useState<Record<string, boolean>>({});
   const [lotsByFoodId, setLotsByFoodId] = useState<Record<string, AdminLotRow[]>>({});
@@ -303,10 +296,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     setProfileImageFailed(false);
     setFoodImageErrors({});
-    setRejectTargetId(null);
-    setRejectReason("");
-    setOptionalRejectTargetId(null);
-    setOptionalRejectReason("");
     setLotsByFoodId({});
     setExpandedFoodIds({});
     setNoteItems([]);
@@ -325,15 +314,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setIdentityViewerOpen(false);
     setIdentityViewerUrl(null);
     setPreviewTarget(null);
+    setPreviewAction(null);
+    setPreviewActionReason("");
     setPendingUploadKey(null);
     setTempRejectTargetKey(null);
     setTempRejectReason("");
     setTempPendingTargetKey(null);
     setTempPendingReason("");
-    setPendingTargetId(null);
-    setPendingReason("");
-    setOptionalPendingTargetId(null);
-    setOptionalPendingReason("");
     setTempComplianceUploads((prev) => {
       Object.values(prev).forEach((item) => URL.revokeObjectURL(item.fileUrl));
       return {};
@@ -818,14 +805,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       });
       await loadSellerDetail();
       setMessage(dict.common.saved);
-      setRejectTargetId(null);
-      setRejectReason("");
-      setPendingTargetId(null);
-      setPendingReason("");
-      setOptionalRejectTargetId(null);
-      setOptionalRejectReason("");
-      setOptionalPendingTargetId(null);
-      setOptionalPendingReason("");
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
@@ -872,10 +851,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       });
       await loadSellerDetail();
       setMessage(dict.common.saved);
-      setOptionalRejectTargetId(null);
-      setOptionalRejectReason("");
-      setOptionalPendingTargetId(null);
-      setOptionalPendingReason("");
     } catch {
       setMessage(dict.detail.requestFailed);
     } finally {
@@ -923,17 +898,32 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
   function openCompliancePreview(row: (typeof displayLegalRows)[number]) {
     const fileUrl = row.sourceFileUrl ?? null;
-    if (!fileUrl) return;
+    if (!fileUrl || !row.sourceDocumentId) return;
     setPreviewTarget({
       title: row.label,
       url: fileUrl,
-      key: row.key,
       documentId: row.sourceDocumentId,
+      isOptional: false,
       status: row.sourceDocumentStatus ?? "uploaded",
       tone: row.tone,
       detailText: row.detailText,
-      isTemporary: !row.sourceDocumentId,
     });
+    setPreviewAction(null);
+    setPreviewActionReason("");
+  }
+
+  function openDocumentPreview(
+    documentId: string,
+    fileUrl: string,
+    title: string,
+    status: SellerComplianceDocumentStatus,
+    tone: ComplianceTone,
+    isOptional: boolean,
+    action?: "reject" | "pending",
+  ) {
+    setPreviewTarget({ title, url: fileUrl, documentId, isOptional, status, tone });
+    setPreviewAction(action ?? null);
+    setPreviewActionReason("");
   }
 
   function triggerComplianceUpload(key: ComplianceRowKey) {
@@ -1020,49 +1010,34 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
   }
 
-  function closePreviewTarget() {
+  function closePreviewModal() {
     setPreviewTarget(null);
+    setPreviewAction(null);
+    setPreviewActionReason("");
   }
 
-  async function acceptPreviewTarget() {
+  async function approveInPreview() {
     if (!previewTarget) return;
-    if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
-    const targetDocumentId = previewTarget.documentId ?? (previewTarget.key ? resolveDocumentIdFromRowKey(previewTarget.key) : null);
-    if (targetDocumentId) {
-      await updateDocumentStatus(targetDocumentId, "approved");
-      setPreviewTarget(null);
-      return;
+    const { documentId, isOptional } = previewTarget;
+    if (isOptional) {
+      await updateOptionalUploadStatus(documentId, "approved");
+    } else {
+      await updateDocumentStatus(documentId, "approved");
     }
-    setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
-    setPreviewTarget(null);
+    closePreviewModal();
   }
 
-  async function pendPreviewTarget() {
-    if (!previewTarget) return;
-    if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
-    const targetDocumentId = previewTarget.documentId ?? (previewTarget.key ? resolveDocumentIdFromRowKey(previewTarget.key) : null);
-    if (targetDocumentId) {
-      setPendingTargetId(targetDocumentId);
-      setPendingReason("");
-      setPreviewTarget(null);
-      return;
+  async function confirmPreviewAction() {
+    if (!previewTarget || !previewAction) return;
+    const reason = previewActionReason.trim();
+    if (reason.length < 3) return;
+    const { documentId, isOptional } = previewTarget;
+    if (isOptional) {
+      await updateOptionalUploadStatus(documentId, previewAction === "reject" ? "rejected" : "uploaded", reason);
+    } else {
+      await updateDocumentStatus(documentId, previewAction === "reject" ? "rejected" : "requested", reason);
     }
-    setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
-    setPreviewTarget(null);
-  }
-
-  async function rejectPreviewTarget() {
-    if (!previewTarget) return;
-    if (previewTarget.status === "approved" || previewTarget.status === "rejected") return;
-    const targetDocumentId = previewTarget.documentId ?? (previewTarget.key ? resolveDocumentIdFromRowKey(previewTarget.key) : null);
-    if (targetDocumentId) {
-      setRejectTargetId(targetDocumentId);
-      setRejectReason("");
-      setPreviewTarget(null);
-      return;
-    }
-    setMessage(language === "tr" ? "Belge kaydı bulunamadı." : "Document record not found.");
-    setPreviewTarget(null);
+    closePreviewModal();
   }
 
   function confirmTempReject() {
@@ -1688,7 +1663,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ) : null}
 
       {previewTarget ? (
-        <div className="buyer-ops-modal-backdrop" onClick={closePreviewTarget}>
+        <div className="buyer-ops-modal-backdrop" onClick={previewAction ? undefined : closePreviewModal}>
           <div className="buyer-ops-modal seller-doc-viewer-modal" onClick={(event) => event.stopPropagation()}>
             <h3>{language === "tr" ? "Belge Ön İzleme" : "Document Preview"}</h3>
             <div className="seller-doc-preview-meta">
@@ -1705,20 +1680,59 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <img src={previewTarget.url} alt={previewTarget.title} />
               )}
             </div>
-            <div className="buyer-ops-modal-actions">
-              <a className="ghost" href={previewTarget.url} target="_blank" rel="noreferrer">
-                {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
-              </a>
-              <button className="ghost" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void pendPreviewTarget()}>
-                {dict.detail.legalPend}
-              </button>
-              <button className="ghost" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void rejectPreviewTarget()}>
-                {dict.detail.legalReject}
-              </button>
-              <button className="primary" type="button" disabled={legalSaving || previewActionsLocked} onClick={() => void acceptPreviewTarget()}>
-                {dict.detail.legalApprove}
-              </button>
-            </div>
+            {previewAction ? (
+              <>
+                <label>
+                  {dict.detail.legalRejectionReason}
+                  <textarea
+                    value={previewActionReason}
+                    onChange={(event) => setPreviewActionReason(event.target.value)}
+                    rows={3}
+                    autoFocus
+                  />
+                </label>
+                <div className="buyer-ops-modal-actions">
+                  <button
+                    className="ghost"
+                    type="button"
+                    disabled={legalSaving}
+                    onClick={() => { setPreviewAction(null); setPreviewActionReason(""); }}
+                  >
+                    {dict.common.cancel}
+                  </button>
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={previewActionReason.trim().length < 3 || legalSaving}
+                    onClick={() => void confirmPreviewAction()}
+                  >
+                    {previewAction === "reject" ? dict.detail.legalReject : dict.detail.legalPend}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="buyer-ops-modal-actions">
+                <a className="ghost" href={previewTarget.url} target="_blank" rel="noreferrer">
+                  {language === "tr" ? "Yeni Sekmede Aç" : "Open in New Tab"}
+                </a>
+                <button className="ghost" type="button" onClick={closePreviewModal}>
+                  {dict.common.cancel}
+                </button>
+                {!previewActionsLocked && (
+                  <>
+                    <button className="ghost" type="button" disabled={legalSaving} onClick={() => setPreviewAction("pending")}>
+                      {dict.detail.legalPend}
+                    </button>
+                    <button className="ghost" type="button" disabled={legalSaving} onClick={() => setPreviewAction("reject")}>
+                      {dict.detail.legalReject}
+                    </button>
+                    <button className="primary" type="button" disabled={legalSaving} onClick={() => void approveInPreview()}>
+                      {dict.detail.legalApprove}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : null}
@@ -1946,6 +1960,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             <td>{row.rejection_reason ?? "-"}</td>
                             <td>
                               <div className="legal-doc-actions">
+                                {row.file_url ? (
+                                  <button
+                                    className="ghost compliance-edit-btn compliance-preview-btn"
+                                    type="button"
+                                    onClick={() => openDocumentPreview(row.id, row.file_url!, row.name, row.status, sellerDocumentStatusTone(row.status), false)}
+                                  >
+                                    <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
+                                  </button>
+                                ) : null}
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
@@ -1959,8 +1982,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   type="button"
                                   disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
-                                    setRejectTargetId(row.id);
-                                    setRejectReason(row.rejection_reason ?? "");
+                                    if (row.file_url) {
+                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "reject");
+                                    }
                                   }}
                                 >
                                   {dict.detail.legalReject}
@@ -1970,8 +1994,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   type="button"
                                   disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
-                                    setPendingTargetId(row.id);
-                                    setPendingReason(row.rejection_reason ?? "");
+                                    if (row.file_url) {
+                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "pending");
+                                    }
                                   }}
                                 >
                                   {dict.detail.legalPend}
@@ -2024,6 +2049,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             <td>{row.rejection_reason ?? "-"}</td>
                             <td>
                               <div className="legal-doc-actions">
+                                {row.file_url && row.status !== "archived" ? (
+                                  <button
+                                    className="ghost compliance-edit-btn compliance-preview-btn"
+                                    type="button"
+                                    onClick={() => openDocumentPreview(row.id, row.file_url!, title, row.status as SellerComplianceDocumentStatus, tone, true)}
+                                  >
+                                    <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
+                                  </button>
+                                ) : null}
                                 <button
                                   className="ghost compliance-edit-btn"
                                   type="button"
@@ -2037,8 +2071,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   type="button"
                                   disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
-                                    setOptionalRejectTargetId(row.id);
-                                    setOptionalRejectReason(row.rejection_reason ?? "");
+                                    if (row.file_url) {
+                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "reject");
+                                    }
                                   }}
                                 >
                                   {dict.detail.legalReject}
@@ -2048,8 +2083,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   type="button"
                                   disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
-                                    setOptionalPendingTargetId(row.id);
-                                    setOptionalPendingReason(row.rejection_reason ?? "");
+                                    if (row.file_url) {
+                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "pending");
+                                    }
                                   }}
                                 >
                                   {dict.detail.legalPend}
@@ -2065,142 +2101,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               )}
             </div>
           </article>
-          {rejectTargetId ? (
-            <div
-              className="buyer-ops-modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              aria-label={dict.detail.legalRejectModalTitle}
-              onClick={() => {
-                if (isSavingDoc(rejectTargetId)) return;
-                setRejectTargetId(null);
-                setRejectReason("");
-              }}
-            >
-              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
-                <h3>{dict.detail.legalRejectModalTitle}</h3>
-                <label>
-                  {dict.detail.legalRejectionReason}
-                  <textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={4} />
-                </label>
-                <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" disabled={isSavingDoc(rejectTargetId)} onClick={() => { setRejectTargetId(null); setRejectReason(""); }}>
-                    {dict.common.cancel}
-                  </button>
-                  <button
-                    className="primary"
-                    type="button"
-                    disabled={rejectReason.trim().length < 3 || isSavingDoc(rejectTargetId)}
-                    onClick={() => void updateDocumentStatus(rejectTargetId, "rejected", rejectReason.trim())}
-                  >
-                    {dict.detail.legalReject}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {pendingTargetId ? (
-            <div
-              className="buyer-ops-modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              aria-label={dict.detail.legalPend}
-              onClick={() => {
-                if (isSavingDoc(pendingTargetId)) return;
-                setPendingTargetId(null);
-                setPendingReason("");
-              }}
-            >
-              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
-                <h3>{dict.detail.legalPend}</h3>
-                <label>
-                  {dict.detail.legalRejectionReason}
-                  <textarea value={pendingReason} onChange={(event) => setPendingReason(event.target.value)} rows={4} />
-                </label>
-                <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" disabled={isSavingDoc(pendingTargetId)} onClick={() => { setPendingTargetId(null); setPendingReason(""); }}>
-                    {dict.common.cancel}
-                  </button>
-                  <button
-                    className="primary"
-                    type="button"
-                    disabled={pendingReason.trim().length < 3 || isSavingDoc(pendingTargetId)}
-                    onClick={() => void updateDocumentStatus(pendingTargetId, "requested", pendingReason.trim())}
-                  >
-                    {dict.detail.legalPend}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {optionalRejectTargetId ? (
-            <div
-              className="buyer-ops-modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              aria-label={dict.detail.optionalRejectModalTitle}
-              onClick={() => {
-                if (isSavingOptional(optionalRejectTargetId)) return;
-                setOptionalRejectTargetId(null);
-                setOptionalRejectReason("");
-              }}
-            >
-              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
-                <h3>{dict.detail.optionalRejectModalTitle}</h3>
-                <label>
-                  {dict.detail.legalRejectionReason}
-                  <textarea value={optionalRejectReason} onChange={(event) => setOptionalRejectReason(event.target.value)} rows={4} />
-                </label>
-                <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" disabled={isSavingOptional(optionalRejectTargetId)} onClick={() => { setOptionalRejectTargetId(null); setOptionalRejectReason(""); }}>
-                    {dict.common.cancel}
-                  </button>
-                  <button
-                    className="primary"
-                    type="button"
-                    disabled={optionalRejectReason.trim().length < 3 || isSavingOptional(optionalRejectTargetId)}
-                    onClick={() => void updateOptionalUploadStatus(optionalRejectTargetId, "rejected", optionalRejectReason.trim())}
-                  >
-                    {dict.detail.legalReject}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {optionalPendingTargetId ? (
-            <div
-              className="buyer-ops-modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              aria-label={dict.detail.legalPend}
-              onClick={() => {
-                if (isSavingOptional(optionalPendingTargetId)) return;
-                setOptionalPendingTargetId(null);
-                setOptionalPendingReason("");
-              }}
-            >
-              <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
-                <h3>{dict.detail.legalPend}</h3>
-                <label>
-                  {dict.detail.legalRejectionReason}
-                  <textarea value={optionalPendingReason} onChange={(event) => setOptionalPendingReason(event.target.value)} rows={4} />
-                </label>
-                <div className="buyer-ops-modal-actions">
-                  <button className="ghost" type="button" disabled={isSavingOptional(optionalPendingTargetId)} onClick={() => { setOptionalPendingTargetId(null); setOptionalPendingReason(""); }}>
-                    {dict.common.cancel}
-                  </button>
-                  <button
-                    className="primary"
-                    type="button"
-                    disabled={optionalPendingReason.trim().length < 3 || isSavingOptional(optionalPendingTargetId)}
-                    onClick={() => void updateOptionalUploadStatus(optionalPendingTargetId, "uploaded", optionalPendingReason.trim())}
-                  >
-                    {dict.detail.legalPend}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
         </section>
       ) : null}
 
