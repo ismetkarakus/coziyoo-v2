@@ -7820,6 +7820,31 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   margin-right: 4px;
 }
 
+.complaint-quick-action-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.complaint-quick-action-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.complaint-quick-action-select {
+  min-width: 150px;
+  width: auto;
+}
+
+.complaint-quick-action-value {
+  color: #f6f8fd;
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
 .complaint-summary-card,
 .complaint-content-card,
 .complaint-side-card {
@@ -8082,31 +8107,6 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.complaint-field-block--inline {
-  flex: 1 1 220px;
-  min-width: 0;
-}
-
-.complaint-field-block + .complaint-field-block {
-  margin-top: 16px;
-}
-
-.complaint-field-block--inline + .complaint-field-block--inline {
-  margin-top: 0;
-}
-
-.complaint-readonly-value {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
-  background: color-mix(in srgb, #1a2235 84%, transparent);
-  color: #eef3ff;
-  overflow-wrap: anywhere;
 }
 
 .complaint-note-input {

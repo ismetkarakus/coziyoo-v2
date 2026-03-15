@@ -292,9 +292,13 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <div className="complaint-quick-actions-inline">
                   <div className="complaint-quick-actions-title">{dict.investigation.quickActions}</div>
 
-                  <label className="complaint-field-block complaint-field-block--inline">
-                    <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
+                  <label className="complaint-quick-action-item">
+                    <span className="complaint-quick-action-head">
+                      <span className="complaint-detail-label">{dict.investigation.complaintStatusLabel}</span>
+                      <span className={`complaint-badge status-${detail.status}`}>{statusText(detail.status)}</span>
+                    </span>
                     <select
+                      className="complaint-quick-action-select"
                       value={detail.status}
                       disabled={savingStatus}
                       onChange={(event) => void updateStatus(event.target.value as ComplaintStatus)}
@@ -305,9 +309,13 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     </select>
                   </label>
 
-                  <label className="complaint-field-block complaint-field-block--inline">
-                    <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
+                  <label className="complaint-quick-action-item">
+                    <span className="complaint-quick-action-head">
+                      <span className="complaint-detail-label">{dict.investigation.priorityLabel}</span>
+                      <span className={`complaint-badge priority-${detail.priority}`}>{priorityText(detail.priority)}</span>
+                    </span>
                     <select
+                      className="complaint-quick-action-select"
                       value={detail.priority}
                       disabled={savingPriority}
                       onChange={(event) => void updatePriority(event.target.value as ComplaintDetail["priority"])}
@@ -318,9 +326,11 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                     </select>
                   </label>
 
-                  <div className="complaint-field-block complaint-field-block--inline">
-                    <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
-                    <div className="complaint-readonly-value">
+                  <div className="complaint-quick-action-item">
+                    <span className="complaint-quick-action-head">
+                      <span className="complaint-detail-label">{dict.investigation.assignedAdmin}</span>
+                    </span>
+                    <div className="complaint-quick-action-value">
                       {detail.assignedAdminEmail ?? dict.investigation.unassigned}
                     </div>
                   </div>
