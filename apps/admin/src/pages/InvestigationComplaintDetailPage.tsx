@@ -309,20 +309,9 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                       <div key={item.id} className="complaint-note-item">
                         <div className="complaint-note-meta">
                           <span className="complaint-note-author">{item.createdByAdminEmail ?? item.createdByAdminId}</span>
-                          <div className="complaint-note-actions">
-                            <span className="complaint-note-date">
-                              {new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}
-                            </span>
-                            <button
-                              className="complaint-note-plus-btn"
-                              type="button"
-                              onClick={() => setReplyToNote(item)}
-                              aria-label={language === "tr" ? "Bu nota ek yap" : "Add to this note"}
-                              title={language === "tr" ? "Bu nota ek yap" : "Add to this note"}
-                            >
-                              +
-                            </button>
-                          </div>
+                          <span className="complaint-note-date">
+                            {new Date(item.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}
+                          </span>
                         </div>
                         <p className="complaint-note-text">{item.note}</p>
                       </div>
