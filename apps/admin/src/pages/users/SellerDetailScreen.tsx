@@ -1683,7 +1683,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             {previewAction ? (
               <>
                 <label>
-                  {dict.detail.legalRejectionReason}
+                  {previewAction === "reject" ? dict.detail.legalRejectionReason : dict.detail.legalPendingReason}
                   <textarea
                     value={previewActionReason}
                     onChange={(event) => setPreviewActionReason(event.target.value)}
