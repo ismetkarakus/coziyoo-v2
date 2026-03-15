@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { formatCurrency, formatDateTime } from "../lib/format";
+import { formatCurrency, formatDateTime, toDisplayId } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
 type QueueTotals = {
@@ -248,7 +248,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                   const meta = statusMeta(language, row.status);
                   return (
                     <tr key={row.id}>
-                      <td>{row.orderId.slice(0, 8)}</td>
+                      <td>{toDisplayId(row.orderId)}</td>
                       <td>{`${row.buyerName} / ${row.sellerName}`}</td>
                       <td>{row.reasonCode ?? "-"}</td>
                       <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
@@ -288,7 +288,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                 const meta = statusMeta(language, row.status);
                 return (
                   <tr key={row.id}>
-                    <td>{row.id.slice(0, 8)}</td>
+                    <td>{toDisplayId(row.id)}</td>
                     <td>{row.buyerName}</td>
                     <td>{row.sellerName}</td>
                     <td>{formatCurrency(row.totalAmount, language)}</td>

@@ -751,7 +751,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
                             <td>{formatDateTime(order.createdAt)}</td>
                             <td className="buyer-order-no">{order.orderNo}</td>
-                            <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId.slice(0, 10)}</td>
+                            <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId}</td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
                             <td>{formatCurrency(order.totalAmount, "tr")}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>

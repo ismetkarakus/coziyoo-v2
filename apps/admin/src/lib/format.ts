@@ -12,7 +12,7 @@ export function formatTableHeader(column: string): string {
 export function toDisplayId(raw: unknown): string {
   const text = String(raw ?? "").trim();
   if (!text) return "-";
-  return text.length > 10 ? `${text.slice(0, 10)}…` : text;
+  return text;
 }
 
 export function adminRoleLabel(dict: Dictionary, value: "admin" | "super_admin"): string {
