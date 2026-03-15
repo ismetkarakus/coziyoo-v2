@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { Pager, KpiCard, ExcelExportButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
-import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth } from "../lib/format";
+import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth, formatTableDateTime } from "../lib/format";
 import { AppUserFormSchema, AdminUserFormSchema } from "../lib/forms";
 import type { Language, ApiError } from "../types/core";
 import type { UserKind, ColumnMeta, DensityMode } from "../types/users";
@@ -806,8 +806,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       return cc || "TR";
     }
     if (mapped === "createdAt" || mapped === "updatedAt" || mapped === "lastLoginAt") {
-      const text = String(value ?? "");
-      return text ? text.slice(0, 10) : "-";
+      return formatTableDateTime(String(value ?? "") || null);
     }
     if (mapped === "role") {
       if (value === "buyer") return <span className="user-type-pill is-buyer">{dict.users.userTypeBuyer}</span>;
@@ -847,8 +846,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
       return cc || "TR";
     }
     if (mapped === "createdAt" || mapped === "updatedAt" || mapped === "lastLoginAt") {
-      const text = String(value ?? "");
-      return text ? text.slice(0, 10) : "-";
+      return formatTableDateTime(String(value ?? "") || null);
     }
     if (mapped === "role") {
       if (value === "buyer") return dict.users.userTypeBuyer;

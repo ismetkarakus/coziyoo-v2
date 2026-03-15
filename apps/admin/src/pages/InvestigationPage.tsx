@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, SortableHeader } from "../components/ui";
-import { fmt } from "../lib/format";
+import { fmt, formatTableDateTime } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
 type ComplaintStatus = "open" | "in_review" | "resolved" | "closed";
@@ -130,7 +130,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
         row.orderNo,
         row.complainantName ?? row.complainantUserId,
         row.categoryName ?? "-",
-        new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US"),
+        formatTableDateTime(row.createdAt),
         statusText(row.status),
         row.priority,
       ]);
@@ -392,7 +392,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
                     <td>{row.orderNo}</td>
                     <td>{row.complainantName ?? row.complainantUserId}</td>
                     <td>{row.categoryName ?? "-"}</td>
-                    <td>{new Date(row.createdAt).toLocaleString(language === "tr" ? "tr-TR" : "en-US")}</td>
+                    <td>{formatTableDateTime(row.createdAt)}</td>
                     <td>
                       <span className={`status-pill ${statusClass(row.status)}`}>{statusText(row.status)}</span>
                     </td>

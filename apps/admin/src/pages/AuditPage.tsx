@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { Pager } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
-import { fmt } from "../lib/format";
+import { fmt, formatTableDateTime } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
 export default function AuditPage({ language }: { language: Language }) {
@@ -259,7 +259,7 @@ export default function AuditPage({ language }: { language: Language }) {
               ) : (
                 rows.map((row) => (
                   <tr key={row.eventId}>
-                    <td>{row.createdAt}</td>
+                    <td>{formatTableDateTime(row.createdAt)}</td>
                     <td>{row.source}</td>
                     <td>{row.eventType}</td>
                     <td>{row.actorId ?? ""}</td>

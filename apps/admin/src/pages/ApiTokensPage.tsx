@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { adminRoleLabel } from "../lib/format";
+import { adminRoleLabel, formatTableDateTime } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 import type { AdminApiTokenResponse, AdminApiTokenListItem } from "../types/api-tokens";
 
@@ -138,7 +138,7 @@ export default function ApiTokensPage({ language, isSuperAdmin }: { language: La
                       </div>
                     </td>
                     <td>{row.createdByEmail ?? row.createdByAdminId}</td>
-                    <td>{row.createdAt.replace("T", " ").replace("Z", "").slice(0, 19)}</td>
+                    <td>{formatTableDateTime(row.createdAt)}</td>
                     <td>{row.revokedAt ? (language === "tr" ? "İptal" : "Revoked") : (language === "tr" ? "Aktif" : "Active")}</td>
                   </tr>
                 ))

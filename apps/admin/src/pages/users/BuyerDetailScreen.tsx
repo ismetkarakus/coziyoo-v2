@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
-import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey } from "../../lib/format";
+import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey } from "../../lib/format";
 import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -397,7 +397,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
     const headers = ["Tarih / Saat", "Siparis No", "Satici", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
     const rowsForExport = orders.map((order) => [
-      formatDateTime(order.createdAt),
+      formatTableDateTime(order.createdAt),
       order.orderNo,
       order.sellerName ?? order.sellerEmail ?? order.sellerId,
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
@@ -749,7 +749,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         return (
                           <tr key={order.orderId}>
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
-                            <td>{formatDateTime(order.createdAt)}</td>
+                            <td>{formatTableDateTime(order.createdAt)}</td>
                             <td className="buyer-order-no">{order.orderNo}</td>
                             <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId}</td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
@@ -793,7 +793,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <tr><td colSpan={5}>Sikayet kaydi bulunamadi.</td></tr>
                     ) : complaints.map((item) => (
                       <tr key={item.id}>
-                        <td>{formatDateTime(item.createdAt)}</td>
+                        <td>{formatTableDateTime(item.createdAt)}</td>
                         <td>{item.description?.trim() || "-"}</td>
                         <td className="buyer-order-no">{item.orderNo}</td>
                         <td>{item.categoryName ?? item.categoryCode ?? "-"}</td>
@@ -821,7 +821,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <tr><td colSpan={4}>Yorum kaydi bulunamadi.</td></tr>
                     ) : reviews.map((item) => (
                       <tr key={item.id}>
-                        <td>{formatDateTime(item.createdAt)}</td>
+                        <td>{formatTableDateTime(item.createdAt)}</td>
                         <td>{item.foodName}</td>
                         <td>{item.rating}/5</td>
                         <td>{item.comment ?? "-"}</td>

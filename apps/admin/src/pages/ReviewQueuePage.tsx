@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { formatCurrency, formatDateTime, toDisplayId } from "../lib/format";
+import { formatCurrency, formatTableDateTime, toDisplayId } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
 type QueueTotals = {
@@ -149,7 +149,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
       <section className="panel">
         <div className="panel-header">
           <h2>{dict.reviewQueue.pendingComplianceDocs}</h2>
-          <span className="panel-meta">{data?.updatedAt ? formatDateTime(data.updatedAt) : "-"}</span>
+          <span className="panel-meta">{data?.updatedAt ? formatTableDateTime(data.updatedAt) : "-"}</span>
         </div>
         <div className="table-wrap">
           <table>
@@ -173,7 +173,7 @@ export default function ReviewQueuePage({ language }: { language: Language }) {
                   <tr key={row.id}>
                     <td>{row.sellerName}</td>
                     <td>{`${row.documentName} (${row.documentCode})`}</td>
-                    <td>{formatDateTime(row.uploadedAt ?? row.createdAt)}</td>
+                    <td>{formatTableDateTime(row.uploadedAt ?? row.createdAt)}</td>
                     <td><span className={`status-pill ${meta.cls}`}>{meta.label}</span></td>
                     <td><button className="ghost" type="button" onClick={() => navigate(`/app/sellers/${row.sellerId}`)}>{dict.reviewQueue.open}</button></td>
                   </tr>

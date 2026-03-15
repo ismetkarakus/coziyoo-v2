@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { formatUiDate } from "../lib/format";
+import { formatTableDateTime } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 import type { ComplianceDocumentListRow } from "../types/api-tokens";
 
@@ -313,7 +313,7 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
                       </button>
                     </td>
                     <td>{row.seller_assignment_count}</td>
-                    <td>{formatUiDate(row.updated_at, language)}</td>
+                    <td>{formatTableDateTime(row.updated_at)}</td>
                     <td>
                       <div className="legal-doc-actions">
                         <button className="ghost compliance-edit-btn" type="button" onClick={() => startEdit(row)}>

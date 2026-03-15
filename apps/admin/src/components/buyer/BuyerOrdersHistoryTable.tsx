@@ -1,5 +1,5 @@
 import { Pager } from "../ui";
-import { formatCurrency } from "../../lib/format";
+import { formatCurrency, formatTableDateTime } from "../../lib/format";
 import { paymentBadge } from "../../lib/status";
 import type { BuyerOrderRow, BuyerPagination } from "../../types/buyer";
 
@@ -39,7 +39,7 @@ export function BuyerOrdersHistoryTable({
                 const badge = paymentBadge(order.paymentStatus);
                 return (
                   <tr key={order.orderId}>
-                    <td>{new Date(order.createdAt).toLocaleString("tr-TR")}</td>
+                    <td>{formatTableDateTime(order.createdAt)}</td>
                     <td className="buyer-order-no">{order.orderNo}</td>
                     <td>
                       <div className="buyer-food-list">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { request, parseJson } from "../lib/api";
 import { Pager } from "../components/ui";
-import { fmt } from "../lib/format";
+import { fmt, formatTableDateTime } from "../lib/format";
 import type { Language, ApiError } from "../types/core";
 
 const PAGE_DICT = {
@@ -333,7 +333,7 @@ export default function SecurityPage({ language }: { language: Language }) {
               ) : (
                 events.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.createdAt}</td>
+                    <td>{formatTableDateTime(row.createdAt)}</td>
                     <td>{row.identifier}</td>
                     <td>{row.success ? dict.successTrue : dict.successFalse}</td>
                     <td>{row.failureReason ?? ""}</td>

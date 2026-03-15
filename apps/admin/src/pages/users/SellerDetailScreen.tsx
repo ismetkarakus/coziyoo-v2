@@ -1260,7 +1260,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
         : "-";
       return [
-        formatUiDate(order.createdAt, language),
+        formatTableDateTime(order.createdAt),
         order.orderNo,
         order.buyerName ?? order.buyerEmail ?? order.buyerId,
         foods || "-",
@@ -1294,7 +1294,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Kazanc" : "Earning",
     ];
     const rowsForExport = selectedFilteredEarnings.map((order) => [
-      formatUiDate(order.createdAt, language),
+      formatTableDateTime(order.createdAt),
       order.orderNo,
       order.buyerName ?? order.buyerEmail ?? order.buyerId,
       paymentStateText(order.paymentStatus),
@@ -2011,7 +2011,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               </label>
                             </td>
                             <td><span className={`status-pill compliance-status-pill is-${tone}`}>{sellerDocumentStatusLabel(row.status, dict)}</span></td>
-                            <td>{formatUiDate(row.updated_at, language)}</td>
+                            <td>{formatTableDateTime(row.updated_at)}</td>
                           </tr>
                         );
                       })}
@@ -2046,7 +2046,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         const tone = sellerDocumentStatusTone(row.status);
                         return (
                           <tr key={row.id}>
-                            <td>{formatUiDate(row.uploaded_at, language)}</td>
+                            <td>{formatTableDateTime(row.uploaded_at)}</td>
                             <td>
                               <strong>{row.name}</strong>
                               <div className="panel-meta legal-doc-sub">{row.code}</div>
@@ -2063,8 +2063,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               )}
                             </td>
                             <td><span className={`status-pill compliance-status-pill is-${tone}`}>{sellerDocumentStatusLabel(row.status, dict)}</span></td>
-                            <td>{formatUiDate(row.expires_at, language)}</td>
-                            <td>{formatUiDate(row.reviewed_at, language)}</td>
+                            <td>{formatTableDateTime(row.expires_at)}</td>
+                            <td>{formatTableDateTime(row.reviewed_at)}</td>
                             <td>{row.rejection_reason ?? "-"}</td>
                             <td>
                               <div className="legal-doc-actions">
@@ -2072,7 +2072,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   <button
                                     className="ghost compliance-edit-btn compliance-preview-btn"
                                     type="button"
-                                    onClick={() => openDocumentPreview(row.id, row.file_url!, row.name, row.status, sellerDocumentStatusTone(row.status), false, undefined, row.rejection_reason, formatUiDate(row.reviewed_at ?? row.uploaded_at, language))}
+                                    onClick={() => openDocumentPreview(row.id, row.file_url!, row.name, row.status, sellerDocumentStatusTone(row.status), false, undefined, row.rejection_reason, formatTableDateTime(row.reviewed_at ?? row.uploaded_at))}
                                   >
                                     <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
                                   </button>
@@ -2091,7 +2091,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "reject", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.uploaded_at, language));
+                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "reject", row.rejection_reason, formatTableDateTime(row.reviewed_at ?? row.uploaded_at));
                                     }
                                   }}
                                 >
@@ -2103,7 +2103,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={!row.is_current || isSavingDoc(row.id) || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "pending", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.uploaded_at, language));
+                                      openDocumentPreview(row.id, row.file_url, row.name, row.status, sellerDocumentStatusTone(row.status), false, "pending", row.rejection_reason, formatTableDateTime(row.reviewed_at ?? row.uploaded_at));
                                     }
                                   }}
                                 >
@@ -2144,7 +2144,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         const title = row.catalog_doc_name ?? row.custom_title ?? row.catalog_doc_code ?? "-";
                         return (
                           <tr key={`optional-${row.id}`}>
-                            <td>{formatUiDate(row.created_at, language)}</td>
+                            <td>{formatTableDateTime(row.created_at)}</td>
                             <td>
                               <strong>{title}</strong>
                               {row.custom_description ? <div className="panel-meta legal-doc-sub">{row.custom_description}</div> : null}
@@ -2153,7 +2153,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               <a href={row.file_url} target="_blank" rel="noreferrer" className="inline-copy">{dict.detail.legalOpenFile}</a>
                             </td>
                             <td><span className={`status-pill compliance-status-pill is-${tone}`}>{optionalUploadStatusLabel(row.status, dict)}</span></td>
-                            <td>{formatUiDate(row.reviewed_at, language)}</td>
+                            <td>{formatTableDateTime(row.reviewed_at)}</td>
                             <td>{row.rejection_reason ?? "-"}</td>
                             <td>
                               <div className="legal-doc-actions">
@@ -2161,7 +2161,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   <button
                                     className="ghost compliance-edit-btn compliance-preview-btn"
                                     type="button"
-                                    onClick={() => openDocumentPreview(row.id, row.file_url!, title, row.status as SellerComplianceDocumentStatus, tone, true, undefined, row.rejection_reason, formatUiDate(row.reviewed_at ?? row.created_at, language))}
+                                    onClick={() => openDocumentPreview(row.id, row.file_url!, title, row.status as SellerComplianceDocumentStatus, tone, true, undefined, row.rejection_reason, formatTableDateTime(row.reviewed_at ?? row.created_at))}
                                   >
                                     <span>{language === "tr" ? "Ön İzle" : "Preview"}</span>
                                   </button>
@@ -2180,7 +2180,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "reject", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.created_at, language));
+                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "reject", row.rejection_reason, formatTableDateTime(row.reviewed_at ?? row.created_at));
                                     }
                                   }}
                                 >
@@ -2192,7 +2192,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                   disabled={isSavingOptional(row.id) || row.status === "archived" || row.status === "approved" || row.status === "rejected"}
                                   onClick={() => {
                                     if (row.file_url) {
-                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "pending", row.rejection_reason, formatUiDate(row.reviewed_at ?? row.created_at, language));
+                                      openDocumentPreview(row.id, row.file_url, title, row.status as SellerComplianceDocumentStatus, tone, true, "pending", row.rejection_reason, formatTableDateTime(row.reviewed_at ?? row.created_at));
                                     }
                                   }}
                                 >
@@ -2457,7 +2457,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               aria-label={language === "tr" ? "Siparisi sec" : "Select order"}
                             />
                           </td>
-                          <td>{formatUiDate(order.createdAt, language)}</td>
+                          <td>{formatTableDateTime(order.createdAt)}</td>
                           <td>
                             <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
                               {order.orderNo}
@@ -2576,7 +2576,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             aria-label={language === "tr" ? "Kazanc kaydini sec" : "Select earning"}
                           />
                         </td>
-                        <td>{formatUiDate(order.createdAt, language)}</td>
+                        <td>{formatTableDateTime(order.createdAt)}</td>
                         <td>
                           <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
                             {order.orderNo}
@@ -2649,7 +2649,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <tbody>
                     {reviewRows.map((item) => (
                       <tr key={item.id}>
-                        <td>{formatUiDate(item.createdAt, language)}</td>
+                        <td>{formatTableDateTime(item.createdAt)}</td>
                         <td>{item.buyerName ?? <span className="panel-meta">-</span>}</td>
                         <td>{item.foodName}</td>
                         <td>
