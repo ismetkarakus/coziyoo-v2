@@ -1841,7 +1841,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        review_stats.avg_rating,
        review_stats.avg_rating_current,
        review_stats.avg_rating_previous,
-       COALESCE(review_stats.review_count, 0)::text AS review_count
+       COALESCE(review_stats.review_count, '0') AS review_count
      FROM users u
      LEFT JOIN LATERAL (
        SELECT count(*)::int AS total_foods
