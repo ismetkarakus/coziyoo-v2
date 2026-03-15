@@ -1705,9 +1705,14 @@ th {
 }
 
 .cell-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: nowrap;
+  width: 1%;
+  white-space: nowrap;
+  padding-inline: 8px !important;
+}
+
+.cell-actions > * {
+  display: inline-flex;
+  vertical-align: middle;
 }
 
 .icon-btn {
