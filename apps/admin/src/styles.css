@@ -7936,6 +7936,10 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   gap: 18px;
 }
 
+.complaint-person-grid--sidebar {
+  grid-template-columns: 1fr;
+}
+
 .complaint-person-card {
   display: flex;
   flex-direction: column;
