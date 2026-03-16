@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
-import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey } from "../../lib/format";
+import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
 import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -35,6 +35,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [smsOpen, setSmsOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
@@ -181,6 +182,21 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }, [activeTab]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
+  const buyerInitials = String(fullName || row?.email || "?")
+    .replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+  const buyerProfileImageUrl =
+    !profileImageFailed
+      ? normalizeImageUrl(contactInfo?.identity.profileImageUrl) ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profileImageUrl) ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profile_image_url)
+      : null;
+  const buyerFallbackAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#5d7fc9'/><stop offset='100%' stop-color='#1b2b4b'/></linearGradient></defs><rect width='140' height='140' rx='70' fill='url(#g)'/><text x='50%' y='56%' text-anchor='middle' font-family='Arial,sans-serif' font-size='48' fill='white' font-weight='700'>${buyerInitials}</text></svg>`
+  )}`;
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
   const contactPhoneHrefValue = String(phone).replace(/[^\d+]/g, "");
@@ -549,7 +565,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       <section className="buyer-ref-top buyer-ref-hero-strip">
         <article className="buyer-ref-profile-card">
           <button type="button" className="buyer-ref-avatar-button" onClick={() => setProfileModalOpen(true)} aria-label="Profil bilgilerini aç">
-            <div className="buyer-ref-avatar">{(fullName || "?").slice(0, 2).toUpperCase()}</div>
+            <div className="buyer-ref-avatar">
+              <img
+                src={buyerProfileImageUrl ?? buyerFallbackAvatar}
+                alt={fullName}
+                onError={() => setProfileImageFailed(true)}
+              />
+            </div>
           </button>
           <div className="buyer-ref-profile-body">
             <div className="buyer-ref-profile-head">

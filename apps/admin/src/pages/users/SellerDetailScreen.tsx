@@ -798,6 +798,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     !profileImageFailed
       ? normalizeImageUrl(row.profileImageUrl) ?? normalizeImageUrl(row.profile_image_url) ?? fallbackProfileImageFromFoods
       : null;
+  const sellerFallbackAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#5d7fc9'/><stop offset='100%' stop-color='#1b2b4b'/></linearGradient></defs><rect width='192' height='192' rx='96' fill='url(#g)'/><text x='50%' y='56%' text-anchor='middle' font-family='Arial,sans-serif' font-size='64' fill='white' font-weight='700'>${initials}</text></svg>`
+  )}`;
   const walletAmount = formatCurrency(
     filteredSellerEarnings
       .filter((order) => paymentStateKey(order.paymentStatus) === "successful")
@@ -1525,15 +1528,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         <article className="seller-hero-main">
           <div className="seller-avatar-col">
             <div className="seller-avatar">
-              {profileImageUrl ? (
-                <img
-                  src={profileImageUrl}
-                  alt={row.displayName ?? "seller"}
-                  onError={() => setProfileImageFailed(true)}
-                />
-              ) : (
-                <span>{initials}</span>
-              )}
+              <img
+                src={profileImageUrl ?? sellerFallbackAvatar}
+                alt={row.displayName ?? "seller"}
+                onError={() => setProfileImageFailed(true)}
+              />
             </div>
           </div>
           <div className="seller-hero-text">
