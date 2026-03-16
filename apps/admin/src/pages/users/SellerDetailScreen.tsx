@@ -761,6 +761,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       if (!(target instanceof HTMLElement)) return;
       if (target.closest(".seller-food-detail-sheet")) return;
       if (target.closest(".foods-toggle-btn")) return;
+      if (target.closest(".seller-food-lots-table-wrap")) return;
       setExpandedFoodIds({});
     };
 
