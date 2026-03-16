@@ -545,6 +545,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const params = new URLSearchParams({
       foodId,
       search: foodId,
+      returnTo: `${location.pathname}${location.search}`,
     });
     if (lotId) params.set("lotId", lotId);
     navigate(`/app/foods?${params.toString()}`);

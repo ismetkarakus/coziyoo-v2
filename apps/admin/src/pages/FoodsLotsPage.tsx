@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
 import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
@@ -11,6 +11,7 @@ import type { AdminLotRow } from "../types/lots";
 
 export default function FoodsLotsPage({ language }: { language: Language }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const [rows, setRows] = useState<
     Array<{
@@ -76,6 +77,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   }, [location.search]);
   const focusLotId = useMemo(() => {
     const value = new URLSearchParams(location.search).get("lotId");
+    return value ? value.trim() : "";
+  }, [location.search]);
+  const returnToPath = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("returnTo");
     return value ? value.trim() : "";
   }, [location.search]);
   const pageSize = 20;
@@ -458,6 +463,18 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     setSelectedLotId(lotId ?? null);
     if (!lotsByFoodId[food.id] && !lotsLoadingByFoodId[food.id]) {
       void loadFoodLots(food.id);
+    }
+  }
+
+  function closeFoodDetailModal() {
+    setSelectedFood(null);
+    setSelectedLotId(null);
+    if (returnToPath) {
+      navigate(returnToPath);
+      return;
+    }
+    if (focusFoodId) {
+      navigate(-1);
     }
   }
 
@@ -850,10 +867,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
         />
       </section>
       {selectedFood ? (
-        <div className="buyer-ops-modal-backdrop" onClick={() => {
-          setSelectedFood(null);
-          setSelectedLotId(null);
-        }}>
+        <div className="buyer-ops-modal-backdrop" onClick={closeFoodDetailModal}>
           <div ref={foodModalPrintRef} className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <h3>{selectedLot ? (language === "tr" ? "Lot Detayı" : "Lot Detail") : "Yemek Detayı"}</h3>
             {!selectedLot ? (
@@ -998,10 +1012,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton className="ghost" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
               <PrintButton className="ghost" type="button" onClick={printSelectedFoodDetail} language={language} />
-              <button className="primary" type="button" onClick={() => {
-                setSelectedFood(null);
-                setSelectedLotId(null);
-              }}>
+              <button className="primary" type="button" onClick={closeFoodDetailModal}>
                 Kapat
               </button>
             </div>
