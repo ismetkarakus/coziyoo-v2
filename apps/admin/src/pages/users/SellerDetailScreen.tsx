@@ -1512,7 +1512,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <strong>{walletAmount}</strong>
             </article>
             <article>
-              <p>{dict.detail.lastAction}</p>
+              <p>{dict.detail.updatedAtLabel}</p>
               <strong>{formatUiDate(row.updatedAt, language)}</strong>
             </article>
           </div>
