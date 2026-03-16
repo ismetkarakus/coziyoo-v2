@@ -901,16 +901,16 @@ a {
 }
 
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(4px); }
+  to   { transform: translateY(0); }
 }
 
 .page-transition-root {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  animation: pageIn 0.18s ease forwards;
-  will-change: opacity, transform;
+  animation: pageIn 0.14s ease forwards;
+  will-change: transform;
 }
 
 .back-nav {
