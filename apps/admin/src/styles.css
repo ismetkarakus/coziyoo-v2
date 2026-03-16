@@ -900,6 +900,19 @@ a {
   gap: 24px;
 }
 
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-transition-root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: pageIn 0.18s ease forwards;
+  will-change: opacity, transform;
+}
+
 .back-nav {
   display: flex;
   align-items: center;
@@ -9017,6 +9030,54 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   100% {
     opacity: 0.55;
   }
+}
+
+/* Detail page skeleton loading state */
+.detail-skeleton-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+.detail-skeleton-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.detail-skeleton-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.detail-skeleton-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-skeleton-line {
+  border-radius: 8px;
+}
+
+.detail-skeleton-tabs {
+  height: 40px;
+  border-radius: 10px;
+}
+
+.detail-skeleton-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.skeleton-pulse {
+  background: linear-gradient(90deg, rgba(83, 113, 170, 0.2), rgba(83, 113, 170, 0.45), rgba(83, 113, 170, 0.2));
+  animation: shimmer 1.3s ease infinite;
 }
 
 .name-cell {

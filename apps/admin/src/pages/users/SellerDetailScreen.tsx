@@ -552,6 +552,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     params.set("tab", activeTab === "wallet" ? "wallet" : "orders");
     return `${location.pathname}?${params.toString()}`;
   }, [location.pathname, location.search, activeTab]);
+  const switchSellerTab = (tab: SellerDetailTab) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(location.search);
+    params.set("tab", tab);
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  };
 
   const orderDetailPath = (orderId: string) => {
     const params = new URLSearchParams({
@@ -797,7 +803,24 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     printModalContent(identityModalPrintRef.current);
   }
 
-  if (loading && !row) return <div className="panel">{dict.common.loading}</div>;
+  if (loading && !row) return (
+    <div className="panel detail-skeleton-panel">
+      <div className="detail-skeleton-hero">
+        <div className="detail-skeleton-avatar skeleton-pulse" />
+        <div className="detail-skeleton-info">
+          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "42%", height: 22 }} />
+          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "62%", height: 13, marginTop: 8 }} />
+          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "32%", height: 13, marginTop: 6 }} />
+        </div>
+      </div>
+      <div className="detail-skeleton-tabs skeleton-pulse" />
+      <div className="detail-skeleton-body">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="detail-skeleton-line skeleton-pulse" style={{ width: `${70 - i * 10}%`, height: 14 }} />
+        ))}
+      </div>
+    </div>
+  );
   if (!row) return <div className="panel">{message ?? dict.common.noRecords}</div>;
 
   const isActive = row.status === "active";
@@ -1597,7 +1620,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 role="tab"
                 aria-selected={activeTab === tab.key}
                 className={activeTab === tab.key ? "is-active" : ""}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => switchSellerTab(tab.key)}
               >
                 {tab.label}
               </button>

@@ -551,7 +551,24 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
-  if (loading && !row) return <div className="panel">Yükleniyor...</div>;
+  if (loading && !row) return (
+    <div className="panel detail-skeleton-panel">
+      <div className="detail-skeleton-hero">
+        <div className="detail-skeleton-avatar skeleton-pulse" />
+        <div className="detail-skeleton-info">
+          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "42%", height: 22 }} />
+          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "62%", height: 13, marginTop: 8 }} />
+          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "32%", height: 13, marginTop: 6 }} />
+        </div>
+      </div>
+      <div className="detail-skeleton-tabs skeleton-pulse" />
+      <div className="detail-skeleton-body">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="detail-skeleton-line skeleton-pulse" style={{ width: `${70 - i * 10}%`, height: 14 }} />
+        ))}
+      </div>
+    </div>
+  );
   if (!row) return <div className="panel">{message ?? "Kayıt bulunamadı"}</div>;
 
   return (

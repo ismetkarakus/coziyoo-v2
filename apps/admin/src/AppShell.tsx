@@ -320,46 +320,48 @@ function AppShell({
             </button>
           </div>
         ) : null}
-        {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
-        {location.pathname === "/app/review-queue" ? <ReviewQueuePage language={language} /> : null}
-        {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
-        {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
-        {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname === "/app/investigation" || isInvestigationDetailModal ? <InvestigationPage language={language} /> : null}
-        {isInvestigationDetailModal ? (
-          <div
-            className="buyer-ops-modal-backdrop complaint-detail-modal-backdrop"
-            role="dialog"
-            aria-modal="true"
-            aria-label={dict.investigation.detailTitle}
-            onClick={() => navigate("/app/investigation")}
-          >
+        <div key={location.pathname} className="page-transition-root">
+          {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
+          {location.pathname === "/app/review-queue" ? <ReviewQueuePage language={language} /> : null}
+          {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
+          {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
+          {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname === "/app/investigation" || isInvestigationDetailModal ? <InvestigationPage language={language} /> : null}
+          {isInvestigationDetailModal ? (
             <div
-              className="buyer-ops-modal complaint-detail-modal-shell"
-              onClick={(event) => event.stopPropagation()}
+              className="buyer-ops-modal-backdrop complaint-detail-modal-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label={dict.investigation.detailTitle}
+              onClick={() => navigate("/app/investigation")}
             >
-              <InvestigationComplaintDetailPage
-                language={language}
-                complaintId={location.pathname.split("/").at(-1) ?? ""}
-              />
+              <div
+                className="buyer-ops-modal complaint-detail-modal-shell"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <InvestigationComplaintDetailPage
+                  language={language}
+                  complaintId={location.pathname.split("/").at(-1) ?? ""}
+                />
+              </div>
             </div>
-          </div>
-        ) : null}
-        {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
-        {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
-        {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
-        {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
-        {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
-        {location.pathname === "/app/security" ? <SecurityPage language={language} /> : null}
-        {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
-        {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
-        {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname.startsWith("/app/sellers/") ? <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-        {location.pathname.startsWith("/app/admins/") ? <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          ) : null}
+          {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
+          {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+          {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
+          {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
+          {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
+          {location.pathname === "/app/security" ? <SecurityPage language={language} /> : null}
+          {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
+          {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
+          {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname.startsWith("/app/sellers/") ? <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {location.pathname.startsWith("/app/admins/") ? <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+        </div>
       </section>
       {isGlobalSearchModalOpen ? (
         <div
