@@ -94,6 +94,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       buyerId: string;
       buyerName: string | null;
       buyerEmail: string | null;
+      deliveryType: string | null;
       status: string;
       totalAmount: number;
       paymentCompleted: boolean;
@@ -668,6 +669,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return "Successful";
   };
 
+  const deliveryTypeText = (value: string | null | undefined) => {
+    const key = String(value ?? "").trim().toLowerCase();
+    if (language === "tr") {
+      if (key === "delivery") return "Adrese Teslim";
+      if (key === "pickup") return "Elden Teslim";
+      return "-";
+    }
+    if (key === "delivery") return "Home Delivery";
+    if (key === "pickup") return "Pickup";
+    return "-";
+  };
+
   const toLocalDateKey = (value: string | null | undefined) => {
     const date = new Date(String(value ?? ""));
     if (Number.isNaN(date.getTime())) return "";
@@ -692,6 +705,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         order.buyerName ?? "",
         order.buyerEmail ?? "",
         order.buyerId ?? "",
+        deliveryTypeText(order.deliveryType),
         foods,
       ].join(" ").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
       return haystack.includes(query);
@@ -1294,6 +1308,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Tarih / Saat" : "Date / Time",
       language === "tr" ? "Siparis No" : "Order No",
       language === "tr" ? "Alici" : "Buyer",
+      language === "tr" ? "Teslimat" : "Delivery",
       language === "tr" ? "Yemekler" : "Foods",
       language === "tr" ? "Tutar" : "Amount",
       language === "tr" ? "Odeme" : "Payment",
@@ -1308,6 +1323,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         formatTableDateTime(order.createdAt),
         order.orderNo,
         order.buyerName ?? order.buyerEmail ?? order.buyerId,
+        deliveryTypeText(order.deliveryType),
         foods || "-",
         formatCurrency(Number(order.totalAmount ?? 0), language),
         paymentText,
@@ -2520,6 +2536,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>Tarih / Saat</th>
                       <th>Sipariş No</th>
                       <th>Alıcı</th>
+                      <th>{language === "tr" ? "Teslimat" : "Delivery"}</th>
                       <th>Yemekler</th>
                       <th>Tutar</th>
                       <th>Ödeme</th>
@@ -2560,6 +2577,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               </Link>
                             ) : (order.buyerName ?? order.buyerEmail ?? "-")}
                           </td>
+                          <td>{deliveryTypeText(order.deliveryType)}</td>
                           <td>{foods || "-"}</td>
                           <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                           <td>{paymentText}</td>
