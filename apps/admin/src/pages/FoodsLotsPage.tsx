@@ -995,6 +995,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                     <span className="panel-meta">{dict.detail.lotSaleWindow}</span>
                     <strong>{`${formatUiDate(selectedLot.sale_starts_at, language)} - ${formatUiDate(selectedLot.sale_ends_at, language)}`}</strong>
                   </div>
+                  <div>
+                    <span className="panel-meta">{language === "tr" ? "Son Kullanma Tarihi" : "Use By Date"}</span>
+                    <strong>{formatUiDate(selectedLot.use_by, language)}</strong>
+                  </div>
                 </div>
                 <div className="foods-detail-text-block">
                   <h4>{language === "tr" ? "Yemeğin Tarifi" : "Recipe"}</h4>
