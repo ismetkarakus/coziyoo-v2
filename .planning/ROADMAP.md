@@ -15,6 +15,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Supabase DB Cutover** - Point API at Supabase; verify all existing functionality works
 - [ ] **Phase 2: Voice Session Startup** - Mobile tap to agent join works reliably on physical devices
 - [ ] **Phase 3: Observability** - Log viewer shows every session turn; engineers can debug the n8n chain
+- [ ] **Phase 3.1: STT/TTS Preflight Checks** *(INSERTED)* - Mobile shows warning before session if STT or TTS server is unavailable
+- [ ] **Phase 3.2: Mobile Login** *(INSERTED)* - User logs in with email/password before starting a voice session; real user identity flows through the session
 - [ ] **Phase 4: Per-Turn N8N Integration** - Voice agent routes each turn through n8n for LLM response
 - [ ] **Phase 5: Order Creation** - N8N detects confirmed intent and creates order in database
 - [ ] **Phase 6: Post-Session UX** - User sees live conversation state and order summary after session
@@ -70,6 +72,35 @@ Plans:
 - [x] 03-01: Add room_id and job_id to all n8n log extra fields; fix session grouping in log viewer
 - [x] 03-02: Add STT, n8n request/response, and TTS output to per-turn log entries; fix "file not found" vs "file empty" distinction in /logs/requests response
 
+### Phase 3.1: STT/TTS Preflight Checks *(INSERTED)*
+**Goal**: Mobile shows a clear warning before attempting to start a session when STT or TTS servers are unreachable
+**Depends on**: Phase 3
+**Requirements**: SESS-06
+**Success Criteria** (what must be TRUE):
+  1. Before session dispatch, the API checks STT and TTS health endpoints and returns a structured error if either is down
+  2. Mobile displays a specific warning (e.g. "Speech recognition unavailable" / "Voice synthesis unavailable") — not a generic error
+  3. Session is not attempted when either service is unhealthy; user can retry once resolved
+**Plans**: TBD
+
+Plans:
+- [x] 3.1-01: Add STT/TTS health check to session dispatch preflight; surface service-specific errors to mobile
+
+### Phase 3.2: Mobile Login *(INSERTED)*
+**Goal**: User logs in with email and password before starting a voice session; real user identity flows through the session
+**Depends on**: Phase 3.1
+**Requirements**: AUTH-01, AUTH-02, AUTH-03
+**Success Criteria** (what must be TRUE):
+  1. Mobile has a Login screen (email + password) that calls `POST /v1/auth/login` and stores access + refresh tokens in AsyncStorage
+  2. On app launch, if valid tokens exist the user is taken directly to Home screen; if not, they see Login
+  3. Session start uses the authenticated `POST /v1/livekit/session/start` endpoint with Bearer token instead of the unauthenticated starter endpoint
+  4. Token refresh (401 → refresh → retry) is handled transparently so the user is never unexpectedly dropped to login mid-session
+  5. A logout button clears stored tokens and returns the user to the Login screen
+**Plans**: TBD
+
+Plans:
+- [x] 3.2-01: Add Login screen with email/password form; call auth API, persist tokens in AsyncStorage; auto-navigate on launch if tokens exist
+- [x] 3.2-02: Switch session start to authenticated endpoint; wire user identity into session metadata; add logout
+
 ### Phase 4: Per-Turn N8N Integration
 **Goal**: Every voice turn is processed by n8n and returns an LLM-generated reply to the voice agent without timeouts
 **Depends on**: Phase 3
@@ -83,7 +114,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 04-01: Make AI_SERVER_SHARED_SECRET required in env schema; add startup validation on API and voice agent
+- [x] 04-01: Make AI_SERVER_SHARED_SECRET required in env schema; add startup validation on API and voice agent
 - [ ] 04-02: Audit and consolidate n8n webhook URL resolution to a single path; add startup diagnostics logging for resolved URLs
 - [ ] 04-03: Configure n8n per-turn LLM workflow to use "Respond to Webhook" node and return correct response shape
 - [ ] 04-04: Verify end-to-end per-turn flow: mobile speech → STT → n8n → replyText → TTS → audio in room
@@ -163,7 +194,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Supabase DB Cutover | 3/3 | Completed | 2026-03-12 |
 | 2. Voice Session Startup | 4/4 | Completed | 2026-03-13 |
 | 3. Observability | 2/2 | Completed | 2026-03-13 |
-| 4. Per-Turn N8N Integration | 0/4 | Not started | - |
+| 3.1. STT/TTS Preflight Checks | 1/1 | Completed | 2026-03-16 |
+| 3.2. Mobile Login | 2/2 | Completed | 2026-03-16 |
+| 4. Per-Turn N8N Integration | 1/4 | In progress | - |
 | 5. Order Creation | 0/3 | Not started | - |
 | 6. Post-Session UX | 0/3 | Not started | - |
 | 7. User Memory | 0/4 | Not started | - |
