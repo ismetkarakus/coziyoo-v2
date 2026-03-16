@@ -542,10 +542,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [activeTab, complaintsPage, complaintsStatusFilter, complaintsSortDir]);
 
   function openFoodDetailPage(foodId: string, lotId?: string) {
+    const returnParams = new URLSearchParams(location.search);
+    returnParams.set("tab", "foods");
+    const returnTo = `${location.pathname}?${returnParams.toString()}`;
     const params = new URLSearchParams({
       foodId,
       search: foodId,
-      returnTo: `${location.pathname}${location.search}`,
+      returnTo,
     });
     if (lotId) params.set("lotId", lotId);
     navigate(`/app/foods?${params.toString()}`);
