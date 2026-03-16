@@ -1044,8 +1044,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       ) : null}
 
       {smsOpen ? (
-        <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli SMS">
-          <div className="buyer-ops-modal">
+        <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli SMS" onClick={() => setSmsOpen(false)}>
+          <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
             <h3>Hizli SMS</h3>
             <label>
               Telefon
@@ -1064,8 +1064,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       ) : null}
 
       {emailOpen ? (
-        <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli E-posta">
-          <div className="buyer-ops-modal">
+        <div className="buyer-ops-modal-backdrop" role="dialog" aria-modal="true" aria-label="Hizli E-posta" onClick={() => setEmailOpen(false)}>
+          <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
             <h3>Hizli E-posta</h3>
             <label>
               E-posta

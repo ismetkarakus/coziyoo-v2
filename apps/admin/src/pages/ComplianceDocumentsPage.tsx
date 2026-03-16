@@ -333,8 +333,8 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
       </section>
 
       {isCreateModalOpen ? (
-        <div className="buyer-ops-modal-backdrop">
-          <div className="buyer-ops-modal">
+        <div className="buyer-ops-modal-backdrop" onClick={closeCreateModal}>
+          <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
             <h3>{dict.complianceDocuments.createDocument}</h3>
             {message ? <div className="alert">{message}</div> : null}
             <form className="form-grid compliance-create-form" onSubmit={submitCreateForm}>
@@ -404,8 +404,8 @@ export default function ComplianceDocumentsPage({ language, isSuperAdmin }: { la
       ) : null}
 
       {editingRow ? (
-        <div className="buyer-ops-modal-backdrop">
-          <div className="buyer-ops-modal">
+        <div className="buyer-ops-modal-backdrop" onClick={() => { if (!saving) setEditingRow(null); }}>
+          <div className="buyer-ops-modal" onClick={(event) => event.stopPropagation()}>
             <h3>{dict.complianceDocuments.editDocument}</h3>
             <form className="form-grid" onSubmit={submitEditForm}>
               <label>

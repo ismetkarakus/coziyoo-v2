@@ -6727,7 +6727,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   white-space: nowrap;
 }
 
-.seller-wallet-table-wrap tbody td:nth-child(5) {
+.seller-wallet-table-wrap tbody td:nth-child(7) {
   font-size: 0.8rem;
   font-weight: var(--font-semibold);
   line-height: 1.2;

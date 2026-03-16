@@ -1335,18 +1335,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Tarih / Saat" : "Date / Time",
       language === "tr" ? "Siparis No" : "Order No",
       language === "tr" ? "Alici" : "Buyer",
-      language === "tr" ? "Odeme" : "Payment",
       language === "tr" ? "İşlem Referansı" : "Transaction Ref",
       language === "tr" ? "Oturum Numarası" : "Session No",
+      language === "tr" ? "Odeme" : "Payment",
       language === "tr" ? "Kazanc" : "Earning",
     ];
     const rowsForExport = selectedFilteredEarnings.map((order) => [
       formatTableDateTime(order.createdAt),
       order.orderNo,
       order.buyerName ?? order.buyerEmail ?? order.buyerId,
-      paymentStateText(order.paymentStatus),
       order.paymentProviderReferenceId ?? "-",
       order.paymentProviderSessionId ?? "-",
+      paymentStateText(order.paymentStatus),
       formatCurrency(Number(order.totalAmount ?? 0), language),
     ]);
     const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
@@ -1757,8 +1757,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         </section>
       ) : null}
       {identityViewerOpen ? (
-        <div className="buyer-ops-modal-backdrop">
-          <div ref={identityModalPrintRef} className="buyer-ops-modal seller-doc-viewer-modal print-target-modal">
+        <div className="buyer-ops-modal-backdrop" onClick={() => setIdentityViewerOpen(false)}>
+          <div ref={identityModalPrintRef} className="buyer-ops-modal seller-doc-viewer-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
             <h3>Kimlik Dosyaları</h3>
             {identityDocuments.length === 0 ? (
               <p className="panel-meta">Kimlik dosyası bulunamadı.</p>
@@ -1805,7 +1805,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       ) : null}
 
       {previewTarget ? (
-        <div className="buyer-ops-modal-backdrop" onClick={previewAction ? undefined : closePreviewModal}>
+        <div className="buyer-ops-modal-backdrop" onClick={closePreviewModal}>
           <div className="buyer-ops-modal seller-doc-viewer-modal" onClick={(event) => event.stopPropagation()}>
             <h3>{language === "tr" ? "Belge Ön İzleme" : "Document Preview"}</h3>
             <div className="seller-doc-preview-meta">
@@ -2646,9 +2646,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>{language === "tr" ? "Tarih / Saat" : "Date / Time"}</th>
                       <th>{language === "tr" ? "Sipariş No" : "Order No"}</th>
                       <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                      <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
                       <th>{language === "tr" ? "İşlem Referansı" : "Transaction Ref"}</th>
                       <th>{language === "tr" ? "Oturum Numarası" : "Session No"}</th>
+                      <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
                       <th>{language === "tr" ? "Kazanç" : "Earning"}</th>
                     </tr>
                   </thead>
@@ -2681,9 +2681,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             </Link>
                           ) : (order.buyerName ?? order.buyerEmail ?? "-")}
                         </td>
-                        <td>{paymentStateText(order.paymentStatus)}</td>
                         <td>{renderWalletSearchHighlight(order.paymentProviderReferenceId)}</td>
                         <td>{renderWalletSearchHighlight(order.paymentProviderSessionId)}</td>
+                        <td>{paymentStateText(order.paymentStatus)}</td>
                         <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                       </tr>
                     ))}
