@@ -547,6 +547,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setSelectedInlineLotId(lotId ?? null);
   }
 
+  const orderReturnTo = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    params.set("tab", activeTab === "wallet" ? "wallet" : "orders");
+    return `${location.pathname}?${params.toString()}`;
+  }, [location.pathname, location.search, activeTab]);
+
+  const orderDetailPath = (orderId: string) => {
+    const params = new URLSearchParams({
+      search: orderId,
+      returnTo: orderReturnTo,
+    });
+    return `/app/orders?${params.toString()}`;
+  };
+
   async function onSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isSuperAdmin) return;
@@ -2554,7 +2568,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           </td>
                           <td>{formatTableDateTime(order.createdAt)}</td>
                           <td>
-                            <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
+                            <Link className="inline-copy" to={orderDetailPath(order.orderId)}>
                               {order.orderNo}
                             </Link>
                           </td>
@@ -2676,7 +2690,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         </td>
                         <td>{formatTableDateTime(order.createdAt)}</td>
                         <td>
-                          <Link className="inline-copy" to={`/app/orders?search=${encodeURIComponent(order.orderId)}`}>
+                          <Link className="inline-copy" to={orderDetailPath(order.orderId)}>
                             {order.orderNo}
                           </Link>
                         </td>

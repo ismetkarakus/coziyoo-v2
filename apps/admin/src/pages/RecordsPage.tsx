@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { Pager, ExcelExportButton, PrintButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
@@ -10,8 +10,10 @@ import type { Language, ApiError } from "../types/core";
 
 export default function RecordsPage({ language, tableKey }: { language: Language; tableKey: "orders" | "foods" }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const urlSearchQuery = tableKey === "orders" ? (new URLSearchParams(location.search).get("search") ?? "").trim() : "";
+  const returnTo = tableKey === "orders" ? (new URLSearchParams(location.search).get("returnTo") ?? "").trim() : "";
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [userNameById, setUserNameById] = useState<Record<string, string>>({});
@@ -702,6 +704,16 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     <div className="app">
       <header className="topbar topbar-with-centered-search">
         <div>
+          {returnTo ? (
+            <button
+              type="button"
+              className="ghost back-nav-btn"
+              onClick={() => navigate(returnTo)}
+              style={{ marginBottom: 8 }}
+            >
+              ← {language === "tr" ? "Geri" : "Back"}
+            </button>
+          ) : null}
           <h1>{pageTitle}</h1>
           <p className="subtext">{subtitle}</p>
         </div>
