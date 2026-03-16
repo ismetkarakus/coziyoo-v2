@@ -8,6 +8,7 @@
     "start": "node dist/src/server.js",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "seed:wallet-transactions": "tsx scripts/seed-seller-wallet-transactions.ts",
+    "seed:wallet-transactions:all": "tsx scripts/seed-seller-wallet-transactions.ts --all-sellers --limit 200",
     "test": "vitest run",
     "test:watch": "vitest"
   },
