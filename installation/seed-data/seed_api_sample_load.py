@@ -41,6 +41,20 @@ TURKISH_BUYER_NAMES: list[str] = [
     "Selin Öztürk",
 ]
 
+# Portrait image URLs aligned with name order (gender-matched)
+BUYER_PORTRAIT_URLS: list[str] = [
+    "https://randomuser.me/api/portraits/men/32.jpg",    # Ahmet
+    "https://randomuser.me/api/portraits/men/44.jpg",    # Mehmet
+    "https://randomuser.me/api/portraits/men/11.jpg",    # Ali
+    "https://randomuser.me/api/portraits/men/55.jpg",    # Can
+    "https://randomuser.me/api/portraits/men/23.jpg",    # Burak
+    "https://randomuser.me/api/portraits/men/67.jpg",    # Murat
+    "https://randomuser.me/api/portraits/men/78.jpg",    # Emre
+    "https://randomuser.me/api/portraits/men/5.jpg",     # Deniz
+    "https://randomuser.me/api/portraits/women/19.jpg",  # Ece
+    "https://randomuser.me/api/portraits/women/31.jpg",  # Selin
+]
+
 TURKISH_SELLER_NAMES: list[str] = [
     "Fatma Karaca",
     "Ayşe Güneş",
@@ -52,6 +66,20 @@ TURKISH_SELLER_NAMES: list[str] = [
     "Hasan Uçar",
     "Gamze Korkmaz",
     "İrem Kurt",
+]
+
+# Portrait image URLs aligned with name order (gender-matched)
+SELLER_PORTRAIT_URLS: list[str] = [
+    "https://randomuser.me/api/portraits/women/44.jpg",  # Fatma
+    "https://randomuser.me/api/portraits/women/57.jpg",  # Ayşe
+    "https://randomuser.me/api/portraits/women/26.jpg",  # Zeynep
+    "https://randomuser.me/api/portraits/women/12.jpg",  # Elif
+    "https://randomuser.me/api/portraits/women/65.jpg",  # Merve
+    "https://randomuser.me/api/portraits/men/41.jpg",    # Hakan
+    "https://randomuser.me/api/portraits/men/19.jpg",    # Yusuf
+    "https://randomuser.me/api/portraits/men/52.jpg",    # Hasan
+    "https://randomuser.me/api/portraits/women/33.jpg",  # Gamze
+    "https://randomuser.me/api/portraits/women/48.jpg",  # İrem
 ]
 
 CATEGORY_DEFS: list[dict[str, str]] = [
@@ -515,11 +543,12 @@ def ensure_user_gps_columns(conn: Any) -> None:
 
 
 def backfill_users(conn: Any, users: list[UserAccount], *, role: str) -> dict[str, dict[str, Any]]:
+    portrait_pool = SELLER_PORTRAIT_URLS if role == "seller" else BUYER_PORTRAIT_URLS
     out: dict[str, dict[str, Any]] = {}
     with conn.cursor() as cur:
         for idx, user in enumerate(users):
             city, lat, lon = user_coordinates(idx + (100 if role == "seller" else 0))
-            profile_image_url = f"https://images.coziyoo.local/{role}s/{slugify_display(user.full_name)}.jpg"
+            profile_image_url = portrait_pool[idx % len(portrait_pool)]
             cur.execute(
                 """
                 UPDATE users
