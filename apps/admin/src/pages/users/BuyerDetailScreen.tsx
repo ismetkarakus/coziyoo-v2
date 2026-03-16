@@ -170,6 +170,10 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }, [id, ordersPage]);
 
   useEffect(() => {
+    setProfileImageFailed(false);
+  }, [id]);
+
+  useEffect(() => {
     setActiveTab(resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
   }, [location.search]);
 
@@ -182,21 +186,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }, [activeTab]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
-  const buyerInitials = String(fullName || row?.email || "?")
-    .replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "?";
   const buyerProfileImageUrl =
     !profileImageFailed
       ? normalizeImageUrl(contactInfo?.identity.profileImageUrl) ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profileImageUrl) ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profile_image_url)
       : null;
-  const buyerFallbackAvatar = `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#5d7fc9'/><stop offset='100%' stop-color='#1b2b4b'/></linearGradient></defs><rect width='140' height='140' rx='70' fill='url(#g)'/><text x='50%' y='56%' text-anchor='middle' font-family='Arial,sans-serif' font-size='48' fill='white' font-weight='700'>${buyerInitials}</text></svg>`
-  )}`;
+  const buyerFallbackAvatar = "/avatar-buyer-default.svg";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
   const contactPhoneHrefValue = String(phone).replace(/[^\d+]/g, "");

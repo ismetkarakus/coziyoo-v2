@@ -3015,6 +3015,7 @@ textarea:focus {
 .complaint-detail-modal-shell {
   width: min(1180px, 96vw);
   max-height: min(92vh, 980px);
+  min-height: 420px;
   overflow: auto;
   padding: 16px;
 }
