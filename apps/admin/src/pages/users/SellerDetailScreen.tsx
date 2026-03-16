@@ -1293,8 +1293,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Siparis No" : "Order No",
       language === "tr" ? "Alici" : "Buyer",
       language === "tr" ? "Odeme" : "Payment",
-      language === "tr" ? "Transaction Ref" : "Transaction Ref",
-      language === "tr" ? "Session No" : "Session No",
+      language === "tr" ? "İşlem Referansı" : "Transaction Ref",
+      language === "tr" ? "Oturum Numarası" : "Session No",
       language === "tr" ? "Kazanc" : "Earning",
     ];
     const rowsForExport = selectedFilteredEarnings.map((order) => [
@@ -2585,8 +2585,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>{language === "tr" ? "Sipariş No" : "Order No"}</th>
                       <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
                       <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
-                      <th>{language === "tr" ? "Transaction Ref" : "Transaction Ref"}</th>
-                      <th>{language === "tr" ? "Session No" : "Session No"}</th>
+                      <th>{language === "tr" ? "İşlem Referansı" : "Transaction Ref"}</th>
+                      <th>{language === "tr" ? "Oturum Numarası" : "Session No"}</th>
                       <th>{language === "tr" ? "Kazanç" : "Earning"}</th>
                     </tr>
                   </thead>

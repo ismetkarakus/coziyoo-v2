@@ -1527,6 +1527,8 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       buyer_email: string | null;
       seller_name: string | null;
       seller_email: string | null;
+      provider_reference_id: string | null;
+      provider_session_id: string | null;
       created_at: string;
     }>(
       "orders",
@@ -1539,10 +1541,19 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
          b.email AS buyer_email,
          s.display_name AS seller_name,
          s.email AS seller_email,
+         pa.provider_reference_id,
+         pa.provider_session_id,
          o.created_at::text
        FROM orders o
        JOIN users b ON b.id = o.buyer_id
        JOIN users s ON s.id = o.seller_id
+       LEFT JOIN LATERAL (
+         SELECT provider_reference_id, provider_session_id
+         FROM payment_attempts
+         WHERE order_id = o.id
+         ORDER BY updated_at DESC NULLS LAST, created_at DESC
+         LIMIT 1
+       ) pa ON TRUE
        WHERE
          lower(o.id::text) LIKE $1
          OR lower('#' || substring(o.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
@@ -1553,7 +1564,11 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
          OR lower(coalesce(b.email, '')) LIKE $1
          OR lower(coalesce(s.display_name, '')) LIKE $1
          OR lower(coalesce(s.email, '')) LIKE $1
+         OR lower(coalesce(pa.provider_reference_id, '')) LIKE $1
+         OR lower(coalesce(pa.provider_session_id, '')) LIKE $1
          OR regexp_replace(lower(o.id::text), '[^a-z0-9]', '', 'g') LIKE $2
+         OR regexp_replace(lower(coalesce(pa.provider_reference_id, '')), '[^a-z0-9]', '', 'g') LIKE $2
+         OR regexp_replace(lower(coalesce(pa.provider_session_id, '')), '[^a-z0-9]', '', 'g') LIKE $2
        ORDER BY o.created_at DESC
        LIMIT $3`,
       [needle, compactNeedle, perKindLimit]
@@ -1657,7 +1672,7 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       kind: "order",
       id: row.id,
       primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
-      secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}`,
+      secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}${row.provider_reference_id ? ` • Ref: ${row.provider_reference_id}` : ""}${row.provider_session_id ? ` • Session: ${row.provider_session_id}` : ""}`,
       targetPath: `/app/orders?search=${encodeURIComponent(row.id)}`,
     })),
     lots.rows.map((row) => ({
