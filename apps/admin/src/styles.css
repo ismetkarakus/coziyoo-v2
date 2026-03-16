@@ -823,6 +823,16 @@ a {
   transform-origin: center;
 }
 
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+
 @keyframes wifi-pulse-down {
   0% {
     transform: scale(1);
@@ -2980,6 +2990,8 @@ textarea:focus {
   place-items: center;
   z-index: 9999;
   padding: 20px 28px;
+  animation: backdropFadeIn 0.15s ease forwards;
+  will-change: opacity;
 }
 
 .buyer-ops-modal {
@@ -2992,6 +3004,8 @@ textarea:focus {
   display: grid;
   gap: 10px;
   color: var(--ops-text-primary, var(--color-text));
+  animation: modalSlideIn 0.18s ease forwards;
+  will-change: opacity, transform;
 }
 
 .complaint-detail-modal-backdrop {
@@ -7051,6 +7065,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-doc-viewer-modal {
   width: min(980px, 92vw);
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
 }
 
 .seller-doc-viewer-grid {
