@@ -128,7 +128,6 @@ After installation, the admin panel is available at your configured domain with:
 |---------|------|------|-------------|
 | `coziyoo-api` | systemd | 3000 | Node.js/Express API |
 | `coziyoo-admin` | systemd | 8000 | Python HTTP server (admin panel) |
-| `postgresql` | systemd | 5432 | PostgreSQL database |
 | `nginx-proxy-manager` | Docker | 80/443/81 | Nginx Proxy Manager (ingress) |
 
 ### External Access
@@ -148,7 +147,7 @@ Environment file policy:
 Application configuration values include:
 
 - **API settings:** `API_PORT`, `*_SECRET` keys
-- **Database:** `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
+- **Database:** `DATABASE_URL`, `DATABASE_SSL_MODE`
 - **External services:** `PAYMENT_WEBHOOK_SECRET`, `AI_SERVER_*`, etc.
 
 Installation-specific settings are in `installation/config.env`.
