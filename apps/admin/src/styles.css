@@ -6467,6 +6467,28 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   color: #f3c86a;
 }
 
+.review-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.review-star {
+  color: color-mix(in srgb, #f3c86a 28%, #8a93aa);
+  font-size: 1rem;
+}
+
+.review-star.is-filled {
+  color: #f3c86a;
+}
+
+.review-star-count {
+  margin-left: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f5c665;
+}
 
 .seller-hero-right {
   display: flex;

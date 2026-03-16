@@ -2758,8 +2758,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                         <td>{item.buyerName ?? <span className="panel-meta">-</span>}</td>
                         <td>{item.foodName}</td>
                         <td>
-                          <span className="review-stars" title={`${item.rating}/5`}>
-                            {"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}
+                          <span className="review-stars">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <span key={i} className={i < item.rating ? "review-star is-filled" : "review-star"}>{i < item.rating ? "★" : "☆"}</span>
+                            ))}
+                            <span className="review-star-count">{item.rating}/5</span>
                           </span>
                         </td>
                         <td>{item.comment ?? <span className="panel-meta">-</span>}</td>
