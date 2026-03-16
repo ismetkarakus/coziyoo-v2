@@ -1002,10 +1002,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                 </div>
                 <div className="foods-detail-grid">
                   <div className={`foods-detail-text-block${lotDiff?.ingredientsChanged ? " foods-detail-text-block--warn" : ""}`}>
-                    <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
-                    <p className="panel-meta">{language === "tr" ? "Eklenenler" : "Added"}</p>
+                    <h4>{language === "tr" ? "Lot Malzemeler / Baharatlar" : "Lot Ingredients / Spices"}</h4>
+                    <p>{language === "tr" ? "Eklenenler" : "Added"}</p>
                     <p className="foods-detail-paragraph">{addedIngredients.length > 0 ? addedIngredients.join(", ") : "-"}</p>
-                    <p className="panel-meta">{language === "tr" ? "Çıkarılanlar" : "Removed"}</p>
+                    <p>{language === "tr" ? "Çıkarılanlar" : "Removed"}</p>
                     <p className="foods-detail-paragraph">{removedIngredients.length > 0 ? removedIngredients.join(", ") : "-"}</p>
                   </div>
                   <div className={`foods-detail-text-block${lotDiff?.allergensChanged ? " foods-detail-text-block--warn" : ""}`}>
