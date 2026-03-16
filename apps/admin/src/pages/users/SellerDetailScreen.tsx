@@ -189,9 +189,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   function renderWalletSearchHighlight(value: string | null | undefined) {
     const rawText = String(value ?? "").trim();
     if (!rawText) return "-";
-    const text = rawText
+    const normalized = rawText
       .replace(/^seed-ref-/i, "")
       .replace(/^seed-session-/i, "");
+    const text = normalized.split("-")[0] || normalized;
     const query = earningsSearch.trim();
     if (!query) return text;
     const textLower = text.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
