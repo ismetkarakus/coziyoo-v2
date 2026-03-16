@@ -2762,7 +2762,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             {Array.from({ length: 5 }).map((_, i) => (
                               <span key={i} className={i < item.rating ? "review-star is-filled" : "review-star"}>{i < item.rating ? "★" : "☆"}</span>
                             ))}
-                            <span className="review-star-count">{item.rating}/5</span>
+                            <span className="review-star-count">{item.rating.toFixed(1)}</span>
                           </span>
                         </td>
                         <td>{item.comment ?? <span className="panel-meta">-</span>}</td>
