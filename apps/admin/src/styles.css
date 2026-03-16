@@ -3051,6 +3051,19 @@ textarea:focus {
   line-height: 1.45;
 }
 
+.complaint-detail-modal-shell .complaint-field-block:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.complaint-detail-modal-shell .complaint-note-author {
+  font-size: var(--text-xs);
+}
+
+.complaint-detail-modal-shell .complaint-note-date {
+  font-size: 0.7rem;
+}
+
 .buyer-ops-modal h3 {
   font-size: var(--text-md);
 }
@@ -8622,7 +8635,6 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  isolation: isolate;
 }
 
 .complaint-ticket-thread .complaint-detail-label {
