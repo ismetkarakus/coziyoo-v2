@@ -900,17 +900,10 @@ a {
   gap: 24px;
 }
 
-@keyframes pageIn {
-  from { transform: translateY(4px); }
-  to   { transform: translateY(0); }
-}
-
 .page-transition-root {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  animation: pageIn 0.14s ease forwards;
-  will-change: transform;
 }
 
 .back-nav {

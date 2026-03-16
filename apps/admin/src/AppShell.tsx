@@ -68,15 +68,12 @@ function AppShell({
   const isDetailPage = pathParts.length > 2;
   const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
   const handleDetailBack = () => {
-    if (window.history.length > 1) {
+    const routerIdx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (routerIdx > 0) {
       navigate(-1);
       return;
     }
-    if (parentPath) {
-      navigate(parentPath);
-      return;
-    }
-    navigate("/app");
+    navigate(parentPath ?? "/app");
   };
   const globalSearchMinChars = 2;
   const globalSearchQuery = globalSearchInput.trim();
@@ -320,7 +317,7 @@ function AppShell({
             </button>
           </div>
         ) : null}
-        <div key={location.pathname} className="page-transition-root">
+        <div className="page-transition-root">
           {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
           {location.pathname === "/app/review-queue" ? <ReviewQueuePage language={language} /> : null}
           {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
