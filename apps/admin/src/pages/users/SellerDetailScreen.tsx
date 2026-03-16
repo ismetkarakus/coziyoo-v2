@@ -1335,8 +1335,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Tarih / Saat" : "Date / Time",
       language === "tr" ? "Siparis No" : "Order No",
       language === "tr" ? "Alici" : "Buyer",
-      language === "tr" ? "İşlem Referansı" : "Transaction Ref",
-      language === "tr" ? "Oturum Numarası" : "Session No",
+      language === "tr" ? "İşlem Ref" : "Transaction Ref",
+      language === "tr" ? "Oturum No" : "Session No",
       language === "tr" ? "Odeme" : "Payment",
       language === "tr" ? "Kazanc" : "Earning",
     ];
@@ -2646,8 +2646,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>{language === "tr" ? "Tarih / Saat" : "Date / Time"}</th>
                       <th>{language === "tr" ? "Sipariş No" : "Order No"}</th>
                       <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
-                      <th>{language === "tr" ? "İşlem Referansı" : "Transaction Ref"}</th>
-                      <th>{language === "tr" ? "Oturum Numarası" : "Session No"}</th>
+                      <th>{language === "tr" ? "İşlem Ref" : "Transaction Ref"}</th>
+                      <th>{language === "tr" ? "Oturum No" : "Session No"}</th>
                       <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
                       <th>{language === "tr" ? "Kazanç" : "Earning"}</th>
                     </tr>
