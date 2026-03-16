@@ -7633,6 +7633,16 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   word-break: break-word;
 }
 
+.foods-detail-plain-text {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--text-md);
+  line-height: 1.45;
+  color: var(--color-text);
+  white-space: normal;
+  word-break: break-word;
+}
+
 .foods-detail-text-block pre {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);

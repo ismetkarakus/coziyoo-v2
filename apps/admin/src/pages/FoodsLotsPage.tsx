@@ -986,11 +986,11 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                 <div className="foods-detail-grid">
                   <div className={`foods-detail-text-block${lotDiff?.ingredientsChanged ? " foods-detail-text-block--warn" : ""}`}>
                     <h4>{language === "tr" ? "Lot Malzemeler / Baharatlar" : "Lot Ingredients / Spices"}</h4>
-                    <p className="foods-detail-paragraph">{toReadableText(selectedLot.ingredients_snapshot_json)}</p>
+                    <p className="foods-detail-plain-text">{toReadableText(selectedLot.ingredients_snapshot_json)}</p>
                   </div>
                   <div className={`foods-detail-text-block${lotDiff?.allergensChanged ? " foods-detail-text-block--warn" : ""}`}>
                     <h4>{language === "tr" ? "Lot Alerjen" : "Lot Allergens"}</h4>
-                    <p className="foods-detail-paragraph">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
+                    <p className="foods-detail-plain-text">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
                   </div>
                 </div>
               </div>
