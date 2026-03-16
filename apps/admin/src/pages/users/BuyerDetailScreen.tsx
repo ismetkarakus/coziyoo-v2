@@ -395,11 +395,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       return;
     }
 
-    const headers = ["Tarih / Saat", "Siparis No", "Satici", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
+    const headers = ["Tarih / Saat", "Siparis No", "Satici", "Teslimat", "Yemekler", "Tutar", "Durum", "Odeme Durumu"];
     const rowsForExport = orders.map((order) => [
       formatTableDateTime(order.createdAt),
       order.orderNo,
       order.sellerName ?? order.sellerEmail ?? order.sellerId,
+      String(order.deliveryType ?? "").toLowerCase() === "delivery" ? "Adrese Teslim" : String(order.deliveryType ?? "").toLowerCase() === "pickup" ? "Elden Teslim" : "-",
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
       formatCurrency(order.totalAmount, "tr"),
       orderStatusLabel(order.status),
@@ -729,6 +730,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         <th>Tarih / Saat</th>
                         <th>Siparis No</th>
                         <th>Satici</th>
+                        <th>Teslimat</th>
                         <th>{activeTab === "orders" ? "Yemekler" : "Odeme / Yemek"}</th>
                         <th>Tutar</th>
                         <th>Durum</th>
@@ -737,9 +739,14 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                     </thead>
                     <tbody>
                       {visibleOrders.length === 0 ? (
-                        <tr><td colSpan={8}>Siparis kaydi bulunamadi.</td></tr>
+                        <tr><td colSpan={9}>Siparis kaydi bulunamadi.</td></tr>
                       ) : visibleOrders.map((order: any) => {
                         const foods = order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ");
+                        const deliveryText = String(order.deliveryType ?? "").toLowerCase() === "delivery"
+                          ? "Adrese Teslim"
+                          : String(order.deliveryType ?? "").toLowerCase() === "pickup"
+                            ? "Elden Teslim"
+                            : "-";
                         const paymentState = paymentBadge(order.paymentStatus);
                         const statusText = paymentState.cls === "is-pending"
                           ? "Bekleyen"
@@ -752,6 +759,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                             <td>{formatTableDateTime(order.createdAt)}</td>
                             <td className="buyer-order-no">{order.orderNo}</td>
                             <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId}</td>
+                            <td>{deliveryText}</td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
                             <td>{formatCurrency(order.totalAmount, "tr")}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
