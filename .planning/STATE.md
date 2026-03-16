@@ -9,29 +9,29 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 4 of 7 (Per-Turn N8N Integration)
-Plan: 0 of 4 in current phase
-Status: Not started
-Last activity: 2026-03-13 — Phase 3 complete; log viewer fixed (session events visible, clear/refresh separated, file-not-found distinction, TTS response logging added)
+Phase: 4 (Per-Turn N8N Integration)
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-03-16 — Plans 04-01 and 04-02 complete; n8n webhook URL single resolution path confirmed
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
+- Total plans completed: 2
+- Average duration: ~1m
 - Total execution time: 0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 4 | 2 | 2m | 1m |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 04-01, 04-02
+- Trend: Fast (mostly pre-implemented)
 
 *Updated after each plan completion*
 
@@ -60,6 +60,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15
-Stopped at: Phase 8 complete (Lots in Foods — all 3 plans executed)
+Last session: 2026-03-16
+Stopped at: Completed 04-02-PLAN.md (n8n webhook URL consolidation)
 Resume file: None
