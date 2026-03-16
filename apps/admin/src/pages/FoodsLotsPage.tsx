@@ -909,8 +909,8 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                     <strong>{`${formatUiDate(selectedLot.sale_starts_at, language)} - ${formatUiDate(selectedLot.sale_ends_at, language)}`}</strong>
                   </div>
                   <div>
-                    <span className="panel-meta">{language === "tr" ? "SKT / TETT" : "Use By / Best Before"}</span>
-                    <strong>{`${formatUiDate(selectedLot.use_by, language)} / ${formatUiDate(selectedLot.best_before, language)}`}</strong>
+                    <span className="panel-meta">{language === "tr" ? "Son Kullanma Tarihi" : "Use By Date"}</span>
+                    <strong>{formatUiDate(selectedLot.use_by, language)}</strong>
                   </div>
                 </div>
                 <div className="foods-detail-text-block">
