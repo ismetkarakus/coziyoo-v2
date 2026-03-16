@@ -1668,13 +1668,29 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
       secondaryText: `${row.seller_name || row.seller_email} • ${row.is_active ? "active" : "disabled"} • FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
       targetPath: `/app/sellers/${row.seller_id}?tab=foods&focusFoodId=${encodeURIComponent(row.id)}`,
     })),
-    orders.rows.map((row) => ({
-      kind: "order",
-      id: row.id,
-      primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
-      secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}${row.provider_reference_id ? ` • Ref: ${row.provider_reference_id}` : ""}${row.provider_session_id ? ` • Session: ${row.provider_session_id}` : ""}`,
-      targetPath: `/app/orders?search=${encodeURIComponent(row.id)}`,
-    })),
+    orders.rows.map((row) => {
+      const ref = String(row.provider_reference_id ?? "");
+      const session = String(row.provider_session_id ?? "");
+      const refLower = ref.toLowerCase();
+      const sessionLower = session.toLowerCase();
+      const refCompact = refLower.replace(/[^a-z0-9]/g, "");
+      const sessionCompact = sessionLower.replace(/[^a-z0-9]/g, "");
+      const matchedTx =
+        (normalized.length > 0 && refLower.includes(normalized) ? ref : "")
+        || (normalized.length > 0 && sessionLower.includes(normalized) ? session : "")
+        || (compact.length > 0 && refCompact.includes(compact) ? ref : "")
+        || (compact.length > 0 && sessionCompact.includes(compact) ? session : "");
+      const walletTarget = matchedTx
+        ? `/app/sellers/${row.seller_id}?tab=wallet&searchTx=${encodeURIComponent(matchedTx)}`
+        : `/app/orders?search=${encodeURIComponent(row.id)}`;
+      return {
+        kind: "order" as const,
+        id: row.id,
+        primaryText: `#${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+        secondaryText: `${row.status} • ${row.buyer_name || row.buyer_email || "buyer"} • ${row.seller_name || row.seller_email || "seller"} • ${row.created_at.slice(0, 10)}${row.provider_reference_id ? ` • Ref: ${row.provider_reference_id}` : ""}${row.provider_session_id ? ` • Session: ${row.provider_session_id}` : ""}`,
+        targetPath: walletTarget,
+      };
+    }),
     lots.rows.map((row) => ({
       kind: "lot",
       id: row.id,

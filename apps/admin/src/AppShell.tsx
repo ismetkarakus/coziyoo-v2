@@ -167,6 +167,26 @@ function AppShell({
     return "Complaint";
   }
 
+  function renderGlobalSearchHighlight(text: string, query: string) {
+    const source = String(text ?? "");
+    const needle = query.trim();
+    if (!needle) return source;
+    const sourceLower = source.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    const needleLower = needle.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    const firstMatch = sourceLower.indexOf(needleLower);
+    if (firstMatch < 0) return source;
+    const before = source.slice(0, firstMatch);
+    const hit = source.slice(firstMatch, firstMatch + needle.length);
+    const after = source.slice(firstMatch + needle.length);
+    return (
+      <>
+        {before}
+        <mark className="global-search-hit">{hit}</mark>
+        {after}
+      </>
+    );
+  }
+
   function onSelectGlobalResult(item: GlobalSearchResultItem) {
     setIsGlobalSearchModalOpen(false);
     setGlobalSearchInput("");
@@ -391,8 +411,8 @@ function AppShell({
                     >
                       <span className={`global-search-kind kind-${item.kind}`}>{globalKindLabel(item.kind)}</span>
                       <span className="global-search-texts">
-                        <strong>{item.primaryText}</strong>
-                        <small>{item.secondaryText}</small>
+                        <strong>{renderGlobalSearchHighlight(item.primaryText, globalSearchQuery)}</strong>
+                        <small>{renderGlobalSearchHighlight(item.secondaryText, globalSearchQuery)}</small>
                       </span>
                     </button>
                   ))}

@@ -186,6 +186,27 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       .filter(Boolean);
   }
 
+  function renderWalletSearchHighlight(value: string | null | undefined) {
+    const text = String(value ?? "").trim();
+    if (!text) return "-";
+    const query = earningsSearch.trim();
+    if (!query) return text;
+    const textLower = text.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    const queryLower = query.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    const firstMatch = textLower.indexOf(queryLower);
+    if (firstMatch < 0) return text;
+    const before = text.slice(0, firstMatch);
+    const hit = text.slice(firstMatch, firstMatch + query.length);
+    const after = text.slice(firstMatch + query.length);
+    return (
+      <>
+        {before}
+        <mark className="wallet-search-hit">{hit}</mark>
+        {after}
+      </>
+    );
+  }
+
   function resolveDocTypeCodeFromRowKey(key: ComplianceRowKey): string | null {
     const docs = compliance?.documents ?? [];
     if (docs.length === 0) return null;
@@ -415,6 +436,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const value = new URLSearchParams(location.search).get("focusLotId");
     return value ? value.trim() : "";
   }, [location.search]);
+  const walletSearchTx = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("searchTx");
+    return value ? value.trim() : "";
+  }, [location.search]);
 
   useEffect(() => {
     if (activeTab !== "foods") return;
@@ -445,6 +470,13 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }, 120);
     return () => window.clearTimeout(timer);
   }, [activeTab, focusFoodId, focusLotId, foodRows, lotsByFoodId]);
+
+  useEffect(() => {
+    if (activeTab !== "wallet") return;
+    if (!walletSearchTx) return;
+    setEarningsPaymentFilter("all");
+    setEarningsSearch(walletSearchTx);
+  }, [activeTab, walletSearchTx]);
 
   useEffect(() => {
     if (!flashFoodId) return;
@@ -682,6 +714,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         order.buyerName ?? "",
         order.buyerEmail ?? "",
         order.buyerId ?? "",
+        order.paymentProviderReferenceId ?? "",
+        order.paymentProviderSessionId ?? "",
       ].join(" ").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
       return haystack.includes(query);
     });
@@ -2620,8 +2654,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           ) : (order.buyerName ?? order.buyerEmail ?? "-")}
                         </td>
                         <td>{paymentStateText(order.paymentStatus)}</td>
-                        <td>{order.paymentProviderReferenceId || "-"}</td>
-                        <td>{order.paymentProviderSessionId || "-"}</td>
+                        <td>{renderWalletSearchHighlight(order.paymentProviderReferenceId)}</td>
+                        <td>{renderWalletSearchHighlight(order.paymentProviderSessionId)}</td>
                         <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                       </tr>
                     ))}

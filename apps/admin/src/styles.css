@@ -758,6 +758,13 @@ a {
   font-size: var(--text-xs);
 }
 
+.global-search-hit {
+  color: inherit;
+  background: color-mix(in srgb, var(--color-warning) 36%, transparent);
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
 .global-search-empty {
   margin: 0;
   padding: 11px 12px;
@@ -6725,6 +6732,13 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   font-weight: var(--font-semibold);
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.wallet-search-hit {
+  color: inherit;
+  background: color-mix(in srgb, var(--color-warning) 38%, transparent);
+  border-radius: 4px;
+  padding: 0 2px;
 }
 
 .seller-detail-grid {
