@@ -470,6 +470,12 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     setSelectedFood(null);
     setSelectedLotId(null);
     if (returnToPath) {
+      if (returnToPath.startsWith("/app/sellers/")) {
+        const url = new URL(returnToPath, window.location.origin);
+        url.searchParams.set("tab", "foods");
+        navigate(`${url.pathname}${url.search}`);
+        return;
+      }
       navigate(returnToPath);
       return;
     }
