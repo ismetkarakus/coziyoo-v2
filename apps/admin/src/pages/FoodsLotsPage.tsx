@@ -161,6 +161,50 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     return String(value);
   };
 
+  const toDiffItems = (value: unknown): string[] => {
+    if (value === null || value === undefined) return [];
+    if (typeof value === "string") {
+      const text = value.trim();
+      if (!text) return [];
+      if (text.startsWith("{") || text.startsWith("[")) {
+        try {
+          return toDiffItems(JSON.parse(text));
+        } catch {
+          return text.split(/[,\n]+/g).map((item) => item.trim()).filter(Boolean);
+        }
+      }
+      return text.split(/[,\n]+/g).map((item) => item.trim()).filter(Boolean);
+    }
+    if (Array.isArray(value)) return value.flatMap((item) => toDiffItems(item));
+    if (typeof value === "object") {
+      return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+        if (typeof item === "boolean") return item ? [key] : [];
+        const text = toReadableText(item).trim();
+        if (!text || text === "-") return [];
+        return [`${key}: ${text}`];
+      });
+    }
+    return [String(value)];
+  };
+
+  const computeAddedItems = (baseValue: unknown, lotValue: unknown): string[] => {
+    const baseMap = new Map<string, string>();
+    const lotMap = new Map<string, string>();
+    for (const item of toDiffItems(baseValue)) {
+      const normalized = normalizeText(item);
+      if (normalized && !baseMap.has(normalized)) baseMap.set(normalized, item);
+    }
+    for (const item of toDiffItems(lotValue)) {
+      const normalized = normalizeText(item);
+      if (normalized && !lotMap.has(normalized)) lotMap.set(normalized, item);
+    }
+    const added: string[] = [];
+    for (const [key, value] of lotMap.entries()) {
+      if (!baseMap.has(key)) added.push(value);
+    }
+    return added;
+  };
+
   const explainAllergens = (
     food: NonNullable<typeof selectedFood>
   ): Array<{ key: string; label: string; status: "contains" | "may" | "mentioned"; note: string }> => {
@@ -318,6 +362,12 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     foodAllergens: selectedFood.allergensJson,
     lot: selectedLot,
   }) : null;
+  const addedIngredients = selectedFood && selectedLot && lotDiff?.ingredientsChanged
+    ? computeAddedItems(selectedFood.ingredientsJson, selectedLot.ingredients_snapshot_json)
+    : [];
+  const addedAllergens = selectedFood && selectedLot && lotDiff?.allergensChanged
+    ? computeAddedItems(selectedFood.allergensJson, selectedLot.allergens_snapshot_json)
+    : [];
   const selectedFoods = Object.values(selectedFoodMap);
   const allFoodsSelected =
     rows.length > 0 &&
@@ -880,11 +930,27 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                 {lotDiff && (lotDiff.recipeChanged || lotDiff.ingredientsChanged || lotDiff.allergensChanged) ? (
                   <div className="lot-diff-alert">
                     <span className="lot-diff-alert-icon">⚠</span>
-                    <span>
-                      {language === "tr"
-                        ? `Bu lot ana yemekten farklı: ${[lotDiff.recipeChanged && "Tarif", lotDiff.ingredientsChanged && "İçerikler", lotDiff.allergensChanged && "Alerjenler"].filter(Boolean).join(", ")}`
-                        : `This lot differs from the base food: ${[lotDiff.recipeChanged && "Recipe", lotDiff.ingredientsChanged && "Ingredients", lotDiff.allergensChanged && "Allergens"].filter(Boolean).join(", ")}`}
-                    </span>
+                    <div>
+                      <span>
+                        {language === "tr"
+                          ? `Bu lot ana yemekten farklı: ${[lotDiff.recipeChanged && "Tarif", lotDiff.ingredientsChanged && "İçerikler", lotDiff.allergensChanged && "Alerjenler"].filter(Boolean).join(", ")}`
+                          : `This lot differs from the base food: ${[lotDiff.recipeChanged && "Recipe", lotDiff.ingredientsChanged && "Ingredients", lotDiff.allergensChanged && "Allergens"].filter(Boolean).join(", ")}`}
+                      </span>
+                      {lotDiff.ingredientsChanged ? (
+                        <p className="panel-meta">
+                          {language === "tr"
+                            ? `Eklenen malzemeler: ${addedIngredients.length > 0 ? addedIngredients.join(", ") : "-"}`
+                            : `Added ingredients: ${addedIngredients.length > 0 ? addedIngredients.join(", ") : "-"}`}
+                        </p>
+                      ) : null}
+                      {lotDiff.allergensChanged ? (
+                        <p className="panel-meta">
+                          {language === "tr"
+                            ? `Eklenen alerjenler: ${addedAllergens.length > 0 ? addedAllergens.join(", ") : "-"}`
+                            : `Added allergens: ${addedAllergens.length > 0 ? addedAllergens.join(", ") : "-"}`}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
                 <div className="foods-detail-grid">
