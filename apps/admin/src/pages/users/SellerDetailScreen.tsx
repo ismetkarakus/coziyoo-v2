@@ -1,5 +1,5 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
@@ -65,6 +65,7 @@ const COMPLIANCE_DOC_KEY_TOKENS: Record<ComplianceRowKey, string[]> = {
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
