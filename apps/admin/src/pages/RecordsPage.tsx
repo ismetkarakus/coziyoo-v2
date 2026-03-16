@@ -282,7 +282,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       return raw || "-";
     }
 
-    if (column === "total_price") {
+    if (column === "total_price" || column === "unit_price" || column === "line_total") {
       const amount = Number(value ?? 0);
       if (Number.isFinite(amount)) return formatCurrency(amount, language);
     }
@@ -319,7 +319,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       }
       return raw || "-";
     }
-    if (column === "total_price") {
+    if (column === "total_price" || column === "unit_price" || column === "line_total") {
       const amount = Number(value ?? 0);
       if (Number.isFinite(amount)) return formatCurrency(amount, language);
     }
