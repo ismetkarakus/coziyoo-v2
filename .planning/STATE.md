@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 4 (Per-Turn N8N Integration)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-16 — Plans 04-01 and 04-02 complete; n8n webhook URL single resolution path confirmed
+Last activity: 2026-03-16 — Plans 04-01, 04-02, 04-03 complete; n8n error handling improved, HTTP errors re-raise without fallback
 
 Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: ~1m
+- Total plans completed: 3
+- Average duration: ~3m
 - Total execution time: 0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 4 | 2 | 2m | 1m |
+| 4 | 3 | 7m | 2m |
 
 **Recent Trend:**
-- Last 5 plans: 04-01, 04-02
+- Last 5 plans: 04-01, 04-02, 04-03
 - Trend: Fast (mostly pre-implemented)
 
 *Updated after each plan completion*
@@ -45,6 +45,8 @@ Recent decisions affecting current work:
 - Supabase cutover: Twin DB copy already exists; env var swap only — no code changes needed for DB-01
 - n8n as LLM brain: Per-turn synchronous calls via webhook; "Respond to Webhook" node required to avoid 60s timeout
 - Phase ordering: DB cutover is gate for everything else; log viewer fixed before n8n chain debugging
+- Re-raise APIStatusError immediately without execution API fallback — n8n HTTP errors indicate webhook reachability issues the fallback cannot resolve
+- Log raw n8n response body (500 chars) before raising empty-answer error to aid operator diagnosis of missing respondToWebhook node
 
 ### Pending Todos
 
@@ -61,5 +63,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 04-02-PLAN.md (n8n webhook URL consolidation)
+Stopped at: Completed 04-03-PLAN.md (n8n webhook error handling)
 Resume file: None
