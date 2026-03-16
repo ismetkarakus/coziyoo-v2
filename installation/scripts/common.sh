@@ -108,6 +108,7 @@ maybe_git_update() {
   fi
 
   local branch="${DEPLOY_BRANCH:-main}"
+  local reset_on_divergence="${GIT_RESET_ON_DIVERGENCE:-true}"
   log "Updating repo at ${repo} on branch ${branch}"
 
   # Add safe directory unconditionally
@@ -116,8 +117,37 @@ maybe_git_update() {
   (
     cd "${repo}"
     git fetch --quiet origin
-    git checkout -q "${branch}"
-    git pull --quiet --ff-only origin "${branch}"
+    if git show-ref --verify --quiet "refs/heads/${branch}"; then
+      git checkout -q "${branch}"
+    else
+      git checkout -q -B "${branch}" "origin/${branch}"
+    fi
+
+    local_head="$(git rev-parse HEAD)"
+    remote_head="$(git rev-parse "origin/${branch}")"
+    base_head="$(git merge-base HEAD "origin/${branch}")"
+
+    if [[ "${local_head}" == "${remote_head}" ]]; then
+      return
+    fi
+
+    if [[ "${local_head}" == "${base_head}" ]]; then
+      git pull --quiet --ff-only origin "${branch}"
+      return
+    fi
+
+    if [[ "${remote_head}" == "${base_head}" ]]; then
+      log "Local branch ${branch} is ahead of origin/${branch}; keeping local commits"
+      return
+    fi
+
+    if [[ "${reset_on_divergence}" == "true" ]]; then
+      log "Local branch ${branch} diverged from origin/${branch}; resetting to remote head"
+      git reset --hard "origin/${branch}"
+      return
+    fi
+
+    fail "Branch ${branch} diverged from origin/${branch}. Set GIT_RESET_ON_DIVERGENCE=true to auto-reset during deploy."
   )
 }
 
