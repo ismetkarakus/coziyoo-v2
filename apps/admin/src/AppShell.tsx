@@ -67,6 +67,17 @@ function AppShell({
   const pathParts = location.pathname.split("/").filter(Boolean);
   const isDetailPage = pathParts.length > 2;
   const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
+  const handleDetailBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    if (parentPath) {
+      navigate(parentPath);
+      return;
+    }
+    navigate("/app");
+  };
   const globalSearchMinChars = 2;
   const globalSearchQuery = globalSearchInput.trim();
 
@@ -303,7 +314,7 @@ function AppShell({
             <button
               type="button"
               className="ghost back-nav-btn"
-              onClick={() => navigate(parentPath)}
+              onClick={handleDetailBack}
             >
               ← {language === "tr" ? "Geri" : "Back"}
             </button>
