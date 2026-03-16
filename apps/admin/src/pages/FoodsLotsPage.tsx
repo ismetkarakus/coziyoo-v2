@@ -13,6 +13,10 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const location = useLocation();
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
+  const initialSearch = useMemo(() => {
+    const value = new URLSearchParams(location.search).get("search");
+    return value ? value.trim() : "";
+  }, [location.search]);
   const [rows, setRows] = useState<
     Array<{
       id: string;
@@ -31,7 +35,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   const [sellerNameById, setSellerNameById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<{ total: number; totalPages: number } | null>(null);
   const [expandedFoodIds, setExpandedFoodIds] = useState<Record<string, boolean>>({});
@@ -67,10 +71,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     ingredientsJson: unknown;
     allergensJson: unknown;
   }>>({});
-  const initialSearch = useMemo(() => {
-    const value = new URLSearchParams(location.search).get("search");
-    return value ? value.trim() : "";
-  }, [location.search]);
   const focusFoodId = useMemo(() => {
     const value = new URLSearchParams(location.search).get("foodId");
     return value ? value.trim() : "";
@@ -84,6 +84,31 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     return value ? value.trim() : "";
   }, [location.search]);
   const pageSize = 20;
+
+  const mapFoodRecord = (record: Record<string, unknown>) => ({
+    id: String(record.id ?? ""),
+    code: String(
+      record.code ??
+      record.food_code ??
+      record.display_code ??
+      record.display_id ??
+      record.food_no ??
+      record.sku ??
+      record.foodCode ??
+      record.displayId ??
+      record.foodNo ??
+      ""
+    ).trim(),
+    name: String(record.name ?? "-"),
+    sellerId: String(record.seller_id ?? ""),
+    isActive: Boolean(record.is_active),
+    price: Number(record.price ?? 0),
+    updatedAt: String(record.updated_at ?? ""),
+    recipe: typeof record.recipe === "string" ? record.recipe : null,
+    description: typeof record.description === "string" ? record.description : typeof record.card_summary === "string" ? record.card_summary : null,
+    ingredientsJson: record.ingredients_json ?? null,
+    allergensJson: record.allergens_json ?? null,
+  });
 
   const toPrettyJson = (value: unknown) => {
     if (value === null || value === undefined) return "-";
@@ -279,30 +304,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           };
         }>(response);
         const mapped = body.data.rows
-          .map((record) => ({
-            id: String(record.id ?? ""),
-            code: String(
-              record.code ??
-              record.food_code ??
-              record.display_code ??
-              record.display_id ??
-              record.food_no ??
-              record.sku ??
-              record.foodCode ??
-              record.displayId ??
-              record.foodNo ??
-              ""
-            ).trim(),
-            name: String(record.name ?? "-"),
-            sellerId: String(record.seller_id ?? ""),
-            isActive: Boolean(record.is_active),
-            price: Number(record.price ?? 0),
-            updatedAt: String(record.updated_at ?? ""),
-            recipe: typeof record.recipe === "string" ? record.recipe : null,
-            description: typeof record.description === "string" ? record.description : typeof record.card_summary === "string" ? record.card_summary : null,
-            ingredientsJson: record.ingredients_json ?? null,
-            allergensJson: record.allergens_json ?? null,
-          }))
+          .map((record) => mapFoodRecord(record))
           .filter((row) => row.id.length > 0);
         setRows(mapped);
         setPagination({ total: body.pagination.total, totalPages: body.pagination.totalPages });
@@ -616,15 +618,33 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   }
 
   useEffect(() => {
+    if (search === initialSearch) return;
     setSearch(initialSearch);
     setPage(1);
   }, [initialSearch]);
 
   useEffect(() => {
     if (!focusFoodId) return;
-    const food = rows.find((row) => row.id === focusFoodId);
-    if (!food) return;
-    openFoodDetail(food, focusLotId || undefined);
+    const existing = rows.find((row) => row.id === focusFoodId);
+    if (existing) {
+      openFoodDetail(existing, focusLotId || undefined);
+      return;
+    }
+    let active = true;
+    request(`/v1/admin/metadata/tables/foods/records?page=1&pageSize=1&search=${encodeURIComponent(focusFoodId)}`)
+      .then(async (response) => {
+        if (!active || response.status !== 200) return;
+        const body = await parseJson<{ data?: { rows?: Array<Record<string, unknown>> } }>(response);
+        const record = body.data?.rows?.[0];
+        if (!record) return;
+        const mapped = mapFoodRecord(record);
+        if (!mapped.id) return;
+        openFoodDetail(mapped, focusLotId || undefined);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [focusFoodId, focusLotId, rows]);
 
   return (
