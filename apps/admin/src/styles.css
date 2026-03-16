@@ -3041,6 +3041,16 @@ textarea:focus {
   font-size: var(--text-sm);
 }
 
+.complaint-detail-modal-shell .complaint-note-input {
+  font-size: 0.82rem;
+  min-height: 38px;
+}
+
+.complaint-detail-modal-shell .complaint-note-text {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .buyer-ops-modal h3 {
   font-size: var(--text-md);
 }
@@ -8612,6 +8622,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  isolation: isolate;
 }
 
 .complaint-ticket-thread .complaint-detail-label {
