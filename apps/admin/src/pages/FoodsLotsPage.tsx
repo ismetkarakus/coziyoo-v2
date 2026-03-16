@@ -847,11 +847,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
                 </div>
                 <div className="foods-detail-text-block">
-                  <h4>{language === "tr" ? "Ham Alerjen Verisi" : "Raw Allergen Data"}</h4>
-                  <p className="foods-detail-paragraph">{toReadableText(selectedFood.allergensJson)}</p>
-                </div>
-                <div className="foods-detail-text-block">
-                  <h4>Alerjen Durumu</h4>
+                  <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>
                   {selectedFoodAllergenSummary.length === 0 ? (
                     <p className="panel-meta">Alerjen yok.</p>
                   ) : (
