@@ -2312,6 +2312,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             flashFoodId === food.id ? "search-focus-flash" : "",
                             pinnedFoodId === food.id ? "search-focus-pinned" : "",
                           ].filter(Boolean).join(" ") || undefined}
+                          onClick={() => openFoodDetailPage(food.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openFoodDetailPage(food.id);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
                         >
                           <td>
                             <input
@@ -2331,7 +2340,10 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               className="ghost foods-toggle-btn"
                               type="button"
                               aria-label={foodExpanded ? dict.detail.hideLots : dict.detail.showLots}
-                              onClick={() => setExpandedFoodIds((prev) => ({ ...prev, [food.id]: !prev[food.id] }))}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setExpandedFoodIds((prev) => ({ ...prev, [food.id]: !prev[food.id] }));
+                              }}
                             >
                               {foodExpanded ? "−" : "+"}
                             </button>
@@ -2414,7 +2426,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                                               )}
                                             </td>
                                             <td>
-                                              <button className="ghost" type="button" onClick={() => openFoodDetailPage(food.id, lot.id)}>
+                                              <button
+                                                className="ghost"
+                                                type="button"
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  openFoodDetailPage(food.id, lot.id);
+                                                }}
+                                              >
                                                 {language === "tr" ? "Detay" : "Detail"}
                                               </button>
                                             </td>
