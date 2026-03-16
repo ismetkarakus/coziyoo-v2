@@ -3357,6 +3357,8 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
     updated_at: string;
     payment_status: string | null;
     payment_provider: string | null;
+    payment_provider_reference_id: string | null;
+    payment_provider_session_id: string | null;
     payment_updated_at: string | null;
     items_json: unknown;
   }>(
@@ -3372,6 +3374,8 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
        o.updated_at::text,
        pa.status AS payment_status,
        pa.provider AS payment_provider,
+       pa.provider_reference_id AS payment_provider_reference_id,
+       pa.provider_session_id AS payment_provider_session_id,
        pa.updated_at::text AS payment_updated_at,
        COALESCE(items.items_json, '[]'::jsonb) AS items_json
      FROM orders o
@@ -3393,7 +3397,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
        WHERE oi.order_id = o.id
      ) items ON TRUE
      LEFT JOIN LATERAL (
-       SELECT status, provider, updated_at
+       SELECT status, provider, provider_reference_id, provider_session_id, updated_at
        FROM payment_attempts
        WHERE order_id = o.id
        ORDER BY updated_at DESC NULLS LAST, created_at DESC
@@ -3419,6 +3423,8 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
       paymentCompleted: row.payment_completed,
       paymentStatus: row.payment_status ?? (row.payment_completed ? "succeeded" : "pending"),
       paymentProvider: row.payment_provider,
+      paymentProviderReferenceId: row.payment_provider_reference_id,
+      paymentProviderSessionId: row.payment_provider_session_id,
       paymentUpdatedAt: row.payment_updated_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

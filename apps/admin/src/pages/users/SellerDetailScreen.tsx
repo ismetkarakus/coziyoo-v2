@@ -99,6 +99,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       paymentCompleted: boolean;
       paymentStatus: string;
       paymentProvider: string | null;
+      paymentProviderReferenceId: string | null;
+      paymentProviderSessionId: string | null;
       paymentUpdatedAt: string | null;
       createdAt: string;
       updatedAt: string;
@@ -1291,6 +1293,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       language === "tr" ? "Siparis No" : "Order No",
       language === "tr" ? "Alici" : "Buyer",
       language === "tr" ? "Odeme" : "Payment",
+      language === "tr" ? "Transaction Ref" : "Transaction Ref",
+      language === "tr" ? "Session No" : "Session No",
       language === "tr" ? "Kazanc" : "Earning",
     ];
     const rowsForExport = selectedFilteredEarnings.map((order) => [
@@ -1298,6 +1302,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       order.orderNo,
       order.buyerName ?? order.buyerEmail ?? order.buyerId,
       paymentStateText(order.paymentStatus),
+      order.paymentProviderReferenceId ?? "-",
+      order.paymentProviderSessionId ?? "-",
       formatCurrency(Number(order.totalAmount ?? 0), language),
     ]);
     const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
@@ -2579,6 +2585,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>{language === "tr" ? "Sipariş No" : "Order No"}</th>
                       <th>{language === "tr" ? "Alıcı" : "Buyer"}</th>
                       <th>{language === "tr" ? "Ödeme" : "Payment"}</th>
+                      <th>{language === "tr" ? "Transaction Ref" : "Transaction Ref"}</th>
+                      <th>{language === "tr" ? "Session No" : "Session No"}</th>
                       <th>{language === "tr" ? "Kazanç" : "Earning"}</th>
                     </tr>
                   </thead>
@@ -2612,6 +2620,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           ) : (order.buyerName ?? order.buyerEmail ?? "-")}
                         </td>
                         <td>{paymentStateText(order.paymentStatus)}</td>
+                        <td>{order.paymentProviderReferenceId || "-"}</td>
+                        <td>{order.paymentProviderSessionId || "-"}</td>
                         <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                       </tr>
                     ))}
