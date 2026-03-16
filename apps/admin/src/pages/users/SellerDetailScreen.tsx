@@ -1,5 +1,5 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
@@ -66,7 +66,6 @@ const COMPLIANCE_DOC_KEY_TOKENS: Record<ComplianceRowKey, string[]> = {
 
 function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; isSuperAdmin: boolean; dict: Dictionary; language: Language }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const endpoint = `/v1/admin/users/${id}`;
   const [row, setRow] = useState<any | null>(null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
@@ -173,6 +172,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [complaintsStatusFilter, setComplaintsStatusFilter] = useState<"all" | "open" | "in_review" | "resolved" | "closed">("all");
   const [complaintsSortDir, setComplaintsSortDir] = useState<"desc" | "asc">("desc");
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
+  const [selectedInlineFoodId, setSelectedInlineFoodId] = useState<string | null>(null);
+  const [selectedInlineLotId, setSelectedInlineLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
   const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -543,16 +544,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [activeTab, complaintsPage, complaintsStatusFilter, complaintsSortDir]);
 
   function openFoodDetailPage(foodId: string, lotId?: string) {
-    const returnParams = new URLSearchParams(location.search);
-    returnParams.set("tab", "foods");
-    const returnTo = `${location.pathname}?${returnParams.toString()}`;
-    const params = new URLSearchParams({
-      foodId,
-      search: foodId,
-      returnTo,
-    });
-    if (lotId) params.set("lotId", lotId);
-    navigate(`/app/foods?${params.toString()}`);
+    setSelectedInlineFoodId(foodId);
+    setSelectedInlineLotId(lotId ?? null);
   }
 
   async function onSave(event: FormEvent<HTMLFormElement>) {
@@ -2959,6 +2952,77 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           <p className="panel-meta">{dict.detail.sectionPlanned}</p>
         </section>
       ) : null}
+
+      {selectedInlineFoodId ? (() => {
+        const food = foodRows.find((f) => f.id === selectedInlineFoodId) ?? null;
+        const lot = selectedInlineLotId ? (lotsByFoodId[selectedInlineFoodId]?.find((l) => l.id === selectedInlineLotId) ?? null) : null;
+        const closeInlineModal = () => { setSelectedInlineFoodId(null); setSelectedInlineLotId(null); };
+        if (!food) return null;
+        return (
+          <div className="buyer-ops-modal-backdrop" onClick={closeInlineModal}>
+            <div className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
+              <h3>{lot ? (language === "tr" ? "Lot Detayı" : "Lot Detail") : (language === "tr" ? "Yemek Detayı" : "Food Detail")}</h3>
+              {!lot ? (
+                <>
+                  <div className="foods-detail-grid">
+                    <div><span className="panel-meta">ID</span><strong>{food.id}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.foodName}</span><strong>{food.name}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.foodStatus}</span><strong>{food.status === "active" ? dict.common.active : dict.common.disabled}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.foodPrice}</span><strong>{formatCurrency(food.price, language)}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.updatedAtLabel}</span><strong>{formatUiDate(food.updatedAt, language)}</strong></div>
+                  </div>
+                  {food.description ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
+                      <p className="foods-detail-paragraph">{food.description}</p>
+                    </div>
+                  ) : null}
+                  {food.recipe ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
+                      <p className="foods-detail-paragraph">{food.recipe}</p>
+                    </div>
+                  ) : null}
+                  {food.ingredients ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "İçerikler" : "Ingredients"}</h4>
+                      <p className="foods-detail-paragraph">{food.ingredients}</p>
+                    </div>
+                  ) : null}
+                  {food.allergens.length > 0 ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Alerjenler" : "Allergens"}</h4>
+                      <p className="foods-detail-paragraph">{food.allergens.join(", ")}</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="foods-detail-text-block foods-detail-lot-focus">
+                  <div className="foods-detail-grid">
+                    <div><span className="panel-meta">{dict.detail.lotNumber}</span><strong>{lot.lot_number}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.lotLifecycle}</span><strong>{lotLifecycleLabel(lot.lifecycle_status, language)}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.lotQuantity}</span><strong>{`${lot.quantity_available}/${lot.quantity_produced}`}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.lotProducedAt}</span><strong>{formatUiDate(lot.produced_at, language)}</strong></div>
+                    <div><span className="panel-meta">{dict.detail.lotSaleWindow}</span><strong>{`${formatUiDate(lot.sale_starts_at, language)} – ${formatUiDate(lot.sale_ends_at, language)}`}</strong></div>
+                    <div><span className="panel-meta">{language === "tr" ? "Son Kullanma" : "Use By"}</span><strong>{formatUiDate(lot.use_by, language)}</strong></div>
+                  </div>
+                  {lot.recipe_snapshot ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Tarif Anlık Görüntü" : "Recipe Snapshot"}</h4>
+                      <p className="foods-detail-paragraph">{lot.recipe_snapshot}</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+              <div className="buyer-ops-modal-actions">
+                <button className="primary" type="button" onClick={closeInlineModal}>
+                  {language === "tr" ? "Kapat" : "Close"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
     </div>
   );
 }
