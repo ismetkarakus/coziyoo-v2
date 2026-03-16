@@ -6487,7 +6487,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   margin-left: 5px;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #f5c665;
+  color: var(--color-text-muted, #8a93aa);
 }
 
 .seller-hero-right {
