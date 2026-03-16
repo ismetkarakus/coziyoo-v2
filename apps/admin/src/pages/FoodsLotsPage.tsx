@@ -990,7 +990,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   </div>
                   <div className={`foods-detail-text-block${lotDiff?.allergensChanged ? " foods-detail-text-block--warn" : ""}`}>
                     <h4>{language === "tr" ? "Lot Alerjen" : "Lot Allergens"}</h4>
-                    <p className="foods-detail-plain-text">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
+                    <p className="foods-detail-plain-text foods-detail-allergen-text">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
                   </div>
                 </div>
               </div>

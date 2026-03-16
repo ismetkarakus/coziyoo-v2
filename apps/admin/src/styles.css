@@ -7643,6 +7643,10 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   word-break: break-word;
 }
 
+.foods-detail-allergen-text {
+  color: color-mix(in srgb, #ff4d4f 78%, var(--color-text));
+}
+
 .foods-detail-text-block pre {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
