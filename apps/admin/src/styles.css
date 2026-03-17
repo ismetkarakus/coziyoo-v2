@@ -4356,10 +4356,19 @@ textarea:focus {
 
 .seller-notes-col-title {
   margin: 0;
-  font-size: clamp(1.02rem, 1.2vw, 1.14rem);
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  width: fit-content;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(146, 182, 244, 0.38);
+  background: color-mix(in srgb, #294a86 22%, transparent);
+  font-size: 0.82rem;
   font-weight: var(--font-bold);
-  color: #f7faff;
-  letter-spacing: -0.01em;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .seller-notes-tags-head {
@@ -4372,10 +4381,18 @@ textarea:focus {
 
 .seller-notes-tag-label {
   flex: 0 0 auto;
-  font-size: clamp(0.98rem, 1.1vw, 1.06rem);
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(146, 182, 244, 0.38);
+  background: color-mix(in srgb, #294a86 22%, transparent);
+  font-size: 0.82rem;
   font-weight: var(--font-bold);
-  color: #f4f8ff;
-  letter-spacing: -0.01em;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .seller-notes-plus-btn {
@@ -9911,7 +9928,9 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-col-title,
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-tag-label {
-  color: color-mix(in srgb, #1d3466 88%, var(--color-text));
+  border-color: color-mix(in srgb, #84a7ea 34%, var(--color-border));
+  background: color-mix(in srgb, #dce9ff 78%, white);
+  color: color-mix(in srgb, #16366e 92%, var(--color-text));
 }
 
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input,

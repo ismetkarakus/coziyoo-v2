@@ -179,7 +179,7 @@ export function NotesPanel({
         </div>
 
         <div className="seller-notes-col seller-notes-col--notes">
-          <p className="seller-notes-col-title">{tr ? "Notlar" : "Notes"}</p>
+          <p className="seller-notes-col-title">{tr ? "Not" : "Note"}</p>
           <div className="seller-notes-input-row seller-notes-input-row--compact">
             <textarea
               rows={3}
