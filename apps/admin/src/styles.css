@@ -3267,7 +3267,7 @@ textarea:focus {
 .buyer-ref-avatar-button:hover .buyer-ref-avatar,
 .buyer-ref-avatar-button:focus-visible .buyer-ref-avatar {
   border-color: color-mix(in srgb, #99b6ff 64%, var(--ops-border-default));
-  box-shadow: 0 0 0 3px color-mix(in srgb, #4f83ff 12%, transparent), 0 10px 22px rgba(65, 123, 255, 0.18);
+  box-shadow: none;
 }
 
 .buyer-ref-avatar-button:hover,
@@ -3277,8 +3277,8 @@ textarea:focus {
 
 .buyer-ref-avatar-button:hover::after,
 .buyer-ref-avatar-button:focus-visible::after {
-  opacity: 1;
-  transform: scale(1.08) translateY(1px);
+  opacity: 0;
+  transform: scale(0.9) translateY(6px);
 }
 
 .buyer-ref-avatar-badge {
@@ -6514,13 +6514,14 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-avatar-button:hover::after,
 .seller-avatar-button:focus-visible::after {
-  opacity: 1;
-  transform: scale(1.12) translateY(1px);
+  opacity: 0;
+  transform: scale(0.88) translateY(6px);
 }
 
 .seller-avatar-button:hover .seller-avatar,
 .seller-avatar-button:focus-visible .seller-avatar {
-  box-shadow: 0 0 0 2px rgba(124, 174, 255, 0.4), 0 0 24px rgba(80, 143, 255, 0.26), 0 12px 28px rgba(60, 120, 255, 0.18);
+  border-color: color-mix(in srgb, #99b6ff 64%, var(--color-border));
+  box-shadow: none;
 }
 
 .seller-avatar img {
