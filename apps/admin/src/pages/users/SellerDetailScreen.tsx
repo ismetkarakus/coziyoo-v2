@@ -78,6 +78,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [addressEditorId, setAddressEditorId] = useState<string | null>(null);
   const [addressHistoryOpen, setAddressHistoryOpen] = useState(false);
   const [identityViewerOpen, setIdentityViewerOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [identityViewerUrl, setIdentityViewerUrl] = useState<string | null>(null);
   const [tempComplianceUploads, setTempComplianceUploads] = useState<Record<string, TempComplianceUpload>>({});
   const [previewTarget, setPreviewTarget] = useState<SellerPreviewTarget | null>(null);
@@ -453,6 +454,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setAddressEditorId(null);
     setAddressHistoryOpen(false);
     setIdentityViewerOpen(false);
+    setProfileModalOpen(false);
     setIdentityViewerUrl(null);
     setPreviewTarget(null);
     setPreviewAction(null);
@@ -948,6 +950,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const contactPhoneHrefValue = contactPhone.replace(/[^\d+]/g, "");
   const contactHasPhone = contactPhoneHrefValue.length > 0;
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
+  const primaryAddress = addresses.find((item) => item.isDefault)?.addressLine ?? addresses[0]?.addressLine ?? "-";
 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
@@ -1653,13 +1656,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       <section className="panel seller-hero">
         <article className="seller-hero-main">
           <div className="seller-avatar-col">
-            <div className="seller-avatar">
-              <img
-                src={profileImageUrl ?? sellerFallbackAvatar}
-                alt={row.displayName ?? "seller"}
-                onError={() => setProfileImageFailed(true)}
-              />
-            </div>
+            <button
+              type="button"
+              className="seller-avatar-button"
+              onClick={() => setProfileModalOpen(true)}
+              aria-label={language === "tr" ? "Profil bilgilerini aç" : "Open profile details"}
+            >
+              <div className="seller-avatar">
+                <img
+                  src={profileImageUrl ?? sellerFallbackAvatar}
+                  alt={row.displayName ?? "seller"}
+                  onError={() => setProfileImageFailed(true)}
+                />
+              </div>
+            </button>
           </div>
           <div className="seller-hero-text">
             <div className="seller-hero-title-stack">
@@ -1945,6 +1955,47 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 Kapat
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+      {profileModalOpen ? (
+        <div
+          className="buyer-ops-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={language === "tr" ? "Profil Bilgileri" : "Profile Details"}
+          onClick={() => setProfileModalOpen(false)}
+        >
+          <div className="buyer-ops-modal buyer-ref-profile-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="buyer-ref-profile-modal-head">
+              <div>
+                <h3>{language === "tr" ? "Profil Bilgileri" : "Profile Details"}</h3>
+                <p>{String(row.displayName ?? "-")}</p>
+              </div>
+              <button type="button" className="ghost buyer-ops-mini-btn" onClick={() => setProfileModalOpen(false)}>
+                {language === "tr" ? "Kapat" : "Close"}
+              </button>
+            </div>
+            <table className="buyer-ref-profile-table">
+              <tbody>
+                <tr>
+                  <th>{language === "tr" ? "E-posta" : "E-mail"}</th>
+                  <td>{contactEmail || "-"}</td>
+                </tr>
+                <tr>
+                  <th>{language === "tr" ? "Adres" : "Address"}</th>
+                  <td>{String(primaryAddress || "-")}</td>
+                </tr>
+                <tr>
+                  <th>{language === "tr" ? "Cep" : "Phone"}</th>
+                  <td>{contactPhone || "-"}</td>
+                </tr>
+                <tr>
+                  <th>{language === "tr" ? "Son Güncelleme" : "Last Update"}</th>
+                  <td>{formatUiDate(row.updatedAt, language)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       ) : null}
