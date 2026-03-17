@@ -522,6 +522,65 @@ const VoiceCreateOrderSchema = z.object({
 export const voiceOrderRouter = Router();
 
 voiceOrderRouter.post(
+  "/:id/notify-cook",
+  async (req, res) => {
+    if (!env.AI_SERVER_SHARED_SECRET) {
+      return res.status(503).json({ error: { code: "AI_SERVER_SHARED_SECRET_MISSING", message: "Server misconfiguration" } });
+    }
+    const provided = String(req.headers["x-ai-server-secret"] ?? "");
+    if (!isValidSharedSecret(provided)) {
+      return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" } });
+    }
+
+    const orderId = req.params.id;
+    if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid orderId" } });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const orderRow = await client.query<{ id: string; seller_id: string; buyer_id: string; status: string }>(
+        "SELECT id, seller_id, buyer_id, status FROM orders WHERE id = $1",
+        [orderId]
+      );
+
+      if ((orderRow.rowCount ?? 0) === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
+      }
+
+      const order = orderRow.rows[0];
+
+      await enqueueOutboxEvent(client, {
+        eventType: "cook_notification_sent",
+        aggregateType: "order",
+        aggregateId: order.id,
+        payload: {
+          orderId: order.id,
+          sellerId: order.seller_id,
+          buyerId: order.buyer_id,
+          status: order.status,
+          notifiedAt: new Date().toISOString(),
+          channel: "voice_order",
+        },
+      });
+
+      await client.query("COMMIT");
+      return res.status(200).json({
+        data: { notified: true, orderId: order.id, sellerId: order.seller_id },
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Cook notification failed" } });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+voiceOrderRouter.post(
   "/voice",
   // Step 1: Authenticate via shared secret, validate body, patch req.auth for idempotency middleware
   (req, res, next) => {

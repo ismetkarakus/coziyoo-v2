@@ -129,6 +129,115 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+// ---------------------------------------------------------------------------
+// notify-cook helpers
+// ---------------------------------------------------------------------------
+
+const NOTIFY_ORDER_ID = "cccccccc-cccc-1ccc-8ccc-cccccccccccc";
+const NOTIFY_SELLER_ID = "22222222-2222-2222-8222-222222222222";
+const NOTIFY_BUYER_ID = "11111111-1111-1111-8111-111111111111";
+
+function createNotifyCookClient(found = true) {
+  const clientQuery = vi.fn(async (sql: unknown, _params?: unknown[]) => {
+    const q = normalizeSql(sql);
+    if (q === "begin" || q === "commit" || q === "rollback") {
+      return { rowCount: 0, rows: [] };
+    }
+    if (q.includes("select id, seller_id, buyer_id, status from orders")) {
+      if (!found) return { rowCount: 0, rows: [] };
+      return {
+        rowCount: 1,
+        rows: [{ id: NOTIFY_ORDER_ID, seller_id: NOTIFY_SELLER_ID, buyer_id: NOTIFY_BUYER_ID, status: "pending_seller_approval" }],
+      };
+    }
+    throw new Error(`Unhandled SQL in notify-cook client: ${q}`);
+  });
+  return { query: clientQuery, release: vi.fn() };
+}
+
+describe("POST /v1/orders/:id/notify-cook", () => {
+  it("returns 401 UNAUTHORIZED when x-ai-server-secret is missing", async () => {
+    const app = await bootApp();
+    try {
+      const response = await fetch(`${app.baseUrl}/v1/orders/${NOTIFY_ORDER_ID}/notify-cook`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      expect(response.status).toBe(401);
+      const json = (await response.json()) as { error?: { code?: string } };
+      expect(json.error?.code).toBe("UNAUTHORIZED");
+    } finally {
+      await shutdown(app.server);
+    }
+  });
+
+  it("returns 404 ORDER_NOT_FOUND when order does not exist", async () => {
+    const app = await bootApp();
+    const client = createNotifyCookClient(false);
+    mockConnect.mockResolvedValue(client);
+    mockEnqueueOutboxEvent.mockResolvedValue(undefined);
+    try {
+      const response = await fetch(`${app.baseUrl}/v1/orders/${NOTIFY_ORDER_ID}/notify-cook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ai-server-secret": AI_SECRET,
+        },
+      });
+      expect(response.status).toBe(404);
+      const json = (await response.json()) as { error?: { code?: string } };
+      expect(json.error?.code).toBe("ORDER_NOT_FOUND");
+    } finally {
+      await shutdown(app.server);
+    }
+  });
+
+  it("returns 200 with notified=true, orderId, sellerId on valid request", async () => {
+    const app = await bootApp();
+    const client = createNotifyCookClient(true);
+    mockConnect.mockResolvedValue(client);
+    mockEnqueueOutboxEvent.mockResolvedValue(undefined);
+    try {
+      const response = await fetch(`${app.baseUrl}/v1/orders/${NOTIFY_ORDER_ID}/notify-cook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ai-server-secret": AI_SECRET,
+        },
+      });
+      expect(response.status).toBe(200);
+      const json = (await response.json()) as { data?: { notified?: boolean; orderId?: string; sellerId?: string } };
+      expect(json.data?.notified).toBe(true);
+      expect(json.data?.orderId).toBe(NOTIFY_ORDER_ID);
+      expect(json.data?.sellerId).toBe(NOTIFY_SELLER_ID);
+    } finally {
+      await shutdown(app.server);
+    }
+  });
+
+  it("enqueues outbox event with eventType=cook_notification_sent", async () => {
+    const app = await bootApp();
+    const client = createNotifyCookClient(true);
+    mockConnect.mockResolvedValue(client);
+    mockEnqueueOutboxEvent.mockResolvedValue(undefined);
+    try {
+      await fetch(`${app.baseUrl}/v1/orders/${NOTIFY_ORDER_ID}/notify-cook`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ai-server-secret": AI_SECRET,
+        },
+      });
+      expect(mockEnqueueOutboxEvent).toHaveBeenCalledOnce();
+      const [, event] = mockEnqueueOutboxEvent.mock.calls[0] as [unknown, { eventType: string; payload: { channel: string } }];
+      expect(event.eventType).toBe("cook_notification_sent");
+      expect(event.payload.channel).toBe("voice_order");
+    } finally {
+      await shutdown(app.server);
+    }
+  });
+});
+
 describe("POST /v1/orders/voice", () => {
   it("returns 401 when x-ai-server-secret header is missing", async () => {
     const app = await bootApp();
