@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 5 (Order Creation)
-Plan: 1 of 3 in current phase (05-01 complete)
+Plan: 3 of 3 in current phase (05-01, 05-03 complete)
 Status: In progress
-Last activity: 2026-03-17 — Plan 05-01 complete; POST /v1/orders/voice endpoint added with shared-secret auth and idempotency
+Last activity: 2026-03-17 — Plan 05-03 complete; POST /v1/orders/:id/notify-cook endpoint added to voiceOrderRouter
 
 Progress: [███░░░░░░░] 25%
 
@@ -50,6 +50,7 @@ Recent decisions affecting current work:
 - Log raw n8n response body (500 chars) before raising empty-answer error to aid operator diagnosis of missing respondToWebhook node
 - Voice order route: sessionId set to "voice" sentinel (not undefined) to satisfy req.auth TypeScript type
 - Voice order route: validation runs before idempotency so req.auth includes userId for idempotency hash scoping
+- notify-cook endpoint: placed on voiceOrderRouter (not ordersRouter) to keep AI-server internal endpoints separated from buyer-JWT endpoints; no order status restriction imposed — outbox consumer handles deduplication
 
 ### Pending Todos
 
@@ -66,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-17
-Stopped at: Completed 05-01-PLAN.md (POST /v1/orders/voice endpoint)
+Stopped at: Completed 05-03-PLAN.md (POST /v1/orders/:id/notify-cook endpoint)
 Resume file: None
