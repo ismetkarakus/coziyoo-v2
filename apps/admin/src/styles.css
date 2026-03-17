@@ -4356,9 +4356,10 @@ textarea:focus {
 
 .seller-notes-col-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: clamp(1.02rem, 1.2vw, 1.14rem);
   font-weight: var(--font-bold);
-  color: #e6ebf7;
+  color: #f7faff;
+  letter-spacing: -0.01em;
 }
 
 .seller-notes-tags-head {
@@ -4371,9 +4372,10 @@ textarea:focus {
 
 .seller-notes-tag-label {
   flex: 0 0 auto;
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  color: #d7e0f2;
+  font-size: clamp(0.98rem, 1.1vw, 1.06rem);
+  font-weight: var(--font-bold);
+  color: #f4f8ff;
+  letter-spacing: -0.01em;
 }
 
 .seller-notes-plus-btn {
@@ -4414,21 +4416,24 @@ textarea:focus {
 
 .seller-notes-input-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  align-items: center;
+  align-items: start;
 }
 
-.seller-notes-input-row--compact input {
-  min-height: 34px;
+.seller-notes-input-row--compact textarea {
+  min-height: 88px;
 }
 
 .seller-notes-input-row--compact .seller-notes-add-btn {
   min-height: 34px !important;
   padding: 0 14px !important;
+  justify-self: end;
 }
 
-.seller-notes-input-row input {
+.seller-notes-input-row input,
+.seller-notes-input-row textarea {
+  width: 100%;
   min-height: 40px;
   border-radius: 10px;
   border: 1px solid rgba(115, 166, 236, 0.8);
@@ -4437,7 +4442,15 @@ textarea:focus {
   padding: 0 12px;
 }
 
-.seller-notes-input-row input::placeholder {
+.seller-notes-input-row textarea {
+  resize: vertical;
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.seller-notes-input-row input::placeholder,
+.seller-notes-input-row textarea::placeholder {
   color: rgba(181, 196, 224, 0.6);
 }
 
@@ -9896,7 +9909,13 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: color-mix(in srgb, #eaf1ff 88%, white);
 }
 
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-col-title,
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-tag-label {
+  color: color-mix(in srgb, #1d3466 88%, var(--color-text));
+}
+
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input,
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row textarea,
 :root:not(.dark) .seller-detail-page .seller-detail-filter-item {
   border-color: color-mix(in srgb, #8fa8dc 34%, var(--color-border));
   background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
