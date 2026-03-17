@@ -128,12 +128,12 @@ Plans:
   2. An order record appears in Supabase after a confirmed order conversation; order has correct items, user, and cook references
   3. Cook receives a notification after order creation
   4. N8N reads and writes user session data in Supabase during voice sessions (memory reads/writes work against Supabase)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: Connect n8n to Supabase for memory reads and writes; verify credential configuration
-- [ ] 05-02: Implement or repair n8n order intent detection workflow; wire verbal confirmation to order creation API call
-- [ ] 05-03: Verify order record appears in Supabase after confirmed session; add cook notification step to n8n workflow
+- [ ] 05-01-PLAN.md — Add POST /v1/orders/voice internal endpoint + configure n8n Supabase credential (ORD-02, DB-04)
+- [ ] 05-02-PLAN.md — Wire n8n brain workflow: add_to_cart memory write + checkout → order creation API call (ORD-01, ORD-02, DB-04)
+- [ ] 05-03-PLAN.md — Cook notification endpoint + end-to-end Phase 5 verification (ORD-01, ORD-05)
 
 ### Phase 6: Post-Session UX
 **Goal**: User sees live conversation state during the session and an order summary (or no-order outcome) when the session ends
