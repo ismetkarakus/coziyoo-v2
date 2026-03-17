@@ -640,7 +640,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setActiveTab(tab);
     const params = new URLSearchParams(location.search);
     params.set("tab", tab);
-    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    navigate({ pathname: location.pathname, search: params.toString() });
   };
 
   const orderDetailPath = (orderId: string) => {

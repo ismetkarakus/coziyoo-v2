@@ -419,7 +419,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     setActiveTab(tab);
     const params = new URLSearchParams(location.search);
     params.set("tab", tab);
-    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    navigate({ pathname: location.pathname, search: params.toString() });
   }
 
   async function sendSms() {
