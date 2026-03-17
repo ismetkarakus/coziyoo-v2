@@ -626,7 +626,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
-  if (loading || (row && String(row.id) !== String(id))) return (
+  if (loading && !row) return (
     <div className="panel detail-skeleton-panel">
       <div className="detail-skeleton-hero">
         {routerPreview?.profileImageUrl
