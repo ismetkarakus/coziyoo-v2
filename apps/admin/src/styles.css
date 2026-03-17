@@ -9929,6 +9929,17 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 :root:not(.dark) .seller-detail-page .seller-detail-filter-item {
   border-color: color-mix(in srgb, #8fa8dc 34%, var(--color-border));
   background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
+  color: #18386f !important;
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input {
+  height: 42px;
+  min-height: 42px;
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input::placeholder,
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row textarea::placeholder {
+  color: rgba(24, 56, 111, 0.46) !important;
 }
 
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu {
