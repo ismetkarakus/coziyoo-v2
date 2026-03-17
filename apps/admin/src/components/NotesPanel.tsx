@@ -238,10 +238,10 @@ export function NotesPanel({
                     </div>
                   ) : (
                     <div className="seller-note-item-row seller-note-item-row--todo">
+                      <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
                       <p>{note.note}</p>
                       <div className="seller-note-item-meta seller-note-item-meta--todo">
-                        <span>{formatNoteStamp(note.createdAt, language)}</span>
-                        <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
+                        <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
                         <button
                           className="ghost seller-note-inline-edit"
                           type="button"
