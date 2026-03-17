@@ -3235,7 +3235,7 @@ textarea:focus {
   bottom: -16px;
   height: 38px;
   border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(84, 150, 255, 0.72) 0%, rgba(84, 150, 255, 0.3) 44%, rgba(84, 150, 255, 0) 76%);
+  background: radial-gradient(ellipse at center, rgba(84, 150, 255, 0.46) 0%, rgba(84, 150, 255, 0.16) 40%, rgba(84, 150, 255, 0) 74%);
   opacity: 0;
   transform: scale(0.9) translateY(6px);
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -3267,7 +3267,7 @@ textarea:focus {
 .buyer-ref-avatar-button:hover .buyer-ref-avatar,
 .buyer-ref-avatar-button:focus-visible .buyer-ref-avatar {
   border-color: color-mix(in srgb, #99b6ff 64%, var(--ops-border-default));
-  box-shadow: 0 0 0 5px color-mix(in srgb, #4f83ff 18%, transparent), 0 14px 32px rgba(65, 123, 255, 0.28);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #4f83ff 12%, transparent), 0 10px 22px rgba(65, 123, 255, 0.18);
 }
 
 .buyer-ref-avatar-button:hover,
