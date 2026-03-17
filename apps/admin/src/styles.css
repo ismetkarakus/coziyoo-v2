@@ -6462,11 +6462,14 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .seller-avatar-button::after {
   content: "";
   position: absolute;
-  inset: -10px;
+  left: -12px;
+  right: -12px;
+  bottom: -18px;
+  height: 44px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(90, 150, 255, 0.38) 0%, rgba(90, 150, 255, 0.12) 45%, rgba(90, 150, 255, 0) 72%);
+  background: radial-gradient(ellipse at center, rgba(86, 154, 255, 0.78) 0%, rgba(86, 154, 255, 0.34) 46%, rgba(86, 154, 255, 0) 76%);
   opacity: 0;
-  transform: scale(0.92);
+  transform: scale(0.88) translateY(6px);
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: -1;
   pointer-events: none;
@@ -6480,12 +6483,12 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .seller-avatar-button:hover::after,
 .seller-avatar-button:focus-visible::after {
   opacity: 1;
-  transform: scale(1.06);
+  transform: scale(1.12) translateY(1px);
 }
 
 .seller-avatar-button:hover .seller-avatar,
 .seller-avatar-button:focus-visible .seller-avatar {
-  box-shadow: 0 0 0 2px rgba(115, 166, 255, 0.44), 0 0 28px rgba(80, 143, 255, 0.35);
+  box-shadow: 0 0 0 2px rgba(124, 174, 255, 0.58), 0 0 42px rgba(80, 143, 255, 0.48), 0 16px 36px rgba(60, 120, 255, 0.28);
 }
 
 .seller-avatar img {
@@ -6560,7 +6563,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .rating-value {
-  color: #8f97a9;
+  color: #f5c665;
 }
 
 .rating-stars {
@@ -6569,7 +6572,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .rating-stars span {
-  color: color-mix(in srgb, #f3c86a 30%, #8a93aa);
+  color: #8a93aa;
 }
 
 .rating-stars span.is-filled {

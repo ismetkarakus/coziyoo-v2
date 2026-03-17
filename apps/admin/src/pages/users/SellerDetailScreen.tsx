@@ -1674,9 +1674,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           <div className="seller-hero-text">
             <div className="seller-hero-title-stack">
               <div className="seller-hero-title-row">
-                <h1>{row.displayName ?? row.email}</h1>
-              </div>
-              <div className="seller-rating-row" aria-label={`rating ${avgRating != null ? avgRating.toFixed(1) : "-"}`}>
                 <QuickAccessMenu
                   ref={quickAccessRef}
                   className="seller-rating-quick-access"
@@ -1685,16 +1682,18 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
                   smsBody={contactSmsBody}
                 />
-                <span className="rating-value">{avgRating != null ? avgRating.toFixed(1) : "-"}</span>
-                {avgRating != null ? (
-                  <span className="rating-stars" aria-hidden="true">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
-                    ))}
-                  </span>
-                ) : (
-                  <span className="panel-meta">{row.reviewCount > 0 ? "" : (language === "tr" ? "henüz yorum yok" : "no reviews yet")}</span>
-                )}
+                <h1>{row.displayName ?? row.email}</h1>
+              </div>
+              <div className="seller-rating-row" aria-label={`rating ${avgRating != null ? avgRating.toFixed(1) : "0.0"}`}>
+                <span className="rating-value">{avgRating != null ? avgRating.toFixed(1) : "0.0"}</span>
+                <span className="rating-stars" aria-hidden="true">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <span key={index} className={index < roundedStars ? "is-filled" : ""}>★</span>
+                  ))}
+                </span>
+                {avgRating == null && row.reviewCount <= 0 ? (
+                  <span className="panel-meta">{language === "tr" ? "henüz yorum yok" : "no reviews yet"}</span>
+                ) : null}
               </div>
             </div>
           </div>
