@@ -3266,8 +3266,8 @@ textarea:focus {
 
 .buyer-ref-avatar-button:hover .buyer-ref-avatar,
 .buyer-ref-avatar-button:focus-visible .buyer-ref-avatar {
-  border-color: color-mix(in srgb, #99b6ff 64%, var(--ops-border-default));
-  box-shadow: none;
+  border-color: color-mix(in srgb, #6d9dff 78%, var(--ops-border-default));
+  box-shadow: 0 0 0 2px rgba(109, 157, 255, 0.2);
 }
 
 .buyer-ref-avatar-button:hover,
@@ -6527,8 +6527,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-avatar-button:hover .seller-avatar,
 .seller-avatar-button:focus-visible .seller-avatar {
-  border-color: color-mix(in srgb, #99b6ff 64%, var(--color-border));
-  box-shadow: none;
+  border-color: color-mix(in srgb, #6d9dff 78%, var(--color-border));
+  box-shadow: 0 0 0 2px rgba(109, 157, 255, 0.2);
 }
 
 .seller-avatar img {
