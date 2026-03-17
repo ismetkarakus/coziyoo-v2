@@ -4467,10 +4467,14 @@ textarea:focus {
 }
 
 .seller-note-list {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .seller-note-item {
+  flex: 0 1 320px;
+  max-width: 420px;
   position: relative;
   border-radius: 18px;
   padding: 12px 16px 10px;
