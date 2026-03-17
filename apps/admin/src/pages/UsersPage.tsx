@@ -11,6 +11,14 @@ import type { UserKind, ColumnMeta, DensityMode } from "../types/users";
 type SellerTableSortKey = "id" | "name" | "status" | "warnings" | "orderHealth" | "revenue" | "ratingTrend";
 type BuyerTableSortKey = "id" | "buyer" | "col4" | "col5" | "col6" | "col7" | "col8" | "status";
 
+function toInitials(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "S";
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
 function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
   const dict = DICTIONARIES[language];
   const [rows, setRows] = useState<any[]>([]);
@@ -767,10 +775,27 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
         return text;
       }
       if (kind === "sellers") {
+        const sellerName = text || String(row.email ?? dict.users.v2.sellerFallbackName);
+        const sellerAvatarUrl = String((row as any).profileImageUrl ?? (row as any).profile_image_url ?? "").trim();
+        const sellerPreview = { displayName: row.displayName ?? row.email ?? null, email: row.email ?? null, profileImageUrl: (row as any).profileImageUrl ?? (row as any).profile_image_url ?? null, status: row.status ?? null };
         return (
-          <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}?tab=foods`)}>
-            {text}
-          </button>
+          <div className="seller-v2-shop-cell">
+            <button
+              className="seller-v2-avatar-btn"
+              type="button"
+              aria-label={language === "tr" ? "Satıcı detayını aç" : "Open seller detail"}
+              onClick={() => navigate(`/app/sellers/${row.id}`, { state: { preview: sellerPreview } })}
+            >
+              {sellerAvatarUrl ? (
+                <img src={sellerAvatarUrl} alt={sellerName} className="name-avatar seller-v2-avatar" />
+              ) : (
+                <span className="name-avatar seller-v2-avatar" aria-hidden="true">{toInitials(sellerName)}</span>
+              )}
+            </button>
+            <button className="inline-copy" type="button" onClick={() => navigate(`/app/sellers/${row.id}`, { state: { preview: sellerPreview } })}>
+              {text}
+            </button>
+          </div>
         );
       }
       return text;
@@ -1100,6 +1125,8 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const ratingTrend = Number(row.ratingTrend ?? row.ratingDelta ?? 0);
                         const revenueFormatted = formatCurrency(sellerRevenue(row), language);
                         const sellerName = String(row.displayName ?? row.email ?? dict.users.v2.sellerFallbackName);
+                        const sellerAvatarUrl = String((row as any).profileImageUrl ?? (row as any).profile_image_url ?? "").trim();
+                        const sellerAvatarInitials = toInitials(sellerName);
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget = `/app/sellers/${row.id}`;
                         const sellerPreview = { displayName: row.displayName ?? row.email ?? null, email: row.email ?? null, profileImageUrl: (row as any).profileImageUrl ?? (row as any).profile_image_url ?? null, status: row.status ?? null };
@@ -1124,6 +1151,21 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                               onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=general`, { state: { preview: sellerPreview } }); }}
                             >
                               <div className="seller-v2-shop-cell">
+                                <button
+                                  className="seller-v2-avatar-btn"
+                                  type="button"
+                                  aria-label={language === "tr" ? "Satıcı detayını aç" : "Open seller detail"}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    navigate(sellerRowTarget, { state: { preview: sellerPreview } });
+                                  }}
+                                >
+                                  {sellerAvatarUrl ? (
+                                    <img src={sellerAvatarUrl} alt={sellerName} className="name-avatar seller-v2-avatar" />
+                                  ) : (
+                                    <span className="name-avatar seller-v2-avatar" aria-hidden="true">{sellerAvatarInitials}</span>
+                                  )}
+                                </button>
                                 <strong>{sellerName}</strong>
                               </div>
                             </td>

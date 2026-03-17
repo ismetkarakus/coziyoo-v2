@@ -5527,7 +5527,9 @@ textarea:focus {
 }
 
 .seller-v2-shop-cell {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -5535,6 +5537,15 @@ textarea:focus {
   width: 44px !important;
   height: 44px !important;
   font-size: var(--text-base) !important;
+}
+
+.seller-v2-avatar-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+  line-height: 0;
 }
 
 .seller-v2-shop-cell strong,
