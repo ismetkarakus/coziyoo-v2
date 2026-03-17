@@ -3315,10 +3315,10 @@ textarea:focus {
 }
 
 .buyer-ref-profile-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  display: flex;
+  gap: 6px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .buyer-ref-profile-title {
@@ -3335,7 +3335,7 @@ textarea:focus {
 }
 
 .buyer-ref-quick-access {
-  justify-self: start;
+  justify-self: auto;
 }
 
 .buyer-ref-quick-access summary {

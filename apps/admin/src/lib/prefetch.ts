@@ -27,11 +27,16 @@ export function setCachedUser(id: string, data: any) {
 export function prefetchUserDetail(id: string) {
   if (!id || userCache.has(id) || inFlight.has(id)) return;
   inFlight.add(id);
+  const startTs = Date.now();
   request(`/v1/admin/users/${id}`)
     .then((res) => {
       if (res.status === 200) {
         return parseJson<{ data: any }>(res).then((body) => {
-          setCachedUser(id, body.data);
+          // Only write to cache if no fresher entry has been set since this request started
+          const existing = userCache.get(id);
+          if (!existing || existing.ts <= startTs) {
+            setCachedUser(id, body.data);
+          }
         });
       }
     })
