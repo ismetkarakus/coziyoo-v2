@@ -1102,16 +1102,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         const sellerName = String(row.displayName ?? row.email ?? dict.users.v2.sellerFallbackName);
                         const warningInfo = sellerComplaintUnresolved(row);
                         const sellerRowTarget = `/app/sellers/${row.id}`;
+                        const sellerPreview = { displayName: row.displayName ?? row.email ?? null, email: row.email ?? null, profileImageUrl: (row as any).profileImageUrl ?? (row as any).profile_image_url ?? null, status: row.status ?? null };
 
                         return (
                           <tr
                             key={row.id}
                             className="is-clickable"
-                            onClick={() => navigate(sellerRowTarget)}
+                            onClick={() => navigate(sellerRowTarget, { state: { preview: sellerPreview } })}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
                                 event.preventDefault();
-                                navigate(sellerRowTarget);
+                                navigate(sellerRowTarget, { state: { preview: sellerPreview } });
                               }
                             }}
                             tabIndex={0}
@@ -1120,7 +1121,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             <td>{toDisplayId(row.id)}</td>
                             <td
                               className="cell-link"
-                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=general`); }}
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=general`, { state: { preview: sellerPreview } }); }}
                             >
                               <div className="seller-v2-shop-cell">
                                 <strong>{sellerName}</strong>
@@ -1133,7 +1134,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </td>
                             <td
                               className="cell-link"
-                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=complaints`); }}
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=complaints`, { state: { preview: sellerPreview } }); }}
                             >
                               <div className="seller-v2-warning-cell">
                                 <span>{warningInfo}</span>
@@ -1141,7 +1142,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </td>
                             <td
                               className="cell-link"
-                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=orders`); }}
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=orders`, { state: { preview: sellerPreview } }); }}
                             >
                               <div className="seller-v2-health-cell">
                                 <span>{orderCurrent}</span>
@@ -1150,13 +1151,13 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                             </td>
                             <td
                               className="cell-link"
-                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=wallet`); }}
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=wallet`, { state: { preview: sellerPreview } }); }}
                             >
                               {revenueFormatted}
                             </td>
                             <td
                               className="cell-link"
-                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=reviews`); }}
+                              onClick={(event) => { event.stopPropagation(); navigate(`${sellerRowTarget}?tab=reviews`, { state: { preview: sellerPreview } }); }}
                             >
                               <span className="seller-v2-rating">
                                 {ratingValue > 0 ? ratingValue.toFixed(1) : "-"} ★ ({ratingTrend >= 0 ? "+" : ""}{ratingTrend.toFixed(1)})
@@ -1168,7 +1169,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  navigate(sellerRowTarget);
+                                  navigate(sellerRowTarget, { state: { preview: sellerPreview } });
                                 }}
                               >
                                 <span aria-hidden="true">{row.status === "active" ? dict.users.v2.sellerActionDetail : dict.users.v2.sellerActionActivate}</span>
@@ -1368,16 +1369,17 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       isOpenComplaintView
                         ? `/app/buyers/${row.id}?tab=complaints`
                         : `/app/buyers/${row.id}`;
+                    const buyerPreview = { displayName: row.displayName ?? row.email ?? null, email: row.email ?? null, profileImageUrl: (row as any).profileImageUrl ?? (row as any).profile_image_url ?? null, status: row.status ?? null };
 
                     return (
                       <tr
                         key={row.id}
                         className={`is-clickable buyer-risk-${risk.level}`}
-                        onClick={() => navigate(buyerRowTarget)}
+                        onClick={() => navigate(buyerRowTarget, { state: { preview: buyerPreview } })}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            navigate(buyerRowTarget);
+                            navigate(buyerRowTarget, { state: { preview: buyerPreview } });
                           }
                         }}
                         tabIndex={0}
@@ -1398,7 +1400,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         <td>{toDisplayId(row.id)}</td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=general`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=general`, { state: { preview: buyerPreview } }); }}
                         >
                           <div className="buyer-user-cell">
                             <strong className="buyer-user-name" title={displayNameRaw}>{normalizedDisplayName}</strong>
@@ -1406,7 +1408,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=complaints`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=complaints`, { state: { preview: buyerPreview } }); }}
                         >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
@@ -1420,7 +1422,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=complaints`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=complaints`, { state: { preview: buyerPreview } }); }}
                         >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
@@ -1438,7 +1440,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=orders`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=orders`, { state: { preview: buyerPreview } }); }}
                         >
                           {isOpenComplaintView ? (
                             <div className="buyer-complaint-cell">
@@ -1456,7 +1458,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=payments`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=payments`, { state: { preview: buyerPreview } }); }}
                         >
                           {isOpenComplaintView ? (
                             <div className="buyer-login-cell">
@@ -1472,7 +1474,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                         </td>
                         <td
                           className="cell-link"
-                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=activity`); }}
+                          onClick={(event) => { event.stopPropagation(); navigate(`/app/buyers/${row.id}?tab=activity`, { state: { preview: buyerPreview } }); }}
                         >
                           <div className="buyer-login-cell">
                             {isOpenComplaintView ? (

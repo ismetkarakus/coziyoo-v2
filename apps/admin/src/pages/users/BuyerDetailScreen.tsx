@@ -20,6 +20,7 @@ type BuyerNoteItem = {
 function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionary; language: Language }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const routerPreview = (location.state as { preview?: { displayName?: string; email?: string; profileImageUrl?: string; status?: string } } | null)?.preview ?? null;
   const endpoint = `/v1/admin/users/${id}`;
   const [activeTab, setActiveTab] = useState<BuyerDetailTab>(() => resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
   const [row, setRow] = useState<BuyerDetail | null>(null);
@@ -554,10 +555,19 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   if (loading && !row) return (
     <div className="panel detail-skeleton-panel">
       <div className="detail-skeleton-hero">
-        <div className="detail-skeleton-avatar skeleton-pulse" />
+        {routerPreview?.profileImageUrl
+          ? <img src={routerPreview.profileImageUrl} style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} alt="" />
+          : <div className="detail-skeleton-avatar skeleton-pulse" />
+        }
         <div className="detail-skeleton-info">
-          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "42%", height: 22 }} />
-          <div className="detail-skeleton-line skeleton-pulse" style={{ width: "62%", height: 13, marginTop: 8 }} />
+          {routerPreview?.displayName
+            ? <div style={{ fontWeight: 600, fontSize: "1.05rem" }}>{routerPreview.displayName}</div>
+            : <div className="detail-skeleton-line skeleton-pulse" style={{ width: "42%", height: 22 }} />
+          }
+          {routerPreview?.email
+            ? <div style={{ fontSize: "0.82rem", color: "var(--color-secondary-text)", marginTop: 5 }}>{routerPreview.email}</div>
+            : <div className="detail-skeleton-line skeleton-pulse" style={{ width: "62%", height: 13, marginTop: 8 }} />
+          }
           <div className="detail-skeleton-line skeleton-pulse" style={{ width: "32%", height: 13, marginTop: 6 }} />
         </div>
       </div>
