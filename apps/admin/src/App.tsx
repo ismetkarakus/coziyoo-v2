@@ -64,7 +64,7 @@ function Routes({
       .catch(() => {
         setAdminState(null);
       });
-  }, [location.pathname]);
+  }, []);
 
   const isLoggedIn = Boolean(getTokens() && admin);
 
