@@ -3213,6 +3213,7 @@ textarea:focus {
 }
 
 .buyer-ref-avatar-button {
+  position: relative;
   border: 0;
   background: transparent;
   padding: 0;
@@ -3222,6 +3223,24 @@ textarea:focus {
   align-content: start;
   color: inherit;
   cursor: pointer;
+  isolation: isolate;
+  transition: transform 0.2s ease;
+}
+
+.buyer-ref-avatar-button::after {
+  content: "";
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  bottom: -16px;
+  height: 38px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(84, 150, 255, 0.72) 0%, rgba(84, 150, 255, 0.3) 44%, rgba(84, 150, 255, 0) 76%);
+  opacity: 0;
+  transform: scale(0.9) translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .buyer-ref-avatar {
@@ -3248,7 +3267,18 @@ textarea:focus {
 .buyer-ref-avatar-button:hover .buyer-ref-avatar,
 .buyer-ref-avatar-button:focus-visible .buyer-ref-avatar {
   border-color: color-mix(in srgb, #99b6ff 64%, var(--ops-border-default));
-  box-shadow: 0 0 0 5px color-mix(in srgb, #4f83ff 14%, transparent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, #4f83ff 18%, transparent), 0 14px 32px rgba(65, 123, 255, 0.28);
+}
+
+.buyer-ref-avatar-button:hover,
+.buyer-ref-avatar-button:focus-visible {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.buyer-ref-avatar-button:hover::after,
+.buyer-ref-avatar-button:focus-visible::after {
+  opacity: 1;
+  transform: scale(1.08) translateY(1px);
 }
 
 .buyer-ref-avatar-badge {

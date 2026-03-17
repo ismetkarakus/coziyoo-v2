@@ -1,6 +1,7 @@
 import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
+import { getCachedUser, setCachedUser } from "../../lib/prefetch";
 import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { NotesPanel } from "../../components/NotesPanel";
@@ -68,7 +69,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const navigate = useNavigate();
   const routerPreview = (location.state as { preview?: { displayName?: string; email?: string; profileImageUrl?: string; status?: string } } | null)?.preview ?? null;
   const endpoint = `/v1/admin/users/${id}`;
-  const [row, setRow] = useState<any | null>(null);
+  const [row, setRow] = useState<any | null>(() => getCachedUser(id) ?? null);
   const [compliance, setCompliance] = useState<SellerCompliancePayload | null>(null);
   const [foodRows, setFoodRows] = useState<SellerFoodRow[]>([]);
   const [addresses, setAddresses] = useState<SellerAddressRow[]>([]);
@@ -122,7 +123,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [earningsSearch, setEarningsSearch] = useState("");
   const [selectedEarningIds, setSelectedEarningIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => getCachedUser(id) === null);
   const [legalSavingKey, setLegalSavingKey] = useState<string | null>(null);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [, setFoodImageErrors] = useState<Record<string, boolean>>({});
@@ -289,6 +290,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       }
       const detailBody = await parseJson<{ data: any }>(detailResponse);
       if (requestId !== sellerCriticalReqRef.current) return;
+      setCachedUser(id, detailBody.data);
       setRow(detailBody.data);
 
       if (foodsResponse) {
@@ -410,7 +412,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }
 
   useEffect(() => {
-    setRow(null);
+    const cached = getCachedUser(id);
+    setRow(cached ?? null);
+    setLoading(cached === null);
     setFoodRows([]);
     setSellerOrders([]);
     setSellerOrdersPagination(null);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
+import { getCachedUser, setCachedUser } from "../../lib/prefetch";
 import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
 import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
@@ -23,7 +24,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const routerPreview = (location.state as { preview?: { displayName?: string; email?: string; profileImageUrl?: string; status?: string } } | null)?.preview ?? null;
   const endpoint = `/v1/admin/users/${id}`;
   const [activeTab, setActiveTab] = useState<BuyerDetailTab>(() => resolveBuyerDetailTab(new URLSearchParams(location.search).get("tab")));
-  const [row, setRow] = useState<BuyerDetail | null>(null);
+  const [row, setRow] = useState<BuyerDetail | null>(() => getCachedUser(id) as BuyerDetail | null);
   const [contactInfo, setContactInfo] = useState<BuyerContactInfo | null>(null);
   const [orders, setOrders] = useState<BuyerOrderRow[]>([]);
   const [summary, setSummary] = useState<BuyerSummaryMetrics | null>(null);
@@ -33,7 +34,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [cancellations, setCancellations] = useState<BuyerCancellationRow[]>([]);
   const [locations, setLocations] = useState<BuyerLoginLocation[]>([]);
   const [ordersPage, setOrdersPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => getCachedUser(id) === null);
   const [message, setMessage] = useState<string | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
@@ -84,6 +85,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       const detailBody = await parseJson<{ data: BuyerDetail }>(detailResponse);
       if (requestId !== buyerCriticalReqRef.current) return;
+      setCachedUser(id, detailBody.data);
       setRow(detailBody.data);
 
       if (contactResponse.status === 200) {
@@ -225,7 +227,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }
 
   useEffect(() => {
-    setRow(null);
+    const cached = getCachedUser(id) as BuyerDetail | null;
+    setRow(cached);
+    setLoading(cached === null);
     setContactInfo(null);
     setOrders([]);
     setOrdersPagination(null);

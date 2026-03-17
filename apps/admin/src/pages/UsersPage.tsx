@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
+import { prefetchUserDetail } from "../lib/prefetch";
 import { Pager, KpiCard, ExcelExportButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatCurrency, formatLoginRelativeDayMonth, formatTableDateTime } from "../lib/format";
@@ -1109,6 +1110,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           <tr
                             key={row.id}
                             className="is-clickable"
+                            onMouseEnter={() => prefetchUserDetail(row.id)}
                             onClick={() => navigate(sellerRowTarget, { state: { preview: sellerPreview } })}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
@@ -1376,6 +1378,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                       <tr
                         key={row.id}
                         className={`is-clickable buyer-risk-${risk.level}`}
+                        onMouseEnter={() => prefetchUserDetail(row.id)}
                         onClick={() => navigate(buyerRowTarget, { state: { preview: buyerPreview } })}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
