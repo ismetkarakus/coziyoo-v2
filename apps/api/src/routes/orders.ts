@@ -1,6 +1,8 @@
+import crypto from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { pool } from "../db/client.js";
+import { env } from "../config/env.js";
 import { abuseProtection } from "../middleware/abuse-protection.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -495,3 +497,205 @@ async function transitionHandler(
     client.release();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Voice order router — called by n8n/AI server on behalf of buyers
+// Protected by shared secret (no buyer JWT required)
+// ---------------------------------------------------------------------------
+
+function isValidSharedSecret(secret: string): boolean {
+  if (!env.AI_SERVER_SHARED_SECRET) return false;
+  const provided = Buffer.from(secret, "utf8");
+  const expected = Buffer.from(env.AI_SERVER_SHARED_SECRET, "utf8");
+  return secret.length > 0 && provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
+}
+
+const VoiceCreateOrderSchema = z.object({
+  userId: z.string().uuid(),
+  sellerId: z.string().uuid(),
+  deliveryType: z.enum(["pickup", "delivery"]),
+  deliveryAddress: z.record(z.string(), z.unknown()).optional(),
+  requestedAt: z.string().datetime().optional(),
+  items: z.array(z.object({ lotId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
+});
+
+export const voiceOrderRouter = Router();
+
+voiceOrderRouter.post(
+  "/voice",
+  // Step 1: Authenticate via shared secret, validate body, patch req.auth for idempotency middleware
+  (req, res, next) => {
+    if (!env.AI_SERVER_SHARED_SECRET) {
+      return res.status(503).json({
+        error: { code: "AI_SERVER_SHARED_SECRET_MISSING", message: "Server misconfiguration" },
+      });
+    }
+    const provided = String(req.headers["x-ai-server-secret"] ?? "");
+    if (!isValidSharedSecret(provided)) {
+      return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" } });
+    }
+    const parsed = VoiceCreateOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+    }
+    // Patch req.auth BEFORE idempotency middleware so the hash includes userId
+    req.auth = { userId: parsed.data.userId, sessionId: "voice", realm: "app", role: "buyer" };
+    req.body = parsed.data;
+    return next();
+  },
+  requireIdempotency({ scope: "order_create" }),
+  async (req, res) => {
+    const input = req.body as z.infer<typeof VoiceCreateOrderSchema>;
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const uniqueLotIds = new Set(input.items.map((item) => item.lotId));
+      if (uniqueLotIds.size !== input.items.length) {
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ error: { code: "ORDER_DUPLICATE_LOTS", message: "Each lot can be used only once per order" } });
+      }
+
+      const lots = await client.query<{
+        lot_id: string;
+        food_id: string;
+        seller_id: string;
+        quantity_available: number;
+        status: string;
+        sale_starts_at: string;
+        sale_ends_at: string;
+        price: string;
+        food_is_active: boolean;
+      }>(
+        `SELECT l.id AS lot_id,
+                l.food_id,
+                l.seller_id,
+                l.quantity_available,
+                l.status,
+                l.sale_starts_at::text,
+                l.sale_ends_at::text,
+                f.price::text AS price,
+                f.is_active AS food_is_active
+         FROM production_lots l
+         LEFT JOIN foods f ON f.id = l.food_id
+         WHERE l.id = ANY($1::uuid[])`,
+        [input.items.map((item) => item.lotId)]
+      );
+
+      if (lots.rowCount !== input.items.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: { code: "LOT_NOT_FOUND", message: "One or more lots do not exist" } });
+      }
+
+      const lotsMap = new Map(lots.rows.map((lot) => [lot.lot_id, lot]));
+      const now = Date.now();
+      for (const item of input.items) {
+        const lot = lotsMap.get(item.lotId);
+        if (!lot || lot.seller_id !== input.sellerId) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
+          });
+        }
+        if (lot.status !== "open") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: { code: "LOT_NOT_OPEN", message: "Lot is not open for ordering" } });
+        }
+        if (Date.parse(lot.sale_starts_at) > now || Date.parse(lot.sale_ends_at) < now) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: { code: "LOT_NOT_ON_SALE", message: "Lot is outside sale window" } });
+        }
+        if (!lot.food_is_active) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: { code: "FOOD_NOT_ACTIVE", message: "Lot food is not active" } });
+        }
+        if (Number(lot.quantity_available) < item.quantity) {
+          await client.query("ROLLBACK");
+          return res
+            .status(409)
+            .json({ error: { code: "LOT_STOCK_INSUFFICIENT", message: "Not enough stock in selected lot" } });
+        }
+        if (!lot.price) {
+          await client.query("ROLLBACK");
+          return res
+            .status(409)
+            .json({ error: { code: "LOT_PRICE_UNAVAILABLE", message: "Lot food price is unavailable" } });
+        }
+      }
+
+      let total = 0;
+      for (const item of input.items) {
+        const price = Number(lotsMap.get(item.lotId)!.price);
+        total += price * item.quantity;
+      }
+      total = Number(total.toFixed(2));
+
+      const orderInsert = await client.query<{ id: string }>(
+        `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
+         VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6)
+         RETURNING id`,
+        [
+          input.userId,
+          input.sellerId,
+          input.deliveryType,
+          input.deliveryAddress ? JSON.stringify(input.deliveryAddress) : null,
+          total,
+          input.requestedAt ?? null,
+        ]
+      );
+
+      for (const item of input.items) {
+        const lot = lotsMap.get(item.lotId)!;
+        const price = Number(lot.price);
+        const lineTotal = Number((price * item.quantity).toFixed(2));
+        await client.query(
+          `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [orderInsert.rows[0].id, item.lotId, lot.food_id, item.quantity, price, lineTotal]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          orderInsert.rows[0].id,
+          input.userId,
+          "order_created",
+          null,
+          "pending_seller_approval",
+          JSON.stringify({ deliveryType: input.deliveryType, source: "voice" }),
+        ]
+      );
+
+      await enqueueOutboxEvent(client, {
+        eventType: "order_created",
+        aggregateType: "order",
+        aggregateId: orderInsert.rows[0].id,
+        payload: {
+          orderId: orderInsert.rows[0].id,
+          buyerId: input.userId,
+          sellerId: input.sellerId,
+          totalPrice: total,
+        },
+      });
+
+      await client.query("COMMIT");
+      return res.status(201).json({
+        data: {
+          orderId: orderInsert.rows[0].id,
+          status: "pending_seller_approval",
+          totalPrice: total,
+        },
+      });
+    } catch {
+      await client.query("ROLLBACK");
+      return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Voice order create failed" } });
+    } finally {
+      client.release();
+    }
+  }
+);
