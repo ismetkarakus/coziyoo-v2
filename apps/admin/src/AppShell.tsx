@@ -46,10 +46,10 @@ function AppShell({
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [keepAlive, setKeepAlive] = useState(() => ({
-    sellers: location.pathname === "/app/sellers" || location.pathname.startsWith("/app/sellers/"),
-    buyers:  location.pathname === "/app/buyers"  || location.pathname.startsWith("/app/buyers/"),
-  }));
+  const [mountedPages, setMountedPages] = useState<Set<string>>(() => {
+    const seg = location.pathname.split("/").filter(Boolean);
+    return new Set([`/${seg.slice(0, 2).join("/")}`]);
+  });
   const globalSearchReqIdRef = useRef(0);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -89,12 +89,9 @@ function AppShell({
     setGlobalSearchLoading(false);
     setIsProfileMenuOpen(false);
     globalSearchReqIdRef.current += 1;
-    if (location.pathname === "/app/sellers" || location.pathname.startsWith("/app/sellers/")) {
-      setKeepAlive(k => k.sellers ? k : { ...k, sellers: true });
-    }
-    if (location.pathname === "/app/buyers" || location.pathname.startsWith("/app/buyers/")) {
-      setKeepAlive(k => k.buyers ? k : { ...k, buyers: true });
-    }
+    const seg = location.pathname.split("/").filter(Boolean);
+    const base = `/${seg.slice(0, 2).join("/")}`;
+    setMountedPages(prev => prev.has(base) ? prev : new Set([...prev, base]));
   }, [location.pathname]);
 
   useEffect(() => {
@@ -328,23 +325,51 @@ function AppShell({
           </div>
         ) : null}
         <div className="page-transition-root">
-          {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
-          {location.pathname === "/app/review-queue" ? <ReviewQueuePage language={language} /> : null}
-          {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {keepAlive.buyers ? (
+          {mountedPages.has("/app/dashboard") ? (
+            <div style={{ display: location.pathname === "/app/dashboard" ? undefined : "none" }}>
+              <DashboardPage language={language} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/review-queue") ? (
+            <div style={{ display: location.pathname === "/app/review-queue" ? undefined : "none" }}>
+              <ReviewQueuePage language={language} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/users") ? (
+            <div style={{ display: location.pathname === "/app/users" ? undefined : "none" }}>
+              <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/buyers") ? (
             <div style={{ display: location.pathname === "/app/buyers" ? undefined : "none" }}>
               <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} />
             </div>
           ) : null}
-          {keepAlive.sellers ? (
+          {mountedPages.has("/app/sellers") ? (
             <div style={{ display: location.pathname === "/app/sellers" ? undefined : "none" }}>
               <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} />
             </div>
           ) : null}
-          {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
-          {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
-          {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {location.pathname === "/app/investigation" || isInvestigationDetailModal ? <InvestigationPage language={language} /> : null}
+          {mountedPages.has("/app/orders") ? (
+            <div style={{ display: location.pathname === "/app/orders" ? undefined : "none" }}>
+              <RecordsPage language={language} tableKey="orders" />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/foods") ? (
+            <div style={{ display: location.pathname === "/app/foods" ? undefined : "none" }}>
+              <FoodsLotsPage language={language} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/admins") ? (
+            <div style={{ display: location.pathname === "/app/admins" ? undefined : "none" }}>
+              <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/investigation") ? (
+            <div style={{ display: location.pathname.startsWith("/app/investigation") ? undefined : "none" }}>
+              <InvestigationPage language={language} />
+            </div>
+          ) : null}
           {isInvestigationDetailModal ? (
             <div
               className="buyer-ops-modal-backdrop complaint-detail-modal-backdrop"
@@ -364,12 +389,24 @@ function AppShell({
               </div>
             </div>
           ) : null}
-          {location.pathname === "/app/audit" ? <AuditPage language={language} /> : null}
+          {mountedPages.has("/app/audit") ? (
+            <div style={{ display: location.pathname === "/app/audit" ? undefined : "none" }}>
+              <AuditPage language={language} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/compliance-documents") ? (
+            <div style={{ display: location.pathname === "/app/compliance-documents" ? undefined : "none" }}>
+              <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} />
+            </div>
+          ) : null}
+          {mountedPages.has("/app/security") ? (
+            <div style={{ display: location.pathname === "/app/security" ? undefined : "none" }}>
+              <SecurityPage language={language} />
+            </div>
+          ) : null}
           {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
           {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
           {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
-          {location.pathname === "/app/compliance-documents" ? <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
-          {location.pathname === "/app/security" ? <SecurityPage language={language} /> : null}
           {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
           {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
           {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
