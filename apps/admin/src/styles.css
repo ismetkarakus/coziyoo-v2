@@ -6499,7 +6499,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   bottom: -18px;
   height: 44px;
   border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(86, 154, 255, 0.78) 0%, rgba(86, 154, 255, 0.34) 46%, rgba(86, 154, 255, 0) 76%);
+  background: radial-gradient(ellipse at center, rgba(86, 154, 255, 0.48) 0%, rgba(86, 154, 255, 0.18) 42%, rgba(86, 154, 255, 0) 74%);
   opacity: 0;
   transform: scale(0.88) translateY(6px);
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -6520,7 +6520,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-avatar-button:hover .seller-avatar,
 .seller-avatar-button:focus-visible .seller-avatar {
-  box-shadow: 0 0 0 2px rgba(124, 174, 255, 0.58), 0 0 42px rgba(80, 143, 255, 0.48), 0 16px 36px rgba(60, 120, 255, 0.28);
+  box-shadow: 0 0 0 2px rgba(124, 174, 255, 0.4), 0 0 24px rgba(80, 143, 255, 0.26), 0 12px 28px rgba(60, 120, 255, 0.18);
 }
 
 .seller-avatar img {
