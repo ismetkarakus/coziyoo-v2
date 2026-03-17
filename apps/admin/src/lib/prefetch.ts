@@ -32,7 +32,7 @@ export function prefetchUserDetail(id: string) {
     .then((res) => {
       if (res.status === 200) {
         return parseJson<{ data: any }>(res).then((body) => {
-          // Only write to cache if no fresher entry has been set since this request started
+          // Only write to cache if no fresher data has been loaded since this request started
           const existing = userCache.get(id);
           if (!existing || existing.ts <= startTs) {
             setCachedUser(id, body.data);

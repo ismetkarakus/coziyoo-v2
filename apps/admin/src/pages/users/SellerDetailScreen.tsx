@@ -272,7 +272,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const requestId = ++sellerCriticalReqRef.current;
     const includeFoods = options?.includeFoods ?? false;
     const includeOrders = options?.includeOrders ?? false;
-    if (!getCachedUser(id)) setLoading(true);
+    setLoading(true);
     setMessage(null);
     const bust = Date.now();
     try {
