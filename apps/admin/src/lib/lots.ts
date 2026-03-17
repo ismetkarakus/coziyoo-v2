@@ -44,25 +44,22 @@ export function computeFoodLotDiff(params: {
 export function lotLifecycleLabel(status: AdminLotLifecycleStatus, language: Language): string {
   if (language === "tr") {
     if (status === "on_sale") return "Satışta";
-    if (status === "planned") return "Planlı";
     if (status === "expired") return "Süresi Geçti";
     if (status === "depleted") return "Tükendi";
     if (status === "recalled") return "Geri Çağrıldı";
     if (status === "discarded") return "İmha Edildi";
-    return "Açık";
+    return "Satışta";
   }
   if (status === "on_sale") return "On Sale";
-  if (status === "planned") return "Planned";
   if (status === "expired") return "Expired";
   if (status === "depleted") return "Depleted";
   if (status === "recalled") return "Recalled";
   if (status === "discarded") return "Discarded";
-  return "Open";
+  return "On Sale";
 }
 
 export function lotLifecycleClass(status: AdminLotLifecycleStatus): string {
   if (status === "on_sale") return "is-success";
-  if (status === "planned") return "is-warning";
   if (status === "expired" || status === "depleted") return "is-disabled";
   if (status === "recalled" || status === "discarded") return "is-danger";
   return "is-neutral";

@@ -54,7 +54,7 @@ function createHappyPathClient() {
             food_id: "44444444-4444-4444-8444-444444444444",
             seller_id: "22222222-2222-2222-8222-222222222222",
             quantity_available: 10,
-            status: "open",
+            status: "active",
             sale_starts_at: new Date(Date.now() - 3_600_000).toISOString(),
             sale_ends_at: new Date(Date.now() + 3_600_000).toISOString(),
             price: "12.50",

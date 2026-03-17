@@ -130,9 +130,9 @@ ordersRouter.post(
           error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
         });
       }
-      if (lot.status !== "open") {
+      if (lot.status !== "active") {
         await client.query("ROLLBACK");
-        return res.status(409).json({ error: { code: "LOT_NOT_OPEN", message: "Lot is not open for ordering" } });
+        return res.status(409).json({ error: { code: "LOT_NOT_ACTIVE", message: "Lot is not active for ordering" } });
       }
       if (Date.parse(lot.sale_starts_at) > now || Date.parse(lot.sale_ends_at) < now) {
         await client.query("ROLLBACK");
@@ -659,9 +659,9 @@ voiceOrderRouter.post(
             error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
           });
         }
-        if (lot.status !== "open") {
+        if (lot.status !== "active") {
           await client.query("ROLLBACK");
-          return res.status(409).json({ error: { code: "LOT_NOT_OPEN", message: "Lot is not open for ordering" } });
+          return res.status(409).json({ error: { code: "LOT_NOT_ACTIVE", message: "Lot is not active for ordering" } });
         }
         if (Date.parse(lot.sale_starts_at) > now || Date.parse(lot.sale_ends_at) < now) {
           await client.query("ROLLBACK");

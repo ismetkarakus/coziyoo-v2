@@ -1,5 +1,5 @@
-export type AdminLotLifecycleStatus = "on_sale" | "planned" | "expired" | "depleted" | "recalled" | "discarded" | "open";
-export type AdminLotStatus = "open" | "locked" | "depleted" | "recalled" | "discarded" | "expired";
+export type AdminLotLifecycleStatus = "on_sale" | "expired" | "depleted" | "recalled" | "discarded";
+export type AdminLotStatus = "active" | "passive" | "depleted" | "recalled" | "discarded" | "expired";
 
 export type AdminLotRow = {
   id: string;

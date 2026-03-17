@@ -710,7 +710,7 @@ def seed_lots(
                       f.allergens_json,
                       %s,
                       %s,
-                      'open',
+                      'active',
                       'seed_api_sample_load',
                       now(),
                       now()

@@ -94,7 +94,7 @@ sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
     const created = await client.query<{ id: string; lot_number: string }>(
       `INSERT INTO production_lots
         (seller_id, food_id, lot_number, produced_at, sale_starts_at, sale_ends_at, use_by, best_before, recipe_snapshot, ingredients_snapshot_json, allergens_snapshot_json, quantity_produced, quantity_available, status, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'open', $14, now(), now())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'active', $14, now(), now())
        RETURNING id, lot_number`,
       [
         req.auth!.userId,
@@ -172,7 +172,6 @@ sellerLotsRouter.get("/", requireAuth("app"), async (req, res) => {
             CASE
               WHEN status IN ('recalled', 'discarded', 'depleted', 'expired') THEN status
               WHEN sale_ends_at < now() THEN 'expired'
-              WHEN sale_starts_at > now() THEN 'planned'
               ELSE 'on_sale'
             END AS lifecycle_status,
             notes,
@@ -245,7 +244,7 @@ sellerLotsRouter.post("/:lotId/adjust", requireAuth("app"), async (req, res) => 
            status = CASE
              WHEN $2 = 0 THEN 'depleted'
              WHEN coalesce($3::timestamptz, sale_ends_at) < now() THEN 'expired'
-             WHEN status IN ('depleted', 'expired') AND $2 > 0 THEN 'open'
+             WHEN status IN ('depleted', 'expired') AND $2 > 0 THEN 'active'
              ELSE status
            END,
            notes = coalesce($4, notes),
@@ -362,7 +361,6 @@ adminLotsRouter.get("/", requireAuth("admin"), async (req, res) => {
             CASE
               WHEN status IN ('recalled', 'discarded', 'depleted', 'expired') THEN status
               WHEN sale_ends_at < now() THEN 'expired'
-              WHEN sale_starts_at > now() THEN 'planned'
               ELSE 'on_sale'
             END AS lifecycle_status,
             notes,

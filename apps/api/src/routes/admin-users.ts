@@ -601,10 +601,8 @@ function lotLifecycleForExport(status: string, saleStartsAt: string | null, sale
   if (status === "discarded") return "Discarded";
   if (status === "depleted") return "Depleted";
   const now = Date.now();
-  const start = saleStartsAt ? Date.parse(saleStartsAt) : Number.NaN;
   const end = saleEndsAt ? Date.parse(saleEndsAt) : Number.NaN;
   if (Number.isFinite(end) && end < now) return "Expired";
-  if (Number.isFinite(start) && start > now) return "Planned";
   return "On Sale";
 }
 
