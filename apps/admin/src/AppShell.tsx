@@ -72,6 +72,14 @@ function AppShell({
   const pathParts = location.pathname.split("/").filter(Boolean);
   const isDetailPage = pathParts.length > 2;
   const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
+  const currentSellerId = location.pathname.match(/^\/app\/sellers\/([^/?#]+)/)?.[1] ?? null;
+  const currentBuyerId = location.pathname.match(/^\/app\/buyers\/([^/?#]+)/)?.[1] ?? null;
+  const currentAppUserId = location.pathname.match(/^\/app\/users\/([^/?#]+)/)?.[1] ?? null;
+  const currentAdminId = location.pathname.match(/^\/app\/admins\/([^/?#]+)/)?.[1] ?? null;
+  const visibleAppUserId = currentAppUserId ?? lastDetailIds.app;
+  const visibleBuyerId = currentBuyerId ?? lastDetailIds.buyers;
+  const visibleSellerId = currentSellerId ?? lastDetailIds.sellers;
+  const visibleAdminId = currentAdminId ?? lastDetailIds.admins;
   const handleDetailBack = () => {
     const routerIdx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (routerIdx > 0) {
@@ -418,24 +426,24 @@ function AppShell({
           {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
           {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
           {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
-          {lastDetailIds.app ? (
-            <div style={{ display: location.pathname.startsWith(`/app/users/${lastDetailIds.app}`) ? undefined : "none" }}>
-              <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.app} />
+          {visibleAppUserId ? (
+            <div style={{ display: location.pathname.startsWith(`/app/users/${visibleAppUserId}`) ? undefined : "none" }}>
+              <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} id={visibleAppUserId} />
             </div>
           ) : null}
-          {lastDetailIds.buyers ? (
-            <div style={{ display: location.pathname.startsWith(`/app/buyers/${lastDetailIds.buyers}`) ? undefined : "none" }}>
-              <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.buyers} />
+          {visibleBuyerId ? (
+            <div style={{ display: location.pathname.startsWith(`/app/buyers/${visibleBuyerId}`) ? undefined : "none" }}>
+              <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} id={visibleBuyerId} />
             </div>
           ) : null}
-          {lastDetailIds.sellers ? (
-            <div style={{ display: location.pathname.startsWith(`/app/sellers/${lastDetailIds.sellers}`) ? undefined : "none" }}>
-              <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.sellers} />
+          {visibleSellerId ? (
+            <div style={{ display: location.pathname.startsWith(`/app/sellers/${visibleSellerId}`) ? undefined : "none" }}>
+              <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} id={visibleSellerId} />
             </div>
           ) : null}
-          {lastDetailIds.admins ? (
-            <div style={{ display: location.pathname.startsWith(`/app/admins/${lastDetailIds.admins}`) ? undefined : "none" }}>
-              <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.admins} />
+          {visibleAdminId ? (
+            <div style={{ display: location.pathname.startsWith(`/app/admins/${visibleAdminId}`) ? undefined : "none" }}>
+              <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} id={visibleAdminId} />
             </div>
           ) : null}
         </div>

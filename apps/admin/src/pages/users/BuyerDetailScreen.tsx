@@ -47,6 +47,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [selectedDate, setSelectedDate] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const customDateInputRef = useRef<HTMLInputElement | null>(null);
+  const buyerCriticalReqRef = useRef(0);
+  const buyerDeferredReqRef = useRef(0);
+  const buyerOrdersReqRef = useRef(0);
   const [noteItems, setNoteItems] = useState<BuyerNoteItem[]>([]);
   const [tagItems, setTagItems] = useState<string[]>(["VIP", "Takip"]);
 
@@ -61,26 +64,74 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketSuccess, setTicketSuccess] = useState<{ id: string; ticketNo?: number } | null>(null);
 
-  async function loadBuyerDetail() {
+  async function loadBuyerCritical() {
+    const requestId = ++buyerCriticalReqRef.current;
     setLoading(true);
     setMessage(null);
     try {
-      const [
-        detailResponse,
-        contactResponse,
-        summaryResponse,
-        ordersResponse,
-        reviewsResponse,
-        complaintsResponse,
-        cancellationsResponse,
-        locationsResponse,
-        notesResponse,
-        tagsResponse,
-      ] = await Promise.all([
+      const [detailResponse, contactResponse] = await Promise.all([
         request(endpoint),
         request(`/v1/admin/users/${id}/buyer-contact`),
+      ]);
+      if (requestId !== buyerCriticalReqRef.current) return;
+
+      if (detailResponse.status !== 200) {
+        const body = await parseJson<ApiError>(detailResponse);
+        if (requestId !== buyerCriticalReqRef.current) return;
+        setMessage(body.error?.message ?? "Alıcı detayı yüklenemedi");
+        return;
+      }
+
+      const detailBody = await parseJson<{ data: BuyerDetail }>(detailResponse);
+      if (requestId !== buyerCriticalReqRef.current) return;
+      setRow(detailBody.data);
+
+      if (contactResponse.status === 200) {
+        const body = await parseJson<{ data: BuyerContactInfo }>(contactResponse);
+        if (requestId !== buyerCriticalReqRef.current) return;
+        setContactInfo(body.data);
+      } else {
+        setContactInfo(null);
+      }
+    } catch {
+      if (requestId === buyerCriticalReqRef.current) {
+        setMessage("Alıcı detay isteği başarısız");
+      }
+    } finally {
+      if (requestId === buyerCriticalReqRef.current) {
+        setLoading(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    const requestId = ++buyerOrdersReqRef.current;
+    if (activeTab !== "orders" && activeTab !== "payments") return;
+    request(`/v1/admin/users/${id}/buyer-orders?page=${ordersPage}&pageSize=5&sortDir=desc`)
+      .then(async (response) => {
+        if (requestId !== buyerOrdersReqRef.current) return;
+        if (response.status !== 200) {
+          setOrders([]);
+          setOrdersPagination(null);
+          return;
+        }
+        const body = await parseJson<{ data: BuyerOrderRow[]; pagination: BuyerPagination }>(response);
+        if (requestId !== buyerOrdersReqRef.current) return;
+        setOrders(body.data);
+        setOrdersPagination(body.pagination);
+      })
+      .catch(() => {
+        if (requestId !== buyerOrdersReqRef.current) return;
+        setOrders([]);
+        setOrdersPagination(null);
+      });
+  }, [id, activeTab, ordersPage]);
+
+  async function loadBuyerDeferred() {
+    const requestId = ++buyerDeferredReqRef.current;
+    try {
+      const [summaryResponse, reviewsResponse, complaintsResponse, cancellationsResponse, locationsResponse, notesResponse, tagsResponse] = await Promise.all([
         request(`/v1/admin/users/${id}/buyer-summary`),
-        request(`/v1/admin/users/${id}/buyer-orders?page=${ordersPage}&pageSize=5&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-reviews?page=1&pageSize=5&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-complaints?page=1&pageSize=20&sortDir=desc`),
         request(`/v1/admin/users/${id}/buyer-cancellations?page=1&pageSize=5&sortDir=desc`),
@@ -88,38 +139,19 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
         request(`/v1/admin/buyers/${id}/notes?limit=50`),
         request(`/v1/admin/buyers/${id}/tags`),
       ]);
-
-      if (detailResponse.status !== 200) {
-        const body = await parseJson<ApiError>(detailResponse);
-        setMessage(body.error?.message ?? "Alıcı detayı yüklenemedi");
-        return;
-      }
-
-      const detailBody = await parseJson<{ data: BuyerDetail }>(detailResponse);
-      setRow(detailBody.data);
-
-      if (contactResponse.status === 200) {
-        const body = await parseJson<{ data: BuyerContactInfo }>(contactResponse);
-        setContactInfo(body.data);
-      }
+      if (requestId !== buyerDeferredReqRef.current) return;
 
       if (summaryResponse.status === 200) {
         const body = await parseJson<{ data: BuyerSummaryMetrics }>(summaryResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setSummary(body.data);
       } else {
         setSummary(null);
       }
 
-      if (ordersResponse.status === 200) {
-        const body = await parseJson<{ data: BuyerOrderRow[]; pagination: BuyerPagination }>(ordersResponse);
-        setOrders(body.data);
-        setOrdersPagination(body.pagination);
-      } else {
-        setOrders([]);
-      }
-
       if (reviewsResponse.status === 200) {
         const body = await parseJson<{ data: BuyerReviewRow[] }>(reviewsResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setReviews(body.data);
       } else {
         setReviews([]);
@@ -127,6 +159,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       if (complaintsResponse.status === 200) {
         const body = await parseJson<{ data: BuyerComplaintRow[] }>(complaintsResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setComplaints(body.data);
       } else {
         setComplaints([]);
@@ -134,6 +167,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       if (cancellationsResponse.status === 200) {
         const body = await parseJson<{ data: BuyerCancellationRow[] }>(cancellationsResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setCancellations(body.data);
       } else {
         setCancellations([]);
@@ -141,6 +175,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       if (locationsResponse.status === 200) {
         const body = await parseJson<{ data: BuyerLoginLocation[] }>(locationsResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setLocations(body.data);
       } else {
         setLocations([]);
@@ -148,6 +183,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       if (notesResponse.status === 200) {
         const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string; createdByUsername?: string | null }> }>(notesResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setNoteItems(body.data);
       } else {
         setNoteItems([]);
@@ -155,20 +191,58 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
       if (tagsResponse.status === 200) {
         const body = await parseJson<{ data: Array<{ id: string; tag: string }> }>(tagsResponse);
+        if (requestId !== buyerDeferredReqRef.current) return;
         setTagItems(body.data.map((item) => item.tag));
       } else {
         setTagItems([]);
       }
     } catch {
-      setMessage("Alıcı detay isteği başarısız");
-    } finally {
-      setLoading(false);
+      if (requestId !== buyerDeferredReqRef.current) return;
+      setSummary(null);
+      setReviews([]);
+      setComplaints([]);
+      setCancellations([]);
+      setLocations([]);
+      setNoteItems([]);
+      setTagItems([]);
     }
   }
 
+  async function loadBuyerDetail() {
+    await loadBuyerCritical();
+    if (activeTab === "orders" || activeTab === "payments") {
+      const requestId = ++buyerOrdersReqRef.current;
+      const response = await request(`/v1/admin/users/${id}/buyer-orders?page=${ordersPage}&pageSize=5&sortDir=desc`);
+      if (requestId === buyerOrdersReqRef.current && response.status === 200) {
+        const body = await parseJson<{ data: BuyerOrderRow[]; pagination: BuyerPagination }>(response);
+        if (requestId === buyerOrdersReqRef.current) {
+          setOrders(body.data);
+          setOrdersPagination(body.pagination);
+        }
+      }
+    }
+    await loadBuyerDeferred();
+  }
+
   useEffect(() => {
-    loadBuyerDetail().catch(() => setMessage("Alıcı detay isteği başarısız"));
-  }, [id, ordersPage]);
+    setRow(null);
+    setContactInfo(null);
+    setOrders([]);
+    setOrdersPagination(null);
+    setSummary(null);
+    setReviews([]);
+    setComplaints([]);
+    setCancellations([]);
+    setLocations([]);
+    setNoteItems([]);
+    setTagItems([]);
+    setOrdersPage(1);
+    buyerCriticalReqRef.current += 1;
+    buyerDeferredReqRef.current += 1;
+    buyerOrdersReqRef.current += 1;
+    void loadBuyerCritical();
+    void loadBuyerDeferred();
+  }, [id]);
 
   useEffect(() => {
     setProfileImageFailed(false);

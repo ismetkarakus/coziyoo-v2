@@ -178,6 +178,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
   const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const sellerCriticalReqRef = useRef(0);
+  const sellerDeferredReqRef = useRef(0);
+  const sellerLotsReqRef = useRef(0);
   const [pendingUploadKey, setPendingUploadKey] = useState<ComplianceRowKey | null>(null);
   const spiceHints = useMemo(() => ([
     "karabiber", "pul biber", "kimyon", "nane", "kekik", "isot", "paprika", "sumak", "tarcin", "yenibahar", "zerdecal",
@@ -263,32 +266,77 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     );
   }
 
-  async function loadSellerDetail() {
+  async function loadSellerCritical(options?: { includeFoods?: boolean; includeOrders?: boolean }) {
+    const requestId = ++sellerCriticalReqRef.current;
+    const includeFoods = options?.includeFoods ?? false;
+    const includeOrders = options?.includeOrders ?? false;
     setLoading(true);
     setMessage(null);
-    setLotsError(null);
     const bust = Date.now();
     try {
-      const [detailResponse, complianceResponse, foodsResponse, sellerOrdersResponse, addressesResponse, notesResponse, tagsResponse] = await Promise.all([
-        request(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${bust}`),
-        request(`/v1/admin/compliance/${id}?t=${bust}`),
-        request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`),
-        request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`),
-        request(`/v1/admin/users/${id}/addresses`),
-        request(`/v1/admin/sellers/${id}/notes?limit=50`),
-        request(`/v1/admin/sellers/${id}/tags`),
-      ]);
+      const detailPromise = request(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${bust}`);
+      const foodsPromise = includeFoods ? request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`) : Promise.resolve(null);
+      const ordersPromise = includeOrders ? request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`) : Promise.resolve(null);
+      const [detailResponse, foodsResponse, sellerOrdersResponse] = await Promise.all([detailPromise, foodsPromise, ordersPromise]);
+      if (requestId !== sellerCriticalReqRef.current) return;
 
       if (detailResponse.status !== 200) {
         const body = await parseJson<ApiError>(detailResponse);
+        if (requestId !== sellerCriticalReqRef.current) return;
         setMessage(body.error?.message ?? dict.detail.loadFailed);
         return;
       }
       const detailBody = await parseJson<{ data: any }>(detailResponse);
+      if (requestId !== sellerCriticalReqRef.current) return;
       setRow(detailBody.data);
+
+      if (foodsResponse) {
+        if (foodsResponse.status === 200) {
+          const foodsBody = await parseJson<{ data: SellerFoodRow[] }>(foodsResponse);
+          if (requestId !== sellerCriticalReqRef.current) return;
+          setFoodRows(foodsBody.data);
+        } else {
+          setFoodRows([]);
+        }
+      }
+
+      if (sellerOrdersResponse) {
+        if (sellerOrdersResponse.status === 200) {
+          const ordersBody = await parseJson<{ data: any[]; pagination: BuyerPagination }>(sellerOrdersResponse);
+          if (requestId !== sellerCriticalReqRef.current) return;
+          setSellerOrders(ordersBody.data);
+          setSellerOrdersPagination(ordersBody.pagination);
+        } else {
+          setSellerOrders([]);
+          setSellerOrdersPagination(null);
+        }
+      }
+    } catch {
+      if (requestId === sellerCriticalReqRef.current) {
+        setMessage(dict.detail.requestFailed);
+      }
+    } finally {
+      if (requestId === sellerCriticalReqRef.current) {
+        setLoading(false);
+      }
+    }
+  }
+
+  async function loadSellerDeferred() {
+    const requestId = ++sellerDeferredReqRef.current;
+    const bust = Date.now();
+    try {
+      const [complianceResponse, addressesResponse, notesResponse, tagsResponse] = await Promise.all([
+        request(`/v1/admin/compliance/${id}?t=${bust}`),
+        request(`/v1/admin/users/${id}/addresses`),
+        request(`/v1/admin/sellers/${id}/notes?limit=50`),
+        request(`/v1/admin/sellers/${id}/tags`),
+      ]);
+      if (requestId !== sellerDeferredReqRef.current) return;
 
       if (complianceResponse.status === 200) {
         const complianceBody = await parseJson<{ data: SellerCompliancePayload }>(complianceResponse);
+        if (requestId !== sellerDeferredReqRef.current) return;
         setCompliance(complianceBody.data);
       } else {
         setCompliance(null);
@@ -298,26 +346,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         return {};
       });
 
-      if (foodsResponse.status === 200) {
-        const foodsBody = await parseJson<{
-          data: SellerFoodRow[];
-        }>(foodsResponse);
-        setFoodRows(foodsBody.data);
-      } else {
-        setFoodRows([]);
-      }
-
-      if (sellerOrdersResponse.status === 200) {
-        const ordersBody = await parseJson<{ data: any[]; pagination: BuyerPagination }>(sellerOrdersResponse);
-        setSellerOrders(ordersBody.data);
-        setSellerOrdersPagination(ordersBody.pagination);
-      } else {
-        setSellerOrders([]);
-        setSellerOrdersPagination(null);
-      }
-
       if (addressesResponse.status === 200) {
         const addressesBody = await parseJson<{ data: SellerAddressRow[] }>(addressesResponse);
+        if (requestId !== sellerDeferredReqRef.current) return;
         setAddresses(Array.isArray(addressesBody.data) ? addressesBody.data : []);
       } else {
         setAddresses([]);
@@ -325,6 +356,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       if (notesResponse.status === 200) {
         const body = await parseJson<{ data: Array<{ id: string; note: string; createdAt: string; createdByUsername?: string | null }> }>(notesResponse);
+        if (requestId !== sellerDeferredReqRef.current) return;
         setNoteItems(Array.isArray(body.data) ? body.data : []);
       } else {
         setNoteItems([]);
@@ -332,35 +364,74 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
 
       if (tagsResponse.status === 200) {
         const body = await parseJson<{ data: Array<{ id: string; tag: string }> }>(tagsResponse);
+        if (requestId !== sellerDeferredReqRef.current) return;
         setTagItems(Array.isArray(body.data) ? body.data.map((item) => item.tag) : []);
       } else {
         setTagItems([]);
       }
-
-      setLotsLoading(true);
-      try {
-        const lots = await fetchAllAdminLots({ sellerId: id });
-        const grouped: Record<string, AdminLotRow[]> = {};
-        for (const lot of lots) {
-          if (!grouped[lot.food_id]) grouped[lot.food_id] = [];
-          grouped[lot.food_id].push(lot);
-        }
-        setLotsByFoodId(grouped);
-      } catch (error) {
-        setLotsByFoodId({});
-        setLotsError(error instanceof Error ? error.message : dict.detail.requestFailed);
-      } finally {
-        setLotsLoading(false);
-      }
     } catch {
-      setMessage(dict.detail.requestFailed);
-    } finally {
-      setLoading(false);
+      if (requestId !== sellerDeferredReqRef.current) return;
+      setCompliance(null);
+      setAddresses([]);
+      setNoteItems([]);
+      setTagItems([]);
     }
   }
 
+  async function loadSellerLots() {
+    const requestId = ++sellerLotsReqRef.current;
+    setLotsLoading(true);
+    setLotsError(null);
+    try {
+      const lots = await fetchAllAdminLots({ sellerId: id });
+      if (requestId !== sellerLotsReqRef.current) return;
+      const grouped: Record<string, AdminLotRow[]> = {};
+      for (const lot of lots) {
+        if (!grouped[lot.food_id]) grouped[lot.food_id] = [];
+        grouped[lot.food_id].push(lot);
+      }
+      setLotsByFoodId(grouped);
+    } catch (error) {
+      if (requestId !== sellerLotsReqRef.current) return;
+      setLotsByFoodId({});
+      setLotsError(error instanceof Error ? error.message : dict.detail.requestFailed);
+    } finally {
+      if (requestId === sellerLotsReqRef.current) {
+        setLotsLoading(false);
+      }
+    }
+  }
+
+  async function loadSellerDetail() {
+    await loadSellerCritical({ includeFoods: true, includeOrders: true });
+    await loadSellerDeferred();
+    await loadSellerLots();
+  }
+
   useEffect(() => {
-    loadSellerDetail().catch(() => setMessage(dict.detail.requestFailed));
+    setRow(null);
+    setFoodRows([]);
+    setSellerOrders([]);
+    setSellerOrdersPagination(null);
+    setCompliance(null);
+    setAddresses([]);
+    setNoteItems([]);
+    setTagItems([]);
+    setLotsByFoodId({});
+    setLotsError(null);
+    sellerCriticalReqRef.current += 1;
+    sellerDeferredReqRef.current += 1;
+    sellerLotsReqRef.current += 1;
+    void loadSellerCritical({
+      includeFoods: activeTab === "foods",
+      includeOrders: activeTab === "orders" || activeTab === "wallet",
+    });
+    void loadSellerDeferred();
+    if (activeTab === "foods") {
+      void loadSellerLots();
+    } else {
+      setLotsLoading(false);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -484,6 +555,17 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setEarningsPaymentFilter("all");
     setEarningsSearch(walletSearchTx);
   }, [activeTab, walletSearchTx]);
+
+  useEffect(() => {
+    if (activeTab === "foods" && foodRows.length === 0) {
+      void loadSellerCritical({ includeFoods: true, includeOrders: false });
+      void loadSellerLots();
+      return;
+    }
+    if ((activeTab === "orders" || activeTab === "wallet") && sellerOrders.length === 0) {
+      void loadSellerCritical({ includeFoods: false, includeOrders: true });
+    }
+  }, [activeTab, foodRows.length, sellerOrders.length]);
 
   useEffect(() => {
     if (!flashFoodId) return;
