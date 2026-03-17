@@ -10025,6 +10025,14 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   color: #18386f !important;
 }
 
+:root:not(.dark) .seller-detail-page .seller-general-filter-item > span {
+  background: linear-gradient(180deg, rgba(220, 232, 255, 0.96), rgba(205, 221, 250, 0.94));
+  color: #294b86;
+  border: 1px solid rgba(127, 161, 225, 0.34);
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input {
   height: 42px;
   min-height: 42px;
