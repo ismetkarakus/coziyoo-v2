@@ -887,7 +887,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     printModalContent(identityModalPrintRef.current);
   }
 
-  if (loading && !row) return (
+  if (loading || (row && String(row.id) !== String(id))) return (
     <div className="panel detail-skeleton-panel">
       <div className="detail-skeleton-hero">
         {routerPreview?.profileImageUrl

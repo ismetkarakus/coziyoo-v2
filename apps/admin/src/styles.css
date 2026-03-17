@@ -904,6 +904,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-height: 200px;
 }
 
 .back-nav {
@@ -9834,6 +9835,28 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu a,
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu span {
+  color: var(--color-text);
+  border-bottom-color: color-mix(in srgb, #90a9da 30%, var(--color-border));
+}
+
+:root:not(.dark) .buyer-ops-page .seller-quick-access summary {
+  color: color-mix(in srgb, #4b6fb8 92%, var(--color-text));
+}
+
+:root:not(.dark) .buyer-ops-page .seller-quick-access summary:hover,
+:root:not(.dark) .buyer-ops-page .seller-quick-access summary:focus-visible,
+:root:not(.dark) .buyer-ops-page .seller-quick-access[open] summary {
+  color: color-mix(in srgb, #355ea8 96%, var(--color-text));
+}
+
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu {
+  border-color: color-mix(in srgb, #8fa8dc 34%, var(--color-border));
+  background: color-mix(in srgb, #f5f9ff 96%, white);
+  box-shadow: 0 10px 24px rgba(78, 108, 163, 0.18);
+}
+
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu a,
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu span {
   color: var(--color-text);
   border-bottom-color: color-mix(in srgb, #90a9da 30%, var(--color-border));
 }
