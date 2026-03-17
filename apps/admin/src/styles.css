@@ -6488,8 +6488,28 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   font-size: clamp(0.98rem, 1.06vw, 1.15rem);
 }
 
+.seller-rating-phone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: #7a9fff;
+  text-decoration: none;
+  background: color-mix(in srgb, #7a9fff 16%, transparent);
+  border: 1px solid color-mix(in srgb, #7a9fff 36%, transparent);
+  line-height: 1;
+}
+
+.seller-rating-phone.is-disabled {
+  color: #7d8598;
+  background: color-mix(in srgb, #7d8598 10%, transparent);
+  border-color: color-mix(in srgb, #7d8598 24%, transparent);
+}
+
 .rating-value {
-  color: #f5c665;
+  color: #8f97a9;
 }
 
 .rating-stars {

@@ -1665,9 +1665,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             <div className="seller-hero-title-stack">
               <div className="seller-hero-title-row">
                 <h1>{row.displayName ?? row.email}</h1>
-                <span className={`seller-account-status ${isActive ? "is-active" : "is-disabled"}`}>{accountStatusLabel}</span>
               </div>
               <div className="seller-rating-row" aria-label={`rating ${avgRating != null ? avgRating.toFixed(1) : "-"}`}>
+                {contactHasPhone ? (
+                  <a
+                    className="seller-rating-phone"
+                    href={`tel:${contactPhoneHrefValue}`}
+                    aria-label={language === "tr" ? "Satıcıyı ara" : "Call seller"}
+                    title={language === "tr" ? "Satıcıyı ara" : "Call seller"}
+                  >
+                    ☎
+                  </a>
+                ) : (
+                  <span className="seller-rating-phone is-disabled" aria-hidden="true">☎</span>
+                )}
                 <span className="rating-value">{avgRating != null ? avgRating.toFixed(1) : "-"}</span>
                 {avgRating != null ? (
                   <span className="rating-stars" aria-hidden="true">
