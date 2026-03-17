@@ -78,10 +78,10 @@ function DefaultUserDetailScreen({
   );
 }
 
-export function UserDetail({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAdmin: boolean; language: Language }) {
+export function UserDetail({ kind, isSuperAdmin, language, id: idProp }: { kind: UserKind; isSuperAdmin: boolean; language: Language; id?: string }) {
   const dict = DICTIONARIES[language];
   const location = useLocation();
-  const id = location.pathname.split("/").at(-1) ?? "";
+  const id = idProp ?? location.pathname.split("/").at(-1) ?? "";
   if (kind === "buyers") return <BuyerDetailScreen id={id} dict={dict} language={language} />;
   if (kind === "sellers") return <SellerDetailScreen id={id} isSuperAdmin={isSuperAdmin} dict={dict} language={language} />;
   return <DefaultUserDetailScreen kind={kind} isSuperAdmin={isSuperAdmin} dict={dict} id={id} />;

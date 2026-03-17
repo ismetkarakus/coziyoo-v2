@@ -50,6 +50,7 @@ function AppShell({
     const seg = location.pathname.split("/").filter(Boolean);
     return new Set([`/${seg.slice(0, 2).join("/")}`]);
   });
+  const [lastDetailIds, setLastDetailIds] = useState<{ sellers: string | null; buyers: string | null; app: string | null; admins: string | null }>({ sellers: null, buyers: null, app: null, admins: null });
   const globalSearchReqIdRef = useRef(0);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -92,6 +93,14 @@ function AppShell({
     const seg = location.pathname.split("/").filter(Boolean);
     const base = `/${seg.slice(0, 2).join("/")}`;
     setMountedPages(prev => prev.has(base) ? prev : new Set([...prev, base]));
+    const sellerMatch = location.pathname.match(/^\/app\/sellers\/([^/?#]+)/);
+    if (sellerMatch) setLastDetailIds(prev => prev.sellers === sellerMatch[1] ? prev : { ...prev, sellers: sellerMatch[1] });
+    const buyerMatch = location.pathname.match(/^\/app\/buyers\/([^/?#]+)/);
+    if (buyerMatch) setLastDetailIds(prev => prev.buyers === buyerMatch[1] ? prev : { ...prev, buyers: buyerMatch[1] });
+    const appUserMatch = location.pathname.match(/^\/app\/users\/([^/?#]+)/);
+    if (appUserMatch) setLastDetailIds(prev => prev.app === appUserMatch[1] ? prev : { ...prev, app: appUserMatch[1] });
+    const adminMatch = location.pathname.match(/^\/app\/admins\/([^/?#]+)/);
+    if (adminMatch) setLastDetailIds(prev => prev.admins === adminMatch[1] ? prev : { ...prev, admins: adminMatch[1] });
   }, [location.pathname]);
 
   useEffect(() => {
@@ -409,10 +418,26 @@ function AppShell({
           {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
           {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
           {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
-          {location.pathname.startsWith("/app/users/") ? <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {location.pathname.startsWith("/app/buyers/") ? <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {location.pathname.startsWith("/app/sellers/") ? <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {location.pathname.startsWith("/app/admins/") ? <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {lastDetailIds.app ? (
+            <div style={{ display: location.pathname.startsWith(`/app/users/${lastDetailIds.app}`) ? undefined : "none" }}>
+              <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.app} />
+            </div>
+          ) : null}
+          {lastDetailIds.buyers ? (
+            <div style={{ display: location.pathname.startsWith(`/app/buyers/${lastDetailIds.buyers}`) ? undefined : "none" }}>
+              <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.buyers} />
+            </div>
+          ) : null}
+          {lastDetailIds.sellers ? (
+            <div style={{ display: location.pathname.startsWith(`/app/sellers/${lastDetailIds.sellers}`) ? undefined : "none" }}>
+              <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.sellers} />
+            </div>
+          ) : null}
+          {lastDetailIds.admins ? (
+            <div style={{ display: location.pathname.startsWith(`/app/admins/${lastDetailIds.admins}`) ? undefined : "none" }}>
+              <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} id={lastDetailIds.admins} />
+            </div>
+          ) : null}
         </div>
       </section>
       {isGlobalSearchModalOpen ? (
