@@ -70,6 +70,8 @@ function AppShell({
   const isSuperAdmin = admin.role === "super_admin";
   const isInvestigationDetailModal = location.pathname.startsWith("/app/investigation/");
   const pathParts = location.pathname.split("/").filter(Boolean);
+  const currentBasePath = `/${pathParts.slice(0, 2).join("/")}`;
+  const isPageMounted = (path: string) => mountedPages.has(path) || currentBasePath === path;
   const isDetailPage = pathParts.length > 2;
   const parentPath = isDetailPage ? `/${pathParts.slice(0, 2).join("/")}` : null;
   const currentSellerId = location.pathname.match(/^\/app\/sellers\/([^/?#]+)/)?.[1] ?? null;
@@ -342,47 +344,47 @@ function AppShell({
           </div>
         ) : null}
         <div className="page-transition-root">
-          {mountedPages.has("/app/dashboard") ? (
+          {isPageMounted("/app/dashboard") ? (
             <div style={{ display: location.pathname === "/app/dashboard" ? undefined : "none" }}>
               <DashboardPage language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/review-queue") ? (
+          {isPageMounted("/app/review-queue") ? (
             <div style={{ display: location.pathname === "/app/review-queue" ? undefined : "none" }}>
               <ReviewQueuePage language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/users") ? (
+          {isPageMounted("/app/users") ? (
             <div style={{ display: location.pathname === "/app/users" ? undefined : "none" }}>
               <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/buyers") ? (
+          {isPageMounted("/app/buyers") ? (
             <div style={{ display: location.pathname === "/app/buyers" ? undefined : "none" }}>
               <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/sellers") ? (
+          {isPageMounted("/app/sellers") ? (
             <div style={{ display: location.pathname === "/app/sellers" ? undefined : "none" }}>
               <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/orders") ? (
+          {isPageMounted("/app/orders") ? (
             <div style={{ display: location.pathname === "/app/orders" ? undefined : "none" }}>
               <RecordsPage language={language} tableKey="orders" />
             </div>
           ) : null}
-          {mountedPages.has("/app/foods") ? (
+          {isPageMounted("/app/foods") ? (
             <div style={{ display: location.pathname === "/app/foods" ? undefined : "none" }}>
               <FoodsLotsPage language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/admins") ? (
+          {isPageMounted("/app/admins") ? (
             <div style={{ display: location.pathname === "/app/admins" ? undefined : "none" }}>
               <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/investigation") ? (
+          {isPageMounted("/app/investigation") ? (
             <div style={{ display: location.pathname.startsWith("/app/investigation") ? undefined : "none" }}>
               <InvestigationPage language={language} />
             </div>
@@ -406,17 +408,17 @@ function AppShell({
               </div>
             </div>
           ) : null}
-          {mountedPages.has("/app/audit") ? (
+          {isPageMounted("/app/audit") ? (
             <div style={{ display: location.pathname === "/app/audit" ? undefined : "none" }}>
               <AuditPage language={language} />
             </div>
           ) : null}
-          {mountedPages.has("/app/compliance-documents") ? (
+          {isPageMounted("/app/compliance-documents") ? (
             <div style={{ display: location.pathname === "/app/compliance-documents" ? undefined : "none" }}>
               <ComplianceDocumentsPage language={language} isSuperAdmin={isSuperAdmin} />
             </div>
           ) : null}
-          {mountedPages.has("/app/security") ? (
+          {isPageMounted("/app/security") ? (
             <div style={{ display: location.pathname === "/app/security" ? undefined : "none" }}>
               <SecurityPage language={language} />
             </div>
