@@ -46,6 +46,10 @@ function AppShell({
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalSearchResultItem[]>([]);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [keepAlive, setKeepAlive] = useState(() => ({
+    sellers: location.pathname === "/app/sellers" || location.pathname.startsWith("/app/sellers/"),
+    buyers:  location.pathname === "/app/buyers"  || location.pathname.startsWith("/app/buyers/"),
+  }));
   const globalSearchReqIdRef = useRef(0);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,6 +89,12 @@ function AppShell({
     setGlobalSearchLoading(false);
     setIsProfileMenuOpen(false);
     globalSearchReqIdRef.current += 1;
+    if (location.pathname === "/app/sellers" || location.pathname.startsWith("/app/sellers/")) {
+      setKeepAlive(k => k.sellers ? k : { ...k, sellers: true });
+    }
+    if (location.pathname === "/app/buyers" || location.pathname.startsWith("/app/buyers/")) {
+      setKeepAlive(k => k.buyers ? k : { ...k, buyers: true });
+    }
   }, [location.pathname]);
 
   useEffect(() => {
@@ -321,8 +331,16 @@ function AppShell({
           {location.pathname === "/app/dashboard" ? <DashboardPage language={language} /> : null}
           {location.pathname === "/app/review-queue" ? <ReviewQueuePage language={language} /> : null}
           {location.pathname === "/app/users" ? <UsersPage kind="app" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {location.pathname === "/app/buyers" ? <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
-          {location.pathname === "/app/sellers" ? <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} /> : null}
+          {keepAlive.buyers ? (
+            <div style={{ display: location.pathname === "/app/buyers" ? undefined : "none" }}>
+              <UsersPage kind="buyers" isSuperAdmin={isSuperAdmin} language={language} />
+            </div>
+          ) : null}
+          {keepAlive.sellers ? (
+            <div style={{ display: location.pathname === "/app/sellers" ? undefined : "none" }}>
+              <UsersPage kind="sellers" isSuperAdmin={isSuperAdmin} language={language} />
+            </div>
+          ) : null}
           {location.pathname === "/app/orders" ? <RecordsPage language={language} tableKey="orders" /> : null}
           {location.pathname === "/app/foods" ? <FoodsLotsPage language={language} /> : null}
           {location.pathname === "/app/admins" ? <UsersPage kind="admin" isSuperAdmin={isSuperAdmin} language={language} /> : null}
