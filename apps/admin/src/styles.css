@@ -3278,8 +3278,8 @@ textarea:focus {
 
 .buyer-ref-avatar-button:hover::after,
 .buyer-ref-avatar-button:focus-visible::after {
-  opacity: 0;
-  transform: scale(0.9) translateY(6px);
+  opacity: 0.9;
+  transform: scale(1.06) translateY(1px);
 }
 
 .buyer-ref-avatar-badge {
@@ -6646,8 +6646,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-avatar-button:hover::after,
 .seller-avatar-button:focus-visible::after {
-  opacity: 0;
-  transform: scale(0.88) translateY(6px);
+  opacity: 0.9;
+  transform: scale(1.08) translateY(1px);
 }
 
 .seller-avatar-button:hover .seller-avatar,
