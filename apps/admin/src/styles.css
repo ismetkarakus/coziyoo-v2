@@ -4325,14 +4325,16 @@ textarea:focus {
 .seller-notes-count-pill {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(122, 138, 173, 0.42);
-  background: linear-gradient(180deg, rgba(81, 91, 115, 0.45), rgba(55, 63, 84, 0.4));
-  color: #ccd4e4;
-  font-size: var(--text-xs);
-  font-weight: var(--font-medium);
+  border: 1px solid rgba(146, 182, 244, 0.4);
+  background: linear-gradient(180deg, rgba(42, 66, 116, 0.82), rgba(28, 43, 77, 0.78));
+  color: #f7fbff;
+  font-size: 0.82rem;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .seller-notes-layout {
@@ -4356,9 +4358,10 @@ textarea:focus {
 
 .seller-notes-col-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: clamp(0.98rem, 1.1vw, 1.06rem);
   font-weight: var(--font-bold);
-  color: #e6ebf7;
+  color: #f4f8ff;
+  letter-spacing: -0.01em;
 }
 
 .seller-notes-tags-head {
@@ -4371,9 +4374,10 @@ textarea:focus {
 
 .seller-notes-tag-label {
   flex: 0 0 auto;
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  color: #d7e0f2;
+  font-size: clamp(0.98rem, 1.1vw, 1.06rem);
+  font-weight: var(--font-bold);
+  color: #f4f8ff;
+  letter-spacing: -0.01em;
 }
 
 .seller-notes-plus-btn {
@@ -4466,12 +4470,27 @@ textarea:focus {
 }
 
 .seller-note-item {
+  position: relative;
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid rgba(144, 162, 195, 0.35);
   background:
     linear-gradient(180deg, rgba(87, 94, 111, 0.24), rgba(47, 54, 73, 0.24)),
     linear-gradient(180deg, rgba(31, 40, 63, 0.86), rgba(27, 35, 54, 0.88));
+}
+
+.seller-note-item::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: rgba(30, 39, 60, 0.95);
+  border-left: 1px solid rgba(144, 162, 195, 0.35);
+  border-bottom: 1px solid rgba(144, 162, 195, 0.35);
+  transform: rotate(-45deg);
+  border-bottom-left-radius: 3px;
 }
 
 .seller-note-item-row {
@@ -9899,10 +9918,50 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: color-mix(in srgb, #eaf1ff 88%, white);
 }
 
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-col-title,
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-tag-label {
+  display: block;
+  min-height: 0;
+  width: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  border-color: transparent;
+  color: #294b86;
+  box-shadow: none;
+  text-transform: none;
+  opacity: 1;
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-count-pill {
+  border-color: rgba(96, 132, 205, 0.42);
+  background: linear-gradient(180deg, rgba(202, 218, 246, 0.98), rgba(183, 202, 235, 0.96));
+  color: #1b3d79;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input,
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row textarea,
 :root:not(.dark) .seller-detail-page .seller-detail-filter-item {
   border-color: color-mix(in srgb, #8fa8dc 34%, var(--color-border));
   background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
+  color: #18386f !important;
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input {
+  height: 42px;
+  min-height: 42px;
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input::placeholder,
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row textarea::placeholder {
+  color: rgba(24, 56, 111, 0.46) !important;
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-note-item::before {
+  background: color-mix(in srgb, #eaf1ff 88%, white);
+  border-left-color: rgba(143, 168, 220, 0.45);
+  border-bottom-color: rgba(143, 168, 220, 0.45);
 }
 
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu {
