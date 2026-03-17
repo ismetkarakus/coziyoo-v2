@@ -3315,14 +3315,16 @@ textarea:focus {
 }
 
 .buyer-ref-profile-head {
-  display: flex;
+  display: inline-flex;
   gap: 6px;
   align-items: center;
   justify-content: flex-start;
+  max-width: 100%;
 }
 
 .buyer-ref-profile-title {
   min-width: 0;
+  flex: 0 1 auto;
 }
 
 .buyer-ref-profile-body h2,
@@ -9429,7 +9431,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   }
 
   .buyer-ref-profile-head {
-    grid-template-columns: 1fr;
+    display: inline-flex;
   }
 
   .seller-hero {
