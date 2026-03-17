@@ -6449,11 +6449,43 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-avatar-button {
+  position: relative;
   border: 0;
   padding: 0;
   background: transparent;
   border-radius: 999px;
   cursor: pointer;
+  isolation: isolate;
+  transition: transform 0.2s ease;
+}
+
+.seller-avatar-button::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(90, 150, 255, 0.38) 0%, rgba(90, 150, 255, 0.12) 45%, rgba(90, 150, 255, 0) 72%);
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.seller-avatar-button:hover,
+.seller-avatar-button:focus-visible {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.seller-avatar-button:hover::after,
+.seller-avatar-button:focus-visible::after {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.seller-avatar-button:hover .seller-avatar,
+.seller-avatar-button:focus-visible .seller-avatar {
+  box-shadow: 0 0 0 2px rgba(115, 166, 255, 0.44), 0 0 28px rgba(80, 143, 255, 0.35);
 }
 
 .seller-avatar img {
