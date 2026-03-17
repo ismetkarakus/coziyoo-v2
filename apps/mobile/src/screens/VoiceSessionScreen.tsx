@@ -9,6 +9,7 @@ import {
   PermissionsAndroid,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'react-native';
 import {
   AudioSession,
@@ -291,17 +292,7 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   }
 
   function handleEnd() {
-    Alert.alert('End Session', 'Are you sure you want to end this session?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End',
-        style: 'destructive',
-        onPress: () => {
-          room.disconnect();
-          onEnd();
-        },
-      },
-    ]);
+    onEnd();
   }
 
   function getStatusText() {
@@ -365,30 +356,32 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
       </View>
 
       <View style={styles.controls}>
-        {/* Mic toggle */}
         <TouchableOpacity
           style={[styles.controlBtn, !isMicrophoneEnabled && styles.controlBtnMuted]}
           onPress={toggleMic}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
         >
           <View style={[styles.iconCircle, !isMicrophoneEnabled && styles.iconCircleMuted]}>
-            <Text style={styles.iconText}>{isMicrophoneEnabled ? 'MIC' : 'OFF'}</Text>
+            <Ionicons
+              name={isMicrophoneEnabled ? 'mic' : 'mic-off'}
+              size={22}
+              color="#fff"
+            />
           </View>
-          <Text style={styles.controlLabel}>
-            {isMicrophoneEnabled ? 'Mute' : 'Unmute'}
-          </Text>
         </TouchableOpacity>
 
-        {/* End session */}
         <TouchableOpacity
           style={[styles.controlBtn, styles.controlBtnEnd]}
           onPress={handleEnd}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="End session"
         >
           <View style={[styles.iconCircle, styles.iconCircleEnd]}>
-            <Text style={styles.iconText}>END</Text>
+            <Ionicons name="call" size={20} color="#fff" style={styles.endIcon} />
           </View>
-          <Text style={styles.controlLabel}>End</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -553,6 +546,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  endIcon: {
+    transform: [{ rotate: '135deg' }],
   },
   controlLabel: {
     color: '#888',
