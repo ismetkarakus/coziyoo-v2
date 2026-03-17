@@ -360,3 +360,4 @@ app.use("/v1/admin/livekit", adminLiveKitRouter);
 app.use("/v1/docs", docsRouter);
 app.use("/v1/livekit", liveKitRouter);
 app.use("/v1/voice", voiceRouter);
+app.use("/v1/session", voiceRouter);

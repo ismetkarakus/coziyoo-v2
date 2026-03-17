@@ -1459,6 +1459,157 @@ voiceRouter.get("/foods", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /v1/session/cart/:roomId — read cart from session_memory
+// ---------------------------------------------------------------------------
+
+const CartGetSchema = z.object({
+  roomId: z.string().min(1),
+});
+
+voiceRouter.get("/cart/:roomId", async (req, res) => {
+  if (!env.AI_SERVER_SHARED_SECRET) {
+    return res.status(503).json({
+      error: {
+        code: "AI_SERVER_SHARED_SECRET_MISSING",
+        message: "Set AI_SERVER_SHARED_SECRET before using this endpoint.",
+      },
+    });
+  }
+
+  const provided = String(req.headers["x-ai-server-secret"] ?? "");
+  if (!isValidSharedSecret(provided)) {
+    return res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" },
+    });
+  }
+
+  const parsed = CartGetSchema.safeParse({ roomId: req.params.roomId });
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { roomId } = parsed.data;
+
+  try {
+    const result = await pool.query<{ data: Record<string, unknown> }>(
+      "SELECT data FROM session_memory WHERE room_id = $1",
+      [roomId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(200).json({ data: { cart: [], userId: null, sellerId: null } });
+    }
+
+    const data = result.rows[0].data ?? {};
+    const cart = Array.isArray(data.cart) ? data.cart : [];
+    const userId = typeof data.userId === "string" ? data.userId : null;
+    const firstItem = cart[0] as Record<string, unknown> | undefined;
+    const sellerId = firstItem && typeof firstItem.sellerId === "string" ? firstItem.sellerId : null;
+
+    return res.status(200).json({ data: { cart, userId, sellerId } });
+  } catch (error) {
+    return res.status(500).json({
+      error: {
+        code: "SESSION_CART_READ_FAILED",
+        message: error instanceof Error ? error.message : "Failed to read session cart",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /v1/session/cart — upsert a cart item into session_memory
+// ---------------------------------------------------------------------------
+
+const CartUpsertSchema = z.object({
+  roomId: z.string().min(1),
+  userId: z.string().nullable().optional(),
+  productName: z.string().optional(),
+  quantity: z.number().int().min(1).default(1),
+  foods: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      price: z.string(),
+      cardSummary: z.string().nullable().optional(),
+      available: z.boolean(),
+      lotId: z.string().nullable().optional(),
+      sellerId: z.string().nullable().optional(),
+    }),
+  ),
+});
+
+voiceRouter.post("/cart", async (req, res) => {
+  if (!env.AI_SERVER_SHARED_SECRET) {
+    return res.status(503).json({
+      error: {
+        code: "AI_SERVER_SHARED_SECRET_MISSING",
+        message: "Set AI_SERVER_SHARED_SECRET before using this endpoint.",
+      },
+    });
+  }
+
+  const provided = String(req.headers["x-ai-server-secret"] ?? "");
+  if (!isValidSharedSecret(provided)) {
+    return res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Invalid AI server shared secret" },
+    });
+  }
+
+  const parsed = CartUpsertSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { roomId, userId, quantity, foods } = parsed.data;
+
+  const match = foods.find((f) => f.available && f.lotId);
+  if (!match) {
+    return res.status(404).json({
+      error: { code: "FOOD_NOT_FOUND", message: "No available food found matching that search" },
+    });
+  }
+
+  const cartItem = {
+    lotId: match.lotId!,
+    foodName: match.name,
+    quantity,
+    unitPrice: parseFloat(match.price) || 0,
+    sellerId: match.sellerId ?? null,
+  };
+
+  try {
+    const existing = await pool.query<{ data: Record<string, unknown> }>(
+      "SELECT data FROM session_memory WHERE room_id = $1",
+      [roomId],
+    );
+
+    const existingData = existing.rows.length > 0 ? (existing.rows[0].data ?? {}) : {};
+    const existingCart = Array.isArray(existingData.cart)
+      ? (existingData.cart as Array<Record<string, unknown>>)
+      : [];
+
+    const newCart = [...existingCart.filter((item) => item.lotId !== cartItem.lotId), cartItem];
+
+    await pool.query(
+      `INSERT INTO session_memory (room_id, user_id, data, created_at, updated_at)
+       VALUES ($1, $2, $3::jsonb, now(), now())
+       ON CONFLICT (room_id) DO UPDATE SET data = $3::jsonb, updated_at = now()`,
+      [roomId, userId ?? null, JSON.stringify({ ...existingData, cart: newCart })],
+    );
+
+    return res.status(200).json({ data: { item: cartItem, cart: newCart } });
+  } catch (error) {
+    return res.status(500).json({
+      error: {
+        code: "SESSION_CART_UPSERT_FAILED",
+        message: error instanceof Error ? error.message : "Failed to upsert session cart",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 
 liveKitRouter.post("/starter/tools/run", async (req, res) => {
   const parsed = StarterToolRunSchema.safeParse(req.body);
