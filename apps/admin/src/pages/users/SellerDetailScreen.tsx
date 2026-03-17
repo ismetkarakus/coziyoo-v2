@@ -1677,18 +1677,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <h1>{row.displayName ?? row.email}</h1>
               </div>
               <div className="seller-rating-row" aria-label={`rating ${avgRating != null ? avgRating.toFixed(1) : "-"}`}>
-                {contactHasPhone ? (
-                  <a
-                    className="seller-rating-phone"
-                    href={`tel:${contactPhoneHrefValue}`}
-                    aria-label={language === "tr" ? "Satıcıyı ara" : "Call seller"}
-                    title={language === "tr" ? "Satıcıyı ara" : "Call seller"}
-                  >
-                    ☎
-                  </a>
-                ) : (
-                  <span className="seller-rating-phone is-disabled" aria-hidden="true">☎</span>
-                )}
+                <QuickAccessMenu
+                  ref={quickAccessRef}
+                  className="seller-rating-quick-access"
+                  language={language}
+                  email={contactEmail}
+                  phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
+                  smsBody={contactSmsBody}
+                />
                 <span className="rating-value">{avgRating != null ? avgRating.toFixed(1) : "-"}</span>
                 {avgRating != null ? (
                   <span className="rating-stars" aria-hidden="true">
@@ -1714,13 +1710,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
               <strong>{formatUiDate(row.updatedAt, language)}</strong>
             </article>
           </div>
-          <QuickAccessMenu
-            ref={quickAccessRef}
-            language={language}
-            email={contactEmail}
-            phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
-            smsBody={contactSmsBody}
-          />
         </div>
       </section>
 
