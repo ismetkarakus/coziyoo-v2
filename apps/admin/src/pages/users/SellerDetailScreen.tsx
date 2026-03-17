@@ -1678,6 +1678,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           <div className="seller-hero-text">
             <div className="seller-hero-title-stack">
               <div className="seller-hero-title-row">
+                <h1>{row.displayName ?? row.email}</h1>
                 <QuickAccessMenu
                   ref={quickAccessRef}
                   className="seller-rating-quick-access"
@@ -1686,7 +1687,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   phoneHrefValue={contactHasPhone ? contactPhoneHrefValue : ""}
                   smsBody={contactSmsBody}
                 />
-                <h1>{row.displayName ?? row.email}</h1>
               </div>
               <div className="seller-rating-row" aria-label={`rating ${avgRating != null ? avgRating.toFixed(1) : "0.0"}`}>
                 <span className="rating-value">{avgRating != null ? avgRating.toFixed(1) : "0.0"}</span>
