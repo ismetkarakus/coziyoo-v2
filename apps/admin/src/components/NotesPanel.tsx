@@ -181,18 +181,12 @@ export function NotesPanel({
         <div className="seller-notes-col seller-notes-col--notes">
           <p className="seller-notes-col-title">{tr ? "Not" : "Note"}</p>
           <div className="seller-notes-input-row seller-notes-input-row--compact">
-            <textarea
-              rows={3}
+            <input
               value={noteInput}
               onChange={(event) => setNoteInput(event.target.value)}
               placeholder={tr ? "Not yaz..." : "Type note..."}
               onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                  event.preventDefault();
-                  void handleAddNote();
-                  return;
-                }
-                if (event.key !== "Enter" || event.shiftKey) return;
+                if (event.key !== "Enter") return;
                 event.preventDefault();
                 void handleAddNote();
               }}

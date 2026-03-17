@@ -4435,19 +4435,18 @@ textarea:focus {
 
 .seller-notes-input-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: start;
+  align-items: center;
 }
 
-.seller-notes-input-row--compact textarea {
-  min-height: 88px;
+.seller-notes-input-row--compact input {
+  min-height: 38px;
 }
 
 .seller-notes-input-row--compact .seller-notes-add-btn {
-  min-height: 34px !important;
+  min-height: 38px !important;
   padding: 0 14px !important;
-  justify-self: end;
 }
 
 .seller-notes-input-row input,
@@ -4459,13 +4458,6 @@ textarea:focus {
   background: linear-gradient(180deg, rgba(14, 23, 45, 0.92), rgba(11, 20, 40, 0.92));
   color: #e8eefb;
   padding: 0 12px;
-}
-
-.seller-notes-input-row textarea {
-  resize: vertical;
-  padding: 10px 12px;
-  font: inherit;
-  line-height: 1.45;
 }
 
 .seller-notes-input-row input::placeholder,
