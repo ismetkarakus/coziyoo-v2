@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Buyer opens mobile app, speaks to AI agent, and their order is placed — no tapping required.
-**Current focus:** Phase 4 — Per-Turn N8N Integration
+**Current focus:** Phase 5 — Order Creation
 
 ## Current Position
 
-Phase: 4 (Per-Turn N8N Integration)
-Plan: 3 of 4 in current phase
+Phase: 5 (Order Creation)
+Plan: 1 of 3 in current phase (05-01 complete)
 Status: In progress
-Last activity: 2026-03-16 — Plans 04-01, 04-02, 04-03 complete; n8n error handling improved, HTTP errors re-raise without fallback
+Last activity: 2026-03-17 — Plan 05-01 complete; POST /v1/orders/voice endpoint added with shared-secret auth and idempotency
 
-Progress: [██░░░░░░░░] 20%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: ~3m
-- Total execution time: 0 hours
+- Total plans completed: 4
+- Average duration: ~9m
+- Total execution time: ~35m
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 4 | 3 | 7m | 2m |
+| 5 | 1 | 25m | 25m |
 
 **Recent Trend:**
-- Last 5 plans: 04-01, 04-02, 04-03
-- Trend: Fast (mostly pre-implemented)
+- Last 5 plans: 04-01, 04-02, 04-03, 05-01
+- Trend: 05-01 was slower (TDD + debugging zod v4 UUID validation)
 
 *Updated after each plan completion*
 
@@ -47,6 +48,8 @@ Recent decisions affecting current work:
 - Phase ordering: DB cutover is gate for everything else; log viewer fixed before n8n chain debugging
 - Re-raise APIStatusError immediately without execution API fallback — n8n HTTP errors indicate webhook reachability issues the fallback cannot resolve
 - Log raw n8n response body (500 chars) before raising empty-answer error to aid operator diagnosis of missing respondToWebhook node
+- Voice order route: sessionId set to "voice" sentinel (not undefined) to satisfy req.auth TypeScript type
+- Voice order route: validation runs before idempotency so req.auth includes userId for idempotency hash scoping
 
 ### Pending Todos
 
@@ -62,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Completed 04-03-PLAN.md (n8n webhook error handling)
+Last session: 2026-03-17
+Stopped at: Completed 05-01-PLAN.md (POST /v1/orders/voice endpoint)
 Resume file: None
