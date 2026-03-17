@@ -107,3 +107,4 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 pnpm-debug.log*
+.runtime/voice-agent-worker-heartbeat.json
