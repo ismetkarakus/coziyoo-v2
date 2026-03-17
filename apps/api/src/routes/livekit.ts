@@ -203,6 +203,18 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+async function probeServiceHealth(baseUrl: string): Promise<{ reachable: boolean; reason: string }> {
+  try {
+    await fetchWithTimeout(baseUrl, { method: "GET" }, 3_000);
+    return { reachable: true, reason: "ok" };
+  } catch (error) {
+    return {
+      reachable: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 type AgentRuntimeHealth = {
   ok: boolean;
   endpoint: string;
@@ -556,9 +568,37 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     }
   }
 
+  const sessionSettings = await getStarterAgentSettingsWithDefault(input.deviceId);
+  const sessionResolved = resolveProviders(sessionSettings);
+
+  if (sessionSettings?.sttEnabled !== false && sessionResolved.stt.baseUrl) {
+    const sttHealth = await probeServiceHealth(sessionResolved.stt.baseUrl);
+    if (!sttHealth.reachable) {
+      return res.status(503).json({
+        error: { code: "STT_UNAVAILABLE", message: "Speech recognition server is unreachable." },
+      });
+    }
+  }
+
+  if (sessionSettings?.ttsEnabled !== false && sessionResolved.tts.baseUrl) {
+    const ttsHealth = await probeServiceHealth(sessionResolved.tts.baseUrl);
+    if (!ttsHealth.reachable) {
+      return res.status(503).json({
+        error: { code: "TTS_UNAVAILABLE", message: "Voice synthesis server is unreachable." },
+      });
+    }
+  }
+
   const sessionN8nPreflight = await getN8nStatus({
-    workflowIds: [env.N8N_LLM_WORKFLOW_ID, env.N8N_MCP_WORKFLOW_ID].filter(Boolean),
+    baseUrl: sessionResolved.n8n.baseUrl,
+    workflowIds: [],
   });
+
+  if (sessionN8nPreflight.configured && !sessionN8nPreflight.reachable) {
+    return res.status(503).json({
+      error: { code: "N8N_UNAVAILABLE", message: "AI workflow server is unreachable." },
+    });
+  }
 
   const roomName = input.roomName ?? `coziyoo-room-${crypto.randomUUID().slice(0, 8)}`;
   const userIdentity = input.participantIdentity ?? `user-${req.auth!.userId}`;
@@ -613,6 +653,11 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     channel: input.channel ?? "mobile",
     deviceId: input.deviceId ?? null,
     settingsProfileId: input.settingsProfileId ?? null,
+    providers: sessionResolved,
+    systemPrompt: sessionSettings?.systemPrompt ?? null,
+    greetingEnabled: sessionSettings?.greetingEnabled ?? true,
+    greetingInstruction: sessionSettings?.greetingInstruction ?? null,
+    voiceLanguage: sessionSettings?.voiceLanguage ?? "en",
   });
   const agentToken = await mintLiveKitToken({
     identity: agentIdentity,
@@ -647,6 +692,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
             channel: input.channel ?? "mobile",
             deviceId: input.deviceId ?? null,
             settingsProfileId: input.settingsProfileId ?? null,
+            providers: sessionResolved,
           },
         });
       }
@@ -764,12 +810,41 @@ liveKitRouter.post("/starter/session/start", async (req, res) => {
   const userIdentity = `starter-${username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 48)}-${crypto.randomUUID().slice(0, 6)}`;
   const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
   const resolved = resolveProviders(settings);
-  const n8nPreflight = await getN8nStatus({
-    baseUrl: resolved.n8n.baseUrl,
-    workflowIds: [resolved.n8n.workflowId ?? env.N8N_LLM_WORKFLOW_ID, resolved.n8n.mcpWorkflowId ?? env.N8N_MCP_WORKFLOW_ID].filter(
-      Boolean,
-    ),
-  });
+
+  if (settings?.sttEnabled !== false && resolved.stt.baseUrl) {
+    const sttHealth = await probeServiceHealth(resolved.stt.baseUrl);
+    if (!sttHealth.reachable) {
+      return res.status(503).json({
+        error: {
+          code: "STT_UNAVAILABLE",
+          message: "Speech recognition server is unreachable.",
+        },
+      });
+    }
+  }
+
+  if (settings?.ttsEnabled !== false && resolved.tts.baseUrl) {
+    const ttsHealth = await probeServiceHealth(resolved.tts.baseUrl);
+    if (!ttsHealth.reachable) {
+      return res.status(503).json({
+        error: {
+          code: "TTS_UNAVAILABLE",
+          message: "Voice synthesis server is unreachable.",
+        },
+      });
+    }
+  }
+
+  const n8nPreflight = await getN8nStatus({ baseUrl: resolved.n8n.baseUrl, workflowIds: [] });
+
+  if (n8nPreflight.configured && !n8nPreflight.reachable) {
+    return res.status(503).json({
+      error: {
+        code: "N8N_UNAVAILABLE",
+        message: "AI workflow server is unreachable.",
+      },
+    });
+  }
 
   const userMetadata = JSON.stringify({
     username,

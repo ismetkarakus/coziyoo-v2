@@ -579,17 +579,19 @@ class N8nLLMStream(llm.LLMStream):
         }
         request_id = f"n8n-{uuid.uuid4().hex[:12]}"
         session = self._llm._get_session()  # type: ignore[attr-defined]
+        _n8n_extra = {"room_id": self._runtime_ctx.get("roomId"), "job_id": self._runtime_ctx.get("jobId")}
         n8n_request_logger.info(
             "N8N request endpoint=%s workflow=%s text=%s",
             self._endpoint,
             self._workflow_id,
             user_text,
+            extra=_n8n_extra,
         )
 
         webhook_error: Exception | None = None
         try:
             answer = await self._run_webhook(session=session, payload=payload)
-            n8n_request_logger.info("N8N response path=webhook status=200 answer=%s", answer)
+            n8n_request_logger.info("N8N response path=webhook status=200 answer=%s", answer, extra=_n8n_extra)
             self._event_ch.send_nowait(
                 llm.ChatChunk(
                     id=request_id,
@@ -601,6 +603,7 @@ class N8nLLMStream(llm.LLMStream):
             n8n_request_logger.error(
                 "N8N response path=webhook http_error=%s — not falling back to execution API",
                 exc,
+                extra=_n8n_extra,
             )
             raise
         except Exception as exc:
@@ -608,11 +611,12 @@ class N8nLLMStream(llm.LLMStream):
             n8n_request_logger.error(
                 "N8N response path=webhook error=%s — falling back to execution API (last resort, unreliable for per-turn flow)",
                 exc,
+                extra=_n8n_extra,
             )
 
         try:
             answer = await self._run_execution_api(session=session, payload=payload)
-            n8n_request_logger.info("N8N response path=execution_api status=200 answer=%s", answer)
+            n8n_request_logger.info("N8N response path=execution_api status=200 answer=%s", answer, extra=_n8n_extra)
             self._event_ch.send_nowait(
                 llm.ChatChunk(
                     id=request_id,
@@ -1077,6 +1081,9 @@ async def _notify_session_end(
 
 @server.rtc_session(agent_name="coziyoo-voice-agent")
 async def entrypoint(ctx: JobContext) -> None:
+    # Each job runs in its own subprocess — re-apply logging config so file handlers are active
+    _configure_logging()
+
     metadata = ctx.job.metadata or "{}"
     try:
         metadata_data = json.loads(metadata)

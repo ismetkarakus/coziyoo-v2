@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   StatusBar,
   SafeAreaView,
 } from 'react-native';
-import { loadSettings, DEVICE_PROFILE } from '../utils/settings';
+import { loadSettings } from '../utils/settings';
+import { refreshAuthSession, type AuthSession } from '../utils/auth';
 
 export type SessionData = {
   wsUrl: string;
@@ -21,8 +19,10 @@ export type SessionData = {
 };
 
 type Props = {
+  auth: AuthSession;
   onSessionStart: (session: SessionData) => void;
   onOpenSettings: () => void;
+  onLogout: () => void;
 };
 
 type ApiErrorPayload = {
@@ -32,16 +32,13 @@ type ApiErrorPayload = {
   };
 };
 
-export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
-  const [username, setUsername] = useState('');
+export default function HomeScreen({ auth, onSessionStart, onOpenSettings, onLogout }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
 
   useEffect(() => {
-    loadSettings().then((s) => {
-      setApiUrl(s.apiUrl);
-    });
+    loadSettings().then((s) => setApiUrl(s.apiUrl));
   }, []);
 
   function resolveStartSessionError(payload: ApiErrorPayload, status: number): string {
@@ -49,37 +46,66 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
     if (code === 'AGENT_UNAVAILABLE') {
       return 'Voice agent unavailable right now. Please try again in a moment.';
     }
+    if (code === 'N8N_UNAVAILABLE') {
+      return 'AI workflow server is unreachable. Please check the n8n server and try again.';
+    }
     if (code === 'N8N_WORKFLOW_UNAVAILABLE') {
-      return 'AI workflow is unavailable right now. Please try again shortly.';
+      return 'AI workflow is unavailable or inactive. Please check n8n and try again.';
+    }
+    if (code === 'STT_UNAVAILABLE') {
+      return 'Speech recognition unavailable. Please check the STT server and try again.';
+    }
+    if (code === 'TTS_UNAVAILABLE') {
+      return 'Voice synthesis unavailable. Please check the TTS server and try again.';
+    }
+    if (status === 401) {
+      return 'Session expired. Please log in again.';
     }
     return payload?.error?.message ?? `Server error ${status}`;
   }
 
-  async function handleStart() {
-    const name = username.trim();
-    if (name.length < 2) {
-      setError('Please enter at least 2 characters.');
+  async function startSession(accessToken: string): Promise<void> {
+    const response = await fetch(`${apiUrl}/v1/livekit/session/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        autoDispatchAgent: true,
+        channel: 'mobile',
+      }),
+    });
+    const json = await response.json();
+
+    if (response.status === 401) {
+      // Try to refresh once
+      const refreshed = await refreshAuthSession(apiUrl, auth);
+      if (refreshed) {
+        return startSession(refreshed.accessToken);
+      }
+      onLogout();
       return;
     }
+
+    if (!response.ok || (json as ApiErrorPayload).error) {
+      throw new Error(resolveStartSessionError(json as ApiErrorPayload, response.status));
+    }
+
+    const { data } = json as { data: { roomName: string; wsUrl: string; user: { participantIdentity: string; token: string } } };
+    onSessionStart({
+      wsUrl: data.wsUrl,
+      token: data.user.token,
+      roomName: data.roomName,
+      userIdentity: data.user.participantIdentity,
+    });
+  }
+
+  async function handleStart() {
     setError(null);
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/v1/livekit/starter/session/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: name, deviceId: DEVICE_PROFILE }),
-      });
-      const json = await response.json();
-      if (!response.ok || json.error) {
-        throw new Error(resolveStartSessionError(json, response.status));
-      }
-      const { data } = json;
-      onSessionStart({
-        wsUrl: data.wsUrl,
-        token: data.user.token,
-        roomName: data.roomName,
-        userIdentity: data.user.participantIdentity,
-      });
+      await startSession(auth.accessToken);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start session');
     } finally {
@@ -90,49 +116,39 @@ export default function HomeScreen({ onSessionStart, onOpenSettings }: Props) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <TouchableOpacity style={styles.settingsBtn} onPress={onOpenSettings}>
-          <Text style={styles.settingsIcon}>Settings</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={styles.topRow}>
+          <TouchableOpacity style={styles.topBtn} onPress={onOpenSettings}>
+            <Text style={styles.topBtnText}>Settings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.topBtn} onPress={onLogout}>
+            <Text style={[styles.topBtnText, styles.logoutText]}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
 
-        <View style={styles.header}>
+        <View style={styles.center}>
           <View style={styles.logoCircle}>
             <Text style={styles.logoText}>C</Text>
           </View>
           <Text style={styles.title}>Coziyoo</Text>
           <Text style={styles.subtitle}>VOICE AGENT</Text>
+          <Text style={styles.userEmail}>{auth.email}</Text>
         </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Your name</Text>
-          <TextInput
-            style={styles.input}
-            value={username}
-            onChangeText={setUsername}
-            placeholder="Enter your name..."
-            placeholderTextColor="#555"
-            autoCapitalize="words"
-            autoCorrect={false}
-            returnKeyType="go"
-            onSubmitEditing={handleStart}
-            editable={!loading}
-          />
+        <View style={styles.bottom}>
           {!!error && <Text style={styles.error}>{error}</Text>}
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, !!error && styles.buttonError, loading && styles.buttonDisabled]}
             onPress={handleStart}
             disabled={loading}
           >
             {loading
               ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.buttonText}>Start Voice Session</Text>
+              : <Text style={styles.buttonText}>{error ? 'Try Again' : 'Start Voice Session'}</Text>
             }
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -144,23 +160,29 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  settingsBtn: {
-    position: 'absolute',
-    top: 16,
-    right: 20,
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+  },
+  topBtn: {
     padding: 8,
   },
-  settingsIcon: {
+  topBtnText: {
     fontSize: 13,
     color: '#888',
     fontWeight: '500',
   },
-  header: {
+  logoutText: {
+    color: '#c0392b',
+  },
+  center: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 48,
+    justifyContent: 'center',
+    gap: 8,
   },
   logoCircle: {
     width: 80,
@@ -169,7 +191,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6C63FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   logoText: {
     color: '#fff',
@@ -184,35 +206,30 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#888',
     fontSize: 12,
-    marginTop: 4,
     letterSpacing: 2,
   },
-  form: {
+  userEmail: {
+    color: '#555',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  bottom: {
+    paddingBottom: 48,
     gap: 12,
-  },
-  label: {
-    color: '#aaa',
-    fontSize: 13,
-  },
-  input: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#fff',
-    fontSize: 16,
   },
   error: {
     color: '#ff6b6b',
     fontSize: 13,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: '#6C63FF',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  buttonError: {
+    backgroundColor: '#c0392b',
   },
   buttonDisabled: {
     opacity: 0.6,

@@ -115,9 +115,9 @@ Plans:
 
 Plans:
 - [x] 04-01: Make AI_SERVER_SHARED_SECRET required in env schema; add startup validation on API and voice agent
-- [ ] 04-02: Audit and consolidate n8n webhook URL resolution to a single path; add startup diagnostics logging for resolved URLs
-- [ ] 04-03: Configure n8n per-turn LLM workflow to use "Respond to Webhook" node and return correct response shape
-- [ ] 04-04: Verify end-to-end per-turn flow: mobile speech → STT → n8n → replyText → TTS → audio in room
+- [x] 04-02: Audit and consolidate n8n webhook URL resolution to a single path; add startup diagnostics logging for resolved URLs
+- [x] 04-03: Configure n8n per-turn LLM workflow to use "Respond to Webhook" node and return correct response shape
+- [x] 04-04: Verify end-to-end per-turn flow: mobile speech → STT → n8n → replyText → TTS → audio in room
 
 ### Phase 5: Order Creation
 **Goal**: When a user verbally confirms an order during a session, n8n creates the order record and notifies the cook
@@ -196,7 +196,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Observability | 2/2 | Completed | 2026-03-13 |
 | 3.1. STT/TTS Preflight Checks | 1/1 | Completed | 2026-03-16 |
 | 3.2. Mobile Login | 2/2 | Completed | 2026-03-16 |
-| 4. Per-Turn N8N Integration | 1/4 | In progress | - |
+| 4. Per-Turn N8N Integration | 4/4 | Completed | 2026-03-17 |
 | 5. Order Creation | 0/3 | Not started | - |
 | 6. Post-Session UX | 0/3 | Not started | - |
 | 7. User Memory | 0/4 | Not started | - |

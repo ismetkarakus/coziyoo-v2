@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 from livekit import api
 from pydantic import BaseModel, Field
 
@@ -103,55 +104,53 @@ async def health() -> dict:
     }
 
 
-def _read_request_logs(*, limit: int, kind: str, query: str | None) -> list[dict]:
-    if not request_log_file.exists():
-        return []
+@app.get("/logs/stream")
+async def stream_logs(request: Request) -> StreamingResponse:
+    async def generator():
+        # Send a heartbeat comment first so the browser knows the connection is alive
+        yield ": connected\n\n"
 
-    lines = request_log_file.read_text(encoding="utf-8", errors="replace").splitlines()
-    tail = lines[-min(len(lines), max(limit * 8, 200)) :]
-    query_lower = (query or "").strip().lower()
-    out: list[dict] = []
+        # Send existing log entries
+        if request_log_file.exists():
+            content = request_log_file.read_text(encoding="utf-8", errors="replace")
+            for line in content.splitlines():
+                line = line.strip()
+                if line:
+                    yield f"data: {line}\n\n"
 
-    for line in reversed(tail):
-        try:
-            item = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        logger_name = str(item.get("name") or "")
-        message = str(item.get("message") or "")
+        pos = request_log_file.stat().st_size if request_log_file.exists() else 0
 
-        if kind != "all" and not logger_name.endswith(f".{kind}"):
-            continue
-        if query_lower and query_lower not in message.lower():
-            continue
+        while True:
+            if await request.is_disconnected():
+                break
+            await asyncio.sleep(0.4)
 
-        out.append(
-            {
-                "timestamp": item.get("timestamp"),
-                "level": item.get("level"),
-                "name": logger_name,
-                "message": message,
-                "job_id": item.get("job_id"),
-                "room_id": item.get("room_id"),
-            }
-        )
-        if len(out) >= limit:
-            break
+            if not request_log_file.exists():
+                pos = 0
+                continue
 
-    return out
+            size = request_log_file.stat().st_size
+            if size < pos:
+                # File was truncated (cleared)
+                pos = 0
+                yield f"data: {json.dumps({'_ctrl': 'clear'})}\n\n"
+                continue
 
+            if size > pos:
+                with open(request_log_file, "r", encoding="utf-8", errors="replace") as f:
+                    f.seek(pos)
+                    new_data = f.read()
+                pos = size
+                for line in new_data.splitlines():
+                    line = line.strip()
+                    if line:
+                        yield f"data: {line}\n\n"
 
-@app.get("/logs/requests")
-async def request_logs(
-    limit: int = Query(default=120, ge=1, le=500),
-    kind: str = Query(default="all", pattern="^(all|stt|tts|llm|n8n|session)$"),
-    q: str | None = Query(default=None, max_length=120),
-) -> dict:
-    if not request_log_file.exists():
-        return {"data": [], "count": 0, "file": str(request_log_file), "fileStatus": "not_found"}
-    items = _read_request_logs(limit=limit, kind=kind, query=q)
-    file_status = "ok" if items else "empty"
-    return {"data": items, "count": len(items), "file": str(request_log_file), "fileStatus": file_status}
+    return StreamingResponse(
+        generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/logs/clear")
@@ -168,282 +167,463 @@ async def logs_viewer() -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Voice Agent Request Logs</title>
+  <title>Voice Sessions</title>
   <style>
-    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 16px; background: #0f1115; color: #e6e6e6; }
-    h1 { font-size: 18px; margin: 0 0 10px; }
-    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    select, input, button { background: #1a1d24; color: #e6e6e6; border: 1px solid #333; padding: 6px 8px; border-radius: 6px; }
-    button { cursor: pointer; }
-    .meta { font-size: 12px; color: #9aa4b2; margin-bottom: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border-bottom: 1px solid #2a2f3a; padding: 6px 4px; text-align: left; vertical-align: top; }
-    th { color: #aab4c3; font-weight: 600; }
-    .msg { white-space: pre-wrap; word-break: break-word; }
-    tr.child td { background: #141925; }
-    tr.child td.msg { padding-left: 22px; color: #d6e2ff; }
-    .tag { display: inline-block; min-width: 58px; color: #8ea1be; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0a0a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #111111;
+      border-bottom: 1px solid #1e1e1e;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+      flex: 1;
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #334155;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .live-dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+    .live-label {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+    .live-label.connected { color: #22c55e; }
+    .btn-clear {
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: #64748b;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-clear:hover { border-color: #ef4444; color: #ef4444; }
+
+    #sessions { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+    .session-card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+    .session-card.active { border-color: #6C63FF44; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .session-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+    }
+    .session-header.active { background: #1a1040; border-bottom-color: #6C63FF33; }
+    .room-name {
+      font-size: 12px;
+      font-family: ui-monospace, monospace;
+      color: #94a3b8;
+      flex: 1;
+    }
+    .session-time { font-size: 11px; color: #475569; }
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+    .badge-active { background: #6C63FF22; color: #a78bfa; border: 1px solid #6C63FF44; }
+    .badge-ended { background: #1e293b; color: #475569; }
+
+    .turns { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+
+    .turn { display: flex; flex-direction: column; gap: 4px; }
+
+    .bubble {
+      max-width: 80%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .bubble-user {
+      align-self: flex-end;
+      background: #1e3a5f;
+      color: #bfdbfe;
+      border-bottom-right-radius: 3px;
+    }
+    .bubble-agent {
+      align-self: flex-start;
+      background: #2d1b69;
+      color: #ddd6fe;
+      border-bottom-left-radius: 3px;
+    }
+    .bubble-error {
+      align-self: flex-start;
+      background: #3b0f0f;
+      color: #fca5a5;
+      border-bottom-left-radius: 3px;
+      font-size: 12px;
+    }
+    .bubble-label {
+      font-size: 10px;
+      color: #475569;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .bubble-label-user { text-align: right; }
+
+    .event-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #475569;
+      padding: 2px 0;
+    }
+    .event-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-green { background: #22c55e; }
+    .dot-red { background: #ef4444; }
+    .dot-grey { background: #334155; }
+
+    .session-footer {
+      padding: 6px 14px 10px;
+      font-size: 11px;
+      color: #334155;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #334155;
+      font-size: 14px;
+    }
+    .empty-state p { margin-top: 8px; font-size: 12px; color: #1e293b; }
   </style>
 </head>
 <body>
-  <h1>Voice Agent Request Logs</h1>
-  <div class="controls">
-    <label>Type
-      <select id="kind">
-        <option value="all">all</option>
-        <option value="stt">stt</option>
-        <option value="tts">tts</option>
-        <option value="llm">llm</option>
-        <option value="n8n">n8n</option>
-        <option value="session">session</option>
-      </select>
-    </label>
-    <label>Limit <input id="limit" type="number" min="1" max="500" value="120" /></label>
-    <label>Search <input id="q" type="text" placeholder="text in message" /></label>
-    <button id="btn-refresh">Refresh</button>
-    <button id="btn-clear" style="color:#e88">Clear logs</button>
-    <label><input id="auto" type="checkbox" checked /> auto refresh (2s)</label>
-  </div>
-  <div class="meta" id="meta">loading...</div>
-  <div id="empty-state" style="display:none; padding: 20px; color:#9aa4b2; font-size:13px;"></div>
-  <table>
-    <thead>
-      <tr><th>timestamp</th><th>type</th><th>message</th></tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
+  <header>
+    <div class="live-dot" id="liveDot"></div>
+    <h1>Voice Sessions</h1>
+    <span class="live-label" id="liveLabel">CONNECTING</span>
+    <button class="btn-clear" id="btnClear">Clear</button>
+  </header>
+  <div id="sessions"></div>
+
   <script>
-    const rows = document.getElementById("rows");
-    const meta = document.getElementById("meta");
-    const emptyState = document.getElementById("empty-state");
-    const kind = document.getElementById("kind");
-    const limit = document.getElementById("limit");
-    const q = document.getElementById("q");
-    const auto = document.getElementById("auto");
-    const btnRefresh = document.getElementById("btn-refresh");
-    const btnClear = document.getElementById("btn-clear");
+    const sessionsEl = document.getElementById("sessions");
+    const liveDot = document.getElementById("liveDot");
+    const liveLabel = document.getElementById("liveLabel");
+    const btnClear = document.getElementById("btnClear");
 
-    function typeOf(item) {
-      return (item.name || "").split(".").pop() || "-";
+    // sessions keyed by room name (stable unique ID per session)
+    // jobToRoom maps job_id → room name so n8n events can find their session
+    const sessions = new Map();
+    const jobToRoom = new Map();
+
+    function setLive(on) {
+      liveDot.className = "live-dot" + (on ? " connected" : "");
+      liveLabel.className = "live-label" + (on ? " connected" : "");
+      liveLabel.textContent = on ? "LIVE" : "RECONNECTING";
     }
 
-    function isRequest(item) {
-      return /\\brequest\\b/i.test(item.message || "");
+    function fmtTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      return d.toLocaleTimeString("en-GB", { hour12: false });
     }
 
-    function isResponse(item) {
-      return /\\bresponse\\b/i.test(item.message || "");
+    function fmtDuration(startIso, endIso) {
+      if (!startIso || !endIso) return "";
+      const s = Math.round((new Date(endIso) - new Date(startIso)) / 1000);
+      if (s < 60) return s + "s";
+      return Math.floor(s / 60) + "m " + (s % 60) + "s";
     }
 
-    function keyOf(item) {
-      return `${typeOf(item)}|${item.job_id || ""}|${item.room_id || ""}`;
+    const STALE_MS = 30 * 60 * 1000; // sessions active for 30+ min = stale
+
+    function sessionStatus(s) {
+      if (!s.active) return "ended";
+      if (s.startTime && (Date.now() - new Date(s.startTime).getTime()) > STALE_MS) return "stale";
+      return "active";
     }
 
-    function formatTime(item) {
-      const ts = item.timestamp ? new Date(item.timestamp) : null;
-      return ts && !Number.isNaN(ts.getTime())
-        ? ts.toLocaleTimeString("en-GB", { hour12: false })
-        : (item.timestamp || "");
-    }
+    function renderSession(s) {
+      const card = document.createElement("div");
+      const status = sessionStatus(s);
+      card.className = "session-card" + (status === "active" ? " active" : "");
+      card.id = "session-" + s.id;
 
-    function td(text, cls) {
-      const el = document.createElement("td");
-      if (cls) el.className = cls;
-      el.textContent = text;
-      return el;
-    }
+      const dur = s.endTime ? fmtDuration(s.startTime, s.endTime) : "";
+      const statusBadge = status === "active"
+        ? '<span class="badge badge-active">active</span>'
+        : status === "stale"
+          ? '<span class="badge badge-ended">stale</span>'
+          : '<span class="badge badge-ended">ended' + (dur ? " · " + dur : "") + "</span>";
 
-    function appendRow(item, type, message, isChild) {
-      const tr = document.createElement("tr");
-      if (isChild) tr.className = "child";
-      tr.appendChild(td(formatTime(item)));
-      tr.appendChild(td(type));
-      tr.appendChild(td(message, "msg"));
-      rows.appendChild(tr);
-    }
+      let html = `
+        <div class="session-header ${s.active ? "active" : ""}">
+          <span class="room-name">${escHtml(s.roomName)}</span>
+          <span class="session-time">${fmtTime(s.startTime)}</span>
+          ${statusBadge}
+        </div>
+        <div class="turns">
+          <div class="event-row">
+            <div class="event-dot dot-green"></div>
+            <span>Connected · ${fmtTime(s.startTime)}</span>
+          </div>`;
 
-    async function load() {
-      const params = new URLSearchParams({
-        kind: kind.value,
-        limit: String(Math.max(1, Math.min(500, Number(limit.value || 120)))),
-      });
-      if (q.value.trim()) params.set("q", q.value.trim());
-      const res = await fetch(`/logs/requests?${params.toString()}`);
-      const json = await res.json();
-      rows.innerHTML = "";
-      emptyState.style.display = "none";
-
-      const itemsChron = [...(json.data || [])].reverse();
-      const selectedKind = kind.value;
-
-      if (selectedKind !== "all") {
-        // Keep simple request/response rendering when a single type is selected.
-        const pending = [];
-        for (const item of itemsChron) {
-          if (isResponse(item)) {
-            pending.push(item);
-            continue;
+      for (const turn of s.turns) {
+        if (turn.type === "turn") {
+          html += `<div class="turn">`;
+          if (turn.userText) {
+            html += `
+              <div class="bubble-label bubble-label-user">You</div>
+              <div class="bubble bubble-user">${escHtml(turn.userText)}</div>`;
           }
-          if (isRequest(item)) {
-            appendRow(item, typeOf(item), `request -> ${item.message || ""}`, false);
-            const idx = pending.findIndex((r) => keyOf(r) === keyOf(item));
-            if (idx >= 0) {
-              const resp = pending.splice(idx, 1)[0];
-              appendRow(resp, typeOf(resp), `response -> ${resp.message || ""}`, true);
-            }
-            continue;
+          if (turn.agentText) {
+            html += `
+              <div class="bubble-label">Agent</div>
+              <div class="bubble bubble-agent">${escHtml(turn.agentText)}</div>`;
           }
-          appendRow(item, typeOf(item), item.message || "", false);
+          html += `</div>`;
+        } else if (turn.type === "error") {
+          html += `
+            <div class="event-row" style="margin-top:4px">
+              <div class="event-dot dot-grey"></div>
+              <div class="bubble bubble-error" style="max-width:100%">${escHtml(turn.message)}</div>
+            </div>`;
+        }
+      }
+
+      if (s.pendingUserText) {
+        html += `<div class="turn">
+          <div class="bubble-label bubble-label-user">You</div>
+          <div class="bubble bubble-user">${escHtml(s.pendingUserText)}</div>
+          <div class="bubble-label" style="color:#475569;font-style:italic;font-size:11px">Agent is thinking…</div>
+        </div>`;
+      }
+
+      if (!s.active) {
+        html += `
+          <div class="event-row">
+            <div class="event-dot dot-red"></div>
+            <span>Disconnected · ${fmtTime(s.endTime)}</span>
+          </div>`;
+      }
+
+      html += `</div>`;
+      card.innerHTML = html;
+      return card;
+    }
+
+    function escHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function upsertSessionCard(s) {
+      const existing = document.getElementById("session-" + s.id);
+      const card = renderSession(s);
+      if (existing) {
+        existing.replaceWith(card);
+      } else {
+        if (sessionsEl.firstChild) {
+          sessionsEl.insertBefore(card, sessionsEl.firstChild);
+        } else {
+          sessionsEl.appendChild(card);
+        }
+      }
+      updateEmptyState();
+    }
+
+    function updateEmptyState() {
+      const empty = document.getElementById("emptyState");
+      if (sessions.size === 0) {
+        if (!empty) {
+          const el = document.createElement("div");
+          el.id = "emptyState";
+          el.className = "empty-state";
+          el.innerHTML = "No sessions yet<p>Start a voice session from the mobile app</p>";
+          sessionsEl.appendChild(el);
         }
       } else {
-        // Group by expected stage flow: session -> stt -> n8n (or llm fallback) -> tts
-        const flows = [];
-        let current = null;
-
-        function newFlow(seed) {
-          return {
-            key: `${seed.job_id || ""}|${seed.room_id || ""}`,
-            session: [],
-            sttReq: null,
-            sttRes: null,
-            n8nReq: null,
-            n8nRes: null,
-            llmReq: null,
-            llmRes: null,
-            ttsPairs: [],
-            others: [],
-            firstTs: seed.timestamp,
-          };
-        }
-
-        function flushCurrent() {
-          if (!current) return;
-          const hasData = current.session.length || current.sttReq || current.n8nReq || current.llmReq || current.ttsPairs.length || current.others.length;
-          if (hasData) flows.push(current);
-        }
-
-        for (const item of itemsChron) {
-          const t = typeOf(item);
-          const req = isRequest(item);
-          const resp = isResponse(item);
-
-          if (t === "stt" && req) {
-            flushCurrent();
-            current = newFlow(item);
-            current.sttReq = item;
-            continue;
-          }
-
-          if (!current) current = newFlow(item);
-
-          if (t === "session") {
-            current.session.push(item);
-            continue;
-          }
-
-          if (t === "stt" && resp) {
-            if (!current.sttRes) current.sttRes = item;
-            else current.others.push(item);
-            continue;
-          }
-
-          if (t === "n8n" && req) {
-            if (!current.n8nReq) current.n8nReq = item;
-            else current.others.push(item);
-            continue;
-          }
-
-          if (t === "n8n" && resp) {
-            if (!current.n8nRes) current.n8nRes = item;
-            else current.others.push(item);
-            continue;
-          }
-
-          if (t === "llm" && req) {
-            if (!current.llmReq) current.llmReq = item;
-            else current.others.push(item);
-            continue;
-          }
-
-          if (t === "llm" && resp) {
-            if (!current.llmRes) current.llmRes = item;
-            else current.others.push(item);
-            continue;
-          }
-
-          if (t === "tts" && req) {
-            current.ttsPairs.push({ req: item, res: null });
-            continue;
-          }
-
-          if (t === "tts" && resp) {
-            const open = [...current.ttsPairs].reverse().find((p) => p.req && !p.res);
-            if (open) open.res = item;
-            else current.ttsPairs.push({ req: null, res: item });
-            continue;
-          }
-
-          current.others.push(item);
-        }
-        flushCurrent();
-
-        for (const flow of flows.reverse()) {
-          const rootItem =
-            flow.sttReq ||
-            flow.n8nReq ||
-            flow.llmReq ||
-            (flow.ttsPairs[0] && (flow.ttsPairs[0].req || flow.ttsPairs[0].res)) ||
-            flow.session[0] ||
-            flow.others[0];
-          if (!rootItem) continue;
-          appendRow(rootItem, "flow", "stt -> n8n -> tts", false);
-
-          for (const sessionItem of flow.session) {
-            appendRow(sessionItem, "session", sessionItem.message || "", true);
-          }
-
-          if (flow.sttReq) appendRow(flow.sttReq, "stt", `request -> ${flow.sttReq.message || ""}`, true);
-          if (flow.sttRes) appendRow(flow.sttRes, "stt", `response -> ${flow.sttRes.message || ""}`, true);
-
-          if (flow.n8nReq) appendRow(flow.n8nReq, "n8n", `request -> ${flow.n8nReq.message || ""}`, true);
-          if (flow.n8nRes) appendRow(flow.n8nRes, "n8n", `response -> ${flow.n8nRes.message || ""}`, true);
-
-          if (flow.llmReq) appendRow(flow.llmReq, "llm", `request -> ${flow.llmReq.message || ""}`, true);
-          if (flow.llmRes) appendRow(flow.llmRes, "llm", `response -> ${flow.llmRes.message || ""}`, true);
-
-          for (const pair of flow.ttsPairs) {
-            if (pair.req) appendRow(pair.req, "tts", `request -> ${pair.req.message || ""}`, true);
-            if (pair.res) appendRow(pair.res, "tts", `response -> ${pair.res.message || ""}`, true);
-          }
-
-          for (const extra of flow.others) {
-            appendRow(extra, typeOf(extra), extra.message || "", true);
-          }
-        }
-      }
-      meta.textContent = `file: ${json.file} | rows: ${json.count}`;
-
-      if (json.fileStatus === "not_found") {
-        emptyState.style.display = "block";
-        emptyState.textContent = "No sessions yet — log file does not exist. Start a voice session to see data here.";
-      } else if (json.count === 0) {
-        emptyState.style.display = "block";
-        emptyState.textContent = rows.innerHTML === "" ? "No log entries match the current filter." : "";
+        if (empty) empty.remove();
       }
     }
 
-    btnRefresh.addEventListener("click", load);
-    btnClear.addEventListener("click", async () => {
-      if (!confirm("Clear all log entries?")) return;
-      await fetch("/logs/clear", { method: "POST" });
-      await load();
-    });
-    kind.addEventListener("change", load);
-    limit.addEventListener("change", load);
-    q.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
+    // Extract room name from message e.g. "session connect room=coziyoo-room-abc"
+    function extractRoom(msg) {
+      const m = msg.match(/room=([^ ]+)/);
+      return m ? m[1] : null;
+    }
 
-    setInterval(() => { if (auto.checked) load(); }, 2000);
-    load();
+    // Extract value after key= (to end of string)
+    function extractVal(msg, key) {
+      const idx = msg.indexOf(key + "=");
+      if (idx === -1) return null;
+      return msg.slice(idx + key.length + 1).trim() || null;
+    }
+
+    function getOrCreateSession(roomName, ts) {
+      if (!sessions.has(roomName)) {
+        sessions.set(roomName, {
+          id: roomName,
+          roomName,
+          startTime: ts,
+          endTime: null,
+          active: true,
+          turns: [],
+          pendingUserText: null,
+        });
+      }
+      return sessions.get(roomName);
+    }
+
+    function sessionByJob(jobId) {
+      if (!jobId) return null;
+      const roomName = jobToRoom.get(jobId);
+      return roomName ? sessions.get(roomName) : null;
+    }
+
+    function processLine(item) {
+      const name = item.name || "";
+      const msg = item.message || "";
+      const ts = item.timestamp || new Date().toISOString();
+      const jobId = item.job_id || null;
+      const level = (item.level || "INFO").toUpperCase();
+      const roomName = extractRoom(msg);
+
+      // ── Session connect ──
+      if (name.endsWith(".session") && msg.startsWith("session connect")) {
+        if (!roomName) return;
+        const s = getOrCreateSession(roomName, ts);
+        if (jobId) jobToRoom.set(jobId, roomName);  // register alias
+        s.active = true;
+        upsertSessionCard(s);
+        return;
+      }
+
+      // ── Session disconnect ──
+      if (name.endsWith(".session") && msg.startsWith("session disconnect")) {
+        if (!roomName) return;
+        // Create ghost entry for historical disconnect-only records
+        const s = getOrCreateSession(roomName, ts);
+        if (jobId) jobToRoom.set(jobId, roomName);
+        s.active = false;
+        s.endTime = ts;
+        s.pendingUserText = null;
+        upsertSessionCard(s);
+        return;
+      }
+
+      // N8N events — look up session via job_id → room name
+      const s = sessionByJob(jobId);
+      if (!s) return;
+
+      // ── N8N request (user speech) ──
+      if (name.endsWith(".n8n") && msg.startsWith("N8N request")) {
+        const userText = extractVal(msg, "text");
+        if (!userText) return;
+        s.pendingUserText = userText;
+        upsertSessionCard(s);
+        return;
+      }
+
+      // ── N8N response (agent reply) ──
+      if (name.endsWith(".n8n") && msg.includes("N8N response path=webhook status=200")) {
+        const agentText = extractVal(msg, "answer");
+        const userText = s.pendingUserText;
+        s.pendingUserText = null;
+        s.turns.push({ type: "turn", userText, agentText, ts });
+        upsertSessionCard(s);
+        return;
+      }
+
+      // ── N8N error ──
+      if (name.endsWith(".n8n") && level === "ERROR") {
+        const userText = s.pendingUserText;
+        s.pendingUserText = null;
+        if (userText) s.turns.push({ type: "turn", userText, agentText: null, ts });
+        s.turns.push({ type: "error", message: msg, ts });
+        upsertSessionCard(s);
+        return;
+      }
+    }
+
+    function clearAll() {
+      sessions.clear();
+      jobToRoom.clear();
+      sessionsEl.innerHTML = "";
+      updateEmptyState();
+    }
+
+    let evtSource = null;
+
+    function connect() {
+      if (evtSource) evtSource.close();
+      evtSource = new EventSource("/logs/stream");
+
+      evtSource.addEventListener("open", () => setLive(true));
+
+      evtSource.addEventListener("message", (e) => {
+        const raw = e.data.trim();
+        if (!raw) return;
+        try {
+          const item = JSON.parse(raw);
+          if (item._ctrl === "clear") { clearAll(); return; }
+          processLine(item);
+        } catch (_) {}
+      });
+
+      evtSource.addEventListener("error", () => {
+        setLive(false);
+        evtSource.close();
+        setTimeout(connect, 3000);
+      });
+    }
+
+    btnClear.addEventListener("click", async () => {
+      if (!confirm("Clear all logs?")) return;
+      await fetch("/logs/clear", { method: "POST" });
+      clearAll();
+    });
+
+    updateEmptyState();
+    connect();
   </script>
 </body>
 </html>"""

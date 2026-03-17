@@ -64,7 +64,7 @@ services:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip
     command: >
-      bash -lc "pip install -e . && uvicorn voice_agent.join_api:app --host 0.0.0.0 --port 9000 --log-level ${VOICE_AGENT_API_LOG_LEVEL:-warning} --no-access-log"
+      bash -lc "pip install -e . && uvicorn voice_agent.join_api:app --host 0.0.0.0 --port 9000 --log-level ${VOICE_AGENT_API_LOG_LEVEL:-warning} --no-access-log --reload"
     ports:
       - "9000:9000"
 
@@ -84,8 +84,6 @@ services:
       N8N_API_KEY: ${N8N_API_KEY:-change_me_n8n_api_key}
       N8N_LLM_WORKFLOW_ID: ${N8N_LLM_WORKFLOW_ID:-6KFFgjd26nF0kNCA}
       N8N_MCP_WORKFLOW_ID: ${N8N_MCP_WORKFLOW_ID:-XYiIkxpa4PlnddQt}
-      N8N_LLM_WEBHOOK_PATH: ${N8N_LLM_WEBHOOK_PATH:-/webhook/6KFFgjd26nF0kNCA}
-      N8N_MCP_WEBHOOK_PATH: ${N8N_MCP_WEBHOOK_PATH:-/webhook/XYiIkxpa4PlnddQt}
     volumes:
       - ./:/workspace
       - coziyoo_pip_cache:/root/.cache/pip
