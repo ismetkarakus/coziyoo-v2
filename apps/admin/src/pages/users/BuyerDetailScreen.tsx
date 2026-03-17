@@ -67,7 +67,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
   async function loadBuyerCritical() {
     const requestId = ++buyerCriticalReqRef.current;
-    setLoading(true);
+    setLoading(getCachedUser(id) === null);
     setMessage(null);
     try {
       const [detailResponse, contactResponse] = await Promise.all([
