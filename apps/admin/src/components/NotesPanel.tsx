@@ -274,14 +274,6 @@ export function NotesPanel({
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              className="seller-note-modal-close"
-              type="button"
-              aria-label={tr ? "Kapat" : "Close"}
-              onClick={() => setOpenNoteId(null)}
-            >
-              ×
-            </button>
             <textarea
               className="seller-note-modal-input"
               value={openNoteValue}
