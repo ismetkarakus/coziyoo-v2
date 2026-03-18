@@ -104,9 +104,6 @@ export function NotesPanel({
     <section className="panel buyer-ref-main-panel seller-notes-panel">
       <div className="panel-header seller-notes-header">
         <h2>{title ?? (tr ? "Notlar & Etiketler" : "Notes & Tags")}</h2>
-        <span className="seller-notes-count-pill">
-          {`${noteItems.length} ${tr ? "Not" : "Notes"} | ${tagItems.length} ${tr ? "Etiket" : "Tags"}`}
-        </span>
       </div>
       <div className="seller-notes-layout seller-notes-layout--single">
         <div className="seller-notes-col seller-notes-col--tags">
@@ -127,14 +124,19 @@ export function NotesPanel({
                 </span>
               ))}
             </div>
-            <button
-              className="ghost seller-notes-plus-btn"
-              type="button"
-              onClick={() => setTagPopoverOpen((prev) => !prev)}
-              aria-label={tr ? "Etiket ekle" : "Add tag"}
-            >
-              +
-            </button>
+            <div className="seller-notes-plus-wrap">
+              <span className="seller-notes-count-pill">
+                {`${noteItems.length} ${tr ? "Not" : "Notes"} | ${tagItems.length} ${tr ? "Etiket" : "Tags"}`}
+              </span>
+              <button
+                className="ghost seller-notes-plus-btn"
+                type="button"
+                onClick={() => setTagPopoverOpen((prev) => !prev)}
+                aria-label={tr ? "Etiket ekle" : "Add tag"}
+              >
+                +
+              </button>
+            </div>
             {tagPopoverOpen ? (
               <div className="seller-notes-tag-popover">
                 <input

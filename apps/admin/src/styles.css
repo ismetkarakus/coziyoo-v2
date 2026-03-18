@@ -4375,6 +4375,25 @@ textarea:focus {
   position: relative;
 }
 
+.seller-notes-plus-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.seller-notes-plus-wrap .seller-notes-count-pill {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translate(55%, -50%);
+  z-index: 0;
+}
+
+.seller-notes-plus-wrap .seller-notes-plus-btn {
+  position: relative;
+  z-index: 1;
+}
+
 .seller-notes-tag-label {
   flex: 0 0 auto;
   font-size: clamp(0.98rem, 1.1vw, 1.06rem);
