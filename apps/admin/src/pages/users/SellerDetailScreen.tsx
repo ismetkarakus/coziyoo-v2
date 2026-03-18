@@ -1704,21 +1704,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       </section>
 
       <section className="panel seller-tabs-panel">
-        <div className="seller-tabs-head">
-          <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.key}
-                className={activeTab === tab.key ? "is-active" : ""}
-                onClick={() => switchSellerTab(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div className="seller-tabs" role="tablist" aria-label={dict.detail.sellerTabs.title}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              className={activeTab === tab.key ? "is-active" : ""}
+              onClick={() => switchSellerTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
           <ExcelExportButton
             className="primary seller-tabs-export-btn"
             type="button"
@@ -1877,7 +1875,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       setIdentityViewerOpen(true);
                     }}
                   >
-                    {language === "tr" ? "Kimlik Detayını Gör" : "View Identity Details"}
+                    {language === "tr" ? "Kimlik Detay" : "Identity Details"}
                   </button>
                   <button className="primary seller-profile-action-btn" type="submit" disabled={!isSuperAdmin}>
                     {dict.actions.save}

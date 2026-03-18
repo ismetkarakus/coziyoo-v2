@@ -7127,36 +7127,22 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-tabs {
   display: flex;
+  align-items: center;
   gap: 22px;
   min-width: max-content;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
 }
 
-.seller-tabs-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-right: 140px;
-}
-
-.seller-tabs-head .seller-tabs {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
 .seller-tabs-export-btn {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  margin-left: auto;
   white-space: nowrap;
   background: linear-gradient(180deg, #2f90ff, #1671d8);
   border: 1px solid rgba(117, 180, 255, 0.8);
   color: #eef6ff;
   font-weight: var(--font-bold);
   box-shadow: 0 10px 20px rgba(38, 128, 245, 0.2);
+  align-self: center;
+  margin-bottom: 1px;
 }
 
 .seller-tabs button {
@@ -7486,6 +7472,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   min-height: 46px;
   font-size: clamp(1rem, 1.02vw, 1.1rem);
   font-weight: var(--font-semibold);
+  white-space: nowrap;
 }
 
 .seller-address-list {
@@ -10281,11 +10268,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 :root:not(.dark) .seller-detail-page .seller-general-filter-item > span {
-  background: linear-gradient(180deg, rgba(220, 232, 255, 0.96), rgba(205, 221, 250, 0.94));
+  background: linear-gradient(180deg, rgba(245, 249, 255, 0.98), rgba(236, 242, 255, 0.95));
   color: #294b86;
-  border: 1px solid rgba(127, 161, 225, 0.34);
-  border-radius: 999px;
-  padding: 0 8px;
 }
 
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input {
