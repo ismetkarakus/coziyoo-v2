@@ -563,8 +563,8 @@ async def logs_viewer() -> str:
         return;
       }
 
-      // ── N8N response (agent reply) ──
-      if (name.endsWith(".n8n") && msg.includes("N8N response path=webhook status=200")) {
+      // ── N8N response (agent reply) — webhook or execution_api path ──
+      if (name.endsWith(".n8n") && msg.includes("N8N response") && msg.includes("status=200")) {
         const agentText = extractVal(msg, "answer");
         const userText = s.pendingUserText;
         s.pendingUserText = null;
