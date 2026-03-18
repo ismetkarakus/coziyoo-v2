@@ -10449,7 +10449,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 /* ── Print ────────────────────────────────────────────────────────── */
 @page {
-  margin: 14mm;
+  margin: 0 14mm 14mm;
 }
 
 @media print {
@@ -10491,7 +10491,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
     text-align: center;
     position: relative;
     min-height: 72px;
-    padding: 12px 0 10px;
+    padding: 14px 14mm 10px;
     margin-bottom: 18px;
     border-bottom: 2px solid #1671d8;
   }
@@ -10505,8 +10505,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
   .print-brand-datetime {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 14px;
+    left: 14mm;
     font-size: 0.92rem;
     color: #444;
     font-weight: 500;
