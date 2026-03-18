@@ -22,7 +22,6 @@ export function NotesPanel({
   language,
   title,
   onAddNote,
-  onDeleteNote,
   onSaveNote,
   onAddTag,
   onDeleteTag,
@@ -31,7 +30,6 @@ export function NotesPanel({
   const [noteInput, setNoteInput] = useState("");
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
   const [tagPopoverInput, setTagPopoverInput] = useState("");
-  const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
@@ -42,12 +40,8 @@ export function NotesPanel({
     const handler = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
-      if (openNoteMenuId && listRef.current && !listRef.current.contains(target)) {
-        if (editingNoteId) {
-          void saveNote(editingNoteId);
-        } else {
-          setOpenNoteMenuId(null);
-        }
+      if (editingNoteId && listRef.current && !listRef.current.contains(target)) {
+        void saveNote(editingNoteId);
       }
       if (tagPopoverOpen && tagPopoverRef.current && !tagPopoverRef.current.contains(target)) {
         setTagPopoverOpen(false);
@@ -55,7 +49,7 @@ export function NotesPanel({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [openNoteMenuId, editingNoteId, tagPopoverOpen]);
+  }, [editingNoteId, tagPopoverOpen]);
 
   useEffect(() => {
     if (!tagPopoverOpen) return;
@@ -67,14 +61,6 @@ export function NotesPanel({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [tagPopoverOpen]);
-
-  function openNoteCard(noteId: string) {
-    if (editingNoteId && editingNoteId !== noteId) {
-      setEditingNoteId(null);
-      setEditingNoteValue("");
-    }
-    setOpenNoteMenuId(noteId);
-  }
 
   async function handleAddNote() {
     const trimmed = noteInput.trim();
@@ -99,7 +85,6 @@ export function NotesPanel({
     if (current && current.note.trim() === trimmed) {
       setEditingNoteId(null);
       setEditingNoteValue("");
-      setOpenNoteMenuId(null);
       return;
     }
     setSavingNoteId(noteId);
@@ -107,18 +92,8 @@ export function NotesPanel({
       await onSaveNote(noteId, trimmed);
       setEditingNoteId(null);
       setEditingNoteValue("");
-      setOpenNoteMenuId(null);
     } finally {
       setSavingNoteId(null);
-    }
-  }
-
-  async function handleDelete(noteId: string) {
-    await onDeleteNote(noteId);
-    setOpenNoteMenuId(null);
-    if (editingNoteId === noteId) {
-      setEditingNoteId(null);
-      setEditingNoteValue("");
     }
   }
 
@@ -204,22 +179,8 @@ export function NotesPanel({
                   key={note.id}
                   className={[
                     "buyer-ref-note-item seller-note-item",
-                    openNoteMenuId === note.id ? "is-open" : "",
                     editingNoteId === note.id ? "is-editing" : "",
                   ].filter(Boolean).join(" ")}
-                  onClick={() => openNoteCard(note.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    const target = event.target as HTMLElement | null;
-                    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
-                      return;
-                    }
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openNoteCard(note.id);
-                    }
-                  }}
                 >
                   {editingNoteId === note.id ? (
                     <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
@@ -243,32 +204,23 @@ export function NotesPanel({
                       </div>
                       <div className="seller-note-item-meta seller-note-item-meta--todo">
                         <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
-                        <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
-                        <button
-                          className="ghost seller-note-inline-edit"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setEditingNoteId(note.id);
-                            setEditingNoteValue(note.note);
-                          }}
-                        >
-                          ✎
-                        </button>
+                        <div className="seller-note-item-meta-row">
+                          <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
+                          <button
+                            className="ghost seller-note-inline-edit"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setEditingNoteId(note.id);
+                              setEditingNoteValue(note.note);
+                            }}
+                          >
+                            ✎
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
-                  {editingNoteId !== note.id && openNoteMenuId === note.id ? (
-                    <div className="buyer-ref-note-actions" onClick={(event) => event.stopPropagation()}>
-                      <button
-                        className="ghost is-danger"
-                        type="button"
-                        onClick={() => void handleDelete(note.id)}
-                      >
-                        {tr ? "Sil" : "Delete"}
-                      </button>
-                    </div>
-                  ) : null}
                 </article>
               ))
             )}

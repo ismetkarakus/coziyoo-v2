@@ -4487,6 +4487,18 @@ textarea:focus {
     0 6px 14px rgba(125, 150, 196, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     inset 0 -1px 0 rgba(159, 181, 221, 0.22);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.seller-note-item:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 22px 38px rgba(125, 150, 196, 0.18),
+    0 10px 18px rgba(125, 150, 196, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(159, 181, 221, 0.24);
 }
 
 .seller-note-item::before {
@@ -4554,6 +4566,13 @@ textarea:focus {
 .seller-note-item-meta--todo {
   flex-direction: column;
   gap: 2px;
+}
+
+.seller-note-item-meta-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .seller-note-item-author {
@@ -4866,6 +4885,15 @@ textarea:focus {
     0 6px 14px rgba(125, 150, 196, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     inset 0 -1px 0 rgba(159, 181, 221, 0.22);
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-note-item:hover,
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-note-item:hover {
+  box-shadow:
+    0 22px 38px rgba(125, 150, 196, 0.18),
+    0 10px 18px rgba(125, 150, 196, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(159, 181, 221, 0.24);
 }
 
 :root:not(.dark) .buyer-ops-page .seller-notes-panel .panel-meta {
