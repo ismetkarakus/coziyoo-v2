@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
+import { theme } from '../theme/colors';
 
 type Props = {
   onLogin: (session: AuthSession) => void;
@@ -43,8 +44,14 @@ export default function LoginScreen({ onLogin }: Props) {
   async function handleLogin() {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
-    if (!trimmedEmail) { setError('Please enter your email.'); return; }
-    if (!trimmedPassword) { setError('Please enter your password.'); return; }
+    if (!trimmedEmail) {
+      setError('Please enter your email.');
+      return;
+    }
+    if (!trimmedPassword) {
+      setError('Please enter your password.');
+      return;
+    }
 
     setError(null);
     setLoading(true);
@@ -83,7 +90,7 @@ export default function LoginScreen({ onLogin }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
+      <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -96,14 +103,17 @@ export default function LoginScreen({ onLogin }: Props) {
           <Text style={styles.subtitle}>Sign in to continue</Text>
         </View>
 
-        <View style={styles.form}>
+        <View style={styles.card}>
           <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
             value={email}
-            onChangeText={(v) => { setEmail(v); setError(null); }}
+            onChangeText={(v) => {
+              setEmail(v);
+              setError(null);
+            }}
             placeholder="you@example.com"
-            placeholderTextColor="#555"
+            placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -115,9 +125,12 @@ export default function LoginScreen({ onLogin }: Props) {
           <TextInput
             style={styles.input}
             value={password}
-            onChangeText={(v) => { setPassword(v); setError(null); }}
-            placeholder="••••••••"
-            placeholderTextColor="#555"
+            onChangeText={(v) => {
+              setPassword(v);
+              setError(null);
+            }}
+            placeholder="********"
+            placeholderTextColor={theme.textSecondary}
             secureTextEntry
             returnKeyType="go"
             onSubmitEditing={handleLogin}
@@ -131,10 +144,11 @@ export default function LoginScreen({ onLogin }: Props) {
             onPress={handleLogin}
             disabled={loading}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.buttonText}>{error ? 'Try Again' : 'Sign In'}</Text>
-            }
+            {loading ? (
+              <ActivityIndicator color={theme.onPrimary} />
+            ) : (
+              <Text style={styles.buttonText}>{error ? 'Try Again' : 'Sign In'}</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -145,78 +159,84 @@ export default function LoginScreen({ onLogin }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: theme.background,
   },
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 24,
   },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#6C63FF',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   logoText: {
-    color: '#fff',
-    fontSize: 36,
+    color: theme.onPrimary,
+    fontSize: 38,
     fontWeight: '700',
   },
   title: {
-    color: '#fff',
-    fontSize: 32,
+    color: theme.text,
+    fontSize: 34,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#888',
+    color: theme.textSecondary,
     fontSize: 13,
     marginTop: 4,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
-  form: {
-    gap: 12,
+  card: {
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
   },
   label: {
-    color: '#aaa',
+    color: theme.text,
     fontSize: 13,
+    fontWeight: '500',
   },
   input: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
+    borderColor: theme.border,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: theme.text,
     fontSize: 16,
   },
   error: {
-    color: '#ff6b6b',
+    color: theme.error,
     fontSize: 13,
   },
   button: {
-    backgroundColor: '#6C63FF',
+    backgroundColor: theme.primary,
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   buttonError: {
-    backgroundColor: '#c0392b',
+    backgroundColor: theme.error,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
