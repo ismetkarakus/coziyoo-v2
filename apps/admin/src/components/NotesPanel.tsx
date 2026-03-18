@@ -103,7 +103,6 @@ export function NotesPanel({
   return (
     <section className="panel buyer-ref-main-panel seller-notes-panel">
       <div className="panel-header seller-notes-header">
-        <h2>{title ?? (tr ? "Notlar & Etiketler" : "Notes & Tags")}</h2>
       </div>
       <div className="seller-notes-layout seller-notes-layout--single">
         <div className="seller-notes-col seller-notes-col--tags">
