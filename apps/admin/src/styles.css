@@ -4476,14 +4476,50 @@ textarea:focus {
 .seller-note-item {
   flex: 0 1 320px;
   max-width: 460px;
+  position: relative;
+  overflow: visible;
   border-radius: 20px;
   padding: 18px 20px;
   border: 1px solid rgba(194, 210, 235, 0.5);
   background: linear-gradient(135deg, oklch(1 0 0), oklch(0.95 0.04 240));
-  box-shadow: 0 8px 18px rgba(125, 150, 196, 0.12);
+  box-shadow:
+    0 18px 32px rgba(125, 150, 196, 0.14),
+    0 6px 14px rgba(125, 150, 196, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(159, 181, 221, 0.22);
+}
+
+.seller-note-item::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  bottom: -10px;
+  width: 20px;
+  height: 20px;
+  border-left: 1px solid rgba(194, 210, 235, 0.5);
+  border-bottom: 1px solid rgba(194, 210, 235, 0.5);
+  border-bottom-left-radius: 8px;
+  background: linear-gradient(135deg, oklch(1 0 0), oklch(0.95 0.04 240));
+  box-shadow:
+    -8px 12px 18px rgba(125, 150, 196, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  transform: skewY(-18deg) rotate(-14deg);
+  transform-origin: center;
+  z-index: 0;
+}
+
+.seller-note-item::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 19px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.04));
+  pointer-events: none;
 }
 
 .seller-note-item-row {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -4824,7 +4860,11 @@ textarea:focus {
 :root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-note-item {
   border-color: rgba(194, 210, 235, 0.5);
   background: linear-gradient(135deg, oklch(1 0 0), oklch(0.95 0.04 240));
-  box-shadow: 0 8px 18px rgba(125, 150, 196, 0.12);
+  box-shadow:
+    0 18px 32px rgba(125, 150, 196, 0.14),
+    0 6px 14px rgba(125, 150, 196, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(159, 181, 221, 0.22);
 }
 
 :root:not(.dark) .buyer-ops-page .seller-notes-panel .panel-meta {
@@ -10078,9 +10118,17 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-note-item::before {
-  background: color-mix(in srgb, #eaf1ff 88%, white);
+  background: linear-gradient(135deg, oklch(1 0 0), oklch(0.95 0.04 240));
   border-left-color: rgba(143, 168, 220, 0.45);
   border-bottom-color: rgba(143, 168, 220, 0.45);
+  box-shadow:
+    -8px 12px 18px rgba(125, 150, 196, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-note-item::after,
+:root:not(.dark) .buyer-ops-page .seller-notes-panel .seller-note-item::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.04));
 }
 
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu {
