@@ -3171,12 +3171,22 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     <div><span className="panel-meta">{dict.detail.lotSaleWindow}</span><strong>{`${formatUiDate(lot.sale_starts_at, language)} – ${formatUiDate(lot.sale_ends_at, language)}`}</strong></div>
                     <div><span className="panel-meta">{language === "tr" ? "Son Kullanma" : "Use By"}</span><strong>{formatUiDate(lot.use_by, language)}</strong></div>
                   </div>
-                  {lot.recipe_snapshot ? (
-                    <div className="foods-detail-text-block">
-                      <h4>{language === "tr" ? "Tarif Anlık Görüntü" : "Recipe Snapshot"}</h4>
-                      <p className="foods-detail-paragraph">{lot.recipe_snapshot}</p>
-                    </div>
-                  ) : null}
+                  {(() => {
+                    const metadata = foodMetadataByName(food.name);
+                    const ingredientsText = sanitizeSeedText(resolveFoodIngredients(food.ingredients, food.recipe, metadata?.ingredients ?? null, language)) ?? "";
+                    const ingredientItems = splitFoodItems(ingredientsText);
+                    if (ingredientItems.length === 0) return null;
+                    return (
+                      <div className="foods-detail-text-block">
+                        <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
+                        <span className="seller-food-inline-pills">
+                          {ingredientItems.map((item) => (
+                            <span key={item} className="seller-food-inline-pill">{item}</span>
+                          ))}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               <div className="buyer-ops-modal-actions">
