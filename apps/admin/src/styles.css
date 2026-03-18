@@ -3637,7 +3637,7 @@ textarea:focus {
 
 .buyer-tabs-export-btn {
   flex: 0 0 auto;
-  margin-right: -6px;
+  margin-right: 0;
   white-space: nowrap;
   align-self: center;
 }
@@ -4378,6 +4378,13 @@ textarea:focus {
   gap: 8px;
   min-height: 40px;
   position: relative;
+}
+
+.seller-notes-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .seller-notes-plus-wrap {
@@ -7142,7 +7149,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   flex: 0 0 auto;
   white-space: nowrap;
   align-self: center;
-  margin-right: -6px;
+  margin-right: 0;
 }
 
 .seller-tabs button {
