@@ -15,11 +15,14 @@ export function printModalContent(target: HTMLElement | null) {
   clone.querySelectorAll(".buyer-ops-modal-actions").forEach((el) => el.remove());
 
   // Inject branded header
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeStr = now.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
   const header = document.createElement("div");
   header.className = "print-brand-header";
   header.innerHTML = `
+    <span class="print-brand-datetime">${dateStr}, ${timeStr}</span>
     <span class="print-brand-logo">Coziyoo</span>
-    <span class="print-brand-meta">Admin Panel &nbsp;·&nbsp; ${new Date().toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" })}</span>
   `;
   clone.prepend(header);
 

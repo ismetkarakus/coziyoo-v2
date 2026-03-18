@@ -10489,6 +10489,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
     align-items: center;
     justify-content: center;
     text-align: center;
+    position: relative;
     min-height: 72px;
     padding: 12px 0 10px;
     margin-bottom: 18px;
@@ -10502,10 +10503,12 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
     color: #1671d8;
   }
 
-  .print-brand-meta {
-    font-size: 0.78rem;
-    color: #6b7a99;
-    letter-spacing: 0.01em;
-    margin-top: 2px;
+  .print-brand-datetime {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 0.92rem;
+    color: #444;
+    font-weight: 500;
   }
 }
