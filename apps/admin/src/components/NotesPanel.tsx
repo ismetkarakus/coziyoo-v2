@@ -125,9 +125,10 @@ export function NotesPanel({
               ))}
             </div>
             <div className="seller-notes-plus-wrap">
-              <span className="seller-notes-count-pill">
-                {`${noteItems.length} ${tr ? "Not" : "Notes"} | ${tagItems.length} ${tr ? "Etiket" : "Tags"}`}
-              </span>
+              <div className="seller-notes-count-pill">
+                <span className="seller-notes-count-notes">{`${noteItems.length} ${tr ? "Not" : "Notes"}`}</span>
+                <span className="seller-notes-count-tags">{`${tagItems.length} ${tr ? "Etiket" : "Tags"}`}</span>
+              </div>
               <button
                 className="ghost seller-notes-plus-btn"
                 type="button"

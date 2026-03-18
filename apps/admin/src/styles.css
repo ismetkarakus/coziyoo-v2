@@ -4378,20 +4378,27 @@ textarea:focus {
 .seller-notes-plus-wrap {
   position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
+  gap: 4px;
 }
 
 .seller-notes-plus-wrap .seller-notes-count-pill {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translate(55%, -50%);
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   z-index: 0;
 }
 
 .seller-notes-plus-wrap .seller-notes-plus-btn {
   position: relative;
   z-index: 1;
+}
+
+.seller-notes-count-notes,
+.seller-notes-count-tags {
+  white-space: nowrap;
 }
 
 .seller-notes-tag-label {
