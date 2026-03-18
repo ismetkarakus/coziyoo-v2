@@ -562,19 +562,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
   }
 
-  async function handleDeleteNote(noteId: string): Promise<void> {
-    try {
-      const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, { method: "DELETE" });
-      if (response.status === 204) {
-        setNoteItems((prev) => prev.filter((item) => item.id !== noteId));
-      } else {
-        setMessage("Not silinemedi.");
-      }
-    } catch {
-      setMessage("Not silinemedi.");
-    }
-  }
-
   async function handleSaveNote(noteId: string, newText: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/buyers/${id}/notes/${noteId}`, {
@@ -979,7 +966,6 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 tagItems={tagItems}
                 language={language}
                 onAddNote={handleAddNote}
-                onDeleteNote={handleDeleteNote}
                 onSaveNote={handleSaveNote}
                 onAddTag={handleAddTag}
                 onDeleteTag={handleDeleteTag}

@@ -1560,19 +1560,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
   }
 
-  async function handleDeleteNote(noteId: string): Promise<void> {
-    try {
-      const response = await request(`/v1/admin/sellers/${id}/notes/${noteId}`, { method: "DELETE" });
-      if (response.status === 204) {
-        setNoteItems((prev) => prev.filter((item) => item.id !== noteId));
-      } else {
-        setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
-      }
-    } catch {
-      setMessage(language === "tr" ? "Not silinemedi." : "Failed to delete note.");
-    }
-  }
-
   async function handleSaveNote(noteId: string, newText: string): Promise<void> {
     try {
       const response = await request(`/v1/admin/sellers/${id}/notes/${noteId}`, {
@@ -3102,9 +3089,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
           noteItems={noteItems}
           tagItems={tagItems}
           language={language}
-          title={dict.detail.sellerTabs.notes}
           onAddNote={handleAddNote}
-          onDeleteNote={handleDeleteNote}
           onSaveNote={handleSaveNote}
           onAddTag={handleAddTag}
           onDeleteTag={handleDeleteTag}

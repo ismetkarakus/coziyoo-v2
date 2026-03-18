@@ -8,9 +8,7 @@ type NotesPanelProps = {
   noteItems: NoteItem[];
   tagItems: string[];
   language: Language;
-  title?: string;
   onAddNote: (text: string) => Promise<void>;
-  onDeleteNote: (noteId: string) => Promise<void>;
   onSaveNote: (noteId: string, newText: string) => Promise<void>;
   onAddTag: (tag: string) => Promise<void>;
   onDeleteTag: (tag: string) => Promise<void>;
@@ -20,7 +18,6 @@ export function NotesPanel({
   noteItems,
   tagItems,
   language,
-  title,
   onAddNote,
   onSaveNote,
   onAddTag,
@@ -122,9 +119,7 @@ export function NotesPanel({
 
   return (
     <section className="panel buyer-ref-main-panel seller-notes-panel">
-      <div className="panel-header seller-notes-header">
-      </div>
-      <div className="seller-notes-layout seller-notes-layout--single">
+<div className="seller-notes-layout seller-notes-layout--single">
         <div className="seller-notes-col seller-notes-col--tags">
           <div className="seller-notes-tags-head" ref={tagPopoverRef}>
             <span className="seller-notes-tag-label">{tr ? "Etiket" : "Tag"}</span>
