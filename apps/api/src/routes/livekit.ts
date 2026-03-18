@@ -647,6 +647,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     kind: "ai-agent",
     source: "session-start",
     roomName,
+    userId: req.auth!.userId,
     locale: input.locale ?? null,
     campaignId: input.campaignId ?? null,
     leadId: input.leadId ?? null,
