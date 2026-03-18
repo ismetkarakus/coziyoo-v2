@@ -166,6 +166,7 @@ export function NotesPanel({
             <div className="seller-notes-input-row seller-notes-input-row--compact">
               <div className="seller-notes-input-shell">
                 <input
+                  autoFocus
                   value={noteInput}
                   onChange={(event) => setNoteInput(event.target.value)}
                   placeholder={tr ? "Not yaz..." : "Type note..."}
@@ -217,7 +218,6 @@ export function NotesPanel({
                           <p>{note.note}</p>
                           <div className="seller-note-item-footer">
                             <div className="seller-note-item-footer-left">
-                              <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
                               <button
                                 className="ghost seller-note-inline-edit"
                                 type="button"
@@ -231,7 +231,6 @@ export function NotesPanel({
                                 ✎
                               </button>
                             </div>
-                            <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
                           </div>
                         </div>
                      </div>
@@ -263,13 +262,7 @@ export function NotesPanel({
             >
               ×
             </button>
-            <div className="seller-note-modal-author">
-              {openNote.createdByUsername ?? (tr ? "yonetici" : "admin")}
-            </div>
             <div className="seller-note-modal-content">{openNote.note}</div>
-            <div className="seller-note-modal-date">
-              {formatNoteStamp(openNote.createdAt, language)}
-            </div>
           </div>
         </div>
       ) : null}
