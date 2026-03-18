@@ -14,6 +14,15 @@ export function printModalContent(target: HTMLElement | null) {
   // Remove interactive footer buttons – they shouldn't appear in print
   clone.querySelectorAll(".buyer-ops-modal-actions").forEach((el) => el.remove());
 
+  // Inject branded header
+  const header = document.createElement("div");
+  header.className = "print-brand-header";
+  header.innerHTML = `
+    <span class="print-brand-logo">Coziyoo</span>
+    <span class="print-brand-meta">Admin Panel &nbsp;·&nbsp; ${new Date().toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" })}</span>
+  `;
+  clone.prepend(header);
+
   document.body.appendChild(clone);
   document.body.classList.add("modal-print-active");
 
