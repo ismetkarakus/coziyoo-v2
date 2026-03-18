@@ -4553,11 +4553,12 @@ textarea:focus {
   gap: 2px;
 }
 
-.seller-note-item-meta-row {
+.seller-note-item-footer {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
+  max-width: 100%;
 }
 
 .seller-note-item-author {
