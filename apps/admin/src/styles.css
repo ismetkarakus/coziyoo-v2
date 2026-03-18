@@ -4333,8 +4333,8 @@ textarea:focus {
 .seller-notes-count-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 12px;
+  min-height: 24px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid rgba(146, 182, 244, 0.4);
   background: linear-gradient(180deg, rgba(42, 66, 116, 0.82), rgba(28, 43, 77, 0.78));
@@ -4390,6 +4390,10 @@ textarea:focus {
 .seller-notes-count-notes,
 .seller-notes-count-tags {
   white-space: nowrap;
+}
+
+.seller-notes-count-pill {
+  gap: 12px;
 }
 
 .seller-notes-tag-label {
