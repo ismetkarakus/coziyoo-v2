@@ -4543,7 +4543,7 @@ textarea:focus {
 }
 
 .seller-note-item {
-  flex: 0 0 calc((100% - 32px) / 5);
+  flex: 0 0 calc((100% - 24px) / 4);
   max-width: none;
   position: relative;
   overflow: visible;
