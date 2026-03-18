@@ -985,9 +985,8 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                       ) : null}
                       {lotDiff.allergensChanged ? (
                         <p className="panel-meta">
-                          {language === "tr"
-                            ? `Eklenen alerjenler: ${addedAllergens.length > 0 ? addedAllergens.join(", ") : "-"}`
-                            : `Added allergens: ${addedAllergens.length > 0 ? addedAllergens.join(", ") : "-"}`}
+                          {language === "tr" ? "Eklenen alerjenler: " : "Added allergens: "}
+                          <span className="foods-detail-allergen-text">{addedAllergens.length > 0 ? addedAllergens.join(", ") : "-"}</span>
                         </p>
                       ) : null}
                     </div>
