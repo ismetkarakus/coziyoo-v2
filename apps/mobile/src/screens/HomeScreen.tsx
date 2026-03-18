@@ -204,6 +204,11 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
       <View style={styles.emptyState}>
         <Text style={styles.emptyTitle}>Home</Text>
         <Text style={styles.emptySubtitle}>Your new mobile shell is ready.</Text>
+        <View style={styles.homeActions}>
+          <TouchableOpacity style={styles.logoutQuickBtn} onPress={onLogout}>
+            <Text style={styles.logoutQuickBtnText}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
         {voiceError ? <Text style={styles.errorText}>{voiceError}</Text> : null}
       </View>
     );
@@ -301,6 +306,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
     marginTop: 8,
+  },
+  homeActions: {
+    marginTop: 8,
+  },
+  logoutQuickBtn: {
+    backgroundColor: theme.error,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  logoutQuickBtnText: {
+    color: theme.onPrimary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   panel: {
     marginTop: 24,
