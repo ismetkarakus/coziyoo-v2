@@ -5055,27 +5055,34 @@ textarea:focus {
   cursor: pointer;
 }
 
-.seller-note-modal-author {
-  font-size: 0.9rem;
-  font-weight: var(--font-medium);
-  color: #2a4170;
-  margin-bottom: 8px;
-}
-
-.seller-note-modal-content {
-  font-size: 1rem;
-  font-weight: var(--font-semibold);
+.seller-note-modal-input {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 12px;
+  border: 1px solid rgba(173, 194, 232, 0.7);
+  background: rgba(246, 250, 255, 0.98);
   color: #1a2a4d;
+  padding: 12px 14px;
+  font-size: 1rem;
   line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-bottom: 12px;
+  resize: vertical;
 }
 
-.seller-note-modal-date {
-  font-size: 0.82rem;
-  color: #5a6f96;
-  text-align: right;
+.seller-note-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.seller-note-modal-save {
+  min-height: 38px;
+  border-radius: 10px;
+  padding: 0 16px;
+  background: linear-gradient(180deg, #2f90ff, #1671d8);
+  border: 1px solid rgba(117, 180, 255, 0.8);
+  color: #eef6ff;
+  font-weight: var(--font-bold);
+  box-shadow: 0 10px 20px rgba(38, 128, 245, 0.2);
 }
 
 .buyer-ref-note-actions .ghost,

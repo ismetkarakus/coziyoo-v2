@@ -31,6 +31,8 @@ export function NotesPanel({
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
   const [tagPopoverInput, setTagPopoverInput] = useState("");
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [openNoteValue, setOpenNoteValue] = useState("");
+  const [savingOpenNote, setSavingOpenNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
@@ -99,6 +101,24 @@ export function NotesPanel({
   }
 
   const openNote = openNoteId ? noteItems.find((item) => item.id === openNoteId) : null;
+  useEffect(() => {
+    if (openNote) {
+      setOpenNoteValue(openNote.note);
+    }
+  }, [openNoteId]);
+
+  async function saveOpenNote() {
+    if (!openNoteId || savingOpenNote) return;
+    const trimmed = openNoteValue.trim();
+    if (!trimmed) return;
+    setSavingOpenNote(true);
+    try {
+      await onSaveNote(openNoteId, trimmed);
+      setOpenNoteId(null);
+    } finally {
+      setSavingOpenNote(false);
+    }
+  }
 
   return (
     <section className="panel buyer-ref-main-panel seller-notes-panel">
@@ -262,7 +282,23 @@ export function NotesPanel({
             >
               ×
             </button>
-            <div className="seller-note-modal-content">{openNote.note}</div>
+            <textarea
+              className="seller-note-modal-input"
+              value={openNoteValue}
+              onChange={(event) => setOpenNoteValue(event.target.value)}
+              placeholder={tr ? "Not yaz..." : "Type note..."}
+              autoFocus
+            />
+            <div className="seller-note-modal-actions">
+              <button
+                className="ghost seller-note-modal-save"
+                type="button"
+                onClick={() => void saveOpenNote()}
+                disabled={savingOpenNote}
+              >
+                {tr ? "Kaydet" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
