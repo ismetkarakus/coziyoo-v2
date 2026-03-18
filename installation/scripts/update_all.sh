@@ -66,6 +66,22 @@ if [[ "${UPDATE_SKIP_HEALTHCHECKS}" != "true" ]]; then
     log "Strict DB health check passed"
   fi
 
+  VOICE_AGENT_PORT="${VOICE_AGENT_PORT:-9000}"
+  log "Running voice agent API liveness check on :${VOICE_AGENT_PORT}/health"
+  va_ok="false"
+  for ((attempt=1; attempt<=HEALTHCHECK_RETRIES; attempt++)); do
+    if curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://127.0.0.1:${VOICE_AGENT_PORT}/health" >/dev/null; then
+      va_ok="true"
+      log "Voice agent API liveness check passed (attempt ${attempt}/${HEALTHCHECK_RETRIES})"
+      break
+    fi
+    log "Voice agent API liveness check failed (attempt ${attempt}/${HEALTHCHECK_RETRIES}), waiting ${HEALTHCHECK_RETRY_DELAY_SECONDS}s"
+    sleep "${HEALTHCHECK_RETRY_DELAY_SECONDS}"
+  done
+  if [[ "${va_ok}" != "true" ]]; then
+    dump_failure_diagnostics
+    fail "Voice agent API liveness checks failed after ${HEALTHCHECK_RETRIES} attempts"
+  fi
 
 else
   log "Skipping health checks (UPDATE_SKIP_HEALTHCHECKS=true)"
