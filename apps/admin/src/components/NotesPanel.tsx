@@ -238,6 +238,7 @@ export function NotesPanel({
                           <p>{note.note}</p>
                           <div className="seller-note-item-footer">
                             <div className="seller-note-item-footer-left">
+                              <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
                               <button
                                 className="ghost seller-note-inline-edit"
                                 type="button"
@@ -251,6 +252,7 @@ export function NotesPanel({
                                 ✎
                               </button>
                             </div>
+                            <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
                           </div>
                         </div>
                      </div>
