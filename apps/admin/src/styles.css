@@ -4425,6 +4425,24 @@ textarea:focus {
   align-items: center;
 }
 
+.seller-notes-notes-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.seller-notes-notes-grid .seller-notes-input-row {
+  grid-column: 1 / -1;
+}
+
+.seller-note-list-spacer {
+  grid-column: 2;
+  grid-row: 2;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .seller-notes-input-row--compact input {
   min-height: 38px;
 }
@@ -4471,6 +4489,7 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  grid-column: 1;
 }
 
 .seller-note-item {

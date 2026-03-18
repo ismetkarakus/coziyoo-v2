@@ -158,80 +158,83 @@ export function NotesPanel({
 
         <div className="seller-notes-col seller-notes-col--notes">
           <p className="seller-notes-col-title">{tr ? "Notlar" : "Notes"}</p>
-          <div className="seller-notes-input-row seller-notes-input-row--compact">
-            <input
-              value={noteInput}
-              onChange={(event) => setNoteInput(event.target.value)}
-              placeholder={tr ? "Not yaz..." : "Type note..."}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                void handleAddNote();
-              }}
-            />
-            <button className="ghost seller-notes-add-btn" type="button" onClick={() => void handleAddNote()}>
-              {tr ? "Kaydet" : "Save"}
-            </button>
-          </div>
-          <div className="buyer-ref-note-list seller-note-list" ref={listRef}>
-            {noteItems.length === 0 ? (
-              <p className="panel-meta">{tr ? "Henüz not yok." : "No notes yet."}</p>
-            ) : (
-              noteItems.map((note) => (
-                <article
-                  key={note.id}
-                  className={[
-                    "buyer-ref-note-item seller-note-item",
-                    editingNoteId === note.id ? "is-editing" : "",
-                  ].filter(Boolean).join(" ")}
-                  onClick={() => {
-                    if (editingNoteId) return;
-                    setOpenNoteId(note.id);
-                  }}
-                >
-                  {editingNoteId === note.id ? (
-                    <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
-                      <input
-                        value={editingNoteValue}
-                        onChange={(event) => setEditingNoteValue(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void saveNote(note.id);
-                          }
-                        }}
-                        onBlur={() => void saveNote(note.id)}
-                        disabled={savingNoteId === note.id}
-                      />
-                    </div>
-                  ) : (
-                    <div className="seller-note-item-row seller-note-item-row--todo">
-                      <div className="seller-note-item-main">
-                        <p>{note.note}</p>
-                        <div className="seller-note-item-footer">
-                          <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
-                          <button
-                            className="ghost seller-note-inline-edit"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenNoteId(null);
-                              setEditingNoteId(note.id);
-                              setEditingNoteValue(note.note);
-                            }}
-                          >
-                            ✎
-                          </button>
+          <div className="seller-notes-notes-grid">
+            <div className="seller-notes-input-row seller-notes-input-row--compact">
+              <input
+                value={noteInput}
+                onChange={(event) => setNoteInput(event.target.value)}
+                placeholder={tr ? "Not yaz..." : "Type note..."}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  void handleAddNote();
+                }}
+              />
+              <button className="ghost seller-notes-add-btn" type="button" onClick={() => void handleAddNote()}>
+                {tr ? "Kaydet" : "Save"}
+              </button>
+            </div>
+            <div className="buyer-ref-note-list seller-note-list" ref={listRef}>
+              {noteItems.length === 0 ? (
+                <p className="panel-meta">{tr ? "Henüz not yok." : "No notes yet."}</p>
+              ) : (
+                noteItems.map((note) => (
+                  <article
+                    key={note.id}
+                    className={[
+                      "buyer-ref-note-item seller-note-item",
+                      editingNoteId === note.id ? "is-editing" : "",
+                    ].filter(Boolean).join(" ")}
+                    onClick={() => {
+                      if (editingNoteId) return;
+                      setOpenNoteId(note.id);
+                    }}
+                  >
+                    {editingNoteId === note.id ? (
+                      <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          value={editingNoteValue}
+                          onChange={(event) => setEditingNoteValue(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              void saveNote(note.id);
+                            }
+                          }}
+                          onBlur={() => void saveNote(note.id)}
+                          disabled={savingNoteId === note.id}
+                        />
+                      </div>
+                    ) : (
+                      <div className="seller-note-item-row seller-note-item-row--todo">
+                        <div className="seller-note-item-main">
+                          <p>{note.note}</p>
+                          <div className="seller-note-item-footer">
+                            <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
+                            <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
+                            <button
+                              className="ghost seller-note-inline-edit"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenNoteId(null);
+                                setEditingNoteId(note.id);
+                                setEditingNoteValue(note.note);
+                              }}
+                            >
+                              ✎
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="seller-note-item-meta seller-note-item-meta--todo">
-                        <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
-                      </div>
-                    </div>
-                  )}
-                </article>
-              ))
-            )}
+                    )}
+                  </article>
+                ))
+              )}
+            </div>
+            <span className="seller-note-list-spacer seller-notes-add-btn" aria-hidden="true">
+              {tr ? "Kaydet" : "Save"}
+            </span>
           </div>
         </div>
       </div>
