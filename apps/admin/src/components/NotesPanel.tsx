@@ -143,6 +143,14 @@ export function NotesPanel({
                 </span>
               ))}
             </div>
+            <button
+              className="ghost seller-notes-plus-btn"
+              type="button"
+              onClick={() => setTagPopoverOpen((prev) => !prev)}
+              aria-label={tr ? "Etiket ekle" : "Add tag"}
+            >
+              +
+            </button>
             {tagPopoverOpen ? (
               <div className="seller-notes-tag-popover">
                 <input
@@ -167,19 +175,9 @@ export function NotesPanel({
         <div className="seller-notes-col seller-notes-col--notes">
           <div className="seller-notes-notes-head">
             <p className="seller-notes-col-title">{tr ? "Notlar" : "Notes"}</p>
-            <div className="seller-notes-plus-wrap">
-              <button
-                className="ghost seller-notes-plus-btn"
-                type="button"
-                onClick={() => setTagPopoverOpen((prev) => !prev)}
-                aria-label={tr ? "Etiket ekle" : "Add tag"}
-              >
-                +
-              </button>
-              <div className="seller-notes-count-pill">
-                <span className="seller-notes-count-notes">{`${noteItems.length} ${tr ? "Not" : "Notes"}`}</span>
-                <span className="seller-notes-count-tags">{`${tagItems.length} ${tr ? "Etiket" : "Tags"}`}</span>
-              </div>
+            <div className="seller-notes-count-pill">
+              <span className="seller-notes-count-notes">{`${noteItems.length} ${tr ? "Not" : "Notes"}`}</span>
+              <span className="seller-notes-count-tags">{`${tagItems.length} ${tr ? "Etiket" : "Tags"}`}</span>
             </div>
           </div>
           <div className="seller-notes-notes-grid">
