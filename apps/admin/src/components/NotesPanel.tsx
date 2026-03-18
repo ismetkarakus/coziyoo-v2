@@ -160,19 +160,21 @@ export function NotesPanel({
           <p className="seller-notes-col-title">{tr ? "Notlar" : "Notes"}</p>
           <div className="seller-notes-notes-grid">
             <div className="seller-notes-input-row seller-notes-input-row--compact">
-              <input
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-                placeholder={tr ? "Not yaz..." : "Type note..."}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  void handleAddNote();
-                }}
-              />
-              <button className="ghost seller-notes-add-btn" type="button" onClick={() => void handleAddNote()}>
-                {tr ? "Kaydet" : "Save"}
-              </button>
+              <div className="seller-notes-input-shell">
+                <input
+                  value={noteInput}
+                  onChange={(event) => setNoteInput(event.target.value)}
+                  placeholder={tr ? "Not yaz..." : "Type note..."}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    void handleAddNote();
+                  }}
+                />
+                <button className="ghost seller-notes-add-btn" type="button" onClick={() => void handleAddNote()}>
+                  {tr ? "Kaydet" : "Save"}
+                </button>
+              </div>
             </div>
             <div className="buyer-ref-note-list seller-note-list" ref={listRef}>
               {noteItems.length === 0 ? (

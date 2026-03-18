@@ -4419,9 +4419,30 @@ textarea:focus {
 }
 
 .seller-notes-input-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--notes-action-width);
-  gap: 8px;
+  display: block;
+  width: 100%;
+}
+
+.seller-notes-input-shell {
+  position: relative;
+  width: 100%;
+  min-height: 40px;
+}
+
+.seller-notes-input-shell .seller-notes-add-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+}
+
+.seller-notes-input-shell input {
+  width: 100%;
+  padding-right: 88px;
   align-items: center;
 }
 
@@ -4436,7 +4457,7 @@ textarea:focus {
 
 .seller-notes-notes-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--notes-action-width);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: start;
 }
