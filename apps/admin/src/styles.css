@@ -3245,16 +3245,17 @@ textarea:focus {
 }
 
 .buyer-ref-avatar {
-  width: 70px;
-  height: 70px;
-  border-radius: 999px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: var(--text-lg);
   font-weight: var(--font-bold);
   background: radial-gradient(65% 65% at 35% 30%, rgba(68, 102, 171, 0.42), rgba(20, 30, 53, 0.86));
-  border: 1px solid color-mix(in srgb, #6f81b8 42%, var(--ops-border-default));
+  border: 2px solid transparent;
+  transition: all 0.25s ease;
 }
 
 .buyer-ref-avatar img {
@@ -3267,19 +3268,19 @@ textarea:focus {
 
 .buyer-ref-avatar-button:hover .buyer-ref-avatar,
 .buyer-ref-avatar-button:focus-visible .buyer-ref-avatar {
-  border-color: color-mix(in srgb, #6d9dff 78%, var(--ops-border-default));
-  box-shadow: 0 0 0 2px rgba(109, 157, 255, 0.2);
+  border: 2px solid #4f8cff;
+  box-shadow: 0 0 0 4px rgba(79, 140, 255, 0.15);
 }
 
 .buyer-ref-avatar-button:hover,
 .buyer-ref-avatar-button:focus-visible {
-  transform: translateY(-1px) scale(1.02);
+  transform: none;
 }
 
 .buyer-ref-avatar-button:hover::after,
 .buyer-ref-avatar-button:focus-visible::after {
-  opacity: 0.9;
-  transform: scale(1.06) translateY(1px);
+  opacity: 0;
+  transform: scale(0.9) translateY(6px);
 }
 
 .buyer-ref-avatar-badge {
@@ -6619,17 +6620,18 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-avatar {
-  width: 96px;
-  height: 96px;
-  border-radius: 999px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, #6e8dc7 38%, var(--color-border));
+  border: 2px solid transparent;
   background: radial-gradient(70% 70% at 30% 28%, rgba(80, 116, 193, 0.5), rgba(22, 31, 52, 0.92));
   display: grid;
   place-items: center;
   font-weight: var(--font-bold);
   font-size: clamp(1.8rem, 2vw, 2.4rem);
   color: #eef5ff;
+  transition: all 0.25s ease;
 }
 
 .seller-avatar-button {
@@ -6661,19 +6663,19 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-avatar-button:hover,
 .seller-avatar-button:focus-visible {
-  transform: translateY(-1px) scale(1.03);
+  transform: none;
 }
 
 .seller-avatar-button:hover::after,
 .seller-avatar-button:focus-visible::after {
-  opacity: 0.9;
-  transform: scale(1.08) translateY(1px);
+  opacity: 0;
+  transform: scale(0.88) translateY(6px);
 }
 
 .seller-avatar-button:hover .seller-avatar,
 .seller-avatar-button:focus-visible .seller-avatar {
-  border-color: color-mix(in srgb, #6d9dff 78%, var(--color-border));
-  box-shadow: 0 0 0 2px rgba(109, 157, 255, 0.2);
+  border: 2px solid #4f8cff;
+  box-shadow: 0 0 0 4px rgba(79, 140, 255, 0.15);
 }
 
 .seller-avatar img {
