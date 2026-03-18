@@ -4524,6 +4524,7 @@ textarea:focus {
   min-width: 0;
   display: grid;
   gap: 6px;
+  overflow: hidden;
 }
 
 .seller-note-item-row p {
@@ -4532,6 +4533,9 @@ textarea:focus {
   font-weight: var(--font-semibold);
   line-height: 1.5;
   color: oklch(0.25 0.02 260);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .seller-note-item-meta {
@@ -4892,7 +4896,7 @@ textarea:focus {
 }
 
 .seller-notes-panel .buyer-ref-note-item {
-  cursor: default;
+  cursor: pointer;
 }
 
 .buyer-ref-note-edit-row input,
@@ -4913,6 +4917,65 @@ textarea:focus {
   box-shadow: none !important;
   appearance: none;
   -webkit-appearance: none;
+}
+
+.seller-note-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 16, 30, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.seller-note-modal {
+  width: min(520px, calc(100% - 32px));
+  border-radius: 18px;
+  padding: 22px 22px 18px;
+  background: linear-gradient(180deg, rgba(246, 250, 255, 0.98), rgba(235, 243, 255, 0.96));
+  border: 1px solid rgba(173, 194, 232, 0.55);
+  box-shadow: 0 18px 38px rgba(30, 56, 96, 0.25);
+  color: #162847;
+  position: relative;
+}
+
+.seller-note-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(24, 46, 84, 0.08);
+  color: #253a64;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.seller-note-modal-author {
+  font-size: 0.9rem;
+  font-weight: var(--font-medium);
+  color: #2a4170;
+  margin-bottom: 8px;
+}
+
+.seller-note-modal-content {
+  font-size: 1rem;
+  font-weight: var(--font-semibold);
+  color: #1a2a4d;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
+.seller-note-modal-date {
+  font-size: 0.82rem;
+  color: #5a6f96;
+  text-align: right;
 }
 
 .buyer-ref-note-actions .ghost,

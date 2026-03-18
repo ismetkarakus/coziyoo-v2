@@ -30,6 +30,7 @@ export function NotesPanel({
   const [noteInput, setNoteInput] = useState("");
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
   const [tagPopoverInput, setTagPopoverInput] = useState("");
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState("");
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
@@ -96,6 +97,8 @@ export function NotesPanel({
       setSavingNoteId(null);
     }
   }
+
+  const openNote = openNoteId ? noteItems.find((item) => item.id === openNoteId) : null;
 
   return (
     <section className="panel buyer-ref-main-panel seller-notes-panel">
@@ -181,6 +184,10 @@ export function NotesPanel({
                     "buyer-ref-note-item seller-note-item",
                     editingNoteId === note.id ? "is-editing" : "",
                   ].filter(Boolean).join(" ")}
+                  onClick={() => {
+                    if (editingNoteId) return;
+                    setOpenNoteId(note.id);
+                  }}
                 >
                   {editingNoteId === note.id ? (
                     <div className="buyer-ref-note-edit-row" onClick={(event) => event.stopPropagation()}>
@@ -211,6 +218,7 @@ export function NotesPanel({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
+                              setOpenNoteId(null);
                               setEditingNoteId(note.id);
                               setEditingNoteValue(note.note);
                             }}
@@ -227,6 +235,36 @@ export function NotesPanel({
           </div>
         </div>
       </div>
+      {openNote ? (
+        <div
+          className="seller-note-modal-backdrop"
+          role="presentation"
+          onClick={() => setOpenNoteId(null)}
+        >
+          <div
+            className="seller-note-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="seller-note-modal-close"
+              type="button"
+              aria-label={tr ? "Kapat" : "Close"}
+              onClick={() => setOpenNoteId(null)}
+            >
+              ×
+            </button>
+            <div className="seller-note-modal-author">
+              {openNote.createdByUsername ?? (tr ? "yonetici" : "admin")}
+            </div>
+            <div className="seller-note-modal-content">{openNote.note}</div>
+            <div className="seller-note-modal-date">
+              {formatNoteStamp(openNote.createdAt, language)}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
