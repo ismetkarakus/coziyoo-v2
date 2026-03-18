@@ -1018,10 +1018,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                     <strong>{formatUiDate(selectedLot.use_by, language)}</strong>
                   </div>
                 </div>
-                <div className="foods-detail-text-block">
-                  <h4>{language === "tr" ? "Yemeğin Tarifi" : "Recipe"}</h4>
-                  <p className="foods-detail-paragraph">{selectedLot.recipe_snapshot?.trim() || "-"}</p>
-                </div>
                 <div className="foods-detail-grid">
                   <div className={`foods-detail-text-block${lotDiff?.ingredientsChanged ? " foods-detail-text-block--warn" : ""}`}>
                     <h4>{language === "tr" ? "Lot Malzemeler / Baharatlar" : "Lot Ingredients / Spices"}</h4>
