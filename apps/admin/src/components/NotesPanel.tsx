@@ -210,31 +210,30 @@ export function NotesPanel({
                         <div className="seller-note-item-main">
                           <p>{note.note}</p>
                           <div className="seller-note-item-footer">
+                            <div className="seller-note-item-footer-left">
+                              <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
+                              <button
+                                className="ghost seller-note-inline-edit"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenNoteId(null);
+                                  setEditingNoteId(note.id);
+                                  setEditingNoteValue(note.note);
+                                }}
+                              >
+                                ✎
+                              </button>
+                            </div>
                             <span className="seller-note-item-author">{note.createdByUsername ?? (tr ? "yonetici" : "admin")}</span>
-                            <span className="seller-note-item-date">{formatNoteStamp(note.createdAt, language)}</span>
-                            <button
-                              className="ghost seller-note-inline-edit"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setOpenNoteId(null);
-                                setEditingNoteId(note.id);
-                                setEditingNoteValue(note.note);
-                              }}
-                            >
-                              ✎
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    )}
+                     </div>
+                   )}
                   </article>
                 ))
               )}
             </div>
-            <span className="seller-note-list-spacer seller-notes-add-btn" aria-hidden="true">
-              {tr ? "Kaydet" : "Save"}
-            </span>
           </div>
         </div>
       </div>

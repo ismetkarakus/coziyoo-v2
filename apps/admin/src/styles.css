@@ -4420,27 +4420,29 @@ textarea:focus {
 
 .seller-notes-input-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) var(--notes-action-width);
   gap: 8px;
   align-items: center;
 }
 
+.seller-notes-col--notes {
+  --notes-action-width: 86px;
+}
+
+.seller-notes-col--notes .seller-notes-add-btn {
+  width: var(--notes-action-width);
+  min-width: var(--notes-action-width);
+}
+
 .seller-notes-notes-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) var(--notes-action-width);
   gap: 8px;
   align-items: start;
 }
 
 .seller-notes-notes-grid .seller-notes-input-row {
   grid-column: 1 / -1;
-}
-
-.seller-note-list-spacer {
-  grid-column: 2;
-  grid-row: 2;
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .seller-notes-input-row--compact input {
@@ -4489,7 +4491,7 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  grid-column: 1;
+  grid-column: 1 / -1;
 }
 
 .seller-note-item {
@@ -4573,11 +4575,22 @@ textarea:focus {
 }
 
 .seller-note-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.seller-note-item-footer-left {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 4px;
-  max-width: 100%;
+}
+
+.seller-note-item-footer .seller-note-item-author,
+.seller-note-item-footer .seller-note-item-date {
+  color: oklch(0.42 0.03 250);
 }
 
 .seller-note-item-author {
