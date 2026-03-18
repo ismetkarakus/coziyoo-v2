@@ -8126,9 +8126,6 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   border: 1px solid color-mix(in srgb, #e89a2a 50%, transparent);
 }
 
-.foods-detail-text-block--warn h4 {
-  color: #f0b848;
-}
 
 .lot-diff-alert {
   display: flex;
