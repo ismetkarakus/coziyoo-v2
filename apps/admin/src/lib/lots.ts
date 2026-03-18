@@ -2,6 +2,72 @@ import { request, parseJson } from "./api";
 import type { AdminLotRow, AdminLotLifecycleStatus, FoodLotDiff } from "../types/lots";
 import type { ApiError, Language } from "../types/core";
 
+export function toReadableText(value: unknown): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return "-";
+    if (text.startsWith("{") || text.startsWith("[")) {
+      try { return toReadableText(JSON.parse(text)); } catch { return text; }
+    }
+    return text;
+  }
+  if (Array.isArray(value)) {
+    const parts = value.map((item) => toReadableText(item)).map((item) => item.trim()).filter((item) => item && item !== "-");
+    return parts.length > 0 ? parts.join(", ") : "-";
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => { const n = toReadableText(item); return n && n !== "-" ? `${key}: ${n}` : ""; })
+      .filter(Boolean);
+    return entries.length > 0 ? entries.join(", ") : "-";
+  }
+  return String(value);
+}
+
+function normalizeText(value: unknown): string {
+  return String(value ?? "").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function toDiffItems(value: unknown): string[] {
+  if (value === null || value === undefined) return [];
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+    if (text.startsWith("{") || text.startsWith("[")) {
+      try { return toDiffItems(JSON.parse(text)); } catch { return text.split(/[,\n]+/g).map((i) => i.trim()).filter(Boolean); }
+    }
+    return text.split(/[,\n]+/g).map((i) => i.trim()).filter(Boolean);
+  }
+  if (Array.isArray(value)) return value.flatMap((item) => toDiffItems(item));
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+      if (typeof item === "boolean") return item ? [key] : [];
+      const text = toReadableText(item).trim();
+      return text && text !== "-" ? [`${key}: ${text}`] : [];
+    });
+  }
+  return [String(value)];
+}
+
+export function computeAddedItems(baseValue: unknown, lotValue: unknown): string[] {
+  const baseMap = new Map<string, string>();
+  const lotMap = new Map<string, string>();
+  for (const item of toDiffItems(baseValue)) {
+    const n = normalizeText(item);
+    if (n && !baseMap.has(n)) baseMap.set(n, item);
+  }
+  for (const item of toDiffItems(lotValue)) {
+    const n = normalizeText(item);
+    if (n && !lotMap.has(n)) lotMap.set(n, item);
+  }
+  const added: string[] = [];
+  for (const [key, value] of lotMap.entries()) {
+    if (!baseMap.has(key)) added.push(value);
+  }
+  return added;
+}
+
 export function stableStringify(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim().toLowerCase();

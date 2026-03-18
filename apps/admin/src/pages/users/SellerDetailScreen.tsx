@@ -2,7 +2,7 @@ import { Fragment, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, use
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../../lib/api";
 import { getCachedUser, setCachedUser } from "../../lib/prefetch";
-import { ExcelExportButton, PrintButton, QuickAccessMenu } from "../../components/ui";
+import { ExcelExportButton, LotDetailContent, PrintButton, QuickAccessMenu } from "../../components/ui";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { NotesPanel } from "../../components/NotesPanel";
 import { formatUiDate, formatTableDateTime, maskEmail, formatCurrency, normalizeImageUrl, sanitizeSeedText } from "../../lib/format";
@@ -18,7 +18,7 @@ import {
   normalizeComplianceToken,
 } from "../../lib/compliance";
 import { resolveSellerDetailTab } from "../../lib/routing";
-import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff } from "../../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff, computeAddedItems } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -3161,34 +3161,22 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     </div>
                   ) : null}
                 </>
-              ) : (
-                <div className="foods-detail-text-block foods-detail-lot-focus">
-                  <div className="foods-detail-grid">
-                    <div><span className="panel-meta">{dict.detail.lotNumber}</span><strong>{lot.lot_number}</strong></div>
-                    <div><span className="panel-meta">{dict.detail.lotLifecycle}</span><strong>{lotLifecycleLabel(lot.lifecycle_status, language)}</strong></div>
-                    <div><span className="panel-meta">{dict.detail.lotQuantity}</span><strong>{`${lot.quantity_available}/${lot.quantity_produced}`}</strong></div>
-                    <div><span className="panel-meta">{dict.detail.lotProducedAt}</span><strong>{formatUiDate(lot.produced_at, language)}</strong></div>
-                    <div><span className="panel-meta">{dict.detail.lotSaleWindow}</span><strong>{`${formatUiDate(lot.sale_starts_at, language)} – ${formatUiDate(lot.sale_ends_at, language)}`}</strong></div>
-                    <div><span className="panel-meta">{language === "tr" ? "Son Kullanma" : "Use By"}</span><strong>{formatUiDate(lot.use_by, language)}</strong></div>
-                  </div>
-                  {(() => {
-                    const metadata = foodMetadataByName(food.name);
-                    const ingredientsText = sanitizeSeedText(resolveFoodIngredients(food.ingredients, food.recipe, metadata?.ingredients ?? null, language)) ?? "";
-                    const ingredientItems = splitFoodItems(ingredientsText);
-                    if (ingredientItems.length === 0) return null;
-                    return (
-                      <div className="foods-detail-text-block">
-                        <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
-                        <span className="seller-food-inline-pills">
-                          {ingredientItems.map((item) => (
-                            <span key={item} className="seller-food-inline-pill">{item}</span>
-                          ))}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+              ) : (() => {
+                  const lotDiff = computeFoodLotDiff({ foodRecipe: food.recipe ?? null, foodIngredients: food.ingredients, foodAllergens: food.allergens, lot });
+                  const addedIngredients = lotDiff.ingredientsChanged ? computeAddedItems(food.ingredients, lot.ingredients_snapshot_json) : [];
+                  const addedAllergens = lotDiff.allergensChanged ? computeAddedItems(food.allergens, lot.allergens_snapshot_json) : [];
+                  return (
+                    <LotDetailContent
+                      lot={lot}
+                      language={language}
+                      labels={{ lotNumber: dict.detail.lotNumber, lotLifecycle: dict.detail.lotLifecycle, lotQuantity: dict.detail.lotQuantity, lotProducedAt: dict.detail.lotProducedAt, lotSaleWindow: dict.detail.lotSaleWindow }}
+                      lotDiff={lotDiff}
+                      addedIngredients={addedIngredients}
+                      addedAllergens={addedAllergens}
+                    />
+                  );
+                })()
+              }
               <div className="buyer-ops-modal-actions">
                 <button className="primary" type="button" onClick={closeInlineModal}>
                   {language === "tr" ? "Kapat" : "Close"}

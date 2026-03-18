@@ -2,9 +2,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { DICTIONARIES } from "../lib/i18n";
-import { ExcelExportButton, Pager, PrintButton } from "../components/ui";
+import { ExcelExportButton, LotDetailContent, Pager, PrintButton } from "../components/ui";
 import { fmt, toDisplayId, formatCurrency, formatUiDate } from "../lib/format";
-import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff } from "../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff, computeAddedItems, toReadableText } from "../lib/lots";
 import { printModalContent } from "../lib/print";
 import type { Language, ApiError } from "../types/core";
 import type { AdminLotRow } from "../types/lots";
@@ -131,40 +131,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     }
   };
 
-  const toReadableText = (value: unknown): string => {
-    if (value === null || value === undefined) return "-";
-    if (typeof value === "string") {
-      const text = value.trim();
-      if (!text) return "-";
-      if (text.startsWith("{") || text.startsWith("[")) {
-        try {
-          return toReadableText(JSON.parse(text));
-        } catch {
-          return text;
-        }
-      }
-      return text;
-    }
-    if (Array.isArray(value)) {
-      const parts = value
-        .map((item) => toReadableText(item))
-        .map((item) => item.trim())
-        .filter((item) => item && item !== "-");
-      return parts.length > 0 ? parts.join(", ") : "-";
-    }
-    if (typeof value === "object") {
-      const entries = Object.entries(value as Record<string, unknown>)
-        .map(([key, item]) => {
-          const normalized = toReadableText(item);
-          if (!normalized || normalized === "-") return "";
-          return `${key}: ${normalized}`;
-        })
-        .filter(Boolean);
-      return entries.length > 0 ? entries.join(", ") : "-";
-    }
-    return String(value);
-  };
-
   const allergenCatalog = [
     { key: "gluten", labelTr: "Gluten", labelEn: "Gluten", hints: ["gluten", "bugday", "wheat", "arpa", "barley", "cavdar", "rye"] },
     { key: "milk", labelTr: "Süt", labelEn: "Milk", hints: ["sut", "milk", "lactose", "laktoz", "peynir", "yogurt", "cream"] },
@@ -178,10 +144,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
   ] as const;
 
   const normalizeText = (value: unknown): string =>
-    String(value ?? "")
-      .toLocaleLowerCase("tr-TR")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+    String(value ?? "").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   const flattenToText = (value: unknown): string => {
     if (value === null || value === undefined) return "";
@@ -189,50 +152,6 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     if (Array.isArray(value)) return value.map((item) => flattenToText(item)).join(" ");
     if (typeof value === "object") return Object.values(value as Record<string, unknown>).map((item) => flattenToText(item)).join(" ");
     return String(value);
-  };
-
-  const toDiffItems = (value: unknown): string[] => {
-    if (value === null || value === undefined) return [];
-    if (typeof value === "string") {
-      const text = value.trim();
-      if (!text) return [];
-      if (text.startsWith("{") || text.startsWith("[")) {
-        try {
-          return toDiffItems(JSON.parse(text));
-        } catch {
-          return text.split(/[,\n]+/g).map((item) => item.trim()).filter(Boolean);
-        }
-      }
-      return text.split(/[,\n]+/g).map((item) => item.trim()).filter(Boolean);
-    }
-    if (Array.isArray(value)) return value.flatMap((item) => toDiffItems(item));
-    if (typeof value === "object") {
-      return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
-        if (typeof item === "boolean") return item ? [key] : [];
-        const text = toReadableText(item).trim();
-        if (!text || text === "-") return [];
-        return [`${key}: ${text}`];
-      });
-    }
-    return [String(value)];
-  };
-
-  const computeAddedItems = (baseValue: unknown, lotValue: unknown): string[] => {
-    const baseMap = new Map<string, string>();
-    const lotMap = new Map<string, string>();
-    for (const item of toDiffItems(baseValue)) {
-      const normalized = normalizeText(item);
-      if (normalized && !baseMap.has(normalized)) baseMap.set(normalized, item);
-    }
-    for (const item of toDiffItems(lotValue)) {
-      const normalized = normalizeText(item);
-      if (normalized && !lotMap.has(normalized)) lotMap.set(normalized, item);
-    }
-    const added: string[] = [];
-    for (const [key, value] of lotMap.entries()) {
-      if (!baseMap.has(key)) added.push(value);
-    }
-    return added;
   };
 
   const explainAllergens = (
@@ -966,69 +885,14 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               </>
             ) : null}
             {selectedLot ? (
-              <div className="foods-detail-text-block foods-detail-lot-focus">
-                {lotDiff && (lotDiff.recipeChanged || lotDiff.ingredientsChanged || lotDiff.allergensChanged) ? (
-                  <div className="lot-diff-alert">
-                    <span className="lot-diff-alert-icon">⚠</span>
-                    <div>
-                      <span>
-                        {language === "tr"
-                          ? `Bu lot ana yemekten farklı: ${[lotDiff.recipeChanged && "Tarif", lotDiff.ingredientsChanged && "İçerikler", lotDiff.allergensChanged && "Alerjenler"].filter(Boolean).join(", ")}`
-                          : `This lot differs from the base food: ${[lotDiff.recipeChanged && "Recipe", lotDiff.ingredientsChanged && "Ingredients", lotDiff.allergensChanged && "Allergens"].filter(Boolean).join(", ")}`}
-                      </span>
-                      {lotDiff.ingredientsChanged ? (
-                        <p className="panel-meta">
-                          {language === "tr"
-                            ? `Eklenen malzemeler: ${addedIngredients.length > 0 ? addedIngredients.join(", ") : "-"}`
-                            : `Added ingredients: ${addedIngredients.length > 0 ? addedIngredients.join(", ") : "-"}`}
-                        </p>
-                      ) : null}
-                      {lotDiff.allergensChanged ? (
-                        <p className="panel-meta">
-                          {language === "tr" ? "Eklenen alerjenler: " : "Added allergens: "}
-                          <span className="foods-detail-allergen-text">{addedAllergens.length > 0 ? addedAllergens.join(", ") : "-"}</span>
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-                <div className="foods-detail-grid">
-                  <div>
-                    <span className="panel-meta">{dict.detail.lotNumber}</span>
-                    <strong>{selectedLot.lot_number}</strong>
-                  </div>
-                  <div>
-                    <span className="panel-meta">{dict.detail.lotLifecycle}</span>
-                    <strong>{lotLifecycleLabel(selectedLot.lifecycle_status, language)}</strong>
-                  </div>
-                  <div>
-                    <span className="panel-meta">{dict.detail.lotQuantity}</span>
-                    <strong>{`${selectedLot.quantity_available}/${selectedLot.quantity_produced}`}</strong>
-                  </div>
-                  <div>
-                    <span className="panel-meta">{dict.detail.lotProducedAt}</span>
-                    <strong>{formatUiDate(selectedLot.produced_at, language)}</strong>
-                  </div>
-                  <div>
-                    <span className="panel-meta">{dict.detail.lotSaleWindow}</span>
-                    <strong>{`${formatUiDate(selectedLot.sale_starts_at, language)} - ${formatUiDate(selectedLot.sale_ends_at, language)}`}</strong>
-                  </div>
-                  <div>
-                    <span className="panel-meta">{language === "tr" ? "Son Kullanma Tarihi" : "Use By Date"}</span>
-                    <strong>{formatUiDate(selectedLot.use_by, language)}</strong>
-                  </div>
-                </div>
-                <div className="foods-detail-grid">
-                  <div className={`foods-detail-text-block${lotDiff?.ingredientsChanged ? " foods-detail-text-block--warn" : ""}`}>
-                    <h4>{language === "tr" ? "Lot Malzemeler / Baharatlar" : "Lot Ingredients / Spices"}</h4>
-                    <p className="foods-detail-plain-text">{toReadableText(selectedLot.ingredients_snapshot_json)}</p>
-                  </div>
-                  <div className={`foods-detail-text-block${lotDiff?.allergensChanged ? " foods-detail-text-block--warn" : ""}`}>
-                    <h4>{language === "tr" ? "Lot Alerjen" : "Lot Allergens"}</h4>
-                    <p className="foods-detail-plain-text foods-detail-allergen-text">{toReadableText(selectedLot.allergens_snapshot_json)}</p>
-                  </div>
-                </div>
-              </div>
+              <LotDetailContent
+                lot={selectedLot}
+                language={language}
+                labels={{ lotNumber: dict.detail.lotNumber, lotLifecycle: dict.detail.lotLifecycle, lotQuantity: dict.detail.lotQuantity, lotProducedAt: dict.detail.lotProducedAt, lotSaleWindow: dict.detail.lotSaleWindow }}
+                lotDiff={lotDiff}
+                addedIngredients={addedIngredients}
+                addedAllergens={addedAllergens}
+              />
             ) : null}
             <div className="buyer-ops-modal-actions">
               <ExcelExportButton type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
