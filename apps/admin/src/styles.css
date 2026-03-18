@@ -4672,51 +4672,50 @@ textarea:focus {
 }
 
 .seller-notes-panel .buyer-ops-tag {
-  border-radius: 0;
-  padding: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
   min-width: 0;
   text-align: left;
   font-size: var(--text-base);
   font-weight: var(--font-medium);
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  background: transparent;
-  border: 0;
+  gap: 8px;
+  border: 1px solid transparent;
 }
 
 .seller-notes-panel .buyer-ops-tag:nth-child(5n + 1) {
-  background: transparent;
-  border-color: transparent;
-  color: inherit;
+  background: linear-gradient(180deg, #f6d7dc, #efc8cf);
+  border-color: #d68c98;
+  color: #7a1f2c;
 }
 
 .seller-notes-panel .buyer-ops-tag:nth-child(5n + 2) {
-  background: transparent;
-  border-color: transparent;
-  color: inherit;
+  background: linear-gradient(180deg, #d8f1e1, #caead6);
+  border-color: #86c39e;
+  color: #1d6a3b;
 }
 
 .seller-notes-panel .buyer-ops-tag:nth-child(5n + 3) {
-  background: transparent;
-  border-color: transparent;
-  color: inherit;
+  background: linear-gradient(180deg, #f8edc8, #f4e3ae);
+  border-color: #d8bc69;
+  color: #6c5310;
 }
 
 .seller-notes-panel .buyer-ops-tag:nth-child(5n + 4) {
-  background: transparent;
-  border-color: transparent;
-  color: inherit;
+  background: linear-gradient(180deg, #d7f0df, #c6e8d1);
+  border-color: #84c49b;
+  color: #1f6b3d;
 }
 
 .seller-notes-panel .buyer-ops-tag:nth-child(5n + 5) {
-  background: transparent;
-  border-color: transparent;
-  color: inherit;
+  background: linear-gradient(180deg, #dce8f9, #cfdef4);
+  border-color: #91add6;
+  color: #254d85;
 }
 
 .seller-notes-panel .buyer-ops-tag > span {
-  display: none;
+  display: inline;
 }
 
 .seller-notes-panel .buyer-ops-tag-remove {
