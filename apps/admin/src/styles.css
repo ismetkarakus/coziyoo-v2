@@ -3626,9 +3626,11 @@ textarea:focus {
 }
 
 .buyer-ops-tabs-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
+  padding-right: 140px;
 }
 
 .buyer-ops-tabs-head .buyer-ops-tabs {
@@ -3636,10 +3638,11 @@ textarea:focus {
 }
 
 .buyer-tabs-export-btn {
-  flex: 0 0 auto;
-  margin-left: auto;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   white-space: nowrap;
-  align-self: center;
 }
 
 .buyer-ref-main-panel .buyer-ops-tabs button {
@@ -7131,9 +7134,11 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-tabs-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-right: 140px;
 }
 
 .seller-tabs-head .seller-tabs {
@@ -7143,10 +7148,11 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-tabs-export-btn {
-  flex: 0 0 auto;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   white-space: nowrap;
-  align-self: center;
-  margin-left: auto;
 }
 
 .seller-tabs button {
