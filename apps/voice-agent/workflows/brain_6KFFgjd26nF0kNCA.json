@@ -1,5 +1,4 @@
 {
-  "id": "6bJGOBvPm9eyvooK",
   "name": "Coziyoo Voice Brain",
   "nodes": [
     {
@@ -14,10 +13,7 @@
       "name": "Brain Webhook In",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        320
-      ]
+      "position": [240, 320]
     },
     {
       "parameters": {
@@ -27,54 +23,52 @@
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        480,
-        320
-      ]
+      "position": [480, 320]
     },
     {
       "parameters": {
-        "jsCode": "const body = $json;\nconst pCfg = body.config || {};\n\nfunction resolve(pv, varName, def) {\n  if (pv != null && pv !== '') return pv;\n  try { const nv = $vars[varName]; if (nv != null && nv !== '') return nv; } catch {}\n  return def;\n}\n\nconst cfg = {\n  intentModel:       resolve(pCfg.intentModel,   'INTENT_MODEL',    'ministral-3:8b'),\n  intentBaseUrl:     resolve(pCfg.intentBaseUrl,  'INTENT_BASE_URL', 'https://ollama.drascom.uk').replace(/\\/$/, ''),\n  intentTemperature: parseFloat(resolve(pCfg.intentTemperature, 'INTENT_TEMPERATURE', 0.1)) || 0.1,\n  replyModel:        resolve(pCfg.replyModel,     'REPLY_MODEL',     'ministral-3:8b'),\n  replyBaseUrl:      resolve(pCfg.replyBaseUrl,   'REPLY_BASE_URL',  'https://ollama.drascom.uk').replace(/\\/$/, ''),\n  replyTemperature:  parseFloat(resolve(pCfg.replyTemperature, 'REPLY_TEMPERATURE', 0.25)) || 0.25,\n  replyMaxTokens:    parseInt(resolve(pCfg.replyMaxTokens, 'REPLY_MAX_TOKENS', 150)) || 150,\n};\n\nreturn [{ json: { ...body, cfg } }];"
+        "jsCode": "const body = $json;\nconst pCfg = body.config || {};\n\nfunction resolveEnv(varName, def) {\n  try { const v = $env[varName]; if (v != null && v !== '') return v; } catch {}\n  try { const v = $vars[varName]; if (v != null && v !== '') return v; } catch {}\n  return def;\n}\n\nfunction resolve(pv, varName, def) {\n  if (pv != null && pv !== '') return pv;\n  return resolveEnv(varName, def);\n}\n\nconst cfg = {\n  intentModel:       resolve(pCfg.intentModel,   'INTENT_MODEL',    'qwen3.5:9b'),\n  intentBaseUrl:     resolve(pCfg.intentBaseUrl,  'INTENT_BASE_URL', 'https://ollama.drascom.uk').replace(/\\/$/, ''),\n  intentTemperature: parseFloat(resolve(pCfg.intentTemperature, 'INTENT_TEMPERATURE', 0.1)) || 0.1,\n  replyModel:        resolve(pCfg.replyModel,     'REPLY_MODEL',     'qwen3.5:9b'),\n  replyBaseUrl:      resolve(pCfg.replyBaseUrl,   'REPLY_BASE_URL',  'https://ollama.drascom.uk').replace(/\\/$/, ''),\n  replyTemperature:  parseFloat(resolve(pCfg.replyTemperature, 'REPLY_TEMPERATURE', 0.25)) || 0.25,\n  replyMaxTokens:    parseInt(resolve(pCfg.replyMaxTokens, 'REPLY_MAX_TOKENS', 150)) || 150,\n  apiBaseUrl:        resolve(pCfg.apiBaseUrl,     'API_BASE_URL',    'https://api.coziyoo.com').replace(/\\/$/, ''),\n  apiSecret:         resolveEnv('AI_SERVER_SHARED_SECRET', 'change_me_ai_server_shared_secret_min_16'),\n};\n\nreturn [{ json: { ...body, cfg } }];"
       },
       "id": "resolve-config",
       "name": "Resolve Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        720,
-        320
-      ]
+      "position": [720, 320]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.cfg.intentBaseUrl }}/v1/chat/completions",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: $json.cfg.intentModel, temperature: $json.cfg.intentTemperature, messages: [ { role: 'system', content: 'You are a food-ordering voice assistant intent classifier.\\nOutput ONLY valid JSON. No markdown. No explanation.\\n\\nSchema: {\"intent\": string, \"confidence\": number, \"slots\": {\"productName\": string|null, \"quantity\": number|null}, \"ask\": string}\\n\\nINTENT VALUES: greeting, farewell, menu_browse, product_search, price_check, add_to_cart, view_cart, checkout, order_status, help, fallback' }, { role: 'user', content: `User said: \"${$json.userText}\"\\nClassify intent and extract slots.` } ] } }}",
+        "promptType": "define",
+        "text": "={{ 'User said: \"' + $json.userText + '\"\\nClassify intent and extract slots.' }}",
+        "options": {
+          "systemMessage": "You are a food-ordering voice assistant intent classifier.\nOutput ONLY valid JSON. No markdown. No explanation.\n\nSchema: {\"intent\": string, \"confidence\": number, \"slots\": {\"productName\": string|null, \"quantity\": number|null}, \"ask\": string}\n\nINTENT VALUES: greeting, farewell, menu_browse, product_search, price_check, add_to_cart, view_cart, checkout, order_status, help, fallback"
+        }
+      },
+      "id": "intent-agent",
+      "name": "Intent Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [960, 320]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
         "options": {}
       },
-      "id": "intent-llm",
-      "name": "Intent LLM",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        960,
-        320
-      ]
+      "id": "openai-intent",
+      "name": "OpenAI Intent",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [960, 160]
     },
     {
       "parameters": {
-        "jsCode": "const root = $json;\nconst raw = root?.choices?.[0]?.message?.content || '';\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/\\s*```$/i, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch { parsed = {}; }\n\nconst prev = $('Resolve Config').item.json;\nconst cfg = prev.cfg || {};\n\nconst VALID = new Set(['greeting','farewell','menu_browse','product_search','price_check','add_to_cart','view_cart','checkout','order_status','help','fallback']);\nconst intent = VALID.has(parsed.intent) ? parsed.intent : 'fallback';\nconst confidence = typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.7;\nconst slots = { productName: parsed.slots?.productName || null, quantity: parsed.slots?.quantity || null };\nconst ask = String(parsed.ask || '');\n\nreturn [{ json: { ...prev, intent, confidence, slots, ask, intentRaw: raw } }];"
+        "jsCode": "const raw = $json?.output || '';\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/\\s*```$/i, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch { parsed = {}; }\n\nconst prev = $('Resolve Config').item.json;\n\nconst VALID = new Set(['greeting','farewell','menu_browse','product_search','price_check','add_to_cart','view_cart','checkout','order_status','help','fallback']);\nconst intent = VALID.has(parsed.intent) ? parsed.intent : 'fallback';\nconst confidence = typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.7;\nconst slots = { productName: parsed.slots?.productName || null, quantity: parsed.slots?.quantity || null };\nconst ask = String(parsed.ask || '');\n\nreturn [{ json: { ...prev, intent, confidence, slots, ask, intentRaw: raw } }];"
       },
       "id": "parse-intent",
       "name": "Parse Intent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1200,
-        320
-      ]
+      "position": [1200, 320]
     },
     {
       "parameters": {
@@ -82,838 +76,406 @@
           "values": [
             {
               "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
                 "conditions": [
-                  {
-                    "leftValue": "={{ $json.intent }}",
-                    "rightValue": "product_search",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  },
-                  {
-                    "leftValue": "={{ $json.intent }}",
-                    "rightValue": "menu_browse",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  },
-                  {
-                    "leftValue": "={{ $json.intent }}",
-                    "rightValue": "price_check",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
+                  {"id": "r0-c0", "leftValue": "={{ $json.intent }}", "rightValue": "product_search", "operator": {"type": "string", "operation": "equals", "rightType": "string"}},
+                  {"id": "r0-c1", "leftValue": "={{ $json.intent }}", "rightValue": "menu_browse", "operator": {"type": "string", "operation": "equals", "rightType": "string"}},
+                  {"id": "r0-c2", "leftValue": "={{ $json.intent }}", "rightValue": "price_check", "operator": {"type": "string", "operation": "equals", "rightType": "string"}}
                 ],
                 "combinator": "or"
               }
             },
             {
               "conditions": {
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.intent }}",
-                    "rightValue": "add_to_cart",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [{"id": "r1-c0", "leftValue": "={{ $json.intent }}", "rightValue": "add_to_cart", "operator": {"type": "string", "operation": "equals", "rightType": "string"}}],
                 "combinator": "and"
               }
             },
             {
               "conditions": {
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.intent }}",
-                    "rightValue": "checkout",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [{"id": "r2-c0", "leftValue": "={{ $json.intent }}", "rightValue": "checkout", "operator": {"type": "string", "operation": "equals", "rightType": "string"}}],
                 "combinator": "and"
               }
             }
           ]
         },
-        "options": {
-          "looseTypeValidation": true
-        }
+        "options": {"fallbackOutput": "extra", "looseTypeValidation": true}
       },
       "id": "route-intent",
       "name": "Route by Intent",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [
-        1440,
-        320
-      ]
+      "position": [1440, 320]
     },
     {
       "parameters": {
-        "url": "http://127.0.0.1:3000/v1/voice/foods",
+        "url": "={{ $('Parse Intent').item.json.cfg.apiBaseUrl }}/v1/voice/foods",
         "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "q",
-              "value": "={{ $json.slots?.productName || '' }}"
-            },
-            {
-              "name": "limit",
-              "value": "10"
-            }
-          ]
-        },
+        "queryParameters": {"parameters": [{"name": "q", "value": "={{ $json.slots?.productName || '' }}"}, {"name": "limit", "value": "10"}]},
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-ai-server-secret",
-              "value": "={{ $vars.AI_SERVER_SHARED_SECRET }}"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "x-ai-server-secret", "value": "={{ $('Parse Intent').item.json.cfg.apiSecret }}"}]},
         "options": {}
       },
       "id": "search-foods",
       "name": "Search Foods",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1680,
-        80
-      ]
+      "position": [1680, 80]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $('Parse Intent').item.json.cfg.replyBaseUrl }}/v1/chat/completions",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: $('Parse Intent').item.json.cfg.replyModel, temperature: $('Parse Intent').item.json.cfg.replyTemperature, max_tokens: $('Parse Intent').item.json.cfg.replyMaxTokens, messages: [ { role: 'system', content: ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Never exceed 50 words. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }, { role: 'user', content: 'User said: \"' + $('Parse Intent').item.json.userText + '\"\\n\\nAvailable foods:\\n' + ($json.data?.foods || []).filter(f => f.available).slice(0, 8).map(f => '- ' + f.name + ': ' + f.price + ' TL' + (f.cardSummary ? ' (' + f.cardSummary + ')' : '')).join('\\n') + '\\n\\nDescribe what is available naturally. If nothing available, say so.' } ] } }}",
+        "promptType": "define",
+        "text": "={{ 'User said: \"' + $('Parse Intent').item.json.userText + '\"\\n\\nAvailable foods:\\n' + ($json.data?.foods || []).filter(f => f.available).slice(0, 8).map(f => '- ' + f.name + ': ' + f.price + ' TL' + (f.cardSummary ? ' (' + f.cardSummary + ')' : '')).join('\\n') + '\\n\\nDescribe what is available naturally. If nothing available, say so.' }}",
+        "options": {
+          "systemMessage": "={{ ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Never exceed 50 words. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }}"
+        }
+      },
+      "id": "reply-agent-food",
+      "name": "Reply Agent Food",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1920, 80]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
         "options": {}
       },
-      "id": "reply-llm-food",
-      "name": "Reply LLM Food",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1920,
-        80
-      ]
+      "id": "openai-food",
+      "name": "OpenAI Food",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [1920, -100]
     },
     {
       "parameters": {
-        "jsCode": "const llmText = String($json?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Parse Intent').item.json;\nreturn [{ json: { replyText: llmText || 'Here are the available options.', actions: [], meta: { intent: ctx.intent, traceId: ctx.traceId, locale: ctx.locale } } }];"
+        "jsCode": "const llmText = String($json?.output || '').trim();\nconst ctx = $('Parse Intent').item.json;\nreturn [{ json: { replyText: llmText || 'Here are the available options.', actions: [], meta: { intent: ctx.intent, traceId: ctx.traceId, locale: ctx.locale } } }];"
       },
       "id": "finalize-food",
       "name": "Finalize Food",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2160,
-        80
-      ]
+      "position": [2160, 80]
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{$json}}",
-        "options": {}
-      },
+      "parameters": {"respondWith": "json", "responseBody": "={{$json}}", "options": {}},
       "id": "respond-food",
       "name": "Respond Food",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        2400,
-        80
-      ]
+      "position": [2400, 80]
     },
     {
       "parameters": {
-        "url": "http://127.0.0.1:3000/v1/voice/foods",
+        "url": "={{ $('Parse Intent').item.json.cfg.apiBaseUrl }}/v1/voice/foods",
         "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "q",
-              "value": "={{ $json.slots?.productName || '' }}"
-            },
-            {
-              "name": "limit",
-              "value": "3"
-            }
-          ]
-        },
+        "queryParameters": {"parameters": [{"name": "q", "value": "={{ $json.slots?.productName || '' }}"}, {"name": "limit", "value": "3"}]},
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-ai-server-secret",
-              "value": "={{ $vars.AI_SERVER_SHARED_SECRET }}"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "x-ai-server-secret", "value": "={{ $('Parse Intent').item.json.cfg.apiSecret }}"}]},
         "options": {}
       },
       "id": "search-cart-food",
       "name": "Search Food for Cart",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1680,
-        280
-      ]
+      "position": [1680, 288]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:3000/v1/session/cart",
+        "url": "={{ $('Parse Intent').item.json.cfg.apiBaseUrl }}/v1/session/cart",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-ai-server-secret",
-              "value": "={{ $vars.AI_SERVER_SHARED_SECRET }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "x-ai-server-secret", "value": "={{ $('Parse Intent').item.json.cfg.apiSecret }}"}, {"name": "Content-Type", "value": "application/json"}]},
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { roomId: $('Parse Intent').item.json.roomId, userId: $('Parse Intent').item.json.userId, productName: $('Parse Intent').item.json.slots?.productName || '', quantity: $('Parse Intent').item.json.slots?.quantity || 1, foods: $json.data?.foods || [] } }}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "options": {"response": {"response": {"neverError": true}}}
       },
       "id": "write-cart",
       "name": "Write Cart",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1920,
-        280
-      ]
+      "position": [1920, 288]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $('Parse Intent').item.json.cfg.replyBaseUrl }}/v1/chat/completions",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: $('Parse Intent').item.json.cfg.replyModel, temperature: $('Parse Intent').item.json.cfg.replyTemperature, max_tokens: $('Parse Intent').item.json.cfg.replyMaxTokens, messages: [ { role: 'system', content: ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }, { role: 'user', content: $json.data?.item ? 'Added ' + $json.data.item.foodName + ' (' + $json.data.item.unitPrice + ' TL) x' + ($json.data.item.quantity || 1) + ' to cart. Confirm to the user.' : 'Could not find \"' + ($('Parse Intent').item.json.slots?.productName || 'that item') + '\" in the menu right now. Apologize.' } ] } }}",
+        "promptType": "define",
+        "text": "={{ $json.data?.item ? 'Added ' + $json.data.item.foodName + ' (' + $json.data.item.unitPrice + ' TL) x' + ($json.data.item.quantity || 1) + ' to cart. Confirm to the user.' : 'Could not find \"' + ($('Parse Intent').item.json.slots?.productName || 'that item') + '\" in the menu right now. Apologize.' }}",
+        "options": {
+          "systemMessage": "={{ ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }}"
+        }
+      },
+      "id": "reply-agent-cart",
+      "name": "Reply Agent Cart",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [2160, 288]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
         "options": {}
       },
-      "id": "reply-llm-cart",
-      "name": "Reply LLM Cart",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2160,
-        280
-      ]
+      "id": "openai-cart",
+      "name": "OpenAI Cart",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [2160, 160]
     },
     {
       "parameters": {
-        "jsCode": "const llmText = String($json?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Parse Intent').item.json;\nreturn [{ json: { replyText: llmText || 'Added to your cart.', actions: [], meta: { intent: ctx.intent, traceId: ctx.traceId } } }];"
+        "jsCode": "const llmText = String($json?.output || '').trim();\nconst ctx = $('Parse Intent').item.json;\nreturn [{ json: { replyText: llmText || 'Added to your cart.', actions: [], meta: { intent: ctx.intent, traceId: ctx.traceId } } }];"
       },
       "id": "finalize-cart",
       "name": "Finalize Cart",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2400,
-        280
-      ]
+      "position": [2400, 288]
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{$json}}",
-        "options": {}
-      },
+      "parameters": {"respondWith": "json", "responseBody": "={{$json}}", "options": {}},
       "id": "respond-cart",
       "name": "Respond Cart",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        2640,
-        280
-      ]
+      "position": [2640, 288]
     },
     {
       "parameters": {
-        "url": "={{ 'http://127.0.0.1:3000/v1/session/cart/' + $json.roomId }}",
+        "url": "={{ $('Parse Intent').item.json.cfg.apiBaseUrl + '/v1/session/cart/' + $('Parse Intent').item.json.roomId }}",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-ai-server-secret",
-              "value": "={{ $vars.AI_SERVER_SHARED_SECRET }}"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "headerParameters": {"parameters": [{"name": "x-ai-server-secret", "value": "={{ $('Parse Intent').item.json.cfg.apiSecret }}"}]},
+        "options": {"response": {"response": {"neverError": true}}}
       },
       "id": "read-cart-checkout",
       "name": "Read Cart for Checkout",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1680,
-        480
-      ]
+      "position": [1680, 480]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "looseTypeValidation": true
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ ($json.data?.cart || []).length }}",
-              "rightValue": 0,
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              }
-            }
-          ],
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{"id": "cart-length-check", "leftValue": "={{ ($json.data?.cart || []).length }}", "rightValue": 0, "operator": {"type": "number", "operation": "gt", "rightType": "number"}}],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
       "id": "has-cart",
       "name": "Has Cart?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        1920,
-        480
-      ]
+      "position": [1920, 480]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:3000/v1/orders/voice",
+        "url": "={{ $('Parse Intent').item.json.cfg.apiBaseUrl }}/v1/orders/voice",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-ai-server-secret",
-              "value": "={{ $vars.AI_SERVER_SHARED_SECRET }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Idempotency-Key",
-              "value": "={{ $('Parse Intent').item.json.traceId + '-order' }}"
-            }
-          ]
-        },
+        "headerParameters": {"parameters": [{"name": "x-ai-server-secret", "value": "={{ $('Parse Intent').item.json.cfg.apiSecret }}"}, {"name": "Content-Type", "value": "application/json"}, {"name": "Idempotency-Key", "value": "={{ $('Parse Intent').item.json.traceId + '-order' }}"}]},
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { userId: $json.data.userId, sellerId: ($json.data.cart?.[0]?.sellerId || ''), deliveryType: 'pickup', items: ($json.data.cart || []).map(i => ({ lotId: i.lotId, quantity: i.quantity || 1 })) } }}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "options": {"response": {"response": {"neverError": true}}}
       },
       "id": "create-order",
       "name": "Create Order",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2160,
-        420
-      ]
+      "position": [2160, 432]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ 'http://127.0.0.1:3000/v1/orders/' + ($json.data?.orderId || 'invalid') + '/notify-cook' }}",
+        "url": "={{ $('Parse Intent').item.json.cfg.apiBaseUrl + '/v1/orders/' + ($json.data?.orderId || 'invalid') + '/notify-cook' }}",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-ai-server-secret",
-              "value": "={{ $vars.AI_SERVER_SHARED_SECRET }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
+        "headerParameters": {"parameters": [{"name": "x-ai-server-secret", "value": "={{ $('Parse Intent').item.json.cfg.apiSecret }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "options": {"response": {"response": {"neverError": true}}}
       },
       "id": "notify-cook",
       "name": "Notify Cook",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2400,
-        420
-      ]
+      "position": [2400, 432]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $('Parse Intent').item.json.cfg.replyBaseUrl }}/v1/chat/completions",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: $('Parse Intent').item.json.cfg.replyModel, temperature: $('Parse Intent').item.json.cfg.replyTemperature, max_tokens: $('Parse Intent').item.json.cfg.replyMaxTokens, messages: [ { role: 'system', content: ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }, { role: 'user', content: $('Create Order').item.json?.data?.orderId ? 'Order placed successfully! Order ID: ' + $('Create Order').item.json.data.orderId + ', Total: ' + $('Create Order').item.json.data.totalPrice + ' TL. Cook has been notified. Confirm to the user.' : 'Order failed: ' + ($('Create Order').item.json?.error?.message || 'unknown error') + '. Apologize and suggest trying again.' } ] } }}",
+        "promptType": "define",
+        "text": "={{ $('Create Order').item.json?.data?.orderId ? 'Order placed successfully! Order ID: ' + $('Create Order').item.json.data.orderId + ', Total: ' + $('Create Order').item.json.data.totalPrice + ' TL. Cook has been notified. Confirm to the user.' : 'Order failed: ' + ($('Create Order').item.json?.error?.message || 'unknown error') + '. Apologize and suggest trying again.' }}",
+        "options": {
+          "systemMessage": "={{ ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }}"
+        }
+      },
+      "id": "reply-agent-checkout",
+      "name": "Reply Agent Checkout",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [2640, 432]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
         "options": {}
       },
-      "id": "reply-llm-checkout",
-      "name": "Reply LLM Checkout",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2640,
-        420
-      ]
+      "id": "openai-checkout",
+      "name": "OpenAI Checkout",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [2640, 300]
     },
     {
       "parameters": {
-        "jsCode": "const llmText = String($json?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Parse Intent').item.json;\nconst orderId = $('Create Order').item?.json?.data?.orderId || null;\nreturn [{ json: { replyText: llmText || (orderId ? 'Your order has been placed.' : 'I could not place the order, please try again.'), actions: orderId ? [{ name: 'navigate', params: { screen: 'OrderDetail', orderId } }] : [], meta: { intent: 'checkout', traceId: ctx.traceId, orderId } } }];"
+        "jsCode": "const llmText = String($json?.output || '').trim();\nconst ctx = $('Parse Intent').item.json;\nconst orderId = $('Create Order').item?.json?.data?.orderId || null;\nreturn [{ json: { replyText: llmText || (orderId ? 'Your order has been placed.' : 'I could not place the order, please try again.'), actions: orderId ? [{ name: 'navigate', params: { screen: 'OrderDetail', orderId } }] : [], meta: { intent: 'checkout', traceId: ctx.traceId, orderId } } }];"
       },
       "id": "finalize-checkout",
       "name": "Finalize Checkout",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2880,
-        420
-      ]
+      "position": [2880, 432]
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{$json}}",
-        "options": {}
-      },
+      "parameters": {"respondWith": "json", "responseBody": "={{$json}}", "options": {}},
       "id": "respond-checkout",
       "name": "Respond Checkout",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        3120,
-        420
-      ]
+      "position": [3120, 432]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $('Parse Intent').item.json.cfg.replyBaseUrl }}/v1/chat/completions",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: $('Parse Intent').item.json.cfg.replyModel, temperature: $('Parse Intent').item.json.cfg.replyTemperature, max_tokens: $('Parse Intent').item.json.cfg.replyMaxTokens, messages: [ { role: 'system', content: ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }, { role: 'user', content: 'User wants to checkout but the cart is empty. Tell them to add some items first before placing an order.' } ] } }}",
+        "promptType": "define",
+        "text": "User wants to checkout but the cart is empty. Tell them to add some items first before placing an order.",
+        "options": {
+          "systemMessage": "={{ ($('Parse Intent').item.json.systemPrompt || 'You are Coziyoo, a voice food ordering assistant.') + ' Reply in 1-2 short sentences for speech. Respond in ' + ($('Parse Intent').item.json.locale === 'tr' ? 'Turkish' : 'English') + '.' }}"
+        }
+      },
+      "id": "reply-agent-empty",
+      "name": "Reply Agent Empty Cart",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [2160, 560]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
         "options": {}
       },
-      "id": "reply-llm-empty",
-      "name": "Reply LLM Empty Cart",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2160,
-        560
-      ]
+      "id": "openai-empty",
+      "name": "OpenAI Empty",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [2160, 720]
     },
     {
       "parameters": {
-        "jsCode": "const llmText = String($json?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Parse Intent').item.json;\nreturn [{ json: { replyText: llmText || 'Your cart is empty. Please add some items first.', actions: [], meta: { intent: ctx.intent, traceId: ctx.traceId } } }];"
+        "jsCode": "const llmText = String($json?.output || '').trim();\nconst ctx = $('Parse Intent').item.json;\nreturn [{ json: { replyText: llmText || 'Your cart is empty. Please add some items first.', actions: [], meta: { intent: ctx.intent, traceId: ctx.traceId } } }];"
       },
       "id": "finalize-empty",
       "name": "Finalize Empty",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2400,
-        560
-      ]
+      "position": [2400, 560]
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{$json}}",
-        "options": {}
-      },
+      "parameters": {"respondWith": "json", "responseBody": "={{$json}}", "options": {}},
       "id": "respond-empty",
       "name": "Respond Empty",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        2640,
-        560
-      ]
+      "position": [2640, 560]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.cfg.replyBaseUrl }}/v1/chat/completions",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { model: $json.cfg.replyModel, temperature: $json.cfg.replyTemperature, max_tokens: $json.cfg.replyMaxTokens, messages: [ { role: 'system', content: ($json.systemPrompt || 'You are Coziyoo, a friendly voice assistant for food ordering. Reply in 1-2 short sentences suitable for speech. Never exceed 40 words. Respond in the user language (locale: ' + ($json.locale || 'en') + ').') }, { role: 'user', content: `Intent: ${$json.intent}\\nUser said: \"${$json.userText}\"${$json.ask ? '\\nHint: ' + $json.ask : ''}` } ] } }}",
+        "promptType": "define",
+        "text": "={{ 'Intent: ' + $json.intent + '\\nUser said: \"' + $json.userText + '\"' + ($json.ask ? '\\nHint: ' + $json.ask : '') }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt || 'You are Coziyoo, a friendly voice assistant for food ordering. Reply in 1-2 short sentences suitable for speech. Never exceed 40 words. Respond in the user language (locale: ' + ($json.locale || 'en') + ').' }}"
+        }
+      },
+      "id": "reply-agent",
+      "name": "Reply Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1680, 592]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
         "options": {}
       },
-      "id": "reply-llm",
-      "name": "Reply LLM",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1680,
-        580
-      ]
+      "id": "openai-fallback",
+      "name": "OpenAI Fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [1680, 760]
     },
     {
       "parameters": {
-        "jsCode": "const llmText = String($json?.choices?.[0]?.message?.content || '').trim();\nconst ctx = $('Parse Intent').item.json;\n\nconst fallback = ctx.ask || (ctx.intent === 'fallback' ? \"I'm not sure I understood. Could you rephrase?\" : 'How can I help you with your order?');\n\nreturn [{ json: {\n  replyText: llmText || fallback,\n  actions: [],\n  meta: {\n    intent: ctx.intent,\n    confidence: ctx.confidence,\n    slots: ctx.slots,\n    traceId: ctx.traceId,\n    locale: ctx.locale,\n    model: ctx.cfg?.replyModel\n  }\n}}];"
+        "jsCode": "const llmText = String($json?.output || '').trim();\nconst ctx = $('Parse Intent').item.json;\n\nconst fallback = ctx.ask || (ctx.intent === 'fallback' ? \"I'm not sure I understood. Could you rephrase?\" : 'How can I help you with your order?');\n\nreturn [{ json: {\n  replyText: llmText || fallback,\n  actions: [],\n  meta: {\n    intent: ctx.intent,\n    confidence: ctx.confidence,\n    slots: ctx.slots,\n    traceId: ctx.traceId,\n    locale: ctx.locale,\n    model: ctx.cfg?.replyModel\n  }\n}}];"
       },
       "id": "finalize",
       "name": "Finalize Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1920,
-        580
-      ]
+      "position": [1920, 592]
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{$json}}",
-        "options": {}
-      },
+      "parameters": {"respondWith": "json", "responseBody": "={{$json}}", "options": {}},
       "id": "respond",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        2160,
-        580
-      ]
+      "position": [2160, 592]
     }
   ],
   "connections": {
-    "Brain Webhook In": {
-      "main": [
-        [
-          {
-            "node": "Normalize Input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalize Input": {
-      "main": [
-        [
-          {
-            "node": "Resolve Config",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Resolve Config": {
-      "main": [
-        [
-          {
-            "node": "Intent LLM",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Intent LLM": {
-      "main": [
-        [
-          {
-            "node": "Parse Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Intent": {
-      "main": [
-        [
-          {
-            "node": "Route by Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Route by Intent": {
-      "main": [
-        [
-          {
-            "node": "Search Foods",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Search Food for Cart",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Read Cart for Checkout",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Reply LLM",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Search Foods": {
-      "main": [
-        [
-          {
-            "node": "Reply LLM Food",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reply LLM Food": {
-      "main": [
-        [
-          {
-            "node": "Finalize Food",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Finalize Food": {
-      "main": [
-        [
-          {
-            "node": "Respond Food",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Search Food for Cart": {
-      "main": [
-        [
-          {
-            "node": "Write Cart",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Write Cart": {
-      "main": [
-        [
-          {
-            "node": "Reply LLM Cart",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reply LLM Cart": {
-      "main": [
-        [
-          {
-            "node": "Finalize Cart",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Finalize Cart": {
-      "main": [
-        [
-          {
-            "node": "Respond Cart",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Read Cart for Checkout": {
-      "main": [
-        [
-          {
-            "node": "Has Cart?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has Cart?": {
-      "main": [
-        [
-          {
-            "node": "Create Order",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Reply LLM Empty Cart",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create Order": {
-      "main": [
-        [
-          {
-            "node": "Notify Cook",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notify Cook": {
-      "main": [
-        [
-          {
-            "node": "Reply LLM Checkout",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reply LLM Checkout": {
-      "main": [
-        [
-          {
-            "node": "Finalize Checkout",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Finalize Checkout": {
-      "main": [
-        [
-          {
-            "node": "Respond Checkout",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reply LLM Empty Cart": {
-      "main": [
-        [
-          {
-            "node": "Finalize Empty",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Finalize Empty": {
-      "main": [
-        [
-          {
-            "node": "Respond Empty",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reply LLM": {
-      "main": [
-        [
-          {
-            "node": "Finalize Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Finalize Reply": {
-      "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Brain Webhook In": {"main": [[{"node": "Normalize Input", "type": "main", "index": 0}]]},
+    "Normalize Input": {"main": [[{"node": "Resolve Config", "type": "main", "index": 0}]]},
+    "Resolve Config": {"main": [[{"node": "Intent Agent", "type": "main", "index": 0}]]},
+    "Intent Agent": {"main": [[{"node": "Parse Intent", "type": "main", "index": 0}]]},
+    "OpenAI Intent": {"ai_languageModel": [[{"node": "Intent Agent", "type": "ai_languageModel", "index": 0}]]},
+    "Parse Intent": {"main": [[{"node": "Route by Intent", "type": "main", "index": 0}]]},
+    "Route by Intent": {"main": [
+      [{"node": "Search Foods", "type": "main", "index": 0}],
+      [{"node": "Search Food for Cart", "type": "main", "index": 0}],
+      [{"node": "Read Cart for Checkout", "type": "main", "index": 0}],
+      [{"node": "Reply Agent", "type": "main", "index": 0}]
+    ]},
+    "Search Foods": {"main": [[{"node": "Reply Agent Food", "type": "main", "index": 0}]]},
+    "Reply Agent Food": {"main": [[{"node": "Finalize Food", "type": "main", "index": 0}]]},
+    "OpenAI Food": {"ai_languageModel": [[{"node": "Reply Agent Food", "type": "ai_languageModel", "index": 0}]]},
+    "Finalize Food": {"main": [[{"node": "Respond Food", "type": "main", "index": 0}]]},
+    "Search Food for Cart": {"main": [[{"node": "Write Cart", "type": "main", "index": 0}]]},
+    "Write Cart": {"main": [[{"node": "Reply Agent Cart", "type": "main", "index": 0}]]},
+    "Reply Agent Cart": {"main": [[{"node": "Finalize Cart", "type": "main", "index": 0}]]},
+    "OpenAI Cart": {"ai_languageModel": [[{"node": "Reply Agent Cart", "type": "ai_languageModel", "index": 0}]]},
+    "Finalize Cart": {"main": [[{"node": "Respond Cart", "type": "main", "index": 0}]]},
+    "Read Cart for Checkout": {"main": [[{"node": "Has Cart?", "type": "main", "index": 0}]]},
+    "Has Cart?": {"main": [
+      [{"node": "Create Order", "type": "main", "index": 0}],
+      [{"node": "Reply Agent Empty Cart", "type": "main", "index": 0}]
+    ]},
+    "Create Order": {"main": [[{"node": "Notify Cook", "type": "main", "index": 0}]]},
+    "Notify Cook": {"main": [[{"node": "Reply Agent Checkout", "type": "main", "index": 0}]]},
+    "Reply Agent Checkout": {"main": [[{"node": "Finalize Checkout", "type": "main", "index": 0}]]},
+    "OpenAI Checkout": {"ai_languageModel": [[{"node": "Reply Agent Checkout", "type": "ai_languageModel", "index": 0}]]},
+    "Finalize Checkout": {"main": [[{"node": "Respond Checkout", "type": "main", "index": 0}]]},
+    "Reply Agent Empty Cart": {"main": [[{"node": "Finalize Empty", "type": "main", "index": 0}]]},
+    "OpenAI Empty": {"ai_languageModel": [[{"node": "Reply Agent Empty Cart", "type": "ai_languageModel", "index": 0}]]},
+    "Finalize Empty": {"main": [[{"node": "Respond Empty", "type": "main", "index": 0}]]},
+    "Reply Agent": {"main": [[{"node": "Finalize Reply", "type": "main", "index": 0}]]},
+    "OpenAI Fallback": {"ai_languageModel": [[{"node": "Reply Agent", "type": "ai_languageModel", "index": 0}]]},
+    "Finalize Reply": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
   },
   "settings": {
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
   }
 }

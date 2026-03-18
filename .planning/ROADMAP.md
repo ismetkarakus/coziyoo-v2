@@ -119,6 +119,21 @@ Plans:
 - [x] 04-03: Configure n8n per-turn LLM workflow to use "Respond to Webhook" node and return correct response shape
 - [x] 04-04: Verify end-to-end per-turn flow: mobile speech → STT → n8n → replyText → TTS → audio in room
 
+### Phase 4.1: Voice Food Discovery *(INSERTED)*
+**Goal**: Users can search, browse, compare, and select food items by voice. A single consolidated brain workflow handles all intents using LLM nodes and direct API/Supabase calls — no separate MCP gateway.
+**Depends on**: Phase 4
+**Requirements**: TURN-03, ORD-01
+**Success Criteria** (what must be TRUE):
+  1. Brain workflow routes all intents through a Switch node; no separate MCP gateway workflow is called
+  2. menu_browse and product_search intents call `GET /v1/voice/foods` and the Reply LLM describes results naturally
+  3. add_to_cart intent resolves a real lotId from the foods API and writes it to `session_memory.cart` in Supabase
+  4. checkout intent reads `session_memory.cart`, calls `POST /v1/orders/voice`, and speaks order confirmation with orderId
+  5. Code nodes are minimal — LLM nodes handle intent classification and all natural language formatting
+**Plans**: TBD
+
+Plans:
+- [ ] 4.1-01: Redesign brain workflow — Switch-based routing, food discovery branches, add_to_cart memory write, checkout order creation
+
 ### Phase 5: Order Creation
 **Goal**: When a user verbally confirms an order during a session, n8n creates the order record and notifies the cook
 **Depends on**: Phase 4
@@ -197,6 +212,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3.1. STT/TTS Preflight Checks | 1/1 | Completed | 2026-03-16 |
 | 3.2. Mobile Login | 2/2 | Completed | 2026-03-16 |
 | 4. Per-Turn N8N Integration | 4/4 | Completed | 2026-03-17 |
+| 4.1. Voice Food Discovery | 0/1 | Not started | - |
 | 5. Order Creation | 0/3 | Not started | - |
 | 6. Post-Session UX | 0/3 | Not started | - |
 | 7. User Memory | 0/4 | Not started | - |
