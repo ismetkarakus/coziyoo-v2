@@ -3637,7 +3637,7 @@ textarea:focus {
 
 .buyer-tabs-export-btn {
   flex: 0 0 auto;
-  margin-right: 0;
+  margin-left: auto;
   white-space: nowrap;
   align-self: center;
 }
@@ -7144,7 +7144,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   flex: 0 0 auto;
   white-space: nowrap;
   align-self: center;
-  margin-right: 0;
+  margin-left: auto;
 }
 
 .seller-tabs button {
