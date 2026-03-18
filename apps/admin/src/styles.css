@@ -4432,17 +4432,17 @@ textarea:focus {
 .seller-notes-input-shell .seller-notes-add-btn {
   position: absolute;
   top: 50%;
-  right: 6px;
+  right: 0;
   transform: translateY(-50%);
-  height: 32px !important;
-  min-height: 32px !important;
-  padding: 0 12px !important;
-  border-radius: 8px !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  padding: 0 16px !important;
+  border-radius: 0 10px 10px 0 !important;
 }
 
 .seller-notes-input-shell input {
   width: 100%;
-  padding-right: 88px;
+  padding-right: 108px;
   align-items: center;
 }
 
@@ -4513,11 +4513,12 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 8px;
   grid-column: 1 / -1;
+  width: 100%;
 }
 
 .seller-note-item {
-  flex: 0 1 320px;
-  max-width: 460px;
+  flex: 1 1 260px;
+  max-width: none;
   position: relative;
   overflow: visible;
   border-radius: 20px;
