@@ -7152,6 +7152,11 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   top: 50%;
   transform: translateY(-50%);
   white-space: nowrap;
+  background: linear-gradient(180deg, #2f90ff, #1671d8);
+  border: 1px solid rgba(117, 180, 255, 0.8);
+  color: #eef6ff;
+  font-weight: var(--font-bold);
+  box-shadow: 0 10px 20px rgba(38, 128, 245, 0.2);
 }
 
 .seller-tabs button {
