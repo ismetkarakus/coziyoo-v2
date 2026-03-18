@@ -18,7 +18,7 @@ import {
   normalizeComplianceToken,
 } from "../../lib/compliance";
 import { resolveSellerDetailTab } from "../../lib/routing";
-import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff, computeAddedItems } from "../../lib/lots";
+import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff, computeAddedItems, toReadableText } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -179,6 +179,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const [selectedInlineLotId, setSelectedInlineLotId] = useState<string | null>(null);
   const quickAccessRef = useRef<HTMLDetailsElement | null>(null);
   const identityModalPrintRef = useRef<HTMLDivElement | null>(null);
+  const inlineLotModalRef = useRef<HTMLDivElement | null>(null);
   const complianceUploadInputRef = useRef<HTMLInputElement | null>(null);
   const sellerCriticalReqRef = useRef(0);
   const sellerDeferredReqRef = useRef(0);
@@ -891,6 +892,29 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   function printIdentityDetails() {
     if (!identityViewerOpen) return;
     printModalContent(identityModalPrintRef.current);
+  }
+
+  function printInlineLotDetail() {
+    printModalContent(inlineLotModalRef.current);
+  }
+
+  function downloadInlineLotDetailAsExcel() {
+    const food = selectedInlineFoodId ? foodRows.find((f) => f.id === selectedInlineFoodId) ?? null : null;
+    const lot = food && selectedInlineLotId ? (lotsByFoodId[food.id]?.find((l) => l.id === selectedInlineLotId) ?? null) : null;
+    if (!food || !lot) return;
+    const escapeCsv = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lotDiff = computeFoodLotDiff({ foodRecipe: food.recipe ?? null, foodIngredients: food.ingredients, foodAllergens: food.allergens, lot });
+    const lines: string[] = [
+      [dict.detail.lotNumber, dict.detail.lotLifecycle, dict.detail.lotQuantity, dict.detail.lotProducedAt, dict.detail.lotSaleWindow, language === "tr" ? "Son Kullanma" : "Use By", language === "tr" ? "Lot Malzemeler" : "Lot Ingredients", language === "tr" ? "Lot Alerjen" : "Lot Allergens"].map(escapeCsv).join(","),
+      [lot.lot_number, lotLifecycleLabel(lot.lifecycle_status, language), `${lot.quantity_available}/${lot.quantity_produced}`, formatUiDate(lot.produced_at, language), `${formatUiDate(lot.sale_starts_at, language)} - ${formatUiDate(lot.sale_ends_at, language)}`, formatUiDate(lot.use_by, language), toReadableText(lot.ingredients_snapshot_json), toReadableText(lot.allergens_snapshot_json)].map(escapeCsv).join(","),
+    ];
+    const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `lot-detail-${lot.lot_number}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   if (loading || (row && String(row.id) !== String(id))) return (
@@ -3125,7 +3149,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         if (!food) return null;
         return (
           <div className="buyer-ops-modal-backdrop" onClick={closeInlineModal}>
-            <div className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
+            <div ref={inlineLotModalRef} className="buyer-ops-modal foods-detail-modal print-target-modal" onClick={(event) => event.stopPropagation()}>
               <h3>{lot ? (language === "tr" ? "Lot Detayı" : "Lot Detail") : (language === "tr" ? "Yemek Detayı" : "Food Detail")}</h3>
               {!lot ? (
                 <>
@@ -3178,6 +3202,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 })()
               }
               <div className="buyer-ops-modal-actions">
+                {lot ? <ExcelExportButton type="button" onClick={downloadInlineLotDetailAsExcel} language={language} /> : null}
+                {lot ? <PrintButton className="ghost" type="button" onClick={printInlineLotDetail} language={language} /> : null}
                 <button className="primary" type="button" onClick={closeInlineModal}>
                   {language === "tr" ? "Kapat" : "Close"}
                 </button>
