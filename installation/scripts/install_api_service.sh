@@ -96,23 +96,4 @@ run_root systemctl daemon-reload
 run_root systemctl enable "${SERVICE_NAME}"
 run_root systemctl restart "${SERVICE_NAME}"
 
-# Wait for API to be ready before seeding
-log "Waiting for API to start..."
-API_BASE_URL="http://127.0.0.1:${API_PORT:-3000}"
-for i in {1..30}; do
-  if curl -fs "${API_BASE_URL}/v1/health" >/dev/null 2>&1; then
-    log "API is ready"
-    break
-  fi
-  if [[ $i -eq 30 ]]; then
-    log "Warning: API did not become ready in time, skipping data seeding"
-    exit 0
-  fi
-  sleep 1
-done
-
-# Seed admin user and optionally sample data
-log "Seeding data..."
-bash "${SCRIPT_DIR}/seed-data.sh"
-
 log "API service setup finished"
