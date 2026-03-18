@@ -1718,7 +1718,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             </button>
           ))}
           <ExcelExportButton
-            className="primary seller-tabs-export-btn"
+            className="seller-tabs-export-btn"
             type="button"
             onClick={exportActiveSellerTabAsExcel}
             disabled={!canExportActiveSellerTab}

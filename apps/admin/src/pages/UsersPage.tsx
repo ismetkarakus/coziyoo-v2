@@ -1050,7 +1050,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                   </button>
                 </div>
                 <div className="seller-v2-toolbar-right">
-                  <ExcelExportButton className="primary buyer-v2-export" type="button" onClick={downloadSellersAsExcel} language={language} />
+                  <ExcelExportButton type="button" onClick={downloadSellersAsExcel} language={language} />
                 </div>
               </div>
             ) : null}
@@ -1292,7 +1292,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
           <section className="panel buyer-v2-board">
           <div className="buyer-v2-toolbar">
             <div className="buyer-v2-toolbar-actions-right">
-              <ExcelExportButton className="primary buyer-v2-export" type="button" onClick={downloadBuyersAsExcel} language={language} />
+              <ExcelExportButton type="button" onClick={downloadBuyersAsExcel} language={language} />
             </div>
           </div>
 
@@ -1604,7 +1604,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
               {dict.users.visibleColumns}
             </button>
             {isBuyerPage ? (
-              <ExcelExportButton className="primary" type="button" onClick={downloadBuyersAsExcel} language={language}>
+              <ExcelExportButton type="button" onClick={downloadBuyersAsExcel} language={language}>
                 {dict.actions.exportExcel}
               </ExcelExportButton>
             ) : null}

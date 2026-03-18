@@ -715,7 +715,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <button className={activeTab === "create_ticket" ? "is-active" : ""} onClick={() => switchBuyerTab("create_ticket")} type="button">+ Talep Olustur</button>
               </div>
               <ExcelExportButton
-                className="primary buyer-tabs-export-btn"
+                className="buyer-tabs-export-btn"
                 type="button"
                 onClick={downloadBuyerOrdersAsExcel}
                 disabled={!canExportActiveBuyerTab}

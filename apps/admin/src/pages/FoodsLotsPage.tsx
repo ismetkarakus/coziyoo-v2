@@ -686,7 +686,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
           </div>
         </div>
         <div className="topbar-actions">
-          <ExcelExportButton className="primary" type="button" onClick={downloadSelectedFoodsAsExcel} language={language}>
+          <ExcelExportButton type="button" onClick={downloadSelectedFoodsAsExcel} language={language}>
             {language === "tr" ? `Excel'e Aktar (${selectedFoods.length})` : `Export to Excel (${selectedFoods.length})`}
           </ExcelExportButton>
         </div>
@@ -1036,7 +1036,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
               </div>
             ) : null}
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost" type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
+              <ExcelExportButton type="button" onClick={downloadSelectedFoodDetailAsExcel} language={language} />
               <PrintButton className="ghost" type="button" onClick={printSelectedFoodDetail} language={language} />
               <button className="primary" type="button" onClick={closeFoodDetailModal}>
                 Kapat

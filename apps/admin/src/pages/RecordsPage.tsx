@@ -750,7 +750,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         </div>
         <div className="topbar-actions">
           {tableKey === "orders" ? (
-            <ExcelExportButton className="primary" type="button" onClick={downloadSelectedOrdersAsExcel} language={language}>
+            <ExcelExportButton type="button" onClick={downloadSelectedOrdersAsExcel} language={language}>
               {fmt(dict.records.exportSelectedWithCount, { count: selectedOrders.length })}
             </ExcelExportButton>
           ) : null}
@@ -928,7 +928,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
               )}
             </section>
             <div className="buyer-ops-modal-actions">
-              <ExcelExportButton className="ghost" type="button" onClick={downloadOpenOrderDetailAsExcel} language="tr" />
+              <ExcelExportButton type="button" onClick={downloadOpenOrderDetailAsExcel} language="tr" />
               <PrintButton className="ghost" type="button" onClick={printOpenOrderDetail} language="tr" />
                 <button className="primary" type="button" onClick={() => setSelectedOrder(null)}>
                   {dict.records.close}

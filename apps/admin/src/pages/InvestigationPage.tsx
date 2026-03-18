@@ -303,7 +303,7 @@ export default function InvestigationPage({ language }: { language: Language }) 
             <option value="resolved">{statusText("resolved")}</option>
             <option value="closed">{statusText("closed")}</option>
           </select>
-          <ExcelExportButton className="primary" type="button" onClick={() => void downloadComplaintsAsExcel()} language={language} />
+          <ExcelExportButton type="button" onClick={() => void downloadComplaintsAsExcel()} language={language} />
         </div>
       </header>
 

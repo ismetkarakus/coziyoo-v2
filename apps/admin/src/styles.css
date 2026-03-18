@@ -3128,6 +3128,16 @@ textarea:focus {
   color: #eef6ff;
   font-weight: var(--font-bold);
   box-shadow: 0 10px 20px rgba(38, 128, 245, 0.2);
+  cursor: pointer;
+}
+
+.excel-export-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4aa3ff, #1e7ee8);
+}
+
+.excel-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 
@@ -7135,12 +7145,6 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 .seller-tabs-export-btn {
   margin-left: auto;
-  white-space: nowrap;
-  background: linear-gradient(180deg, #2f90ff, #1671d8);
-  border: 1px solid rgba(117, 180, 255, 0.8);
-  color: #eef6ff;
-  font-weight: var(--font-bold);
-  box-shadow: 0 10px 20px rgba(38, 128, 245, 0.2);
   align-self: center;
   margin-bottom: 1px;
 }
