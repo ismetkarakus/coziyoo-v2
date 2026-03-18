@@ -10446,3 +10446,36 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 :root:not(.dark) .complaint-empty-notes {
   color: var(--color-tertiary-text);
 }
+
+/* ── Print ────────────────────────────────────────────────────────── */
+@media print {
+  body.modal-print-active > *:not(#print-root-clone) {
+    display: none !important;
+  }
+
+  #print-root-clone {
+    display: block !important;
+    position: static !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  #print-root-clone h3 {
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+  }
+
+  #print-root-clone .buyer-ops-modal-actions {
+    display: none !important;
+  }
+}
