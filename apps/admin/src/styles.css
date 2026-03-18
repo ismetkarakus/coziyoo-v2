@@ -4543,7 +4543,7 @@ textarea:focus {
 
 .seller-note-item-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
   gap: 4px;
   flex: 0 0 auto;
@@ -4552,7 +4552,8 @@ textarea:focus {
 }
 
 .seller-note-item-meta--todo {
-  align-items: center;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .seller-note-item-author {
