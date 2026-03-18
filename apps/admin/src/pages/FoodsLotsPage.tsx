@@ -862,18 +862,11 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   ) : (
                     <div className="foods-allergen-status-list">
                       {selectedFoodAllergenSummary.map((row) => {
-                        const tone = row.status === "contains" ? "is-danger" : row.status === "may" ? "is-warning" : "is-neutral";
-                        const statusText =
-                          row.status === "contains"
-                            ? "İçerir"
-                            : row.status === "may"
-                              ? "İçerebilir"
-                              : "Bahsedildi";
+                        const labelClass = row.status === "contains" ? "foods-detail-allergen-text" : row.status === "may" ? "foods-allergen-may-text" : "";
                         return (
                           <article key={row.key} className="foods-allergen-status-item">
                             <div className="foods-allergen-status-head">
-                              <strong>{row.label}</strong>
-                              <span className={`status-pill ${tone}`}>{statusText}</span>
+                              <strong className={labelClass}>{row.label}</strong>
                             </div>
                             <p className="panel-meta">{row.note}</p>
                           </article>

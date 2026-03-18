@@ -8185,6 +8185,10 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   color: color-mix(in srgb, #ff4d4f 78%, var(--color-text));
 }
 
+.foods-allergen-may-text {
+  color: color-mix(in srgb, #e89a2a 85%, var(--color-text));
+}
+
 .foods-detail-text-block pre {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
