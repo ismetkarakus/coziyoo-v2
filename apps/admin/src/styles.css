@@ -3632,8 +3632,9 @@ textarea:focus {
 
 .buyer-tabs-export-btn {
   flex: 0 0 auto;
-  margin-right: 12px;
+  margin-right: -6px;
   white-space: nowrap;
+  align-self: center;
 }
 
 .buyer-ref-main-panel .buyer-ops-tabs button {
@@ -7109,6 +7110,8 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 .seller-tabs-export-btn {
   flex: 0 0 auto;
   white-space: nowrap;
+  align-self: center;
+  margin-right: -6px;
 }
 
 .seller-tabs button {
