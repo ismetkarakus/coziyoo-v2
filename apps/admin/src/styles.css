@@ -4321,7 +4321,7 @@ textarea:focus {
   background:
     radial-gradient(130% 150% at 0% 0%, rgba(93, 106, 136, 0.22), rgba(49, 56, 74, 0)),
     linear-gradient(180deg, rgba(35, 44, 65, 0.9), rgba(27, 34, 52, 0.9));
-  padding: 14px 16px;
+  padding: 8px 12px;
 }
 
 .seller-notes-panel .seller-notes-header h2 {
@@ -4348,7 +4348,7 @@ textarea:focus {
 .seller-notes-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 6px;
   padding: 0;
   align-items: start;
 }
@@ -4360,7 +4360,7 @@ textarea:focus {
 .seller-notes-col {
   min-width: 0;
   display: grid;
-  gap: 10px;
+  gap: 6px;
   align-content: start;
 }
 
