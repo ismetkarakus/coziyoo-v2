@@ -4501,25 +4501,6 @@ textarea:focus {
     inset 0 -1px 0 rgba(159, 181, 221, 0.24);
 }
 
-.seller-note-item::before {
-  content: "";
-  position: absolute;
-  left: 22px;
-  bottom: -10px;
-  width: 20px;
-  height: 20px;
-  border-left: 1px solid rgba(194, 210, 235, 0.5);
-  border-bottom: 1px solid rgba(194, 210, 235, 0.5);
-  border-bottom-left-radius: 8px;
-  background: linear-gradient(135deg, oklch(1 0 0), oklch(0.95 0.04 240));
-  box-shadow:
-    -8px 12px 18px rgba(125, 150, 196, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  transform: skewY(-18deg) rotate(-14deg);
-  transform-origin: center;
-  z-index: 0;
-}
-
 .seller-note-item::after {
   content: "";
   position: absolute;
@@ -10144,15 +10125,6 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row input::placeholder,
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-notes-input-row textarea::placeholder {
   color: rgba(24, 56, 111, 0.46) !important;
-}
-
-:root:not(.dark) .seller-detail-page .seller-notes-panel .seller-note-item::before {
-  background: linear-gradient(135deg, oklch(1 0 0), oklch(0.95 0.04 240));
-  border-left-color: rgba(143, 168, 220, 0.45);
-  border-bottom-color: rgba(143, 168, 220, 0.45);
-  box-shadow:
-    -8px 12px 18px rgba(125, 150, 196, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 :root:not(.dark) .seller-detail-page .seller-notes-panel .seller-note-item::after,
