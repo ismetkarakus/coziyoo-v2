@@ -26,10 +26,15 @@ export function printModalContent(target: HTMLElement | null) {
   document.body.appendChild(clone);
   document.body.classList.add("modal-print-active");
 
+  // Temporarily clear the document title so the browser doesn't print it in the header
+  const originalTitle = document.title;
+  document.title = "";
+
   let cleaned = false;
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    document.title = originalTitle;
     document.body.classList.remove("modal-print-active");
     document.getElementById(PRINT_CLONE_ID)?.remove();
     window.removeEventListener("afterprint", onAfterPrint);

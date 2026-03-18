@@ -10449,7 +10449,7 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 
 /* ── Print ────────────────────────────────────────────────────────── */
 @page {
-  margin: 16mm 14mm;
+  margin: 14mm;
 }
 
 @media print {
