@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -107,6 +108,8 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
   const [voiceSession, setVoiceSession] = useState<SessionData | null>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [draftMessage, setDraftMessage] = useState('');
+  const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
+  const [cartCount, setCartCount] = useState(0);
 
   const cardTranslate = useRef(new Animated.Value(24)).current;
   const cardScale = useRef(new Animated.Value(0.96)).current;
@@ -329,7 +332,7 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
         </View>
 
         {meals.map((meal) => (
-          <View key={meal.id} style={styles.mealCard}>
+          <TouchableOpacity key={meal.id} style={styles.mealCard} activeOpacity={0.85} onPress={() => setSelectedMeal(meal)}>
             <View style={[styles.mealThumb, { backgroundColor: meal.backgroundColor }]}>
               <Text style={styles.mealEmoji}>{meal.emoji}</Text>
             </View>
@@ -350,10 +353,10 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
               </View>
             </View>
             <Text style={styles.mealPrice}>{meal.price}</Text>
-            <TouchableOpacity style={styles.addCartButton} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.addCartButton} activeOpacity={0.85} onPress={(e) => { e.stopPropagation(); setCartCount((c) => c + 1); }}>
               <Text style={styles.addCartButtonText}>Sepete Ekle</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         ))}
 
         {voiceError ? <Text style={styles.inlineError}>{voiceError}</Text> : null}
@@ -400,6 +403,51 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#E8E3DB" />
+
+      {/* Yemek Detay Modali */}
+      <Modal visible={!!selectedMeal} animationType="slide" transparent onRequestClose={() => setSelectedMeal(null)}>
+        {selectedMeal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedMeal(null)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.modalThumb, { backgroundColor: selectedMeal.backgroundColor }]}>
+                <Text style={styles.modalEmoji}>{selectedMeal.emoji}</Text>
+              </View>
+
+              <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
+              <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
+
+              <View style={styles.modalRatingRow}>
+                <Text style={styles.ratingGold}>★ {selectedMeal.goldRating}</Text>
+                <Text style={styles.ratingGreen}>★ {selectedMeal.greenRating}</Text>
+              </View>
+
+              <Text style={styles.modalMeta}>{selectedMeal.meta}</Text>
+
+              <View style={styles.tagRow}>
+                {selectedMeal.tags.map((tag) => (
+                  <View key={tag} style={styles.tagPill}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={styles.modalPrice}>{selectedMeal.price}</Text>
+
+              <TouchableOpacity
+                style={styles.modalCartButton}
+                activeOpacity={0.85}
+                onPress={() => { setCartCount((c) => c + 1); setSelectedMeal(null); }}
+              >
+                <Text style={styles.modalCartButtonText}>Sepete Ekle</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </Modal>
       <View style={styles.container}>
         <View style={styles.inner}>
           <Animated.View pointerEvents={agentOpen ? 'auto' : 'none'} style={[styles.overlay, { opacity: overlayOpacity }]} />
@@ -1032,5 +1080,90 @@ const styles = StyleSheet.create({
   },
   navLabelActive: {
     color: '#5B6E5F',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0EEEA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  modalCloseText: {
+    color: '#6B6560',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalThumb: {
+    width: 120,
+    height: 120,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalEmoji: {
+    fontSize: 56,
+  },
+  modalTitle: {
+    color: '#2C2C2C',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  modalSeller: {
+    color: '#7A8F7E',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalRatingRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  modalMeta: {
+    color: '#9E9892',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalPrice: {
+    color: '#5B6E5F',
+    fontSize: 28,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  modalCartButton: {
+    backgroundColor: '#7A8F7E',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalCartButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
