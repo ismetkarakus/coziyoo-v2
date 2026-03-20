@@ -4,6 +4,7 @@ import {
   Animated,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   SafeAreaView,
@@ -1097,7 +1098,16 @@ export default function HomeScreen({
   function renderContent() {
     if (activeTab === 'messages') {
       return (
-        <View style={styles.messagesTabWrap}>
+        <KeyboardAvoidingView
+          style={styles.messagesTabWrap}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 78 : 0}
+        >
+          <View pointerEvents="none" style={styles.messagesWallpaper}>
+            <View style={styles.messagesBlob1} />
+            <View style={styles.messagesBlob2} />
+            <View style={styles.messagesBlob3} />
+          </View>
           <View style={styles.messagesTabHeader}>
             <Text style={styles.messagesTabTitle}>Mesajlar</Text>
             <Text style={styles.messagesTabSubtitle}>Ustalarla iletisim kur</Text>
@@ -1126,7 +1136,7 @@ export default function HomeScreen({
               <Ionicons name="arrow-up" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       );
     }
     if (activeTab === 'cart') {
@@ -1787,7 +1797,38 @@ const styles = StyleSheet.create({
   },
   tabPanelTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
   tabPanelText: { color: '#8D8072', fontSize: 14, marginTop: 8, lineHeight: 20 },
-  messagesTabWrap: { flex: 1, marginTop: 16 },
+  messagesTabWrap: { flex: 1, marginTop: 16, paddingBottom: 72 },
+  messagesWallpaper: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F7F3EC',
+  },
+  messagesBlob1: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    top: -70,
+    right: -80,
+    backgroundColor: 'rgba(74,124,89,0.10)',
+  },
+  messagesBlob2: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    top: 210,
+    left: -100,
+    backgroundColor: 'rgba(201,149,58,0.10)',
+  },
+  messagesBlob3: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    bottom: 40,
+    right: -60,
+    backgroundColor: 'rgba(109,93,79,0.08)',
+  },
   messagesTabHeader: { paddingHorizontal: 18, paddingBottom: 8 },
   messagesTabTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700' },
   messagesTabSubtitle: { color: '#8D8072', fontSize: 13, marginTop: 2 },
