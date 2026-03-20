@@ -1363,10 +1363,10 @@ const styles = StyleSheet.create({
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchIconButton: {
     position: 'absolute',
-    left: 12,
+    left: 6,
     top: 0,
     bottom: 0,
-    width: 34,
+    width: 26,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 3,
@@ -1377,13 +1377,13 @@ const styles = StyleSheet.create({
   searchText: { color: '#A89B8C', fontSize: 14 },
   searchInput: {
     flex: 1,
-    marginLeft: 56,
+    marginLeft: 34,
     color: '#3D3229',
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
   },
-  searchCategoryScroller: { flex: 1, marginLeft: 56 },
+  searchCategoryScroller: { flex: 1, marginLeft: 34 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
