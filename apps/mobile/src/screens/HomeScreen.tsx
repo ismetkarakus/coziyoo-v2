@@ -1448,7 +1448,13 @@ const styles = StyleSheet.create({
   categoryTextActive: { color: '#F5F1EB' },
 
   /* --- Food card --- */
-  foodCard: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginBottom: 12 },
+  foodCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 12,
+    marginHorizontal: -8,
+  },
   foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   foodImage: { width: '100%', height: '100%' },
   foodEmoji: { fontSize: 56 },
