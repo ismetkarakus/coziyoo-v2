@@ -143,13 +143,13 @@ function lighten(hex: string, amount: number): string {
 
 function deriveCardColors(dominant: string): CardColors {
   const safe = normalizeHexColor(dominant);
-  const title = darken(safe, 0.62);
-  const subtitle = darken(safe, 0.46);
-  const price = darken(safe, 0.56);
-  const metaBase = darken(safe, 0.38);
+  const title = darken(safe, 0.74);
+  const subtitle = darken(safe, 0.64);
+  const price = darken(safe, 0.7);
+  const metaBase = darken(safe, 0.58);
   return {
-    bg: lighten(safe, 0.82),
-    border: lighten(safe, 0.68),
+    bg: lighten(safe, 0.9),
+    border: lighten(safe, 0.8),
     title,
     subtitle,
     price,
