@@ -62,19 +62,27 @@ paymentsRouter.post(
       return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not buyer of this order" } });
     }
 
-    if (!["seller_approved", "awaiting_payment"].includes(order.status)) {
+    if (!["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(order.status)) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: `Payment start not allowed for status ${order.status}` },
+        error: { code: "ORDER_INVALID_STATE", message: `Bu siparis durumunda odeme baslatilamaz: ${order.status}` },
       });
     }
 
-    if (order.status === "seller_approved") {
+    if (order.status === "pending_seller_approval" || order.status === "seller_approved") {
       await client.query("UPDATE orders SET status = 'awaiting_payment', updated_at = now() WHERE id = $1", [order.id]);
       await client.query(
         `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
-         VALUES ($1, $2, 'payment_start', 'seller_approved', 'awaiting_payment', $3)`,
-        [order.id, req.auth!.userId, JSON.stringify({ provider: env.PAYMENT_PROVIDER_NAME })]
+         VALUES ($1, $2, 'payment_start', $3, 'awaiting_payment', $4)`,
+        [
+          order.id,
+          req.auth!.userId,
+          order.status,
+          JSON.stringify({
+            provider: env.PAYMENT_PROVIDER_NAME,
+            autoApproved: order.status === "pending_seller_approval",
+          }),
+        ]
       );
     }
 
