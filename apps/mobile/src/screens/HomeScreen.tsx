@@ -510,6 +510,8 @@ function FoodCard({
       });
   }, [imageUrl, meal.backgroundColor, imageFailed]);
 
+  const allergens = Array.isArray(meal.allergens) ? meal.allergens : [];
+
   return (
     <TouchableOpacity
       style={[
@@ -570,9 +572,9 @@ function FoodCard({
             <Text style={[styles.foodPrice, { color: colors.price }]}>
               {meal.price}
             </Text>
-            {meal.allergens.length > 0 ? (
+            {allergens.length > 0 ? (
               <Text style={styles.foodAllergenText}>
-                Alerjen: {meal.allergens.slice(0, 3).join(', ')}
+                Alerjen: {allergens.slice(0, 3).join(', ')}
               </Text>
             ) : null}
           </View>
