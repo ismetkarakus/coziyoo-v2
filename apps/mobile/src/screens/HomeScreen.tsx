@@ -529,12 +529,7 @@ export default function HomeScreen({
   const [cartCount, setCartCount] = useState(0);
 
   // FAB animations
-  const pulse1Scale = useRef(new Animated.Value(1)).current;
-  const pulse1Opacity = useRef(new Animated.Value(0.8)).current;
-  const pulse2Scale = useRef(new Animated.Value(1)).current;
-  const pulse2Opacity = useRef(new Animated.Value(0.6)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
-  const breatheLift = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -610,103 +605,27 @@ export default function HomeScreen({
 
   // FAB pulse & breathe animations
   useEffect(() => {
-    const pulse1 = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pulse1Scale, {
-            toValue: 1.34,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulse1Opacity, {
-            toValue: 0,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(pulse1Scale, {
-            toValue: 1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulse1Opacity, {
-            toValue: 0.8,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-    );
-
-    const pulse2 = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pulse2Scale, {
-            toValue: 1.5,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulse2Opacity, {
-            toValue: 0,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(pulse2Scale, {
-            toValue: 1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulse2Opacity, {
-            toValue: 0.6,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-    );
-
     const breathe = Animated.loop(
       Animated.sequence([
-        Animated.parallel([
-          Animated.timing(breatheScale, {
-            toValue: 1.055,
-            duration: 680,
-            useNativeDriver: true,
-          }),
-          Animated.timing(breatheLift, {
-            toValue: -2.2,
-            duration: 680,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(breatheScale, {
-            toValue: 1,
-            duration: 920,
-            useNativeDriver: true,
-          }),
-          Animated.timing(breatheLift, {
-            toValue: 0,
-            duration: 920,
-            useNativeDriver: true,
-          }),
-        ]),
+        Animated.timing(breatheScale, {
+          toValue: 1.03,
+          duration: 1300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(breatheScale, {
+          toValue: 1,
+          duration: 1300,
+          useNativeDriver: true,
+        }),
       ]),
     );
 
-    pulse1.start();
-    pulse2.start();
     breathe.start();
 
     return () => {
-      pulse1.stop();
-      pulse2.stop();
       breathe.stop();
     };
-  }, [pulse1Scale, pulse1Opacity, pulse2Scale, pulse2Opacity, breatheScale, breatheLift]);
+  }, [breatheScale]);
 
   useEffect(() => {
     if (searchMode) {
@@ -1227,42 +1146,11 @@ export default function HomeScreen({
 
           {/* FAB */}
           <View style={styles.floatingWrap}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.pulseRing1,
-                {
-                  opacity: pulse1Opacity,
-                  transform: [{ scale: pulse1Scale }],
-                },
-              ]}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.pulseRing2,
-                {
-                  opacity: pulse2Opacity,
-                  transform: [{ scale: pulse2Scale }],
-                },
-              ]}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.floatingAura,
-                {
-                  opacity: breatheScale.interpolate({
-                    inputRange: [1, 1.055],
-                    outputRange: [0.12, 0.32],
-                  }),
-                  transform: [{ scale: breatheScale }],
-                },
-              ]}
-            />
+            <View pointerEvents="none" style={styles.pulseRing1} />
+            <View pointerEvents="none" style={styles.pulseRing2} />
             <Animated.View
               style={{
-                transform: [{ scale: breatheScale }, { translateY: breatheLift }],
+                transform: [{ scale: breatheScale }],
               }}
             >
               <TouchableOpacity
@@ -1535,21 +1423,22 @@ const styles = StyleSheet.create({
     zIndex: 80, width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
   },
   pulseRing1: {
-    position: 'absolute', width: 56, height: 56, borderRadius: 28,
-    borderWidth: 2.2, borderColor: 'rgba(74,124,89,0.42)',
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2.2,
+    borderColor: 'rgba(74,124,89,0.30)',
     backgroundColor: 'transparent',
   },
   pulseRing2: {
-    position: 'absolute', width: 56, height: 56, borderRadius: 28,
-    borderWidth: 1.8, borderColor: 'rgba(74,124,89,0.28)',
-    backgroundColor: 'transparent',
-  },
-  floatingAura: {
     position: 'absolute',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(88, 148, 106, 0.28)',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 1.8,
+    borderColor: 'rgba(74,124,89,0.18)',
+    backgroundColor: 'transparent',
   },
   floatingButton: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#4A7C59',
