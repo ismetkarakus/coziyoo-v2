@@ -161,6 +161,16 @@ function formatReviewDate(value: string): string {
   });
 }
 
+async function readJsonSafe<T = unknown>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!text.trim()) return {} as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Sunucudan beklenmeyen cevap geldi (${response.status})`);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -801,7 +811,7 @@ export default function HomeScreen({
             setMealsError(`retry failed (${retryRes.status})`);
             return;
           }
-          const retryJson = await retryRes.json();
+          const retryJson = await readJsonSafe<{ data?: ApiFoodItem[] }>(retryRes);
           if (Array.isArray(retryJson.data)) {
             setMeals(retryJson.data.map(apiToMealCard));
           } else {
@@ -816,7 +826,7 @@ export default function HomeScreen({
         setMealsError(`request failed (${response.status})`);
         return;
       }
-      const json = await response.json();
+      const json = await readJsonSafe<{ data?: ApiFoodItem[] }>(response);
       if (Array.isArray(json.data)) {
         setMeals(json.data.map(apiToMealCard));
       } else {
@@ -1097,7 +1107,10 @@ export default function HomeScreen({
           })),
         }),
       });
-      const orderJson = await orderRes.json();
+      const orderJson = await readJsonSafe<{
+        data?: { orderId?: string; status?: string };
+        error?: { message?: string };
+      }>(orderRes);
       if (!orderRes.ok) {
         throw new Error(orderJson?.error?.message ?? `Siparis olusturulamadi (${orderRes.status})`);
       }
@@ -1116,7 +1129,10 @@ export default function HomeScreen({
         },
         body: JSON.stringify({ orderId }),
       });
-      const paymentJson = await paymentRes.json();
+      const paymentJson = await readJsonSafe<{
+        data?: { checkoutUrl?: string };
+        error?: { message?: string };
+      }>(paymentRes);
       if (!paymentRes.ok) {
         setPaymentStatus({
           orderId,
@@ -1155,7 +1171,15 @@ export default function HomeScreen({
           Authorization: `Bearer ${currentAuth.accessToken}`,
         },
       });
-      const json = await response.json();
+      const json = await readJsonSafe<{
+        data?: {
+          orderId?: string;
+          orderStatus?: string;
+          paymentCompleted?: boolean;
+          latestAttempt?: { status?: string };
+        };
+        error?: { message?: string };
+      }>(response);
       if (!response.ok) {
         throw new Error(json?.error?.message ?? `Durum alinamadi (${response.status})`);
       }
@@ -1317,7 +1341,7 @@ export default function HomeScreen({
       headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
     })
       .then(async (response) => {
-        const json = (await response.json()) as { data?: SellerReview[]; error?: { message?: string } };
+        const json = await readJsonSafe<{ data?: SellerReview[]; error?: { message?: string } }>(response);
         if (!response.ok) {
           throw new Error(json.error?.message ?? `request failed (${response.status})`);
         }
