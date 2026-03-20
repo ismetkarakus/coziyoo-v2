@@ -87,3 +87,47 @@ foodsRouter.get("/", async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /v1/foods/sellers/:sellerId/reviews
+ * List recent reviews for a seller.
+ */
+foodsRouter.get("/sellers/:sellerId/reviews", async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { rows } = await pool.query(
+      `
+        SELECT
+          r.id,
+          r.rating,
+          r.comment,
+          r.created_at,
+          f.name AS food_name,
+          COALESCE(b.display_name, 'Anonim Kullanici') AS buyer_name
+        FROM reviews r
+        JOIN foods f ON f.id = r.food_id
+        LEFT JOIN users b ON b.id = r.buyer_id
+        WHERE r.seller_id = $1
+        ORDER BY r.created_at DESC
+        LIMIT 50
+      `,
+      [sellerId],
+    );
+
+    const reviews = rows.map((r) => ({
+      id: r.id as string,
+      rating: Number(r.rating),
+      comment: (r.comment as string | null) ?? "",
+      foodName: r.food_name as string,
+      buyerName: r.buyer_name as string,
+      createdAt: new Date(r.created_at).toISOString(),
+    }));
+
+    res.json({ data: reviews });
+  } catch (err) {
+    console.error("[foods] seller reviews error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load seller reviews" },
+    });
+  }
+});

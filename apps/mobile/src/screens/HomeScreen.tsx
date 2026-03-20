@@ -112,6 +112,15 @@ type ChatMessage = {
   isUser: boolean;
 };
 
+type SellerReview = {
+  id: string;
+  rating: number;
+  comment: string;
+  foodName: string;
+  buyerName: string;
+  createdAt: string;
+};
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -589,6 +598,9 @@ export default function HomeScreen({
     name: string;
     image?: string | null;
   } | null>(null);
+  const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
+  const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
+  const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
 
   // FAB animations
@@ -856,6 +868,44 @@ export default function HomeScreen({
   const sellerProfile = selectedSeller
     ? buildSellerProfile(selectedSeller.id, selectedSeller.name, sellerMeals)
     : null;
+
+  useEffect(() => {
+    if (!selectedSeller) {
+      setSellerReviews([]);
+      setSellerReviewsLoading(false);
+      setSellerReviewsError(null);
+      return;
+    }
+    let cancelled = false;
+    setSellerReviewsLoading(true);
+    setSellerReviewsError(null);
+    fetch(`${apiUrl}/v1/foods/sellers/${selectedSeller.id}/reviews`, {
+      headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
+    })
+      .then(async (response) => {
+        const json = (await response.json()) as { data?: SellerReview[]; error?: { message?: string } };
+        if (!response.ok) {
+          throw new Error(json.error?.message ?? `request failed (${response.status})`);
+        }
+        return json.data ?? [];
+      })
+      .then((reviews) => {
+        if (cancelled) return;
+        setSellerReviews(reviews);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setSellerReviews([]);
+        setSellerReviewsError(err instanceof Error ? err.message : "Yorumlar yuklenemedi");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setSellerReviewsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSeller?.id, apiUrl, currentAuth.accessToken]);
 
   /* ---------- Render helpers ---------- */
 
@@ -1147,6 +1197,48 @@ export default function HomeScreen({
                   </Text>
                   <Text style={styles.sellerAboutText}>{sellerProfile.bio}</Text>
                 </View>
+              ) : null}
+
+              <Text style={styles.sellerSectionTitle}>Yorumlar</Text>
+              {sellerReviewsLoading ? (
+                <View style={styles.sellerReviewsLoadingRow}>
+                  <ActivityIndicator size="small" color="#4A7C59" />
+                  <Text style={styles.sellerReviewsLoadingText}>Yorumlar yukleniyor...</Text>
+                </View>
+              ) : null}
+              {sellerReviewsError ? (
+                <Text style={styles.sellerReviewsErrorText}>{sellerReviewsError}</Text>
+              ) : null}
+              {!sellerReviewsLoading && !sellerReviewsError && sellerReviews.length === 0 ? (
+                <Text style={styles.sellerEmptyReviewsText}>Bu usta icin henuz yorum yok.</Text>
+              ) : null}
+              {!sellerReviewsLoading && !sellerReviewsError ? (
+                <ScrollView
+                  style={styles.sellerReviewList}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {sellerReviews.map((review) => (
+                    <View key={review.id} style={styles.sellerReviewItem}>
+                      <View style={styles.sellerReviewHead}>
+                        <Text style={styles.sellerReviewBuyer}>{review.buyerName}</Text>
+                        <View style={styles.sellerReviewStars}>
+                          {[1, 2, 3, 4, 5].map((idx) => (
+                            <Ionicons
+                              key={`${review.id}-star-${idx}`}
+                              name={idx <= review.rating ? 'star' : 'star-outline'}
+                              size={13}
+                              color="#D4A017"
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      <Text style={styles.sellerReviewFood}>Yemek: {review.foodName}</Text>
+                      <Text style={styles.sellerReviewComment}>
+                        {review.comment?.trim() || 'Yorum metni birakilmadi.'}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
               ) : null}
 
               <Text style={styles.sellerSectionTitle}>Ustanin Yemekleri</Text>
@@ -1713,6 +1805,25 @@ const styles = StyleSheet.create({
   sellerAboutTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
   sellerAboutMeta: { color: '#7E7163', fontSize: 12, fontWeight: '600', marginTop: 3 },
   sellerAboutText: { color: '#6E6256', fontSize: 12, lineHeight: 18, marginTop: 5 },
+  sellerReviewList: { maxHeight: 200, marginBottom: 12 },
+  sellerReviewsLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  sellerReviewsLoadingText: { color: '#7E7163', fontSize: 12, fontWeight: '600' },
+  sellerReviewsErrorText: { color: '#B42318', fontSize: 12, fontWeight: '600', marginBottom: 10 },
+  sellerEmptyReviewsText: { color: '#8D8072', fontSize: 12, marginBottom: 10 },
+  sellerReviewItem: {
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  sellerReviewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  sellerReviewBuyer: { color: '#3D3229', fontSize: 13, fontWeight: '700', flex: 1, paddingRight: 8 },
+  sellerReviewStars: { flexDirection: 'row', alignItems: 'center', gap: 1 },
+  sellerReviewFood: { color: '#7E7163', fontSize: 11, marginBottom: 3 },
+  sellerReviewComment: { color: '#5F5246', fontSize: 12, lineHeight: 17 },
   sellerSectionTitle: {
     color: '#3D3229',
     fontSize: 15,
