@@ -1360,8 +1360,8 @@ const styles = StyleSheet.create({
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
     zIndex: 20,
-    paddingTop: 2,
-    paddingBottom: 4,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   searchBox: {
     flexDirection: 'row',
@@ -1371,7 +1371,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderWidth: 1, borderColor: '#EDE8E0',
-    marginBottom: 16,
+    marginBottom: 6,
     position: 'relative',
     overflow: 'hidden',
   },
