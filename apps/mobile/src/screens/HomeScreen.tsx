@@ -1450,10 +1450,10 @@ const styles = StyleSheet.create({
 
   /* --- Bottom bar --- */
   bottomBar: {
-    height: 76, backgroundColor: '#FFFDF9',
+    height: 72, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-    paddingTop: 1, paddingBottom: 0, paddingHorizontal: 8, zIndex: 50,
+    paddingTop: 0, paddingBottom: 0, paddingHorizontal: 8, zIndex: 50,
   },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 0 },
   navSpacer: { width: 64 },
