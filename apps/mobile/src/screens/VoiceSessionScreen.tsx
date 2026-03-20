@@ -8,9 +8,9 @@ import {
   Alert,
   PermissionsAndroid,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'react-native';
 import {
   AudioSession,
   AndroidAudioTypePresets,
@@ -37,12 +37,21 @@ type AgentActionEnvelope = {
 type Props = {
   session: SessionData;
   onEnd: () => void;
+  onSwitchToText?: () => void;
 };
 
-export default function VoiceSessionScreen({ session, onEnd }: Props) {
+const BAR_CONFIGS = [
+  { maxHeight: 20, duration: 400, delay: 0 },
+  { maxHeight: 28, duration: 360, delay: 100 },
+  { maxHeight: 14, duration: 440, delay: 200 },
+  { maxHeight: 32, duration: 380, delay: 80 },
+  { maxHeight: 22, duration: 420, delay: 160 },
+  { maxHeight: 18, duration: 460, delay: 240 },
+  { maxHeight: 26, duration: 370, delay: 50 },
+];
+
+export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: Props) {
   const intentionalEnd = useRef(false);
-  // Don't connect until audio session is fully configured.
-  // LiveKit docs: configureAudio must be called before connecting to a room.
   const [audioReady, setAudioReady] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -56,9 +65,11 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
 
       try {
         if (Platform.OS === 'android') {
-          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          );
           if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            throw new Error('Microphone permission is required to start a voice session.');
+            throw new Error('Mikrofon izni gereklidir.');
           }
         }
 
@@ -76,19 +87,19 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
         }
 
         await AudioSession.startAudioSession();
-
         if (mounted) setAudioReady(true);
       } catch (err) {
         console.warn('[AudioSession] setup failed:', err);
         if (mounted) {
-          setAudioError(err instanceof Error ? err.message : 'Failed to configure audio session.');
+          setAudioError(
+            err instanceof Error ? err.message : 'Ses oturumu yapilandirilamadi.',
+          );
           setAudioReady(false);
         }
       }
     }
 
     void setupAudioSession();
-
     return () => {
       mounted = false;
       AudioSession.stopAudioSession();
@@ -100,15 +111,10 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
       onEnd();
       return;
     }
-    // Unexpected disconnect — prompt user
-    Alert.alert(
-      'Disconnected',
-      'The session was interrupted. What would you like to do?',
-      [
-        { text: 'End Session', style: 'destructive', onPress: onEnd },
-        { text: 'Dismiss', style: 'cancel' },
-      ]
-    );
+    Alert.alert('Baglanti Kesildi', 'Oturum kesintiye ugradi. Ne yapmak istersiniz?', [
+      { text: 'Oturumu Bitir', style: 'destructive', onPress: onEnd },
+      { text: 'Kapat', style: 'cancel' },
+    ]);
   }
 
   function handleEnd() {
@@ -122,20 +128,20 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
 
   function handleRoomError(error: Error) {
     console.warn('[LiveKitRoom] connection error:', error);
-    setSessionError('Failed to connect to voice session. Please try again.');
+    setSessionError('Ses oturumuna baglanılamadi. Lutfen tekrar deneyin.');
   }
 
   function handleMediaDeviceFailure() {
-    setSessionError('Microphone access failed. Check iOS microphone permission and try again.');
+    setSessionError('Mikrofon erisimi basarisiz. Izinleri kontrol edip tekrar deneyin.');
   }
 
   if (audioError) {
     return (
       <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Audio setup failed</Text>
+        <Text style={styles.setupTitle}>Ses yapilandirmasi basarisiz</Text>
         <Text style={styles.setupMessage}>{audioError}</Text>
         <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
-          <Text style={styles.setupButtonText}>Back</Text>
+          <Text style={styles.setupButtonText}>Geri</Text>
         </TouchableOpacity>
       </View>
     );
@@ -144,8 +150,11 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
   if (!audioReady) {
     return (
       <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Preparing audio…</Text>
-        <Text style={styles.setupMessage}>Configuring microphone and speaker for voice chat.</Text>
+        <ActivityIndicator size="large" color="#4A7C59" />
+        <Text style={styles.setupTitle}>Ses hazirlaniyor...</Text>
+        <Text style={styles.setupMessage}>
+          Mikrofon ve hoparlor yapilandiriliyor.
+        </Text>
       </View>
     );
   }
@@ -153,10 +162,10 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
   if (sessionError) {
     return (
       <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Connection failed</Text>
+        <Text style={styles.setupTitle}>Baglanti basarisiz</Text>
         <Text style={styles.setupMessage}>{sessionError}</Text>
         <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
-          <Text style={styles.setupButtonText}>Back</Text>
+          <Text style={styles.setupButtonText}>Geri</Text>
         </TouchableOpacity>
       </View>
     );
@@ -174,17 +183,19 @@ export default function VoiceSessionScreen({ session, onEnd }: Props) {
       onError={handleRoomError}
       onMediaDeviceFailure={handleMediaDeviceFailure}
     >
-      <SessionView onEnd={handleEnd} roomName={session.roomName} />
+      <SessionView onEnd={handleEnd} onSwitchToText={onSwitchToText} />
     </LiveKitRoom>
   );
 }
 
+/* ------------------------------------------------------------------ */
+
 type SessionViewProps = {
   onEnd: () => void;
-  roomName: string;
+  onSwitchToText?: () => void;
 };
 
-function SessionView({ onEnd, roomName }: SessionViewProps) {
+function SessionView({ onEnd, onSwitchToText }: SessionViewProps) {
   const room = useRoomContext();
   useIOSAudioManagement(room, true);
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
@@ -192,18 +203,21 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
   const micPrimed = useRef(false);
 
   const agentParticipant = participants.find(
-    (p) => p.identity !== localParticipant.identity
+    (p) => p.identity !== localParticipant.identity,
   );
-
   const isAgentSpeaking = agentParticipant?.isSpeaking ?? false;
-  const isUserSpeaking = localParticipant.isSpeaking;
   const connectionState = room.state;
+  const connected = connectionState === ConnectionState.Connected;
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const barAnims = useRef(BAR_CONFIGS.map(() => new Animated.Value(8))).current;
+  const ring1Scale = useRef(new Animated.Value(1)).current;
+  const ring2Scale = useRef(new Animated.Value(1)).current;
+
   const [actionBanner, setActionBanner] = useState<string | null>(null);
   const processedIds = useRef(new Set<string>());
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Prime microphone
   useEffect(() => {
     if (connectionState !== ConnectionState.Connected) {
       micPrimed.current = false;
@@ -211,24 +225,25 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
     }
     if (micPrimed.current) return;
     micPrimed.current = true;
-
     void localParticipant.setMicrophoneEnabled(true).catch((error) => {
       console.warn('[LiveKitRoom] failed to enable microphone:', error);
       micPrimed.current = false;
     });
   }, [connectionState, localParticipant]);
 
-  // Subscribe to agent-action data channel messages
+  // Agent action data channel
   useEffect(() => {
     function handleData(
       payload: Uint8Array,
       _participant: unknown,
       _kind: unknown,
-      topic?: string
+      topic?: string,
     ) {
       if (topic !== 'agent-action') return;
       try {
-        const msg = JSON.parse(new TextDecoder().decode(payload)) as AgentActionEnvelope;
+        const msg = JSON.parse(
+          new TextDecoder().decode(payload),
+        ) as AgentActionEnvelope;
         if (msg.type !== 'action' || !msg.requestId) return;
         if (processedIds.current.has(msg.requestId)) return;
         processedIds.current.add(msg.requestId);
@@ -237,23 +252,22 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
         let banner: string;
         switch (name) {
           case 'navigate':
-            banner = `Go to: ${params.screen as string}`;
+            banner = `${params.screen as string} sayfasina git`;
             break;
           case 'add_to_cart':
-            banner = `Added: ${params.productName as string} ×${params.quantity as number}`;
+            banner = `Eklendi: ${params.productName as string} x${params.quantity as number}`;
             break;
           case 'show_order_summary':
-            banner = `Order total: $${(params.total as number).toFixed(2)}`;
+            banner = `Siparis toplami: ${(params.total as number).toFixed(2)} TL`;
             break;
           default:
             return;
         }
-
         if (bannerTimer.current) clearTimeout(bannerTimer.current);
         setActionBanner(banner);
         bannerTimer.current = setTimeout(() => setActionBanner(null), 3500);
       } catch {
-        // ignore malformed messages
+        /* ignore */
       }
     }
 
@@ -264,159 +278,191 @@ function SessionView({ onEnd, roomName }: SessionViewProps) {
     };
   }, [room]);
 
+  // Voice bar animations
   useEffect(() => {
-    if (isAgentSpeaking) {
-      const pulse = Animated.loop(
+    if (!connected) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const loops: Animated.CompositeAnimation[] = [];
+
+    BAR_CONFIGS.forEach((config, i) => {
+      const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.25,
-            duration: 600,
-            useNativeDriver: true,
+          Animated.timing(barAnims[i], {
+            toValue: config.maxHeight,
+            duration: config.duration,
+            useNativeDriver: false,
           }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
+          Animated.timing(barAnims[i], {
+            toValue: 8,
+            duration: config.duration,
+            useNativeDriver: false,
           }),
-        ])
+        ]),
       );
-      pulse.start();
-      return () => pulse.stop();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isAgentSpeaking, pulseAnim]);
+      loops.push(loop);
+      timers.push(setTimeout(() => loop.start(), config.delay));
+    });
+
+    return () => {
+      loops.forEach((l) => l.stop());
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [connected, barAnims]);
+
+  // Ring pulse animations
+  useEffect(() => {
+    const ring1Loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ring1Scale, {
+          toValue: 1.15,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ring1Scale, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const ring2Loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ring2Scale, {
+          toValue: 1.25,
+          duration: 2400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ring2Scale, {
+          toValue: 1,
+          duration: 2400,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    ring1Loop.start();
+    const timer = setTimeout(() => ring2Loop.start(), 500);
+    return () => {
+      ring1Loop.stop();
+      ring2Loop.stop();
+      clearTimeout(timer);
+    };
+  }, [ring1Scale, ring2Scale]);
 
   function toggleMic() {
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   }
 
-  function handleEnd() {
-    onEnd();
-  }
-
   function getStatusText() {
     switch (connectionState) {
       case ConnectionState.Connecting:
-        return 'Connecting...';
+        return 'Baglaniyor...';
       case ConnectionState.Reconnecting:
-        return 'Reconnecting...';
+        return 'Yeniden baglaniyor...';
       case ConnectionState.Disconnected:
-        return 'Disconnected';
+        return 'Baglanti kesildi';
       default:
-        if (!agentParticipant) return 'Waiting for agent...';
-        if (isAgentSpeaking) return 'Agent is speaking';
-        if (isUserSpeaking) return 'Listening...';
-        return 'Agent is ready';
+        if (!agentParticipant) return 'Baglaniyor...';
+        if (isAgentSpeaking) return 'Konusuyor...';
+        return 'Seni dinliyorum...';
     }
   }
 
-  const connected = connectionState === ConnectionState.Connected;
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
       {actionBanner && (
         <View style={styles.actionBanner}>
           <Text style={styles.actionBannerText}>{actionBanner}</Text>
         </View>
       )}
 
-      <View style={styles.header}>
-        <Text style={styles.roomLabel}>Room</Text>
-        <Text style={styles.roomName} numberOfLines={1}>{roomName}</Text>
-        <View style={[styles.dot, connected ? styles.dotConnected : styles.dotIdle]} />
-      </View>
-
       <View style={styles.center}>
-        {/* Agent avatar with pulse animation when speaking */}
-        <Animated.View
-          style={[
-            styles.agentRing,
-            isAgentSpeaking && styles.agentRingSpeaking,
-            { transform: [{ scale: pulseAnim }] },
-          ]}
-        >
-          <View
-            style={[
-              styles.agentCircle,
-              isAgentSpeaking && styles.agentCircleSpeaking,
-            ]}
-          >
-            <Text style={styles.agentIcon}>AI</Text>
+        <View style={styles.orbContainer}>
+          <Animated.View
+            style={[styles.ring, { transform: [{ scale: ring1Scale }] }]}
+          />
+          <Animated.View
+            style={[styles.ring2, { transform: [{ scale: ring2Scale }] }]}
+          />
+          <View style={styles.orb}>
+            <View style={styles.barsRow}>
+              {barAnims.map((anim, i) => (
+                <Animated.View
+                  key={i}
+                  style={[styles.voiceBar, { height: anim }]}
+                />
+              ))}
+            </View>
           </View>
-        </Animated.View>
+        </View>
 
         <Text style={styles.statusText}>{getStatusText()}</Text>
-
-        {isUserSpeaking && (
-          <Text style={styles.speakingIndicator}>You are speaking</Text>
-        )}
+        <Text style={styles.subtitleText}>Ne yemek istedigini soyle</Text>
       </View>
 
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={[styles.controlBtn, !isMicrophoneEnabled && styles.controlBtnMuted]}
-          onPress={toggleMic}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
-        >
-          <View style={[styles.iconCircle, !isMicrophoneEnabled && styles.iconCircleMuted]}>
+      <View style={styles.bottomButtons}>
+        {onSwitchToText ? (
+          <TouchableOpacity style={styles.actionBtn} onPress={onSwitchToText}>
             <Ionicons
-              name={isMicrophoneEnabled ? 'mic' : 'mic-off'}
+              name="chatbubble-ellipses-outline"
               size={22}
-              color="#fff"
+              color="#6B5D4F"
             />
-          </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.actionBtnPlaceholder} />
+        )}
+        <TouchableOpacity style={styles.endBtn} onPress={onEnd}>
+          <Ionicons
+            name="call"
+            size={20}
+            color="#fff"
+            style={styles.endIcon}
+          />
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.controlBtn, styles.controlBtnEnd]}
-          onPress={handleEnd}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="End session"
-        >
-          <View style={[styles.iconCircle, styles.iconCircleEnd]}>
-            <Ionicons name="call" size={20} color="#fff" style={styles.endIcon} />
-          </View>
+        <TouchableOpacity style={styles.actionBtn} onPress={toggleMic}>
+          <Ionicons
+            name={isMicrophoneEnabled ? 'mic' : 'mic-off'}
+            size={22}
+            color="#6B5D4F"
+          />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
+/* ------------------------------------------------------------------ */
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#F5F1EB',
   },
   setupContainer: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#F5F1EB',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    gap: 10,
+    gap: 12,
   },
   setupTitle: {
-    color: '#fff',
-    fontSize: 20,
+    color: '#3D3229',
+    fontSize: 18,
     fontWeight: '700',
   },
   setupMessage: {
-    color: '#aab4d6',
+    color: '#A89B8C',
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
   },
   setupButton: {
     marginTop: 8,
-    backgroundColor: '#6C63FF',
-    borderRadius: 10,
-    paddingHorizontal: 18,
+    backgroundColor: '#4A7C59',
+    borderRadius: 12,
+    paddingHorizontal: 24,
     paddingVertical: 12,
   },
   setupButtonText: {
@@ -424,142 +470,105 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  header: {
-    paddingTop: 64,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  roomLabel: {
-    color: '#555',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  roomName: {
-    color: '#aaa',
-    fontSize: 12,
-    flexShrink: 1,
-    maxWidth: 200,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dotConnected: {
-    backgroundColor: '#4ade80',
-  },
-  dotIdle: {
-    backgroundColor: '#555',
-  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
+    gap: 16,
   },
-  agentRing: {
+  orbContainer: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ring: {
+    position: 'absolute',
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    borderWidth: 2,
+    borderColor: 'rgba(74,124,89,0.18)',
+  },
+  ring2: {
+    position: 'absolute',
     width: 160,
     height: 160,
     borderRadius: 80,
     borderWidth: 2,
-    borderColor: '#2a2a2a',
+    borderColor: 'rgba(74,124,89,0.12)',
+  },
+  orb: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#4A7C59',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#4A7C59',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 12,
   },
-  agentRingSpeaking: {
-    borderColor: '#6C63FF',
-    borderWidth: 3,
-  },
-  agentCircle: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    backgroundColor: '#1a1a1a',
+  barsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    height: 40,
   },
-  agentCircleSpeaking: {
-    backgroundColor: '#1e1a3a',
-  },
-  agentIcon: {
-    color: '#6C63FF',
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 2,
+  voiceBar: {
+    width: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.8)',
   },
   statusText: {
-    color: '#ccc',
-    fontSize: 16,
-    fontWeight: '500',
+    color: '#3D3229',
+    fontSize: 17,
+    fontWeight: '600',
   },
-  speakingIndicator: {
-    color: '#6C63FF',
+  subtitleText: {
+    color: '#A89B8C',
     fontSize: 13,
     marginTop: -8,
   },
-  controls: {
+  bottomButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 24,
-    paddingBottom: 56,
+    alignItems: 'center',
+    gap: 20,
+    paddingBottom: 40,
     paddingHorizontal: 32,
   },
-  controlBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  controlBtnMuted: {
-    backgroundColor: '#2a1a1a',
-    borderWidth: 1,
-    borderColor: '#ff6b6b',
-  },
-  controlBtnEnd: {
-    backgroundColor: '#2a0a0a',
-    borderWidth: 1,
-    borderColor: '#ff4444',
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#2a2a2a',
+  actionBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconCircleMuted: {
-    backgroundColor: '#3a1a1a',
+  actionBtnPlaceholder: {
+    width: 50,
+    height: 50,
   },
-  iconCircleEnd: {
-    backgroundColor: '#3a0a0a',
-  },
-  iconText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
+  endBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#D45454',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   endIcon: {
     transform: [{ rotate: '135deg' }],
-  },
-  controlLabel: {
-    color: '#888',
-    fontSize: 11,
   },
   actionBanner: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#4A7C59',
     paddingVertical: 10,
     paddingHorizontal: 16,
     zIndex: 10,

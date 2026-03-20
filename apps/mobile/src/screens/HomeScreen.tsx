@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Easing,
+  FlatList,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -13,9 +14,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { getColors } from 'react-native-image-colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import VoiceSessionScreen from './VoiceSessionScreen';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 export type SessionData = {
   wsUrl: string;
@@ -32,27 +39,87 @@ type Props = {
 };
 
 type ApiErrorPayload = {
-  error?: {
-    code?: string;
-    message?: string;
-  };
+  error?: { code?: string; message?: string };
 };
 
 type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
+type AgentMode = 'voice' | 'text';
 
 type MealCard = {
   id: string;
   emoji: string;
   title: string;
   seller: string;
-  goldRating: string;
-  greenRating: string;
-  meta: string;
-  tags: string[];
+  rating: string;
+  time: string;
+  distance: string;
   price: string;
   backgroundColor: string;
+  category: string;
+  imageUrl?: string;
 };
+
+type CardColors = {
+  bg: string;
+  border: string;
+  title: string;
+  subtitle: string;
+  price: string;
+  meta: string;
+};
+
+type ChatMessage = {
+  id: string;
+  text: string;
+  isUser: boolean;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function darken(hex: string, amount: number): string {
+  const h = hex.replace('#', '');
+  const r = Math.max(
+    0,
+    Math.round(parseInt(h.substring(0, 2), 16) * (1 - amount)),
+  );
+  const g = Math.max(
+    0,
+    Math.round(parseInt(h.substring(2, 4), 16) * (1 - amount)),
+  );
+  const b = Math.max(
+    0,
+    Math.round(parseInt(h.substring(4, 6), 16) * (1 - amount)),
+  );
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+function deriveCardColors(dominant: string): CardColors {
+  return {
+    bg: dominant + '20',
+    border: dominant + '30',
+    title: darken(dominant, 0.6),
+    subtitle: darken(dominant, 0.3),
+    price: darken(dominant, 0.5),
+    meta: dominant + '90',
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
+
+const CATEGORIES = ['Tumu', 'Corbalar', 'Ana yemek', 'Tatli', 'Salata'];
+
+const INITIAL_CHAT: ChatMessage[] = [
+  {
+    id: '1',
+    text: 'Canin ne cekiyor? Anlatir misin, sana en uygun ev yemeklerini bulayim.',
+    isUser: false,
+  },
+];
 
 const meals: MealCard[] = [
   {
@@ -60,64 +127,150 @@ const meals: MealCard[] = [
     emoji: '🍲',
     title: 'Mercimek Corbasi',
     seller: 'Zeynep Hanim',
-    goldRating: '4.5',
-    greenRating: '5.0',
-    meta: '2 km teslimat · Turk yemegi · 15 adet',
-    tags: ['Gel Al', 'Teslimat'],
+    rating: '4.5',
+    time: '25 dk',
+    distance: '2 km',
     price: '₺15',
     backgroundColor: '#F1DED0',
+    category: 'Corbalar',
   },
   {
     id: 'karniyarik',
     emoji: '🥘',
     title: 'Karniyarik',
     seller: 'Ayse Teyze',
-    goldRating: '4.8',
-    greenRating: '4.9',
-    meta: '3 km teslimat · Turk yemegi · 8 adet',
-    tags: ['Gel Al', 'Teslimat'],
+    rating: '4.8',
+    time: '35 dk',
+    distance: '3 km',
     price: '₺35',
     backgroundColor: '#D8E5D8',
+    category: 'Ana yemek',
   },
   {
     id: 'sutlac',
     emoji: '🍰',
     title: 'Sutlac',
     seller: 'Fatma Anne',
-    goldRating: '4.7',
-    greenRating: '5.0',
-    meta: '1 km teslimat · Tatli · 20 adet',
-    tags: ['Gel Al'],
+    rating: '4.7',
+    time: '15 dk',
+    distance: '1 km',
     price: '₺25',
     backgroundColor: '#ECD4D8',
+    category: 'Tatli',
   },
 ];
 
-const quickPrompts = [
-  'Aksam yemegi oner',
-  'Yakinimdaki ev yemekleri',
-  'Diyet tarif oner',
-];
+/* ------------------------------------------------------------------ */
+/*  FoodCard                                                           */
+/* ------------------------------------------------------------------ */
 
-export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefresh }: Props) {
+function FoodCard({
+  meal,
+  onPress,
+}: {
+  meal: MealCard;
+  onPress: () => void;
+}) {
+  const [colors, setColors] = useState<CardColors>(
+    deriveCardColors(meal.backgroundColor),
+  );
+
+  useEffect(() => {
+    if (!meal.imageUrl) {
+      setColors(deriveCardColors(meal.backgroundColor));
+      return;
+    }
+    getColors(meal.imageUrl, {
+      fallback: meal.backgroundColor,
+      cache: true,
+      key: meal.imageUrl,
+    })
+      .then((result) => {
+        let dominant = meal.backgroundColor;
+        if (Platform.OS === 'ios' && 'background' in result) {
+          dominant = result.background;
+        } else if (Platform.OS === 'android' && 'dominant' in result) {
+          dominant = result.dominant;
+        }
+        setColors(deriveCardColors(dominant));
+      })
+      .catch(() => {
+        setColors(deriveCardColors(meal.backgroundColor));
+      });
+  }, [meal.imageUrl, meal.backgroundColor]);
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.foodCard,
+        { backgroundColor: colors.bg, borderColor: colors.border },
+      ]}
+      activeOpacity={0.85}
+      onPress={onPress}
+    >
+      <View
+        style={[styles.foodPhoto, { backgroundColor: meal.backgroundColor }]}
+      >
+        <Text style={styles.foodEmoji}>{meal.emoji}</Text>
+        <View style={styles.ratingBadge}>
+          <Text style={styles.ratingBadgeStar}>★</Text>
+          <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
+        </View>
+      </View>
+      <View style={styles.foodInfo}>
+        <View style={styles.foodInfoRow}>
+          <View style={styles.foodInfoLeft}>
+            <Text style={[styles.foodName, { color: colors.title }]}>
+              {meal.title}
+            </Text>
+            <Text style={[styles.foodSeller, { color: colors.subtitle }]}>
+              {meal.seller}
+            </Text>
+          </View>
+          <Text style={[styles.foodPrice, { color: colors.price }]}>
+            {meal.price}
+          </Text>
+        </View>
+        <Text style={[styles.foodMeta, { color: colors.meta }]}>
+          🕐 {meal.time} · {meal.distance}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  HomeScreen                                                         */
+/* ------------------------------------------------------------------ */
+
+export default function HomeScreen({
+  auth,
+  onOpenSettings,
+  onLogout,
+  onAuthRefresh,
+}: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
+  const [activeCategory, setActiveCategory] = useState('Tumu');
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voiceSession, setVoiceSession] = useState<SessionData | null>(null);
-  const [agentOpen, setAgentOpen] = useState(false);
-  const [draftMessage, setDraftMessage] = useState('');
+  const [agentModalVisible, setAgentModalVisible] = useState(false);
+  const [agentMode, setAgentMode] = useState<AgentMode>('voice');
+  const [chatMessages, setChatMessages] =
+    useState<ChatMessage[]>(INITIAL_CHAT);
+  const [chatInput, setChatInput] = useState('');
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
   const [cartCount, setCartCount] = useState(0);
 
-  const cardTranslate = useRef(new Animated.Value(24)).current;
-  const cardScale = useRef(new Animated.Value(0.96)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const buttonLift = useRef(new Animated.Value(0)).current;
-  const pulseScale = useRef(new Animated.Value(1)).current;
-  const pulseOpacity = useRef(new Animated.Value(0.55)).current;
+  // FAB animations
+  const pulse1Scale = useRef(new Animated.Value(1)).current;
+  const pulse1Opacity = useRef(new Animated.Value(0.4)).current;
+  const pulse2Scale = useRef(new Animated.Value(1)).current;
+  const pulse2Opacity = useRef(new Animated.Value(0.3)).current;
+  const breatheScale = useRef(new Animated.Value(1)).current;
+  const pulse2Timer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -127,89 +280,112 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
     loadSettings().then((s) => setApiUrl(s.apiUrl));
   }, []);
 
+  // FAB pulse & breathe animations
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(cardTranslate, {
-        toValue: agentOpen ? 0 : 24,
-        duration: 280,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardScale, {
-        toValue: agentOpen ? 1 : 0.96,
-        duration: 280,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardOpacity, {
-        toValue: agentOpen ? 1 : 0,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: agentOpen ? 1 : 0,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(buttonLift, {
-        toValue: agentOpen ? -190 : 0,
-        friction: 7,
-        tension: 90,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [agentOpen, buttonLift, cardOpacity, cardScale, cardTranslate, overlayOpacity]);
-
-  useEffect(() => {
-    const loop = Animated.loop(
+    const pulse1 = Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(pulseScale, {
-            toValue: 1.28,
-            duration: 1400,
-            easing: Easing.out(Easing.quad),
+          Animated.timing(pulse1Scale, {
+            toValue: 1.8,
+            duration: 2600,
             useNativeDriver: true,
           }),
-          Animated.timing(pulseOpacity, {
+          Animated.timing(pulse1Opacity, {
             toValue: 0,
-            duration: 1400,
-            easing: Easing.out(Easing.quad),
+            duration: 2600,
             useNativeDriver: true,
           }),
         ]),
         Animated.parallel([
-          Animated.timing(pulseScale, {
+          Animated.timing(pulse1Scale, {
             toValue: 1,
             duration: 0,
             useNativeDriver: true,
           }),
-          Animated.timing(pulseOpacity, {
-            toValue: 0.55,
+          Animated.timing(pulse1Opacity, {
+            toValue: 0.4,
             duration: 0,
             useNativeDriver: true,
           }),
         ]),
-      ])
+      ]),
     );
 
-    if (!agentOpen && voiceState !== 'starting') {
-      loop.start();
-    }
+    const pulse2 = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pulse2Scale, {
+            toValue: 2.2,
+            duration: 2600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulse2Opacity, {
+            toValue: 0,
+            duration: 2600,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pulse2Scale, {
+            toValue: 1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulse2Opacity, {
+            toValue: 0.3,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
 
-    return () => loop.stop();
-  }, [agentOpen, pulseOpacity, pulseScale, voiceState]);
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breatheScale, {
+          toValue: 1.06,
+          duration: 1300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(breatheScale, {
+          toValue: 1,
+          duration: 1300,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
 
-  function resolveStartSessionError(payload: ApiErrorPayload, status: number): string {
+    pulse1.start();
+    pulse2Timer.current = setTimeout(() => pulse2.start(), 500);
+    breathe.start();
+
+    return () => {
+      pulse1.stop();
+      pulse2.stop();
+      breathe.stop();
+      if (pulse2Timer.current) clearTimeout(pulse2Timer.current);
+    };
+  }, [pulse1Scale, pulse1Opacity, pulse2Scale, pulse2Opacity, breatheScale]);
+
+  /* ---------- Voice session helpers ---------- */
+
+  function resolveStartSessionError(
+    payload: ApiErrorPayload,
+    status: number,
+  ): string {
     const code = payload?.error?.code;
-    if (code === 'AGENT_UNAVAILABLE') return 'Voice agent unavailable right now. Please try again in a moment.';
-    if (code === 'N8N_UNAVAILABLE') return 'AI workflow server is unreachable. Please check the n8n server and try again.';
-    if (code === 'N8N_WORKFLOW_UNAVAILABLE') return 'AI workflow is unavailable or inactive. Please check n8n and try again.';
-    if (code === 'STT_UNAVAILABLE') return 'Speech recognition unavailable. Please check the STT server and try again.';
-    if (code === 'TTS_UNAVAILABLE') return 'Voice synthesis unavailable. Please check the TTS server and try again.';
-    if (status === 401) return 'Session expired. Please log in again.';
-    return payload?.error?.message ?? `Server error ${status}`;
+    if (code === 'AGENT_UNAVAILABLE')
+      return 'Ses asistani su an kullanilamiyor. Lutfen biraz sonra tekrar deneyin.';
+    if (code === 'N8N_UNAVAILABLE')
+      return 'AI sunucusuna ulasilamiyor. Lutfen n8n sunucusunu kontrol edin.';
+    if (code === 'N8N_WORKFLOW_UNAVAILABLE')
+      return 'AI is akisi kullanilamiyor veya aktif degil.';
+    if (code === 'STT_UNAVAILABLE')
+      return 'Konusma tanima kullanilamiyor. STT sunucusunu kontrol edin.';
+    if (code === 'TTS_UNAVAILABLE')
+      return 'Ses sentezi kullanilamiyor. TTS sunucusunu kontrol edin.';
+    if (status === 401) return 'Oturum suresi doldu. Lutfen tekrar giris yapin.';
+    return payload?.error?.message ?? `Sunucu hatasi ${status}`;
   }
 
   async function startSessionWithToken(accessToken: string): Promise<void> {
@@ -219,10 +395,7 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({
-        autoDispatchAgent: true,
-        channel: 'mobile',
-      }),
+      body: JSON.stringify({ autoDispatchAgent: true, channel: 'mobile' }),
     });
 
     const json = await response.json();
@@ -239,7 +412,9 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
     }
 
     if (!response.ok || (json as ApiErrorPayload).error) {
-      throw new Error(resolveStartSessionError(json as ApiErrorPayload, response.status));
+      throw new Error(
+        resolveStartSessionError(json as ApiErrorPayload, response.status),
+      );
     }
 
     const { data } = json as {
@@ -258,7 +433,6 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
     });
     setVoiceState('active');
     setVoiceError(null);
-    setAgentOpen(false);
   }
 
   async function handleStartVoice() {
@@ -270,7 +444,9 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
     } catch (err) {
       setVoiceSession(null);
       setVoiceState('error');
-      setVoiceError(err instanceof Error ? err.message : 'Failed to start session');
+      setVoiceError(
+        err instanceof Error ? err.message : 'Oturum baslatilamadi',
+      );
     }
   }
 
@@ -280,25 +456,54 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
     setVoiceError(null);
   }
 
-  function handleAgentToggle() {
-    if (voiceSession && voiceState === 'active') return;
-    setAgentOpen((prev) => !prev);
+  /* ---------- Agent modal handlers ---------- */
+
+  function handleFabPress() {
+    setAgentMode('voice');
+    setAgentModalVisible(true);
+    if (voiceState !== 'active' && voiceState !== 'starting') {
+      void handleStartVoice();
+    }
   }
 
-  function handlePromptTap(prompt: string) {
-    setDraftMessage(prompt);
+  function handleCloseAgent() {
+    setAgentModalVisible(false);
+    if (voiceSession) handleVoiceEnd();
+    setVoiceState('idle');
+    setVoiceError(null);
   }
 
-  function handleSend() {
+  function handleSwitchToText() {
+    setAgentMode('text');
+    if (voiceSession) handleVoiceEnd();
+  }
+
+  function handleSwitchToVoice() {
+    setAgentMode('voice');
     void handleStartVoice();
+  }
+
+  function handleChatSend() {
+    if (!chatInput.trim()) return;
+    setChatMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), text: chatInput.trim(), isUser: true },
+    ]);
+    setChatInput('');
   }
 
   function handleTabPress(tab: TabKey) {
     setActiveTab(tab);
-    if (tab !== 'home') {
-      setAgentOpen(false);
-    }
   }
+
+  /* ---------- Filtered meals ---------- */
+
+  const filteredMeals =
+    activeCategory === 'Tumu'
+      ? meals
+      : meals.filter((m) => m.category === activeCategory);
+
+  /* ---------- Render helpers ---------- */
 
   function renderHomeFeed() {
     return (
@@ -307,72 +512,73 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
       >
+        {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
             <Text style={styles.greetingTitle}>Gunaydin, Lale</Text>
             <Text style={styles.greetingSubtitle}>Bugun ne yiyelim?</Text>
           </View>
-          <TouchableOpacity activeOpacity={0.85} style={styles.avatarCircle} onPress={() => handleTabPress('profile')}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.avatarCircle}
+            onPress={() => handleTabPress('profile')}
+          >
             <Text style={styles.avatarEmoji}>👩‍🍳</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Search */}
         <View style={styles.searchBox}>
           <Text style={styles.searchIcon}>⌕</Text>
           <Text style={styles.searchText}>Tarif veya malzeme ara...</Text>
         </View>
 
-        <View style={styles.topActionRow}>
-          <TouchableOpacity style={styles.topChip} activeOpacity={0.85} onPress={onOpenSettings}>
-            <Text style={styles.topChipText}>Ayarlar</Text>
-          </TouchableOpacity>
-          <View style={styles.userBadge}>
-            <Text numberOfLines={1} style={styles.userBadgeText}>{currentAuth.email}</Text>
-          </View>
-        </View>
-
-        {meals.map((meal) => (
-          <TouchableOpacity key={meal.id} style={styles.mealCard} activeOpacity={0.85} onPress={() => setSelectedMeal(meal)}>
-            <View style={[styles.mealThumb, { backgroundColor: meal.backgroundColor }]}>
-              <Text style={styles.mealEmoji}>{meal.emoji}</Text>
-            </View>
-            <View style={styles.mealInfo}>
-              <Text style={styles.mealName}>{meal.title}</Text>
-              <Text style={styles.mealSeller}>{meal.seller} →</Text>
-              <View style={styles.ratingRow}>
-                <Text style={styles.ratingGold}>★ {meal.goldRating}</Text>
-                <Text style={styles.ratingGreen}>★ {meal.greenRating}</Text>
-              </View>
-              <Text style={styles.mealMeta}>{meal.meta}</Text>
-              <View style={styles.tagRow}>
-                {meal.tags.map((tag) => (
-                  <View key={tag} style={styles.tagPill}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-            <Text style={styles.mealPrice}>{meal.price}</Text>
-            <TouchableOpacity style={styles.addCartButton} activeOpacity={0.85} onPress={(e) => { e.stopPropagation(); setCartCount((c) => c + 1); }}>
-              <Text style={styles.addCartButtonText}>Sepete Ekle</Text>
+        {/* Category filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryContent}
+        >
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={[
+                styles.categoryChip,
+                activeCategory === cat && styles.categoryChipActive,
+              ]}
+              activeOpacity={0.85}
+              onPress={() => setActiveCategory(cat)}
+            >
+              <Text
+                style={[
+                  styles.categoryText,
+                  activeCategory === cat && styles.categoryTextActive,
+                ]}
+              >
+                {cat}
+              </Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Food cards */}
+        {filteredMeals.map((meal) => (
+          <FoodCard
+            key={meal.id}
+            meal={meal}
+            onPress={() => setSelectedMeal(meal)}
+          />
         ))}
 
-        {voiceError ? <Text style={styles.inlineError}>{voiceError}</Text> : null}
+        {voiceError && !agentModalVisible ? (
+          <Text style={styles.inlineError}>{voiceError}</Text>
+        ) : null}
       </ScrollView>
     );
   }
 
   function renderContent() {
-    if (voiceSession && voiceState === 'active') {
-      return (
-        <View style={styles.voiceSessionWrap}>
-          <VoiceSessionScreen session={voiceSession} onEnd={handleVoiceEnd} />
-        </View>
-      );
-    }
-
     if (activeTab === 'profile') {
       return (
         <View style={styles.profileCard}>
@@ -385,62 +591,90 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
               <Text style={styles.profileEmail}>{currentAuth.email}</Text>
             </View>
           </View>
-
-          <TouchableOpacity style={styles.profileButton} onPress={onOpenSettings}>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={onOpenSettings}
+          >
             <Text style={styles.profileButtonText}>Ayarlar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileDangerButton} onPress={onLogout}>
+          <TouchableOpacity
+            style={styles.profileDangerButton}
+            onPress={onLogout}
+          >
             <Text style={styles.profileDangerButtonText}>Cikis Yap</Text>
           </TouchableOpacity>
-          {voiceError ? <Text style={styles.inlineError}>{voiceError}</Text> : null}
         </View>
       );
     }
-
     return renderHomeFeed();
   }
 
+  function renderChatMessage({ item }: { item: ChatMessage }) {
+    if (item.isUser) {
+      return (
+        <View style={styles.chatRowUser}>
+          <View style={styles.chatBubbleUser}>
+            <Text style={styles.chatTextUser}>{item.text}</Text>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.chatRowBot}>
+        <View style={styles.chatAvatar}>
+          <Text style={styles.chatAvatarEmoji}>🧑‍🍳</Text>
+        </View>
+        <View style={styles.chatBubbleBot}>
+          <Text style={styles.chatTextBot}>{item.text}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  /* ---------- Main render ---------- */
+
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#E8E3DB" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F1EB" />
 
-      {/* Yemek Detay Modali */}
-      <Modal visible={!!selectedMeal} animationType="slide" transparent onRequestClose={() => setSelectedMeal(null)}>
+      {/* Meal detail modal */}
+      <Modal
+        visible={!!selectedMeal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSelectedMeal(null)}
+      >
         {selectedMeal && (
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedMeal(null)}>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => setSelectedMeal(null)}
+              >
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
-
-              <View style={[styles.modalThumb, { backgroundColor: selectedMeal.backgroundColor }]}>
+              <View
+                style={[
+                  styles.modalThumb,
+                  { backgroundColor: selectedMeal.backgroundColor },
+                ]}
+              >
                 <Text style={styles.modalEmoji}>{selectedMeal.emoji}</Text>
               </View>
-
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
-
-              <View style={styles.modalRatingRow}>
-                <Text style={styles.ratingGold}>★ {selectedMeal.goldRating}</Text>
-                <Text style={styles.ratingGreen}>★ {selectedMeal.greenRating}</Text>
-              </View>
-
-              <Text style={styles.modalMeta}>{selectedMeal.meta}</Text>
-
-              <View style={styles.tagRow}>
-                {selectedMeal.tags.map((tag) => (
-                  <View key={tag} style={styles.tagPill}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-
+              <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
+              <Text style={styles.modalMeta}>
+                🕐 {selectedMeal.time} · {selectedMeal.distance}
+              </Text>
               <Text style={styles.modalPrice}>{selectedMeal.price}</Text>
-
               <TouchableOpacity
                 style={styles.modalCartButton}
                 activeOpacity={0.85}
-                onPress={() => { setCartCount((c) => c + 1); setSelectedMeal(null); }}
+                onPress={() => {
+                  setCartCount((c) => c + 1);
+                  setSelectedMeal(null);
+                }}
               >
                 <Text style={styles.modalCartButtonText}>Sepete Ekle</Text>
               </TouchableOpacity>
@@ -448,722 +682,467 @@ export default function HomeScreen({ auth, onOpenSettings, onLogout, onAuthRefre
           </View>
         )}
       </Modal>
-      <View style={styles.container}>
-        <View style={styles.inner}>
-          <Animated.View pointerEvents={agentOpen ? 'auto' : 'none'} style={[styles.overlay, { opacity: overlayOpacity }]} />
-          <View style={styles.content}>{renderContent()}</View>
 
-          {!voiceSession ? (
-            <>
-              <Animated.View
-                pointerEvents={agentOpen ? 'auto' : 'none'}
+      {/* Agent modal */}
+      <Modal
+        visible={agentModalVisible}
+        animationType="slide"
+        onRequestClose={handleCloseAgent}
+      >
+        <SafeAreaView style={styles.agentModalSafe}>
+          <StatusBar barStyle="dark-content" />
+
+          {/* Header */}
+          <View style={styles.agentHeader}>
+            <TouchableOpacity
+              style={styles.agentCloseBtn}
+              onPress={handleCloseAgent}
+            >
+              <Ionicons name="close" size={18} color="#6B5D4F" />
+            </TouchableOpacity>
+            <Text style={styles.agentHeaderTitle}>Mutfak asistani</Text>
+            <View style={styles.modePill}>
+              <TouchableOpacity
                 style={[
-                  styles.agentCard,
-                  {
-                    opacity: cardOpacity,
-                    transform: [{ translateY: cardTranslate }, { scale: cardScale }],
-                  },
+                  styles.modeBtn,
+                  agentMode === 'voice' && styles.modeBtnActive,
                 ]}
+                onPress={handleSwitchToVoice}
               >
-                <View style={styles.agentTop}>
-                  <View style={styles.agentAvatar}>
-                    <Text style={styles.agentAvatarText}>🧑‍🍳</Text>
-                  </View>
-                  <View style={styles.agentInfo}>
-                    <Text style={styles.agentTitle}>Mutfak Asistani</Text>
-                    <Text style={styles.agentSubtitle}>AI destekli yemek rehberiniz</Text>
-                    <View style={styles.onlineRow}>
-                      <View style={styles.onlineDot} />
-                      <Text style={styles.onlineText}>Cevrimici</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <Text style={styles.agentMessage}>
-                  Merhaba! Bugun ne pisirmek istiyorsun? Sana kisisel oneriler sunabilirim.
-                </Text>
-
-                <View style={styles.chipsWrap}>
-                  {quickPrompts.map((prompt) => (
-                    <TouchableOpacity key={prompt} style={styles.promptChip} activeOpacity={0.85} onPress={() => handlePromptTap(prompt)}>
-                      <Text style={styles.promptChipText}>{prompt}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.inputRow}>
-                  <TextInput
-                    value={draftMessage}
-                    onChangeText={setDraftMessage}
-                    placeholder="Mesaj yazin..."
-                    placeholderTextColor="#C5C0B8"
-                    style={styles.input}
-                    returnKeyType="send"
-                    onSubmitEditing={handleSend}
-                  />
-                  <TouchableOpacity
-                    style={[styles.sendButton, voiceState === 'error' && styles.sendButtonError]}
-                    activeOpacity={0.85}
-                    onPress={handleSend}
-                    disabled={voiceState === 'starting'}
-                  >
-                    {voiceState === 'starting'
-                      ? <ActivityIndicator color="#FFFFFF" size="small" />
-                      : <Text style={styles.sendButtonText}>➜</Text>}
-                  </TouchableOpacity>
-                </View>
-              </Animated.View>
-
-              <Animated.View style={[styles.floatingWrap, { transform: [{ translateY: buttonLift }] }]}>
-                {!agentOpen && voiceState !== 'starting' ? (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[
-                      styles.pulseRing,
-                      {
-                        opacity: pulseOpacity,
-                        transform: [{ scale: pulseScale }],
-                      },
-                    ]}
-                  />
-                ) : null}
-
-                <TouchableOpacity
+                <Text
                   style={[
-                    styles.floatingButton,
-                    agentOpen && styles.floatingButtonOpen,
-                    voiceState === 'error' && styles.floatingButtonError,
+                    styles.modeBtnText,
+                    agentMode === 'voice' && styles.modeBtnTextActive,
                   ]}
-                  activeOpacity={0.9}
-                  onPress={handleAgentToggle}
                 >
-                  {voiceState === 'starting'
-                    ? <ActivityIndicator color="#FFFFFF" size="small" />
-                    : <Text style={styles.floatingButtonText}>{agentOpen ? '×' : 'C'}</Text>}
-                </TouchableOpacity>
-              </Animated.View>
-            </>
-          ) : null}
-
-          {!voiceSession ? (
-            <View style={styles.bottomBar}>
-              <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('home')}>
-                <Text style={[styles.navIcon, activeTab === 'home' && styles.navIconActive]}>⌂</Text>
-                <Text style={[styles.navLabel, activeTab === 'home' && styles.navLabelActive]}>Ana Sayfa</Text>
+                  Sesli
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('messages')}>
-                <Text style={[styles.navIcon, activeTab === 'messages' && styles.navIconActive]}>◌</Text>
-                <Text style={[styles.navLabel, activeTab === 'messages' && styles.navLabelActive]}>Mesajlar</Text>
-              </TouchableOpacity>
-              <View style={styles.navSpacer} />
-              <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('cart')}>
-                <Text style={[styles.navIcon, activeTab === 'cart' && styles.navIconActive]}>◍</Text>
-                <Text style={[styles.navLabel, activeTab === 'cart' && styles.navLabelActive]}>Sepet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('notifications')}>
-                <Text style={[styles.navIcon, activeTab === 'notifications' && styles.navIconActive]}>◔</Text>
-                <Text style={[styles.navLabel, activeTab === 'notifications' && styles.navLabelActive]}>Bildirim</Text>
+              <TouchableOpacity
+                style={[
+                  styles.modeBtn,
+                  agentMode === 'text' && styles.modeBtnActive,
+                ]}
+                onPress={handleSwitchToText}
+              >
+                <Text
+                  style={[
+                    styles.modeBtnText,
+                    agentMode === 'text' && styles.modeBtnTextActive,
+                  ]}
+                >
+                  Yazili
+                </Text>
               </TouchableOpacity>
             </View>
-          ) : null}
+          </View>
+
+          {/* Content */}
+          <View style={styles.agentContent}>
+            {agentMode === 'voice' ? (
+              voiceSession && voiceState === 'active' ? (
+                <VoiceSessionScreen
+                  session={voiceSession}
+                  onEnd={handleCloseAgent}
+                  onSwitchToText={handleSwitchToText}
+                />
+              ) : voiceState === 'error' ? (
+                <View style={styles.agentCenter}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={48}
+                    color="#D45454"
+                  />
+                  <Text style={styles.agentErrorText}>{voiceError}</Text>
+                  <TouchableOpacity
+                    style={styles.agentRetryBtn}
+                    onPress={() => void handleStartVoice()}
+                  >
+                    <Text style={styles.agentRetryText}>Tekrar Dene</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.agentCenter}>
+                  <ActivityIndicator size="large" color="#4A7C59" />
+                  <Text style={styles.agentStatusText}>Baglaniyor...</Text>
+                </View>
+              )
+            ) : (
+              <>
+                <FlatList
+                  data={chatMessages}
+                  renderItem={renderChatMessage}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.chatList}
+                  style={styles.chatListContainer}
+                />
+                <View style={styles.chatInputRow}>
+                  <TouchableOpacity
+                    style={styles.chatMicBtn}
+                    onPress={handleSwitchToVoice}
+                  >
+                    <Ionicons name="mic" size={20} color="#6B5D4F" />
+                  </TouchableOpacity>
+                  <TextInput
+                    value={chatInput}
+                    onChangeText={setChatInput}
+                    placeholder="Mesaj yazin..."
+                    placeholderTextColor="#A89B8C"
+                    style={styles.chatTextInput}
+                    returnKeyType="send"
+                    onSubmitEditing={handleChatSend}
+                  />
+                  <TouchableOpacity
+                    style={styles.chatSendBtn}
+                    onPress={handleChatSend}
+                  >
+                    <Ionicons name="arrow-up" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Main screen */}
+      <View style={styles.container}>
+        <View style={styles.inner}>
+          <View style={styles.content}>{renderContent()}</View>
+
+          {/* FAB */}
+          <View style={styles.floatingWrap}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.pulseRing1,
+                {
+                  opacity: pulse1Opacity,
+                  transform: [{ scale: pulse1Scale }],
+                },
+              ]}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.pulseRing2,
+                {
+                  opacity: pulse2Opacity,
+                  transform: [{ scale: pulse2Scale }],
+                },
+              ]}
+            />
+            <Animated.View style={{ transform: [{ scale: breatheScale }] }}>
+              <TouchableOpacity
+                style={styles.floatingButton}
+                activeOpacity={0.9}
+                onPress={handleFabPress}
+              >
+                <Text style={styles.floatingButtonText}>C</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* Bottom tab bar */}
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={styles.navItem}
+              onPress={() => handleTabPress('home')}
+            >
+              <Text
+                style={[
+                  styles.navIcon,
+                  activeTab === 'home' && styles.navIconActive,
+                ]}
+              >
+                ⌂
+              </Text>
+              <Text
+                style={[
+                  styles.navLabel,
+                  activeTab === 'home' && styles.navLabelActive,
+                ]}
+              >
+                Ana Sayfa
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.navItem}
+              onPress={() => handleTabPress('messages')}
+            >
+              <Text
+                style={[
+                  styles.navIcon,
+                  activeTab === 'messages' && styles.navIconActive,
+                ]}
+              >
+                ◌
+              </Text>
+              <Text
+                style={[
+                  styles.navLabel,
+                  activeTab === 'messages' && styles.navLabelActive,
+                ]}
+              >
+                Mesajlar
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.navSpacer} />
+            <TouchableOpacity
+              style={styles.navItem}
+              onPress={() => handleTabPress('cart')}
+            >
+              <Text
+                style={[
+                  styles.navIcon,
+                  activeTab === 'cart' && styles.navIconActive,
+                ]}
+              >
+                ◍
+              </Text>
+              <Text
+                style={[
+                  styles.navLabel,
+                  activeTab === 'cart' && styles.navLabelActive,
+                ]}
+              >
+                Sepet{cartCount > 0 ? ` (${cartCount})` : ''}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.navItem}
+              onPress={() => handleTabPress('notifications')}
+            >
+              <Text
+                style={[
+                  styles.navIcon,
+                  activeTab === 'notifications' && styles.navIconActive,
+                ]}
+              >
+                ◔
+              </Text>
+              <Text
+                style={[
+                  styles.navLabel,
+                  activeTab === 'notifications' && styles.navLabelActive,
+                ]}
+              >
+                Bildirim
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Styles                                                             */
+/* ------------------------------------------------------------------ */
+
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#E8E3DB',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#E8E3DB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
+  /* --- Layout --- */
+  safe: { flex: 1, backgroundColor: '#F5F1EB' },
+  container: { flex: 1, backgroundColor: '#F5F1EB', paddingHorizontal: 12, paddingVertical: 10 },
   inner: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FFFDF9',
     borderRadius: 34,
     overflow: 'hidden',
-    shadowColor: '#2C2C2C',
+    shadowColor: '#3D3229',
     shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.10,
     shadowRadius: 28,
     elevation: 10,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(44,44,44,0.25)',
-    zIndex: 40,
-  },
-  content: {
-    flex: 1,
-    zIndex: 10,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 24,
-    paddingHorizontal: 18,
-    paddingBottom: 130,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  headerTextWrap: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  greetingTitle: {
-    color: '#2C2C2C',
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-  },
-  greetingSubtitle: {
-    marginTop: 4,
-    color: '#9E9892',
-    fontSize: 13,
-  },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#C5D4C6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEmoji: {
-    fontSize: 18,
-  },
+  content: { flex: 1, zIndex: 10 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
+
+  /* --- Header --- */
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  headerTextWrap: { flex: 1, paddingRight: 12 },
+  greetingTitle: { color: '#3D3229', fontSize: 28, lineHeight: 34, fontWeight: '700' },
+  greetingSubtitle: { marginTop: 4, color: '#A89B8C', fontSize: 13 },
+  avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
+  avatarEmoji: { fontSize: 18 },
+
+  /* --- Search --- */
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    shadowColor: '#2C2C2C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 2,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FFFDF9', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 13,
+    borderWidth: 1, borderColor: '#EDE8E0',
     marginBottom: 16,
   },
-  searchIcon: {
-    color: '#9E9892',
-    fontSize: 16,
-    fontWeight: '700',
+  searchIcon: { color: '#A89B8C', fontSize: 16, fontWeight: '700' },
+  searchText: { color: '#A89B8C', fontSize: 14 },
+
+  /* --- Categories --- */
+  categoryScroll: { marginBottom: 16 },
+  categoryContent: { gap: 6 },
+  categoryChip: { backgroundColor: '#EDE8E0', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7 },
+  categoryChipActive: { backgroundColor: '#3D3229' },
+  categoryText: { color: '#6B5D4F', fontSize: 13, fontWeight: '600' },
+  categoryTextActive: { color: '#F5F1EB' },
+
+  /* --- Food card --- */
+  foodCard: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginBottom: 12 },
+  foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center' },
+  foodEmoji: { fontSize: 56 },
+  ratingBadge: {
+    position: 'absolute', top: 10, right: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8,
+    paddingHorizontal: 9, paddingVertical: 3,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
   },
-  searchText: {
-    color: '#9E9892',
-    fontSize: 14,
-  },
-  topActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  topChip: {
-    backgroundColor: '#E8EFE8',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  topChipText: {
-    color: '#5B6E5F',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  userBadge: {
-    flex: 1,
-    backgroundColor: '#F5EFE6',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  userBadgeText: {
-    color: '#6B6560',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  mealCard: {
-    position: 'relative',
-    flexDirection: 'row',
-    gap: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 14,
-    marginBottom: 14,
-    shadowColor: '#2C2C2C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 3,
-  },
-  mealThumb: {
-    width: 100,
-    height: 100,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mealEmoji: {
-    fontSize: 44,
-  },
-  mealInfo: {
-    flex: 1,
-    paddingRight: 54,
-  },
-  mealName: {
-    color: '#2C2C2C',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  mealSeller: {
-    color: '#7A8F7E',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 5,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 5,
-  },
-  ratingGold: {
-    color: '#D4A843',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  ratingGreen: {
-    color: '#5B8C5A',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  mealMeta: {
-    color: '#9E9892',
-    fontSize: 11.5,
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tagPill: {
-    backgroundColor: '#E8EFE8',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C5D4C6',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  tagText: {
-    color: '#5B6E5F',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  mealPrice: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    color: '#5B6E5F',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  addCartButton: {
-    position: 'absolute',
-    right: 14,
-    bottom: 14,
-    backgroundColor: '#7A8F7E',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  addCartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  inlineError: {
-    color: '#C0392B',
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginTop: 6,
-  },
+  ratingBadgeStar: { color: '#C4953A', fontSize: 12, fontWeight: '700' },
+  ratingBadgeText: { color: '#3D3229', fontSize: 12, fontWeight: '700' },
+  foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
+  foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  foodInfoLeft: { flex: 1, paddingRight: 8 },
+  foodName: { fontSize: 16, fontWeight: '600' },
+  foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  foodPrice: { fontSize: 18, fontWeight: '700' },
+  foodMeta: { fontSize: 12 },
+
+  /* --- Profile --- */
   profileCard: {
-    marginTop: 24,
-    marginHorizontal: 18,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    shadowColor: '#2C2C2C',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
+    marginTop: 24, marginHorizontal: 18, backgroundColor: '#FFFDF9',
+    borderRadius: 28, padding: 22, borderWidth: 1, borderColor: '#EDE8E0',
   },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 20,
-  },
-  profileAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#C5D4C6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileAvatarText: {
-    fontSize: 26,
-  },
-  profileMeta: {
-    flex: 1,
-  },
-  profileTitle: {
-    color: '#2C2C2C',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  profileEmail: {
-    color: '#6B6560',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  profileButton: {
-    backgroundColor: '#E8EFE8',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  profileButtonText: {
-    color: '#5B6E5F',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  profileDangerButton: {
-    backgroundColor: '#C4836A',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  profileDangerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  voiceSessionWrap: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-  },
-  agentCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 96,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    zIndex: 60,
-    shadowColor: '#2C2C2C',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 30,
-    elevation: 12,
-  },
-  agentTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 14,
-  },
-  agentAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#C5D4C6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  agentAvatarText: {
-    fontSize: 24,
-  },
-  agentInfo: {
-    flex: 1,
-  },
-  agentTitle: {
-    color: '#2C2C2C',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  agentSubtitle: {
-    color: '#9E9892',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  onlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#7A8F7E',
-  },
-  onlineText: {
-    color: '#7A8F7E',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  agentMessage: {
-    color: '#6B6560',
-    fontSize: 13.5,
-    lineHeight: 20,
-    paddingHorizontal: 22,
-    paddingBottom: 16,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 22,
-    paddingBottom: 18,
-  },
-  promptChip: {
-    backgroundColor: '#E8EFE8',
-    borderWidth: 1,
-    borderColor: '#C5D4C6',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  promptChipText: {
-    color: '#5B6E5F',
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 22,
-    paddingBottom: 22,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#FAF7F2',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#E5E0D8',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: '#2C2C2C',
-    fontSize: 13,
-  },
-  sendButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#7A8F7E',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonError: {
-    backgroundColor: '#C4836A',
-  },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
+  profileAvatar: { width: 56, height: 56, borderRadius: 18, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
+  profileAvatarText: { fontSize: 26 },
+  profileMeta: { flex: 1 },
+  profileTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
+  profileEmail: { color: '#A89B8C', fontSize: 13, marginTop: 4 },
+  profileButton: { backgroundColor: '#EDE8E0', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  profileButtonText: { color: '#6B5D4F', fontSize: 14, fontWeight: '700' },
+  profileDangerButton: { backgroundColor: '#D45454', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  profileDangerButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+
+  /* --- Inline error --- */
+  inlineError: { color: '#D45454', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 6 },
+
+  /* --- FAB --- */
   floatingWrap: {
-    position: 'absolute',
-    left: '50%',
-    bottom: 30,
-    marginLeft: -28,
-    zIndex: 80,
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', left: '50%', bottom: 30, marginLeft: -28,
+    zIndex: 80, width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
   },
-  pulseRing: {
-    position: 'absolute',
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 2,
-    borderColor: '#A8BCA9',
+  pulseRing1: {
+    position: 'absolute', width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(74,124,89,0.22)',
+  },
+  pulseRing2: {
+    position: 'absolute', width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(74,124,89,0.10)',
   },
   floatingButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#7A8F7E',
-    borderWidth: 4,
-    borderColor: '#FAF7F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#5B6E5F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: '#4A7C59',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#4A7C59', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 18,
     elevation: 10,
   },
-  floatingButtonOpen: {
-    backgroundColor: '#5B6E5F',
-  },
-  floatingButtonError: {
-    backgroundColor: '#C4836A',
-  },
-  floatingButtonText: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
+  floatingButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+
+  /* --- Bottom bar --- */
   bottomBar: {
-    height: 86,
-    backgroundColor: 'rgba(250,247,242,0.96)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-around',
-    paddingTop: 10,
-    paddingHorizontal: 8,
-    zIndex: 50,
+    height: 86, backgroundColor: 'rgba(255,253,249,0.96)',
+    borderTopWidth: 1, borderTopColor: '#EDE8E0',
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around',
+    paddingTop: 10, paddingHorizontal: 8, zIndex: 50,
   },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navSpacer: {
-    width: 56,
-  },
-  navIcon: {
-    color: '#9E9892',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  navIconActive: {
-    color: '#5B6E5F',
-  },
-  navLabel: {
-    color: '#9E9892',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  navLabelActive: {
-    color: '#5B6E5F',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  navSpacer: { width: 56 },
+  navIcon: { color: '#A89B8C', fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  navIconActive: { color: '#4A7C59' },
+  navLabel: { color: '#A89B8C', fontSize: 10, fontWeight: '700' },
+  navLabelActive: { color: '#4A7C59' },
+
+  /* --- Meal detail modal --- */
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 40,
-    alignItems: 'center',
+    backgroundColor: '#FFFDF9', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 40, alignItems: 'center',
   },
   modalClose: {
-    position: 'absolute',
-    top: 16,
-    right: 20,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0EEEA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
+    position: 'absolute', top: 16, right: 20,
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#EDE8E0',
+    alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
-  modalCloseText: {
-    color: '#6B6560',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  modalThumb: {
-    width: 120,
-    height: 120,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  modalEmoji: {
-    fontSize: 56,
-  },
-  modalTitle: {
-    color: '#2C2C2C',
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  modalSeller: {
-    color: '#7A8F7E',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  modalRatingRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  modalMeta: {
-    color: '#9E9892',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalPrice: {
-    color: '#5B6E5F',
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 20,
-  },
+  modalCloseText: { color: '#6B5D4F', fontSize: 16, fontWeight: '700' },
+  modalThumb: { width: 120, height: 120, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  modalEmoji: { fontSize: 56 },
+  modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
+  modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  modalMeta: { color: '#A89B8C', fontSize: 13, marginBottom: 12, textAlign: 'center' },
+  modalPrice: { color: '#5B7A4A', fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 20 },
   modalCartButton: {
-    backgroundColor: '#7A8F7E',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    width: '100%',
-    alignItems: 'center',
+    backgroundColor: '#4A7C59', borderRadius: 16, paddingVertical: 16,
+    paddingHorizontal: 48, width: '100%', alignItems: 'center',
   },
-  modalCartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  modalCartButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+
+  /* --- Agent modal --- */
+  agentModalSafe: { flex: 1, backgroundColor: '#F5F1EB' },
+  agentHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+  },
+  agentCloseBtn: {
+    width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  agentHeaderTitle: { fontSize: 15, fontWeight: '600', color: '#3D3229' },
+  modePill: { backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 12, padding: 3, flexDirection: 'row' },
+  modeBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10 },
+  modeBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
+  },
+  modeBtnText: { color: '#A89B8C', fontSize: 13, fontWeight: '600' },
+  modeBtnTextActive: { color: '#3D3229' },
+  agentContent: { flex: 1 },
+  agentCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 },
+  agentStatusText: { color: '#3D3229', fontSize: 16, fontWeight: '600' },
+  agentErrorText: { color: '#D45454', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  agentRetryBtn: { backgroundColor: '#4A7C59', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  agentRetryText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+
+  /* --- Chat (text mode) --- */
+  chatListContainer: { flex: 1 },
+  chatList: { padding: 16, paddingBottom: 8 },
+  chatRowBot: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 8 },
+  chatAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
+  chatAvatarEmoji: { fontSize: 14 },
+  chatBubbleBot: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, borderTopLeftRadius: 4,
+    paddingHorizontal: 13, paddingVertical: 10, maxWidth: '75%',
+  },
+  chatTextBot: { color: '#3D3229', fontSize: 14, lineHeight: 20 },
+  chatRowUser: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 },
+  chatBubbleUser: {
+    backgroundColor: '#4A7C59', borderRadius: 16, borderTopRightRadius: 4,
+    paddingHorizontal: 13, paddingVertical: 10, maxWidth: '75%',
+  },
+  chatTextUser: { color: '#FFFFFF', fontSize: 14, lineHeight: 20 },
+  chatInputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: '#EDE8E0',
+  },
+  chatMicBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  chatTextInput: {
+    flex: 1, borderWidth: 1, borderColor: '#DDD7CC', borderRadius: 24,
+    paddingHorizontal: 16, paddingVertical: 10, color: '#3D3229', fontSize: 14,
+  },
+  chatSendBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#4A7C59',
+    alignItems: 'center', justifyContent: 'center',
   },
 });
