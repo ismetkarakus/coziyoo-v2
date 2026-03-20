@@ -6,7 +6,6 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   SafeAreaView,
@@ -19,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { WebView, type WebViewNavigation } from 'react-native-webview';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
   getColors = require('react-native-image-colors').getColors;
@@ -743,6 +743,8 @@ export default function HomeScreen({
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatusSnapshot | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [paymentWebVisible, setPaymentWebVisible] = useState(false);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -1122,10 +1124,8 @@ export default function HomeScreen({
         latestAttemptStatus: 'initiated',
       });
       if (checkoutUrl) {
-        const supported = await Linking.canOpenURL(checkoutUrl);
-        if (supported) {
-          await Linking.openURL(checkoutUrl);
-        }
+        setCheckoutUrl(checkoutUrl);
+        setPaymentWebVisible(true);
       }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Odeme baslatma hatasi');
@@ -1164,6 +1164,10 @@ export default function HomeScreen({
     } finally {
       setPaymentLoading(false);
     }
+  }
+
+  function handleClosePaymentWeb() {
+    setPaymentWebVisible(false);
   }
 
   function renderMessagesWallpaper(
@@ -1677,6 +1681,54 @@ export default function HomeScreen({
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFDF9" />
+
+      <Modal
+        visible={paymentWebVisible}
+        animationType="slide"
+        onRequestClose={handleClosePaymentWeb}
+      >
+        <SafeAreaView style={styles.paymentWebSafe}>
+          <View style={styles.paymentWebHeader}>
+            <Text style={styles.paymentWebTitle}>Odeme Ekrani</Text>
+            <TouchableOpacity
+              onPress={() => {
+                handleClosePaymentWeb();
+                void refreshPaymentStatus();
+              }}
+              style={styles.paymentWebClose}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.paymentWebCloseText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+          {checkoutUrl ? (
+            <WebView
+              source={{ uri: checkoutUrl }}
+              onNavigationStateChange={(navState: WebViewNavigation) => {
+                const url = navState.url || '';
+                if (
+                  url.includes('/v1/payments/return') ||
+                  url.includes('result=success') ||
+                  url.includes('result=failed')
+                ) {
+                  setPaymentWebVisible(false);
+                  void refreshPaymentStatus();
+                }
+              }}
+              startInLoadingState
+              renderLoading={() => (
+                <View style={styles.paymentWebLoading}>
+                  <ActivityIndicator size="large" color="#4A7C59" />
+                </View>
+              )}
+            />
+          ) : (
+            <View style={styles.paymentWebLoading}>
+              <Text style={styles.paymentWebErrorText}>Checkout baglantisi bulunamadi.</Text>
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
 
       {/* Meal detail modal */}
       <Modal
@@ -2343,6 +2395,28 @@ const styles = StyleSheet.create({
   },
   paymentRefreshBtnDisabled: { opacity: 0.55 },
   paymentRefreshBtnText: { color: '#5F5246', fontSize: 13, fontWeight: '700' },
+  paymentWebSafe: { flex: 1, backgroundColor: '#FFFDF9' },
+  paymentWebHeader: {
+    height: 56,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE8E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  paymentWebTitle: { color: '#3D3229', fontSize: 16, fontWeight: '700' },
+  paymentWebClose: {
+    borderWidth: 1,
+    borderColor: '#DDD2C3',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: '#FFF',
+  },
+  paymentWebCloseText: { color: '#5F5246', fontSize: 13, fontWeight: '700' },
+  paymentWebLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  paymentWebErrorText: { color: '#B42318', fontSize: 14, fontWeight: '600' },
   messagesTabWrap: { flex: 1, marginTop: 16, paddingBottom: 72 },
   messagesWallpaper: {
     ...StyleSheet.absoluteFillObject,
