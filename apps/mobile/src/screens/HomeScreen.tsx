@@ -6,6 +6,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   SafeAreaView,
@@ -18,12 +19,22 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
   getColors = require('react-native-image-colors').getColors;
 } catch {
   // Native module not available — adaptive colors will use fallback
+}
+let PaymentWebView: React.ComponentType<{
+  source: { uri: string };
+  onNavigationStateChange?: (state: { url?: string }) => void;
+  startInLoadingState?: boolean;
+  renderLoading?: () => React.ReactElement | null;
+}> | null = null;
+try {
+  PaymentWebView = require('react-native-webview').WebView;
+} catch {
+  // WebView native module is optional at runtime; fallback is external link.
 }
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
@@ -1701,10 +1712,10 @@ export default function HomeScreen({
               <Text style={styles.paymentWebCloseText}>Kapat</Text>
             </TouchableOpacity>
           </View>
-          {checkoutUrl ? (
-            <WebView
+          {checkoutUrl && PaymentWebView ? (
+            <PaymentWebView
               source={{ uri: checkoutUrl }}
-              onNavigationStateChange={(navState: WebViewNavigation) => {
+              onNavigationStateChange={(navState) => {
                 const url = navState.url || '';
                 if (
                   url.includes('/v1/payments/return') ||
@@ -1722,6 +1733,21 @@ export default function HomeScreen({
                 </View>
               )}
             />
+          ) : checkoutUrl ? (
+            <View style={styles.paymentWebLoading}>
+              <Text style={styles.paymentWebErrorText}>
+                Uygulama ici odeme modulu yuklu degil.
+              </Text>
+              <TouchableOpacity
+                style={styles.paymentWebFallbackBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  void Linking.openURL(checkoutUrl);
+                }}
+              >
+                <Text style={styles.paymentWebFallbackBtnText}>Tarayicida Ac</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.paymentWebLoading}>
               <Text style={styles.paymentWebErrorText}>Checkout baglantisi bulunamadi.</Text>
@@ -2417,6 +2443,16 @@ const styles = StyleSheet.create({
   paymentWebCloseText: { color: '#5F5246', fontSize: 13, fontWeight: '700' },
   paymentWebLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   paymentWebErrorText: { color: '#B42318', fontSize: 14, fontWeight: '600' },
+  paymentWebFallbackBtn: {
+    marginTop: 10,
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#4A7C59',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentWebFallbackBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   messagesTabWrap: { flex: 1, marginTop: 16, paddingBottom: 72 },
   messagesWallpaper: {
     ...StyleSheet.absoluteFillObject,
