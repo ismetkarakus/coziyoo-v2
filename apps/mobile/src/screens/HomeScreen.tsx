@@ -512,6 +512,8 @@ export default function HomeScreen({
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeCategory, setActiveCategory] = useState('Tumu');
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [meals, setMeals] = useState<MealCard[]>([]);
   const [mealsLoading, setMealsLoading] = useState(true);
   const [mealsError, setMealsError] = useState<string | null>(null);
@@ -533,6 +535,7 @@ export default function HomeScreen({
   const pulse2Opacity = useRef(new Animated.Value(0.6)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
   const pulse2Timer = useRef<ReturnType<typeof setTimeout>>();
+  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -692,6 +695,14 @@ export default function HomeScreen({
     };
   }, [pulse1Scale, pulse1Opacity, pulse2Scale, pulse2Opacity, breatheScale]);
 
+  useEffect(() => {
+    if (searchMode) {
+      const t = setTimeout(() => searchInputRef.current?.focus(), 80);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [searchMode]);
+
   /* ---------- Voice session helpers ---------- */
 
   function resolveStartSessionError(
@@ -827,6 +838,15 @@ export default function HomeScreen({
     activeCategory === 'Tumu'
       ? meals
       : meals.filter((m) => m.category === activeCategory);
+  const visibleMeals = searchQuery.trim()
+    ? filteredMeals.filter((m) => {
+        const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
+        return (
+          m.title.toLocaleLowerCase('tr-TR').includes(q) ||
+          m.seller.toLocaleLowerCase('tr-TR').includes(q)
+        );
+      })
+    : filteredMeals;
 
   /* ---------- Render helpers ---------- */
 
@@ -852,16 +872,67 @@ export default function HomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Search */}
+        {/* Search + category chips */}
         <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <Text style={styles.searchText}>Tarif veya malzeme ara...</Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              if (searchMode) {
+                setSearchMode(false);
+                setSearchQuery('');
+                return;
+              }
+              setSearchMode(true);
+            }}
+            style={styles.searchIconButton}
+          >
+            <Text style={styles.searchIcon}>⌕</Text>
+          </TouchableOpacity>
+          {searchMode ? (
+            <TextInput
+              ref={searchInputRef}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Yemek veya satici ara..."
+              placeholderTextColor="#A89B8C"
+              style={styles.searchInput}
+              returnKeyType="search"
+            />
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryContent}
+              style={styles.searchCategoryScroller}
+            >
+              {CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.categoryChip,
+                    activeCategory === cat && styles.categoryChipActive,
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => setActiveCategory(cat)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      activeCategory === cat && styles.categoryTextActive,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
             <Text style={styles.debugText}>API: {apiUrl}</Text>
             <Text style={styles.debugText}>
-              foods: {meals.length} | filtered: {filteredMeals.length} | loading:{' '}
+              foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
               {mealsLoading ? 'yes' : 'no'}
             </Text>
             {mealsError ? (
@@ -870,37 +941,8 @@ export default function HomeScreen({
           </View>
         ) : null}
 
-        {/* Category filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryScroll}
-          contentContainerStyle={styles.categoryContent}
-        >
-          {CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[
-                styles.categoryChip,
-                activeCategory === cat && styles.categoryChipActive,
-              ]}
-              activeOpacity={0.85}
-              onPress={() => setActiveCategory(cat)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  activeCategory === cat && styles.categoryTextActive,
-                ]}
-              >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         {/* Food cards */}
-        {filteredMeals.map((meal) => (
+        {visibleMeals.map((meal) => (
           <FoodCard
             key={meal.id}
             meal={meal}
@@ -1307,8 +1349,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#EDE8E0',
     marginBottom: 16,
   },
-  searchIcon: { color: '#A89B8C', fontSize: 16, fontWeight: '700' },
+  searchIconButton: { width: 34, alignItems: 'center', justifyContent: 'center' },
+  searchIcon: { color: '#7A6D5F', fontSize: 22, fontWeight: '800' },
   searchText: { color: '#A89B8C', fontSize: 14 },
+  searchInput: { flex: 1, color: '#3D3229', fontSize: 15, fontWeight: '500' },
+  searchCategoryScroller: { flex: 1 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
