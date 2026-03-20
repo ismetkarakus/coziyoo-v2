@@ -271,9 +271,9 @@ export default function HomeScreen({
 
   // FAB animations
   const pulse1Scale = useRef(new Animated.Value(1)).current;
-  const pulse1Opacity = useRef(new Animated.Value(0.4)).current;
+  const pulse1Opacity = useRef(new Animated.Value(0.8)).current;
   const pulse2Scale = useRef(new Animated.Value(1)).current;
-  const pulse2Opacity = useRef(new Animated.Value(0.3)).current;
+  const pulse2Opacity = useRef(new Animated.Value(0.6)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
   const pulse2Timer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -308,7 +308,7 @@ export default function HomeScreen({
             useNativeDriver: true,
           }),
           Animated.timing(pulse1Opacity, {
-            toValue: 0.4,
+            toValue: 0.8,
             duration: 0,
             useNativeDriver: true,
           }),
@@ -337,7 +337,7 @@ export default function HomeScreen({
             useNativeDriver: true,
           }),
           Animated.timing(pulse2Opacity, {
-            toValue: 0.3,
+            toValue: 0.6,
             duration: 0,
             useNativeDriver: true,
           }),
@@ -1019,16 +1019,18 @@ const styles = StyleSheet.create({
 
   /* --- FAB --- */
   floatingWrap: {
-    position: 'absolute', left: '50%', bottom: 30, marginLeft: -28,
+    position: 'absolute', left: '50%', bottom: 52, marginLeft: -28,
     zIndex: 80, width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
   },
   pulseRing1: {
-    position: 'absolute', width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(74,124,89,0.22)',
+    position: 'absolute', width: 70, height: 70, borderRadius: 35,
+    borderWidth: 2.5, borderColor: 'rgba(74,124,89,0.45)',
+    backgroundColor: 'transparent',
   },
   pulseRing2: {
-    position: 'absolute', width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(74,124,89,0.10)',
+    position: 'absolute', width: 70, height: 70, borderRadius: 35,
+    borderWidth: 2, borderColor: 'rgba(74,124,89,0.30)',
+    backgroundColor: 'transparent',
   },
   floatingButton: {
     width: 56, height: 56, borderRadius: 28, backgroundColor: '#4A7C59',
@@ -1040,13 +1042,13 @@ const styles = StyleSheet.create({
 
   /* --- Bottom bar --- */
   bottomBar: {
-    height: 86, backgroundColor: '#FFFDF9',
+    height: 82, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around',
-    paddingTop: 10, paddingHorizontal: 8, zIndex: 50,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    paddingBottom: 16, paddingHorizontal: 8, zIndex: 50,
   },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navSpacer: { width: 56 },
+  navSpacer: { width: 64 },
   navIcon: { color: '#A89B8C', fontSize: 18, fontWeight: '700', marginBottom: 4 },
   navIconActive: { color: '#4A7C59' },
   navLabel: { color: '#A89B8C', fontSize: 10, fontWeight: '700' },
