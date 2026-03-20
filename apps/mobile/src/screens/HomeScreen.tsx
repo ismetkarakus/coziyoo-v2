@@ -64,6 +64,7 @@ type ApiFoodItem = {
   prepTime: number | null;
   maxDistance: number | null;
   category: string | null;
+  allergens?: string[];
   stock: number;
   seller: { id: string; name: string; image: string | null };
 };
@@ -74,6 +75,7 @@ type MealCard = {
   sellerId: string;
   seller: string;
   sellerImage?: string | null;
+  allergens: string[];
   rating: string;
   time: string;
   distance: string;
@@ -405,6 +407,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     sellerId: item.seller.id,
     seller: item.seller.name,
     sellerImage: item.seller.image,
+    allergens: item.allergens ?? [],
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
     distance: item.maxDistance ? `${item.maxDistance} km` : '',
@@ -563,9 +566,16 @@ function FoodCard({
               />
             </TouchableOpacity>
           </View>
-          <Text style={[styles.foodPrice, { color: colors.price }]}>
-            {meal.price}
-          </Text>
+          <View style={styles.foodRightCol}>
+            <Text style={[styles.foodPrice, { color: colors.price }]}>
+              {meal.price}
+            </Text>
+            {meal.allergens.length > 0 ? (
+              <Text style={styles.foodAllergenText}>
+                Alerjen: {meal.allergens.slice(0, 3).join(', ')}
+              </Text>
+            ) : null}
+          </View>
         </View>
         <Text style={[styles.foodMeta, { color: colors.meta }]}>
           🕐 {meal.time} · {meal.distance}
@@ -1666,11 +1676,13 @@ const styles = StyleSheet.create({
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1, paddingRight: 8 },
+  foodRightCol: { alignItems: 'flex-end', maxWidth: '45%' },
   foodName: { fontSize: 16, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodPrice: { fontSize: 18, fontWeight: '700' },
+  foodAllergenText: { marginTop: 3, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right' },
   foodMeta: { fontSize: 12 },
 
   /* --- Profile --- */

@@ -6,6 +6,27 @@ export const foodsRouter = Router();
 
 foodsRouter.use(requireAuth("app"));
 
+function parseAllergens(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? "").trim())
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>)
+      .map((item) => String(item ?? "").trim())
+      .filter((item) => item.length > 0);
+  }
+  return [];
+}
+
 /**
  * GET /v1/foods
  * List active foods with seller info, category, and available lot stock.
@@ -27,6 +48,7 @@ foodsRouter.get("/", async (req, res) => {
         f.review_count,
         f.preparation_time_minutes,
         f.max_delivery_distance_km,
+        f.allergens_json,
         f.is_active,
         c.name_tr AS category,
         u.id AS seller_id,
@@ -70,6 +92,7 @@ foodsRouter.get("/", async (req, res) => {
       maxDistance: r.max_delivery_distance_km
         ? parseFloat(r.max_delivery_distance_km)
         : null,
+      allergens: parseAllergens(r.allergens_json),
       category: r.category,
       stock: r.stock,
       seller: {
