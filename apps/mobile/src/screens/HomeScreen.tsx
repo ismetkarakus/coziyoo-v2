@@ -81,6 +81,14 @@ type MealCard = {
   imageUrl?: string;
 };
 
+type UiCategory =
+  | 'Corbalar'
+  | 'Ana Yemekler'
+  | 'Salata'
+  | 'Meze'
+  | 'Tatlilar'
+  | 'Icecekler';
+
 type CardColors = {
   bg: string;
   border: string;
@@ -240,23 +248,86 @@ function deriveCardColors(dominant: string): CardColors {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const CATEGORIES = ['Tumu', 'Corbalar', 'Ana Yemekler', 'Tatlilar', 'Icecekler'];
+const CATEGORIES = [
+  'Tumu',
+  'Corbalar',
+  'Ana Yemekler',
+  'Salata',
+  'Meze',
+  'Tatlilar',
+  'Icecekler',
+] as const;
 
 const CATEGORY_BG_COLORS: Record<string, string> = {
-  'Çorbalar': '#F1DED0',
+  Corbalar: '#F1DED0',
   'Ana Yemekler': '#D8E5D8',
-  'Zeytinyağlılar': '#D4E4D8',
-  'Tatlılar': '#ECD4D8',
-  'İçecekler': '#D4DEE8',
+  Salata: '#D9EAD9',
+  Meze: '#E1DDF1',
+  Tatlilar: '#ECD4D8',
+  Icecekler: '#D4DEE8',
 };
 
-const CATEGORY_API_MAP: Record<string, string> = {
-  'Tumu': '',
-  'Corbalar': 'Çorbalar',
-  'Ana Yemekler': 'Ana Yemekler',
-  'Tatlilar': 'Tatlılar',
-  'Icecekler': 'İçecekler',
-};
+function normalizeDishText(value: string): string {
+  return value
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c');
+}
+
+function inferUiCategory(item: ApiFoodItem): UiCategory {
+  const title = normalizeDishText(item.name);
+  const sourceCategory = normalizeDishText(item.category ?? '');
+  const haystack = `${title} ${sourceCategory}`;
+
+  if (
+    haystack.includes('corba') ||
+    haystack.includes('mercimek') ||
+    haystack.includes('ezogelin') ||
+    haystack.includes('iskembe') ||
+    haystack.includes('tarhana')
+  ) {
+    return 'Corbalar';
+  }
+  if (
+    haystack.includes('salata') ||
+    haystack.includes('piyaz') ||
+    haystack.includes('kisir') ||
+    haystack.includes('cacik')
+  ) {
+    return 'Salata';
+  }
+  if (
+    haystack.includes('meze') ||
+    haystack.includes('haydari') ||
+    haystack.includes('ezme') ||
+    haystack.includes('humus') ||
+    haystack.includes('icli kofte') ||
+    haystack.includes('cig kofte')
+  ) {
+    return 'Meze';
+  }
+  if (
+    haystack.includes('tatli') ||
+    haystack.includes('sutlac') ||
+    haystack.includes('baklava') ||
+    haystack.includes('kunefe')
+  ) {
+    return 'Tatlilar';
+  }
+  if (
+    haystack.includes('icecek') ||
+    haystack.includes('ayran') ||
+    haystack.includes('serbet') ||
+    haystack.includes('limonata')
+  ) {
+    return 'Icecekler';
+  }
+  return 'Ana Yemekler';
+}
 
 function resolveDishImage(title: string, category: string | null): string {
   const query = encodeURIComponent(`${title} ${category ?? ''} turkish dish plated`);
@@ -300,6 +371,7 @@ function resolveSecondaryDishImage(title: string, category: string | null): stri
 }
 
 function apiToMealCard(item: ApiFoodItem): MealCard {
+  const uiCategory = inferUiCategory(item);
   return {
     id: item.id,
     title: item.name,
@@ -308,9 +380,9 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     time: item.prepTime ? `${item.prepTime} dk` : '',
     distance: item.maxDistance ? `${item.maxDistance} km` : '',
     price: `₺${item.price}`,
-    backgroundColor: CATEGORY_BG_COLORS[item.category ?? ''] ?? '#E8E3DB',
-    category: item.category ?? '',
-    imageUrl: resolveDishImage(item.name, item.category),
+    backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
+    category: uiCategory,
+    imageUrl: resolveDishImage(item.name, uiCategory),
   };
 }
 
@@ -751,11 +823,10 @@ export default function HomeScreen({
 
   /* ---------- Filtered meals ---------- */
 
-  const categoryApiName = CATEGORY_API_MAP[activeCategory] ?? '';
   const filteredMeals =
-    activeCategory === 'Tumu' || !categoryApiName
+    activeCategory === 'Tumu'
       ? meals
-      : meals.filter((m) => m.category === categoryApiName);
+      : meals.filter((m) => m.category === activeCategory);
 
   /* ---------- Render helpers ---------- */
 
