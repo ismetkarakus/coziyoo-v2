@@ -1430,6 +1430,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
+    paddingVertical: 4,
   },
   searchCategoryScroller: { flex: 1 },
   debugBox: {
