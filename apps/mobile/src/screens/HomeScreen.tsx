@@ -117,14 +117,43 @@ function darken(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+function normalizeHexColor(color: string, fallback = '#8A7B6A'): string {
+  const normalized = color.trim();
+  const withHash = normalized.startsWith('#') ? normalized : `#${normalized}`;
+  if (!/^#[0-9a-fA-F]{6}$/.test(withHash)) return fallback;
+  return withHash.toUpperCase();
+}
+
+function lighten(hex: string, amount: number): string {
+  const h = hex.replace('#', '');
+  const r = Math.min(
+    255,
+    Math.round(parseInt(h.substring(0, 2), 16) + (255 - parseInt(h.substring(0, 2), 16)) * amount),
+  );
+  const g = Math.min(
+    255,
+    Math.round(parseInt(h.substring(2, 4), 16) + (255 - parseInt(h.substring(2, 4), 16)) * amount),
+  );
+  const b = Math.min(
+    255,
+    Math.round(parseInt(h.substring(4, 6), 16) + (255 - parseInt(h.substring(4, 6), 16)) * amount),
+  );
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 function deriveCardColors(dominant: string): CardColors {
+  const safe = normalizeHexColor(dominant);
+  const title = darken(safe, 0.62);
+  const subtitle = darken(safe, 0.46);
+  const price = darken(safe, 0.56);
+  const metaBase = darken(safe, 0.38);
   return {
-    bg: dominant + '20',
-    border: dominant + '30',
-    title: darken(dominant, 0.6),
-    subtitle: darken(dominant, 0.3),
-    price: darken(dominant, 0.5),
-    meta: dominant + '90',
+    bg: lighten(safe, 0.82),
+    border: lighten(safe, 0.68),
+    title,
+    subtitle,
+    price,
+    meta: metaBase,
   };
 }
 
