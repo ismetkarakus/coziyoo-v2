@@ -761,11 +761,14 @@ export default function HomeScreen({
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatusSnapshot | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [paymentWebVisible, setPaymentWebVisible] = useState(false);
+  const [pendingCheckoutUrls, setPendingCheckoutUrls] = useState<string[]>([]);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -1015,8 +1018,11 @@ export default function HomeScreen({
 
   function addMealToCart(meal: MealCard) {
     setActiveOrderId(null);
+    setActiveOrderIds([]);
     setPaymentError(null);
+    setPaymentInfo(null);
     setPaymentStatus(null);
+    setPendingCheckoutUrls([]);
     setCartItems((prev) => {
       const existing = prev.find((item) => item.meal.id === meal.id);
       if (!existing) {
@@ -1032,8 +1038,11 @@ export default function HomeScreen({
 
   function decreaseCartItem(mealId: string) {
     setActiveOrderId(null);
+    setActiveOrderIds([]);
     setPaymentError(null);
+    setPaymentInfo(null);
     setPaymentStatus(null);
+    setPendingCheckoutUrls([]);
     setCartItems((prev) => {
       const current = prev.find((item) => item.meal.id === mealId);
       if (!current) return prev;
@@ -1078,81 +1087,97 @@ export default function HomeScreen({
       return;
     }
 
-    const sellerId = payableItems[0]?.meal.sellerId;
-    if (!sellerId) {
-      setPaymentError('Satici bilgisi eksik.');
-      return;
-    }
-    if (!payableItems.every((item) => item.meal.sellerId === sellerId)) {
-      setPaymentError('Ayni anda sadece tek saticidan odeme destekleniyor.');
-      return;
+    const groupedBySeller = new Map<string, CartItem[]>();
+    for (const item of payableItems) {
+      const sellerId = item.meal.sellerId;
+      if (!sellerId) {
+        setPaymentError('Satici bilgisi eksik.');
+        return;
+      }
+      const existing = groupedBySeller.get(sellerId) ?? [];
+      groupedBySeller.set(sellerId, [...existing, item]);
     }
 
     setPaymentLoading(true);
     setPaymentError(null);
+    setPaymentInfo(null);
     try {
-      const orderRes = await fetch(`${apiUrl}/v1/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${currentAuth.accessToken}`,
-          'Idempotency-Key': `mobile-order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        },
-        body: JSON.stringify({
-          sellerId,
-          deliveryType: 'pickup',
-          items: payableItems.map((item) => ({
-            lotId: item.meal.lotId,
-            quantity: item.quantity,
-          })),
-        }),
-      });
-      const orderJson = await readJsonSafe<{
-        data?: { orderId?: string; status?: string };
-        error?: { message?: string };
-      }>(orderRes);
-      if (!orderRes.ok) {
-        throw new Error(orderJson?.error?.message ?? `Siparis olusturulamadi (${orderRes.status})`);
-      }
-      const orderId = String(orderJson?.data?.orderId ?? '');
-      if (!orderId) {
-        throw new Error('Siparis kimligi donmedi.');
-      }
-      setActiveOrderId(orderId);
+      const createdOrderIds: string[] = [];
+      const createdCheckoutUrls: string[] = [];
 
-      const paymentRes = await fetch(`${apiUrl}/v1/payments/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${currentAuth.accessToken}`,
-          'Idempotency-Key': `mobile-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        },
-        body: JSON.stringify({ orderId }),
-      });
-      const paymentJson = await readJsonSafe<{
-        data?: { checkoutUrl?: string };
-        error?: { message?: string };
-      }>(paymentRes);
-      if (!paymentRes.ok) {
-        setPaymentStatus({
-          orderId,
-          orderStatus: String(orderJson?.data?.status ?? 'pending_seller_approval'),
-          paymentCompleted: false,
-          latestAttemptStatus: undefined,
+      for (const [sellerId, sellerItems] of groupedBySeller.entries()) {
+        const orderRes = await fetch(`${apiUrl}/v1/orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentAuth.accessToken}`,
+            'Idempotency-Key': `mobile-order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          },
+          body: JSON.stringify({
+            sellerId,
+            deliveryType: 'pickup',
+            items: sellerItems.map((item) => ({
+              lotId: item.meal.lotId,
+              quantity: item.quantity,
+            })),
+          }),
         });
-        throw new Error(paymentJson?.error?.message ?? `Odeme baslatilamadi (${paymentRes.status})`);
+        const orderJson = await readJsonSafe<{
+          data?: { orderId?: string; status?: string };
+          error?: { message?: string };
+        }>(orderRes);
+        if (!orderRes.ok) {
+          throw new Error(orderJson?.error?.message ?? `Siparis olusturulamadi (${orderRes.status})`);
+        }
+        const orderId = String(orderJson?.data?.orderId ?? '');
+        if (!orderId) {
+          throw new Error('Siparis kimligi donmedi.');
+        }
+        createdOrderIds.push(orderId);
+
+        const paymentRes = await fetch(`${apiUrl}/v1/payments/start`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentAuth.accessToken}`,
+            'Idempotency-Key': `mobile-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          },
+          body: JSON.stringify({ orderId }),
+        });
+        const paymentJson = await readJsonSafe<{
+          data?: { checkoutUrl?: string };
+          error?: { message?: string };
+        }>(paymentRes);
+        if (!paymentRes.ok) {
+          throw new Error(paymentJson?.error?.message ?? `Odeme baslatilamadi (${paymentRes.status})`);
+        }
+        const nextCheckoutUrl = String(paymentJson?.data?.checkoutUrl ?? '');
+        if (nextCheckoutUrl) createdCheckoutUrls.push(nextCheckoutUrl);
       }
 
-      const checkoutUrl = String(paymentJson?.data?.checkoutUrl ?? '');
-      setPaymentStatus({
-        orderId,
-        orderStatus: 'awaiting_payment',
-        paymentCompleted: false,
-        latestAttemptStatus: 'initiated',
-      });
-      if (checkoutUrl) {
-        setCheckoutUrl(checkoutUrl);
+      setActiveOrderId(createdOrderIds[0] ?? null);
+      setActiveOrderIds(createdOrderIds);
+      setPaymentStatus(
+        createdOrderIds[0]
+          ? {
+              orderId: createdOrderIds[0],
+              orderStatus: 'awaiting_payment',
+              paymentCompleted: false,
+              latestAttemptStatus: 'initiated',
+            }
+          : null,
+      );
+      if (createdOrderIds.length > 1) {
+        setPaymentInfo(
+          `${createdOrderIds.length} satici icin odeme oturumu olusturuldu. Odemeleri sirayla tamamlayabilirsin.`,
+        );
+      }
+      if (createdCheckoutUrls.length > 0) {
+        setCheckoutUrl(createdCheckoutUrls[0]);
+        setPendingCheckoutUrls(createdCheckoutUrls.slice(1));
         setPaymentWebVisible(true);
+      } else {
+        setPaymentInfo('Checkout baglantisi olusturulamadi. Durum yenile ile kontrol et.');
       }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Odeme baslatma hatasi');
@@ -1162,37 +1187,53 @@ export default function HomeScreen({
   }
 
   async function refreshPaymentStatus() {
-    if (!activeOrderId) return;
+    const orderIds = activeOrderIds.length > 0
+      ? activeOrderIds
+      : activeOrderId
+        ? [activeOrderId]
+        : [];
+    if (orderIds.length === 0) return;
     setPaymentLoading(true);
     setPaymentError(null);
+    setPaymentInfo(null);
     try {
-      const response = await fetch(`${apiUrl}/v1/payments/${activeOrderId}/status`, {
-        headers: {
-          Authorization: `Bearer ${currentAuth.accessToken}`,
-        },
-      });
-      const json = await readJsonSafe<{
-        data?: {
-          orderId?: string;
-          orderStatus?: string;
-          paymentCompleted?: boolean;
-          latestAttempt?: { status?: string };
-        };
-        error?: { message?: string };
-      }>(response);
-      if (!response.ok) {
-        throw new Error(json?.error?.message ?? `Durum alinamadi (${response.status})`);
+      const snapshots = await Promise.all(
+        orderIds.map(async (oid) => {
+          const response = await fetch(`${apiUrl}/v1/payments/${oid}/status`, {
+            headers: {
+              Authorization: `Bearer ${currentAuth.accessToken}`,
+            },
+          });
+          const json = await readJsonSafe<{
+            data?: {
+              orderId?: string;
+              orderStatus?: string;
+              paymentCompleted?: boolean;
+              latestAttempt?: { status?: string };
+            };
+            error?: { message?: string };
+          }>(response);
+          if (!response.ok) {
+            throw new Error(json?.error?.message ?? `Durum alinamadi (${response.status})`);
+          }
+          return {
+            orderId: String(json?.data?.orderId ?? oid),
+            orderStatus: String(json?.data?.orderStatus ?? ''),
+            paymentCompleted: Boolean(json?.data?.paymentCompleted),
+            latestAttemptStatus: json?.data?.latestAttempt?.status
+              ? String(json.data.latestAttempt.status)
+              : undefined,
+          } as PaymentStatusSnapshot;
+        }),
+      );
+      const completedCount = snapshots.filter((s) => s.paymentCompleted).length;
+      setPaymentStatus(snapshots[0] ?? null);
+      if (snapshots.length > 1) {
+        setPaymentInfo(`${completedCount}/${snapshots.length} odeme tamamlandi.`);
       }
-      setPaymentStatus({
-        orderId: String(json?.data?.orderId ?? activeOrderId),
-        orderStatus: String(json?.data?.orderStatus ?? ''),
-        paymentCompleted: Boolean(json?.data?.paymentCompleted),
-        latestAttemptStatus: json?.data?.latestAttempt?.status
-          ? String(json.data.latestAttempt.status)
-          : undefined,
-      });
-      if (json?.data?.paymentCompleted) {
+      if (completedCount === snapshots.length && snapshots.length > 0) {
         setCartItems([]);
+        setPendingCheckoutUrls([]);
       }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Odeme durumu alinamadi');
@@ -1203,6 +1244,14 @@ export default function HomeScreen({
 
   function handleClosePaymentWeb() {
     setPaymentWebVisible(false);
+  }
+
+  function openNextCheckout() {
+    if (pendingCheckoutUrls.length === 0) return;
+    const [next, ...rest] = pendingCheckoutUrls;
+    setCheckoutUrl(next);
+    setPendingCheckoutUrls(rest);
+    setPaymentWebVisible(true);
   }
 
   function renderMessagesWallpaper(
@@ -1622,6 +1671,9 @@ export default function HomeScreen({
               {paymentError ? (
                 <Text style={styles.paymentErrorText}>{paymentError}</Text>
               ) : null}
+              {paymentInfo ? (
+                <Text style={styles.paymentInfoText}>{paymentInfo}</Text>
+              ) : null}
               <View style={styles.paymentActionsRow}>
                 <TouchableOpacity
                   style={[styles.paymentActionBtn, paymentLoading && styles.paymentActionBtnDisabled]}
@@ -1643,6 +1695,15 @@ export default function HomeScreen({
                 >
                   <Text style={styles.paymentRefreshBtnText}>Durum Yenile</Text>
                 </TouchableOpacity>
+                {pendingCheckoutUrls.length > 0 ? (
+                  <TouchableOpacity
+                    style={styles.paymentNextBtn}
+                    onPress={openNextCheckout}
+                    activeOpacity={0.9}
+                  >
+                    <Text style={styles.paymentNextBtnText}>Sonraki Odeme</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </>
           )}
@@ -2422,6 +2483,7 @@ const styles = StyleSheet.create({
   paymentStatusTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700', marginBottom: 2 },
   paymentStatusText: { color: '#6B5D4F', fontSize: 12, lineHeight: 18 },
   paymentErrorText: { color: '#B42318', fontSize: 12, fontWeight: '600', marginTop: 8 },
+  paymentInfoText: { color: '#2F6F4A', fontSize: 12, fontWeight: '600', marginTop: 8 },
   paymentActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   paymentActionBtn: {
     flex: 1,
@@ -2445,6 +2507,15 @@ const styles = StyleSheet.create({
   },
   paymentRefreshBtnDisabled: { opacity: 0.55 },
   paymentRefreshBtnText: { color: '#5F5246', fontSize: 13, fontWeight: '700' },
+  paymentNextBtn: {
+    height: 42,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#3D3229',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentNextBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   paymentWebSafe: { flex: 1, backgroundColor: '#FFFDF9' },
   paymentWebHeader: {
     height: 56,
