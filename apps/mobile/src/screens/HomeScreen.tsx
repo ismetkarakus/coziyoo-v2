@@ -205,6 +205,11 @@ function resolveDishImage(title: string, category: string | null): string {
   return bucket[seed % bucket.length];
 }
 
+function resolveSecondaryDishImage(title: string, category: string | null): string {
+  const query = encodeURIComponent(`${title},${category ?? 'turkish'},food`);
+  return `https://loremflickr.com/1200/800/${query}`;
+}
+
 function apiToMealCard(item: ApiFoodItem): MealCard {
   const hasApiImage =
     typeof item.imageUrl === 'string' &&
@@ -246,20 +251,24 @@ function FoodCard({
     deriveCardColors(meal.backgroundColor),
   );
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | undefined>(meal.imageUrl);
+  const [didTrySecondary, setDidTrySecondary] = useState(false);
 
   useEffect(() => {
     setImageFailed(false);
+    setDidTrySecondary(false);
+    setImageUrl(meal.imageUrl);
   }, [meal.imageUrl]);
 
   useEffect(() => {
-    if (!meal.imageUrl || imageFailed || !getColors) {
+    if (!imageUrl || imageFailed || !getColors) {
       setColors(deriveCardColors(meal.backgroundColor));
       return;
     }
-    getColors(meal.imageUrl, {
+    getColors(imageUrl, {
       fallback: meal.backgroundColor,
       cache: true,
-      key: meal.imageUrl,
+      key: imageUrl,
     })
       .then((result) => {
         let dominant = meal.backgroundColor;
@@ -273,7 +282,7 @@ function FoodCard({
       .catch(() => {
         setColors(deriveCardColors(meal.backgroundColor));
       });
-  }, [meal.imageUrl, meal.backgroundColor, imageFailed]);
+  }, [imageUrl, meal.backgroundColor, imageFailed]);
 
   return (
     <TouchableOpacity
@@ -287,12 +296,19 @@ function FoodCard({
       <View
         style={[styles.foodPhoto, { backgroundColor: meal.backgroundColor }]}
       >
-        {meal.imageUrl && !imageFailed ? (
+        {imageUrl && !imageFailed ? (
           <Image
-            source={{ uri: meal.imageUrl }}
+            source={{ uri: imageUrl }}
             style={styles.foodImage}
             resizeMode="cover"
-            onError={() => setImageFailed(true)}
+            onError={() => {
+              if (!didTrySecondary) {
+                setDidTrySecondary(true);
+                setImageUrl(resolveSecondaryDishImage(meal.title, meal.category));
+                return;
+              }
+              setImageFailed(true);
+            }}
           />
         ) : (
           <Text style={styles.foodEmoji}>🍽️</Text>
