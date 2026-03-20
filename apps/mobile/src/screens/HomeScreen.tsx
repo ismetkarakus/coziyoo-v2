@@ -498,6 +498,48 @@ const MESSAGE_WALLPAPERS = [
     blob2: 'rgba(221,168,128,0.12)',
     blob3: 'rgba(107,93,79,0.08)',
   },
+  {
+    bg: '#F1F5FA',
+    blob1: 'rgba(88,120,168,0.14)',
+    blob2: 'rgba(153,183,220,0.12)',
+    blob3: 'rgba(93,108,130,0.08)',
+  },
+  {
+    bg: '#F8F5EE',
+    blob1: 'rgba(187,137,79,0.14)',
+    blob2: 'rgba(214,179,129,0.12)',
+    blob3: 'rgba(120,96,74,0.08)',
+  },
+  {
+    bg: '#F2F8F8',
+    blob1: 'rgba(67,143,143,0.14)',
+    blob2: 'rgba(137,199,190,0.12)',
+    blob3: 'rgba(78,112,110,0.08)',
+  },
+  {
+    bg: '#F8F2EE',
+    blob1: 'rgba(197,118,84,0.14)',
+    blob2: 'rgba(228,165,134,0.12)',
+    blob3: 'rgba(124,87,72,0.08)',
+  },
+  {
+    bg: '#F4F3F9',
+    blob1: 'rgba(122,109,176,0.14)',
+    blob2: 'rgba(177,166,220,0.12)',
+    blob3: 'rgba(93,87,126,0.08)',
+  },
+  {
+    bg: '#F3F8F0',
+    blob1: 'rgba(120,163,88,0.14)',
+    blob2: 'rgba(171,210,137,0.12)',
+    blob3: 'rgba(95,121,72,0.08)',
+  },
+  {
+    bg: '#F9F1F5',
+    blob1: 'rgba(179,96,143,0.14)',
+    blob2: 'rgba(219,157,190,0.12)',
+    blob3: 'rgba(118,81,103,0.08)',
+  },
 ] as const;
 
 /* ------------------------------------------------------------------ */
@@ -1139,6 +1181,10 @@ export default function HomeScreen({
             <View style={[styles.messagesBlob3, { backgroundColor: wallpaper.blob3 }]} />
           </View>
           <View style={styles.messagesTabHeader}>
+            <View style={styles.messagesTabHeaderText}>
+              <Text style={styles.messagesTabTitle}>Mesajlar</Text>
+              <Text style={styles.messagesTabSubtitle}>Ustalarla iletisim kur</Text>
+            </View>
             <TouchableOpacity
               style={styles.messagesWallpaperBtn}
               onPress={handleWallpaperSwitch}
@@ -1146,10 +1192,6 @@ export default function HomeScreen({
             >
               <Ionicons name="color-palette-outline" size={19} color="#5F5246" />
             </TouchableOpacity>
-            <View style={styles.messagesTabHeaderText}>
-              <Text style={styles.messagesTabTitle}>Mesajlar</Text>
-              <Text style={styles.messagesTabSubtitle}>Ustalarla iletisim kur</Text>
-            </View>
           </View>
           <FlatList
             data={inboxMessages}
@@ -1878,7 +1920,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.72)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginLeft: 10,
   },
   messagesTabHeaderText: { flex: 1 },
   messagesTabTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700' },
