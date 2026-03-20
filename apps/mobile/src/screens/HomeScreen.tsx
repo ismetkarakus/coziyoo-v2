@@ -479,6 +479,27 @@ const INITIAL_INBOX_MESSAGES: ChatMessage[] = [
   },
 ];
 
+const MESSAGE_WALLPAPERS = [
+  {
+    bg: '#F7F3EC',
+    blob1: 'rgba(74,124,89,0.10)',
+    blob2: 'rgba(201,149,58,0.10)',
+    blob3: 'rgba(109,93,79,0.08)',
+  },
+  {
+    bg: '#F2F7F3',
+    blob1: 'rgba(74,124,89,0.14)',
+    blob2: 'rgba(120,170,132,0.12)',
+    blob3: 'rgba(61,50,41,0.08)',
+  },
+  {
+    bg: '#F8F2F4',
+    blob1: 'rgba(181,112,129,0.14)',
+    blob2: 'rgba(221,168,128,0.12)',
+    blob3: 'rgba(107,93,79,0.08)',
+  },
+] as const;
+
 /* ------------------------------------------------------------------ */
 /*  FoodCard                                                           */
 /* ------------------------------------------------------------------ */
@@ -638,6 +659,7 @@ export default function HomeScreen({
   const [inboxMessages, setInboxMessages] =
     useState<ChatMessage[]>(INITIAL_INBOX_MESSAGES);
   const [inboxInput, setInboxInput] = useState('');
+  const [messagesWallpaperIndex, setMessagesWallpaperIndex] = useState(0);
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
   const [selectedSeller, setSelectedSeller] = useState<{
     id: string;
@@ -891,6 +913,10 @@ export default function HomeScreen({
     setInboxInput('');
   }
 
+  function handleWallpaperSwitch() {
+    setMessagesWallpaperIndex((prev) => (prev + 1) % MESSAGE_WALLPAPERS.length);
+  }
+
   function handleTabPress(tab: TabKey) {
     setActiveTab(tab);
   }
@@ -1097,20 +1123,33 @@ export default function HomeScreen({
 
   function renderContent() {
     if (activeTab === 'messages') {
+      const wallpaper = MESSAGE_WALLPAPERS[messagesWallpaperIndex];
       return (
         <KeyboardAvoidingView
           style={styles.messagesTabWrap}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 78 : 0}
         >
-          <View pointerEvents="none" style={styles.messagesWallpaper}>
-            <View style={styles.messagesBlob1} />
-            <View style={styles.messagesBlob2} />
-            <View style={styles.messagesBlob3} />
+          <View
+            pointerEvents="none"
+            style={[styles.messagesWallpaper, { backgroundColor: wallpaper.bg }]}
+          >
+            <View style={[styles.messagesBlob1, { backgroundColor: wallpaper.blob1 }]} />
+            <View style={[styles.messagesBlob2, { backgroundColor: wallpaper.blob2 }]} />
+            <View style={[styles.messagesBlob3, { backgroundColor: wallpaper.blob3 }]} />
           </View>
           <View style={styles.messagesTabHeader}>
-            <Text style={styles.messagesTabTitle}>Mesajlar</Text>
-            <Text style={styles.messagesTabSubtitle}>Ustalarla iletisim kur</Text>
+            <TouchableOpacity
+              style={styles.messagesWallpaperBtn}
+              onPress={handleWallpaperSwitch}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="color-palette-outline" size={19} color="#5F5246" />
+            </TouchableOpacity>
+            <View style={styles.messagesTabHeaderText}>
+              <Text style={styles.messagesTabTitle}>Mesajlar</Text>
+              <Text style={styles.messagesTabSubtitle}>Ustalarla iletisim kur</Text>
+            </View>
           </View>
           <FlatList
             data={inboxMessages}
@@ -1829,7 +1868,19 @@ const styles = StyleSheet.create({
     right: -60,
     backgroundColor: 'rgba(109,93,79,0.08)',
   },
-  messagesTabHeader: { paddingHorizontal: 18, paddingBottom: 8 },
+  messagesTabHeader: { paddingHorizontal: 18, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  messagesWallpaperBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#DFD7CC',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  messagesTabHeaderText: { flex: 1 },
   messagesTabTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700' },
   messagesTabSubtitle: { color: '#8D8072', fontSize: 13, marginTop: 2 },
 
