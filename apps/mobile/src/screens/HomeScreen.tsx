@@ -856,6 +856,7 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
+        stickyHeaderIndices={[1]}
       >
         {/* Header */}
         <View style={styles.headerRow}>
@@ -872,72 +873,74 @@ export default function HomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Search + category chips */}
-        <View style={styles.searchBox}>
-          {!searchMode ? (
-            <View pointerEvents="none" style={styles.searchFadeWrap}>
-              <View style={styles.searchFadeSolid} />
-              <View style={styles.searchFadeSoft} />
-            </View>
-          ) : null}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              if (searchMode) {
-                setSearchMode(false);
-                setSearchQuery('');
-                return;
-              }
-              setSearchMode(true);
-            }}
-            style={styles.searchIconButton}
-          >
-            <Ionicons
-              name={searchMode ? 'close-outline' : 'search-outline'}
-              size={28}
-              color="#5F5246"
-              style={!searchMode ? styles.searchIconGlyph : undefined}
-            />
-          </TouchableOpacity>
-          {searchMode ? (
-            <TextInput
-              ref={searchInputRef}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Yemek veya satici ara..."
-              placeholderTextColor="#A89B8C"
-              style={styles.searchInput}
-              returnKeyType="search"
-            />
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryContent}
-              style={styles.searchCategoryScroller}
+        {/* Sticky search + category chips */}
+        <View style={styles.searchStickyWrap}>
+          <View style={styles.searchBox}>
+            {!searchMode ? (
+              <View pointerEvents="none" style={styles.searchFadeWrap}>
+                <View style={styles.searchFadeSolid} />
+                <View style={styles.searchFadeSoft} />
+              </View>
+            ) : null}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (searchMode) {
+                  setSearchMode(false);
+                  setSearchQuery('');
+                  return;
+                }
+                setSearchMode(true);
+              }}
+              style={styles.searchIconButton}
             >
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryChip,
-                    activeCategory === cat && styles.categoryChipActive,
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => setActiveCategory(cat)}
-                >
-                  <Text
+              <Ionicons
+                name={searchMode ? 'close-outline' : 'search-outline'}
+                size={28}
+                color="#5F5246"
+                style={!searchMode ? styles.searchIconGlyph : undefined}
+              />
+            </TouchableOpacity>
+            {searchMode ? (
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Yemek veya satici ara..."
+                placeholderTextColor="#A89B8C"
+                style={styles.searchInput}
+                returnKeyType="search"
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryContent}
+                style={styles.searchCategoryScroller}
+              >
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
                     style={[
-                      styles.categoryText,
-                      activeCategory === cat && styles.categoryTextActive,
+                      styles.categoryChip,
+                      activeCategory === cat && styles.categoryChipActive,
                     ]}
+                    activeOpacity={0.85}
+                    onPress={() => setActiveCategory(cat)}
                   >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        activeCategory === cat && styles.categoryTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
@@ -1354,6 +1357,12 @@ const styles = StyleSheet.create({
   avatarEmoji: { fontSize: 18 },
 
   /* --- Search --- */
+  searchStickyWrap: {
+    backgroundColor: '#FFFDF9',
+    zIndex: 20,
+    paddingTop: 2,
+    paddingBottom: 4,
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
