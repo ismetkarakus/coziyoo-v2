@@ -1450,12 +1450,12 @@ const styles = StyleSheet.create({
 
   /* --- Bottom bar --- */
   bottomBar: {
-    height: 82, backgroundColor: '#FFFDF9',
+    height: 76, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-    paddingTop: 2, paddingBottom: 2, paddingHorizontal: 8, zIndex: 50,
+    paddingTop: 1, paddingBottom: 0, paddingHorizontal: 8, zIndex: 50,
   },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 1 },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 0 },
   navSpacer: { width: 64 },
   navIcon: { color: '#A89B8C', marginBottom: 3 },
   navIconActive: { color: '#4A7C59' },
