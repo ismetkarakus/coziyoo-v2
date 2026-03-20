@@ -71,7 +71,9 @@ type ApiFoodItem = {
 type MealCard = {
   id: string;
   title: string;
+  sellerId: string;
   seller: string;
+  sellerImage?: string | null;
   rating: string;
   time: string;
   distance: string;
@@ -375,7 +377,9 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
   return {
     id: item.id,
     title: item.name,
+    sellerId: item.seller.id,
     seller: item.seller.name,
+    sellerImage: item.seller.image,
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
     distance: item.maxDistance ? `${item.maxDistance} km` : '',
@@ -401,9 +405,11 @@ const INITIAL_CHAT: ChatMessage[] = [
 function FoodCard({
   meal,
   onPress,
+  onSellerPress,
 }: {
   meal: MealCard;
   onPress: () => void;
+  onSellerPress: () => void;
 }) {
   const [colors, setColors] = useState<CardColors>(
     deriveCardColors(meal.backgroundColor),
@@ -482,9 +488,21 @@ function FoodCard({
             <Text style={[styles.foodName, { color: colors.title }]}>
               {meal.title}
             </Text>
-            <Text style={[styles.foodSeller, { color: colors.subtitle }]}>
-              {meal.seller}
-            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onSellerPress}
+              style={styles.foodSellerLink}
+            >
+              <Text style={[styles.foodSeller, { color: colors.subtitle }]}>
+                {meal.seller}
+              </Text>
+              <Ionicons
+                name="chevron-forward-outline"
+                size={14}
+                color={colors.subtitle}
+                style={styles.foodSellerChevron}
+              />
+            </TouchableOpacity>
           </View>
           <Text style={[styles.foodPrice, { color: colors.price }]}>
             {meal.price}
@@ -526,6 +544,11 @@ export default function HomeScreen({
     useState<ChatMessage[]>(INITIAL_CHAT);
   const [chatInput, setChatInput] = useState('');
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
+  const [selectedSeller, setSelectedSeller] = useState<{
+    id: string;
+    name: string;
+    image?: string | null;
+  } | null>(null);
   const [cartCount, setCartCount] = useState(0);
 
   // FAB animations
@@ -779,6 +802,17 @@ export default function HomeScreen({
         );
       })
     : filteredMeals;
+  const sellerMeals = selectedSeller
+    ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
+    : [];
+  const sellerAverageRating = sellerMeals.length
+    ? (
+        sellerMeals.reduce(
+          (sum, meal) => sum + (Number.parseFloat(meal.rating) || 0),
+          0,
+        ) / sellerMeals.length
+      ).toFixed(1)
+    : '0.0';
 
   /* ---------- Render helpers ---------- */
 
@@ -895,6 +929,13 @@ export default function HomeScreen({
             key={meal.id}
             meal={meal}
             onPress={() => setSelectedMeal(meal)}
+            onSellerPress={() =>
+              setSelectedSeller({
+                id: meal.sellerId,
+                name: meal.seller,
+                image: meal.sellerImage ?? null,
+              })
+            }
           />
         ))}
 
@@ -1016,6 +1057,81 @@ export default function HomeScreen({
             </View>
           </View>
         )}
+      </Modal>
+
+      {/* Agent modal */}
+      <Modal
+        visible={!!selectedSeller}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSelectedSeller(null)}
+      >
+        {selectedSeller ? (
+          <View style={styles.modalOverlay}>
+            <View style={styles.sellerModalContent}>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => setSelectedSeller(null)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+
+              <View style={styles.sellerHeader}>
+                <View style={styles.sellerAvatar}>
+                  <Text style={styles.sellerAvatarEmoji}>👩‍🍳</Text>
+                </View>
+                <View style={styles.sellerHeaderText}>
+                  <Text style={styles.sellerTitle}>{selectedSeller.name}</Text>
+                  <Text style={styles.sellerSubtitle}>Usta Mutfagi</Text>
+                </View>
+              </View>
+
+              <View style={styles.sellerStatsRow}>
+                <View style={styles.sellerStatCard}>
+                  <Text style={styles.sellerStatValue}>{sellerMeals.length}</Text>
+                  <Text style={styles.sellerStatLabel}>Yemek</Text>
+                </View>
+                <View style={styles.sellerStatCard}>
+                  <Text style={styles.sellerStatValue}>★ {sellerAverageRating}</Text>
+                  <Text style={styles.sellerStatLabel}>Ortalama</Text>
+                </View>
+              </View>
+
+              <Text style={styles.sellerSectionTitle}>Ustanin Yemekleri</Text>
+              <ScrollView
+                style={styles.sellerMealList}
+                showsVerticalScrollIndicator={false}
+              >
+                {sellerMeals.map((meal) => (
+                  <TouchableOpacity
+                    key={meal.id}
+                    style={styles.sellerMealItem}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setSelectedSeller(null);
+                      setSelectedMeal(meal);
+                    }}
+                  >
+                    <View style={styles.sellerMealTextWrap}>
+                      <Text style={styles.sellerMealTitle}>{meal.title}</Text>
+                      <Text style={styles.sellerMealMeta}>
+                        🕐 {meal.time} · {meal.distance}
+                      </Text>
+                    </View>
+                    <View style={styles.sellerMealRight}>
+                      <Text style={styles.sellerMealPrice}>{meal.price}</Text>
+                      <Ionicons
+                        name="chevron-forward-outline"
+                        size={16}
+                        color="#8D8072"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        ) : null}
       </Modal>
 
       {/* Agent modal */}
@@ -1395,6 +1511,8 @@ const styles = StyleSheet.create({
   foodInfoLeft: { flex: 1, paddingRight: 8 },
   foodName: { fontSize: 16, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+  foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodPrice: { fontSize: 18, fontWeight: '700' },
   foodMeta: { fontSize: 12 },
 
@@ -1494,6 +1612,68 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48, width: '100%', alignItems: 'center',
   },
   modalCartButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+
+  /* --- Seller modal --- */
+  sellerModalContent: {
+    backgroundColor: '#FFFDF9',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 28,
+    maxHeight: '82%',
+  },
+  sellerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  sellerAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#EFE9E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  sellerAvatarEmoji: { fontSize: 28 },
+  sellerHeaderText: { flex: 1, paddingRight: 34 },
+  sellerTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700' },
+  sellerSubtitle: { color: '#8D8072', fontSize: 13, fontWeight: '600', marginTop: 2 },
+  sellerStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  sellerStatCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    backgroundColor: '#FAF7F2',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  sellerStatValue: { color: '#3D3229', fontSize: 18, fontWeight: '700' },
+  sellerStatLabel: { color: '#8D8072', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  sellerSectionTitle: {
+    color: '#3D3229',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 8,
+    marginTop: 2,
+  },
+  sellerMealList: { maxHeight: 320 },
+  sellerMealItem: {
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sellerMealTextWrap: { flex: 1, paddingRight: 8 },
+  sellerMealTitle: { color: '#3D3229', fontSize: 15, fontWeight: '600' },
+  sellerMealMeta: { color: '#8D8072', fontSize: 12, marginTop: 2 },
+  sellerMealRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sellerMealPrice: { color: '#3D3229', fontSize: 15, fontWeight: '700' },
 
   /* --- Agent modal --- */
   agentModalSafe: { flex: 1, backgroundColor: '#F5F1EB' },
