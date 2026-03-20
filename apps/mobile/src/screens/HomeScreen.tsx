@@ -1374,11 +1374,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#2F251C',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 6,
   },
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchIconButton: {
