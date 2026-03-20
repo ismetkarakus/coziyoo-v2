@@ -880,73 +880,65 @@ export default function HomeScreen({
 
         {/* Search + category chips */}
         <View style={styles.searchBox}>
-          {!searchMode ? (
-            <View pointerEvents="none" style={styles.searchIconMaskWrap}>
-              <View style={styles.searchIconFogSolid} />
-              <View style={styles.searchIconFogMid} />
-              <View style={styles.searchIconFogEdge} />
-              {BlurView ? (
-                <BlurView intensity={18} tint="light" style={styles.searchIconBlur} />
-              ) : null}
-            </View>
-          ) : null}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              if (searchMode) {
-                setSearchMode(false);
-                setSearchQuery('');
-                return;
-              }
-              setSearchMode(true);
-            }}
-            style={styles.searchIconButton}
-          >
-            <Ionicons
-              name={searchMode ? 'close-outline' : 'search-outline'}
-              size={30}
-              color="#5F5246"
-              style={!searchMode ? styles.searchIconGlyph : undefined}
-            />
-          </TouchableOpacity>
           {searchMode ? (
-            <TextInput
-              ref={searchInputRef}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Yemek veya satici ara..."
-              placeholderTextColor="#A89B8C"
-              style={styles.searchInput}
-              returnKeyType="search"
-            />
+            <>
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Yemek veya satici ara..."
+                placeholderTextColor="#A89B8C"
+                style={styles.searchInput}
+                returnKeyType="search"
+              />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setSearchMode(false);
+                  setSearchQuery('');
+                }}
+                style={styles.searchTextButton}
+              >
+                <Text style={styles.searchTextButtonLabel}>Kapat</Text>
+              </TouchableOpacity>
+            </>
           ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryContent}
-              style={styles.searchCategoryScroller}
-            >
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryChip,
-                    activeCategory === cat && styles.categoryChipActive,
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => setActiveCategory(cat)}
-                >
-                  <Text
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryContent}
+                style={styles.searchCategoryScroller}
+              >
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
                     style={[
-                      styles.categoryText,
-                      activeCategory === cat && styles.categoryTextActive,
+                      styles.categoryChip,
+                      activeCategory === cat && styles.categoryChipActive,
                     ]}
+                    activeOpacity={0.85}
+                    onPress={() => setActiveCategory(cat)}
                   >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        activeCategory === cat && styles.categoryTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setSearchMode(true)}
+                style={styles.searchTextButton}
+              >
+                <Text style={styles.searchTextButtonLabel}>Ara</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
         {__DEV__ ? (
@@ -1376,72 +1368,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  searchIconMaskWrap: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 78,
-    zIndex: 2,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    overflow: 'hidden',
-  },
-  searchIconFogSolid: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 44,
-    backgroundColor: 'rgba(255,253,249,0.66)',
-  },
-  searchIconFogMid: {
-    position: 'absolute',
-    left: 44,
-    top: 0,
-    bottom: 0,
-    width: 18,
-    backgroundColor: 'rgba(255,253,249,0.44)',
-  },
-  searchIconFogEdge: {
-    position: 'absolute',
-    left: 62,
-    top: 0,
-    bottom: 0,
-    width: 16,
-    backgroundColor: 'rgba(255,253,249,0.22)',
-  },
-  searchIconBlur: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 72,
-  },
-  searchIconButton: {
-    position: 'absolute',
-    left: 12,
-    top: 0,
-    bottom: 0,
-    width: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-  },
-  searchIconGlyph: {
-    transform: [{ scaleX: -1 }],
-  },
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchText: { color: '#A89B8C', fontSize: 14 },
   searchInput: {
     flex: 1,
-    marginLeft: 66,
     color: '#3D3229',
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
   },
-  searchCategoryScroller: { flex: 1, marginLeft: 66 },
+  searchCategoryScroller: { flex: 1 },
+  searchTextButton: {
+    marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#EDE8E0',
+  },
+  searchTextButtonLabel: { color: '#6B5D4F', fontSize: 12, fontWeight: '700' },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
