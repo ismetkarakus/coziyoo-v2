@@ -534,6 +534,7 @@ export default function HomeScreen({
   const pulse2Scale = useRef(new Animated.Value(1)).current;
   const pulse2Opacity = useRef(new Animated.Value(0.6)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
+  const breatheLift = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -669,16 +670,30 @@ export default function HomeScreen({
 
     const breathe = Animated.loop(
       Animated.sequence([
-        Animated.timing(breatheScale, {
-          toValue: 1.03,
-          duration: 1300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(breatheScale, {
-          toValue: 1,
-          duration: 1300,
-          useNativeDriver: true,
-        }),
+        Animated.parallel([
+          Animated.timing(breatheScale, {
+            toValue: 1.055,
+            duration: 680,
+            useNativeDriver: true,
+          }),
+          Animated.timing(breatheLift, {
+            toValue: -2.2,
+            duration: 680,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(breatheScale, {
+            toValue: 1,
+            duration: 920,
+            useNativeDriver: true,
+          }),
+          Animated.timing(breatheLift, {
+            toValue: 0,
+            duration: 920,
+            useNativeDriver: true,
+          }),
+        ]),
       ]),
     );
 
@@ -691,7 +706,7 @@ export default function HomeScreen({
       pulse2.stop();
       breathe.stop();
     };
-  }, [pulse1Scale, pulse1Opacity, pulse2Scale, pulse2Opacity, breatheScale]);
+  }, [pulse1Scale, pulse1Opacity, pulse2Scale, pulse2Opacity, breatheScale, breatheLift]);
 
   useEffect(() => {
     if (searchMode) {
@@ -1232,7 +1247,24 @@ export default function HomeScreen({
                 },
               ]}
             />
-            <Animated.View style={{ transform: [{ scale: breatheScale }] }}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.floatingAura,
+                {
+                  opacity: breatheScale.interpolate({
+                    inputRange: [1, 1.055],
+                    outputRange: [0.12, 0.32],
+                  }),
+                  transform: [{ scale: breatheScale }],
+                },
+              ]}
+            />
+            <Animated.View
+              style={{
+                transform: [{ scale: breatheScale }, { translateY: breatheLift }],
+              }}
+            >
               <TouchableOpacity
                 style={styles.floatingButton}
                 activeOpacity={0.9}
@@ -1511,6 +1543,13 @@ const styles = StyleSheet.create({
     position: 'absolute', width: 56, height: 56, borderRadius: 28,
     borderWidth: 1.8, borderColor: 'rgba(74,124,89,0.28)',
     backgroundColor: 'transparent',
+  },
+  floatingAura: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(88, 148, 106, 0.28)',
   },
   floatingButton: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#4A7C59',
