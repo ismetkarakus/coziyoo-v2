@@ -90,6 +90,11 @@ type CardColors = {
   meta: string;
 };
 
+type FallbackImageRule = {
+  keywords: string[];
+  url: string;
+};
+
 type ChatMessage = {
   id: string;
   text: string;
@@ -150,7 +155,57 @@ const CATEGORY_API_MAP: Record<string, string> = {
   'Icecekler': 'İçecekler',
 };
 
+const FOOD_IMAGE_FALLBACKS: FallbackImageRule[] = [
+  {
+    keywords: ['mercimek', 'ezogelin', 'corba', 'çorba', 'iskembe', 'işkembe'],
+    url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    keywords: ['kebap', 'adana', 'urfa', 'iskender', 'sis', 'şiş', 'testi'],
+    url: 'https://images.unsplash.com/photo-1529563021893-cc83c992d75d?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    keywords: ['pilav', 'dolma', 'sarma'],
+    url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    keywords: ['karniyarik', 'karnıyarık', 'musakka', 'imam', 'köfte', 'kofte'],
+    url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    keywords: ['sutlac', 'sütlaç', 'kazandibi', 'baklava', 'tatli', 'tatlı', 'kunefe', 'künefe'],
+    url: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    keywords: ['salata', 'zeytinyagli', 'zeytinyağlı'],
+    url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
+  },
+];
+
+function normalizeFoodText(value: string): string {
+  return value
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c');
+}
+
+function resolveFallbackImage(title: string, category: string | null): string {
+  const normalized = normalizeFoodText(`${title} ${category ?? ''}`);
+  const match = FOOD_IMAGE_FALLBACKS.find((rule) =>
+    rule.keywords.some((word) => normalized.includes(normalizeFoodText(word))),
+  );
+  return (
+    match?.url ??
+    'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80'
+  );
+}
+
 function apiToMealCard(item: ApiFoodItem): MealCard {
+  const fallbackImage = resolveFallbackImage(item.name, item.category);
   return {
     id: item.id,
     title: item.name,
@@ -161,7 +216,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     price: `₺${item.price}`,
     backgroundColor: CATEGORY_BG_COLORS[item.category ?? ''] ?? '#E8E3DB',
     category: item.category ?? '',
-    imageUrl: item.imageUrl ?? undefined,
+    imageUrl: item.imageUrl || fallbackImage,
   };
 }
 
@@ -187,9 +242,14 @@ function FoodCard({
   const [colors, setColors] = useState<CardColors>(
     deriveCardColors(meal.backgroundColor),
   );
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
-    if (!meal.imageUrl || !getColors) {
+    setImageFailed(false);
+  }, [meal.imageUrl]);
+
+  useEffect(() => {
+    if (!meal.imageUrl || imageFailed || !getColors) {
       setColors(deriveCardColors(meal.backgroundColor));
       return;
     }
@@ -210,7 +270,7 @@ function FoodCard({
       .catch(() => {
         setColors(deriveCardColors(meal.backgroundColor));
       });
-  }, [meal.imageUrl, meal.backgroundColor]);
+  }, [meal.imageUrl, meal.backgroundColor, imageFailed]);
 
   return (
     <TouchableOpacity
@@ -224,11 +284,12 @@ function FoodCard({
       <View
         style={[styles.foodPhoto, { backgroundColor: meal.backgroundColor }]}
       >
-        {meal.imageUrl ? (
+        {meal.imageUrl && !imageFailed ? (
           <Image
             source={{ uri: meal.imageUrl }}
             style={styles.foodImage}
             resizeMode="cover"
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <Text style={styles.foodEmoji}>🍽️</Text>
@@ -759,7 +820,15 @@ export default function HomeScreen({
                   { backgroundColor: selectedMeal.backgroundColor },
                 ]}
               >
-                <Text style={styles.modalEmoji}>{selectedMeal.emoji}</Text>
+                {selectedMeal.imageUrl ? (
+                  <Image
+                    source={{ uri: selectedMeal.imageUrl }}
+                    style={styles.modalImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.modalEmoji}>🍽️</Text>
+                )}
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
@@ -1086,7 +1155,8 @@ const styles = StyleSheet.create({
 
   /* --- Food card --- */
   foodCard: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginBottom: 12 },
-  foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center' },
+  foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  foodImage: { width: '100%', height: '100%' },
   foodEmoji: { fontSize: 56 },
   ratingBadge: {
     position: 'absolute', top: 10, right: 10,
@@ -1172,7 +1242,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
   modalCloseText: { color: '#6B5D4F', fontSize: 16, fontWeight: '700' },
-  modalThumb: { width: 120, height: 120, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  modalThumb: { width: 120, height: 120, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' },
+  modalImage: { width: '100%', height: '100%' },
   modalEmoji: { fontSize: 56 },
   modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
   modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 8 },
