@@ -1032,17 +1032,36 @@ export default function HomeScreen({
       Alert.alert('Sepet Bos', 'Odeme icin once sepete urun ekle.');
       return;
     }
-    const sellerId = cartItems[0]?.meal.sellerId;
+
+    const resolvedCartItems = cartItems.map((item) => {
+      if (item.meal.lotId) return item;
+      const matchedMeal = meals.find((m) => m.id === item.meal.id);
+      return {
+        ...item,
+        meal: {
+          ...item.meal,
+          lotId: matchedMeal?.lotId ?? null,
+        },
+      };
+    });
+
+    const payableItems = resolvedCartItems.filter((item) => item.meal.lotId);
+    const missingItems = resolvedCartItems.filter((item) => !item.meal.lotId);
+    if (missingItems.length > 0) {
+      setCartItems(payableItems);
+    }
+    if (payableItems.length === 0) {
+      setPaymentError('Sepette odemeye uygun aktif lot kalmadi.');
+      return;
+    }
+
+    const sellerId = payableItems[0]?.meal.sellerId;
     if (!sellerId) {
       setPaymentError('Satici bilgisi eksik.');
       return;
     }
-    if (!cartItems.every((item) => item.meal.sellerId === sellerId)) {
+    if (!payableItems.every((item) => item.meal.sellerId === sellerId)) {
       setPaymentError('Ayni anda sadece tek saticidan odeme destekleniyor.');
-      return;
-    }
-    if (!cartItems.every((item) => item.meal.lotId)) {
-      setPaymentError('Bazi urunlerde lot bilgisi eksik. Lutfen farkli urun sec.');
       return;
     }
 
@@ -1059,7 +1078,7 @@ export default function HomeScreen({
         body: JSON.stringify({
           sellerId,
           deliveryType: 'pickup',
-          items: cartItems.map((item) => ({
+          items: payableItems.map((item) => ({
             lotId: item.meal.lotId,
             quantity: item.quantity,
           })),
