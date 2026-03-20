@@ -901,45 +901,47 @@ export default function HomeScreen({
                 style={!searchMode ? styles.searchIconGlyph : undefined}
               />
             </TouchableOpacity>
-            {searchMode ? (
-              <TextInput
-                ref={searchInputRef}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Yemek veya satici ara..."
-                placeholderTextColor="#A89B8C"
-                style={styles.searchInput}
-                returnKeyType="search"
-              />
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryContent}
-                style={styles.searchCategoryScroller}
-              >
-                {CATEGORIES.map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.categoryChip,
-                      activeCategory === cat && styles.categoryChipActive,
-                    ]}
-                    activeOpacity={0.85}
-                    onPress={() => setActiveCategory(cat)}
-                  >
-                    <Text
+            <View style={styles.searchContent}>
+              {searchMode ? (
+                <TextInput
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Yemek veya satici ara..."
+                  placeholderTextColor="#A89B8C"
+                  style={styles.searchInput}
+                  returnKeyType="search"
+                />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoryContent}
+                  style={styles.searchCategoryScroller}
+                >
+                  {CATEGORIES.map((cat) => (
+                    <TouchableOpacity
+                      key={cat}
                       style={[
-                        styles.categoryText,
-                        activeCategory === cat && styles.categoryTextActive,
+                        styles.categoryChip,
+                        activeCategory === cat && styles.categoryChipActive,
                       ]}
+                      activeOpacity={0.85}
+                      onPress={() => setActiveCategory(cat)}
                     >
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          activeCategory === cat && styles.categoryTextActive,
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
           </View>
         </View>
         {__DEV__ ? (
@@ -1375,6 +1377,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     position: 'relative',
     overflow: 'hidden',
+    minHeight: 56,
   },
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchIconButton: {
@@ -1418,15 +1421,21 @@ const styles = StyleSheet.create({
     width: 18,
     backgroundColor: 'rgba(255,253,249,0.18)',
   },
-  searchInput: {
+  searchContent: {
     flex: 1,
     marginLeft: 28,
+    minHeight: 46,
+    justifyContent: 'center',
+  },
+  searchInput: {
+    flex: 1,
     color: '#3D3229',
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
+    minHeight: 40,
   },
-  searchCategoryScroller: { flex: 1, marginLeft: 28 },
+  searchCategoryScroller: { flex: 1 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
