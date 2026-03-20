@@ -22,6 +22,12 @@ try {
 } catch {
   // Native module not available — adaptive colors will use fallback
 }
+let BlurView: React.ComponentType<{ intensity?: number; tint?: 'light' | 'dark' | 'default'; style?: any }> | null = null;
+try {
+  BlurView = require('expo-blur').BlurView;
+} catch {
+  // Optional blur dependency
+}
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import VoiceSessionScreen from './VoiceSessionScreen';
@@ -874,7 +880,16 @@ export default function HomeScreen({
 
         {/* Search + category chips */}
         <View style={styles.searchBox}>
-          {!searchMode ? <View pointerEvents="none" style={styles.searchIconFog} /> : null}
+          {!searchMode ? (
+            <View pointerEvents="none" style={styles.searchIconMaskWrap}>
+              <View style={styles.searchIconFogSolid} />
+              <View style={styles.searchIconFogMid} />
+              <View style={styles.searchIconFogEdge} />
+              {BlurView ? (
+                <BlurView intensity={18} tint="light" style={styles.searchIconBlur} />
+              ) : null}
+            </View>
+          ) : null}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
@@ -1361,16 +1376,47 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  searchIconFog: {
+  searchIconMaskWrap: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
     width: 78,
-    backgroundColor: 'rgba(255,253,249,0.58)',
     zIndex: 2,
     borderTopLeftRadius: 16,
     borderBottomLeftRadius: 16,
+    overflow: 'hidden',
+  },
+  searchIconFogSolid: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 44,
+    backgroundColor: 'rgba(255,253,249,0.66)',
+  },
+  searchIconFogMid: {
+    position: 'absolute',
+    left: 44,
+    top: 0,
+    bottom: 0,
+    width: 18,
+    backgroundColor: 'rgba(255,253,249,0.44)',
+  },
+  searchIconFogEdge: {
+    position: 'absolute',
+    left: 62,
+    top: 0,
+    bottom: 0,
+    width: 16,
+    backgroundColor: 'rgba(255,253,249,0.22)',
+  },
+  searchIconBlur: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 72,
   },
   searchIconButton: {
     position: 'absolute',
