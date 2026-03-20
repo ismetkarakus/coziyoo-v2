@@ -1358,8 +1358,8 @@ const styles = StyleSheet.create({
 
   /* --- Search --- */
   searchStickyWrap: {
-    backgroundColor: 'transparent',
-    zIndex: 20,
+    backgroundColor: '#FFFDF9',
+    zIndex: 1,
     paddingTop: 0,
     paddingBottom: 0,
     marginHorizontal: -12,
