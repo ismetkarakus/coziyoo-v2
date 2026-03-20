@@ -1251,14 +1251,14 @@ export default function HomeScreen({
               style={styles.navItem}
               onPress={() => handleTabPress('home')}
             >
-              <Text
+              <Ionicons
+                name="home-outline"
+                size={21}
                 style={[
                   styles.navIcon,
                   activeTab === 'home' && styles.navIconActive,
                 ]}
-              >
-                ⌂
-              </Text>
+              />
               <Text
                 style={[
                   styles.navLabel,
@@ -1272,14 +1272,14 @@ export default function HomeScreen({
               style={styles.navItem}
               onPress={() => handleTabPress('messages')}
             >
-              <Text
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={21}
                 style={[
                   styles.navIcon,
                   activeTab === 'messages' && styles.navIconActive,
                 ]}
-              >
-                ◌
-              </Text>
+              />
               <Text
                 style={[
                   styles.navLabel,
@@ -1294,14 +1294,14 @@ export default function HomeScreen({
               style={styles.navItem}
               onPress={() => handleTabPress('cart')}
             >
-              <Text
+              <Ionicons
+                name="basket-outline"
+                size={21}
                 style={[
                   styles.navIcon,
                   activeTab === 'cart' && styles.navIconActive,
                 ]}
-              >
-                ◍
-              </Text>
+              />
               <Text
                 style={[
                   styles.navLabel,
@@ -1315,14 +1315,14 @@ export default function HomeScreen({
               style={styles.navItem}
               onPress={() => handleTabPress('notifications')}
             >
-              <Text
+              <Ionicons
+                name="notifications-outline"
+                size={21}
                 style={[
                   styles.navIcon,
                   activeTab === 'notifications' && styles.navIconActive,
                 ]}
-              >
-                ◔
-              </Text>
+              />
               <Text
                 style={[
                   styles.navLabel,
@@ -1529,11 +1529,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
     paddingBottom: 16, paddingHorizontal: 8, zIndex: 50,
   },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 2 },
   navSpacer: { width: 64 },
-  navIcon: { color: '#A89B8C', fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  navIcon: { color: '#A89B8C', marginBottom: 3 },
   navIconActive: { color: '#4A7C59' },
-  navLabel: { color: '#A89B8C', fontSize: 10, fontWeight: '700' },
+  navLabel: { color: '#A89B8C', fontSize: 12, lineHeight: 14, fontWeight: '600' },
   navLabelActive: { color: '#4A7C59' },
 
   /* --- Meal detail modal --- */
