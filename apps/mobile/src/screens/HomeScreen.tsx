@@ -1453,7 +1453,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 12,
-    marginHorizontal: -8,
+    marginHorizontal: -12,
   },
   foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   foodImage: { width: '100%', height: '100%' },
