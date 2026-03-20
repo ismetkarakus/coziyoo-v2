@@ -534,7 +534,6 @@ export default function HomeScreen({
   const pulse2Scale = useRef(new Animated.Value(1)).current;
   const pulse2Opacity = useRef(new Animated.Value(0.6)).current;
   const breatheScale = useRef(new Animated.Value(1)).current;
-  const pulse2Timer = useRef<ReturnType<typeof setTimeout>>();
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -614,13 +613,13 @@ export default function HomeScreen({
       Animated.sequence([
         Animated.parallel([
           Animated.timing(pulse1Scale, {
-            toValue: 1.45,
-            duration: 2600,
+            toValue: 1.34,
+            duration: 2200,
             useNativeDriver: true,
           }),
           Animated.timing(pulse1Opacity, {
             toValue: 0,
-            duration: 2600,
+            duration: 2200,
             useNativeDriver: true,
           }),
         ]),
@@ -643,13 +642,13 @@ export default function HomeScreen({
       Animated.sequence([
         Animated.parallel([
           Animated.timing(pulse2Scale, {
-            toValue: 1.7,
-            duration: 2600,
+            toValue: 1.5,
+            duration: 2200,
             useNativeDriver: true,
           }),
           Animated.timing(pulse2Opacity, {
             toValue: 0,
-            duration: 2600,
+            duration: 2200,
             useNativeDriver: true,
           }),
         ]),
@@ -684,14 +683,13 @@ export default function HomeScreen({
     );
 
     pulse1.start();
-    pulse2Timer.current = setTimeout(() => pulse2.start(), 500);
+    pulse2.start();
     breathe.start();
 
     return () => {
       pulse1.stop();
       pulse2.stop();
       breathe.stop();
-      if (pulse2Timer.current) clearTimeout(pulse2Timer.current);
     };
   }, [pulse1Scale, pulse1Opacity, pulse2Scale, pulse2Opacity, breatheScale]);
 
@@ -1505,13 +1503,13 @@ const styles = StyleSheet.create({
     zIndex: 80, width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
   },
   pulseRing1: {
-    position: 'absolute', width: 62, height: 62, borderRadius: 31,
-    borderWidth: 2.5, borderColor: 'rgba(74,124,89,0.45)',
+    position: 'absolute', width: 56, height: 56, borderRadius: 28,
+    borderWidth: 2.2, borderColor: 'rgba(74,124,89,0.42)',
     backgroundColor: 'transparent',
   },
   pulseRing2: {
-    position: 'absolute', width: 62, height: 62, borderRadius: 31,
-    borderWidth: 2, borderColor: 'rgba(74,124,89,0.30)',
+    position: 'absolute', width: 56, height: 56, borderRadius: 28,
+    borderWidth: 1.8, borderColor: 'rgba(74,124,89,0.28)',
     backgroundColor: 'transparent',
   },
   floatingButton: {
