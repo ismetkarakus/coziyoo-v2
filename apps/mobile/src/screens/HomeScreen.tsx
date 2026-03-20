@@ -875,6 +875,7 @@ export default function HomeScreen({
         {/* Search + category chips */}
         <View style={styles.searchBox}>
           {!searchMode ? <View pointerEvents="none" style={styles.searchIconCover} /> : null}
+          {!searchMode ? <View pointerEvents="none" style={styles.searchIconSoftEdge} /> : null}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
@@ -889,7 +890,7 @@ export default function HomeScreen({
           >
             <Ionicons
               name={searchMode ? 'close-outline' : 'search-outline'}
-              size={36}
+              size={30}
               color="#5F5246"
             />
           </TouchableOpacity>
@@ -1365,16 +1366,29 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: 56,
+    width: 62,
     backgroundColor: '#FFFDF9',
     zIndex: 2,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  searchIconSoftEdge: {
+    position: 'absolute',
+    left: 62,
+    top: 0,
+    bottom: 0,
+    width: 16,
+    backgroundColor: 'rgba(255,253,249,0.75)',
+    zIndex: 2,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
   },
   searchIconButton: {
     position: 'absolute',
-    left: 6,
+    left: 12,
     top: 0,
     bottom: 0,
-    width: 44,
+    width: 34,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 3,
@@ -1383,13 +1397,13 @@ const styles = StyleSheet.create({
   searchText: { color: '#A89B8C', fontSize: 14 },
   searchInput: {
     flex: 1,
-    marginLeft: 52,
+    marginLeft: 70,
     color: '#3D3229',
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
   },
-  searchCategoryScroller: { flex: 1, marginLeft: 52 },
+  searchCategoryScroller: { flex: 1, marginLeft: 70 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
