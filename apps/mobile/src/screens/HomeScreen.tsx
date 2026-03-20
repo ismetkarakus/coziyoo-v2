@@ -1368,7 +1368,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFDF9',
     borderRadius: 16,
-    paddingVertical: 10,
+    paddingVertical: 4,
     paddingHorizontal: 10,
     borderWidth: 1, borderColor: '#EDE8E0',
     marginBottom: 6,
