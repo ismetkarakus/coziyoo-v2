@@ -141,15 +141,94 @@ function lighten(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const clean = normalizeHexColor(hex).replace('#', '');
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`.toUpperCase();
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  let h = 0;
+  const l = (max + min) / 2;
+  const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+
+  if (delta !== 0) {
+    if (max === rn) h = ((gn - bn) / delta) % 6;
+    else if (max === gn) h = (bn - rn) / delta + 2;
+    else h = (rn - gn) / delta + 4;
+  }
+  h = Math.round(h * 60);
+  if (h < 0) h += 360;
+
+  return { h, s, l };
+}
+
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+
+  if (hp >= 0 && hp < 1) {
+    r1 = c;
+    g1 = x;
+  } else if (hp >= 1 && hp < 2) {
+    r1 = x;
+    g1 = c;
+  } else if (hp >= 2 && hp < 3) {
+    g1 = c;
+    b1 = x;
+  } else if (hp >= 3 && hp < 4) {
+    g1 = x;
+    b1 = c;
+  } else if (hp >= 4 && hp < 5) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  const m = l - c / 2;
+  return {
+    r: (r1 + m) * 255,
+    g: (g1 + m) * 255,
+    b: (b1 + m) * 255,
+  };
+}
+
+function toneFromHue(h: number, saturation: number, lightness: number): string {
+  const { r, g, b } = hslToRgb(h, saturation, lightness);
+  return rgbToHex(r, g, b);
+}
+
 function deriveCardColors(dominant: string): CardColors {
   const safe = normalizeHexColor(dominant);
-  const title = darken(safe, 0.74);
-  const subtitle = darken(safe, 0.64);
-  const price = darken(safe, 0.7);
-  const metaBase = darken(safe, 0.58);
+  const { r, g, b } = hexToRgb(safe);
+  const { h, s } = rgbToHsl(r, g, b);
+  const sat = Math.min(0.45, Math.max(0.18, s));
+  const title = toneFromHue(h, sat, 0.24);
+  const subtitle = toneFromHue(h, sat * 0.92, 0.34);
+  const price = toneFromHue(h, sat, 0.28);
+  const metaBase = toneFromHue(h, sat * 0.85, 0.44);
   return {
-    bg: lighten(safe, 0.9),
-    border: lighten(safe, 0.8),
+    bg: toneFromHue(h, sat * 0.55, 0.93),
+    border: toneFromHue(h, sat * 0.5, 0.84),
     title,
     subtitle,
     price,
