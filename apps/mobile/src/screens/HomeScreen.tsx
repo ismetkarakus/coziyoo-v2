@@ -259,6 +259,12 @@ const CATEGORY_API_MAP: Record<string, string> = {
 };
 
 function resolveDishImage(title: string, category: string | null): string {
+  const query = encodeURIComponent(`${title} ${category ?? ''} turkish dish plated`);
+  const lock = [...title].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 997;
+  return `https://loremflickr.com/1200/800/${query}?lock=${lock}`;
+}
+
+function resolveSecondaryDishImage(title: string, category: string | null): string {
   const normalized = title.toLocaleLowerCase('tr-TR');
   const bucket =
     normalized.includes('çorba') ||
@@ -270,7 +276,6 @@ function resolveDishImage(title: string, category: string | null): string {
       ? [
           'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80',
           'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=1200&q=80',
-          'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?auto=format&fit=crop&w=1200&q=80',
         ]
       : normalized.includes('tatlı') ||
           normalized.includes('tatli') ||
@@ -282,46 +287,19 @@ function resolveDishImage(title: string, category: string | null): string {
         ? [
             'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=1200&q=80',
             'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=1200&q=80',
-            'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=80',
           ]
-        : normalized.includes('içecek') ||
-            normalized.includes('icecek') ||
-            normalized.includes('ayran') ||
-            normalized.includes('şerbet') ||
-            normalized.includes('serbet')
-          ? [
-              'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1551751299-1b51cab2694c?auto=format&fit=crop&w=1200&q=80',
-            ]
-          : normalized.includes('pilav') ||
-              normalized.includes('dolma') ||
-              normalized.includes('sarma') ||
-              normalized.includes('zeytinyağlı') ||
-              normalized.includes('zeytinyagli')
-            ? [
-                'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1200&q=80',
-                'https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&w=1200&q=80',
-                'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
-              ]
-            : [
-                'https://images.unsplash.com/photo-1529563021893-cc83c992d75d?auto=format&fit=crop&w=1200&q=80',
-                'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
-                'https://images.unsplash.com/photo-1611584186769-0a53b5f7f350?auto=format&fit=crop&w=1200&q=80',
-              ];
-  const seed = [...normalized].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+        : [
+            'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+            'https://images.unsplash.com/photo-1529563021893-cc83c992d75d?auto=format&fit=crop&w=1200&q=80',
+          ];
+  const seed = [...`${title}${category ?? ''}`].reduce(
+    (sum, ch) => sum + ch.charCodeAt(0),
+    0,
+  );
   return bucket[seed % bucket.length];
 }
 
-function resolveSecondaryDishImage(title: string, category: string | null): string {
-  const query = encodeURIComponent(`${title},${category ?? 'turkish'},food`);
-  return `https://loremflickr.com/1200/800/${query}`;
-}
-
 function apiToMealCard(item: ApiFoodItem): MealCard {
-  const hasApiImage =
-    typeof item.imageUrl === 'string' &&
-    (item.imageUrl.startsWith('https://') || item.imageUrl.startsWith('http://'));
   return {
     id: item.id,
     title: item.name,
@@ -332,7 +310,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     price: `₺${item.price}`,
     backgroundColor: CATEGORY_BG_COLORS[item.category ?? ''] ?? '#E8E3DB',
     category: item.category ?? '',
-    imageUrl: hasApiImage ? item.imageUrl ?? undefined : resolveDishImage(item.name, item.category),
+    imageUrl: resolveDishImage(item.name, item.category),
   };
 }
 
