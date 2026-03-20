@@ -481,64 +481,74 @@ const INITIAL_INBOX_MESSAGES: ChatMessage[] = [
 
 const MESSAGE_WALLPAPERS = [
   {
+    kind: 'blobs',
     bg: '#F7F3EC',
-    blob1: 'rgba(74,124,89,0.10)',
-    blob2: 'rgba(201,149,58,0.10)',
-    blob3: 'rgba(109,93,79,0.08)',
+    c1: 'rgba(74,124,89,0.10)',
+    c2: 'rgba(201,149,58,0.10)',
+    c3: 'rgba(109,93,79,0.08)',
   },
   {
+    kind: 'stripes',
     bg: '#F2F7F3',
-    blob1: 'rgba(74,124,89,0.14)',
-    blob2: 'rgba(120,170,132,0.12)',
-    blob3: 'rgba(61,50,41,0.08)',
+    c1: 'rgba(74,124,89,0.16)',
+    c2: 'rgba(120,170,132,0.14)',
+    c3: 'rgba(61,50,41,0.10)',
   },
   {
+    kind: 'grid',
     bg: '#F8F2F4',
-    blob1: 'rgba(181,112,129,0.14)',
-    blob2: 'rgba(221,168,128,0.12)',
-    blob3: 'rgba(107,93,79,0.08)',
+    c1: 'rgba(181,112,129,0.18)',
+    c2: 'rgba(221,168,128,0.14)',
+    c3: 'rgba(107,93,79,0.10)',
   },
   {
+    kind: 'rings',
     bg: '#F1F5FA',
-    blob1: 'rgba(88,120,168,0.14)',
-    blob2: 'rgba(153,183,220,0.12)',
-    blob3: 'rgba(93,108,130,0.08)',
+    c1: 'rgba(88,120,168,0.20)',
+    c2: 'rgba(153,183,220,0.16)',
+    c3: 'rgba(93,108,130,0.10)',
   },
   {
+    kind: 'diagonal',
     bg: '#F8F5EE',
-    blob1: 'rgba(187,137,79,0.14)',
-    blob2: 'rgba(214,179,129,0.12)',
-    blob3: 'rgba(120,96,74,0.08)',
+    c1: 'rgba(187,137,79,0.18)',
+    c2: 'rgba(214,179,129,0.14)',
+    c3: 'rgba(120,96,74,0.10)',
   },
   {
+    kind: 'cards',
     bg: '#F2F8F8',
-    blob1: 'rgba(67,143,143,0.14)',
-    blob2: 'rgba(137,199,190,0.12)',
-    blob3: 'rgba(78,112,110,0.08)',
+    c1: 'rgba(67,143,143,0.16)',
+    c2: 'rgba(137,199,190,0.12)',
+    c3: 'rgba(78,112,110,0.10)',
   },
   {
+    kind: 'waves',
     bg: '#F8F2EE',
-    blob1: 'rgba(197,118,84,0.14)',
-    blob2: 'rgba(228,165,134,0.12)',
-    blob3: 'rgba(124,87,72,0.08)',
+    c1: 'rgba(197,118,84,0.16)',
+    c2: 'rgba(228,165,134,0.12)',
+    c3: 'rgba(124,87,72,0.10)',
   },
   {
+    kind: 'dots',
     bg: '#F4F3F9',
-    blob1: 'rgba(122,109,176,0.14)',
-    blob2: 'rgba(177,166,220,0.12)',
-    blob3: 'rgba(93,87,126,0.08)',
+    c1: 'rgba(122,109,176,0.18)',
+    c2: 'rgba(177,166,220,0.14)',
+    c3: 'rgba(93,87,126,0.10)',
   },
   {
+    kind: 'sunset',
     bg: '#F3F8F0',
-    blob1: 'rgba(120,163,88,0.14)',
-    blob2: 'rgba(171,210,137,0.12)',
-    blob3: 'rgba(95,121,72,0.08)',
+    c1: 'rgba(120,163,88,0.16)',
+    c2: 'rgba(171,210,137,0.12)',
+    c3: 'rgba(95,121,72,0.10)',
   },
   {
+    kind: 'minimal',
     bg: '#F9F1F5',
-    blob1: 'rgba(179,96,143,0.14)',
-    blob2: 'rgba(219,157,190,0.12)',
-    blob3: 'rgba(118,81,103,0.08)',
+    c1: 'rgba(179,96,143,0.16)',
+    c2: 'rgba(219,157,190,0.12)',
+    c3: 'rgba(118,81,103,0.10)',
   },
 ] as const;
 
@@ -959,6 +969,94 @@ export default function HomeScreen({
     setMessagesWallpaperIndex((prev) => (prev + 1) % MESSAGE_WALLPAPERS.length);
   }
 
+  function renderMessagesWallpaper(
+    wallpaper: (typeof MESSAGE_WALLPAPERS)[number],
+  ) {
+    switch (wallpaper.kind) {
+      case 'stripes':
+        return (
+          <>
+            <View style={[styles.messagesStripeA, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesStripeB, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesStripeC, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'grid':
+        return (
+          <>
+            <View style={[styles.messagesGridVertical, { borderColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesGridHorizontal, { borderColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesGridSpot, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'rings':
+        return (
+          <>
+            <View style={[styles.messagesRingA, { borderColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesRingB, { borderColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesRingC, { borderColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'diagonal':
+        return (
+          <>
+            <View style={[styles.messagesDiagA, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesDiagB, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesDiagC, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'cards':
+        return (
+          <>
+            <View style={[styles.messagesCardA, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesCardB, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesCardC, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'waves':
+        return (
+          <>
+            <View style={[styles.messagesWaveA, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesWaveB, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesWaveC, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'dots':
+        return (
+          <>
+            <View style={[styles.messagesDotsA, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesDotsB, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesDotsC, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'sunset':
+        return (
+          <>
+            <View style={[styles.messagesSunsetSky, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesSunsetHorizon, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesSunsetSun, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'minimal':
+        return (
+          <>
+            <View style={[styles.messagesMinLineA, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesMinLineB, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesMinDot, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+      case 'blobs':
+      default:
+        return (
+          <>
+            <View style={[styles.messagesBlob1, { backgroundColor: wallpaper.c1 }]} />
+            <View style={[styles.messagesBlob2, { backgroundColor: wallpaper.c2 }]} />
+            <View style={[styles.messagesBlob3, { backgroundColor: wallpaper.c3 }]} />
+          </>
+        );
+    }
+  }
+
   function handleTabPress(tab: TabKey) {
     setActiveTab(tab);
   }
@@ -1176,9 +1274,7 @@ export default function HomeScreen({
             pointerEvents="none"
             style={[styles.messagesWallpaper, { backgroundColor: wallpaper.bg }]}
           >
-            <View style={[styles.messagesBlob1, { backgroundColor: wallpaper.blob1 }]} />
-            <View style={[styles.messagesBlob2, { backgroundColor: wallpaper.blob2 }]} />
-            <View style={[styles.messagesBlob3, { backgroundColor: wallpaper.blob3 }]} />
+            {renderMessagesWallpaper(wallpaper)}
           </View>
           <View style={styles.messagesTabHeader}>
             <View style={styles.messagesTabHeaderText}>
@@ -1909,6 +2005,235 @@ const styles = StyleSheet.create({
     bottom: 40,
     right: -60,
     backgroundColor: 'rgba(109,93,79,0.08)',
+  },
+  messagesStripeA: {
+    position: 'absolute',
+    left: -30,
+    right: -30,
+    top: 80,
+    height: 60,
+    transform: [{ rotate: '-7deg' }],
+  },
+  messagesStripeB: {
+    position: 'absolute',
+    left: -40,
+    right: -40,
+    top: 220,
+    height: 48,
+    transform: [{ rotate: '5deg' }],
+  },
+  messagesStripeC: {
+    position: 'absolute',
+    left: -30,
+    right: -30,
+    top: 360,
+    height: 68,
+    transform: [{ rotate: '-6deg' }],
+  },
+  messagesGridVertical: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 26,
+    right: 26,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+  },
+  messagesGridHorizontal: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 130,
+    height: 180,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+  },
+  messagesGridSpot: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    bottom: 120,
+    right: 40,
+  },
+  messagesRingA: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    borderWidth: 16,
+    top: -40,
+    right: -90,
+  },
+  messagesRingB: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 12,
+    top: 210,
+    left: -80,
+  },
+  messagesRingC: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 10,
+    bottom: 70,
+    right: 26,
+  },
+  messagesDiagA: {
+    position: 'absolute',
+    width: 420,
+    height: 120,
+    transform: [{ rotate: '-28deg' }],
+    top: 40,
+    left: -130,
+  },
+  messagesDiagB: {
+    position: 'absolute',
+    width: 420,
+    height: 88,
+    transform: [{ rotate: '-28deg' }],
+    top: 210,
+    left: -110,
+  },
+  messagesDiagC: {
+    position: 'absolute',
+    width: 420,
+    height: 70,
+    transform: [{ rotate: '-28deg' }],
+    top: 350,
+    left: -95,
+  },
+  messagesCardA: {
+    position: 'absolute',
+    width: 180,
+    height: 100,
+    borderRadius: 18,
+    top: 40,
+    right: 30,
+    transform: [{ rotate: '8deg' }],
+  },
+  messagesCardB: {
+    position: 'absolute',
+    width: 160,
+    height: 90,
+    borderRadius: 16,
+    top: 200,
+    left: 24,
+    transform: [{ rotate: '-7deg' }],
+  },
+  messagesCardC: {
+    position: 'absolute',
+    width: 150,
+    height: 84,
+    borderRadius: 16,
+    top: 340,
+    right: 18,
+    transform: [{ rotate: '6deg' }],
+  },
+  messagesWaveA: {
+    position: 'absolute',
+    left: -60,
+    right: -60,
+    top: 72,
+    height: 110,
+    borderRadius: 55,
+  },
+  messagesWaveB: {
+    position: 'absolute',
+    left: -80,
+    right: -80,
+    top: 230,
+    height: 100,
+    borderRadius: 50,
+  },
+  messagesWaveC: {
+    position: 'absolute',
+    left: -70,
+    right: -70,
+    top: 370,
+    height: 90,
+    borderRadius: 45,
+  },
+  messagesDotsA: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    top: 100,
+    left: 44,
+    shadowColor: '#000',
+    shadowOpacity: 0.01,
+    shadowRadius: 1,
+    shadowOffset: { width: 1, height: 1 },
+  },
+  messagesDotsB: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    top: 230,
+    right: 72,
+  },
+  messagesDotsC: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    top: 360,
+    left: 130,
+  },
+  messagesSunsetSky: {
+    position: 'absolute',
+    top: 30,
+    left: 24,
+    right: 24,
+    height: 130,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+  },
+  messagesSunsetHorizon: {
+    position: 'absolute',
+    top: 160,
+    left: 24,
+    right: 24,
+    height: 44,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  messagesSunsetSun: {
+    position: 'absolute',
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    top: 112,
+    left: '50%',
+    marginLeft: -43,
+  },
+  messagesMinLineA: {
+    position: 'absolute',
+    left: 26,
+    right: 26,
+    top: 120,
+    height: 2,
+  },
+  messagesMinLineB: {
+    position: 'absolute',
+    left: 56,
+    right: 56,
+    top: 250,
+    height: 2,
+  },
+  messagesMinDot: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    top: 340,
+    right: 42,
   },
   messagesTabHeader: { paddingHorizontal: 18, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' },
   messagesWallpaperBtn: {
