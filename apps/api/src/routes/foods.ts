@@ -49,6 +49,15 @@ foodsRouter.get("/", async (req, res) => {
         f.preparation_time_minutes,
         f.max_delivery_distance_km,
         f.allergens_json,
+        (
+          SELECT pl.id
+          FROM production_lots pl
+          WHERE pl.food_id = f.id
+            AND pl.status IN ('open', 'active')
+            AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+          ORDER BY pl.quantity_available DESC, pl.created_at DESC
+          LIMIT 1
+        ) AS lot_id,
         f.is_active,
         c.name_tr AS category,
         u.id AS seller_id,
@@ -93,6 +102,7 @@ foodsRouter.get("/", async (req, res) => {
         ? parseFloat(r.max_delivery_distance_km)
         : null,
       allergens: parseAllergens(r.allergens_json),
+      lotId: r.lot_id ?? null,
       category: r.category,
       stock: r.stock,
       seller: {

@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   SafeAreaView,
@@ -66,6 +68,7 @@ type ApiFoodItem = {
   maxDistance: number | null;
   category: string | null;
   allergens?: string[];
+  lotId?: string | null;
   stock: number;
   seller: { id: string; name: string; image: string | null };
 };
@@ -77,6 +80,7 @@ type MealCard = {
   seller: string;
   sellerImage?: string | null;
   allergens: string[];
+  lotId?: string | null;
   rating: string;
   time: string;
   distance: string;
@@ -127,6 +131,13 @@ type SellerReview = {
 type CartItem = {
   meal: MealCard;
   quantity: number;
+};
+
+type PaymentStatusSnapshot = {
+  orderId: string;
+  orderStatus: string;
+  paymentCompleted: boolean;
+  latestAttemptStatus?: string;
 };
 
 function formatReviewDate(value: string): string {
@@ -414,6 +425,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     seller: item.seller.name,
     sellerImage: item.seller.image,
     allergens: item.allergens ?? [],
+    lotId: item.lotId ?? null,
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
     distance: item.maxDistance ? `${item.maxDistance} km` : '',
@@ -727,6 +739,10 @@ export default function HomeScreen({
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatusSnapshot | null>(null);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -975,6 +991,9 @@ export default function HomeScreen({
   }
 
   function addMealToCart(meal: MealCard) {
+    setActiveOrderId(null);
+    setPaymentError(null);
+    setPaymentStatus(null);
     setCartItems((prev) => {
       const existing = prev.find((item) => item.meal.id === meal.id);
       if (!existing) {
@@ -989,6 +1008,9 @@ export default function HomeScreen({
   }
 
   function decreaseCartItem(mealId: string) {
+    setActiveOrderId(null);
+    setPaymentError(null);
+    setPaymentStatus(null);
     setCartItems((prev) => {
       const current = prev.find((item) => item.meal.id === mealId);
       if (!current) return prev;
@@ -1004,6 +1026,126 @@ export default function HomeScreen({
   }
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  async function startCartCheckout() {
+    if (cartItems.length === 0) {
+      Alert.alert('Sepet Bos', 'Odeme icin once sepete urun ekle.');
+      return;
+    }
+    const sellerId = cartItems[0]?.meal.sellerId;
+    if (!sellerId) {
+      setPaymentError('Satici bilgisi eksik.');
+      return;
+    }
+    if (!cartItems.every((item) => item.meal.sellerId === sellerId)) {
+      setPaymentError('Ayni anda sadece tek saticidan odeme destekleniyor.');
+      return;
+    }
+    if (!cartItems.every((item) => item.meal.lotId)) {
+      setPaymentError('Bazi urunlerde lot bilgisi eksik. Lutfen farkli urun sec.');
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError(null);
+    try {
+      const orderRes = await fetch(`${apiUrl}/v1/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentAuth.accessToken}`,
+          'Idempotency-Key': `mobile-order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        },
+        body: JSON.stringify({
+          sellerId,
+          deliveryType: 'pickup',
+          items: cartItems.map((item) => ({
+            lotId: item.meal.lotId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      const orderJson = await orderRes.json();
+      if (!orderRes.ok) {
+        throw new Error(orderJson?.error?.message ?? `Siparis olusturulamadi (${orderRes.status})`);
+      }
+      const orderId = String(orderJson?.data?.orderId ?? '');
+      if (!orderId) {
+        throw new Error('Siparis kimligi donmedi.');
+      }
+      setActiveOrderId(orderId);
+
+      const paymentRes = await fetch(`${apiUrl}/v1/payments/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentAuth.accessToken}`,
+          'Idempotency-Key': `mobile-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        },
+        body: JSON.stringify({ orderId }),
+      });
+      const paymentJson = await paymentRes.json();
+      if (!paymentRes.ok) {
+        setPaymentStatus({
+          orderId,
+          orderStatus: String(orderJson?.data?.status ?? 'pending_seller_approval'),
+          paymentCompleted: false,
+          latestAttemptStatus: undefined,
+        });
+        throw new Error(paymentJson?.error?.message ?? `Odeme baslatilamadi (${paymentRes.status})`);
+      }
+
+      const checkoutUrl = String(paymentJson?.data?.checkoutUrl ?? '');
+      setPaymentStatus({
+        orderId,
+        orderStatus: 'awaiting_payment',
+        paymentCompleted: false,
+        latestAttemptStatus: 'initiated',
+      });
+      if (checkoutUrl) {
+        const supported = await Linking.canOpenURL(checkoutUrl);
+        if (supported) {
+          await Linking.openURL(checkoutUrl);
+        }
+      }
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : 'Odeme baslatma hatasi');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function refreshPaymentStatus() {
+    if (!activeOrderId) return;
+    setPaymentLoading(true);
+    setPaymentError(null);
+    try {
+      const response = await fetch(`${apiUrl}/v1/payments/${activeOrderId}/status`, {
+        headers: {
+          Authorization: `Bearer ${currentAuth.accessToken}`,
+        },
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json?.error?.message ?? `Durum alinamadi (${response.status})`);
+      }
+      setPaymentStatus({
+        orderId: String(json?.data?.orderId ?? activeOrderId),
+        orderStatus: String(json?.data?.orderStatus ?? ''),
+        paymentCompleted: Boolean(json?.data?.paymentCompleted),
+        latestAttemptStatus: json?.data?.latestAttempt?.status
+          ? String(json.data.latestAttempt.status)
+          : undefined,
+      });
+      if (json?.data?.paymentCompleted) {
+        setCartItems([]);
+      }
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : 'Odeme durumu alinamadi');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
 
   function renderMessagesWallpaper(
     wallpaper: (typeof MESSAGE_WALLPAPERS)[number],
@@ -1408,6 +1550,41 @@ export default function HomeScreen({
               <View style={styles.cartFooter}>
                 <Text style={styles.cartTotalLabel}>Toplam</Text>
                 <Text style={styles.cartTotalValue}>₺{total.toFixed(0)}</Text>
+              </View>
+              {paymentStatus ? (
+                <View style={styles.paymentStatusCard}>
+                  <Text style={styles.paymentStatusTitle}>Odeme Durumu</Text>
+                  <Text style={styles.paymentStatusText}>Siparis: {paymentStatus.orderId.slice(0, 8)}...</Text>
+                  <Text style={styles.paymentStatusText}>Order: {paymentStatus.orderStatus}</Text>
+                  <Text style={styles.paymentStatusText}>
+                    Odeme: {paymentStatus.paymentCompleted ? 'Tamamlandi' : (paymentStatus.latestAttemptStatus ?? 'Beklemede')}
+                  </Text>
+                </View>
+              ) : null}
+              {paymentError ? (
+                <Text style={styles.paymentErrorText}>{paymentError}</Text>
+              ) : null}
+              <View style={styles.paymentActionsRow}>
+                <TouchableOpacity
+                  style={[styles.paymentActionBtn, paymentLoading && styles.paymentActionBtnDisabled]}
+                  onPress={() => void startCartCheckout()}
+                  activeOpacity={0.9}
+                  disabled={paymentLoading}
+                >
+                  {paymentLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.paymentActionBtnText}>Odeme Baslat</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.paymentRefreshBtn, paymentLoading && styles.paymentRefreshBtnDisabled]}
+                  onPress={() => void refreshPaymentStatus()}
+                  activeOpacity={0.9}
+                  disabled={paymentLoading || !activeOrderId}
+                >
+                  <Text style={styles.paymentRefreshBtnText}>Durum Yenile</Text>
+                </TouchableOpacity>
               </View>
             </>
           )}
@@ -2112,6 +2289,41 @@ const styles = StyleSheet.create({
   },
   cartTotalLabel: { color: '#8D8072', fontSize: 13, fontWeight: '600' },
   cartTotalValue: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
+  paymentStatusCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E6DDCF',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#FFFBF5',
+  },
+  paymentStatusTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  paymentStatusText: { color: '#6B5D4F', fontSize: 12, lineHeight: 18 },
+  paymentErrorText: { color: '#B42318', fontSize: 12, fontWeight: '600', marginTop: 8 },
+  paymentActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  paymentActionBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#4A7C59',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentActionBtnDisabled: { opacity: 0.65 },
+  paymentActionBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  paymentRefreshBtn: {
+    height: 42,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#DDD2C3',
+    backgroundColor: '#FFFDF9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentRefreshBtnDisabled: { opacity: 0.55 },
+  paymentRefreshBtnText: { color: '#5F5246', fontSize: 13, fontWeight: '700' },
   messagesTabWrap: { flex: 1, marginTop: 16, paddingBottom: 72 },
   messagesWallpaper: {
     ...StyleSheet.absoluteFillObject,

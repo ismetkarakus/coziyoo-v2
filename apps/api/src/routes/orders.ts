@@ -130,7 +130,7 @@ ordersRouter.post(
           error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
         });
       }
-      if (lot.status !== "active") {
+      if (!["open", "active"].includes(lot.status)) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: { code: "LOT_NOT_ACTIVE", message: "Lot is not active for ordering" } });
       }
@@ -659,7 +659,7 @@ voiceOrderRouter.post(
             error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
           });
         }
-        if (lot.status !== "active") {
+        if (!["open", "active"].includes(lot.status)) {
           await client.query("ROLLBACK");
           return res.status(409).json({ error: { code: "LOT_NOT_ACTIVE", message: "Lot is not active for ordering" } });
         }
