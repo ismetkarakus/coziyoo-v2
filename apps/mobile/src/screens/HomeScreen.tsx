@@ -614,7 +614,7 @@ export default function HomeScreen({
       Animated.sequence([
         Animated.parallel([
           Animated.timing(pulse1Scale, {
-            toValue: 1.8,
+            toValue: 1.45,
             duration: 2600,
             useNativeDriver: true,
           }),
@@ -643,7 +643,7 @@ export default function HomeScreen({
       Animated.sequence([
         Animated.parallel([
           Animated.timing(pulse2Scale, {
-            toValue: 2.2,
+            toValue: 1.7,
             duration: 2600,
             useNativeDriver: true,
           }),
@@ -671,7 +671,7 @@ export default function HomeScreen({
     const breathe = Animated.loop(
       Animated.sequence([
         Animated.timing(breatheScale, {
-          toValue: 1.06,
+          toValue: 1.03,
           duration: 1300,
           useNativeDriver: true,
         }),
@@ -1501,26 +1501,26 @@ const styles = StyleSheet.create({
 
   /* --- FAB --- */
   floatingWrap: {
-    position: 'absolute', left: '50%', bottom: 52, marginLeft: -28,
-    zIndex: 80, width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', left: '50%', bottom: 15, marginLeft: -26,
+    zIndex: 80, width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
   },
   pulseRing1: {
-    position: 'absolute', width: 70, height: 70, borderRadius: 35,
+    position: 'absolute', width: 62, height: 62, borderRadius: 31,
     borderWidth: 2.5, borderColor: 'rgba(74,124,89,0.45)',
     backgroundColor: 'transparent',
   },
   pulseRing2: {
-    position: 'absolute', width: 70, height: 70, borderRadius: 35,
+    position: 'absolute', width: 62, height: 62, borderRadius: 31,
     borderWidth: 2, borderColor: 'rgba(74,124,89,0.30)',
     backgroundColor: 'transparent',
   },
   floatingButton: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#4A7C59',
+    width: 52, height: 52, borderRadius: 26, backgroundColor: '#4A7C59',
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#4A7C59', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 18,
     elevation: 10,
   },
-  floatingButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  floatingButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '700' },
 
   /* --- Bottom bar --- */
   bottomBar: {
