@@ -640,7 +640,7 @@ export default function HomeScreen({
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F1EB" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFDF9" />
 
       {/* Meal detail modal */}
       <Modal
@@ -812,7 +812,6 @@ export default function HomeScreen({
 
       {/* Main screen */}
       <View style={styles.container}>
-        <View style={styles.inner}>
           <View style={styles.content}>{renderContent()}</View>
 
           {/* FAB */}
@@ -936,7 +935,6 @@ export default function HomeScreen({
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -948,19 +946,8 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
-  safe: { flex: 1, backgroundColor: '#F5F1EB' },
-  container: { flex: 1, backgroundColor: '#F5F1EB', paddingHorizontal: 12, paddingVertical: 10 },
-  inner: {
-    flex: 1,
-    backgroundColor: '#FFFDF9',
-    borderRadius: 34,
-    overflow: 'hidden',
-    shadowColor: '#3D3229',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.10,
-    shadowRadius: 28,
-    elevation: 10,
-  },
+  safe: { flex: 1, backgroundColor: '#FFFDF9' },
+  container: { flex: 1, backgroundColor: '#FFFDF9' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
   scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
@@ -1053,7 +1040,7 @@ const styles = StyleSheet.create({
 
   /* --- Bottom bar --- */
   bottomBar: {
-    height: 86, backgroundColor: 'rgba(255,253,249,0.96)',
+    height: 86, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around',
     paddingTop: 10, paddingHorizontal: 8, zIndex: 50,
