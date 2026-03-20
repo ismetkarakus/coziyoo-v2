@@ -874,6 +874,7 @@ export default function HomeScreen({
 
         {/* Search + category chips */}
         <View style={styles.searchBox}>
+          {!searchMode ? <View pointerEvents="none" style={styles.searchIconCover} /> : null}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
@@ -1344,16 +1345,47 @@ const styles = StyleSheet.create({
 
   /* --- Search --- */
   searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFFDF9', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFDF9',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderWidth: 1, borderColor: '#EDE8E0',
     marginBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  searchIconButton: { width: 34, alignItems: 'center', justifyContent: 'center' },
-  searchIcon: { color: '#7A6D5F', fontSize: 22, fontWeight: '800' },
+  searchIconCover: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 56,
+    backgroundColor: '#FFFDF9',
+    zIndex: 2,
+  },
+  searchIconButton: {
+    position: 'absolute',
+    left: 8,
+    top: 0,
+    bottom: 0,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  searchIcon: { color: '#6B5D4F', fontSize: 28, fontWeight: '800' },
   searchText: { color: '#A89B8C', fontSize: 14 },
-  searchInput: { flex: 1, color: '#3D3229', fontSize: 15, fontWeight: '500' },
-  searchCategoryScroller: { flex: 1 },
+  searchInput: {
+    flex: 1,
+    marginLeft: 52,
+    color: '#3D3229',
+    fontSize: 15,
+    fontWeight: '500',
+    paddingRight: 8,
+  },
+  searchCategoryScroller: { flex: 1, marginLeft: 52 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
