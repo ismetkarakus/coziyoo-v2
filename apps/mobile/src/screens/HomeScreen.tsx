@@ -1362,6 +1362,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
     paddingTop: 0,
     paddingBottom: 0,
+    marginHorizontal: -18,
   },
   searchBox: {
     flexDirection: 'row',
