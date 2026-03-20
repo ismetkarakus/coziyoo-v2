@@ -892,6 +892,7 @@ export default function HomeScreen({
               name={searchMode ? 'close-outline' : 'search-outline'}
               size={30}
               color="#5F5246"
+              style={!searchMode ? styles.searchIconGlyph : undefined}
             />
           </TouchableOpacity>
           {searchMode ? (
@@ -1392,6 +1393,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 3,
+  },
+  searchIconGlyph: {
+    transform: [{ scaleX: -1 }],
   },
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchText: { color: '#A89B8C', fontSize: 14 },
