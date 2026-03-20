@@ -15,7 +15,12 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getColors } from 'react-native-image-colors';
+let getColors: typeof import('react-native-image-colors').getColors | null = null;
+try {
+  getColors = require('react-native-image-colors').getColors;
+} catch {
+  // Native module not available — adaptive colors will use fallback
+}
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import VoiceSessionScreen from './VoiceSessionScreen';
@@ -176,7 +181,7 @@ function FoodCard({
   );
 
   useEffect(() => {
-    if (!meal.imageUrl) {
+    if (!meal.imageUrl || !getColors) {
       setColors(deriveCardColors(meal.backgroundColor));
       return;
     }
