@@ -460,6 +460,24 @@ const INITIAL_CHAT: ChatMessage[] = [
   },
 ];
 
+const INITIAL_INBOX_MESSAGES: ChatMessage[] = [
+  {
+    id: 'seed-1',
+    text: 'Merhaba, yarin icin mercimek corbasi ve pilav hazirlayabilirim.',
+    isUser: false,
+  },
+  {
+    id: 'seed-2',
+    text: 'Tesekkurler, saat 19:00 gibi teslim olur mu?',
+    isUser: true,
+  },
+  {
+    id: 'seed-3',
+    text: 'Olur. Alerjen bilgisi olarak sut ve kereviz mevcut.',
+    isUser: false,
+  },
+];
+
 /* ------------------------------------------------------------------ */
 /*  FoodCard                                                           */
 /* ------------------------------------------------------------------ */
@@ -616,6 +634,9 @@ export default function HomeScreen({
   const [chatMessages, setChatMessages] =
     useState<ChatMessage[]>(INITIAL_CHAT);
   const [chatInput, setChatInput] = useState('');
+  const [inboxMessages, setInboxMessages] =
+    useState<ChatMessage[]>(INITIAL_INBOX_MESSAGES);
+  const [inboxInput, setInboxInput] = useState('');
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
   const [selectedSeller, setSelectedSeller] = useState<{
     id: string;
@@ -859,6 +880,16 @@ export default function HomeScreen({
     setChatInput('');
   }
 
+  function handleInboxSend() {
+    const text = inboxInput.trim();
+    if (!text) return;
+    setInboxMessages((prev) => [
+      ...prev,
+      { id: `inbox-${Date.now()}`, text, isUser: true },
+    ]);
+    setInboxInput('');
+  }
+
   function handleTabPress(tab: TabKey) {
     setActiveTab(tab);
   }
@@ -1066,11 +1097,35 @@ export default function HomeScreen({
   function renderContent() {
     if (activeTab === 'messages') {
       return (
-        <View style={styles.tabPanelCard}>
-          <Text style={styles.tabPanelTitle}>Mesajlar</Text>
-          <Text style={styles.tabPanelText}>
-            Sohbetlerini burada goreceksin.
-          </Text>
+        <View style={styles.messagesTabWrap}>
+          <View style={styles.messagesTabHeader}>
+            <Text style={styles.messagesTabTitle}>Mesajlar</Text>
+            <Text style={styles.messagesTabSubtitle}>Ustalarla iletisim kur</Text>
+          </View>
+          <FlatList
+            data={inboxMessages}
+            renderItem={renderChatMessage}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.chatList}
+            style={styles.chatListContainer}
+          />
+          <View style={styles.chatInputRow}>
+            <TextInput
+              value={inboxInput}
+              onChangeText={setInboxInput}
+              placeholder="Mesaj yaz..."
+              placeholderTextColor="#A89B8C"
+              style={styles.chatTextInput}
+              returnKeyType="send"
+              onSubmitEditing={handleInboxSend}
+            />
+            <TouchableOpacity
+              style={styles.chatSendBtn}
+              onPress={handleInboxSend}
+            >
+              <Ionicons name="arrow-up" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
@@ -1732,6 +1787,10 @@ const styles = StyleSheet.create({
   },
   tabPanelTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
   tabPanelText: { color: '#8D8072', fontSize: 14, marginTop: 8, lineHeight: 20 },
+  messagesTabWrap: { flex: 1, marginTop: 16 },
+  messagesTabHeader: { paddingHorizontal: 18, paddingBottom: 8 },
+  messagesTabTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700' },
+  messagesTabSubtitle: { color: '#8D8072', fontSize: 13, marginTop: 2 },
 
   /* --- Profile --- */
   profileCard: {
