@@ -1064,6 +1064,36 @@ export default function HomeScreen({
   }
 
   function renderContent() {
+    if (activeTab === 'messages') {
+      return (
+        <View style={styles.tabPanelCard}>
+          <Text style={styles.tabPanelTitle}>Mesajlar</Text>
+          <Text style={styles.tabPanelText}>
+            Sohbetlerini burada goreceksin.
+          </Text>
+        </View>
+      );
+    }
+    if (activeTab === 'cart') {
+      return (
+        <View style={styles.tabPanelCard}>
+          <Text style={styles.tabPanelTitle}>Sepet</Text>
+          <Text style={styles.tabPanelText}>
+            Sepetindeki urun sayisi: {cartCount}
+          </Text>
+        </View>
+      );
+    }
+    if (activeTab === 'notifications') {
+      return (
+        <View style={styles.tabPanelCard}>
+          <Text style={styles.tabPanelTitle}>Bildirimler</Text>
+          <Text style={styles.tabPanelText}>
+            Yeni bildirimlerin burada listelenecek.
+          </Text>
+        </View>
+      );
+    }
     if (activeTab === 'profile') {
       return (
         <View style={styles.profileCard}>
@@ -1689,6 +1719,19 @@ const styles = StyleSheet.create({
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
   foodMeta: { fontSize: 12 },
+
+  /* --- Tab panels --- */
+  tabPanelCard: {
+    marginTop: 24,
+    marginHorizontal: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    backgroundColor: '#FFFDF9',
+    padding: 18,
+  },
+  tabPanelTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
+  tabPanelText: { color: '#8D8072', fontSize: 14, marginTop: 8, lineHeight: 20 },
 
   /* --- Profile --- */
   profileCard: {
