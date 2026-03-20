@@ -1453,7 +1453,7 @@ const styles = StyleSheet.create({
     height: 82, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-    paddingBottom: 10, paddingHorizontal: 8, zIndex: 50,
+    paddingBottom: 6, paddingHorizontal: 8, zIndex: 50,
   },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 2 },
   navSpacer: { width: 64 },
