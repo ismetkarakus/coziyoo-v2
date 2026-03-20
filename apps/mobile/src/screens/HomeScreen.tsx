@@ -895,7 +895,7 @@ export default function HomeScreen({
               style={styles.searchIconButton}
             >
             <Ionicons
-                name="search-outline"
+                name={searchMode ? 'close-outline' : 'search-outline'}
                 size={28}
                 color="#5F5246"
                 style={!searchMode ? styles.searchIconGlyph : undefined}
