@@ -121,6 +121,16 @@ type SellerReview = {
   createdAt: string;
 };
 
+function formatReviewDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -1221,15 +1231,18 @@ export default function HomeScreen({
                     <View key={review.id} style={styles.sellerReviewItem}>
                       <View style={styles.sellerReviewHead}>
                         <Text style={styles.sellerReviewBuyer}>{review.buyerName}</Text>
-                        <View style={styles.sellerReviewStars}>
-                          {[1, 2, 3, 4, 5].map((idx) => (
-                            <Ionicons
-                              key={`${review.id}-star-${idx}`}
-                              name={idx <= review.rating ? 'star' : 'star-outline'}
-                              size={13}
-                              color="#D4A017"
-                            />
-                          ))}
+                        <View style={styles.sellerReviewRight}>
+                          <View style={styles.sellerReviewStars}>
+                            {[1, 2, 3, 4, 5].map((idx) => (
+                              <Ionicons
+                                key={`${review.id}-star-${idx}`}
+                                name={idx <= review.rating ? 'star' : 'star-outline'}
+                                size={13}
+                                color="#D4A017"
+                              />
+                            ))}
+                          </View>
+                          <Text style={styles.sellerReviewDate}>{formatReviewDate(review.createdAt)}</Text>
                         </View>
                       </View>
                       <Text style={styles.sellerReviewFood}>Yemek: {review.foodName}</Text>
@@ -1821,7 +1834,9 @@ const styles = StyleSheet.create({
   },
   sellerReviewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   sellerReviewBuyer: { color: '#3D3229', fontSize: 13, fontWeight: '700', flex: 1, paddingRight: 8 },
+  sellerReviewRight: { alignItems: 'flex-end' },
   sellerReviewStars: { flexDirection: 'row', alignItems: 'center', gap: 1 },
+  sellerReviewDate: { color: '#8D8072', fontSize: 10, marginTop: 2 },
   sellerReviewFood: { color: '#7E7163', fontSize: 11, marginBottom: 3 },
   sellerReviewComment: { color: '#5F5246', fontSize: 12, lineHeight: 17 },
   sellerSectionTitle: {
