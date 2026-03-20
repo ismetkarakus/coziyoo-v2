@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Image,
   Modal,
   Platform,
   SafeAreaView,
@@ -51,9 +52,24 @@ type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
 type AgentMode = 'voice' | 'text';
 
+type ApiFoodItem = {
+  id: string;
+  name: string;
+  cardSummary: string;
+  description: string;
+  price: number;
+  imageUrl: string | null;
+  rating: string | null;
+  reviewCount: number;
+  prepTime: number | null;
+  maxDistance: number | null;
+  category: string | null;
+  stock: number;
+  seller: { id: string; name: string; image: string | null };
+};
+
 type MealCard = {
   id: string;
-  emoji: string;
   title: string;
   seller: string;
   rating: string;
@@ -116,52 +132,44 @@ function deriveCardColors(dominant: string): CardColors {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const CATEGORIES = ['Tumu', 'Corbalar', 'Ana yemek', 'Tatli', 'Salata'];
+const CATEGORIES = ['Tumu', 'Corbalar', 'Ana Yemekler', 'Tatlilar', 'Icecekler'];
+
+const CATEGORY_BG_COLORS: Record<string, string> = {
+  'Çorbalar': '#F1DED0',
+  'Ana Yemekler': '#D8E5D8',
+  'Zeytinyağlılar': '#D4E4D8',
+  'Tatlılar': '#ECD4D8',
+  'İçecekler': '#D4DEE8',
+};
+
+const CATEGORY_API_MAP: Record<string, string> = {
+  'Tumu': '',
+  'Corbalar': 'Çorbalar',
+  'Ana Yemekler': 'Ana Yemekler',
+  'Tatlilar': 'Tatlılar',
+  'Icecekler': 'İçecekler',
+};
+
+function apiToMealCard(item: ApiFoodItem): MealCard {
+  return {
+    id: item.id,
+    title: item.name,
+    seller: item.seller.name,
+    rating: item.rating ?? '0.0',
+    time: item.prepTime ? `${item.prepTime} dk` : '',
+    distance: item.maxDistance ? `${item.maxDistance} km` : '',
+    price: `₺${item.price}`,
+    backgroundColor: CATEGORY_BG_COLORS[item.category ?? ''] ?? '#E8E3DB',
+    category: item.category ?? '',
+    imageUrl: item.imageUrl ?? undefined,
+  };
+}
 
 const INITIAL_CHAT: ChatMessage[] = [
   {
     id: '1',
     text: 'Canin ne cekiyor? Anlatir misin, sana en uygun ev yemeklerini bulayim.',
     isUser: false,
-  },
-];
-
-const meals: MealCard[] = [
-  {
-    id: 'mercimek',
-    emoji: '🍲',
-    title: 'Mercimek Corbasi',
-    seller: 'Zeynep Hanim',
-    rating: '4.5',
-    time: '25 dk',
-    distance: '2 km',
-    price: '₺15',
-    backgroundColor: '#F1DED0',
-    category: 'Corbalar',
-  },
-  {
-    id: 'karniyarik',
-    emoji: '🥘',
-    title: 'Karniyarik',
-    seller: 'Ayse Teyze',
-    rating: '4.8',
-    time: '35 dk',
-    distance: '3 km',
-    price: '₺35',
-    backgroundColor: '#D8E5D8',
-    category: 'Ana yemek',
-  },
-  {
-    id: 'sutlac',
-    emoji: '🍰',
-    title: 'Sutlac',
-    seller: 'Fatma Anne',
-    rating: '4.7',
-    time: '15 dk',
-    distance: '1 km',
-    price: '₺25',
-    backgroundColor: '#ECD4D8',
-    category: 'Tatli',
   },
 ];
 
@@ -216,7 +224,15 @@ function FoodCard({
       <View
         style={[styles.foodPhoto, { backgroundColor: meal.backgroundColor }]}
       >
-        <Text style={styles.foodEmoji}>{meal.emoji}</Text>
+        {meal.imageUrl ? (
+          <Image
+            source={{ uri: meal.imageUrl }}
+            style={styles.foodImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.foodEmoji}>🍽️</Text>
+        )}
         <View style={styles.ratingBadge}>
           <Text style={styles.ratingBadgeStar}>★</Text>
           <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
@@ -258,6 +274,9 @@ export default function HomeScreen({
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeCategory, setActiveCategory] = useState('Tumu');
+  const [meals, setMeals] = useState<MealCard[]>([]);
+  const [mealsLoading, setMealsLoading] = useState(true);
+  const [mealsError, setMealsError] = useState<string | null>(null);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voiceSession, setVoiceSession] = useState<SessionData | null>(null);
@@ -284,6 +303,69 @@ export default function HomeScreen({
   useEffect(() => {
     loadSettings().then((s) => setApiUrl(s.apiUrl));
   }, []);
+
+  // Fetch foods from API
+  useEffect(() => {
+    if (!apiUrl || apiUrl === 'http://localhost:3000') {
+      // Wait until apiUrl is loaded from settings
+      loadSettings().then((s) => {
+        if (s.apiUrl) fetchFoods(s.apiUrl);
+      });
+      return;
+    }
+    fetchFoods(apiUrl);
+  }, [apiUrl, currentAuth.accessToken]);
+
+  async function fetchFoods(url: string) {
+    setMealsLoading(true);
+    setMealsError(null);
+    try {
+      const response = await fetch(`${url}/v1/foods`, {
+        headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
+      });
+      if (response.status === 401) {
+        const refreshed = await refreshAuthSession(url, currentAuth);
+        if (refreshed) {
+          setCurrentAuth(refreshed);
+          onAuthRefresh?.(refreshed);
+          const retryRes = await fetch(`${url}/v1/foods`, {
+            headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+          });
+          if (!retryRes.ok) {
+            setMeals([]);
+            setMealsError(`retry failed (${retryRes.status})`);
+            return;
+          }
+          const retryJson = await retryRes.json();
+          if (Array.isArray(retryJson.data)) {
+            setMeals(retryJson.data.map(apiToMealCard));
+          } else {
+            setMeals([]);
+            setMealsError('retry response has no data');
+          }
+        }
+        return;
+      }
+      if (!response.ok) {
+        setMeals([]);
+        setMealsError(`request failed (${response.status})`);
+        return;
+      }
+      const json = await response.json();
+      if (Array.isArray(json.data)) {
+        setMeals(json.data.map(apiToMealCard));
+      } else {
+        setMeals([]);
+        setMealsError('response has no data');
+      }
+    } catch (err) {
+      console.warn('[HomeScreen] failed to fetch foods:', err);
+      setMeals([]);
+      setMealsError(err instanceof Error ? err.message : 'fetch failed');
+    } finally {
+      setMealsLoading(false);
+    }
+  }
 
   // FAB pulse & breathe animations
   useEffect(() => {
@@ -503,10 +585,11 @@ export default function HomeScreen({
 
   /* ---------- Filtered meals ---------- */
 
+  const categoryApiName = CATEGORY_API_MAP[activeCategory] ?? '';
   const filteredMeals =
-    activeCategory === 'Tumu'
+    activeCategory === 'Tumu' || !categoryApiName
       ? meals
-      : meals.filter((m) => m.category === activeCategory);
+      : meals.filter((m) => m.category === categoryApiName);
 
   /* ---------- Render helpers ---------- */
 
@@ -537,6 +620,18 @@ export default function HomeScreen({
           <Text style={styles.searchIcon}>⌕</Text>
           <Text style={styles.searchText}>Tarif veya malzeme ara...</Text>
         </View>
+        {__DEV__ ? (
+          <View style={styles.debugBox}>
+            <Text style={styles.debugText}>API: {apiUrl}</Text>
+            <Text style={styles.debugText}>
+              foods: {meals.length} | filtered: {filteredMeals.length} | loading:{' '}
+              {mealsLoading ? 'yes' : 'no'}
+            </Text>
+            {mealsError ? (
+              <Text style={styles.debugError}>error: {mealsError}</Text>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Category filters */}
         <ScrollView
@@ -969,6 +1064,17 @@ const styles = StyleSheet.create({
   },
   searchIcon: { color: '#A89B8C', fontSize: 16, fontWeight: '700' },
   searchText: { color: '#A89B8C', fontSize: 14 },
+  debugBox: {
+    backgroundColor: '#FFF3CD',
+    borderWidth: 1,
+    borderColor: '#E8D9A8',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  debugText: { color: '#5C4B1D', fontSize: 12, fontWeight: '500' },
+  debugError: { color: '#B42318', fontSize: 12, fontWeight: '600', marginTop: 4 },
 
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
