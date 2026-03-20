@@ -887,7 +887,11 @@ export default function HomeScreen({
             }}
             style={styles.searchIconButton}
           >
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Ionicons
+              name={searchMode ? 'close-outline' : 'search-outline'}
+              size={36}
+              color="#5F5246"
+            />
           </TouchableOpacity>
           {searchMode ? (
             <TextInput
@@ -1367,15 +1371,15 @@ const styles = StyleSheet.create({
   },
   searchIconButton: {
     position: 'absolute',
-    left: 8,
+    left: 6,
     top: 0,
     bottom: 0,
-    width: 40,
+    width: 44,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 3,
   },
-  searchIcon: { color: '#6B5D4F', fontSize: 28, fontWeight: '800' },
+  searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchText: { color: '#A89B8C', fontSize: 14 },
   searchInput: {
     flex: 1,
