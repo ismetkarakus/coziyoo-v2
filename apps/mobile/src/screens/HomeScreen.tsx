@@ -22,12 +22,6 @@ try {
 } catch {
   // Native module not available — adaptive colors will use fallback
 }
-let BlurView: React.ComponentType<{ intensity?: number; tint?: 'light' | 'dark' | 'default'; style?: any }> | null = null;
-try {
-  BlurView = require('expo-blur').BlurView;
-} catch {
-  // Optional blur dependency
-}
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import VoiceSessionScreen from './VoiceSessionScreen';
@@ -880,65 +874,63 @@ export default function HomeScreen({
 
         {/* Search + category chips */}
         <View style={styles.searchBox}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              if (searchMode) {
+                setSearchMode(false);
+                setSearchQuery('');
+                return;
+              }
+              setSearchMode(true);
+            }}
+            style={styles.searchIconButton}
+          >
+            <Ionicons
+              name={searchMode ? 'close-outline' : 'search-outline'}
+              size={28}
+              color="#5F5246"
+              style={!searchMode ? styles.searchIconGlyph : undefined}
+            />
+          </TouchableOpacity>
           {searchMode ? (
-            <>
-              <TextInput
-                ref={searchInputRef}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Yemek veya satici ara..."
-                placeholderTextColor="#A89B8C"
-                style={styles.searchInput}
-                returnKeyType="search"
-              />
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  setSearchMode(false);
-                  setSearchQuery('');
-                }}
-                style={styles.searchTextButton}
-              >
-                <Text style={styles.searchTextButtonLabel}>Kapat</Text>
-              </TouchableOpacity>
-            </>
+            <TextInput
+              ref={searchInputRef}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Yemek veya satici ara..."
+              placeholderTextColor="#A89B8C"
+              style={styles.searchInput}
+              returnKeyType="search"
+            />
           ) : (
-            <>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryContent}
-                style={styles.searchCategoryScroller}
-              >
-                {CATEGORIES.map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryContent}
+              style={styles.searchCategoryScroller}
+            >
+              {CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.categoryChip,
+                    activeCategory === cat && styles.categoryChipActive,
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => setActiveCategory(cat)}
+                >
+                  <Text
                     style={[
-                      styles.categoryChip,
-                      activeCategory === cat && styles.categoryChipActive,
+                      styles.categoryText,
+                      activeCategory === cat && styles.categoryTextActive,
                     ]}
-                    activeOpacity={0.85}
-                    onPress={() => setActiveCategory(cat)}
                   >
-                    <Text
-                      style={[
-                        styles.categoryText,
-                        activeCategory === cat && styles.categoryTextActive,
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setSearchMode(true)}
-                style={styles.searchTextButton}
-              >
-                <Text style={styles.searchTextButtonLabel}>Ara</Text>
-              </TouchableOpacity>
-            </>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           )}
         </View>
         {__DEV__ ? (
@@ -1369,23 +1361,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
+  searchIconButton: {
+    position: 'absolute',
+    left: 12,
+    top: 0,
+    bottom: 0,
+    width: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  searchIconGlyph: {
+    transform: [{ scaleX: -1 }],
+  },
   searchText: { color: '#A89B8C', fontSize: 14 },
   searchInput: {
     flex: 1,
+    marginLeft: 56,
     color: '#3D3229',
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
   },
-  searchCategoryScroller: { flex: 1 },
-  searchTextButton: {
-    marginLeft: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#EDE8E0',
-  },
-  searchTextButtonLabel: { color: '#6B5D4F', fontSize: 12, fontWeight: '700' },
+  searchCategoryScroller: { flex: 1, marginLeft: 56 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
