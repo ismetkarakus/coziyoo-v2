@@ -1455,7 +1455,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
     paddingTop: 2, paddingBottom: 0, paddingHorizontal: 8, zIndex: 50,
   },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 0 },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingTop: 0, paddingBottom: 1 },
   navSpacer: { width: 64 },
   navIcon: { color: '#A89B8C', marginBottom: 3 },
   navIconActive: { color: '#4A7C59' },
