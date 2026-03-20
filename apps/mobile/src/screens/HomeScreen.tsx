@@ -90,11 +90,6 @@ type CardColors = {
   meta: string;
 };
 
-type FallbackImageRule = {
-  keywords: string[];
-  url: string;
-};
-
 type ChatMessage = {
   id: string;
   text: string;
@@ -155,57 +150,12 @@ const CATEGORY_API_MAP: Record<string, string> = {
   'Icecekler': 'İçecekler',
 };
 
-const FOOD_IMAGE_FALLBACKS: FallbackImageRule[] = [
-  {
-    keywords: ['mercimek', 'ezogelin', 'corba', 'çorba', 'iskembe', 'işkembe'],
-    url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    keywords: ['kebap', 'adana', 'urfa', 'iskender', 'sis', 'şiş', 'testi'],
-    url: 'https://images.unsplash.com/photo-1529563021893-cc83c992d75d?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    keywords: ['pilav', 'dolma', 'sarma'],
-    url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    keywords: ['karniyarik', 'karnıyarık', 'musakka', 'imam', 'köfte', 'kofte'],
-    url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    keywords: ['sutlac', 'sütlaç', 'kazandibi', 'baklava', 'tatli', 'tatlı', 'kunefe', 'künefe'],
-    url: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    keywords: ['salata', 'zeytinyagli', 'zeytinyağlı'],
-    url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
-  },
-];
-
-function normalizeFoodText(value: string): string {
-  return value
-    .toLocaleLowerCase('tr-TR')
-    .replace(/ı/g, 'i')
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ş/g, 's')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c');
-}
-
-function resolveFallbackImage(title: string, category: string | null): string {
-  const normalized = normalizeFoodText(`${title} ${category ?? ''}`);
-  const match = FOOD_IMAGE_FALLBACKS.find((rule) =>
-    rule.keywords.some((word) => normalized.includes(normalizeFoodText(word))),
-  );
-  return (
-    match?.url ??
-    'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80'
-  );
+function resolveDishImage(title: string, category: string | null): string {
+  const query = `${title} ${category ?? ''} turkish food plated`;
+  return `https://source.unsplash.com/1200x800/?${encodeURIComponent(query)}`;
 }
 
 function apiToMealCard(item: ApiFoodItem): MealCard {
-  const fallbackImage = resolveFallbackImage(item.name, item.category);
   return {
     id: item.id,
     title: item.name,
@@ -216,7 +166,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     price: `₺${item.price}`,
     backgroundColor: CATEGORY_BG_COLORS[item.category ?? ''] ?? '#E8E3DB',
     category: item.category ?? '',
-    imageUrl: item.imageUrl || fallbackImage,
+    imageUrl: resolveDishImage(item.name, item.category),
   };
 }
 
