@@ -124,6 +124,11 @@ type SellerReview = {
   createdAt: string;
 };
 
+type CartItem = {
+  meal: MealCard;
+  quantity: number;
+};
+
 function formatReviewDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -721,7 +726,7 @@ export default function HomeScreen({
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(0);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -968,6 +973,37 @@ export default function HomeScreen({
   function handleWallpaperSwitch() {
     setMessagesWallpaperIndex((prev) => (prev + 1) % MESSAGE_WALLPAPERS.length);
   }
+
+  function addMealToCart(meal: MealCard) {
+    setCartItems((prev) => {
+      const existing = prev.find((item) => item.meal.id === meal.id);
+      if (!existing) {
+        return [...prev, { meal, quantity: 1 }];
+      }
+      return prev.map((item) =>
+        item.meal.id === meal.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item,
+      );
+    });
+  }
+
+  function decreaseCartItem(mealId: string) {
+    setCartItems((prev) => {
+      const current = prev.find((item) => item.meal.id === mealId);
+      if (!current) return prev;
+      if (current.quantity <= 1) {
+        return prev.filter((item) => item.meal.id !== mealId);
+      }
+      return prev.map((item) =>
+        item.meal.id === mealId
+          ? { ...item, quantity: item.quantity - 1 }
+          : item,
+      );
+    });
+  }
+
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   function renderMessagesWallpaper(
     wallpaper: (typeof MESSAGE_WALLPAPERS)[number],
@@ -1317,12 +1353,64 @@ export default function HomeScreen({
       );
     }
     if (activeTab === 'cart') {
+      const total = cartItems.reduce((sum, item) => {
+        const value = Number(item.meal.price.replace(/[^\d.,]/g, '').replace(',', '.'));
+        return sum + value * item.quantity;
+      }, 0);
       return (
-        <View style={styles.tabPanelCard}>
-          <Text style={styles.tabPanelTitle}>Sepet</Text>
-          <Text style={styles.tabPanelText}>
-            Sepetindeki urun sayisi: {cartCount}
-          </Text>
+        <View style={styles.cartWrap}>
+          <View style={styles.cartHeader}>
+            <Text style={styles.tabPanelTitle}>Sepet</Text>
+            <Text style={styles.cartHeaderCount}>{cartCount} urun</Text>
+          </View>
+          {cartItems.length === 0 ? (
+            <View style={styles.tabPanelCard}>
+              <Text style={styles.tabPanelText}>Sepetin su an bos.</Text>
+            </View>
+          ) : (
+            <>
+              <ScrollView
+                style={styles.cartList}
+                contentContainerStyle={styles.cartListContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {cartItems.map((item) => (
+                  <View key={item.meal.id} style={styles.cartItemCard}>
+                    <View style={styles.cartItemTextWrap}>
+                      <Text style={styles.cartItemTitle}>{item.meal.title}</Text>
+                      <Text style={styles.cartItemSeller}>{item.meal.seller}</Text>
+                    </View>
+                    <View style={styles.cartItemRight}>
+                      <Text style={styles.cartItemPrice}>
+                        {item.meal.price} x {item.quantity}
+                      </Text>
+                      <View style={styles.cartQtyRow}>
+                        <TouchableOpacity
+                          style={styles.cartQtyBtn}
+                          onPress={() => decreaseCartItem(item.meal.id)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name="remove" size={14} color="#5F5246" />
+                        </TouchableOpacity>
+                        <Text style={styles.cartQtyText}>{item.quantity}</Text>
+                        <TouchableOpacity
+                          style={styles.cartQtyBtn}
+                          onPress={() => addMealToCart(item.meal)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name="add" size={14} color="#5F5246" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+              <View style={styles.cartFooter}>
+                <Text style={styles.cartTotalLabel}>Toplam</Text>
+                <Text style={styles.cartTotalValue}>₺{total.toFixed(0)}</Text>
+              </View>
+            </>
+          )}
         </View>
       );
     }
@@ -1437,7 +1525,7 @@ export default function HomeScreen({
                 style={styles.modalCartButton}
                 activeOpacity={0.85}
                 onPress={() => {
-                  setCartCount((c) => c + 1);
+                  addMealToCart(selectedMeal);
                   setSelectedMeal(null);
                 }}
               >
@@ -1974,6 +2062,56 @@ const styles = StyleSheet.create({
   },
   tabPanelTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
   tabPanelText: { color: '#8D8072', fontSize: 14, marginTop: 8, lineHeight: 20 },
+  cartWrap: { flex: 1, marginTop: 16, paddingHorizontal: 18, paddingBottom: 86 },
+  cartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  cartHeaderCount: { color: '#8D8072', fontSize: 13, fontWeight: '600' },
+  cartList: { flex: 1 },
+  cartListContent: { paddingBottom: 14 },
+  cartItemCard: {
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    backgroundColor: '#FFFDF9',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cartItemTextWrap: { flex: 1, paddingRight: 8 },
+  cartItemTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700' },
+  cartItemSeller: { color: '#8D8072', fontSize: 12, marginTop: 2 },
+  cartItemRight: { alignItems: 'flex-end' },
+  cartItemPrice: { color: '#3D3229', fontSize: 14, fontWeight: '700', marginBottom: 6 },
+  cartQtyRow: { flexDirection: 'row', alignItems: 'center' },
+  cartQtyBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DFD7CC',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartQtyText: { color: '#5F5246', fontSize: 13, fontWeight: '700', minWidth: 24, textAlign: 'center' },
+  cartFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#EDE8E0',
+    paddingTop: 10,
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cartTotalLabel: { color: '#8D8072', fontSize: 13, fontWeight: '600' },
+  cartTotalValue: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
   messagesTabWrap: { flex: 1, marginTop: 16, paddingBottom: 72 },
   messagesWallpaper: {
     ...StyleSheet.absoluteFillObject,
