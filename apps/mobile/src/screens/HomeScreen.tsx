@@ -579,9 +579,16 @@ function FoodCard({
             ) : null}
           </View>
         </View>
-        <Text style={[styles.foodMeta, { color: colors.meta }]}>
-          🕐 {meal.time} · {meal.distance}
-        </Text>
+        <View style={styles.foodBottomRow}>
+          <Text style={[styles.foodMeta, { color: colors.meta }]}>
+            🕐 {meal.time} · {meal.distance}
+          </Text>
+          {allergens.length > 0 ? (
+            <Text style={styles.foodBottomAllergenText}>
+              Alerjen: {allergens.slice(0, 3).join(', ')}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -1685,6 +1692,8 @@ const styles = StyleSheet.create({
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodPrice: { fontSize: 18, fontWeight: '700' },
   foodAllergenText: { marginTop: 4, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right' },
+  foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
   foodMeta: { fontSize: 12 },
 
   /* --- Profile --- */
