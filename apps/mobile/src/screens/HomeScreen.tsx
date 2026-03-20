@@ -100,6 +100,12 @@ type CardColors = {
   meta: string;
 };
 
+type SellerProfile = {
+  startedYear: number;
+  experienceYears: number;
+  bio: string;
+};
+
 type ChatMessage = {
   id: string;
   text: string;
@@ -387,6 +393,40 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
     category: uiCategory,
     imageUrl: resolveDishImage(item.name, uiCategory),
+  };
+}
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function buildSellerProfile(
+  sellerId: string,
+  sellerName: string,
+  sellerMeals: MealCard[],
+): SellerProfile {
+  const nowYear = new Date().getFullYear();
+  const seed = hashString(`${sellerId}:${sellerName}`);
+  const experienceYears = 4 + (seed % 13); // 4-16 yil
+  const startedYear = nowYear - experienceYears;
+  const topCategories = Array.from(
+    new Set(
+      sellerMeals
+        .map((meal) => meal.category)
+        .filter((category) => category && category !== 'Tumu'),
+    ),
+  )
+    .slice(0, 2)
+    .join(' ve ');
+  const speciality = topCategories || 'ev yemegi';
+  return {
+    startedYear,
+    experienceYears,
+    bio: `${sellerName}, ${startedYear} yilindan beri mutfakta aktif olarak calisiyor. Ozellikle ${speciality} konusunda deneyimli; gunluk taze uretim, dengeli lezzet ve duzenli kaliteye odaklaniyor.`,
   };
 }
 
@@ -813,6 +853,9 @@ export default function HomeScreen({
         ) / sellerMeals.length
       ).toFixed(1)
     : '0.0';
+  const sellerProfile = selectedSeller
+    ? buildSellerProfile(selectedSeller.id, selectedSeller.name, sellerMeals)
+    : null;
 
   /* ---------- Render helpers ---------- */
 
@@ -1096,6 +1139,15 @@ export default function HomeScreen({
                   <Text style={styles.sellerStatLabel}>Ortalama</Text>
                 </View>
               </View>
+              {sellerProfile ? (
+                <View style={styles.sellerAboutCard}>
+                  <Text style={styles.sellerAboutTitle}>Usta Ozgecmisi</Text>
+                  <Text style={styles.sellerAboutMeta}>
+                    {sellerProfile.startedYear} yilindan beri • {sellerProfile.experienceYears} yil tecrube
+                  </Text>
+                  <Text style={styles.sellerAboutText}>{sellerProfile.bio}</Text>
+                </View>
+              ) : null}
 
               <Text style={styles.sellerSectionTitle}>Ustanin Yemekleri</Text>
               <ScrollView
@@ -1649,6 +1701,18 @@ const styles = StyleSheet.create({
   },
   sellerStatValue: { color: '#3D3229', fontSize: 18, fontWeight: '700' },
   sellerStatLabel: { color: '#8D8072', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  sellerAboutCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    backgroundColor: '#FAF7F2',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  sellerAboutTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
+  sellerAboutMeta: { color: '#7E7163', fontSize: 12, fontWeight: '600', marginTop: 3 },
+  sellerAboutText: { color: '#6E6256', fontSize: 12, lineHeight: 18, marginTop: 5 },
   sellerSectionTitle: {
     color: '#3D3229',
     fontSize: 15,
