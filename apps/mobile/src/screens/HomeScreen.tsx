@@ -874,6 +874,12 @@ export default function HomeScreen({
 
         {/* Search + category chips */}
         <View style={styles.searchBox}>
+          {!searchMode ? (
+            <View pointerEvents="none" style={styles.searchFadeWrap}>
+              <View style={styles.searchFadeSolid} />
+              <View style={styles.searchFadeSoft} />
+            </View>
+          ) : null}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
@@ -1375,15 +1381,42 @@ const styles = StyleSheet.create({
     transform: [{ scaleX: -1 }],
   },
   searchText: { color: '#A89B8C', fontSize: 14 },
+  searchFadeWrap: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+    zIndex: 2,
+    overflow: 'hidden',
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  searchFadeSolid: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 22,
+    backgroundColor: 'rgba(255,253,249,0.45)',
+  },
+  searchFadeSoft: {
+    position: 'absolute',
+    left: 22,
+    top: 0,
+    bottom: 0,
+    width: 18,
+    backgroundColor: 'rgba(255,253,249,0.18)',
+  },
   searchInput: {
     flex: 1,
-    marginLeft: 34,
+    marginLeft: 28,
     color: '#3D3229',
     fontSize: 15,
     fontWeight: '500',
     paddingRight: 8,
   },
-  searchCategoryScroller: { flex: 1, marginLeft: 34 },
+  searchCategoryScroller: { flex: 1, marginLeft: 28 },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
