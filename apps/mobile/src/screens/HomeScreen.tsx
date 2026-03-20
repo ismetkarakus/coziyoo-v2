@@ -572,11 +572,6 @@ function FoodCard({
             <Text style={[styles.foodPrice, { color: colors.price }]}>
               {meal.price}
             </Text>
-            {allergens.length > 0 ? (
-              <Text style={styles.foodAllergenText}>
-                Alerjen: {allergens.slice(0, 3).join(', ')}
-              </Text>
-            ) : null}
           </View>
         </View>
         <View style={styles.foodBottomRow}>
@@ -1691,7 +1686,6 @@ const styles = StyleSheet.create({
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodPrice: { fontSize: 18, fontWeight: '700' },
-  foodAllergenText: { marginTop: 4, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right' },
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
   foodMeta: { fontSize: 12 },
