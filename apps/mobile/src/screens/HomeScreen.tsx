@@ -1820,23 +1820,6 @@ export default function HomeScreen({
                 {mealsMarqueeText}
               </Animated.Text>
             </View>
-            <View style={styles.searchSloganSublineRow}>
-              <TouchableOpacity
-                onPress={() => setNearbyOnly((prev) => !prev)}
-                activeOpacity={0.8}
-                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                style={[styles.sloganNearbyIconBtn, nearbyOnly && styles.sloganNearbyIconBtnActive]}
-              >
-                <Ionicons
-                  name="location"
-                  size={18}
-                  color={nearbyOnly ? '#D45454' : '#BFAE9D'}
-                />
-              </TouchableOpacity>
-              <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
-                {t('helper.home.sloganSubline')}
-              </Text>
-            </View>
           </View>
         </View>
         {/* Food cards */}
@@ -2830,30 +2813,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-  },
-  searchSloganSubline: {
-    color: '#6E6354',
-    fontSize: 14,
-    lineHeight: 18,
-    textShadowColor: 'rgba(255,255,255,0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
-  },
-  searchSloganSublineRow: {
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sloganNearbyIconBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sloganNearbyIconBtnActive: {
-    backgroundColor: '#F8E6E6',
   },
   searchSlogan: {
     color: '#B45A2A',
