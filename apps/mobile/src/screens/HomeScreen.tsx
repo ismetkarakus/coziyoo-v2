@@ -2451,7 +2451,7 @@ const styles = StyleSheet.create({
   cuisineBadge: {
     position: 'absolute', top: 10, left: 10,
   },
-  cuisineBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  cuisineBadgeText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1, paddingRight: 8 },
