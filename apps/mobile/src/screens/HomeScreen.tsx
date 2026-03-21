@@ -2573,7 +2573,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   searchSlogan: {
-    color: '#3D3229',
+    color: '#B45A2A',
     fontSize: 20,
     lineHeight: 24,
     fontWeight: '700',
