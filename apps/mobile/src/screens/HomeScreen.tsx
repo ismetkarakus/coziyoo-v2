@@ -747,7 +747,7 @@ function FoodCard({
             </View>
             <View style={styles.foodMetaRow}>
               <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
-                Toplam: {totalStock} yemek {remainingStock} kaldi
+                Toplam: {totalStock}/{remainingStock} kaldi
               </Text>
               {meal.cuisine ? (
                 <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
