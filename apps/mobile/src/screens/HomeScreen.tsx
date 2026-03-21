@@ -121,12 +121,12 @@ type MealCard = {
 };
 
 type UiCategory =
-  | 'Corbalar'
+  | 'Çorbalar'
   | 'Ana Yemekler'
   | 'Salata'
   | 'Meze'
-  | 'Tatlilar'
-  | 'Icecekler';
+  | 'Tatlılar'
+  | 'İçecekler';
 
 type CardColors = {
   bg: string;
@@ -396,13 +396,13 @@ function deriveCardColors(dominant: string): CardColors {
 /* ------------------------------------------------------------------ */
 
 const CATEGORIES = [
-  'Tumu',
-  'Corbalar',
+  'Tümü',
+  'Çorbalar',
   'Ana Yemekler',
   'Salata',
   'Meze',
-  'Tatlilar',
-  'Icecekler',
+  'Tatlılar',
+  'İçecekler',
 ] as const;
 
 const DAILY_FLASH_MEALS = [
@@ -415,12 +415,12 @@ const DAILY_FLASH_MEALS = [
 const SLOGAN_MARQUEE_GAP = 22;
 
 const CATEGORY_BG_COLORS: Record<string, string> = {
-  Corbalar: '#F1DED0',
+  Çorbalar: '#F1DED0',
   'Ana Yemekler': '#D8E5D8',
   Salata: '#D9EAD9',
   Meze: '#E1DDF1',
-  Tatlilar: '#ECD4D8',
-  Icecekler: '#D4DEE8',
+  Tatlılar: '#ECD4D8',
+  İçecekler: '#D4DEE8',
 };
 
 function normalizeDishText(value: string): string {
@@ -446,7 +446,7 @@ function inferUiCategory(item: ApiFoodItem): UiCategory {
     haystack.includes('iskembe') ||
     haystack.includes('tarhana')
   ) {
-    return 'Corbalar';
+    return 'Çorbalar';
   }
   if (
     haystack.includes('salata') ||
@@ -472,7 +472,7 @@ function inferUiCategory(item: ApiFoodItem): UiCategory {
     haystack.includes('baklava') ||
     haystack.includes('kunefe')
   ) {
-    return 'Tatlilar';
+    return 'Tatlılar';
   }
   if (
     haystack.includes('icecek') ||
@@ -480,7 +480,7 @@ function inferUiCategory(item: ApiFoodItem): UiCategory {
     haystack.includes('serbet') ||
     haystack.includes('limonata')
   ) {
-    return 'Icecekler';
+    return 'İçecekler';
   }
   return 'Ana Yemekler';
 }
@@ -565,29 +565,29 @@ function buildSellerProfile(
 ): SellerProfile {
   const nowYear = new Date().getFullYear();
   const seed = hashString(`${sellerId}:${sellerName}`);
-  const experienceYears = 4 + (seed % 13); // 4-16 yil
+  const experienceYears = 4 + (seed % 13); // 4-16 yıl
   const startedYear = nowYear - experienceYears;
   const topCategories = Array.from(
     new Set(
       sellerMeals
         .map((meal) => meal.category)
-        .filter((category) => category && category !== 'Tumu'),
+        .filter((category) => category && category !== 'Tümü'),
     ),
   )
     .slice(0, 2)
     .join(' ve ');
-  const speciality = topCategories || 'ev yemegi';
+  const speciality = topCategories || 'ev yemeği';
   return {
     startedYear,
     experienceYears,
-    bio: `${sellerName}, ${startedYear} yilindan beri mutfakta aktif olarak calisiyor. Ozellikle ${speciality} konusunda deneyimli; gunluk taze uretim, dengeli lezzet ve duzenli kaliteye odaklaniyor.`,
+    bio: `${sellerName}, ${startedYear} yılından beri mutfakta aktif olarak çalışıyor. Özellikle ${speciality} konusunda deneyimli; günlük taze üretim, dengeli lezzet ve düzenli kaliteye odaklanıyor.`,
   };
 }
 
 const INITIAL_CHAT: ChatMessage[] = [
   {
     id: '1',
-    text: 'Canin ne cekiyor? Anlatir misin, sana en uygun ev yemeklerini bulayim.',
+    text: 'Canın ne çekiyor? Anlatır mısın, sana en uygun ev yemeklerini bulayım.',
     isUser: false,
   },
 ];
@@ -595,17 +595,17 @@ const INITIAL_CHAT: ChatMessage[] = [
 const INITIAL_INBOX_MESSAGES: ChatMessage[] = [
   {
     id: 'seed-1',
-    text: 'Merhaba, yarin icin mercimek corbasi ve pilav hazirlayabilirim.',
+    text: 'Merhaba, yarın için mercimek çorbası ve pilav hazırlayabilirim.',
     isUser: false,
   },
   {
     id: 'seed-2',
-    text: 'Tesekkurler, saat 19:00 gibi teslim olur mu?',
+    text: 'Teşekkürler, saat 19:00 gibi teslim olur mu?',
     isUser: true,
   },
   {
     id: 'seed-3',
-    text: 'Olur. Alerjen bilgisi olarak sut ve kereviz mevcut.',
+    text: 'Olur. Alerjen bilgisi olarak süt ve kereviz mevcut.',
     isUser: false,
   },
 ];
@@ -808,7 +808,7 @@ function FoodCard({
               </Text>
               {meal.cuisine ? (
                 <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
-                  {meal.cuisine} Mutfagi
+                  {meal.cuisine} Mutfağı
                 </Text>
               ) : null}
             </View>
@@ -845,7 +845,7 @@ export default function HomeScreen({
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'home');
-  const [activeCategory, setActiveCategory] = useState('Tumu');
+  const [activeCategory, setActiveCategory] = useState('Tümü');
   const [nearbyOnly, setNearbyOnly] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1104,17 +1104,17 @@ export default function HomeScreen({
   ): string {
     const code = payload?.error?.code;
     if (code === 'AGENT_UNAVAILABLE')
-      return 'Ses asistani su an kullanilamiyor. Lutfen biraz sonra tekrar deneyin.';
+      return 'Ses asistanı şu an kullanılamıyor. Lütfen biraz sonra tekrar deneyin.';
     if (code === 'N8N_UNAVAILABLE')
-      return 'AI sunucusuna ulasilamiyor. Lutfen n8n sunucusunu kontrol edin.';
+      return 'AI sunucusuna ulaşılamıyor. Lütfen n8n sunucusunu kontrol edin.';
     if (code === 'N8N_WORKFLOW_UNAVAILABLE')
-      return 'AI is akisi kullanilamiyor veya aktif degil.';
+      return 'AI iş akışı kullanılamıyor veya aktif değil.';
     if (code === 'STT_UNAVAILABLE')
-      return 'Konusma tanima kullanilamiyor. STT sunucusunu kontrol edin.';
+      return 'Konuşma tanıma kullanılamıyor. STT sunucusunu kontrol edin.';
     if (code === 'TTS_UNAVAILABLE')
-      return 'Ses sentezi kullanilamiyor. TTS sunucusunu kontrol edin.';
+      return 'Ses sentezi kullanılamıyor. TTS sunucusunu kontrol edin.';
     if (status === 401) return t('error.home.sessionExpired');
-    return payload?.error?.message ?? `Sunucu hatasi ${status}`;
+    return payload?.error?.message ?? `Sunucu hatası ${status}`;
   }
 
   async function startSessionWithToken(accessToken: string): Promise<void> {
@@ -1174,7 +1174,7 @@ export default function HomeScreen({
       setVoiceSession(null);
       setVoiceState('error');
       setVoiceError(
-        err instanceof Error ? err.message : 'Oturum baslatilamadi',
+        err instanceof Error ? err.message : 'Oturum başlatılamadı',
       );
     }
   }
@@ -1317,7 +1317,7 @@ export default function HomeScreen({
     for (const item of payableItems) {
       const sellerId = item.meal.sellerId;
       if (!sellerId) {
-        setPaymentError('Satici bilgisi eksik.');
+        setPaymentError('Satıcı bilgisi eksik.');
         return;
       }
       const existing = groupedBySeller.get(sellerId) ?? [];
@@ -1354,11 +1354,11 @@ export default function HomeScreen({
           error?: { message?: string };
         }>(orderRes);
         if (!orderRes.ok) {
-          throw new Error(orderJson?.error?.message ?? `Siparis olusturulamadi (${orderRes.status})`);
+          throw new Error(orderJson?.error?.message ?? `Sipariş oluşturulamadı (${orderRes.status})`);
         }
         const orderId = String(orderJson?.data?.orderId ?? '');
         if (!orderId) {
-          throw new Error('Siparis kimligi donmedi.');
+          throw new Error('Sipariş kimliği dönmedi.');
         }
         createdOrderIds.push(orderId);
 
@@ -1377,7 +1377,7 @@ export default function HomeScreen({
           error?: { message?: string };
         }>(paymentRes);
         if (!paymentRes.ok) {
-          throw new Error(paymentJson?.error?.message ?? `Odeme baslatilamadi (${paymentRes.status})`);
+          throw new Error(paymentJson?.error?.message ?? `Ödeme başlatılamadı (${paymentRes.status})`);
         }
         const nextCheckoutUrl = String(paymentJson?.data?.checkoutUrl ?? '');
         if (nextCheckoutUrl) createdCheckoutUrls.push(nextCheckoutUrl);
@@ -1397,7 +1397,7 @@ export default function HomeScreen({
       );
       if (createdOrderIds.length > 1) {
         setPaymentInfo(
-          `${createdOrderIds.length} satici icin odeme oturumu olusturuldu. Odemeleri sirayla tamamlayabilirsin.`,
+          `${createdOrderIds.length} satıcı için ödeme oturumu oluşturuldu. Ödemeleri sırayla tamamlayabilirsin.`,
         );
       }
       if (createdCheckoutUrls.length > 0) {
@@ -1405,10 +1405,10 @@ export default function HomeScreen({
         setPendingCheckoutUrls(createdCheckoutUrls.slice(1));
         setPaymentWebVisible(true);
       } else {
-        setPaymentInfo('Checkout baglantisi olusturulamadi. Durum yenile ile kontrol et.');
+        setPaymentInfo('Checkout bağlantısı oluşturulamadı. Durum yenile ile kontrol et.');
       }
     } catch (err) {
-      setPaymentError(err instanceof Error ? err.message : 'Odeme baslatma hatasi');
+      setPaymentError(err instanceof Error ? err.message : 'Ödeme başlatma hatası');
     } finally {
       setPaymentLoading(false);
     }
@@ -1443,7 +1443,7 @@ export default function HomeScreen({
             error?: { message?: string };
           }>(response);
           if (!response.ok) {
-            throw new Error(json?.error?.message ?? `Durum alinamadi (${response.status})`);
+            throw new Error(json?.error?.message ?? `Durum alınamadı (${response.status})`);
           }
           return {
             orderId: String(json?.data?.orderId ?? oid),
@@ -1458,14 +1458,14 @@ export default function HomeScreen({
       const completedCount = snapshots.filter((s) => s.paymentCompleted).length;
       setPaymentStatus(snapshots[0] ?? null);
       if (snapshots.length > 1) {
-        setPaymentInfo(`${completedCount}/${snapshots.length} odeme tamamlandi.`);
+        setPaymentInfo(`${completedCount}/${snapshots.length} ödeme tamamlandı.`);
       }
       if (completedCount === snapshots.length && snapshots.length > 0) {
         setCartItems([]);
         setPendingCheckoutUrls([]);
       }
     } catch (err) {
-      setPaymentError(err instanceof Error ? err.message : 'Odeme durumu alinamadi');
+      setPaymentError(err instanceof Error ? err.message : 'Ödeme durumu alınamadı');
     } finally {
       setPaymentLoading(false);
     }
@@ -1585,7 +1585,7 @@ export default function HomeScreen({
   /* ---------- Filtered meals ---------- */
 
   const filteredMeals =
-    activeCategory === 'Tumu'
+    activeCategory === 'Tümü'
       ? meals
       : meals.filter((m) => m.category === activeCategory);
   const nearbyFilteredMeals = nearbyOnly
@@ -1645,7 +1645,7 @@ export default function HomeScreen({
       .catch((err: unknown) => {
         if (cancelled) return;
         setSellerReviews([]);
-        setSellerReviewsError(err instanceof Error ? err.message : "Yorumlar yuklenemedi");
+        setSellerReviewsError(err instanceof Error ? err.message : 'Yorumlar yüklenemedi');
       })
       .finally(() => {
         if (cancelled) return;
@@ -2233,7 +2233,7 @@ export default function HomeScreen({
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
               {selectedMeal.cuisine ? (
-                <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfagi</Text>
+                <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfağı</Text>
               ) : null}
               <View style={styles.modalInfoRow}>
                 <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
@@ -2257,7 +2257,7 @@ export default function HomeScreen({
 
               {selectedMeal.allergens.length > 0 && (
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Alerjen Uyarisi</Text>
+                  <Text style={styles.modalSectionTitle}>Alerjen Uyarısı</Text>
                   <View style={styles.modalTagsWrap}>
                     {selectedMeal.allergens.map((a, i) => (
                       <View key={i} style={styles.modalAllergenTag}>
@@ -2325,7 +2325,7 @@ export default function HomeScreen({
                 <View style={styles.sellerAboutCard}>
                   <Text style={styles.sellerAboutTitle}>Usta Ozgecmisi</Text>
                   <Text style={styles.sellerAboutMeta}>
-                    {sellerProfile.startedYear} yilindan beri • {sellerProfile.experienceYears} yil tecrube
+                    {sellerProfile.startedYear} yılından beri • {sellerProfile.experienceYears} yıl tecrübe
                   </Text>
                   <Text style={styles.sellerAboutText}>{sellerProfile.bio}</Text>
                 </View>
