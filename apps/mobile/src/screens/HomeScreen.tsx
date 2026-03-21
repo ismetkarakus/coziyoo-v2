@@ -1677,20 +1677,8 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
-        stickyHeaderIndices={[__DEV__ ? 2 : 1]}
+        stickyHeaderIndices={[1]}
       >
-        {__DEV__ ? (
-          <View style={[styles.debugBox, styles.headerDebugBox]}>
-            <Text style={styles.debugText}>API: {apiUrl}</Text>
-            <Text style={styles.debugText}>
-              foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
-              {mealsLoading ? 'yes' : 'no'}
-            </Text>
-            {mealsError ? (
-              <Text style={styles.debugError}>error: {mealsError}</Text>
-            ) : null}
-          </View>
-        ) : null}
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
