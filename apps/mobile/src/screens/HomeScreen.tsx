@@ -193,6 +193,16 @@ function humanizeHttpError(status: number): string {
   return `Istek basarisiz (${status}).`;
 }
 
+function shouldRetryTransientStatus(status: number): boolean {
+  return status === 502 || status === 503 || status === 504;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -863,47 +873,52 @@ export default function HomeScreen({
     setMealsLoading(true);
     setMealsError(null);
     try {
-      const response = await fetch(`${url}/v1/foods`, {
-        headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
-      });
-      if (response.status === 401) {
-        const refreshed = await refreshAuthSession(url, currentAuth);
-        if (refreshed) {
-          setCurrentAuth(refreshed);
-          onAuthRefresh?.(refreshed);
-          const retryRes = await fetch(`${url}/v1/foods`, {
-            headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+      const maxRetries = 3;
+
+      const fetchFoodsWithToken = async (
+        accessToken: string,
+      ): Promise<'ok' | 'unauthorized' | 'failed'> => {
+        for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+          const response = await fetch(`${url}/v1/foods`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
           });
-          if (!retryRes.ok) {
-            setMeals([]);
-            setMealsError(humanizeHttpError(retryRes.status));
-            return;
+          if (response.status === 401) {
+            return 'unauthorized';
           }
-          const retryJson = await readJsonSafe<{ data?: ApiFoodItem[] }>(retryRes);
-          if (Array.isArray(retryJson.data)) {
-            setMeals(retryJson.data.map(apiToMealCard));
-          } else {
-            setMeals([]);
-            setMealsError('retry response has no data');
+          if (!response.ok) {
+            if (shouldRetryTransientStatus(response.status) && attempt < maxRetries - 1) {
+              await sleep(500 * (attempt + 1));
+              continue;
+            }
+            setMealsError(humanizeHttpError(response.status));
+            return 'failed';
           }
+          const json = await readJsonSafe<{ data?: ApiFoodItem[] }>(response);
+          if (!Array.isArray(json.data)) {
+            setMealsError('Sunucu cevabinda yemek listesi bulunamadi.');
+            return 'failed';
+          }
+          setMeals(json.data.map(apiToMealCard));
+          return 'ok';
         }
+        setMealsError('Sunucuya su anda ulasilamiyor. Lutfen tekrar deneyin.');
+        return 'failed';
+      };
+
+      const initial = await fetchFoodsWithToken(currentAuth.accessToken);
+      if (initial === 'ok') return;
+      if (initial === 'failed') return;
+
+      const refreshed = await refreshAuthSession(url, currentAuth);
+      if (!refreshed) {
+        setMealsError('Oturum suresi doldu. Lutfen tekrar giris yapin.');
         return;
       }
-      if (!response.ok) {
-        setMeals([]);
-        setMealsError(humanizeHttpError(response.status));
-        return;
-      }
-      const json = await readJsonSafe<{ data?: ApiFoodItem[] }>(response);
-      if (Array.isArray(json.data)) {
-        setMeals(json.data.map(apiToMealCard));
-      } else {
-        setMeals([]);
-        setMealsError('response has no data');
-      }
+      setCurrentAuth(refreshed);
+      onAuthRefresh?.(refreshed);
+      await fetchFoodsWithToken(refreshed.accessToken);
     } catch (err) {
       console.warn('[HomeScreen] failed to fetch foods:', err);
-      setMeals([]);
       setMealsError(err instanceof Error ? err.message : 'fetch failed');
     } finally {
       setMealsLoading(false);
