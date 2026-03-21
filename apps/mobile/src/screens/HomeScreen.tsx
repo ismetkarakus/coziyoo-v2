@@ -54,6 +54,7 @@ export type SessionData = {
 type Props = {
   auth: AuthSession;
   onOpenSettings: () => void;
+  onOpenProfileEdit: () => void;
   onLogout: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
@@ -739,6 +740,7 @@ function FoodCard({
 export default function HomeScreen({
   auth,
   onOpenSettings,
+  onOpenProfileEdit,
   onLogout,
   onAuthRefresh,
 }: Props) {
@@ -1741,13 +1743,21 @@ export default function HomeScreen({
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>👩‍🍳</Text>
+              <Text style={styles.profileAvatarText}>
+                {currentAuth.email ? currentAuth.email.charAt(0).toUpperCase() : '?'}
+              </Text>
             </View>
             <View style={styles.profileMeta}>
               <Text style={styles.profileTitle}>Profil</Text>
               <Text style={styles.profileEmail}>{currentAuth.email}</Text>
             </View>
           </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={onOpenProfileEdit}
+          >
+            <Text style={styles.profileButtonText}>Profili Duzenle</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileButton}
             onPress={onOpenSettings}

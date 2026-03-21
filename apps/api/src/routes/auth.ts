@@ -502,3 +502,77 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
     },
   });
 });
+
+const UpdateProfileSchema = z.object({
+  displayName: z.string().min(3).max(40).optional(),
+  fullName: z.string().min(1).max(120).optional(),
+  countryCode: z.string().min(2).max(3).optional(),
+  language: z.string().min(2).max(10).optional(),
+});
+
+authRouter.put("/me", requireAuth("app"), async (req, res) => {
+  const parsed = UpdateProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const fields = parsed.data;
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "No fields to update" } });
+  }
+
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  if (fields.displayName !== undefined) {
+    setClauses.push(`display_name = $${idx++}`);
+    values.push(normalizeDisplayName(fields.displayName));
+  }
+  if (fields.fullName !== undefined) {
+    setClauses.push(`full_name = $${idx++}`);
+    values.push(fields.fullName);
+  }
+  if (fields.countryCode !== undefined) {
+    setClauses.push(`country_code = $${idx++}`);
+    values.push(fields.countryCode);
+  }
+  if (fields.language !== undefined) {
+    setClauses.push(`language = $${idx++}`);
+    values.push(fields.language);
+  }
+
+  setClauses.push(`updated_at = NOW()`);
+  values.push(req.auth!.userId);
+
+  const result2 = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string;
+    full_name: string | null;
+    user_type: string;
+    country_code: string | null;
+    language: string | null;
+  }>(
+    `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
+     RETURNING id, email, display_name, user_type, full_name, country_code, language`,
+    values
+  );
+
+  if ((result2.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+  }
+
+  const updated = result2.rows[0];
+  return res.json({
+    data: {
+      id: updated.id,
+      email: updated.email,
+      displayName: updated.display_name,
+      fullName: updated.full_name,
+      userType: updated.user_type,
+      countryCode: updated.country_code,
+      language: updated.language,
+    },
+  });
+});

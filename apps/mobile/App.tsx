@@ -3,10 +3,11 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import ProfileEditScreen from './src/screens/ProfileEditScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { theme } from './src/theme/colors';
 
-type Screen = 'loading' | 'login' | 'home' | 'settings';
+type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
@@ -54,10 +55,21 @@ export default function App() {
     return <SettingsScreen onBack={() => setScreen('home')} />;
   }
 
+  if (screen === 'profileEdit') {
+    return (
+      <ProfileEditScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
   return (
     <HomeScreen
       auth={auth}
       onOpenSettings={() => setScreen('settings')}
+      onOpenProfileEdit={() => setScreen('profileEdit')}
       onLogout={handleLogout}
       onAuthRefresh={setAuth}
     />
