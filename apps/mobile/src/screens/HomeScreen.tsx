@@ -1068,19 +1068,17 @@ export default function HomeScreen({
   useEffect(() => {
     const breathe = Animated.loop(
       Animated.sequence([
-        Animated.spring(breatheScale, {
+        Animated.timing(breatheScale, {
           toValue: 1.02,
-          stiffness: 34,
-          damping: 17,
-          mass: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
           isInteraction: false,
           useNativeDriver: true,
         }),
-        Animated.spring(breatheScale, {
+        Animated.timing(breatheScale, {
           toValue: 1,
-          stiffness: 30,
-          damping: 16,
-          mass: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
           isInteraction: false,
           useNativeDriver: true,
         }),
