@@ -2211,7 +2211,10 @@ export default function HomeScreen({
 
           <View style={styles.profileSellerCard}>
             <Text style={styles.profileSellerBody}>{t('helper.home.profileSellerPromo')}</Text>
-            <Text style={styles.profileSellerQuestion}>{t('helper.home.profileSellerQuestion')}</Text>
+            <View style={styles.profileSellerQuestionRow}>
+              <Text style={styles.profileSellerQuestion}>{t('helper.home.profileSellerQuestion')}</Text>
+              <Ionicons name="return-up-forward-outline" size={18} color="#7A6A5A" />
+            </View>
             <TouchableOpacity
               style={styles.profileSellerButton}
               onPress={onOpenSettings}
@@ -3587,14 +3590,20 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: '#F8F4EE',
   },
-  profileSellerBody: { color: '#8A7D6F', fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  profileSellerBody: { color: '#7F7063', fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  profileSellerQuestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 11,
+  },
   profileSellerQuestion: {
-    color: '#4A3F36',
+    color: '#3E332B',
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 11,
   },
   profileSellerButton: {
     backgroundColor: '#4A865E',
