@@ -894,8 +894,8 @@ export default function HomeScreen({
   );
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
-  const sloganMarqueeText = useMemo(
-    () => `${t('headline.home.slogan')} • ${DAILY_FLASH_MEALS.join(' • ')}`,
+  const mealsMarqueeText = useMemo(
+    () => DAILY_FLASH_MEALS.join(' • '),
     [],
   );
 
@@ -1783,41 +1783,42 @@ export default function HomeScreen({
           <View style={styles.searchSloganContent}>
             <View style={styles.searchSloganTitleRow}>
               <Ionicons name="home" size={18} color="#5A4634" />
-              <View
-                style={styles.searchSloganMarqueeTrack}
-                onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
+              <Text style={styles.searchSlogan} numberOfLines={1}>
+                {t('headline.home.slogan')}
+              </Text>
+            </View>
+            <View
+              style={styles.searchSloganMealsMarqueeTrack}
+              onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
+            >
+              <Animated.Text
+                onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
+                style={[
+                  styles.searchSloganMealsMarqueeText,
+                  { transform: [{ translateX: sloganMarqueeX }] },
+                ]}
+                numberOfLines={1}
               >
-                <Animated.Text
-                  onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
-                  style={[
-                    styles.searchSlogan,
-                    styles.searchSloganMarqueeText,
-                    { transform: [{ translateX: sloganMarqueeX }] },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {sloganMarqueeText}
-                </Animated.Text>
-                <Animated.Text
-                  style={[
-                    styles.searchSlogan,
-                    styles.searchSloganMarqueeText,
-                    {
-                      transform: [
-                        {
-                          translateX: Animated.add(
-                            sloganMarqueeX,
-                            sloganTextWidth + SLOGAN_MARQUEE_GAP,
-                          ),
-                        },
-                      ],
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {sloganMarqueeText}
-                </Animated.Text>
-              </View>
+                {mealsMarqueeText}
+              </Animated.Text>
+              <Animated.Text
+                style={[
+                  styles.searchSloganMealsMarqueeText,
+                  {
+                    transform: [
+                      {
+                        translateX: Animated.add(
+                          sloganMarqueeX,
+                          sloganTextWidth + SLOGAN_MARQUEE_GAP,
+                        ),
+                      },
+                    ],
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {mealsMarqueeText}
+              </Animated.Text>
             </View>
             <View style={styles.searchSloganSublineRow}>
               <TouchableOpacity
@@ -2816,15 +2817,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  searchSloganMarqueeTrack: {
-    flex: 1,
-    height: 24,
+  searchSloganMealsMarqueeTrack: {
+    marginTop: 2,
+    height: 20,
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  searchSloganMarqueeText: {
+  searchSloganMealsMarqueeText: {
     position: 'absolute',
     left: 0,
+    color: '#8A7A66',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   searchSloganSubline: {
     color: '#6E6354',
