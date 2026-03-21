@@ -1640,7 +1640,10 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
-          <Text style={styles.searchSlogan}>{t('headline.home.slogan')}</Text>
+          <View style={styles.searchSloganTitleRow}>
+            <Ionicons name="home" size={18} color="#5A4634" />
+            <Text style={styles.searchSlogan}>{t('headline.home.slogan')}</Text>
+          </View>
           <Text style={styles.searchSloganSubline}>{t('helper.home.sloganSubline')}</Text>
         </View>
         {__DEV__ ? (
@@ -2557,6 +2560,11 @@ const styles = StyleSheet.create({
   searchSloganWrap: {
     marginTop: 8,
     marginBottom: 12,
+  },
+  searchSloganTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   searchSloganSubline: {
     marginTop: 6,
