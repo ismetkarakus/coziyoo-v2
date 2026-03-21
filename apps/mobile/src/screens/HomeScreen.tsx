@@ -950,40 +950,40 @@ export default function HomeScreen({
         Animated.parallel([
           Animated.timing(dailyFlashOpacity, {
             toValue: 1,
-            duration: 520,
+            duration: 760,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(dailyFlashTranslateY, {
             toValue: 0,
-            duration: 520,
+            duration: 760,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(dailyFlashScale, {
             toValue: 1.04,
-            duration: 520,
+            duration: 760,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
         ]),
-        Animated.delay(1200),
+        Animated.delay(2200),
         Animated.parallel([
           Animated.timing(dailyFlashOpacity, {
             toValue: 0,
-            duration: 420,
+            duration: 680,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(dailyFlashTranslateY, {
             toValue: -10,
-            duration: 420,
+            duration: 680,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(dailyFlashScale, {
             toValue: 1.08,
-            duration: 420,
+            duration: 680,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -991,7 +991,7 @@ export default function HomeScreen({
       ]).start(({ finished }) => {
         if (!finished || cancelled) return;
         setDailyFlashIndex((prev) => (prev + 1) % DAILY_FLASH_MEALS.length);
-        timer = setTimeout(runFlashLoop, 120);
+        timer = setTimeout(runFlashLoop, 260);
       });
     };
 
