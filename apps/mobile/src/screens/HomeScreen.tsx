@@ -1670,11 +1670,12 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
-          <View pointerEvents="none" style={styles.searchSloganWaveBack} />
-          <View pointerEvents="none" style={styles.searchSloganWaveA} />
-          <View pointerEvents="none" style={styles.searchSloganWaveB} />
-          <View pointerEvents="none" style={styles.searchSloganWaveC} />
-          <View pointerEvents="none" style={styles.searchSloganWaveFront} />
+          <View pointerEvents="none" style={styles.searchSloganHeatGlow} />
+          <View pointerEvents="none" style={styles.searchSloganSteamA} />
+          <View pointerEvents="none" style={styles.searchSloganSteamB} />
+          <View pointerEvents="none" style={styles.searchSloganSteamC} />
+          <View pointerEvents="none" style={styles.searchSloganSteamD} />
+          <View pointerEvents="none" style={styles.searchSloganSteamE} />
           <View style={styles.searchSloganContent}>
             <View style={styles.searchSloganTitleRow}>
               <Ionicons name="home" size={18} color="#5A4634" />
@@ -2603,8 +2604,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
     marginHorizontal: -12,
-    backgroundColor: '#FCFFFC',
-    borderColor: '#E4F1E2',
+    backgroundColor: '#FEFFFB',
+    borderColor: '#EDE6D8',
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
@@ -2615,55 +2616,64 @@ const styles = StyleSheet.create({
   searchSloganContent: {
     zIndex: 2,
   },
-  searchSloganWaveBack: {
+  searchSloganHeatGlow: {
     position: 'absolute',
-    right: -90,
-    top: -56,
-    width: 310,
-    height: 150,
-    borderRadius: 110,
-    backgroundColor: 'rgba(205, 235, 220, 0.36)',
-    transform: [{ rotate: '-7deg' }],
-  },
-  searchSloganWaveA: {
-    position: 'absolute',
-    right: -46,
-    top: -6,
-    width: 220,
-    height: 96,
-    borderRadius: 84,
-    backgroundColor: 'rgba(188, 229, 207, 0.42)',
-    transform: [{ rotate: '-8deg' }],
-  },
-  searchSloganWaveB: {
-    position: 'absolute',
-    left: -62,
-    bottom: -62,
+    left: -28,
+    bottom: -56,
     width: 280,
     height: 132,
-    borderRadius: 96,
-    backgroundColor: 'rgba(220, 243, 228, 0.8)',
-    transform: [{ rotate: '7deg' }],
+    borderRadius: 100,
+    backgroundColor: 'rgba(248, 220, 184, 0.34)',
   },
-  searchSloganWaveC: {
+  searchSloganSteamA: {
     position: 'absolute',
-    left: '30%',
-    bottom: -40,
-    width: 240,
-    height: 92,
-    borderRadius: 72,
-    backgroundColor: 'rgba(238, 251, 241, 0.94)',
-    transform: [{ rotate: '-5deg' }],
+    right: 26,
+    top: -18,
+    width: 38,
+    height: 78,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    transform: [{ rotate: '-11deg' }],
   },
-  searchSloganWaveFront: {
+  searchSloganSteamB: {
     position: 'absolute',
-    right: -34,
-    bottom: -56,
-    width: 220,
-    height: 106,
-    borderRadius: 80,
-    backgroundColor: 'rgba(208, 238, 220, 0.48)',
+    right: 62,
+    top: -8,
+    width: 30,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.52)',
     transform: [{ rotate: '9deg' }],
+  },
+  searchSloganSteamC: {
+    position: 'absolute',
+    right: 88,
+    top: -26,
+    width: 44,
+    height: 92,
+    borderRadius: 28,
+    backgroundColor: 'rgba(250,250,250,0.5)',
+    transform: [{ rotate: '-7deg' }],
+  },
+  searchSloganSteamD: {
+    position: 'absolute',
+    right: 122,
+    top: -2,
+    width: 28,
+    height: 56,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.42)',
+    transform: [{ rotate: '12deg' }],
+  },
+  searchSloganSteamE: {
+    position: 'absolute',
+    right: 148,
+    top: -20,
+    width: 24,
+    height: 68,
+    borderRadius: 18,
+    backgroundColor: 'rgba(245,245,245,0.36)',
+    transform: [{ rotate: '-10deg' }],
   },
   searchSloganTitleRow: {
     flexDirection: 'row',
