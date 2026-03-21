@@ -1786,53 +1786,53 @@ export default function HomeScreen({
               )}
             </View>
           </View>
-        </View>
-        <View style={styles.searchSloganWrap}>
-          <View pointerEvents="none" style={styles.searchSloganHeatGlow} />
-          <View pointerEvents="none" style={styles.searchSloganSteamA} />
-          <View pointerEvents="none" style={styles.searchSloganSteamB} />
-          <View pointerEvents="none" style={styles.searchSloganSteamC} />
-          <View pointerEvents="none" style={styles.searchSloganSteamD} />
-          <View pointerEvents="none" style={styles.searchSloganSteamE} />
-          <View style={styles.searchSloganContent}>
-            <View style={styles.searchSloganTitleRow}>
-              <Ionicons name="home" size={18} color="#5A4634" />
-              <Text style={styles.searchSlogan} numberOfLines={1}>
-                {t('headline.home.slogan')}
-              </Text>
-            </View>
-            <View
-              style={styles.searchSloganMealsMarqueeTrack}
-              onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
-            >
-              <Animated.Text
-                onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
-                style={[
-                  styles.searchSloganMealsMarqueeText,
-                  { transform: [{ translateX: sloganMarqueeX }] },
-                ]}
-                numberOfLines={1}
+          <View style={styles.searchSloganWrap}>
+            <View pointerEvents="none" style={styles.searchSloganHeatGlow} />
+            <View pointerEvents="none" style={styles.searchSloganSteamA} />
+            <View pointerEvents="none" style={styles.searchSloganSteamB} />
+            <View pointerEvents="none" style={styles.searchSloganSteamC} />
+            <View pointerEvents="none" style={styles.searchSloganSteamD} />
+            <View pointerEvents="none" style={styles.searchSloganSteamE} />
+            <View style={styles.searchSloganContent}>
+              <View style={styles.searchSloganTitleRow}>
+                <Ionicons name="home" size={18} color="#5A4634" />
+                <Text style={styles.searchSlogan} numberOfLines={1}>
+                  {t('headline.home.slogan')}
+                </Text>
+              </View>
+              <View
+                style={styles.searchSloganMealsMarqueeTrack}
+                onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
               >
-                {mealsMarqueeText}
-              </Animated.Text>
-              <Animated.Text
-                style={[
-                  styles.searchSloganMealsMarqueeText,
-                  {
-                    transform: [
-                      {
-                        translateX: Animated.add(
-                          sloganMarqueeX,
-                          sloganTextWidth + SLOGAN_MARQUEE_GAP,
-                        ),
-                      },
-                    ],
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {mealsMarqueeText}
-              </Animated.Text>
+                <Animated.Text
+                  onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
+                  style={[
+                    styles.searchSloganMealsMarqueeText,
+                    { transform: [{ translateX: sloganMarqueeX }] },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {mealsMarqueeText}
+                </Animated.Text>
+                <Animated.Text
+                  style={[
+                    styles.searchSloganMealsMarqueeText,
+                    {
+                      transform: [
+                        {
+                          translateX: Animated.add(
+                            sloganMarqueeX,
+                            sloganTextWidth + SLOGAN_MARQUEE_GAP,
+                          ),
+                        },
+                      ],
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {mealsMarqueeText}
+                </Animated.Text>
+              </View>
             </View>
           </View>
         </View>
@@ -2677,7 +2677,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderWidth: 1, borderColor: '#EDE8E0',
-    marginBottom: 6,
+    marginBottom: 0,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -2737,8 +2737,8 @@ const styles = StyleSheet.create({
   },
   searchCategoryScroller: { flex: 1 },
   searchSloganWrap: {
-    marginTop: 2,
-    marginBottom: 12,
+    marginTop: 0,
+    marginBottom: 8,
     marginHorizontal: -12,
     backgroundColor: '#F8FCF7',
     borderColor: '#DDEBD9',
