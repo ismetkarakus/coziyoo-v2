@@ -2710,7 +2710,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderWidth: 1, borderColor: '#EDE8E0',
-    marginBottom: 0,
+    marginBottom: 10,
     position: 'relative',
     overflow: 'hidden',
   },
