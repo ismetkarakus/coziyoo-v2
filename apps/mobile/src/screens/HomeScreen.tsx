@@ -1699,7 +1699,7 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
-        stickyHeaderIndices={[__DEV__ ? 2 : 1]}
+        stickyHeaderIndices={[__DEV__ ? 3 : 2]}
       >
         {__DEV__ ? (
           <View style={[styles.debugBox, styles.headerDebugBox]}>
@@ -1725,23 +1725,6 @@ export default function HomeScreen({
               {dynamicGreetingTitle}
             </Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
-            <View style={styles.dailyFlashWrap}>
-              <Animated.Text
-                style={[
-                  styles.dailyFlashText,
-                  resolveDailyFlashTextMetrics(DAILY_FLASH_MEALS[dailyFlashIndex]),
-                  {
-                    opacity: dailyFlashOpacity,
-                    transform: [
-                      { translateY: dailyFlashTranslateY },
-                      { scale: dailyFlashScale },
-                    ],
-                  },
-                ]}
-              >
-                {DAILY_FLASH_MEALS[dailyFlashIndex]}
-              </Animated.Text>
-            </View>
           </View>
           <View style={styles.headerAvatarWrap}>
             <TouchableOpacity
@@ -1762,6 +1745,23 @@ export default function HomeScreen({
               )}
             </TouchableOpacity>
           </View>
+        </View>
+        <View style={styles.dailyFlashWrap}>
+          <Animated.Text
+            style={[
+              styles.dailyFlashText,
+              resolveDailyFlashTextMetrics(DAILY_FLASH_MEALS[dailyFlashIndex]),
+              {
+                opacity: dailyFlashOpacity,
+                transform: [
+                  { translateY: dailyFlashTranslateY },
+                  { scale: dailyFlashScale },
+                ],
+              },
+            ]}
+          >
+            {DAILY_FLASH_MEALS[dailyFlashIndex]}
+          </Animated.Text>
         </View>
 
         {/* Sticky search + category chips */}
@@ -2688,10 +2688,12 @@ const styles = StyleSheet.create({
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
   dailyFlashWrap: {
-    marginTop: 6,
+    marginTop: -2,
+    marginBottom: 8,
     marginHorizontal: 0,
     height: 34,
     justifyContent: 'center',
+    alignSelf: 'stretch',
     alignItems: 'center',
     overflow: 'visible',
   },
