@@ -894,6 +894,7 @@ export default function HomeScreen({
   );
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
+  const [foodSectionOffsetY, setFoodSectionOffsetY] = useState(0);
   const mealsMarqueeText = useMemo(
     () => DAILY_FLASH_MEALS.join(' • '),
     [],
@@ -903,6 +904,7 @@ export default function HomeScreen({
   const breatheScale = useRef(new Animated.Value(1)).current;
   const sloganMarqueeX = useRef(new Animated.Value(0)).current;
   const sloganMarqueeLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const feedScrollRef = useRef<ScrollView>(null);
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -1573,6 +1575,13 @@ export default function HomeScreen({
     setActiveTab(tab);
   }
 
+  function handleSloganMarqueePress() {
+    feedScrollRef.current?.scrollTo({
+      y: Math.max(0, foodSectionOffsetY - 12),
+      animated: true,
+    });
+  }
+
   /* ---------- Filtered meals ---------- */
 
   const filteredMeals =
@@ -1652,6 +1661,7 @@ export default function HomeScreen({
   function renderHomeFeed() {
     return (
       <ScrollView
+        ref={feedScrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
@@ -1800,7 +1810,9 @@ export default function HomeScreen({
                   {t('headline.home.slogan')}
                 </Text>
               </View>
-              <View
+              <TouchableOpacity
+                activeOpacity={0.86}
+                onPress={handleSloganMarqueePress}
                 style={styles.searchSloganMealsMarqueeTrack}
                 onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
               >
@@ -1832,11 +1844,12 @@ export default function HomeScreen({
                 >
                   {mealsMarqueeText}
                 </Animated.Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
         {/* Food cards */}
+        <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
         {visibleMeals.map((meal) => {
           const totalStock = Math.max(0, meal.stock ?? 0);
           const inCartQty = cartItems.find((item) => item.meal.id === meal.id)?.quantity ?? 0;
@@ -2739,7 +2752,7 @@ const styles = StyleSheet.create({
   searchSloganWrap: {
     marginTop: -4,
     marginBottom: 8,
-    marginHorizontal: -12,
+    marginHorizontal: 0,
     backgroundColor: '#F8FCF7',
     borderColor: '#DDEBD9',
     borderWidth: 1,
