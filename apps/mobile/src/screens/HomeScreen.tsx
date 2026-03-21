@@ -5,7 +5,6 @@ import {
   Animated,
   FlatList,
   Image,
-  ImageBackground,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -1641,32 +1640,8 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
-          <ImageBackground
-            source={{ uri: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80' }}
-            style={styles.searchSloganBg}
-            imageStyle={styles.searchSloganBgImage}
-          >
-            <View style={styles.searchSloganOverlayStrong} />
-            <View style={styles.searchSloganOverlaySoft} />
-            <View style={styles.searchSloganContent}>
-              <View style={styles.searchSloganRow}>
-                <View style={styles.searchSloganLeft}>
-                  <View style={styles.searchSloganTitleRow}>
-                    <View style={styles.searchSloganIconBox}>
-                      <Ionicons name="home" size={18} color="#5A4634" />
-                    </View>
-                    <Text style={styles.searchSlogan}>
-                      {t('headline.home.slogan')}
-                    </Text>
-                  </View>
-                  <Text style={styles.searchSloganSubline}>
-                    {t('helper.home.sloganSubline')}
-                  </Text>
-                </View>
-                <View style={styles.searchSloganRightSpacer} />
-              </View>
-            </View>
-          </ImageBackground>
+          <Text style={styles.searchSlogan}>{t('headline.home.slogan')}</Text>
+          <Text style={styles.searchSloganSubline}>{t('helper.home.sloganSubline')}</Text>
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
@@ -2580,70 +2555,20 @@ const styles = StyleSheet.create({
   },
   searchCategoryScroller: { flex: 1 },
   searchSloganWrap: {
-    height: 150,
-    marginHorizontal: -2,
-    marginVertical: 12,
-    borderRadius: 22,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E7DCCB',
-  },
-  searchSloganBg: {
-    flex: 1,
-  },
-  searchSloganBgImage: {
-    resizeMode: 'cover',
-  },
-  searchSloganOverlayStrong: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(245,239,230,0.45)',
-  },
-  searchSloganOverlaySoft: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: '72%',
-    backgroundColor: 'rgba(245,239,230,0.9)',
-  },
-  searchSloganContent: {
-    flex: 1,
-    padding: 16,
-    justifyContent: 'center',
-  },
-  searchSloganRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchSloganLeft: {
-    flex: 3,
-    justifyContent: 'center',
-  },
-  searchSloganRightSpacer: {
-    flex: 2,
-  },
-  searchSloganTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  searchSloganIconBox: {
-    padding: 8,
-    backgroundColor: '#E6D8C9',
-    borderRadius: 10,
+    marginTop: 8,
+    marginBottom: 12,
   },
   searchSloganSubline: {
-    marginTop: 12,
-    color: 'rgba(0,0,0,0.6)',
+    marginTop: 6,
+    color: '#6E6354',
     fontSize: 14,
     lineHeight: 18,
   },
   searchSlogan: {
-    color: '#3A2E2A',
-    fontSize: 18,
-    lineHeight: 22,
+    color: '#3D3229',
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '700',
-    flexShrink: 1,
   },
   debugBox: {
     backgroundColor: '#FFF3CD',
