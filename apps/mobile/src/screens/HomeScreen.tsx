@@ -896,12 +896,16 @@ export default function HomeScreen({
     buildGreetingTitle(resolveGreetingName(null, auth.email)),
   );
   const [dailyFlashIndex, setDailyFlashIndex] = useState(0);
+  const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
+  const [sloganTextWidth, setSloganTextWidth] = useState(0);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
   const dailyFlashOpacity = useRef(new Animated.Value(0)).current;
   const dailyFlashTranslateY = useRef(new Animated.Value(14)).current;
   const dailyFlashScale = useRef(new Animated.Value(0.68)).current;
+  const sloganMarqueeX = useRef(new Animated.Value(0)).current;
+  const sloganMarqueeLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -1005,6 +1009,33 @@ export default function HomeScreen({
       if (timer) clearTimeout(timer);
     };
   }, [dailyFlashOpacity, dailyFlashScale, dailyFlashTranslateY]);
+
+  useEffect(() => {
+    if (!sloganTrackWidth || !sloganTextWidth) return;
+
+    sloganMarqueeLoopRef.current?.stop();
+    sloganMarqueeX.setValue(sloganTrackWidth);
+
+    const distance = sloganTrackWidth + sloganTextWidth;
+    const duration = Math.max(9000, Math.round((distance / 40) * 1000));
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sloganMarqueeX, {
+          toValue: -sloganTextWidth,
+          duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.delay(260),
+      ]),
+    );
+    sloganMarqueeLoopRef.current = loop;
+    loop.start();
+
+    return () => {
+      loop.stop();
+    };
+  }, [sloganMarqueeX, sloganTextWidth, sloganTrackWidth]);
 
   // Fetch foods from API
   useEffect(() => {
@@ -1843,9 +1874,22 @@ export default function HomeScreen({
           <View style={styles.searchSloganContent}>
             <View style={styles.searchSloganTitleRow}>
               <Ionicons name="home" size={18} color="#5A4634" />
-              <Text style={styles.searchSlogan} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-                {t('headline.home.slogan')}
-              </Text>
+              <View
+                style={styles.searchSloganMarqueeTrack}
+                onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
+              >
+                <Animated.Text
+                  onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
+                  style={[
+                    styles.searchSlogan,
+                    styles.searchSloganMarqueeText,
+                    { transform: [{ translateX: sloganMarqueeX }] },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {t('headline.home.slogan')}
+                </Animated.Text>
+              </View>
             </View>
             <View style={styles.searchSloganSublineRow}>
               <TouchableOpacity
@@ -2863,6 +2907,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  searchSloganMarqueeTrack: {
+    flex: 1,
+    height: 24,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  searchSloganMarqueeText: {
+    position: 'absolute',
+    left: 0,
   },
   searchSloganSubline: {
     color: '#6E6354',
