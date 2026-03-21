@@ -692,9 +692,14 @@ function FoodCard({
             <Text style={styles.cuisineBadgeText}>{meal.cuisine} Mutfagi</Text>
           </View>
         ) : null}
-        <View style={styles.ratingBadge}>
-          <Text style={styles.ratingBadgeStar}>★</Text>
-          <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
+        <View style={styles.foodBadgesRight}>
+          <View style={styles.foodPriceBadge}>
+            <Text style={styles.foodPriceBadgeText}>{meal.price}</Text>
+          </View>
+          <View style={styles.ratingBadge}>
+            <Text style={styles.ratingBadgeStar}>★</Text>
+            <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
+          </View>
         </View>
       </View>
       <View style={styles.foodInfo}>
@@ -718,11 +723,6 @@ function FoodCard({
                 style={styles.foodSellerChevron}
               />
             </TouchableOpacity>
-          </View>
-          <View style={styles.foodRightCol}>
-            <Text style={[styles.foodPrice, { color: colors.price }]}>
-              {meal.price}
-            </Text>
           </View>
         </View>
         <View style={styles.foodBottomRow}>
@@ -2533,8 +2533,21 @@ const styles = StyleSheet.create({
   foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   foodImage: { width: '100%', height: '100%' },
   foodEmoji: { fontSize: 56 },
+  foodBadgesRight: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  foodPriceBadge: {
+    backgroundColor: 'rgba(61,50,41,0.9)',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  foodPriceBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   ratingBadge: {
-    position: 'absolute', top: 10, right: 10,
     backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8,
     paddingHorizontal: 9, paddingVertical: 3,
     flexDirection: 'row', alignItems: 'center', gap: 3,
@@ -2547,14 +2560,12 @@ const styles = StyleSheet.create({
   cuisineBadgeText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-  foodInfoLeft: { flex: 1, paddingRight: 8 },
-  foodRightCol: { alignItems: 'flex-end', maxWidth: '45%' },
+  foodInfoLeft: { flex: 1 },
   foodName: { fontSize: 16, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodCuisine: { fontSize: 12, fontWeight: '500', marginTop: 2, fontStyle: 'italic' },
-  foodPrice: { fontSize: 18, fontWeight: '700' },
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
   foodMeta: { fontSize: 12 },
