@@ -1691,21 +1691,19 @@ export default function HomeScreen({
               {dynamicGreetingTitle}
             </Text>
             <View style={styles.greetingSubtitleRow}>
-              <View style={styles.greetingSubtitleIconBehindWrap}>
-                <TouchableOpacity
-                  onPress={() => setNearbyOnly((prev) => !prev)}
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                  style={styles.greetingSubtitleBgIconBtn}
-                >
-                  <Ionicons
-                    name="location"
-                    size={16}
-                    color={nearbyOnly ? '#D45454' : '#BFAE9D'}
-                  />
-                </TouchableOpacity>
-                <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
-              </View>
+              <TouchableOpacity
+                onPress={() => setNearbyOnly((prev) => !prev)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                style={styles.greetingNearbyIconBtn}
+              >
+                <Ionicons
+                  name="location"
+                  size={16}
+                  color={nearbyOnly ? '#D45454' : '#BFAE9D'}
+                />
+              </TouchableOpacity>
+              <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
             </View>
           </View>
           <View style={styles.headerAvatarWrap}>
@@ -2676,24 +2674,12 @@ const styles = StyleSheet.create({
     marginBottom: 22,
     marginHorizontal: -12,
   },
-  headerTextWrap: { flex: 1, paddingRight: 32 },
+  headerTextWrap: { flex: 1, paddingRight: 20 },
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitleRow: { marginTop: 8, marginLeft: 30, flexDirection: 'row', alignItems: 'center' },
-  greetingSubtitleIconBehindWrap: { position: 'relative', justifyContent: 'center' },
-  greetingSubtitleBgIconBtn: {
-    position: 'absolute',
-    left: 1,
-    top: '50%',
-    marginTop: -8,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.45,
-    zIndex: 1,
-  },
-  greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600', zIndex: 2 },
-  headerAvatarWrap: { alignItems: 'center', marginLeft: 16 },
+  greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600' },
+  headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
