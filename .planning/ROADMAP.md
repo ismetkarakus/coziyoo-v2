@@ -18,9 +18,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3.1: STT/TTS Preflight Checks** *(INSERTED)* - Mobile shows warning before session if STT or TTS server is unavailable
 - [ ] **Phase 3.2: Mobile Login** *(INSERTED)* - User logs in with email/password before starting a voice session; real user identity flows through the session
 - [ ] **Phase 4: Per-Turn N8N Integration** - Voice agent routes each turn through n8n for LLM response
-- [ ] **Phase 5: Order Creation** - N8N detects confirmed intent and creates order in database
-- [ ] **Phase 6: User Memory** - Agent remembers user preferences and past orders across sessions
-- [ ] **Phase 6: Lots in Foods** - Sellers can define lot sizes for food items; buyers and voice agent interact with lot-based pricing
+- [ ] **Phase 5: User Memory** - Agent remembers user preferences and past orders across sessions
+- [ ] **Phase 5: Lots in Foods** - Sellers can define lot sizes for food items; buyers and voice agent interact with lot-based pricing
 
 ## Phase Details
 
@@ -133,25 +132,9 @@ Plans:
 Plans:
 - [ ] 4.1-01: Redesign brain workflow — Switch-based routing, food discovery branches, add_to_cart memory write, checkout order creation
 
-### Phase 5: Order Creation
-**Goal**: When a user verbally confirms an order during a session, n8n creates the order record and notifies the cook
-**Depends on**: Phase 4
-**Requirements**: ORD-01, ORD-02, ORD-05, DB-04
-**Success Criteria** (what must be TRUE):
-  1. N8N detects verbal order confirmation from a conversation turn and distinguishes it from general food discussion
-  2. An order record appears in Supabase after a confirmed order conversation; order has correct items, user, and cook references
-  3. Cook receives a notification after order creation
-  4. N8N reads and writes user session data in Supabase during voice sessions (memory reads/writes work against Supabase)
-**Plans**: 3 plans
-
-Plans:
-- [ ] 05-01-PLAN.md — Add POST /v1/orders/voice internal endpoint + configure n8n Supabase credential (ORD-02, DB-04)
-- [ ] 05-02-PLAN.md — Wire n8n brain workflow: add_to_cart memory write + checkout → order creation API call (ORD-01, ORD-02, DB-04)
-- [ ] 05-03-PLAN.md — Cook notification endpoint + end-to-end Phase 5 verification (ORD-01, ORD-05)
-
-### Phase 6: User Memory
+### Phase 5: User Memory
 **Goal**: Agent remembers user dietary preferences, past orders, and conversation style across sessions
-**Depends on**: Phase 6
+**Depends on**: Phase 5
 **Requirements**: SESS-05, MEM-01, MEM-02, MEM-03, MEM-04
 **Success Criteria** (what must be TRUE):
   1. User long-term memory (past orders, dietary preferences, personal details, conversation style) is stored in Supabase
@@ -162,12 +145,12 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 06-01: Design and create user memory schema in Supabase (structured tables + pgvector for semantic memory)
-- [ ] 06-02: Implement n8n memory read at session start and injection into LLM context
-- [ ] 06-03: Implement n8n memory write on preference/detail capture during conversation
-- [ ] 06-04: Wire voice agent to fetch and pass user long-term memory at session start
+- [ ] 05-01: Design and create user memory schema in Supabase (structured tables + pgvector for semantic memory)
+- [ ] 05-02: Implement n8n memory read at session start and injection into LLM context
+- [ ] 05-03: Implement n8n memory write on preference/detail capture during conversation
+- [ ] 05-04: Wire voice agent to fetch and pass user long-term memory at session start
 
-### Phase 6: Lots in Foods
+### Phase 5: Lots in Foods
 **Goal**: Admin can see lot lifecycle status and ingredient/allergen variations per lot clearly, and export that data as a report
 **Depends on**: None (admin panel only — independent of voice agent phases)
 **Requirements**: LOTS-01, LOTS-02, LOTS-03, LOTS-04, LOTS-05
@@ -179,9 +162,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [x] 06-01-PLAN.md — Lifecycle status pill and quantity columns in inline lot rows (LOTS-01)
-- [x] 06-02-PLAN.md — Variation badges in inline lot rows and diff highlights in lot detail modal (LOTS-02, LOTS-03)
-- [ ] 06-03-PLAN.md — Has-variations filter chip and Excel export diff columns (LOTS-04, LOTS-05)
+- [x] 05-01-PLAN.md — Lifecycle status pill and quantity columns in inline lot rows (LOTS-01)
+- [x] 05-02-PLAN.md — Variation badges in inline lot rows and diff highlights in lot detail modal (LOTS-02, LOTS-03)
+- [ ] 05-03-PLAN.md — Has-variations filter chip and Excel export diff columns (LOTS-04, LOTS-05)
 
 ## Progress
 
@@ -190,13 +173,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Supabase DB Cutover | 3/3 | Completed | 2006-03-12 |
-| 2. Voice Session Startup | 4/4 | Completed | 2006-03-13 |
-| 3. Observability | 2/2 | Completed | 2006-03-13 |
-| 3.1. STT/TTS Preflight Checks | 1/1 | Completed | 2006-03-16 |
-| 3.2. Mobile Login | 2/2 | Completed | 2006-03-16 |
-| 4. Per-Turn N8N Integration | 4/4 | Completed | 2006-03-17 |
+| 1. Supabase DB Cutover | 3/3 | Completed | 2005-03-12 |
+| 2. Voice Session Startup | 4/4 | Completed | 2005-03-13 |
+| 3. Observability | 2/2 | Completed | 2005-03-13 |
+| 3.1. STT/TTS Preflight Checks | 1/1 | Completed | 2005-03-16 |
+| 3.2. Mobile Login | 2/2 | Completed | 2005-03-16 |
+| 4. Per-Turn N8N Integration | 4/4 | Completed | 2005-03-17 |
 | 4.1. Voice Food Discovery | 0/1 | Not started | - |
-| 5. Order Creation | 0/3 | Not started | - |
-| 6. User Memory | 0/4 | Not started | - |
-| 6. Lots in Foods | 3/3 | Completed | 2006-03-15 |
+| 5. User Memory | 0/4 | Not started | - |
+| 5. Lots in Foods | 3/3 | Completed | 2005-03-15 |
