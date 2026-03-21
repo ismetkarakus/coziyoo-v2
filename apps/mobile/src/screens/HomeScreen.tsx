@@ -251,6 +251,12 @@ function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHei
   return { fontSize: 26, lineHeight: 32 };
 }
 
+function resolveDailyFlashTextMetrics(text: string): { fontSize: number; lineHeight: number } {
+  if (text.length >= 42) return { fontSize: 10, lineHeight: 14 };
+  if (text.length >= 34) return { fontSize: 11, lineHeight: 15 };
+  return { fontSize: 12, lineHeight: 16 };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -1723,6 +1729,7 @@ export default function HomeScreen({
               <Animated.Text
                 style={[
                   styles.dailyFlashText,
+                  resolveDailyFlashTextMetrics(DAILY_FLASH_MEALS[dailyFlashIndex]),
                   {
                     opacity: dailyFlashOpacity,
                     transform: [
@@ -2682,8 +2689,7 @@ const styles = StyleSheet.create({
   greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
   dailyFlashWrap: {
     marginTop: 6,
-    marginLeft: 0,
-    marginRight: 0,
+    marginHorizontal: 0,
     height: 34,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2694,6 +2700,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
+    maxWidth: '94%',
     textShadowColor: 'rgba(255,255,255,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
