@@ -1547,7 +1547,6 @@ export default function HomeScreen({
           <View style={styles.headerTextWrap}>
             <Text style={styles.greetingTitle}>Gunaydin, Lale</Text>
             <Text style={styles.greetingSubtitle}>Bugun ne yiyelim?</Text>
-            <Text style={styles.greetingSlogan}>Evimizde piser, sofraniza duser.</Text>
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -1639,6 +1638,7 @@ export default function HomeScreen({
             </View>
           </View>
         </View>
+        <Text style={styles.searchSlogan}>Evimizden evinize taze yemekler</Text>
         {__DEV__ ? (
           <View style={styles.debugBox}>
             <Text style={styles.debugText}>API: {apiUrl}</Text>
@@ -2475,7 +2475,6 @@ const styles = StyleSheet.create({
   headerTextWrap: { flex: 1, paddingRight: 12 },
   greetingTitle: { color: '#3D3229', fontSize: 28, lineHeight: 34, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, color: '#A89B8C', fontSize: 13 },
-  greetingSlogan: { marginTop: 4, color: '#6B5D4F', fontSize: 12, fontWeight: '600' },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
@@ -2555,6 +2554,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   searchCategoryScroller: { flex: 1 },
+  searchSlogan: { marginTop: 8, marginBottom: 10, color: '#6B5D4F', fontSize: 13, fontWeight: '700' },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
