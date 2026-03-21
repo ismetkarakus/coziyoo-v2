@@ -39,12 +39,6 @@ type Props = {
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-function withCacheBust(url: string | null | undefined) {
-  if (!url) return null;
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}t=${Date.now()}`;
-}
-
 export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [loading, setLoading] = useState(true);
@@ -120,8 +114,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setLanguage(data.language ?? '');
       setEmail(data.email ?? '');
       setUserType(data.userType ?? '');
-      const cachedUrl = withCacheBust(data.profileImageUrl);
-      setProfileImageUrl(cachedUrl);
+      setProfileImageUrl(data.profileImageUrl ?? null);
       if (data.profileImageUrl) {
         await saveCachedProfileImageUrl(data.profileImageUrl);
       }
@@ -195,7 +188,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
         throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
       }
 
-      setProfileImageUrl(withCacheBust(imageUrl));
+      setProfileImageUrl(imageUrl);
       await saveCachedProfileImageUrl(imageUrl);
     } catch (e) {
       Alert.alert('Hata', e instanceof Error ? e.message : 'Resim yuklenemedi');

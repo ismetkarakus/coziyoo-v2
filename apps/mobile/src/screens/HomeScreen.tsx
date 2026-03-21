@@ -810,7 +810,7 @@ export default function HomeScreen({
   useEffect(() => {
     loadCachedProfileImageUrl().then((cached) => {
       if (!cached) return;
-      setProfileImageUrl(withCacheBust(cached));
+      setProfileImageUrl(cached);
     });
   }, []);
 
@@ -882,12 +882,6 @@ export default function HomeScreen({
     }
   }
 
-  function withCacheBust(url: string | null | undefined) {
-    if (!url) return null;
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}t=${Date.now()}`;
-  }
-
   async function fetchMeProfile(url: string, accessToken: string) {
     try {
       const response = await fetch(`${url}/v1/auth/me`, {
@@ -904,7 +898,7 @@ export default function HomeScreen({
         if (!retryRes.ok) return;
         const retryJson = await readJsonSafe<{ data?: MeProfile }>(retryRes);
         const imageUrl = retryJson.data?.profileImageUrl ?? null;
-        setProfileImageUrl(withCacheBust(imageUrl));
+        setProfileImageUrl(imageUrl);
         if (imageUrl) {
           await saveCachedProfileImageUrl(imageUrl);
         }
@@ -913,7 +907,7 @@ export default function HomeScreen({
       if (!response.ok) return;
       const json = await readJsonSafe<{ data?: MeProfile }>(response);
       const imageUrl = json.data?.profileImageUrl ?? null;
-      setProfileImageUrl(withCacheBust(imageUrl));
+      setProfileImageUrl(imageUrl);
       if (imageUrl) {
         await saveCachedProfileImageUrl(imageUrl);
       }
