@@ -3413,7 +3413,7 @@ const styles = StyleSheet.create({
 
   /* --- Bottom bar --- */
   bottomBar: {
-    height: 82, backgroundColor: '#FFFDF9',
+    height: 74, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
     paddingTop: 2, paddingBottom: 0, paddingHorizontal: 8, zIndex: 50,
