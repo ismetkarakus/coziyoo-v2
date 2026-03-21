@@ -1720,9 +1720,9 @@ export default function HomeScreen({
             </Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
             <View style={styles.dailyFlashWrap}>
-              <Animated.View
+              <Animated.Text
                 style={[
-                  styles.dailyFlashBubble,
+                  styles.dailyFlashText,
                   {
                     opacity: dailyFlashOpacity,
                     transform: [
@@ -1732,8 +1732,8 @@ export default function HomeScreen({
                   },
                 ]}
               >
-                <Text style={styles.dailyFlashText}>{DAILY_FLASH_MEALS[dailyFlashIndex]}</Text>
-              </Animated.View>
+                {DAILY_FLASH_MEALS[dailyFlashIndex]}
+              </Animated.Text>
             </View>
           </View>
           <View style={styles.headerAvatarWrap}>
@@ -2687,13 +2687,6 @@ const styles = StyleSheet.create({
     height: 34,
     justifyContent: 'center',
     overflow: 'visible',
-  },
-  dailyFlashBubble: {
-    alignSelf: 'stretch',
-    backgroundColor: 'rgba(255, 248, 229, 0.85)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
   },
   dailyFlashText: {
     color: '#7A5B2A',
