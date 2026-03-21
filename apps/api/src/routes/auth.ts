@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -52,7 +52,48 @@ const LogoutSchema = z.object({
   refreshToken: z.string().min(20).optional(),
 });
 
+const PasswordResetRequestSchema = z.object({});
+
+const PasswordResetConfirmSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "6-digit code required"),
+  newPassword: z.string().min(8).max(128),
+});
+
+const PASSWORD_RESET_CODE_TTL_MINUTES = 10;
+const PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS = 60;
+
 export const authRouter = Router();
+
+function hashResetCode(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
+}
+
+async function sendPasswordResetCodeEmail(params: {
+  email: string;
+  displayName: string | null;
+  code: string;
+  expiresInMinutes: number;
+}): Promise<void> {
+  if (!env.N8N_HOST) {
+    throw new Error("EMAIL_DELIVERY_NOT_CONFIGURED");
+  }
+  const url = `${env.N8N_HOST}${env.PASSWORD_RESET_EMAIL_WEBHOOK_PATH}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      channel: "password_reset",
+      email: params.email,
+      displayName: params.displayName,
+      code: params.code,
+      expiresInMinutes: params.expiresInMinutes,
+      appName: "Coziyoo",
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`EMAIL_DELIVERY_FAILED_${response.status}`);
+  }
+}
 
 authRouter.get("/display-name/check", abuseProtection({ flow: "display_name_check", ipLimit: 200, userLimit: 120, windowMs: 60_000 }), async (req, res) => {
   const value = String(req.query.value ?? "");
@@ -516,7 +557,10 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(3).max(40).optional(),
   fullName: z.string().min(1).max(120).optional(),
-  countryCode: z.string().min(2).max(3).optional(),
+  countryCode: z.union([
+    z.string().regex(/^\d{11}$/, "TC identity number must be 11 digits"),
+    z.string().min(2).max(3),
+  ]).optional(),
   language: z.string().min(2).max(10).optional(),
   phone: z.string().min(7).max(20).optional(),
   dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD format required").optional(),
@@ -599,6 +643,186 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       phone: updated.phone,
       dob: updated.dob,
       profileImageUrl: updated.profile_image_url,
+    },
+  });
+});
+
+authRouter.post("/me/password-reset/request", requireAuth("app"), async (req, res) => {
+  const parsed = PasswordResetRequestSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const userResult = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string | null;
+    is_active: boolean;
+  }>(
+    `SELECT id, email, display_name, is_active
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [req.auth!.userId]
+  );
+  if ((userResult.rowCount ?? 0) === 0 || !userResult.rows[0].is_active) {
+    return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+  }
+  const user = userResult.rows[0];
+
+  const latestRequest = await pool.query<{ requested_at: string }>(
+    `SELECT created_at::text AS requested_at
+     FROM password_reset_codes
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [user.id]
+  );
+  if ((latestRequest.rowCount ?? 0) > 0) {
+    const latestAt = new Date(latestRequest.rows[0].requested_at);
+    if (!Number.isNaN(latestAt.getTime())) {
+      const elapsedSeconds = Math.floor((Date.now() - latestAt.getTime()) / 1000);
+      if (elapsedSeconds < PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS) {
+        const retryAfter = PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS - elapsedSeconds;
+        res.setHeader("Retry-After", String(retryAfter));
+        return res.status(429).json({
+          error: {
+            code: "PASSWORD_RESET_TOO_FREQUENT",
+            message: `Please wait ${retryAfter} seconds before requesting a new code.`,
+            retryAfterSeconds: retryAfter,
+          },
+        });
+      }
+    }
+  }
+
+  const code = String(randomInt(100000, 1000000));
+  const codeHash = hashResetCode(code);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_CODE_TTL_MINUTES * 60_000);
+
+  const insertResult = await pool.query<{ id: string }>(
+    `INSERT INTO password_reset_codes
+       (user_id, code_hash, expires_at, request_ip, request_user_agent)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [user.id, codeHash, expiresAt.toISOString(), req.ip ?? null, req.headers["user-agent"] ?? null]
+  );
+  const codeId = insertResult.rows[0].id;
+
+  try {
+    await sendPasswordResetCodeEmail({
+      email: user.email,
+      displayName: user.display_name,
+      code,
+      expiresInMinutes: PASSWORD_RESET_CODE_TTL_MINUTES,
+    });
+  } catch (error) {
+    await pool.query("DELETE FROM password_reset_codes WHERE id = $1", [codeId]);
+    return res.status(503).json({
+      error: {
+        code: "EMAIL_DELIVERY_UNAVAILABLE",
+        message: "Password reset email could not be sent right now.",
+        detail: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+
+  await pool.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
+    user.id,
+    "password_reset_requested",
+    req.ip,
+    req.headers["user-agent"] ?? null,
+  ]);
+
+  return res.json({
+    data: {
+      codeSent: true,
+      expiresInMinutes: PASSWORD_RESET_CODE_TTL_MINUTES,
+    },
+  });
+});
+
+authRouter.post("/me/password-reset/confirm", requireAuth("app"), async (req, res) => {
+  const parsed = PasswordResetConfirmSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const userResult = await pool.query<{ id: string; is_active: boolean }>(
+    `SELECT id, is_active
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [req.auth!.userId]
+  );
+  if ((userResult.rowCount ?? 0) === 0 || !userResult.rows[0].is_active) {
+    return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+  }
+
+  const hashed = hashResetCode(parsed.data.code);
+  const codeResult = await pool.query<{ id: string }>(
+    `SELECT id
+     FROM password_reset_codes
+     WHERE user_id = $1
+       AND consumed_at IS NULL
+       AND expires_at > now()
+       AND code_hash = $2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [req.auth!.userId, hashed]
+  );
+  if ((codeResult.rowCount ?? 0) === 0) {
+    return res.status(400).json({
+      error: {
+        code: "PASSWORD_RESET_CODE_INVALID",
+        message: "The verification code is invalid or expired.",
+      },
+    });
+  }
+
+  const passwordHash = await hashPassword(parsed.data.newPassword);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE users
+       SET password_hash = $1, updated_at = now()
+       WHERE id = $2 AND is_active = TRUE`,
+      [passwordHash, req.auth!.userId]
+    );
+    await client.query(
+      `UPDATE password_reset_codes
+       SET consumed_at = now()
+       WHERE user_id = $1
+         AND consumed_at IS NULL`,
+      [req.auth!.userId]
+    );
+    await client.query(
+      `UPDATE auth_sessions
+       SET revoked_at = now()
+       WHERE user_id = $1
+         AND id <> $2
+         AND revoked_at IS NULL`,
+      [req.auth!.userId, req.auth!.sessionId]
+    );
+    await client.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
+      req.auth!.userId,
+      "password_reset_completed",
+      req.ip,
+      req.headers["user-agent"] ?? null,
+    ]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Password update failed" } });
+  } finally {
+    client.release();
+  }
+
+  return res.json({
+    data: {
+      success: true,
+      message: "Password updated successfully.",
     },
   });
 });

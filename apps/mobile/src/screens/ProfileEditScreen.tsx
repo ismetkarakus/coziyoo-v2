@@ -57,10 +57,11 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
+  const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordAgain, setNewPasswordAgain] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -256,8 +257,12 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
   async function handleChangePassword() {
     setPasswordMessage(null);
-    if (!currentPassword.trim() || !newPassword.trim() || !newPasswordAgain.trim()) {
+    if (!resetCode.trim() || !newPassword.trim() || !newPasswordAgain.trim()) {
       setPasswordMessage(t('error.profileEdit.passwordRequired'));
+      return;
+    }
+    if (!/^\d{6}$/.test(resetCode.trim())) {
+      setPasswordMessage(t('error.profileEdit.codeRequired'));
       return;
     }
     if (newPassword.trim().length < 8) {
@@ -269,12 +274,50 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       return;
     }
 
-    // API tarafinda sifre degistirme endpointi henuz yok.
     setPasswordLoading(true);
-    setTimeout(() => {
+    try {
+      const { apiUrl } = await loadSettings();
+      const res = await authedFetch(`${apiUrl}/v1/auth/me/password-reset/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          code: resetCode.trim(),
+          newPassword: newPassword.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        throw new Error(json.error?.message ?? `Hata (${res.status})`);
+      }
+      setResetCode('');
+      setNewPassword('');
+      setNewPasswordAgain('');
+      setPasswordMessage(t('status.profileEdit.saved'));
+    } catch (e) {
+      setPasswordMessage(e instanceof Error ? e.message : t('error.profileEdit.save'));
+    } finally {
       setPasswordLoading(false);
-      setPasswordMessage(t('helper.profileEdit.passwordComingSoon'));
-    }, 450);
+    }
+  }
+
+  async function handleSendResetCode() {
+    setPasswordMessage(null);
+    setCodeLoading(true);
+    try {
+      const { apiUrl } = await loadSettings();
+      const res = await authedFetch(`${apiUrl}/v1/auth/me/password-reset/request`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        throw new Error(json.error?.message ?? `Hata (${res.status})`);
+      }
+      setPasswordMessage(t('status.profileEdit.resetCodeSent'));
+    } catch (e) {
+      setPasswordMessage(e instanceof Error ? e.message : t('error.profileEdit.save'));
+    } finally {
+      setCodeLoading(false);
+    }
   }
 
   const userTypeLabel = userType === 'buyer'
@@ -427,19 +470,31 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
               <View style={styles.sectionCard}>
                 <Text style={styles.sectionTitle}>{t('headline.profileEdit.securitySection')}</Text>
+                <Text style={styles.hint}>{t('helper.profileEdit.forgotPasswordHint')}</Text>
                 <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.currentPasswordLabel')}</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.codeLabel')}</Text>
                   <TextInput
                     style={styles.input}
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    placeholder={t('helper.profileEdit.currentPasswordPlaceholder')}
+                    value={resetCode}
+                    onChangeText={setResetCode}
+                    placeholder={t('helper.profileEdit.codePlaceholder')}
                     placeholderTextColor={theme.textSecondary}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
+                    keyboardType="number-pad"
+                    maxLength={6}
                   />
                 </View>
+                <TouchableOpacity
+                  style={[styles.codeBtn, codeLoading && styles.saveBtnDisabled]}
+                  onPress={() => void handleSendResetCode()}
+                  disabled={codeLoading}
+                  activeOpacity={0.8}
+                >
+                  {codeLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.passwordBtnText}>{t('cta.profileEdit.sendResetCode')}</Text>
+                  )}
+                </TouchableOpacity>
                 <View style={styles.field}>
                   <Text style={styles.label}>{t('helper.profileEdit.newPasswordLabel')}</Text>
                   <TextInput
@@ -618,6 +673,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 6,
+  },
+  codeBtn: {
+    backgroundColor: theme.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   passwordBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 

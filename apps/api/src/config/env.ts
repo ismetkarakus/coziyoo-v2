@@ -90,6 +90,7 @@ const EnvSchema = z.object({
   N8N_LLM_WEBHOOK_URL: z.string().url().optional(),
   N8N_LLM_WEBHOOK_PATH: z.string().default(""),
   N8N_MCP_WEBHOOK_PATH: z.string().default(""),
+  PASSWORD_RESET_EMAIL_WEBHOOK_PATH: z.string().default("/webhook/coziyoo/password-reset-code"),
   PAYOUT_SCHEDULER_ENABLED: boolFromEnv.optional(),
   PAYOUT_SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().max(86_400_000).default(300_000),
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
