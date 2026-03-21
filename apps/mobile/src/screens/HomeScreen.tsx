@@ -1640,6 +1640,7 @@ export default function HomeScreen({
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
+            <Text style={styles.debugText}>Evimizde piser, sofraniza duser.</Text>
             <Text style={styles.debugText}>API: {apiUrl}</Text>
             <Text style={styles.debugText}>
               foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
