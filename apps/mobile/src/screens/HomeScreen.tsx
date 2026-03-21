@@ -69,6 +69,9 @@ type ApiErrorPayload = {
 
 type MeProfile = {
   profileImageUrl?: string | null;
+  displayName?: string | null;
+  fullName?: string | null;
+  name?: string | null;
 };
 
 type VoiceState = 'idle' | 'starting' | 'active' | 'error';
@@ -213,11 +216,38 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-function buildGreetingTitle(date = new Date()): string {
+function buildGreetingTitle(name: string, date = new Date()): string {
   const hour = date.getHours();
-  if (hour < 12) return '🌞 Günaydın, Lale';
-  if (hour < 18) return '🌤 Tünaydın, Lale';
-  return '🌙 İyi akşamlar, Lale';
+  if (hour < 12) return `🌞 Günaydın, ${name}`;
+  if (hour < 18) return `🌤 Tünaydın, ${name}`;
+  return `🌙 İyi akşamlar, ${name}`;
+}
+
+function firstNameFromText(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) return null;
+  const [first] = normalized.split(' ');
+  return first || null;
+}
+
+function resolveGreetingName(profile: MeProfile | null | undefined, email?: string): string {
+  const fromProfile = firstNameFromText(profile?.displayName)
+    ?? firstNameFromText(profile?.fullName)
+    ?? firstNameFromText(profile?.name);
+  if (fromProfile) return fromProfile;
+
+  const emailName = firstNameFromText((email ?? '').split('@')[0]?.replace(/[._-]+/g, ' '));
+  if (emailName) return emailName;
+
+  return 'Lale';
+}
+
+function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHeight: number } {
+  if (title.length >= 30) return { fontSize: 21, lineHeight: 27 };
+  if (title.length >= 25) return { fontSize: 23, lineHeight: 29 };
+  if (title.length >= 20) return { fontSize: 25, lineHeight: 31 };
+  return { fontSize: 28, lineHeight: 34 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -846,8 +876,11 @@ export default function HomeScreen({
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
+  const [greetingName, setGreetingName] = useState<string>(() =>
+    resolveGreetingName(null, auth.email),
+  );
   const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState<string>(() =>
-    buildGreetingTitle(),
+    buildGreetingTitle(resolveGreetingName(null, auth.email)),
   );
 
   // FAB animations
@@ -879,11 +912,15 @@ export default function HomeScreen({
   }, [apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
-    const refreshGreeting = () => setDynamicGreetingTitle(buildGreetingTitle());
+    setGreetingName(resolveGreetingName(null, currentAuth.email));
+  }, [currentAuth.email]);
+
+  useEffect(() => {
+    const refreshGreeting = () => setDynamicGreetingTitle(buildGreetingTitle(greetingName));
     refreshGreeting();
     const interval = setInterval(refreshGreeting, 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [greetingName]);
 
   // Fetch foods from API
   useEffect(() => {
@@ -970,12 +1007,14 @@ export default function HomeScreen({
         const retryJson = await readJsonSafe<{ data?: MeProfile }>(retryRes);
         const imageUrl = retryJson.data?.profileImageUrl ?? null;
         setProfileImageUrl(imageUrl);
+        setGreetingName(resolveGreetingName(retryJson.data, currentAuth.email));
         return;
       }
       if (!response.ok) return;
       const json = await readJsonSafe<{ data?: MeProfile }>(response);
       const imageUrl = json.data?.profileImageUrl ?? null;
       setProfileImageUrl(imageUrl);
+      setGreetingName(resolveGreetingName(json.data, currentAuth.email));
     } catch {
       // Keep fallback avatar when profile fetch fails
     }
@@ -1574,24 +1613,31 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
-        stickyHeaderIndices={[1]}
+        stickyHeaderIndices={[__DEV__ ? 2 : 1]}
       >
+        {__DEV__ ? (
+          <View style={[styles.debugBox, styles.headerDebugBox]}>
+            <Text style={styles.debugText}>API: {apiUrl}</Text>
+            <Text style={styles.debugText}>
+              foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
+              {mealsLoading ? 'yes' : 'no'}
+            </Text>
+            {mealsError ? (
+              <Text style={styles.debugError}>error: {mealsError}</Text>
+            ) : null}
+          </View>
+        ) : null}
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            {__DEV__ ? (
-              <View style={[styles.debugBox, styles.headerDebugBox]}>
-                <Text style={styles.debugText}>API: {apiUrl}</Text>
-                <Text style={styles.debugText}>
-                  foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
-                  {mealsLoading ? 'yes' : 'no'}
-                </Text>
-                {mealsError ? (
-                  <Text style={styles.debugError}>error: {mealsError}</Text>
-                ) : null}
-              </View>
-            ) : null}
-            <Text style={styles.greetingTitle}>{dynamicGreetingTitle}</Text>
+            <Text
+              style={[styles.greetingTitle, resolveGreetingTitleMetrics(dynamicGreetingTitle)]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
+              {dynamicGreetingTitle}
+            </Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
           </View>
           <View style={styles.headerAvatarWrap}>
