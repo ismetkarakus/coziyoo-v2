@@ -1,6 +1,10 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { pool } from "../db/client.js";
+import { env } from "../config/env.js";
 import { abuseProtection } from "../middleware/abuse-protection.js";
 import { requireAuth } from "../middleware/auth.js";
 import { recordPresenceEvent } from "../services/user-presence.js";
@@ -597,6 +601,83 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       profileImageUrl: updated.profile_image_url,
     },
   });
+});
+
+/* ── Profile Image Upload ── */
+
+let profileS3Client: S3Client | null = null;
+function getProfileS3Client() {
+  if (!env.S3_ENDPOINT || !env.S3_BUCKET_SELLER_DOCS || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
+    throw new Error("S3_STORAGE_NOT_CONFIGURED");
+  }
+  if (profileS3Client) return profileS3Client;
+  profileS3Client = new S3Client({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+    credentials: {
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+    },
+  });
+  return profileS3Client;
+}
+
+const ProfileImageUploadSchema = z.object({
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+});
+
+authRouter.post("/me/profile-image/upload-url", requireAuth("app"), async (req, res) => {
+  const parsed = ProfileImageUploadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  if (!env.S3_ENDPOINT || !env.S3_BUCKET_SELLER_DOCS) {
+    return res.status(503).json({ error: { code: "STORAGE_NOT_CONFIGURED", message: "S3 storage is not configured" } });
+  }
+
+  const ext = parsed.data.contentType === "image/png" ? "png" : parsed.data.contentType === "image/webp" ? "webp" : "jpg";
+  const key = `user/${req.auth!.userId}/profile/${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
+  const bucket = env.S3_BUCKET_SELLER_DOCS!;
+
+  try {
+    const client = getProfileS3Client();
+    const uploadUrl = await getSignedUrl(
+      client,
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: parsed.data.contentType,
+      }),
+      { expiresIn: env.S3_SIGNED_URL_TTL_SECONDS }
+    );
+
+    return res.json({
+      data: {
+        uploadUrl,
+        imageUrl: `${env.S3_ENDPOINT}/${bucket}/${key}`,
+        expiresInSeconds: env.S3_SIGNED_URL_TTL_SECONDS,
+      },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Upload URL generation failed", detail } });
+  }
+});
+
+authRouter.put("/me/profile-image", requireAuth("app"), async (req, res) => {
+  const parsed = z.object({ imageUrl: z.string().url() }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  await pool.query(
+    `UPDATE users SET profile_image_url = $1, updated_at = NOW() WHERE id = $2 AND is_active = TRUE`,
+    [parsed.data.imageUrl, req.auth!.userId]
+  );
+
+  return res.json({ data: { profileImageUrl: parsed.data.imageUrl } });
 });
 
 /* ── Buyer Address Management ── */

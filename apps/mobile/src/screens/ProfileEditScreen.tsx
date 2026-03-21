@@ -11,8 +11,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
@@ -51,6 +53,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [language, setLanguage] = useState('');
   const [email, setEmail] = useState('');
   const [userType, setUserType] = useState('');
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -109,10 +113,81 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setLanguage(data.language ?? '');
       setEmail(data.email ?? '');
       setUserType(data.userType ?? '');
+      setProfileImageUrl(data.profileImageUrl ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Profil yuklenemedi');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePickImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Izin Gerekli', 'Galeri erisimi icin izin vermeniz gerekiyor.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const uri = asset.uri;
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+      Alert.alert('Hata', 'Sadece JPEG, PNG veya WebP formatinda resim yukleyebilirsiniz.');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const { apiUrl } = await loadSettings();
+
+      // 1. Get presigned upload URL
+      const urlRes = await authedFetch(`${apiUrl}/v1/auth/me/profile-image/upload-url`, {
+        method: 'POST',
+        body: JSON.stringify({ contentType: mimeType }),
+      });
+      const urlJson = await urlRes.json();
+      if (!urlRes.ok || urlJson.error) {
+        throw new Error(urlJson.error?.message ?? 'Upload URL alinamadi');
+      }
+      const { uploadUrl, imageUrl } = urlJson.data;
+
+      // 2. Upload image to S3 via presigned URL
+      const imageResponse = await fetch(uri);
+      const imageBlob = await imageResponse.blob();
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': mimeType },
+        body: imageBlob,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Resim yuklenemedi');
+      }
+
+      // 3. Save image URL to profile
+      const saveRes = await authedFetch(`${apiUrl}/v1/auth/me/profile-image`, {
+        method: 'PUT',
+        body: JSON.stringify({ imageUrl }),
+      });
+      const saveJson = await saveRes.json();
+      if (!saveRes.ok || saveJson.error) {
+        throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
+      }
+
+      setProfileImageUrl(imageUrl);
+    } catch (e) {
+      Alert.alert('Hata', e instanceof Error ? e.message : 'Resim yuklenemedi');
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -187,11 +262,29 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
             <>
               {/* Avatar */}
               <View style={styles.avatarSection}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {displayName ? displayName.charAt(0).toUpperCase() : '?'}
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.avatarTouchable}
+                  onPress={handlePickImage}
+                  disabled={uploadingImage}
+                  activeOpacity={0.7}
+                >
+                  {profileImageUrl ? (
+                    <Image source={{ uri: profileImageUrl }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {displayName ? displayName.charAt(0).toUpperCase() : '?'}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.avatarBadge}>
+                    {uploadingImage ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="camera" size={14} color="#fff" />
+                    )}
+                  </View>
+                </TouchableOpacity>
                 <Text style={styles.avatarEmail}>{email}</Text>
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{userTypeLabel}</Text>
@@ -341,6 +434,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
 
   avatarSection: { alignItems: 'center', marginBottom: 28 },
+  avatarTouchable: { position: 'relative', marginBottom: 12 },
   avatar: {
     width: 80,
     height: 80,
@@ -348,7 +442,24 @@ const styles = StyleSheet.create({
     backgroundColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 26,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.background,
   },
   avatarText: { fontSize: 32, fontWeight: '700', color: '#fff' },
   avatarEmail: { color: theme.textSecondary, fontSize: 14, marginBottom: 6 },
