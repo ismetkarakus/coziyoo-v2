@@ -3382,7 +3382,7 @@ const styles = StyleSheet.create({
 
   /* --- FAB --- */
   floatingWrap: {
-    position: 'absolute', left: '50%', bottom: 12, marginLeft: -26,
+    position: 'absolute', left: '50%', bottom: -2, marginLeft: -26,
     zIndex: 80, width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
   },
   pulseRing1: {
@@ -3409,7 +3409,14 @@ const styles = StyleSheet.create({
     shadowColor: '#4A7C59', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 18,
     elevation: 10,
   },
-  floatingButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '700' },
+  floatingButtonText: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
 
   /* --- Bottom bar --- */
   bottomBar: {
