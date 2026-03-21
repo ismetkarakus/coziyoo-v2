@@ -3382,7 +3382,7 @@ const styles = StyleSheet.create({
 
   /* --- FAB --- */
   floatingWrap: {
-    position: 'absolute', left: '50%', bottom: 15, marginLeft: -26,
+    position: 'absolute', left: '50%', bottom: 12, marginLeft: -26,
     zIndex: 80, width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
   },
   pulseRing1: {
@@ -3415,7 +3415,7 @@ const styles = StyleSheet.create({
   bottomBar: {
     height: 70, backgroundColor: '#FFFDF9',
     borderTopWidth: 1, borderTopColor: '#EDE8E0',
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 2, paddingBottom: 0, paddingHorizontal: 8, zIndex: 50,
   },
   navItem: {
@@ -3426,7 +3426,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     transform: [{ translateY: 5 }],
   },
-  navSpacer: { width: 64 },
+  navSpacer: { width: 72 },
   navIcon: { color: '#A89B8C', marginBottom: 3 },
   navIconActive: { color: '#4A7C59' },
   navLabel: { color: '#A89B8C', fontSize: 12, lineHeight: 14, fontWeight: '600' },
