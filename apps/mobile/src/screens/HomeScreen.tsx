@@ -40,19 +40,13 @@ try {
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl } from '../utils/profileImage';
-import VoiceSessionScreen from './VoiceSessionScreen';
+import { VoiceSessionScreen, useVoiceSession } from '../voice';
+import type { AgentMode } from '../voice';
 import { requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
-
-export type SessionData = {
-  wsUrl: string;
-  token: string;
-  roomName: string;
-  userIdentity: string;
-};
 
 type Props = {
   auth: AuthSession;
@@ -75,9 +69,7 @@ type MeProfile = {
   name?: string | null;
 };
 
-type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
-type AgentMode = 'voice' | 'text';
 
 type ApiFoodItem = {
   id: string;
@@ -852,9 +844,13 @@ export default function HomeScreen({
   const [meals, setMeals] = useState<MealCard[]>([]);
   const [mealsLoading, setMealsLoading] = useState(true);
   const [mealsError, setMealsError] = useState<string | null>(null);
-  const [voiceState, setVoiceState] = useState<VoiceState>('idle');
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [voiceSession, setVoiceSession] = useState<SessionData | null>(null);
+  const {
+    voiceState,
+    voiceError,
+    voiceSession,
+    startVoice: handleStartVoice,
+    endVoice: handleVoiceEnd,
+  } = useVoiceSession({ apiUrl, auth: currentAuth, onAuthRefresh, onLogout });
   const [agentModalVisible, setAgentModalVisible] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>('voice');
   const [chatMessages, setChatMessages] =
@@ -1094,95 +1090,6 @@ export default function HomeScreen({
     return undefined;
   }, [searchMode]);
 
-  /* ---------- Voice session helpers ---------- */
-
-  function resolveStartSessionError(
-    payload: ApiErrorPayload,
-    status: number,
-  ): string {
-    const code = payload?.error?.code;
-    if (code === 'AGENT_UNAVAILABLE')
-      return 'Ses asistani su an kullanilamiyor. Lutfen biraz sonra tekrar deneyin.';
-    if (code === 'N8N_UNAVAILABLE')
-      return 'AI sunucusuna ulasilamiyor. Lutfen n8n sunucusunu kontrol edin.';
-    if (code === 'N8N_WORKFLOW_UNAVAILABLE')
-      return 'AI is akisi kullanilamiyor veya aktif degil.';
-    if (code === 'STT_UNAVAILABLE')
-      return 'Konusma tanima kullanilamiyor. STT sunucusunu kontrol edin.';
-    if (code === 'TTS_UNAVAILABLE')
-      return 'Ses sentezi kullanilamiyor. TTS sunucusunu kontrol edin.';
-    if (status === 401) return t('error.home.sessionExpired');
-    return payload?.error?.message ?? `Sunucu hatasi ${status}`;
-  }
-
-  async function startSessionWithToken(accessToken: string): Promise<void> {
-    const response = await fetch(`${apiUrl}/v1/livekit/session/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ autoDispatchAgent: true, channel: 'mobile' }),
-    });
-
-    const json = await response.json();
-
-    if (response.status === 401) {
-      const refreshed = await refreshAuthSession(apiUrl, currentAuth);
-      if (refreshed) {
-        setCurrentAuth(refreshed);
-        onAuthRefresh?.(refreshed);
-        return startSessionWithToken(refreshed.accessToken);
-      }
-      onLogout();
-      return;
-    }
-
-    if (!response.ok || (json as ApiErrorPayload).error) {
-      throw new Error(
-        resolveStartSessionError(json as ApiErrorPayload, response.status),
-      );
-    }
-
-    const { data } = json as {
-      data: {
-        roomName: string;
-        wsUrl: string;
-        user: { participantIdentity: string; token: string };
-      };
-    };
-
-    setVoiceSession({
-      wsUrl: data.wsUrl,
-      token: data.user.token,
-      roomName: data.roomName,
-      userIdentity: data.user.participantIdentity,
-    });
-    setVoiceState('active');
-    setVoiceError(null);
-  }
-
-  async function handleStartVoice() {
-    if (voiceState === 'starting' || voiceState === 'active') return;
-    setVoiceError(null);
-    setVoiceState('starting');
-    try {
-      await startSessionWithToken(currentAuth.accessToken);
-    } catch (err) {
-      setVoiceSession(null);
-      setVoiceState('error');
-      setVoiceError(
-        err instanceof Error ? err.message : 'Oturum baslatilamadi',
-      );
-    }
-  }
-
-  function handleVoiceEnd() {
-    setVoiceSession(null);
-    setVoiceState('idle');
-    setVoiceError(null);
-  }
-
   /* ---------- Agent modal handlers ---------- */
 
   function handleFabPress() {
@@ -1196,8 +1103,6 @@ export default function HomeScreen({
   function handleCloseAgent() {
     setAgentModalVisible(false);
     if (voiceSession) handleVoiceEnd();
-    setVoiceState('idle');
-    setVoiceError(null);
   }
 
   function handleSwitchToText() {

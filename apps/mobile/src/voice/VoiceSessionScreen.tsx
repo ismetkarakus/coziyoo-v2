@@ -21,7 +21,7 @@ import {
   useRoomContext,
 } from '@livekit/react-native';
 import { ConnectionState, RoomEvent } from 'livekit-client';
-import type { SessionData } from './HomeScreen';
+import type { SessionData } from './types';
 import { t } from '../copy/brandCopy';
 
 type AgentActionEnvelope = {
