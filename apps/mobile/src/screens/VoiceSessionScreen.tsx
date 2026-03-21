@@ -1,582 +1,353 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  Animated,
-  Alert,
-  PermissionsAndroid,
-  Platform,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  AudioSession,
-  AndroidAudioTypePresets,
-  LiveKitRoom,
-  useLocalParticipant,
-  useIOSAudioManagement,
-  useParticipants,
-  useRoomContext,
-} from '@livekit/react-native';
-import { ConnectionState, RoomEvent } from 'livekit-client';
+import Vapi from '@vapi-ai/react-native';
+import type { AssistantOverrides } from '@vapi-ai/react-native/dist/api';
 import type { SessionData } from './HomeScreen';
-
-type AgentActionEnvelope = {
-  type: 'action';
-  version: string;
-  requestId: string;
-  timestamp: string;
-  action: {
-    name: 'navigate' | 'add_to_cart' | 'show_order_summary';
-    params: Record<string, unknown>;
-  };
-};
 
 type Props = {
   session: SessionData;
   onEnd: () => void;
-  onSwitchToText?: () => void;
+  onSwitchToText: () => void;
 };
 
-const BAR_CONFIGS = [
-  { maxHeight: 20, duration: 400, delay: 0 },
-  { maxHeight: 28, duration: 360, delay: 100 },
-  { maxHeight: 14, duration: 440, delay: 200 },
-  { maxHeight: 32, duration: 380, delay: 80 },
-  { maxHeight: 22, duration: 420, delay: 160 },
-  { maxHeight: 18, duration: 460, delay: 240 },
-  { maxHeight: 26, duration: 370, delay: 50 },
-];
+type VoiceStatus = 'connecting' | 'listening' | 'speaking' | 'error';
+type ConnectStage = 'session' | 'audio' | 'joining';
 
-export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: Props) {
-  const intentionalEnd = useRef(false);
-  const [audioReady, setAudioReady] = useState(false);
-  const [audioError, setAudioError] = useState<string | null>(null);
-  const [sessionError, setSessionError] = useState<string | null>(null);
+const VAPI_PUBLIC_KEY = (
+  process.env.EXPO_PUBLIC_VAPI_PUBLIC_KEY ??
+  process.env.VAPI_PUBLIC_API_KEY ??
+  process.env.VAPI_PUBLIC_KEY ??
+  ''
+).trim();
 
-  useEffect(() => {
-    let mounted = true;
+const VAPI_ASSISTANT_ID = (
+  process.env.EXPO_PUBLIC_VAPI_ASSISTANT_ID ??
+  process.env.VAPI_ASSISTANT_ID ??
+  ''
+).trim();
 
-    async function setupAudioSession() {
-      setAudioReady(false);
-      setAudioError(null);
+let sharedVapi: Vapi | null = VAPI_PUBLIC_KEY ? new Vapi(VAPI_PUBLIC_KEY) : null;
+let startInFlight = false;
+let callActive = false;
 
-      try {
-        if (Platform.OS === 'android') {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            throw new Error('Mikrofon izni gereklidir.');
-          }
-        }
-
-        await AudioSession.configureAudio({
-          ios: { defaultOutput: 'speaker' },
-          android: { audioTypeOptions: AndroidAudioTypePresets.communication },
-        });
-
-        if (Platform.OS === 'ios') {
-          await AudioSession.setAppleAudioConfiguration({
-            audioCategory: 'playAndRecord',
-            audioCategoryOptions: ['allowBluetooth', 'defaultToSpeaker'],
-            audioMode: 'voiceChat',
-          });
-        }
-
-        await AudioSession.startAudioSession();
-        if (mounted) setAudioReady(true);
-      } catch (err) {
-        console.warn('[AudioSession] setup failed:', err);
-        if (mounted) {
-          setAudioError(
-            err instanceof Error ? err.message : 'Ses oturumu yapilandirilamadi.',
-          );
-          setAudioReady(false);
-        }
-      }
-    }
-
-    void setupAudioSession();
-    return () => {
-      mounted = false;
-      AudioSession.stopAudioSession();
-    };
-  }, []);
-
-  function handleDisconnected() {
-    if (intentionalEnd.current) {
-      onEnd();
-      return;
-    }
-    Alert.alert('Baglanti Kesildi', 'Oturum kesintiye ugradi. Ne yapmak istersiniz?', [
-      { text: 'Oturumu Bitir', style: 'destructive', onPress: onEnd },
-      { text: 'Kapat', style: 'cancel' },
-    ]);
+function toErrorMessage(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && 'message' in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
   }
-
-  function handleEnd() {
-    intentionalEnd.current = true;
-    onEnd();
-  }
-
-  function handleConnected() {
-    setSessionError(null);
-  }
-
-  function handleRoomError(error: Error) {
-    console.warn('[LiveKitRoom] connection error:', error);
-    setSessionError('Ses oturumuna baglanılamadi. Lutfen tekrar deneyin.');
-  }
-
-  function handleMediaDeviceFailure() {
-    setSessionError('Mikrofon erisimi basarisiz. Izinleri kontrol edip tekrar deneyin.');
-  }
-
-  if (audioError) {
-    return (
-      <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Ses yapilandirmasi basarisiz</Text>
-        <Text style={styles.setupMessage}>{audioError}</Text>
-        <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
-          <Text style={styles.setupButtonText}>Geri</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!audioReady) {
-    return (
-      <View style={styles.setupContainer}>
-        <ActivityIndicator size="large" color="#4A7C59" />
-        <Text style={styles.setupTitle}>Ses hazirlaniyor...</Text>
-        <Text style={styles.setupMessage}>
-          Mikrofon ve hoparlor yapilandiriliyor.
-        </Text>
-      </View>
-    );
-  }
-
-  if (sessionError) {
-    return (
-      <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Baglanti basarisiz</Text>
-        <Text style={styles.setupMessage}>{sessionError}</Text>
-        <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
-          <Text style={styles.setupButtonText}>Geri</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <LiveKitRoom
-      serverUrl={session.wsUrl}
-      token={session.token}
-      connect={audioReady}
-      audio={true}
-      video={false}
-      onConnected={handleConnected}
-      onDisconnected={handleDisconnected}
-      onError={handleRoomError}
-      onMediaDeviceFailure={handleMediaDeviceFailure}
-    >
-      <SessionView onEnd={handleEnd} onSwitchToText={onSwitchToText} />
-    </LiveKitRoom>
-  );
+  return 'Ses baglantisi basarisiz oldu. Lutfen tekrar deneyin.';
 }
 
-/* ------------------------------------------------------------------ */
+export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: Props) {
+  const [status, setStatus] = useState<VoiceStatus>('connecting');
+  const [connectStage, setConnectStage] = useState<ConnectStage>('session');
+  const [isMuted, setIsMuted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [ending, setEnding] = useState(false);
 
-type SessionViewProps = {
-  onEnd: () => void;
-  onSwitchToText?: () => void;
-};
+  const onEndRef = useRef(onEnd);
+  const vapiRef = useRef<Vapi | null>(null);
+  const startedRef = useRef(false);
 
-function SessionView({ onEnd, onSwitchToText }: SessionViewProps) {
-  const room = useRoomContext();
-  useIOSAudioManagement(room, true);
-  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
-  const participants = useParticipants();
-  const micPrimed = useRef(false);
-
-  const agentParticipant = participants.find(
-    (p) => p.identity !== localParticipant.identity,
-  );
-  const isAgentSpeaking = agentParticipant?.isSpeaking ?? false;
-  const connectionState = room.state;
-  const connected = connectionState === ConnectionState.Connected;
-
-  const barAnims = useRef(BAR_CONFIGS.map(() => new Animated.Value(8))).current;
-  const ring1Scale = useRef(new Animated.Value(1)).current;
-  const ring2Scale = useRef(new Animated.Value(1)).current;
-
-  const [actionBanner, setActionBanner] = useState<string | null>(null);
-  const processedIds = useRef(new Set<string>());
-  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Prime microphone
   useEffect(() => {
-    if (connectionState !== ConnectionState.Connected) {
-      micPrimed.current = false;
+    onEndRef.current = onEnd;
+  }, [onEnd]);
+
+  const statusLabel = useMemo(() => {
+    if (status === 'connecting') {
+      if (connectStage === 'audio') return 'Ses kuruluyor...';
+      if (connectStage === 'joining') return 'Oturuma katiliniyor...';
+      return 'Baglanti baslatiliyor...';
+    }
+    if (status === 'listening') return 'Aktif (dinliyor)';
+    if (status === 'speaking') return 'Aktif (konusuyor)';
+    return 'Baglanti hatasi';
+  }, [connectStage, status]);
+
+  useEffect(() => {
+    if (!VAPI_PUBLIC_KEY || !VAPI_ASSISTANT_ID) {
+      setStatus('error');
+      setErrorMessage(
+        'VAPI env eksik: EXPO_PUBLIC_VAPI_PUBLIC_KEY + EXPO_PUBLIC_VAPI_ASSISTANT_ID (veya legacy VAPI_PUBLIC_API_KEY + VAPI_ASSISTANT_ID).'
+      );
       return;
     }
-    if (micPrimed.current) return;
-    micPrimed.current = true;
-    void localParticipant.setMicrophoneEnabled(true).catch((error) => {
-      console.warn('[LiveKitRoom] failed to enable microphone:', error);
-      micPrimed.current = false;
-    });
-  }, [connectionState, localParticipant]);
 
-  // Agent action data channel
-  useEffect(() => {
-    function handleData(
-      payload: Uint8Array,
-      _participant: unknown,
-      _kind: unknown,
-      topic?: string,
-    ) {
-      if (topic !== 'agent-action') return;
-      try {
-        const msg = JSON.parse(
-          new TextDecoder().decode(payload),
-        ) as AgentActionEnvelope;
-        if (msg.type !== 'action' || !msg.requestId) return;
-        if (processedIds.current.has(msg.requestId)) return;
-        processedIds.current.add(msg.requestId);
-
-        const { name, params } = msg.action;
-        let banner: string;
-        switch (name) {
-          case 'navigate':
-            banner = `${params.screen as string} sayfasina git`;
-            break;
-          case 'add_to_cart':
-            banner = `Eklendi: ${params.productName as string} x${params.quantity as number}`;
-            break;
-          case 'show_order_summary':
-            banner = `Siparis toplami: ${(params.total as number).toFixed(2)} TL`;
-            break;
-          default:
-            return;
-        }
-        if (bannerTimer.current) clearTimeout(bannerTimer.current);
-        setActionBanner(banner);
-        bannerTimer.current = setTimeout(() => setActionBanner(null), 3500);
-      } catch {
-        /* ignore */
-      }
+    if (!sharedVapi) {
+      sharedVapi = new Vapi(VAPI_PUBLIC_KEY);
     }
 
-    room.on(RoomEvent.DataReceived, handleData);
-    return () => {
-      room.off(RoomEvent.DataReceived, handleData);
-      if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    const vapi = sharedVapi;
+    vapiRef.current = vapi;
+
+    const initTsRef = { current: Date.now() };
+
+    const handleCallStart = () => {
+      startedRef.current = true;
+      startInFlight = false;
+      callActive = true;
+      setStatus('listening');
+      setConnectStage('joining');
+      console.log('[VAPI] call-start');
     };
-  }, [room]);
 
-  // Voice bar animations
-  useEffect(() => {
-    if (!connected) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const loops: Animated.CompositeAnimation[] = [];
+    const handleCallEnd = () => {
+      startedRef.current = false;
+      startInFlight = false;
+      callActive = false;
+      setEnding(false);
+      setIsMuted(false);
+      onEndRef.current();
+    };
 
-    BAR_CONFIGS.forEach((config, i) => {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(barAnims[i], {
-            toValue: config.maxHeight,
-            duration: config.duration,
-            useNativeDriver: false,
-          }),
-          Animated.timing(barAnims[i], {
-            toValue: 8,
-            duration: config.duration,
-            useNativeDriver: false,
-          }),
-        ]),
+    const handleSpeechStart = () => {
+      setStatus('speaking');
+    };
+
+    const handleSpeechEnd = () => {
+      setStatus('listening');
+    };
+
+    const handleError = (error: unknown) => {
+      startInFlight = false;
+      callActive = false;
+      startedRef.current = false;
+      setStatus('error');
+      setErrorMessage(toErrorMessage(error));
+    };
+
+    const handleProgress = (event: { stage: string; status: string; duration?: number }) => {
+      const elapsed = Date.now() - initTsRef.current;
+      console.log(
+        `[VAPI] ${event.stage} -> ${event.status}${event.duration != null ? ` (${event.duration}ms)` : ''} | total: ${elapsed}ms`
       );
-      loops.push(loop);
-      timers.push(setTimeout(() => loop.start(), config.delay));
-    });
+      if (event.status === 'started') {
+        if (event.stage === 'daily-call-object-creation') setConnectStage('audio');
+        else if (event.stage === 'daily-call-join') setConnectStage('joining');
+        else if (event.stage === 'web-call-creation') setConnectStage('session');
+      }
+    };
+
+    const handleCallStartSuccess = (event: { totalDuration: number }) => {
+      console.log(`[VAPI] connected - total: ${event.totalDuration}ms`);
+    };
+
+    const handleCallStartFailed = (event: { stage: string; totalDuration: number; error: string }) => {
+      console.warn(`[VAPI] connect failed at ${event.stage} after ${event.totalDuration}ms: ${event.error}`);
+    };
+
+    vapi.on('call-start', handleCallStart);
+    vapi.on('call-end', handleCallEnd);
+    vapi.on('speech-start', handleSpeechStart);
+    vapi.on('speech-end', handleSpeechEnd);
+    vapi.on('error', handleError);
+    vapi.on('call-start-progress', handleProgress);
+    vapi.on('call-start-success', handleCallStartSuccess);
+    vapi.on('call-start-failed', handleCallStartFailed);
+
+    const start = async () => {
+      if (startInFlight || callActive) return;
+      startInFlight = true;
+      initTsRef.current = Date.now();
+      setStatus('connecting');
+      setConnectStage('session');
+      setErrorMessage(null);
+      setEnding(false);
+      setIsMuted(false);
+
+      const overrides: AssistantOverrides & { firstMessageMode?: string } = {
+        variableValues: { userId: session.userIdentity },
+        firstMessageMode: 'assistant-waits-for-user',
+      };
+
+      console.log('[VAPI] start() called');
+      try {
+        await vapi.start(VAPI_ASSISTANT_ID, overrides);
+      } catch (error) {
+        handleError(error);
+      }
+    };
+
+    void start();
 
     return () => {
-      loops.forEach((l) => l.stop());
-      timers.forEach((t) => clearTimeout(t));
+      vapi.off('call-start', handleCallStart);
+      vapi.off('call-end', handleCallEnd);
+      vapi.off('speech-start', handleSpeechStart);
+      vapi.off('speech-end', handleSpeechEnd);
+      vapi.off('error', handleError);
+      vapi.off('call-start-progress', handleProgress);
+      vapi.off('call-start-success', handleCallStartSuccess);
+      vapi.off('call-start-failed', handleCallStartFailed);
+
+      if (callActive || startedRef.current) {
+        try {
+          vapi.stop();
+        } catch {
+          // ignore
+        }
+      }
+      startInFlight = false;
+      callActive = false;
+      startedRef.current = false;
     };
-  }, [connected, barAnims]);
+  }, [session.userIdentity]);
 
-  // Ring pulse animations
-  useEffect(() => {
-    const ring1Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(ring1Scale, {
-          toValue: 1.15,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(ring1Scale, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    const ring2Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(ring2Scale, {
-          toValue: 1.25,
-          duration: 2400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(ring2Scale, {
-          toValue: 1,
-          duration: 2400,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    ring1Loop.start();
-    const timer = setTimeout(() => ring2Loop.start(), 500);
-    return () => {
-      ring1Loop.stop();
-      ring2Loop.stop();
-      clearTimeout(timer);
-    };
-  }, [ring1Scale, ring2Scale]);
-
-  function toggleMic() {
-    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+  function handleMuteToggle() {
+    if (!vapiRef.current || status === 'connecting' || status === 'error') return;
+    const next = !isMuted;
+    setIsMuted(next);
+    vapiRef.current.setMuted(next);
   }
 
-  function getStatusText() {
-    switch (connectionState) {
-      case ConnectionState.Connecting:
-        return 'Baglaniyor...';
-      case ConnectionState.Reconnecting:
-        return 'Yeniden baglaniyor...';
-      case ConnectionState.Disconnected:
-        return 'Baglanti kesildi';
-      default:
-        if (!agentParticipant) return 'Baglaniyor...';
-        if (isAgentSpeaking) return 'Konusuyor...';
-        return 'Seni dinliyorum...';
+  function handleEndCall() {
+    if (!vapiRef.current) {
+      onEndRef.current();
+      return;
+    }
+    setEnding(true);
+    try {
+      vapiRef.current.stop();
+    } catch {
+      onEndRef.current();
     }
   }
 
   return (
     <View style={styles.container}>
-      {actionBanner && (
-        <View style={styles.actionBanner}>
-          <Text style={styles.actionBannerText}>{actionBanner}</Text>
-        </View>
-      )}
-
-      <View style={styles.center}>
-        <View style={styles.orbContainer}>
-          <Animated.View
-            style={[styles.ring, { transform: [{ scale: ring1Scale }] }]}
-          />
-          <Animated.View
-            style={[styles.ring2, { transform: [{ scale: ring2Scale }] }]}
-          />
-          <View style={styles.orb}>
-            <View style={styles.barsRow}>
-              {barAnims.map((anim, i) => (
-                <Animated.View
-                  key={i}
-                  style={[styles.voiceBar, { height: anim }]}
-                />
-              ))}
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.statusText}>{getStatusText()}</Text>
-        <Text style={styles.subtitleText}>Ne yemek istedigini soyle</Text>
+      <View style={styles.centerWrap}>
+        {status === 'connecting' ? (
+          <>
+            <ActivityIndicator size="large" color="#4A7C59" />
+            <Text style={styles.statusText}>{statusLabel}</Text>
+          </>
+        ) : status === 'error' ? (
+          <>
+            <Ionicons name="alert-circle-outline" size={48} color="#D45454" />
+            <Text style={styles.errorText}>{errorMessage ?? 'Baglanti hatasi'}</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons
+              name={status === 'speaking' ? 'volume-high' : 'mic'}
+              size={52}
+              color="#4A7C59"
+            />
+            <Text style={styles.statusText}>{statusLabel}</Text>
+          </>
+        )}
       </View>
 
-      <View style={styles.bottomButtons}>
-        {onSwitchToText ? (
-          <TouchableOpacity style={styles.actionBtn} onPress={onSwitchToText}>
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={22}
-              color="#6B5D4F"
-            />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.actionBtnPlaceholder} />
-        )}
-        <TouchableOpacity style={styles.endBtn} onPress={onEnd}>
-          <Ionicons
-            name="call"
-            size={20}
-            color="#fff"
-            style={styles.endIcon}
-          />
+      <View style={styles.controlsRow}>
+        <TouchableOpacity
+          style={[styles.controlBtn, styles.textModeBtn]}
+          onPress={onSwitchToText}
+          activeOpacity={0.9}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color="#6B5D4F" />
+          <Text style={styles.textModeText}>Yazi Modu</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={toggleMic}>
-          <Ionicons
-            name={isMicrophoneEnabled ? 'mic' : 'mic-off'}
-            size={22}
-            color="#6B5D4F"
-          />
+
+        <TouchableOpacity
+          style={[styles.controlBtn, styles.muteBtn, isMuted && styles.muteBtnActive]}
+          onPress={handleMuteToggle}
+          disabled={status === 'connecting' || status === 'error' || ending}
+          activeOpacity={0.9}
+        >
+          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
+          <Text style={styles.controlText}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.controlBtn, styles.endBtn]}
+          onPress={handleEndCall}
+          disabled={ending}
+          activeOpacity={0.9}
+        >
+          {ending ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name="call-outline" size={18} color="#fff" />
+              <Text style={styles.controlText}>Bitir</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F1EB',
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    justifyContent: 'space-between',
   },
-  setupContainer: {
-    flex: 1,
-    backgroundColor: '#F5F1EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  setupTitle: {
-    color: '#3D3229',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  setupMessage: {
-    color: '#A89B8C',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  setupButton: {
-    marginTop: 8,
-    backgroundColor: '#4A7C59',
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  setupButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  center: {
+  centerWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-  },
-  orbContainer: {
-    width: 180,
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: 2,
-    borderColor: 'rgba(74,124,89,0.18)',
-  },
-  ring2: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 2,
-    borderColor: 'rgba(74,124,89,0.12)',
-  },
-  orb: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#4A7C59',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4A7C59',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  barsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 40,
-  },
-  voiceBar: {
-    width: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    gap: 10,
   },
   statusText: {
-    color: '#3D3229',
-    fontSize: 17,
-    fontWeight: '600',
+    color: '#5F7063',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  subtitleText: {
-    color: '#A89B8C',
-    fontSize: 13,
-    marginTop: -8,
+  errorText: {
+    color: '#C44747',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: 12,
   },
-  bottomButtons: {
+  controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 20,
-    paddingBottom: 40,
-    paddingHorizontal: 32,
+    gap: 10,
+    paddingBottom: 8,
   },
-  actionBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+  controlBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  actionBtnPlaceholder: {
-    width: 50,
-    height: 50,
+  textModeBtn: {
+    backgroundColor: '#EFE6DB',
+  },
+  textModeText: {
+    color: '#6B5D4F',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  muteBtn: {
+    backgroundColor: '#5B6E5F',
+  },
+  muteBtnActive: {
+    backgroundColor: '#3F4D42',
   },
   endBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#D45454',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#B64B38',
   },
-  endIcon: {
-    transform: [{ rotate: '135deg' }],
-  },
-  actionBanner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#4A7C59',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    zIndex: 10,
-    alignItems: 'center',
-  },
-  actionBannerText: {
+  controlText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

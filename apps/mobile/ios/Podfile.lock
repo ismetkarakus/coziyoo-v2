@@ -3,13 +3,20 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXConstants (17.0.8):
     - ExpoModulesCore
+  - EXImageLoader (5.0.0):
+    - ExpoModulesCore
+    - React-Core
   - Expo (52.0.49):
     - ExpoModulesCore
   - ExpoAsset (11.0.5):
     - ExpoModulesCore
+  - ExpoCrypto (14.0.2):
+    - ExpoModulesCore
   - ExpoFileSystem (18.0.12):
     - ExpoModulesCore
   - ExpoFont (13.0.4):
+    - ExpoModulesCore
+  - ExpoImagePicker (16.0.6):
     - ExpoModulesCore
   - ExpoKeepAwake (14.0.3):
     - ExpoModulesCore
@@ -46,31 +53,7 @@ PODS:
   - ImageColors (2.6.0):
     - ExpoModulesCore
     - SwiftDraw (~> 0.27)
-  - livekit-react-native (2.9.6):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - livekit-react-native-webrtc
-    - RCT-Folly (= 2024.10.14.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - livekit-react-native-webrtc (137.0.2):
-    - React-Core
-    - WebRTC-SDK (= 137.7151.04)
+  - JitsiWebRTC (118.0.0)
   - RCT-Folly (2024.10.14.00):
     - boost
     - DoubleConversion
@@ -1349,6 +1332,35 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-background-timer (2.4.1):
+    - React-Core
+  - react-native-daily-js (0.84.1):
+    - React-Core
+    - ReactNativeDailyJSScreenShareExtension (= 0.0.1)
+  - react-native-get-random-values (2.0.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.10.14.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - react-native-webrtc (118.0.3-daily.4):
+    - JitsiWebRTC (~> 118.0.0)
+    - React-Core
   - react-native-webview (13.16.1):
     - DoubleConversion
     - glog
@@ -1642,23 +1654,26 @@ PODS:
     - React-logger
     - React-perflogger
     - React-utils (= 0.76.9)
+  - ReactNativeDailyJSScreenShareExtension (0.0.1)
   - RNCAsyncStorage (1.23.1):
     - React-Core
   - SocketRocket (0.7.1)
   - SwiftDraw (0.27.0):
     - SwiftDrawDOM (~> 0.27.0)
   - SwiftDrawDOM (0.27.0)
-  - WebRTC-SDK (137.7151.04)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
+  - EXImageLoader (from `../node_modules/expo-image-loader/ios`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
+  - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
+  - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - fast_float (from `../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
@@ -1667,8 +1682,6 @@ DEPENDENCIES:
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - ImageColors (from `../node_modules/react-native-image-colors/ios`)
-  - "livekit-react-native (from `../node_modules/@livekit/react-native`)"
-  - "livekit-react-native-webrtc (from `../node_modules/@livekit/react-native-webrtc`)"
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCT-Folly/Fabric (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -1700,6 +1713,10 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - react-native-background-timer (from `../node_modules/react-native-background-timer`)
+  - "react-native-daily-js (from `../node_modules/@daily-co/react-native-daily-js`)"
+  - react-native-get-random-values (from `../node_modules/react-native-get-random-values`)
+  - "react-native-webrtc (from `../node_modules/@daily-co/react-native-webrtc`)"
   - react-native-webview (from `../node_modules/react-native-webview`)
   - React-nativeconfig (from `../node_modules/react-native/ReactCommon`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -1733,10 +1750,11 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - JitsiWebRTC
+    - ReactNativeDailyJSScreenShareExtension
     - SocketRocket
     - SwiftDraw
     - SwiftDrawDOM
-    - WebRTC-SDK
 
 EXTERNAL SOURCES:
   boost:
@@ -1745,14 +1763,20 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
+  EXImageLoader:
+    :path: "../node_modules/expo-image-loader/ios"
   Expo:
     :path: "../node_modules/expo"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
+  ExpoCrypto:
+    :path: "../node_modules/expo-crypto/ios"
   ExpoFileSystem:
     :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo-font/ios"
+  ExpoImagePicker:
+    :path: "../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo-keep-awake/ios"
   ExpoModulesCore:
@@ -1770,10 +1794,6 @@ EXTERNAL SOURCES:
     :tag: hermes-2024-11-12-RNv0.76.2-5b4aa20c719830dcf5684832b89a6edb95ac3d64
   ImageColors:
     :path: "../node_modules/react-native-image-colors/ios"
-  livekit-react-native:
-    :path: "../node_modules/@livekit/react-native"
-  livekit-react-native-webrtc:
-    :path: "../node_modules/@livekit/react-native-webrtc"
   RCT-Folly:
     :podspec: "../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec"
   RCTDeprecation:
@@ -1832,6 +1852,14 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-background-timer:
+    :path: "../node_modules/react-native-background-timer"
+  react-native-daily-js:
+    :path: "../node_modules/@daily-co/react-native-daily-js"
+  react-native-get-random-values:
+    :path: "../node_modules/react-native-get-random-values"
+  react-native-webrtc:
+    :path: "../node_modules/@daily-co/react-native-webrtc"
   react-native-webview:
     :path: "../node_modules/react-native-webview"
   React-nativeconfig:
@@ -1897,10 +1925,13 @@ SPEC CHECKSUMS:
   boost: 1dca942403ed9342f98334bf4c3621f011aa7946
   DoubleConversion: f16ae600a246532c4020132d54af21d0ddb2a385
   EXConstants: fcfc75800824ac2d5c592b5bc74130bad17b146b
+  EXImageLoader: e5da974e25b13585c196b658a440720c075482d5
   Expo: 4bb70893882e6382b41d1e910d7226c6a1b85f0a
   ExpoAsset: 48386d40d53a8c1738929b3ed509bcad595b5516
+  ExpoCrypto: e97e864c8d7b9ce4a000bca45dddb93544a1b2b4
   ExpoFileSystem: 42d363d3b96f9afab980dcef60d5657a4443c655
   ExpoFont: f354e926f8feae5e831ec8087f36652b44a0b188
+  ExpoImagePicker: 24e5ba8da111f74519b1e6dc556e0b438b2b8464
   ExpoKeepAwake: b0171a73665bfcefcfcc311742a72a956e6aa680
   ExpoModulesCore: 725faec070d590810d2ea5983d9f78f7cf6a38ec
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
@@ -1909,8 +1940,7 @@ SPEC CHECKSUMS:
   glog: 08b301085f15bcbb6ff8632a8ebaf239aae04e6a
   hermes-engine: 9e868dc7be781364296d6ee2f56d0c1a9ef0bb11
   ImageColors: 3019b37809023d67795162135628e367d70e1766
-  livekit-react-native: 8cf45df3cf998cee11bf6a0640ae116331601c52
-  livekit-react-native-webrtc: c03e72c608fbb8284a99e095dd7835a85bdb0279
+  JitsiWebRTC: 3a41671ef65a51d7204323814b055a2690b921c7
   RCT-Folly: ea9d9256ba7f9322ef911169a9f696e5857b9e17
   RCTDeprecation: ebe712bb05077934b16c6bf25228bdec34b64f83
   RCTRequired: ca91e5dd26b64f577b528044c962baf171c6b716
@@ -1940,6 +1970,10 @@ SPEC CHECKSUMS:
   React-logger: c4052eb941cca9a097ef01b59543a656dc088559
   React-Mapbuffer: 33546a3ebefbccb8770c33a1f8a5554fa96a54de
   React-microtasksnativemodule: 5c3d795318c22ab8df55100e50b151384a4a60b3
+  react-native-background-timer: 4638ae3bee00320753647900b21260b10587b6f7
+  react-native-daily-js: f0128a02a70879554d09934ecbe89f3570ffdff7
+  react-native-get-random-values: b4ffe2203837c3abbc62a0cb177fdb02d09cadbb
+  react-native-webrtc: 38b16286f2f7da3ff78c17ded0b7720e43c11166
   react-native-webview: ff76bd483e879911c9ca6f5430b6143531bdfcfd
   React-nativeconfig: 8efdb1ef1e9158c77098a93085438f7e7b463678
   React-NativeModulesApple: cebca2e5320a3d66e123cade23bd90a167ffce5e
@@ -1968,11 +2002,11 @@ SPEC CHECKSUMS:
   React-utils: ed818f19ab445000d6b5c4efa9d462449326cc9f
   ReactCodegen: f853a20cc9125c5521c8766b4b49375fec20648b
   ReactCommon: 300d8d9c5cb1a6cd79a67cf5d8f91e4d477195f9
+  ReactNativeDailyJSScreenShareExtension: 70af702672121fcd283d7d567def4e501ce207b1
   RNCAsyncStorage: aa75595c1aefa18f868452091fa0c411a516ce11
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SwiftDraw: c3fb77c08081f1255f33bcc0fd3c2e00fbc9bd46
   SwiftDrawDOM: 8e7d9812af1ef6e06230e72769e97838e6c7c765
-  WebRTC-SDK: 40d4f5ba05cadff14e4db5614aec402a633f007e
   Yoga: feb4910aba9742cfedc059e2b2902e22ffe9954a
 
 PODFILE CHECKSUM: 2d4c038a86afb11109eaa760bb4ebf2c9c21e7cc
