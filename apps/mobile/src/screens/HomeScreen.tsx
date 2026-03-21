@@ -1670,28 +1670,33 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
-          <View style={styles.searchSloganTitleRow}>
-            <Ionicons name="home" size={18} color="#5A4634" />
-            <Text style={styles.searchSlogan} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              {t('headline.home.slogan')}
-            </Text>
-          </View>
-          <View style={styles.searchSloganSublineRow}>
-            <TouchableOpacity
-              onPress={() => setNearbyOnly((prev) => !prev)}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-              style={[styles.sloganNearbyIconBtn, nearbyOnly && styles.sloganNearbyIconBtnActive]}
-            >
-              <Ionicons
-                name="location"
-                size={18}
-                color={nearbyOnly ? '#D45454' : '#BFAE9D'}
-              />
-            </TouchableOpacity>
-            <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
-              {t('helper.home.sloganSubline')}
-            </Text>
+          <View pointerEvents="none" style={styles.searchSloganWaveA} />
+          <View pointerEvents="none" style={styles.searchSloganWaveB} />
+          <View pointerEvents="none" style={styles.searchSloganWaveC} />
+          <View style={styles.searchSloganContent}>
+            <View style={styles.searchSloganTitleRow}>
+              <Ionicons name="home" size={18} color="#5A4634" />
+              <Text style={styles.searchSlogan} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                {t('headline.home.slogan')}
+              </Text>
+            </View>
+            <View style={styles.searchSloganSublineRow}>
+              <TouchableOpacity
+                onPress={() => setNearbyOnly((prev) => !prev)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                style={[styles.sloganNearbyIconBtn, nearbyOnly && styles.sloganNearbyIconBtnActive]}
+              >
+                <Ionicons
+                  name="location"
+                  size={18}
+                  color={nearbyOnly ? '#D45454' : '#BFAE9D'}
+                />
+              </TouchableOpacity>
+              <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
+                {t('helper.home.sloganSubline')}
+              </Text>
+            </View>
           </View>
         </View>
         {/* Food cards */}
@@ -2596,12 +2601,44 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
     marginHorizontal: -12,
-    backgroundColor: '#EAF4E6',
-    borderColor: '#D6E6D0',
+    backgroundColor: '#F8FCF7',
+    borderColor: '#E1EFDD',
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  searchSloganContent: {
+    zIndex: 2,
+  },
+  searchSloganWaveA: {
+    position: 'absolute',
+    right: -42,
+    top: -14,
+    width: 180,
+    height: 110,
+    borderRadius: 60,
+    backgroundColor: 'rgba(212, 236, 202, 0.55)',
+  },
+  searchSloganWaveB: {
+    position: 'absolute',
+    left: -28,
+    bottom: -44,
+    width: 210,
+    height: 120,
+    borderRadius: 72,
+    backgroundColor: 'rgba(227, 244, 219, 0.72)',
+  },
+  searchSloganWaveC: {
+    position: 'absolute',
+    left: '38%',
+    top: 16,
+    width: 170,
+    height: 84,
+    borderRadius: 56,
+    backgroundColor: 'rgba(245, 252, 242, 0.9)',
   },
   searchSloganTitleRow: {
     flexDirection: 'row',
