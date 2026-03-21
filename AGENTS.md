@@ -56,7 +56,7 @@ Unless explicitly requested by the user, do not modify:
   - Samimi "sen" dili
   - Kisa, net, guven veren ton
   - Kurumsal/robotik dil yok
-- Ana slogan sabittir: `Komşunun mutfağından, kapına.`
-- Slogan Home ekraninda arama cubugunun altinda kalir.
+- Ana slogan sabittir: `Komsunun mutfagindan kapina`
+- Slogan Home ekraninda arama cubugunun altinda tek satir kalir.
 - Mobil metinlerde tek kaynak: `apps/mobile/src/copy/brandCopy.ts`
 - Detayli kilit dokumani: `BRAND_VOICE_LOCK.md`

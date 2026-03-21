@@ -1,7 +1,7 @@
 export const brandCopy = {
   'headline.home.greetingTitle': 'Gunaydin, Lale',
   'headline.home.greetingSubtitle': 'Bugun ne yesek?',
-  'headline.home.slogan': 'Komşunun mutfağından, kapına.',
+  'headline.home.slogan': 'Komsunun mutfagindan kapina',
   'helper.home.searchPlaceholder': 'Yemek ya da usta ara...',
   'helper.home.stockLimitTitle': 'Stok siniri',
   'helper.home.stockLimitMessage': 'Bu yemekte kalan kadar sepete ekleyebilirsin.',

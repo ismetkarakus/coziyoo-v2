@@ -1640,7 +1640,14 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
-          <Text style={styles.searchSlogan}>{t('headline.home.slogan')}</Text>
+          <Text
+            style={styles.searchSlogan}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+          >
+            {t('headline.home.slogan')}
+          </Text>
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>

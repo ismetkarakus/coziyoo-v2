@@ -11,9 +11,9 @@ Bu dosya, Coziyoo metin dilinin kalici kilididir. Aksi belirtilmedikce degistiri
 - Kurumsal/robotik dil kullanilmaz.
 
 ## 2) Ana Slogan (Sabit)
-- `Komşunun mutfağından, kapına.`
+- `Komsunun mutfagindan kapina`
 - Bu slogan degistirilemez.
-- Home ekraninda arama cubugunun altinda gorunur.
+- Home ekraninda arama cubugunun altinda tek satir gorunur.
 
 ## 3) Yasak Uslup
 - "Siparisiniz basariyla olusturulmustur" gibi kurumsal kaliplar
@@ -28,4 +28,3 @@ Bu dosya, Coziyoo metin dilinin kalici kilididir. Aksi belirtilmedikce degistiri
 ## 5) Degisiklik Politikasi
 - Bu ses/ton yalnizca urun sahibinin acik talimatiyla degistirilebilir.
 - Aksi durumda tum yeni ekran ve degisiklikler bu dile uymak zorundadir.
-
