@@ -2756,7 +2756,7 @@ const styles = StyleSheet.create({
   },
   searchCategoryScroller: { flex: 1 },
   searchSloganWrap: {
-    marginTop: -4,
+    marginTop: 6,
     marginBottom: 8,
     marginHorizontal: 0,
     backgroundColor: '#F8FCF7',
@@ -2845,8 +2845,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     color: '#8A7A66',
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 19,
     fontWeight: '600',
   },
   searchSlogan: {
