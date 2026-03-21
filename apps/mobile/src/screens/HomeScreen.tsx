@@ -80,6 +80,7 @@ type ApiFoodItem = {
   category: string | null;
   allergens?: string[];
   ingredients?: string[];
+  cuisine?: string | null;
   lotId?: string | null;
   stock: number;
   seller: { id: string; name: string; image: string | null };
@@ -94,6 +95,7 @@ type MealCard = {
   allergens: string[];
   ingredients: string[];
   description: string;
+  cuisine: string;
   lotId?: string | null;
   rating: string;
   time: string;
@@ -451,6 +453,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     allergens: item.allergens ?? [],
     ingredients: item.ingredients ?? [],
     description: item.description ?? '',
+    cuisine: item.cuisine ?? '',
     lotId: item.lotId ?? null,
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
@@ -702,6 +705,11 @@ function FoodCard({
                 style={styles.foodSellerChevron}
               />
             </TouchableOpacity>
+            {meal.cuisine ? (
+              <Text style={[styles.foodCuisine, { color: colors.meta }]}>
+                Mutfak: {meal.cuisine}
+              </Text>
+            ) : null}
           </View>
           <View style={styles.foodRightCol}>
             <Text style={[styles.foodPrice, { color: colors.price }]}>
@@ -1887,6 +1895,9 @@ export default function HomeScreen({
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
+              {selectedMeal.cuisine ? (
+                <Text style={styles.modalCuisine}>Mutfak: {selectedMeal.cuisine}</Text>
+              ) : null}
               <View style={styles.modalInfoRow}>
                 <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
                 <Text style={styles.modalMeta}>
@@ -2445,6 +2456,7 @@ const styles = StyleSheet.create({
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
+  foodCuisine: { fontSize: 12, fontWeight: '500', marginTop: 2, fontStyle: 'italic' },
   foodPrice: { fontSize: 18, fontWeight: '700' },
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
@@ -2956,7 +2968,8 @@ const styles = StyleSheet.create({
   modalImage: { width: '100%' as unknown as number, height: '100%' as unknown as number },
   modalEmoji: { fontSize: 56 },
   modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
-  modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  modalCuisine: { color: '#A89B8C', fontSize: 13, fontStyle: 'italic', marginBottom: 8 },
   modalInfoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 8 },
   modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700' },
   modalMeta: { color: '#A89B8C', fontSize: 13 },
