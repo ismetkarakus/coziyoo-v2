@@ -1069,15 +1069,15 @@ export default function HomeScreen({
     const breathe = Animated.loop(
       Animated.sequence([
         Animated.timing(breatheScale, {
-          toValue: 1.015,
-          duration: 1800,
+          toValue: 1.02,
+          duration: 2200,
           easing: Easing.inOut(Easing.sin),
           isInteraction: false,
           useNativeDriver: true,
         }),
         Animated.timing(breatheScale, {
-          toValue: 0.985,
-          duration: 1800,
+          toValue: 1,
+          duration: 2200,
           easing: Easing.inOut(Easing.sin),
           isInteraction: false,
           useNativeDriver: true,
