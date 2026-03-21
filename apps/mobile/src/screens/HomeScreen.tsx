@@ -1646,17 +1646,25 @@ export default function HomeScreen({
             style={styles.searchSloganBg}
             imageStyle={styles.searchSloganBgImage}
           >
-            <View style={styles.searchSloganOverlay} />
+            <View style={styles.searchSloganOverlayStrong} />
+            <View style={styles.searchSloganOverlaySoft} />
             <View style={styles.searchSloganContent}>
-              <View style={styles.searchSloganTitleRow}>
-                <Ionicons name="home" size={25} color="#625746" />
-                <Text style={styles.searchSlogan} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
-                  {t('headline.home.slogan')}
-                </Text>
+              <View style={styles.searchSloganRow}>
+                <View style={styles.searchSloganLeft}>
+                  <View style={styles.searchSloganTitleRow}>
+                    <View style={styles.searchSloganIconBox}>
+                      <Ionicons name="home" size={18} color="#5A4634" />
+                    </View>
+                    <Text style={styles.searchSlogan}>
+                      {t('headline.home.slogan')}
+                    </Text>
+                  </View>
+                  <Text style={styles.searchSloganSubline}>
+                    {t('helper.home.sloganSubline')}
+                  </Text>
+                </View>
+                <View style={styles.searchSloganRightSpacer} />
               </View>
-              <Text style={styles.searchSloganSubline}>
-                {t('helper.home.sloganSubline')} 🥘
-              </Text>
             </View>
           </ImageBackground>
         </View>
@@ -2572,47 +2580,70 @@ const styles = StyleSheet.create({
   },
   searchCategoryScroller: { flex: 1 },
   searchSloganWrap: {
-    marginTop: 8,
-    marginBottom: 14,
-    borderRadius: 26,
+    height: 150,
+    marginHorizontal: -2,
+    marginVertical: 12,
+    borderRadius: 22,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: '#E0D2BF',
+    borderWidth: 1,
+    borderColor: '#E7DCCB',
   },
   searchSloganBg: {
-    minHeight: 154,
-    justifyContent: 'center',
+    flex: 1,
   },
   searchSloganBgImage: {
     resizeMode: 'cover',
   },
-  searchSloganOverlay: {
+  searchSloganOverlayStrong: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,248,236,0.78)',
+    backgroundColor: 'rgba(245,239,230,0.45)',
+  },
+  searchSloganOverlaySoft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '72%',
+    backgroundColor: 'rgba(245,239,230,0.9)',
   },
   searchSloganContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    flex: 1,
+    padding: 16,
+    justifyContent: 'center',
+  },
+  searchSloganRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchSloganLeft: {
+    flex: 3,
+    justifyContent: 'center',
+  },
+  searchSloganRightSpacer: {
+    flex: 2,
   },
   searchSloganTitleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
+  },
+  searchSloganIconBox: {
+    padding: 8,
+    backgroundColor: '#E6D8C9',
+    borderRadius: 10,
   },
   searchSloganSubline: {
     marginTop: 12,
-    color: '#5A4F40',
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 26,
-    maxWidth: '64%',
+    color: 'rgba(0,0,0,0.6)',
+    fontSize: 14,
+    lineHeight: 18,
   },
   searchSlogan: {
-    flex: 1,
-    color: '#3F342C',
-    fontSize: 26,
-    lineHeight: 34,
-    fontWeight: '900',
+    color: '#3A2E2A',
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '700',
+    flexShrink: 1,
   },
   debugBox: {
     backgroundColor: '#FFF3CD',
