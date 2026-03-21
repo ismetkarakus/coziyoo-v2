@@ -166,15 +166,6 @@ type PaymentStatusSnapshot = {
   latestAttemptStatus?: string;
 };
 
-function parseDistanceKm(distanceText: string): number | null {
-  const normalized = (distanceText || '').replace(',', '.');
-  const match = normalized.match(/(\d+(?:\.\d+)?)/);
-  if (!match) return null;
-  const value = Number.parseFloat(match[1]);
-  if (Number.isNaN(value)) return null;
-  return value;
-}
-
 function formatReviewDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -799,7 +790,6 @@ export default function HomeScreen({
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'home');
   const [activeCategory, setActiveCategory] = useState('Tumu');
-  const [nearbyOnly, setNearbyOnly] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [meals, setMeals] = useState<MealCard[]>([]);
@@ -1481,21 +1471,15 @@ export default function HomeScreen({
     activeCategory === 'Tumu'
       ? meals
       : meals.filter((m) => m.category === activeCategory);
-  const nearbyFilteredMeals = nearbyOnly
-    ? filteredMeals.filter((m) => {
-        const km = parseDistanceKm(m.distance);
-        return km !== null && km <= 2;
-      })
-    : filteredMeals;
   const visibleMeals = searchQuery.trim()
-    ? nearbyFilteredMeals.filter((m) => {
+    ? filteredMeals.filter((m) => {
         const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
         return (
           m.title.toLocaleLowerCase('tr-TR').includes(q) ||
           m.seller.toLocaleLowerCase('tr-TR').includes(q)
         );
       })
-    : nearbyFilteredMeals;
+    : filteredMeals;
   const sellerMeals = selectedSeller
     ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
     : [];
@@ -1587,26 +1571,6 @@ export default function HomeScreen({
         </View>
 
         {/* Sticky search + category chips */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setNearbyOnly((prev) => !prev)}
-          style={[styles.nearbyInlineBtn, nearbyOnly && styles.nearbyInlineBtnActive]}
-        >
-          <Ionicons
-            name="location"
-            size={16}
-            color="#D45454"
-            style={styles.nearbyInlineIconBehind}
-          />
-          <Ionicons
-            name="location"
-            size={14}
-            color="#D45454"
-          />
-          <Text style={[styles.nearbyInlineText, nearbyOnly && styles.nearbyInlineTextActive]}>
-            Yakınımda
-          </Text>
-        </TouchableOpacity>
         <View style={styles.searchStickyWrap}>
           <View style={styles.searchBox}>
             {!searchMode ? (
@@ -1684,9 +1648,12 @@ export default function HomeScreen({
               {t('headline.home.slogan')}
             </Text>
           </View>
-          <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
-            {t('helper.home.sloganSubline')}
-          </Text>
+          <View style={styles.searchSloganSublineRow}>
+            <Ionicons name="location" size={13} color="#D45454" />
+            <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
+              {t('helper.home.sloganSubline')}
+            </Text>
+          </View>
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
@@ -2524,32 +2491,6 @@ const styles = StyleSheet.create({
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
-  nearbyInlineBtn: {
-    marginTop: -4,
-    marginBottom: 2,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  nearbyInlineBtnActive: {
-    backgroundColor: 'transparent',
-  },
-  nearbyInlineIconBehind: {
-    position: 'absolute',
-    left: 26,
-    top: '50%',
-    marginTop: -8,
-    opacity: 0.12,
-  },
-  nearbyInlineText: { color: '#7A6D5D', fontSize: 12, fontWeight: '700' },
-  nearbyInlineTextActive: { color: '#7A6D5D' },
-
   /* --- Search --- */
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
@@ -2635,10 +2576,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchSloganSubline: {
-    marginTop: 6,
     color: '#6E6354',
     fontSize: 14,
     lineHeight: 18,
+  },
+  searchSloganSublineRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   searchSlogan: {
     color: '#B45A2A',
