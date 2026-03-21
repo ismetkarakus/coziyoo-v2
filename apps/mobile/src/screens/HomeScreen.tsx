@@ -681,7 +681,7 @@ function FoodCard({
         )}
         {meal.cuisine ? (
           <View style={styles.cuisineBadge}>
-            <Text style={styles.cuisineBadgeText}>Mutfak: {meal.cuisine}</Text>
+            <Text style={styles.cuisineBadgeText}>{meal.cuisine} Mutfagi</Text>
           </View>
         ) : null}
         <View style={styles.ratingBadge}>
@@ -1896,7 +1896,7 @@ export default function HomeScreen({
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
               {selectedMeal.cuisine ? (
-                <Text style={styles.modalCuisine}>Mutfak: {selectedMeal.cuisine}</Text>
+                <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfagi</Text>
               ) : null}
               <View style={styles.modalInfoRow}>
                 <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
