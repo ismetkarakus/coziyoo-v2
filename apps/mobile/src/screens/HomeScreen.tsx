@@ -2664,7 +2664,13 @@ const styles = StyleSheet.create({
   scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
 
   /* --- Header --- */
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    marginHorizontal: -12,
+  },
   headerTextWrap: { flex: 1, paddingRight: 20 },
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitleRow: { marginTop: 4, marginLeft: 30, flexDirection: 'row', alignItems: 'center' },
