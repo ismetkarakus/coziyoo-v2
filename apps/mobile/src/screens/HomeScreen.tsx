@@ -1900,14 +1900,10 @@ export default function HomeScreen({
 
               {selectedMeal.ingredients.length > 0 && (
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Malzemeler</Text>
-                  <View style={styles.modalTagsWrap}>
-                    {selectedMeal.ingredients.map((ing, i) => (
-                      <View key={i} style={styles.modalIngredientTag}>
-                        <Text style={styles.modalIngredientText}>{ing}</Text>
-                      </View>
-                    ))}
-                  </View>
+                  <Text style={styles.modalSectionTitle}>Malzemeler / Baharatlar</Text>
+                  <Text style={styles.modalIngredientsPlain}>
+                    {selectedMeal.ingredients.join(', ')}
+                  </Text>
                 </View>
               )}
 
@@ -2968,8 +2964,7 @@ const styles = StyleSheet.create({
   modalSection: { width: '100%' as unknown as number, marginBottom: 12 },
   modalSectionTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700', marginBottom: 8 },
   modalTagsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
-  modalIngredientTag: { backgroundColor: '#EDE8E0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
-  modalIngredientText: { color: '#5F5246', fontSize: 13, fontWeight: '500' },
+  modalIngredientsPlain: { color: '#5F5246', fontSize: 14, lineHeight: 20 },
   modalAllergenTag: { backgroundColor: '#FDECEA', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#F5C6CB' },
   modalAllergenText: { color: '#DC3545', fontSize: 13, fontWeight: '600' },
   modalPrice: { color: '#5B7A4A', fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 20 },
