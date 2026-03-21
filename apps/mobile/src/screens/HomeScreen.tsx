@@ -75,6 +75,13 @@ type MeProfile = {
   name?: string | null;
 };
 
+type ProfileAddress = {
+  id: string;
+  title: string;
+  addressLine: string;
+  isDefault: boolean;
+};
+
 type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
 type AgentMode = 'voice' | 'text';
@@ -242,6 +249,27 @@ function resolveGreetingName(profile: MeProfile | null | undefined, email?: stri
   if (emailName) return emailName;
 
   return 'Lale';
+}
+
+function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?: string): string {
+  const fromProfile = (profile?.displayName ?? profile?.fullName ?? profile?.name ?? '').trim();
+  if (fromProfile) return fromProfile;
+
+  const emailName = (email ?? '').split('@')[0]?.trim();
+  if (emailName) return emailName;
+
+  return 'Komşu';
+}
+
+function resolveAddressPreview(addresses: ProfileAddress[]): string {
+  if (!addresses.length) return t('helper.home.profileAddressFallback');
+  const preferred = addresses.find((addr) => addr.isDefault) ?? addresses[0];
+  const normalized = preferred.addressLine.trim();
+  if (!normalized) return t('helper.home.profileAddressFallback');
+  const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
+  if (parts.length === 1) return parts[0];
+  return t('helper.home.profileAddressFallback');
 }
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
@@ -886,6 +914,10 @@ export default function HomeScreen({
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
+  const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
+    resolveProfileDisplayName(null, auth.email),
+  );
+  const [profileAddressPreview, setProfileAddressPreview] = useState<string>(t('helper.home.profileAddressFallback'));
   const [greetingName, setGreetingName] = useState<string>(() =>
     resolveGreetingName(null, auth.email),
   );
@@ -931,6 +963,11 @@ export default function HomeScreen({
     if (!apiUrl) return;
     void fetchMeProfile(apiUrl, currentAuth.accessToken);
   }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (activeTab !== 'profile' || !apiUrl) return;
+    void fetchProfileAddressPreview(apiUrl, currentAuth.accessToken);
+  }, [activeTab, apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
     setGreetingName(resolveGreetingName(null, currentAuth.email));
@@ -1053,6 +1090,7 @@ export default function HomeScreen({
         const imageUrl = retryJson.data?.profileImageUrl ?? null;
         setProfileImageUrl(imageUrl);
         setGreetingName(resolveGreetingName(retryJson.data, currentAuth.email));
+        setProfileDisplayName(resolveProfileDisplayName(retryJson.data, currentAuth.email));
         return;
       }
       if (!response.ok) return;
@@ -1060,8 +1098,35 @@ export default function HomeScreen({
       const imageUrl = json.data?.profileImageUrl ?? null;
       setProfileImageUrl(imageUrl);
       setGreetingName(resolveGreetingName(json.data, currentAuth.email));
+      setProfileDisplayName(resolveProfileDisplayName(json.data, currentAuth.email));
     } catch {
       // Keep fallback avatar when profile fetch fails
+    }
+  }
+
+  async function fetchProfileAddressPreview(url: string, accessToken: string) {
+    try {
+      const response = await fetch(`${url}/v1/auth/me/addresses`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (response.status === 401) {
+        const refreshed = await refreshAuthSession(url, currentAuth);
+        if (!refreshed) return;
+        setCurrentAuth(refreshed);
+        onAuthRefresh?.(refreshed);
+        const retryRes = await fetch(`${url}/v1/auth/me/addresses`, {
+          headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+        });
+        if (!retryRes.ok) return;
+        const retryJson = await readJsonSafe<{ data?: ProfileAddress[] }>(retryRes);
+        setProfileAddressPreview(resolveAddressPreview(retryJson.data ?? []));
+        return;
+      }
+      if (!response.ok) return;
+      const json = await readJsonSafe<{ data?: ProfileAddress[] }>(response);
+      setProfileAddressPreview(resolveAddressPreview(json.data ?? []));
+    } catch {
+      setProfileAddressPreview(t('helper.home.profileAddressFallback'));
     }
   }
 
@@ -2059,7 +2124,23 @@ export default function HomeScreen({
     }
     if (activeTab === 'profile') {
       return (
-        <View style={styles.profileCard}>
+        <ScrollView
+          style={styles.profileScreen}
+          contentContainerStyle={styles.profileScreenContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.profileTopBar}>
+            <TouchableOpacity
+              style={styles.profileTopBackButton}
+              onPress={() => handleTabPress('home')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-back" size={22} color="#4E433A" />
+            </TouchableOpacity>
+            <Text style={styles.profileTopTitle}>{t('status.home.profileTitle')}</Text>
+            <View style={styles.profileTopSpacer} />
+          </View>
+
           <View style={styles.profileHeader}>
             <View style={styles.profileAvatar}>
               {profileImageUrl && !profileImageLoadFailed ? (
@@ -2072,40 +2153,82 @@ export default function HomeScreen({
                 <Image source={{ uri: cachedLocalImageUrl }} style={styles.profileAvatarImage} />
               ) : (
                 <Text style={styles.profileAvatarText}>
-                  {currentAuth.email ? currentAuth.email.charAt(0).toUpperCase() : '?'}
+                  {profileDisplayName.charAt(0).toUpperCase()}
                 </Text>
               )}
             </View>
-            <View style={styles.profileMeta}>
-              <Text style={styles.profileTitle}>{t('status.home.profileTitle')}</Text>
-              <Text style={styles.profileEmail}>{currentAuth.email}</Text>
-            </View>
           </View>
+          <Text style={styles.profileName}>{profileDisplayName}</Text>
+          <Text style={styles.profileEmail}>{currentAuth.email}</Text>
+
+          <View style={styles.profileGroupCard}>
+            <TouchableOpacity
+              style={[styles.profileActionRow, styles.profileActionRowDivider]}
+              onPress={onOpenProfileEdit}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileActionMain}>
+                <View style={[styles.profileActionIconWrap, { backgroundColor: '#E9F2EB' }]}>
+                  <Ionicons name="person-circle-outline" size={20} color="#4A7C59" />
+                </View>
+                <Text style={styles.profileActionTitle}>{t('cta.home.profileEdit')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.profileActionRow}
+              onPress={onOpenAddresses}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileActionMain}>
+                <View style={[styles.profileActionIconWrap, { backgroundColor: '#F1EADF' }]}>
+                  <Ionicons name="location" size={18} color="#8B7255" />
+                </View>
+                <View style={styles.profileActionTextBlock}>
+                  <Text style={styles.profileActionTitle}>{t('cta.home.addresses')}</Text>
+                  <Text style={styles.profileActionSubtitle}>{profileAddressPreview}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
-            style={styles.profileButton}
-            onPress={onOpenProfileEdit}
-          >
-            <Text style={styles.profileButtonText}>{t('cta.home.profileEdit')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={onOpenAddresses}
-          >
-            <Text style={styles.profileButtonText}>{t('cta.home.addresses')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.profileButton}
+            style={styles.profileGroupCard}
             onPress={onOpenSettings}
+            activeOpacity={0.85}
           >
-            <Text style={styles.profileButtonText}>{t('cta.home.settings')}</Text>
+            <View style={styles.profileActionRow}>
+              <View style={styles.profileActionMain}>
+                <View style={[styles.profileActionIconWrap, { backgroundColor: '#EFEAE3' }]}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color="#6A5846" />
+                </View>
+                <Text style={styles.profileActionTitle}>{t('cta.home.security')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
+            </View>
           </TouchableOpacity>
+
+          <View style={styles.profileSellerCard}>
+            <Text style={styles.profileSellerBody}>{t('helper.home.profileSellerPromo')}</Text>
+            <Text style={styles.profileSellerQuestion}>{t('helper.home.profileSellerQuestion')}</Text>
+            <TouchableOpacity
+              style={styles.profileSellerButton}
+              onPress={onOpenSettings}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.profileSellerButtonText}>{t('cta.home.becomeSeller')}</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
-            style={styles.profileDangerButton}
+            style={styles.profileLogoutButton}
             onPress={onLogout}
+            activeOpacity={0.8}
           >
-            <Text style={styles.profileDangerButtonText}>{t('cta.home.logout')}</Text>
+            <Text style={styles.profileLogoutText}>{t('cta.home.logout')}</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       );
     }
     return renderHomeFeed();
@@ -3379,21 +3502,115 @@ const styles = StyleSheet.create({
   messagesTabSubtitle: { color: '#8D8072', fontSize: 13, marginTop: 2 },
 
   /* --- Profile --- */
-  profileCard: {
-    marginTop: 24, marginHorizontal: 18, backgroundColor: '#FFFDF9',
-    borderRadius: 28, padding: 22, borderWidth: 1, borderColor: '#EDE8E0',
+  profileScreen: { flex: 1 },
+  profileScreenContent: { paddingTop: 18, paddingHorizontal: 18, paddingBottom: 124 },
+  profileTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
   },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
-  profileAvatar: { width: 56, height: 56, borderRadius: 18, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
-  profileAvatarImage: { width: 56, height: 56, borderRadius: 18 },
-  profileAvatarText: { fontSize: 26 },
-  profileMeta: { flex: 1 },
-  profileTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
-  profileEmail: { color: '#A89B8C', fontSize: 13, marginTop: 4 },
-  profileButton: { backgroundColor: '#EDE8E0', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
-  profileButtonText: { color: '#6B5D4F', fontSize: 14, fontWeight: '700' },
-  profileDangerButton: { backgroundColor: '#D45454', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  profileDangerButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  profileTopBackButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileTopTitle: { color: '#3D3229', fontSize: 16, fontWeight: '700' },
+  profileTopSpacer: { width: 34, height: 34 },
+  profileHeader: { alignItems: 'center', justifyContent: 'center' },
+  profileAvatar: {
+    width: 98,
+    height: 98,
+    borderRadius: 30,
+    backgroundColor: '#EDE8E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  profileAvatarImage: { width: '100%', height: '100%' },
+  profileAvatarText: { fontSize: 34, color: '#4E433A', fontWeight: '700' },
+  profileName: {
+    color: '#3D3229',
+    fontSize: 18,
+    lineHeight: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  profileEmail: {
+    color: '#8F8377',
+    fontSize: 13,
+    lineHeight: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  profileGroupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#ECE4D9',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  profileActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  profileActionRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE6DB',
+  },
+  profileActionMain: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
+  profileActionIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileActionTextBlock: { flex: 1 },
+  profileActionTitle: { color: '#4C4036', fontSize: 16, fontWeight: '700' },
+  profileActionSubtitle: { color: '#8D8072', fontSize: 12, marginTop: 2 },
+  profileSellerCard: {
+    marginTop: 2,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#ECE4D9',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+    backgroundColor: '#F8F4EE',
+  },
+  profileSellerBody: { color: '#8A7D6F', fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  profileSellerQuestion: {
+    color: '#4A3F36',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 11,
+  },
+  profileSellerButton: {
+    backgroundColor: '#4A865E',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  profileSellerButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  profileLogoutButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  profileLogoutText: { color: '#A04A4A', fontSize: 14, fontWeight: '600' },
 
   /* --- Inline error --- */
   inlineError: { color: '#D45454', fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 6 },
