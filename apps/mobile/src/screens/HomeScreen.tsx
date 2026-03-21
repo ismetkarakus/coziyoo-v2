@@ -681,7 +681,7 @@ function FoodCard({
         )}
         {meal.cuisine ? (
           <View style={styles.cuisineBadge}>
-            <Text style={styles.cuisineBadgeText}>{meal.cuisine}</Text>
+            <Text style={styles.cuisineBadgeText}>Mutfak: {meal.cuisine}</Text>
           </View>
         ) : null}
         <View style={styles.ratingBadge}>
