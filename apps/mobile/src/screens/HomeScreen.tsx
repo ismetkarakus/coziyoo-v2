@@ -410,11 +410,11 @@ const CATEGORIES = [
 ] as const;
 
 const DAILY_FLASH_MEALS = [
-  'Günün yemeği: Anne usulü mercimek çorbası',
-  'Günün yemeği: Etli taze fasulye',
-  'Günün yemeği: Fırında tavuk ve pilav',
-  'Günün yemeği: Zeytinyağlı yaprak sarma',
-  'Günün yemeği: Sütlaç',
+  'Anne usulü mercimek çorbası',
+  'Etli taze fasulye',
+  'Fırında tavuk ve pilav',
+  'Zeytinyağlı yaprak sarma',
+  'Sütlaç',
 ] as const;
 
 const CATEGORY_BG_COLORS: Record<string, string> = {
