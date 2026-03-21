@@ -1673,7 +1673,7 @@ export default function HomeScreen({
             >
               <Ionicons
                 name="location"
-                size={13}
+                size={18}
                 color={nearbyOnly ? '#D45454' : '#BFAE9D'}
               />
             </TouchableOpacity>
@@ -2614,9 +2614,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sloganNearbyIconBtn: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
