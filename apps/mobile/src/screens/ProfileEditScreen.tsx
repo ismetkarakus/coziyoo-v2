@@ -18,7 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
-import { saveCachedProfileImageUrl } from '../utils/profileImage';
+import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 
 type UserProfile = {
   id: string;
@@ -55,6 +55,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [email, setEmail] = useState('');
   const [userType, setUserType] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
+  const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
@@ -63,6 +65,17 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
   useEffect(() => {
     fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    setProfileImageLoadFailed(false);
+  }, [profileImageUrl]);
+
+  useEffect(() => {
+    loadCachedProfileImageUrl().then((cached) => {
+      if (!cached) return;
+      setCachedLocalImageUrl(cached);
+    });
   }, []);
 
   async function authedFetch(url: string, options?: RequestInit) {
@@ -115,9 +128,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setEmail(data.email ?? '');
       setUserType(data.userType ?? '');
       setProfileImageUrl(data.profileImageUrl ?? null);
-      if (data.profileImageUrl) {
-        await saveCachedProfileImageUrl(data.profileImageUrl);
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Profil yuklenemedi');
     } finally {
@@ -145,6 +155,10 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       const asset = result.assets[0];
       const uri = asset.uri;
       const mimeType = asset.mimeType ?? 'image/jpeg';
+
+      setProfileImageUrl(uri);
+      setCachedLocalImageUrl(uri);
+      await saveCachedProfileImageUrl(uri);
 
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
         Alert.alert('Hata', 'Sadece JPEG, PNG veya WebP formatinda resim yukleyebilirsiniz.');
@@ -189,7 +203,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       }
 
       setProfileImageUrl(imageUrl);
-      await saveCachedProfileImageUrl(imageUrl);
     } catch (e) {
       Alert.alert('Hata', e instanceof Error ? e.message : 'Resim yuklenemedi');
     } finally {
@@ -274,8 +287,14 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                   disabled={uploadingImage}
                   activeOpacity={0.7}
                 >
-                  {profileImageUrl ? (
-                    <Image source={{ uri: profileImageUrl }} style={styles.avatarImage} />
+                  {profileImageUrl && !profileImageLoadFailed ? (
+                    <Image
+                      source={{ uri: profileImageUrl }}
+                      style={styles.avatarImage}
+                      onError={() => setProfileImageLoadFailed(true)}
+                    />
+                  ) : cachedLocalImageUrl ? (
+                    <Image source={{ uri: cachedLocalImageUrl }} style={styles.avatarImage} />
                   ) : (
                     <View style={styles.avatar}>
                       <Text style={styles.avatarText}>

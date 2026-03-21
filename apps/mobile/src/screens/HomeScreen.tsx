@@ -38,7 +38,7 @@ try {
 }
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
-import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
+import { loadCachedProfileImageUrl } from '../utils/profileImage';
 import VoiceSessionScreen from './VoiceSessionScreen';
 
 /* ------------------------------------------------------------------ */
@@ -794,6 +794,8 @@ export default function HomeScreen({
   const [paymentWebVisible, setPaymentWebVisible] = useState(false);
   const [pendingCheckoutUrls, setPendingCheckoutUrls] = useState<string[]>([]);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
+  const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -810,9 +812,13 @@ export default function HomeScreen({
   useEffect(() => {
     loadCachedProfileImageUrl().then((cached) => {
       if (!cached) return;
-      setProfileImageUrl(cached);
+      setCachedLocalImageUrl(cached);
     });
   }, []);
+
+  useEffect(() => {
+    setProfileImageLoadFailed(false);
+  }, [profileImageUrl]);
 
   useEffect(() => {
     if (!apiUrl) return;
@@ -899,18 +905,12 @@ export default function HomeScreen({
         const retryJson = await readJsonSafe<{ data?: MeProfile }>(retryRes);
         const imageUrl = retryJson.data?.profileImageUrl ?? null;
         setProfileImageUrl(imageUrl);
-        if (imageUrl) {
-          await saveCachedProfileImageUrl(imageUrl);
-        }
         return;
       }
       if (!response.ok) return;
       const json = await readJsonSafe<{ data?: MeProfile }>(response);
       const imageUrl = json.data?.profileImageUrl ?? null;
       setProfileImageUrl(imageUrl);
-      if (imageUrl) {
-        await saveCachedProfileImageUrl(imageUrl);
-      }
     } catch {
       // Keep fallback avatar when profile fetch fails
     }
@@ -1509,8 +1509,14 @@ export default function HomeScreen({
             style={styles.avatarCircle}
             onPress={() => handleTabPress('profile')}
           >
-            {profileImageUrl ? (
-              <Image source={{ uri: profileImageUrl }} style={styles.avatarCircleImage} />
+            {profileImageUrl && !profileImageLoadFailed ? (
+              <Image
+                source={{ uri: profileImageUrl }}
+                style={styles.avatarCircleImage}
+                onError={() => setProfileImageLoadFailed(true)}
+              />
+            ) : cachedLocalImageUrl ? (
+              <Image source={{ uri: cachedLocalImageUrl }} style={styles.avatarCircleImage} />
             ) : (
               <Text style={styles.avatarEmoji}>👩‍🍳</Text>
             )}
@@ -1803,8 +1809,14 @@ export default function HomeScreen({
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.profileAvatar}>
-              {profileImageUrl ? (
-                <Image source={{ uri: profileImageUrl }} style={styles.profileAvatarImage} />
+              {profileImageUrl && !profileImageLoadFailed ? (
+                <Image
+                  source={{ uri: profileImageUrl }}
+                  style={styles.profileAvatarImage}
+                  onError={() => setProfileImageLoadFailed(true)}
+                />
+              ) : cachedLocalImageUrl ? (
+                <Image source={{ uri: cachedLocalImageUrl }} style={styles.profileAvatarImage} />
               ) : (
                 <Text style={styles.profileAvatarText}>
                   {currentAuth.email ? currentAuth.email.charAt(0).toUpperCase() : '?'}
