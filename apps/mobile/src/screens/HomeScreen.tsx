@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -249,10 +249,6 @@ function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHei
   if (title.length >= 25) return { fontSize: 21, lineHeight: 27 };
   if (title.length >= 20) return { fontSize: 23, lineHeight: 29 };
   return { fontSize: 26, lineHeight: 32 };
-}
-
-function resolveDailyFlashTextMetrics(text: string): { fontSize: number; lineHeight: number } {
-  return { fontSize: 14, lineHeight: 18 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -896,15 +892,15 @@ export default function HomeScreen({
   const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState<string>(() =>
     buildGreetingTitle(resolveGreetingName(null, auth.email)),
   );
-  const [dailyFlashIndex, setDailyFlashIndex] = useState(0);
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
+  const sloganMarqueeText = useMemo(
+    () => `${t('headline.home.slogan')} • ${DAILY_FLASH_MEALS.join(' • ')}`,
+    [],
+  );
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
-  const dailyFlashOpacity = useRef(new Animated.Value(0)).current;
-  const dailyFlashTranslateY = useRef(new Animated.Value(14)).current;
-  const dailyFlashScale = useRef(new Animated.Value(0.68)).current;
   const sloganMarqueeX = useRef(new Animated.Value(0)).current;
   const sloganMarqueeLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const searchInputRef = useRef<TextInput>(null);
@@ -943,73 +939,6 @@ export default function HomeScreen({
     const interval = setInterval(refreshGreeting, 60_000);
     return () => clearInterval(interval);
   }, [greetingName]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const runFlashLoop = () => {
-      if (cancelled) return;
-
-      dailyFlashOpacity.setValue(0);
-      dailyFlashTranslateY.setValue(14);
-      dailyFlashScale.setValue(0.68);
-
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(dailyFlashOpacity, {
-            toValue: 1,
-            duration: 760,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(dailyFlashTranslateY, {
-            toValue: 0,
-            duration: 760,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(dailyFlashScale, {
-            toValue: 1,
-            duration: 760,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.delay(2200),
-        Animated.parallel([
-          Animated.timing(dailyFlashOpacity, {
-            toValue: 0,
-            duration: 680,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(dailyFlashTranslateY, {
-            toValue: -10,
-            duration: 680,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(dailyFlashScale, {
-            toValue: 1.06,
-            duration: 680,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start(({ finished }) => {
-        if (!finished || cancelled) return;
-        setDailyFlashIndex((prev) => (prev + 1) % DAILY_FLASH_MEALS.length);
-        timer = setTimeout(runFlashLoop, 260);
-      });
-    };
-
-    runFlashLoop();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [dailyFlashOpacity, dailyFlashScale, dailyFlashTranslateY]);
 
   useEffect(() => {
     if (!sloganTrackWidth || !sloganTextWidth) return;
@@ -1726,7 +1655,7 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
-        stickyHeaderIndices={[__DEV__ ? 3 : 2]}
+        stickyHeaderIndices={[__DEV__ ? 2 : 1]}
       >
         {__DEV__ ? (
           <View style={[styles.debugBox, styles.headerDebugBox]}>
@@ -1773,24 +1702,6 @@ export default function HomeScreen({
             </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.dailyFlashWrap}>
-          <Animated.Text
-            style={[
-              styles.dailyFlashText,
-              resolveDailyFlashTextMetrics(DAILY_FLASH_MEALS[dailyFlashIndex]),
-              {
-                opacity: dailyFlashOpacity,
-                transform: [
-                  { translateY: dailyFlashTranslateY },
-                  { scale: dailyFlashScale },
-                ],
-              },
-            ]}
-          >
-            {DAILY_FLASH_MEALS[dailyFlashIndex]}
-          </Animated.Text>
-        </View>
-
         {/* Sticky search + category chips */}
         <View style={styles.searchStickyWrap}>
           <View style={styles.searchBox}>
@@ -1885,7 +1796,7 @@ export default function HomeScreen({
                   ]}
                   numberOfLines={1}
                 >
-                  {t('headline.home.slogan')}
+                  {sloganMarqueeText}
                 </Animated.Text>
                 <Animated.Text
                   style={[
@@ -1904,7 +1815,7 @@ export default function HomeScreen({
                   ]}
                   numberOfLines={1}
                 >
-                  {t('headline.home.slogan')}
+                  {sloganMarqueeText}
                 </Animated.Text>
               </View>
             </View>
@@ -2746,26 +2657,6 @@ const styles = StyleSheet.create({
   headerTextWrap: { flex: 1, paddingRight: 20 },
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
-  dailyFlashWrap: {
-    marginTop: -10,
-    marginBottom: 4,
-    marginHorizontal: 0,
-    height: 28,
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    overflow: 'visible',
-  },
-  dailyFlashText: {
-    color: '#7A5B2A',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-    maxWidth: '94%',
-    textShadowColor: 'rgba(255,255,255,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
-  },
   headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
