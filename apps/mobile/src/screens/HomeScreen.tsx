@@ -2663,7 +2663,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFDF9' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 14, paddingHorizontal: 18, paddingBottom: 130 },
+  scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
 
   /* --- Header --- */
   headerRow: {
@@ -2684,7 +2684,7 @@ const styles = StyleSheet.create({
   avatarEmoji: { fontSize: 18 },
   /* --- Search --- */
   searchStickyWrap: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: '#F3F9EF',
     zIndex: 1,
     paddingTop: 0,
     paddingBottom: 0,
