@@ -215,9 +215,9 @@ function sleep(ms: number): Promise<void> {
 
 function buildGreetingTitle(date = new Date()): string {
   const hour = date.getHours();
-  if (hour < 12) return 'Günaydın, Lale';
-  if (hour < 18) return 'İyi öğlenler, Lale';
-  return 'İyi akşamlar, Lale';
+  if (hour < 12) return '🌞 Günaydın, Lale';
+  if (hour < 18) return '🌤 Tünaydın, Lale';
+  return '🌙 İyi akşamlar, Lale';
 }
 
 /* ------------------------------------------------------------------ */
