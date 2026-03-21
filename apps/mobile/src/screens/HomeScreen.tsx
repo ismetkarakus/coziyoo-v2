@@ -1683,7 +1683,6 @@ export default function HomeScreen({
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
             <View style={styles.greetingTitleWrap}>
-              <Text style={styles.greetingEmoji}>{dynamicGreetingTitle.emoji}</Text>
               <Text
                 style={[styles.greetingTitle, resolveGreetingTitleMetrics(dynamicGreetingTitle.text)]}
                 numberOfLines={1}
@@ -1692,6 +1691,7 @@ export default function HomeScreen({
               >
                 {dynamicGreetingTitle.text}
               </Text>
+              <Text style={styles.greetingEmoji}>{dynamicGreetingTitle.emoji}</Text>
             </View>
             <View style={styles.greetingSubtitleRow}>
               <TouchableOpacity
@@ -2678,17 +2678,9 @@ const styles = StyleSheet.create({
     marginHorizontal: -12,
   },
   headerTextWrap: { flex: 1, paddingRight: 20, maxWidth: '65%' },
-  greetingTitleWrap: { alignSelf: 'flex-start', position: 'relative' },
-  greetingEmoji: {
-    position: 'absolute',
-    left: -6,
-    top: -6,
-    fontSize: 42,
-    opacity: 0.16,
-    zIndex: 1,
-    transform: [{ scaleX: 0.8 }, { scaleY: 1.15 }],
-  },
-  greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700', zIndex: 2 },
+  greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
+  greetingEmoji: { fontSize: 34, opacity: 0.9, marginLeft: 6 },
+  greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitleRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center' },
   greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600' },
@@ -2700,7 +2692,7 @@ const styles = StyleSheet.create({
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
     zIndex: 1,
-    paddingTop: 0,
+    paddingTop: 14,
     paddingBottom: 0,
     marginHorizontal: -12,
     position: 'relative',
