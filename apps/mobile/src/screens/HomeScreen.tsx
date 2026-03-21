@@ -166,6 +166,15 @@ type PaymentStatusSnapshot = {
   latestAttemptStatus?: string;
 };
 
+function parseDistanceKm(distanceText: string): number | null {
+  const normalized = (distanceText || '').replace(',', '.');
+  const match = normalized.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const value = Number.parseFloat(match[1]);
+  if (Number.isNaN(value)) return null;
+  return value;
+}
+
 function formatReviewDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -790,6 +799,7 @@ export default function HomeScreen({
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'home');
   const [activeCategory, setActiveCategory] = useState('Tumu');
+  const [nearbyOnly, setNearbyOnly] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [meals, setMeals] = useState<MealCard[]>([]);
@@ -1471,15 +1481,21 @@ export default function HomeScreen({
     activeCategory === 'Tumu'
       ? meals
       : meals.filter((m) => m.category === activeCategory);
-  const visibleMeals = searchQuery.trim()
+  const nearbyFilteredMeals = nearbyOnly
     ? filteredMeals.filter((m) => {
+        const km = parseDistanceKm(m.distance);
+        return km !== null && km <= 2;
+      })
+    : filteredMeals;
+  const visibleMeals = searchQuery.trim()
+    ? nearbyFilteredMeals.filter((m) => {
         const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
         return (
           m.title.toLocaleLowerCase('tr-TR').includes(q) ||
           m.seller.toLocaleLowerCase('tr-TR').includes(q)
         );
       })
-    : filteredMeals;
+    : nearbyFilteredMeals;
   const sellerMeals = selectedSeller
     ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
     : [];
@@ -1649,7 +1665,18 @@ export default function HomeScreen({
             </Text>
           </View>
           <View style={styles.searchSloganSublineRow}>
-            <Ionicons name="location" size={13} color="#D45454" />
+            <TouchableOpacity
+              onPress={() => setNearbyOnly((prev) => !prev)}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              style={[styles.sloganNearbyIconBtn, nearbyOnly && styles.sloganNearbyIconBtnActive]}
+            >
+              <Ionicons
+                name="location"
+                size={13}
+                color={nearbyOnly ? '#D45454' : '#BFAE9D'}
+              />
+            </TouchableOpacity>
             <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
               {t('helper.home.sloganSubline')}
             </Text>
@@ -2585,6 +2612,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  sloganNearbyIconBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sloganNearbyIconBtnActive: {
+    backgroundColor: '#F8E6E6',
   },
   searchSlogan: {
     color: '#B45A2A',
