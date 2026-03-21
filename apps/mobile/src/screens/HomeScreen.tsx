@@ -1562,8 +1562,6 @@ export default function HomeScreen({
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.greetingTitle}>{t('headline.home.greetingTitle')}</Text>
-            <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
             {__DEV__ ? (
               <View style={[styles.debugBox, styles.headerDebugBox]}>
                 <Text style={styles.debugText}>API: {apiUrl}</Text>
@@ -1576,6 +1574,8 @@ export default function HomeScreen({
                 ) : null}
               </View>
             ) : null}
+            <Text style={styles.greetingTitle}>{t('headline.home.greetingTitle')}</Text>
+            <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
           </View>
           <View style={styles.headerAvatarWrap}>
             <TouchableOpacity
