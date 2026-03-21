@@ -1583,19 +1583,24 @@ export default function HomeScreen({
                 <Text style={styles.avatarEmoji}>👩‍🍳</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setNearbyOnly((prev) => !prev)}
-              style={[styles.headerNearbyBtn, nearbyOnly && styles.headerNearbyBtnActive]}
-            >
-              <Text style={[styles.headerNearbyText, nearbyOnly && styles.headerNearbyTextActive]}>
-                📍 Yakınımda
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
 
         {/* Sticky search + category chips */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setNearbyOnly((prev) => !prev)}
+          style={[styles.nearbyInlineBtn, nearbyOnly && styles.nearbyInlineBtnActive]}
+        >
+          <Ionicons
+            name="location"
+            size={14}
+            color={nearbyOnly ? '#5A4634' : '#7A6D5D'}
+          />
+          <Text style={[styles.nearbyInlineText, nearbyOnly && styles.nearbyInlineTextActive]}>
+            Yakınımda
+          </Text>
+        </TouchableOpacity>
         <View style={styles.searchStickyWrap}>
           <View style={styles.searchBox}>
             {!searchMode ? (
@@ -2513,17 +2518,22 @@ const styles = StyleSheet.create({
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
-  headerNearbyBtn: {
-    marginTop: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  nearbyInlineBtn: {
+    marginTop: -4,
+    marginBottom: 2,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 8,
   },
-  headerNearbyBtnActive: {
+  nearbyInlineBtnActive: {
     backgroundColor: '#E8D7C2',
   },
-  headerNearbyText: { color: '#7A6D5D', fontSize: 11, fontWeight: '600' },
-  headerNearbyTextActive: { color: '#5A4634' },
+  nearbyInlineText: { color: '#7A6D5D', fontSize: 12, fontWeight: '700' },
+  nearbyInlineTextActive: { color: '#5A4634' },
 
   /* --- Search --- */
   searchStickyWrap: {
