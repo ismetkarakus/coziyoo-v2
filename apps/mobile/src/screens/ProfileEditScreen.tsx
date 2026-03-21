@@ -28,7 +28,6 @@ type UserProfile = {
   fullName: string | null;
   userType: string;
   countryCode: string | null;
-  language: string | null;
   phone: string | null;
   dob: string | null;
   profileImageUrl: string | null;
@@ -51,14 +50,18 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
-  const [countryCode, setCountryCode] = useState('');
-  const [language, setLanguage] = useState('');
+  const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
   const [userType, setUserType] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordAgain, setNewPasswordAgain] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -124,8 +127,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
       setDob(data.dob ?? '');
-      setCountryCode(data.countryCode ?? '');
-      setLanguage(data.language ?? '');
+      setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email ?? '');
       setUserType(data.userType ?? '');
       setProfileImageUrl(data.profileImageUrl ?? null);
@@ -227,8 +229,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       if (fullName.trim()) body.fullName = fullName.trim();
       if (phone.trim()) body.phone = phone.trim();
       if (dob.trim()) body.dob = dob.trim();
-      if (countryCode.trim()) body.countryCode = countryCode.trim();
-      if (language.trim()) body.language = language.trim();
+      if (tcKimlikNo.trim()) body.countryCode = tcKimlikNo.trim();
 
       const res = await authedFetch(`${apiUrl}/v1/auth/me`, {
         method: 'PUT',
@@ -243,8 +244,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
       setDob(data.dob ?? '');
-      setCountryCode(data.countryCode ?? '');
-      setLanguage(data.language ?? '');
+      setTcKimlikNo(data.countryCode ?? '');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e) {
@@ -252,6 +252,29 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleChangePassword() {
+    setPasswordMessage(null);
+    if (!currentPassword.trim() || !newPassword.trim() || !newPasswordAgain.trim()) {
+      setPasswordMessage(t('error.profileEdit.passwordRequired'));
+      return;
+    }
+    if (newPassword.trim().length < 8) {
+      setPasswordMessage(t('error.profileEdit.passwordMin'));
+      return;
+    }
+    if (newPassword !== newPasswordAgain) {
+      setPasswordMessage(t('error.profileEdit.passwordMismatch'));
+      return;
+    }
+
+    // API tarafinda sifre degistirme endpointi henuz yok.
+    setPasswordLoading(true);
+    setTimeout(() => {
+      setPasswordLoading(false);
+      setPasswordMessage(t('helper.profileEdit.passwordComingSoon'));
+    }, 450);
   }
 
   const userTypeLabel = userType === 'buyer'
@@ -325,7 +348,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
               {/* Form */}
                 <View style={styles.form}>
-                  <View style={styles.field}>
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>{t('headline.profileEdit.accountSection')}</Text>
+                    <View style={styles.field}>
                   <Text style={styles.label}>{t('helper.profileEdit.displayNameLabel')}</Text>
                   <TextInput
                     style={styles.input}
@@ -382,25 +407,12 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                   <Text style={styles.label}>{t('helper.profileEdit.countryLabel')}</Text>
                   <TextInput
                     style={styles.input}
-                    value={countryCode}
-                    onChangeText={setCountryCode}
+                    value={tcKimlikNo}
+                    onChangeText={setTcKimlikNo}
                     placeholder={t('helper.profileEdit.countryPlaceholder')}
                     placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="characters"
-                    maxLength={3}
-                  />
-                </View>
-
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.languageLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={language}
-                    onChangeText={setLanguage}
-                    placeholder={t('helper.profileEdit.languagePlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="none"
-                    maxLength={10}
+                    keyboardType="number-pad"
+                    maxLength={11}
                   />
                 </View>
 
@@ -411,6 +423,65 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                     <Ionicons name="lock-closed-outline" size={16} color={theme.textSecondary} />
                   </View>
                 </View>
+              </View>
+
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>{t('headline.profileEdit.securitySection')}</Text>
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('helper.profileEdit.currentPasswordLabel')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    placeholder={t('helper.profileEdit.currentPasswordPlaceholder')}
+                    placeholderTextColor={theme.textSecondary}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('helper.profileEdit.newPasswordLabel')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder={t('helper.profileEdit.newPasswordPlaceholder')}
+                    placeholderTextColor={theme.textSecondary}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('helper.profileEdit.newPasswordAgainLabel')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newPasswordAgain}
+                    onChangeText={setNewPasswordAgain}
+                    placeholder={t('helper.profileEdit.newPasswordAgainPlaceholder')}
+                    placeholderTextColor={theme.textSecondary}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                {passwordMessage ? (
+                  <Text style={styles.passwordMessage}>{passwordMessage}</Text>
+                ) : null}
+                <TouchableOpacity
+                  style={[styles.passwordBtn, passwordLoading && styles.saveBtnDisabled]}
+                  onPress={() => void handleChangePassword()}
+                  disabled={passwordLoading}
+                  activeOpacity={0.8}
+                >
+                  {passwordLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.passwordBtnText}>{t('cta.profileEdit.changePassword')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
               </View>
 
               {error ? (
@@ -503,7 +574,17 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: theme.buttonPassiveText, fontSize: 12, fontWeight: '600' },
 
-  form: { gap: 16 },
+  form: { gap: 14 },
+  sectionCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.card,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  sectionTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
   field: { gap: 6 },
   fieldDisabled: { gap: 6, opacity: 0.6 },
   label: { color: theme.text, fontSize: 13, fontWeight: '600', marginLeft: 4 },
@@ -530,6 +611,15 @@ const styles = StyleSheet.create({
   },
   inputDisabledText: { color: theme.textSecondary, fontSize: 15 },
   hint: { color: theme.textSecondary, fontSize: 11, marginLeft: 4, marginTop: 2 },
+  passwordMessage: { color: theme.textSecondary, fontSize: 12, marginTop: 2 },
+  passwordBtn: {
+    backgroundColor: '#3D3229',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  passwordBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   errorBox: {
     flexDirection: 'row',
