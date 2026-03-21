@@ -1564,6 +1564,18 @@ export default function HomeScreen({
           <View style={styles.headerTextWrap}>
             <Text style={styles.greetingTitle}>{t('headline.home.greetingTitle')}</Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
+            {__DEV__ ? (
+              <View style={[styles.debugBox, styles.headerDebugBox]}>
+                <Text style={styles.debugText}>API: {apiUrl}</Text>
+                <Text style={styles.debugText}>
+                  foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
+                  {mealsLoading ? 'yes' : 'no'}
+                </Text>
+                {mealsError ? (
+                  <Text style={styles.debugError}>error: {mealsError}</Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
           <View style={styles.headerAvatarWrap}>
             <TouchableOpacity
@@ -1682,19 +1694,6 @@ export default function HomeScreen({
             </Text>
           </View>
         </View>
-        {__DEV__ ? (
-          <View style={styles.debugBox}>
-            <Text style={styles.debugText}>API: {apiUrl}</Text>
-            <Text style={styles.debugText}>
-              foods: {meals.length} | filtered: {visibleMeals.length} | loading:{' '}
-              {mealsLoading ? 'yes' : 'no'}
-            </Text>
-            {mealsError ? (
-              <Text style={styles.debugError}>error: {mealsError}</Text>
-            ) : null}
-          </View>
-        ) : null}
-
         {/* Food cards */}
         {visibleMeals.map((meal) => {
           const totalStock = Math.max(0, meal.stock ?? 0);
@@ -2637,6 +2636,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     marginBottom: 12,
+  },
+  headerDebugBox: {
+    marginTop: 8,
+    marginBottom: 0,
   },
   debugText: { color: '#5C4B1D', fontSize: 12, fontWeight: '500' },
   debugError: { color: '#B42318', fontSize: 12, fontWeight: '600', marginTop: 4 },
