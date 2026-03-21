@@ -2679,7 +2679,7 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: { flex: 1, paddingRight: 20, maxWidth: '65%' },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
-  greetingEmoji: { fontSize: 34, opacity: 0.9, marginLeft: 6 },
+  greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitleRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center' },
   greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
