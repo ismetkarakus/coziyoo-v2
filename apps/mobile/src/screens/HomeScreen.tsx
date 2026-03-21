@@ -733,15 +733,17 @@ function FoodCard({
                     color={colors.subtitle}
                   />
                 </TouchableOpacity>
-                {meal.cuisine ? (
-                  <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
-                    {meal.cuisine} Mutfagi
-                  </Text>
-                ) : null}
-                <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
-                  Toplam: {totalStock} yemek {remainingStock} kaldi
-                </Text>
               </View>
+            </View>
+            <View style={styles.foodMetaRow}>
+              <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
+                Toplam: {totalStock} yemek {remainingStock} kaldi
+              </Text>
+              {meal.cuisine ? (
+                <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
+                  {meal.cuisine} Mutfagi
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -2599,10 +2601,17 @@ const styles = StyleSheet.create({
   },
   foodName: { fontSize: 16, fontWeight: '600' },
   foodNameMetaRight: { alignItems: 'flex-end', gap: 2 },
+  foodMetaRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   foodSellerInline: { fontSize: 13, fontWeight: '700' },
   foodCuisineInline: { fontSize: 12, fontWeight: '600' },
-  foodStockText: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  foodStockText: { fontSize: 11, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
