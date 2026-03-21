@@ -1595,7 +1595,7 @@ export default function HomeScreen({
           <Ionicons
             name="location"
             size={14}
-            color={nearbyOnly ? '#5A4634' : '#7A6D5D'}
+            color={nearbyOnly ? '#B83A3A' : '#D45454'}
           />
           <Text style={[styles.nearbyInlineText, nearbyOnly && styles.nearbyInlineTextActive]}>
             Yakınımda
@@ -2530,10 +2530,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   nearbyInlineBtnActive: {
-    backgroundColor: '#E8D7C2',
+    backgroundColor: '#FCEAEA',
   },
-  nearbyInlineText: { color: '#7A6D5D', fontSize: 12, fontWeight: '700' },
-  nearbyInlineTextActive: { color: '#5A4634' },
+  nearbyInlineText: { color: '#D45454', fontSize: 12, fontWeight: '700' },
+  nearbyInlineTextActive: { color: '#B83A3A' },
 
   /* --- Search --- */
   searchStickyWrap: {
