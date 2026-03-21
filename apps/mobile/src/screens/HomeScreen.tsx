@@ -705,9 +705,16 @@ function FoodCard({
       <View style={styles.foodInfo}>
         <View style={styles.foodInfoRow}>
           <View style={styles.foodInfoLeft}>
-            <Text style={[styles.foodName, { color: colors.title }]}>
-              {meal.title}
-            </Text>
+            <View style={styles.foodNameRow}>
+              <Text style={[styles.foodName, { color: colors.title }]}>
+                {meal.title}
+              </Text>
+              {meal.cuisine ? (
+                <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
+                  {meal.cuisine} Mutfagi
+                </Text>
+              ) : null}
+            </View>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={onSellerPress}
@@ -2561,7 +2568,14 @@ const styles = StyleSheet.create({
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1 },
+  foodNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   foodName: { fontSize: 16, fontWeight: '600' },
+  foodCuisineInline: { fontSize: 12, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
