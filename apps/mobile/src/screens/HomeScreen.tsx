@@ -2688,7 +2688,7 @@ const styles = StyleSheet.create({
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
   dailyFlashWrap: {
-    marginTop: -4,
+    marginTop: -8,
     marginBottom: 4,
     marginHorizontal: 0,
     height: 28,
