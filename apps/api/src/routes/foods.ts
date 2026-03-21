@@ -49,6 +49,7 @@ foodsRouter.get("/", async (req, res) => {
         f.preparation_time_minutes,
         f.max_delivery_distance_km,
         f.allergens_json,
+        f.ingredients_json,
         (
           SELECT pl.id
           FROM production_lots pl
@@ -115,6 +116,7 @@ foodsRouter.get("/", async (req, res) => {
         ? parseFloat(r.max_delivery_distance_km)
         : null,
       allergens: parseAllergens(r.allergens_json),
+      ingredients: parseAllergens(r.ingredients_json),
       lotId: r.lot_id ?? null,
       category: r.category,
       stock: r.stock,

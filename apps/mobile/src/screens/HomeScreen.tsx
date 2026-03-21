@@ -79,6 +79,7 @@ type ApiFoodItem = {
   maxDistance: number | null;
   category: string | null;
   allergens?: string[];
+  ingredients?: string[];
   lotId?: string | null;
   stock: number;
   seller: { id: string; name: string; image: string | null };
@@ -91,6 +92,8 @@ type MealCard = {
   seller: string;
   sellerImage?: string | null;
   allergens: string[];
+  ingredients: string[];
+  description: string;
   lotId?: string | null;
   rating: string;
   time: string;
@@ -446,6 +449,8 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     seller: item.seller.name,
     sellerImage: item.seller.image,
     allergens: item.allergens ?? [],
+    ingredients: item.ingredients ?? [],
+    description: item.description ?? '',
     lotId: item.lotId ?? null,
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
@@ -453,7 +458,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     price: `₺${item.price}`,
     backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
     category: uiCategory,
-    imageUrl: resolveDishImage(item.name, uiCategory),
+    imageUrl: item.imageUrl ?? resolveDishImage(item.name, uiCategory),
   };
 }
 
@@ -1853,7 +1858,11 @@ export default function HomeScreen({
       >
         {selectedMeal && (
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <ScrollView
+              style={styles.modalContent}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
               <TouchableOpacity
                 style={styles.modalClose}
                 onPress={() => setSelectedMeal(null)}
@@ -1878,10 +1887,43 @@ export default function HomeScreen({
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
-              <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
-              <Text style={styles.modalMeta}>
-                🕐 {selectedMeal.time} · {selectedMeal.distance}
-              </Text>
+              <View style={styles.modalInfoRow}>
+                <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
+                <Text style={styles.modalMeta}>
+                  🕐 {selectedMeal.time} · {selectedMeal.distance}
+                </Text>
+              </View>
+
+              {selectedMeal.description ? (
+                <Text style={styles.modalDescription}>{selectedMeal.description}</Text>
+              ) : null}
+
+              {selectedMeal.ingredients.length > 0 && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Malzemeler</Text>
+                  <View style={styles.modalTagsWrap}>
+                    {selectedMeal.ingredients.map((ing, i) => (
+                      <View key={i} style={styles.modalIngredientTag}>
+                        <Text style={styles.modalIngredientText}>{ing}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {selectedMeal.allergens.length > 0 && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Alerjen Uyarisi</Text>
+                  <View style={styles.modalTagsWrap}>
+                    {selectedMeal.allergens.map((a, i) => (
+                      <View key={i} style={styles.modalAllergenTag}>
+                        <Text style={styles.modalAllergenText}>{a}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
               <Text style={styles.modalPrice}>{selectedMeal.price}</Text>
               <TouchableOpacity
                 style={styles.modalCartButton}
@@ -1893,7 +1935,7 @@ export default function HomeScreen({
               >
                 <Text style={styles.modalCartButtonText}>Sepete Ekle</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         )}
       </Modal>
@@ -2903,7 +2945,10 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: '#FFFDF9', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, paddingBottom: 40, alignItems: 'center',
+    maxHeight: '85%',
+  } as const,
+  modalScrollContent: {
+    padding: 24, paddingBottom: 40, alignItems: 'center' as const,
   },
   modalClose: {
     position: 'absolute', top: 16, right: 20,
@@ -2911,17 +2956,26 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', zIndex: 10,
   },
   modalCloseText: { color: '#6B5D4F', fontSize: 16, fontWeight: '700' },
-  modalThumb: { width: 120, height: 120, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' },
-  modalImage: { width: '100%', height: '100%' },
+  modalThumb: { width: '100%' as unknown as number, height: 200, borderRadius: 20, alignItems: 'center' as const, justifyContent: 'center' as const, marginBottom: 16, overflow: 'hidden' as const },
+  modalImage: { width: '100%' as unknown as number, height: '100%' as unknown as number },
   modalEmoji: { fontSize: 56 },
   modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
   modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700', marginBottom: 8 },
-  modalMeta: { color: '#A89B8C', fontSize: 13, marginBottom: 12, textAlign: 'center' },
+  modalInfoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 8 },
+  modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700' },
+  modalMeta: { color: '#A89B8C', fontSize: 13 },
+  modalDescription: { color: '#6B5D4F', fontSize: 14, lineHeight: 20, textAlign: 'center' as const, marginBottom: 12, marginTop: 4 },
+  modalSection: { width: '100%' as unknown as number, marginBottom: 12 },
+  modalSectionTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700', marginBottom: 8 },
+  modalTagsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  modalIngredientTag: { backgroundColor: '#EDE8E0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
+  modalIngredientText: { color: '#5F5246', fontSize: 13, fontWeight: '500' },
+  modalAllergenTag: { backgroundColor: '#FDECEA', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#F5C6CB' },
+  modalAllergenText: { color: '#DC3545', fontSize: 13, fontWeight: '600' },
   modalPrice: { color: '#5B7A4A', fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 20 },
   modalCartButton: {
     backgroundColor: '#4A7C59', borderRadius: 16, paddingVertical: 16,
-    paddingHorizontal: 48, width: '100%', alignItems: 'center',
+    paddingHorizontal: 48, width: '100%' as unknown as number, alignItems: 'center' as const,
   },
   modalCartButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
