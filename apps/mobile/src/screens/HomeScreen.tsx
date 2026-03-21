@@ -1680,7 +1680,21 @@ export default function HomeScreen({
             >
               {dynamicGreetingTitle}
             </Text>
-            <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
+            <View style={styles.greetingSubtitleRow}>
+              <TouchableOpacity
+                onPress={() => setNearbyOnly((prev) => !prev)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                style={styles.greetingNearbyIconBtn}
+              >
+                <Ionicons
+                  name="location"
+                  size={16}
+                  color={nearbyOnly ? '#D45454' : '#BFAE9D'}
+                />
+              </TouchableOpacity>
+              <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
+            </View>
           </View>
           <View style={styles.headerAvatarWrap}>
             <TouchableOpacity
@@ -2640,7 +2654,9 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   headerTextWrap: { flex: 1, paddingRight: 20 },
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
-  greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
+  greetingSubtitleRow: { marginTop: 4, marginLeft: 30, flexDirection: 'row', alignItems: 'center' },
+  greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600' },
   headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
@@ -2721,7 +2737,7 @@ const styles = StyleSheet.create({
   },
   searchCategoryScroller: { flex: 1 },
   searchSloganWrap: {
-    marginTop: 8,
+    marginTop: 2,
     marginBottom: 12,
     marginHorizontal: -12,
     backgroundColor: '#F8FCF7',
@@ -2810,8 +2826,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     color: '#8A7A66',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '600',
   },
   searchSlogan: {
