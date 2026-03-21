@@ -416,6 +416,7 @@ const DAILY_FLASH_MEALS = [
   'Zeytinyağlı yaprak sarma',
   'Sütlaç',
 ] as const;
+const SLOGAN_MARQUEE_GAP = 22;
 
 const CATEGORY_BG_COLORS: Record<string, string> = {
   Corbalar: '#F1DED0',
@@ -1014,20 +1015,17 @@ export default function HomeScreen({
     if (!sloganTrackWidth || !sloganTextWidth) return;
 
     sloganMarqueeLoopRef.current?.stop();
-    sloganMarqueeX.setValue(sloganTrackWidth);
+    sloganMarqueeX.setValue(0);
 
-    const distance = sloganTrackWidth + sloganTextWidth;
-    const duration = Math.max(9000, Math.round((distance / 40) * 1000));
+    const cycle = sloganTextWidth + SLOGAN_MARQUEE_GAP;
+    const duration = Math.max(5000, Math.round((cycle / 34) * 1000));
     const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sloganMarqueeX, {
-          toValue: -sloganTextWidth,
-          duration,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.delay(260),
-      ]),
+      Animated.timing(sloganMarqueeX, {
+        toValue: -cycle,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
     );
     sloganMarqueeLoopRef.current = loop;
     loop.start();
@@ -1884,6 +1882,25 @@ export default function HomeScreen({
                     styles.searchSlogan,
                     styles.searchSloganMarqueeText,
                     { transform: [{ translateX: sloganMarqueeX }] },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {t('headline.home.slogan')}
+                </Animated.Text>
+                <Animated.Text
+                  style={[
+                    styles.searchSlogan,
+                    styles.searchSloganMarqueeText,
+                    {
+                      transform: [
+                        {
+                          translateX: Animated.add(
+                            sloganMarqueeX,
+                            sloganTextWidth + SLOGAN_MARQUEE_GAP,
+                          ),
+                        },
+                      ],
+                    },
                   ]}
                   numberOfLines={1}
                 >
