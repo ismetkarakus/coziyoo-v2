@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -402,6 +403,14 @@ const CATEGORIES = [
   'Meze',
   'Tatlilar',
   'Icecekler',
+] as const;
+
+const DAILY_FLASH_MEALS = [
+  'Günün yemeği: Anne usulü mercimek çorbası',
+  'Günün yemeği: Etli taze fasulye',
+  'Günün yemeği: Fırında tavuk ve pilav',
+  'Günün yemeği: Zeytinyağlı yaprak sarma',
+  'Günün yemeği: Sütlaç',
 ] as const;
 
 const CATEGORY_BG_COLORS: Record<string, string> = {
@@ -882,9 +891,13 @@ export default function HomeScreen({
   const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState<string>(() =>
     buildGreetingTitle(resolveGreetingName(null, auth.email)),
   );
+  const [dailyFlashIndex, setDailyFlashIndex] = useState(0);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
+  const dailyFlashOpacity = useRef(new Animated.Value(0)).current;
+  const dailyFlashTranslateY = useRef(new Animated.Value(14)).current;
+  const dailyFlashScale = useRef(new Animated.Value(0.9)).current;
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -921,6 +934,73 @@ export default function HomeScreen({
     const interval = setInterval(refreshGreeting, 60_000);
     return () => clearInterval(interval);
   }, [greetingName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const runFlashLoop = () => {
+      if (cancelled) return;
+
+      dailyFlashOpacity.setValue(0);
+      dailyFlashTranslateY.setValue(14);
+      dailyFlashScale.setValue(0.9);
+
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(dailyFlashOpacity, {
+            toValue: 1,
+            duration: 520,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dailyFlashTranslateY, {
+            toValue: 0,
+            duration: 520,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dailyFlashScale, {
+            toValue: 1.04,
+            duration: 520,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(1200),
+        Animated.parallel([
+          Animated.timing(dailyFlashOpacity, {
+            toValue: 0,
+            duration: 420,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dailyFlashTranslateY, {
+            toValue: -10,
+            duration: 420,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dailyFlashScale, {
+            toValue: 1.08,
+            duration: 420,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(({ finished }) => {
+        if (!finished || cancelled) return;
+        setDailyFlashIndex((prev) => (prev + 1) % DAILY_FLASH_MEALS.length);
+        timer = setTimeout(runFlashLoop, 120);
+      });
+    };
+
+    runFlashLoop();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [dailyFlashOpacity, dailyFlashScale, dailyFlashTranslateY]);
 
   // Fetch foods from API
   useEffect(() => {
@@ -1639,6 +1719,22 @@ export default function HomeScreen({
               {dynamicGreetingTitle}
             </Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
+            <View style={styles.dailyFlashWrap}>
+              <Animated.View
+                style={[
+                  styles.dailyFlashBubble,
+                  {
+                    opacity: dailyFlashOpacity,
+                    transform: [
+                      { translateY: dailyFlashTranslateY },
+                      { scale: dailyFlashScale },
+                    ],
+                  },
+                ]}
+              >
+                <Text style={styles.dailyFlashText}>{DAILY_FLASH_MEALS[dailyFlashIndex]}</Text>
+              </Animated.View>
+            </View>
           </View>
           <View style={styles.headerAvatarWrap}>
             <TouchableOpacity
@@ -2584,6 +2680,30 @@ const styles = StyleSheet.create({
   headerTextWrap: { flex: 1, paddingRight: 20 },
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
+  dailyFlashWrap: {
+    marginTop: 4,
+    marginLeft: 30,
+    height: 26,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  dailyFlashBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 248, 229, 0.92)',
+    borderColor: '#ECDCB2',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  dailyFlashText: {
+    color: '#7A5B2A',
+    fontSize: 12,
+    fontWeight: '700',
+    textShadowColor: 'rgba(255,255,255,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
   headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
