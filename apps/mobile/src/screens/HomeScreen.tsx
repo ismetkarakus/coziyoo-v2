@@ -2595,6 +2595,7 @@ const styles = StyleSheet.create({
   searchSloganWrap: {
     marginTop: 8,
     marginBottom: 12,
+    marginHorizontal: -12,
     backgroundColor: '#EAF4E6',
     borderColor: '#D6E6D0',
     borderWidth: 1,
