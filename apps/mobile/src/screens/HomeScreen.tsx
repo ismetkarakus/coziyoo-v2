@@ -2685,9 +2685,9 @@ const styles = StyleSheet.create({
   greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600' },
   headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
-  avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
-  avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
-  avatarEmoji: { fontSize: 18 },
+  avatarCircle: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
+  avatarCircleImage: { width: 54, height: 54, borderRadius: 27 },
+  avatarEmoji: { fontSize: 24 },
   /* --- Search --- */
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
