@@ -252,9 +252,9 @@ function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHei
 }
 
 function resolveDailyFlashTextMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 42) return { fontSize: 10, lineHeight: 14 };
-  if (text.length >= 34) return { fontSize: 11, lineHeight: 15 };
-  return { fontSize: 12, lineHeight: 16 };
+  if (text.length >= 42) return { fontSize: 11, lineHeight: 14 };
+  if (text.length >= 34) return { fontSize: 12, lineHeight: 15 };
+  return { fontSize: 13, lineHeight: 16 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2688,10 +2688,10 @@ const styles = StyleSheet.create({
   greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#7F7366', fontSize: 14, fontWeight: '600' },
   dailyFlashWrap: {
-    marginTop: -2,
-    marginBottom: 8,
+    marginTop: -4,
+    marginBottom: 4,
     marginHorizontal: 0,
-    height: 34,
+    height: 28,
     justifyContent: 'center',
     alignSelf: 'stretch',
     alignItems: 'center',
