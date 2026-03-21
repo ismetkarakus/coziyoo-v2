@@ -177,7 +177,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       });
       const urlJson = await urlRes.json();
       if (!urlRes.ok || urlJson.error) {
-        throw new Error(urlJson.error?.message ?? 'Upload URL alinamadi');
+        throw new Error(urlJson.error?.message ?? 'Upload URL alınamadı');
       }
       const { uploadUrl, imageUrl } = urlJson.data;
 
@@ -190,7 +190,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
         body: imageBlob,
       });
       if (!uploadRes.ok) {
-        throw new Error('Resim yuklenemedi');
+        throw new Error('Resim yüklenemedi');
       }
 
       // 3. Save image URL to profile
