@@ -895,6 +895,7 @@ export default function HomeScreen({
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
   const [foodSectionOffsetY, setFoodSectionOffsetY] = useState(0);
+  const showSloganCard = false;
   const mealsMarqueeText = useMemo(
     () => DAILY_FLASH_MEALS.join(' • '),
     [],
@@ -1069,15 +1070,22 @@ export default function HomeScreen({
     const breathe = Animated.loop(
       Animated.sequence([
         Animated.timing(breatheScale, {
-          toValue: 1.02,
-          duration: 1800,
+          toValue: 1.08,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          isInteraction: false,
+          useNativeDriver: true,
+        }),
+        Animated.timing(breatheScale, {
+          toValue: 0.92,
+          duration: 1400,
           easing: Easing.inOut(Easing.ease),
           isInteraction: false,
           useNativeDriver: true,
         }),
         Animated.timing(breatheScale, {
           toValue: 1,
-          duration: 1800,
+          duration: 1200,
           easing: Easing.inOut(Easing.ease),
           isInteraction: false,
           useNativeDriver: true,
@@ -1800,57 +1808,59 @@ export default function HomeScreen({
               )}
             </View>
           </View>
-          <View style={styles.searchSloganWrap}>
-            <View pointerEvents="none" style={styles.searchSloganHeatGlow} />
-            <View pointerEvents="none" style={styles.searchSloganSteamA} />
-            <View pointerEvents="none" style={styles.searchSloganSteamB} />
-            <View pointerEvents="none" style={styles.searchSloganSteamC} />
-            <View pointerEvents="none" style={styles.searchSloganSteamD} />
-            <View pointerEvents="none" style={styles.searchSloganSteamE} />
-            <View style={styles.searchSloganContent}>
-              <View style={styles.searchSloganTitleRow}>
-                <Ionicons name="home" size={18} color="#5A4634" />
-                <Text style={styles.searchSlogan} numberOfLines={1}>
-                  {t('headline.home.slogan')}
-                </Text>
+          {showSloganCard ? (
+            <View style={styles.searchSloganWrap}>
+              <View pointerEvents="none" style={styles.searchSloganHeatGlow} />
+              <View pointerEvents="none" style={styles.searchSloganSteamA} />
+              <View pointerEvents="none" style={styles.searchSloganSteamB} />
+              <View pointerEvents="none" style={styles.searchSloganSteamC} />
+              <View pointerEvents="none" style={styles.searchSloganSteamD} />
+              <View pointerEvents="none" style={styles.searchSloganSteamE} />
+              <View style={styles.searchSloganContent}>
+                <View style={styles.searchSloganTitleRow}>
+                  <Ionicons name="home" size={18} color="#5A4634" />
+                  <Text style={styles.searchSlogan} numberOfLines={1}>
+                    {t('headline.home.slogan')}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.86}
+                  onPress={handleSloganMarqueePress}
+                  style={styles.searchSloganMealsMarqueeTrack}
+                  onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
+                >
+                  <Animated.Text
+                    onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
+                    style={[
+                      styles.searchSloganMealsMarqueeText,
+                      { transform: [{ translateX: sloganMarqueeX }] },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {mealsMarqueeText}
+                  </Animated.Text>
+                  <Animated.Text
+                    style={[
+                      styles.searchSloganMealsMarqueeText,
+                      {
+                        transform: [
+                          {
+                            translateX: Animated.add(
+                              sloganMarqueeX,
+                              sloganTextWidth + SLOGAN_MARQUEE_GAP,
+                            ),
+                          },
+                        ],
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {mealsMarqueeText}
+                  </Animated.Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                activeOpacity={0.86}
-                onPress={handleSloganMarqueePress}
-                style={styles.searchSloganMealsMarqueeTrack}
-                onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
-              >
-                <Animated.Text
-                  onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
-                  style={[
-                    styles.searchSloganMealsMarqueeText,
-                    { transform: [{ translateX: sloganMarqueeX }] },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {mealsMarqueeText}
-                </Animated.Text>
-                <Animated.Text
-                  style={[
-                    styles.searchSloganMealsMarqueeText,
-                    {
-                      transform: [
-                        {
-                          translateX: Animated.add(
-                            sloganMarqueeX,
-                            sloganTextWidth + SLOGAN_MARQUEE_GAP,
-                          ),
-                        },
-                      ],
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {mealsMarqueeText}
-                </Animated.Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          ) : null}
         </View>
         {/* Food cards */}
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
