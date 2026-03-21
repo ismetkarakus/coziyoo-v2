@@ -25,6 +25,9 @@ type UserProfile = {
   userType: string;
   countryCode: string | null;
   language: string | null;
+  phone: string | null;
+  dob: string | null;
+  profileImageUrl: string | null;
 };
 
 type Props = {
@@ -42,6 +45,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
   const [displayName, setDisplayName] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [dob, setDob] = useState('');
   const [countryCode, setCountryCode] = useState('');
   const [language, setLanguage] = useState('');
   const [email, setEmail] = useState('');
@@ -98,6 +103,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       const data = json.data as UserProfile;
       setDisplayName(data.displayName ?? '');
       setFullName(data.fullName ?? '');
+      setPhone(data.phone ?? '');
+      setDob(data.dob ?? '');
       setCountryCode(data.countryCode ?? '');
       setLanguage(data.language ?? '');
       setEmail(data.email ?? '');
@@ -123,6 +130,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       const body: Record<string, string> = {};
       if (displayName.trim()) body.displayName = displayName.trim();
       if (fullName.trim()) body.fullName = fullName.trim();
+      if (phone.trim()) body.phone = phone.trim();
+      if (dob.trim()) body.dob = dob.trim();
       if (countryCode.trim()) body.countryCode = countryCode.trim();
       if (language.trim()) body.language = language.trim();
 
@@ -137,6 +146,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       const data = json.data as UserProfile;
       setDisplayName(data.displayName ?? '');
       setFullName(data.fullName ?? '');
+      setPhone(data.phone ?? '');
+      setDob(data.dob ?? '');
       setCountryCode(data.countryCode ?? '');
       setLanguage(data.language ?? '');
       setSuccess(true);
@@ -213,6 +224,33 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                     autoCapitalize="words"
                     maxLength={120}
                   />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Telefon</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+90 555 123 4567"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="phone-pad"
+                    maxLength={20}
+                  />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Dogum Tarihi</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={dob}
+                    onChangeText={setDob}
+                    placeholder="1990-01-15"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={10}
+                  />
+                  <Text style={styles.hint}>Format: YYYY-AA-GG</Text>
                 </View>
 
                 <View style={styles.field}>
@@ -348,6 +386,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   inputDisabledText: { color: theme.textSecondary, fontSize: 15 },
+  hint: { color: theme.textSecondary, fontSize: 11, marginLeft: 4, marginTop: 2 },
 
   errorBox: {
     flexDirection: 'row',

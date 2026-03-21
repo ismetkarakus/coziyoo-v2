@@ -478,8 +478,11 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
     full_name: string | null;
     country_code: string | null;
     language: string | null;
+    phone: string | null;
+    dob: string | null;
+    profile_image_url: string | null;
   }>(
-    `SELECT id, email, display_name, user_type, full_name, country_code, language
+    `SELECT id, email, display_name, user_type, full_name, country_code, language, phone, dob, profile_image_url
      FROM users
      WHERE id = $1 AND is_active = TRUE`,
     [req.auth!.userId]
@@ -499,6 +502,9 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
       userType: user.user_type,
       countryCode: user.country_code,
       language: user.language,
+      phone: user.phone,
+      dob: user.dob,
+      profileImageUrl: user.profile_image_url,
     },
   });
 });
@@ -508,6 +514,8 @@ const UpdateProfileSchema = z.object({
   fullName: z.string().min(1).max(120).optional(),
   countryCode: z.string().min(2).max(3).optional(),
   language: z.string().min(2).max(10).optional(),
+  phone: z.string().min(7).max(20).optional(),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD format required").optional(),
 });
 
 authRouter.put("/me", requireAuth("app"), async (req, res) => {
@@ -541,6 +549,14 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
     setClauses.push(`language = $${idx++}`);
     values.push(fields.language);
   }
+  if (fields.phone !== undefined) {
+    setClauses.push(`phone = $${idx++}`);
+    values.push(fields.phone);
+  }
+  if (fields.dob !== undefined) {
+    setClauses.push(`dob = $${idx++}`);
+    values.push(fields.dob);
+  }
 
   setClauses.push(`updated_at = NOW()`);
   values.push(req.auth!.userId);
@@ -553,9 +569,12 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
     user_type: string;
     country_code: string | null;
     language: string | null;
+    phone: string | null;
+    dob: string | null;
+    profile_image_url: string | null;
   }>(
     `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
-     RETURNING id, email, display_name, user_type, full_name, country_code, language`,
+     RETURNING id, email, display_name, user_type, full_name, country_code, language, phone, dob, profile_image_url`,
     values
   );
 
@@ -573,6 +592,9 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       userType: updated.user_type,
       countryCode: updated.country_code,
       language: updated.language,
+      phone: updated.phone,
+      dob: updated.dob,
+      profileImageUrl: updated.profile_image_url,
     },
   });
 });
