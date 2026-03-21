@@ -9,9 +9,11 @@ import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils
 import { theme } from './src/theme/colors';
 
 type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit' | 'addresses';
+type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
+  const [homeTab, setHomeTab] = useState<TabKey>('home');
   const [auth, setAuth] = useState<AuthSession | null>(null);
 
   useEffect(() => {
@@ -53,14 +55,14 @@ export default function App() {
   }
 
   if (screen === 'settings') {
-    return <SettingsScreen onBack={() => setScreen('home')} />;
+    return <SettingsScreen onBack={() => { setHomeTab('profile'); setScreen('home'); }} />;
   }
 
   if (screen === 'profileEdit') {
     return (
       <ProfileEditScreen
         auth={auth}
-        onBack={() => setScreen('home')}
+        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
         onAuthRefresh={setAuth}
       />
     );
@@ -70,7 +72,7 @@ export default function App() {
     return (
       <AddressScreen
         auth={auth}
-        onBack={() => setScreen('home')}
+        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
         onAuthRefresh={setAuth}
       />
     );
@@ -79,6 +81,7 @@ export default function App() {
   return (
     <HomeScreen
       auth={auth}
+      initialTab={homeTab}
       onOpenSettings={() => setScreen('settings')}
       onOpenProfileEdit={() => setScreen('profileEdit')}
       onOpenAddresses={() => setScreen('addresses')}

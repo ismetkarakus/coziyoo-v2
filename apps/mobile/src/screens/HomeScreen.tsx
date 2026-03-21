@@ -53,6 +53,7 @@ export type SessionData = {
 
 type Props = {
   auth: AuthSession;
+  initialTab?: TabKey;
   onOpenSettings: () => void;
   onOpenProfileEdit: () => void;
   onOpenAddresses: () => void;
@@ -740,6 +741,7 @@ function FoodCard({
 
 export default function HomeScreen({
   auth,
+  initialTab,
   onOpenSettings,
   onOpenProfileEdit,
   onOpenAddresses,
@@ -748,7 +750,7 @@ export default function HomeScreen({
 }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
-  const [activeTab, setActiveTab] = useState<TabKey>('home');
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'home');
   const [activeCategory, setActiveCategory] = useState('Tumu');
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
