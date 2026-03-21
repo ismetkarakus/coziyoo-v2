@@ -252,9 +252,7 @@ function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHei
 }
 
 function resolveDailyFlashTextMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 42) return { fontSize: 11, lineHeight: 14 };
-  if (text.length >= 34) return { fontSize: 12, lineHeight: 15 };
-  return { fontSize: 13, lineHeight: 16 };
+  return { fontSize: 14, lineHeight: 18 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -903,7 +901,7 @@ export default function HomeScreen({
   const breatheScale = useRef(new Animated.Value(1)).current;
   const dailyFlashOpacity = useRef(new Animated.Value(0)).current;
   const dailyFlashTranslateY = useRef(new Animated.Value(14)).current;
-  const dailyFlashScale = useRef(new Animated.Value(0.9)).current;
+  const dailyFlashScale = useRef(new Animated.Value(0.68)).current;
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -950,7 +948,7 @@ export default function HomeScreen({
 
       dailyFlashOpacity.setValue(0);
       dailyFlashTranslateY.setValue(14);
-      dailyFlashScale.setValue(0.9);
+      dailyFlashScale.setValue(0.68);
 
       Animated.sequence([
         Animated.parallel([
@@ -967,7 +965,7 @@ export default function HomeScreen({
             useNativeDriver: true,
           }),
           Animated.timing(dailyFlashScale, {
-            toValue: 1.04,
+            toValue: 1,
             duration: 760,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
@@ -988,7 +986,7 @@ export default function HomeScreen({
             useNativeDriver: true,
           }),
           Animated.timing(dailyFlashScale, {
-            toValue: 1.08,
+            toValue: 1.06,
             duration: 680,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
