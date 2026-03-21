@@ -166,6 +166,15 @@ type PaymentStatusSnapshot = {
   latestAttemptStatus?: string;
 };
 
+function parseDistanceKm(distanceText: string): number | null {
+  const normalized = (distanceText || '').replace(',', '.');
+  const match = normalized.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const value = Number.parseFloat(match[1]);
+  if (Number.isNaN(value)) return null;
+  return value;
+}
+
 function formatReviewDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -790,6 +799,7 @@ export default function HomeScreen({
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? 'home');
   const [activeCategory, setActiveCategory] = useState('Tumu');
+  const [nearbyOnly, setNearbyOnly] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [meals, setMeals] = useState<MealCard[]>([]);
@@ -1471,15 +1481,21 @@ export default function HomeScreen({
     activeCategory === 'Tumu'
       ? meals
       : meals.filter((m) => m.category === activeCategory);
-  const visibleMeals = searchQuery.trim()
+  const nearbyFilteredMeals = nearbyOnly
     ? filteredMeals.filter((m) => {
+        const km = parseDistanceKm(m.distance);
+        return km !== null && km <= 2;
+      })
+    : filteredMeals;
+  const visibleMeals = searchQuery.trim()
+    ? nearbyFilteredMeals.filter((m) => {
         const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
         return (
           m.title.toLocaleLowerCase('tr-TR').includes(q) ||
           m.seller.toLocaleLowerCase('tr-TR').includes(q)
         );
       })
-    : filteredMeals;
+    : nearbyFilteredMeals;
   const sellerMeals = selectedSeller
     ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
     : [];
@@ -1567,7 +1583,15 @@ export default function HomeScreen({
                 <Text style={styles.avatarEmoji}>👩‍🍳</Text>
               )}
             </TouchableOpacity>
-            <Text style={styles.headerNearbyText}>📍 Yakınımda</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setNearbyOnly((prev) => !prev)}
+              style={[styles.headerNearbyBtn, nearbyOnly && styles.headerNearbyBtnActive]}
+            >
+              <Text style={[styles.headerNearbyText, nearbyOnly && styles.headerNearbyTextActive]}>
+                📍 Yakınımda
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -2489,7 +2513,17 @@ const styles = StyleSheet.create({
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
-  headerNearbyText: { marginTop: 5, color: '#7A6D5D', fontSize: 11, fontWeight: '600' },
+  headerNearbyBtn: {
+    marginTop: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  headerNearbyBtnActive: {
+    backgroundColor: '#E8D7C2',
+  },
+  headerNearbyText: { color: '#7A6D5D', fontSize: 11, fontWeight: '600' },
+  headerNearbyTextActive: { color: '#5A4634' },
 
   /* --- Search --- */
   searchStickyWrap: {
