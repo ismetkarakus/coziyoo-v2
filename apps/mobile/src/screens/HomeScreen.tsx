@@ -705,17 +705,17 @@ function FoodCard({
                 style={styles.foodSellerChevron}
               />
             </TouchableOpacity>
-            {meal.cuisine ? (
-              <Text style={[styles.foodCuisine, { color: colors.meta }]}>
-                Mutfak: {meal.cuisine}
-              </Text>
-            ) : null}
           </View>
           <View style={styles.foodRightCol}>
             <Text style={[styles.foodPrice, { color: colors.price }]}>
               {meal.price}
             </Text>
           </View>
+        </View>
+        <View style={styles.foodBottomRow}>
+          <Text style={[styles.foodMeta, { color: colors.meta }]}>
+            ★ {meal.rating} {meal.cuisine ? ` · Mutfak: ${meal.cuisine}` : ''}
+          </Text>
         </View>
         <View style={styles.foodBottomRow}>
           <Text style={[styles.foodMeta, { color: colors.meta }]}>
