@@ -65,6 +65,10 @@ type ApiErrorPayload = {
   error?: { code?: string; message?: string };
 };
 
+type MeProfile = {
+  profileImageUrl?: string | null;
+};
+
 type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
 type AgentMode = 'voice' | 'text';
@@ -788,6 +792,7 @@ export default function HomeScreen({
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [paymentWebVisible, setPaymentWebVisible] = useState(false);
   const [pendingCheckoutUrls, setPendingCheckoutUrls] = useState<string[]>([]);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -800,6 +805,11 @@ export default function HomeScreen({
   useEffect(() => {
     loadSettings().then((s) => setApiUrl(s.apiUrl));
   }, []);
+
+  useEffect(() => {
+    if (!apiUrl) return;
+    void fetchMeProfile(apiUrl, currentAuth.accessToken);
+  }, [apiUrl, currentAuth.accessToken]);
 
   // Fetch foods from API
   useEffect(() => {
@@ -861,6 +871,38 @@ export default function HomeScreen({
       setMealsError(err instanceof Error ? err.message : 'fetch failed');
     } finally {
       setMealsLoading(false);
+    }
+  }
+
+  function withCacheBust(url: string | null | undefined) {
+    if (!url) return null;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
+  }
+
+  async function fetchMeProfile(url: string, accessToken: string) {
+    try {
+      const response = await fetch(`${url}/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (response.status === 401) {
+        const refreshed = await refreshAuthSession(url, currentAuth);
+        if (!refreshed) return;
+        setCurrentAuth(refreshed);
+        onAuthRefresh?.(refreshed);
+        const retryRes = await fetch(`${url}/v1/auth/me`, {
+          headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+        });
+        if (!retryRes.ok) return;
+        const retryJson = await readJsonSafe<{ data?: MeProfile }>(retryRes);
+        setProfileImageUrl(withCacheBust(retryJson.data?.profileImageUrl ?? null));
+        return;
+      }
+      if (!response.ok) return;
+      const json = await readJsonSafe<{ data?: MeProfile }>(response);
+      setProfileImageUrl(withCacheBust(json.data?.profileImageUrl ?? null));
+    } catch {
+      // Keep fallback avatar when profile fetch fails
     }
   }
 
@@ -1457,7 +1499,11 @@ export default function HomeScreen({
             style={styles.avatarCircle}
             onPress={() => handleTabPress('profile')}
           >
-            <Text style={styles.avatarEmoji}>👩‍🍳</Text>
+            {profileImageUrl ? (
+              <Image source={{ uri: profileImageUrl }} style={styles.avatarCircleImage} />
+            ) : (
+              <Text style={styles.avatarEmoji}>👩‍🍳</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -1747,9 +1793,13 @@ export default function HomeScreen({
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>
-                {currentAuth.email ? currentAuth.email.charAt(0).toUpperCase() : '?'}
-              </Text>
+              {profileImageUrl ? (
+                <Image source={{ uri: profileImageUrl }} style={styles.profileAvatarImage} />
+              ) : (
+                <Text style={styles.profileAvatarText}>
+                  {currentAuth.email ? currentAuth.email.charAt(0).toUpperCase() : '?'}
+                </Text>
+              )}
             </View>
             <View style={styles.profileMeta}>
               <Text style={styles.profileTitle}>Profil</Text>
@@ -2352,6 +2402,7 @@ const styles = StyleSheet.create({
   greetingTitle: { color: '#3D3229', fontSize: 28, lineHeight: 34, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, color: '#A89B8C', fontSize: 13 },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
+  avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
 
   /* --- Search --- */
@@ -2909,6 +2960,7 @@ const styles = StyleSheet.create({
   },
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
   profileAvatar: { width: 56, height: 56, borderRadius: 18, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
+  profileAvatarImage: { width: 56, height: 56, borderRadius: 18 },
   profileAvatarText: { fontSize: 26 },
   profileMeta: { flex: 1 },
   profileTitle: { color: '#3D3229', fontSize: 20, fontWeight: '700' },

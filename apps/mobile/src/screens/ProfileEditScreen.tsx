@@ -38,6 +38,12 @@ type Props = {
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
+function withCacheBust(url: string | null | undefined) {
+  if (!url) return null;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${Date.now()}`;
+}
+
 export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [loading, setLoading] = useState(true);
@@ -113,7 +119,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setLanguage(data.language ?? '');
       setEmail(data.email ?? '');
       setUserType(data.userType ?? '');
-      setProfileImageUrl(data.profileImageUrl ?? null);
+      setProfileImageUrl(withCacheBust(data.profileImageUrl));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Profil yuklenemedi');
     } finally {
@@ -122,32 +128,33 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   }
 
   async function handlePickImage() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Izin Gerekli', 'Galeri erisimi icin izin vermeniz gerekiyor.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (result.canceled || !result.assets?.[0]) return;
-
-    const asset = result.assets[0];
-    const uri = asset.uri;
-    const mimeType = asset.mimeType ?? 'image/jpeg';
-
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
-      Alert.alert('Hata', 'Sadece JPEG, PNG veya WebP formatinda resim yukleyebilirsiniz.');
-      return;
-    }
-
-    setUploadingImage(true);
     try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Izin Gerekli', 'Galeri erisimi icin izin vermeniz gerekiyor.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+        Alert.alert('Hata', 'Sadece JPEG, PNG veya WebP formatinda resim yukleyebilirsiniz.');
+        return;
+      }
+
+      setUploadingImage(true);
+
       const { apiUrl } = await loadSettings();
 
       // 1. Get presigned upload URL
@@ -183,7 +190,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
         throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
       }
 
-      setProfileImageUrl(imageUrl);
+      setProfileImageUrl(withCacheBust(imageUrl));
     } catch (e) {
       Alert.alert('Hata', e instanceof Error ? e.message : 'Resim yuklenemedi');
     } finally {

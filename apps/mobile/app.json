@@ -11,6 +11,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Coziyoo needs microphone access for voice conversations with the AI agent.",
+        "NSPhotoLibraryUsageDescription": "Coziyoo needs photo library access so you can select a profile picture.",
+        "NSPhotoLibraryAddUsageDescription": "Coziyoo may save edited profile photos to your library when needed.",
         "UIBackgroundModes": ["audio", "voip"]
       }
     },
@@ -23,7 +25,14 @@
         "android.permission.BLUETOOTH_CONNECT"
       ]
     },
-    "plugins": [],
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Coziyoo needs photo library access so you can select a profile picture."
+        }
+      ]
+    ],
     "extra": {
       "apiUrl": "http://localhost:3000"
     }
