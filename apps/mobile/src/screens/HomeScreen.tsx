@@ -38,6 +38,7 @@ try {
 }
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
+import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import VoiceSessionScreen from './VoiceSessionScreen';
 
 /* ------------------------------------------------------------------ */
@@ -807,6 +808,13 @@ export default function HomeScreen({
   }, []);
 
   useEffect(() => {
+    loadCachedProfileImageUrl().then((cached) => {
+      if (!cached) return;
+      setProfileImageUrl(withCacheBust(cached));
+    });
+  }, []);
+
+  useEffect(() => {
     if (!apiUrl) return;
     void fetchMeProfile(apiUrl, currentAuth.accessToken);
   }, [apiUrl, currentAuth.accessToken]);
@@ -895,12 +903,20 @@ export default function HomeScreen({
         });
         if (!retryRes.ok) return;
         const retryJson = await readJsonSafe<{ data?: MeProfile }>(retryRes);
-        setProfileImageUrl(withCacheBust(retryJson.data?.profileImageUrl ?? null));
+        const imageUrl = retryJson.data?.profileImageUrl ?? null;
+        setProfileImageUrl(withCacheBust(imageUrl));
+        if (imageUrl) {
+          await saveCachedProfileImageUrl(imageUrl);
+        }
         return;
       }
       if (!response.ok) return;
       const json = await readJsonSafe<{ data?: MeProfile }>(response);
-      setProfileImageUrl(withCacheBust(json.data?.profileImageUrl ?? null));
+      const imageUrl = json.data?.profileImageUrl ?? null;
+      setProfileImageUrl(withCacheBust(imageUrl));
+      if (imageUrl) {
+        await saveCachedProfileImageUrl(imageUrl);
+      }
     } catch {
       // Keep fallback avatar when profile fetch fails
     }

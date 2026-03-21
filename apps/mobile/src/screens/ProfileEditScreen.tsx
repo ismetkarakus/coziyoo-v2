@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
+import { saveCachedProfileImageUrl } from '../utils/profileImage';
 
 type UserProfile = {
   id: string;
@@ -119,7 +120,11 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setLanguage(data.language ?? '');
       setEmail(data.email ?? '');
       setUserType(data.userType ?? '');
-      setProfileImageUrl(withCacheBust(data.profileImageUrl));
+      const cachedUrl = withCacheBust(data.profileImageUrl);
+      setProfileImageUrl(cachedUrl);
+      if (data.profileImageUrl) {
+        await saveCachedProfileImageUrl(data.profileImageUrl);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Profil yuklenemedi');
     } finally {
@@ -191,6 +196,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       }
 
       setProfileImageUrl(withCacheBust(imageUrl));
+      await saveCachedProfileImageUrl(imageUrl);
     } catch (e) {
       Alert.alert('Hata', e instanceof Error ? e.message : 'Resim yuklenemedi');
     } finally {
