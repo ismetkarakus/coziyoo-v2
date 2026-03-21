@@ -1111,6 +1111,7 @@ export default function HomeScreen({
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${currentAuth.accessToken}`,
+            'x-actor-role': 'buyer',
             'Idempotency-Key': `mobile-order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           },
           body: JSON.stringify({
@@ -1140,6 +1141,7 @@ export default function HomeScreen({
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${currentAuth.accessToken}`,
+            'x-actor-role': 'buyer',
             'Idempotency-Key': `mobile-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           },
           body: JSON.stringify({ orderId }),
@@ -1202,6 +1204,7 @@ export default function HomeScreen({
           const response = await fetch(`${apiUrl}/v1/payments/${oid}/status`, {
             headers: {
               Authorization: `Bearer ${currentAuth.accessToken}`,
+              'x-actor-role': 'buyer',
             },
           });
           const json = await readJsonSafe<{

@@ -55,7 +55,7 @@ foodsRouter.get("/", async (req, res) => {
           WHERE pl.food_id = f.id
             AND pl.status IN ('open', 'active')
             AND pl.quantity_available > 0
-            AND pl.sale_starts_at <= NOW()
+            AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
             AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
           ORDER BY pl.quantity_available DESC, pl.created_at DESC
           LIMIT 1
@@ -71,7 +71,7 @@ foodsRouter.get("/", async (req, res) => {
            WHERE pl.food_id = f.id
              AND pl.status IN ('open', 'active')
              AND pl.quantity_available > 0
-             AND pl.sale_starts_at <= NOW()
+             AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
              AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
           ), 0
         )::int AS stock
@@ -85,7 +85,7 @@ foodsRouter.get("/", async (req, res) => {
           WHERE plx.food_id = f.id
             AND plx.status IN ('open', 'active')
             AND plx.quantity_available > 0
-            AND plx.sale_starts_at <= NOW()
+            AND (plx.sale_starts_at IS NULL OR plx.sale_starts_at <= NOW())
             AND (plx.sale_ends_at IS NULL OR plx.sale_ends_at > NOW())
         )
     `;

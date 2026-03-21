@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Coziyoo",
+    "slug": "coziyoo-mobile",
+    "version": "0.1.0",
+    "newArchEnabled": false,
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.coziyoo.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Coziyoo needs microphone access for voice conversations with the AI agent.",
+        "UIBackgroundModes": ["audio", "voip"]
+      }
+    },
+    "android": {
+      "package": "com.coziyoo.mobile",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_CONNECT"
+      ]
+    },
+    "plugins": [],
+    "extra": {
+      "apiUrl": "http://localhost:3000"
+    }
+  }
+}
