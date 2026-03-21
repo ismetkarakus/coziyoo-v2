@@ -184,6 +184,14 @@ async function readJsonSafe<T = unknown>(response: Response): Promise<T> {
   }
 }
 
+function humanizeHttpError(status: number): string {
+  if (status === 502) return 'Sunucu gecici olarak erisilemiyor (502). Lutfen biraz sonra tekrar deneyin.';
+  if (status === 503) return 'Sunucu bakimda veya gecici olarak kullanilamiyor (503).';
+  if (status === 504) return 'Sunucu yanit vermekte gecikiyor (504). Lutfen tekrar deneyin.';
+  if (status >= 500) return `Sunucu hatasi (${status}).`;
+  return `Istek basarisiz (${status}).`;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -857,7 +865,7 @@ export default function HomeScreen({
           });
           if (!retryRes.ok) {
             setMeals([]);
-            setMealsError(`retry failed (${retryRes.status})`);
+            setMealsError(humanizeHttpError(retryRes.status));
             return;
           }
           const retryJson = await readJsonSafe<{ data?: ApiFoodItem[] }>(retryRes);
@@ -872,7 +880,7 @@ export default function HomeScreen({
       }
       if (!response.ok) {
         setMeals([]);
-        setMealsError(`request failed (${response.status})`);
+        setMealsError(humanizeHttpError(response.status));
         return;
       }
       const json = await readJsonSafe<{ data?: ApiFoodItem[] }>(response);
