@@ -709,27 +709,28 @@ function FoodCard({
               <Text style={[styles.foodName, { color: colors.title }]}>
                 {meal.title}
               </Text>
-              {meal.cuisine ? (
-                <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
-                  {meal.cuisine} Mutfagi
-                </Text>
-              ) : null}
+              <View style={styles.foodNameMetaRight}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={onSellerPress}
+                  style={styles.foodSellerInlineBtn}
+                >
+                  <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
+                    {meal.seller}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward-outline"
+                    size={13}
+                    color={colors.subtitle}
+                  />
+                </TouchableOpacity>
+                {meal.cuisine ? (
+                  <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
+                    {meal.cuisine} Mutfagi
+                  </Text>
+                ) : null}
+              </View>
             </View>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={onSellerPress}
-              style={styles.foodSellerLink}
-            >
-              <Text style={[styles.foodSeller, { color: colors.subtitle }]}>
-                {meal.seller}
-              </Text>
-              <Ionicons
-                name="chevron-forward-outline"
-                size={14}
-                color={colors.subtitle}
-                style={styles.foodSellerChevron}
-              />
-            </TouchableOpacity>
           </View>
         </View>
         <View style={styles.foodBottomRow}>
@@ -2570,12 +2571,15 @@ const styles = StyleSheet.create({
   foodInfoLeft: { flex: 1 },
   foodNameRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 8,
   },
   foodName: { fontSize: 16, fontWeight: '600' },
-  foodCuisineInline: { fontSize: 12, fontWeight: '600' },
+  foodNameMetaRight: { alignItems: 'flex-end', gap: 2 },
+  foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  foodSellerInline: { fontSize: 12, fontWeight: '700' },
+  foodCuisineInline: { fontSize: 11, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
