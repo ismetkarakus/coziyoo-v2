@@ -1670,9 +1670,11 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
+          <View pointerEvents="none" style={styles.searchSloganWaveBack} />
           <View pointerEvents="none" style={styles.searchSloganWaveA} />
           <View pointerEvents="none" style={styles.searchSloganWaveB} />
           <View pointerEvents="none" style={styles.searchSloganWaveC} />
+          <View pointerEvents="none" style={styles.searchSloganWaveFront} />
           <View style={styles.searchSloganContent}>
             <View style={styles.searchSloganTitleRow}>
               <Ionicons name="home" size={18} color="#5A4634" />
@@ -2601,8 +2603,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
     marginHorizontal: -12,
-    backgroundColor: '#F8FCF7',
-    borderColor: '#E1EFDD',
+    backgroundColor: '#FCFFFC',
+    borderColor: '#E4F1E2',
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
@@ -2613,32 +2615,55 @@ const styles = StyleSheet.create({
   searchSloganContent: {
     zIndex: 2,
   },
+  searchSloganWaveBack: {
+    position: 'absolute',
+    right: -90,
+    top: -56,
+    width: 310,
+    height: 150,
+    borderRadius: 110,
+    backgroundColor: 'rgba(205, 235, 220, 0.36)',
+    transform: [{ rotate: '-7deg' }],
+  },
   searchSloganWaveA: {
     position: 'absolute',
-    right: -42,
-    top: -14,
-    width: 180,
-    height: 110,
-    borderRadius: 60,
-    backgroundColor: 'rgba(212, 236, 202, 0.55)',
+    right: -46,
+    top: -6,
+    width: 220,
+    height: 96,
+    borderRadius: 84,
+    backgroundColor: 'rgba(188, 229, 207, 0.42)',
+    transform: [{ rotate: '-8deg' }],
   },
   searchSloganWaveB: {
     position: 'absolute',
-    left: -28,
-    bottom: -44,
-    width: 210,
-    height: 120,
-    borderRadius: 72,
-    backgroundColor: 'rgba(227, 244, 219, 0.72)',
+    left: -62,
+    bottom: -62,
+    width: 280,
+    height: 132,
+    borderRadius: 96,
+    backgroundColor: 'rgba(220, 243, 228, 0.8)',
+    transform: [{ rotate: '7deg' }],
   },
   searchSloganWaveC: {
     position: 'absolute',
-    left: '38%',
-    top: 16,
-    width: 170,
-    height: 84,
-    borderRadius: 56,
-    backgroundColor: 'rgba(245, 252, 242, 0.9)',
+    left: '30%',
+    bottom: -40,
+    width: 240,
+    height: 92,
+    borderRadius: 72,
+    backgroundColor: 'rgba(238, 251, 241, 0.94)',
+    transform: [{ rotate: '-5deg' }],
+  },
+  searchSloganWaveFront: {
+    position: 'absolute',
+    right: -34,
+    bottom: -56,
+    width: 220,
+    height: 106,
+    borderRadius: 80,
+    backgroundColor: 'rgba(208, 238, 220, 0.48)',
+    transform: [{ rotate: '9deg' }],
   },
   searchSloganTitleRow: {
     flexDirection: 'row',
