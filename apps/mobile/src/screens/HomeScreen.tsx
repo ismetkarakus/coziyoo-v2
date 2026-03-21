@@ -1638,7 +1638,9 @@ export default function HomeScreen({
             </View>
           </View>
         </View>
-        <Text style={styles.searchSlogan}>Evimizden evinize taze yemekler</Text>
+        <View style={styles.searchSloganWrap}>
+          <Text style={styles.searchSlogan}>EVIMIZDEN EVINIZE TAZE YEMEKLER</Text>
+        </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
             <Text style={styles.debugText}>API: {apiUrl}</Text>
@@ -2554,7 +2556,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   searchCategoryScroller: { flex: 1 },
-  searchSlogan: { marginTop: 8, marginBottom: 10, color: '#6B5D4F', fontSize: 13, fontWeight: '700' },
+  searchSloganWrap: {
+    marginTop: 8,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3D5C4',
+    backgroundColor: '#FBF4EA',
+    alignItems: 'center',
+  },
+  searchSlogan: {
+    color: '#5A4634',
+    fontSize: 14,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    letterSpacing: 0.8,
+  },
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
