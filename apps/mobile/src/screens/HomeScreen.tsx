@@ -2450,10 +2450,8 @@ const styles = StyleSheet.create({
   ratingBadgeText: { color: '#3D3229', fontSize: 12, fontWeight: '700' },
   cuisineBadge: {
     position: 'absolute', top: 10, left: 10,
-    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8,
-    paddingHorizontal: 9, paddingVertical: 3,
   },
-  cuisineBadgeText: { color: '#5F5246', fontSize: 11, fontWeight: '700' },
+  cuisineBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1, paddingRight: 8 },
