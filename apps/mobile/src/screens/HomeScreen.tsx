@@ -244,10 +244,10 @@ function resolveGreetingName(profile: MeProfile | null | undefined, email?: stri
 }
 
 function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHeight: number } {
-  if (title.length >= 30) return { fontSize: 21, lineHeight: 27 };
-  if (title.length >= 25) return { fontSize: 23, lineHeight: 29 };
-  if (title.length >= 20) return { fontSize: 25, lineHeight: 31 };
-  return { fontSize: 28, lineHeight: 34 };
+  if (title.length >= 30) return { fontSize: 19, lineHeight: 25 };
+  if (title.length >= 25) return { fontSize: 21, lineHeight: 27 };
+  if (title.length >= 20) return { fontSize: 23, lineHeight: 29 };
+  return { fontSize: 26, lineHeight: 32 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2581,10 +2581,10 @@ const styles = StyleSheet.create({
 
   /* --- Header --- */
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  headerTextWrap: { flex: 1, paddingRight: 12 },
-  greetingTitle: { color: '#3D3229', fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  greetingSubtitle: { marginTop: 4, color: '#A89B8C', fontSize: 13 },
-  headerAvatarWrap: { alignItems: 'center' },
+  headerTextWrap: { flex: 1, paddingRight: 20 },
+  greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
+  greetingSubtitle: { marginTop: 4, marginLeft: 30, color: '#A89B8C', fontSize: 13 },
+  headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
