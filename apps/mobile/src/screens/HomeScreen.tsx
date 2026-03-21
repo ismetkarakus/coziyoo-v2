@@ -682,6 +682,9 @@ function FoodCard({
         <View style={styles.ratingBadge}>
           <Text style={styles.ratingBadgeStar}>★</Text>
           <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
+          {meal.cuisine ? (
+            <Text style={styles.ratingBadgeCuisine}> · {meal.cuisine}</Text>
+          ) : null}
         </View>
       </View>
       <View style={styles.foodInfo}>
@@ -705,11 +708,6 @@ function FoodCard({
                 style={styles.foodSellerChevron}
               />
             </TouchableOpacity>
-            {meal.cuisine ? (
-              <Text style={[styles.foodCuisine, { color: colors.meta }]}>
-                Mutfak: {meal.cuisine}
-              </Text>
-            ) : null}
           </View>
           <View style={styles.foodRightCol}>
             <Text style={[styles.foodPrice, { color: colors.price }]}>
@@ -2448,6 +2446,7 @@ const styles = StyleSheet.create({
   },
   ratingBadgeStar: { color: '#C4953A', fontSize: 12, fontWeight: '700' },
   ratingBadgeText: { color: '#3D3229', fontSize: 12, fontWeight: '700' },
+  ratingBadgeCuisine: { color: '#5F5246', fontSize: 11, fontWeight: '600' },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1, paddingRight: 8 },
