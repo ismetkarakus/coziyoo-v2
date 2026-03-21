@@ -679,12 +679,14 @@ function FoodCard({
         ) : (
           <Text style={styles.foodEmoji}>🍽️</Text>
         )}
+        {meal.cuisine ? (
+          <View style={styles.cuisineBadge}>
+            <Text style={styles.cuisineBadgeText}>{meal.cuisine}</Text>
+          </View>
+        ) : null}
         <View style={styles.ratingBadge}>
           <Text style={styles.ratingBadgeStar}>★</Text>
           <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
-          {meal.cuisine ? (
-            <Text style={styles.ratingBadgeCuisine}> · {meal.cuisine}</Text>
-          ) : null}
         </View>
       </View>
       <View style={styles.foodInfo}>
@@ -2446,7 +2448,12 @@ const styles = StyleSheet.create({
   },
   ratingBadgeStar: { color: '#C4953A', fontSize: 12, fontWeight: '700' },
   ratingBadgeText: { color: '#3D3229', fontSize: 12, fontWeight: '700' },
-  ratingBadgeCuisine: { color: '#5F5246', fontSize: 11, fontWeight: '600' },
+  cuisineBadge: {
+    position: 'absolute', top: 10, left: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8,
+    paddingHorizontal: 9, paddingVertical: 3,
+  },
+  cuisineBadgeText: { color: '#5F5246', fontSize: 11, fontWeight: '700' },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1, paddingRight: 8 },
