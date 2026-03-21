@@ -49,3 +49,14 @@ Unless explicitly requested by the user, do not modify:
   - commit with a clear message
   - `git push`
 - Apply this by default without asking the user to repeat it in each task.
+
+## 8) Brand Voice Lock (User Rule - Persistent)
+- Coziyoo metin dili sabittir and must not drift unless user explicitly requests a change:
+  - Tam Turkce
+  - Samimi "sen" dili
+  - Kisa, net, guven veren ton
+  - Kurumsal/robotik dil yok
+- Ana slogan sabittir: `Komşunun mutfağından, kapına.`
+- Slogan Home ekraninda arama cubugunun altinda kalir.
+- Mobil metinlerde tek kaynak: `apps/mobile/src/copy/brandCopy.ts`
+- Detayli kilit dokumani: `BRAND_VOICE_LOCK.md`
