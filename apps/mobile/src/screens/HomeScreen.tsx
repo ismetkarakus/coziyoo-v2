@@ -213,6 +213,13 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+function buildGreetingTitle(date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 12) return 'Günaydın, Lale';
+  if (hour < 18) return 'İyi öğlenler, Lale';
+  return 'İyi akşamlar, Lale';
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -839,6 +846,9 @@ export default function HomeScreen({
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
+  const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState<string>(() =>
+    buildGreetingTitle(),
+  );
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -867,6 +877,13 @@ export default function HomeScreen({
     if (!apiUrl) return;
     void fetchMeProfile(apiUrl, currentAuth.accessToken);
   }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    const refreshGreeting = () => setDynamicGreetingTitle(buildGreetingTitle());
+    refreshGreeting();
+    const interval = setInterval(refreshGreeting, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch foods from API
   useEffect(() => {
@@ -1574,7 +1591,7 @@ export default function HomeScreen({
                 ) : null}
               </View>
             ) : null}
-            <Text style={styles.greetingTitle}>{t('headline.home.greetingTitle')}</Text>
+            <Text style={styles.greetingTitle}>{dynamicGreetingTitle}</Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
           </View>
           <View style={styles.headerAvatarWrap}>
