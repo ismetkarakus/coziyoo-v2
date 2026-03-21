@@ -1549,23 +1549,26 @@ export default function HomeScreen({
             <Text style={styles.greetingTitle}>{t('headline.home.greetingTitle')}</Text>
             <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.avatarCircle}
-            onPress={() => handleTabPress('profile')}
-          >
-            {profileImageUrl && !profileImageLoadFailed ? (
-              <Image
-                source={{ uri: profileImageUrl }}
-                style={styles.avatarCircleImage}
-                onError={() => setProfileImageLoadFailed(true)}
-              />
-            ) : cachedLocalImageUrl ? (
-              <Image source={{ uri: cachedLocalImageUrl }} style={styles.avatarCircleImage} />
-            ) : (
-              <Text style={styles.avatarEmoji}>👩‍🍳</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerAvatarWrap}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.avatarCircle}
+              onPress={() => handleTabPress('profile')}
+            >
+              {profileImageUrl && !profileImageLoadFailed ? (
+                <Image
+                  source={{ uri: profileImageUrl }}
+                  style={styles.avatarCircleImage}
+                  onError={() => setProfileImageLoadFailed(true)}
+                />
+              ) : cachedLocalImageUrl ? (
+                <Image source={{ uri: cachedLocalImageUrl }} style={styles.avatarCircleImage} />
+              ) : (
+                <Text style={styles.avatarEmoji}>👩‍🍳</Text>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.headerNearbyText}>📍 Yakınımda</Text>
+          </View>
         </View>
 
         {/* Sticky search + category chips */}
@@ -2482,9 +2485,11 @@ const styles = StyleSheet.create({
   headerTextWrap: { flex: 1, paddingRight: 12 },
   greetingTitle: { color: '#3D3229', fontSize: 28, lineHeight: 34, fontWeight: '700' },
   greetingSubtitle: { marginTop: 4, color: '#A89B8C', fontSize: 13 },
+  headerAvatarWrap: { alignItems: 'center' },
   avatarCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
   avatarCircleImage: { width: 42, height: 42, borderRadius: 21 },
   avatarEmoji: { fontSize: 18 },
+  headerNearbyText: { marginTop: 5, color: '#7A6D5D', fontSize: 11, fontWeight: '600' },
 
   /* --- Search --- */
   searchStickyWrap: {
