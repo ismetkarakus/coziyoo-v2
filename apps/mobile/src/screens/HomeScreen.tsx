@@ -687,11 +687,6 @@ function FoodCard({
         ) : (
           <Text style={styles.foodEmoji}>🍽️</Text>
         )}
-        {meal.cuisine ? (
-          <View style={styles.cuisineBadge}>
-            <Text style={styles.cuisineBadgeText}>{meal.cuisine} Mutfagi</Text>
-          </View>
-        ) : null}
         <View style={styles.foodBadgesRight}>
           <View style={styles.foodPriceBadge}>
             <Text style={styles.foodPriceBadgeText}>{meal.price}</Text>
@@ -2562,10 +2557,6 @@ const styles = StyleSheet.create({
   },
   ratingBadgeStar: { color: '#C4953A', fontSize: 12, fontWeight: '700' },
   ratingBadgeText: { color: '#3D3229', fontSize: 12, fontWeight: '700' },
-  cuisineBadge: {
-    position: 'absolute', top: 10, left: 10,
-  },
-  cuisineBadgeText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
   foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   foodInfoLeft: { flex: 1 },
