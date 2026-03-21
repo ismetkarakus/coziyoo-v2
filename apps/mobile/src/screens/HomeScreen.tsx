@@ -55,6 +55,7 @@ type Props = {
   auth: AuthSession;
   onOpenSettings: () => void;
   onOpenProfileEdit: () => void;
+  onOpenAddresses: () => void;
   onLogout: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
@@ -741,6 +742,7 @@ export default function HomeScreen({
   auth,
   onOpenSettings,
   onOpenProfileEdit,
+  onOpenAddresses,
   onLogout,
   onAuthRefresh,
 }: Props) {
@@ -1757,6 +1759,12 @@ export default function HomeScreen({
             onPress={onOpenProfileEdit}
           >
             <Text style={styles.profileButtonText}>Profili Duzenle</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={onOpenAddresses}
+          >
+            <Text style={styles.profileButtonText}>Adreslerim</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileButton}

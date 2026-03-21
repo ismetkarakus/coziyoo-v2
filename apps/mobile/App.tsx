@@ -4,10 +4,11 @@ import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ProfileEditScreen from './src/screens/ProfileEditScreen';
+import AddressScreen from './src/screens/AddressScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { theme } from './src/theme/colors';
 
-type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit';
+type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit' | 'addresses';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
@@ -65,11 +66,22 @@ export default function App() {
     );
   }
 
+  if (screen === 'addresses') {
+    return (
+      <AddressScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
   return (
     <HomeScreen
       auth={auth}
       onOpenSettings={() => setScreen('settings')}
       onOpenProfileEdit={() => setScreen('profileEdit')}
+      onOpenAddresses={() => setScreen('addresses')}
       onLogout={handleLogout}
       onAuthRefresh={setAuth}
     />

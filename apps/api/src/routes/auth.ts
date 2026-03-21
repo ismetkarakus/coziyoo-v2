@@ -598,3 +598,151 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
     },
   });
 });
+
+/* ── Buyer Address Management ── */
+
+const CreateAddressSchema = z.object({
+  title: z.string().min(1).max(80),
+  addressLine: z.string().min(3).max(500),
+  isDefault: z.boolean().optional(),
+});
+
+const UpdateAddressSchema = z.object({
+  title: z.string().min(1).max(80).optional(),
+  addressLine: z.string().min(3).max(500).optional(),
+  isDefault: z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: "At least one field required" });
+
+authRouter.get("/me/addresses", requireAuth("app"), async (req, res) => {
+  const result = await pool.query<{
+    id: string;
+    title: string;
+    address_line: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT id, title, address_line, is_default, created_at, updated_at
+     FROM user_addresses
+     WHERE user_id = $1
+     ORDER BY is_default DESC, created_at ASC`,
+    [req.auth!.userId]
+  );
+
+  return res.json({
+    data: result.rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      addressLine: r.address_line,
+      isDefault: r.is_default,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })),
+  });
+});
+
+authRouter.post("/me/addresses", requireAuth("app"), async (req, res) => {
+  const parsed = CreateAddressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { title, addressLine, isDefault } = parsed.data;
+  const result = await pool.query<{
+    id: string;
+    title: string;
+    address_line: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `INSERT INTO user_addresses (user_id, title, address_line, is_default)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, title, address_line, is_default, created_at, updated_at`,
+    [req.auth!.userId, title, addressLine, isDefault ?? false]
+  );
+
+  const row = result.rows[0];
+  return res.status(201).json({
+    data: {
+      id: row.id,
+      title: row.title,
+      addressLine: row.address_line,
+      isDefault: row.is_default,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    },
+  });
+});
+
+authRouter.patch("/me/addresses/:addressId", requireAuth("app"), async (req, res) => {
+  const addressId = req.params.addressId;
+  const parsed = UpdateAddressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const fields = parsed.data;
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  if (fields.title !== undefined) {
+    setClauses.push(`title = $${idx++}`);
+    values.push(fields.title);
+  }
+  if (fields.addressLine !== undefined) {
+    setClauses.push(`address_line = $${idx++}`);
+    values.push(fields.addressLine);
+  }
+  if (fields.isDefault !== undefined) {
+    setClauses.push(`is_default = $${idx++}`);
+    values.push(fields.isDefault);
+  }
+
+  setClauses.push(`updated_at = NOW()`);
+  values.push(addressId, req.auth!.userId);
+
+  const result = await pool.query<{
+    id: string;
+    title: string;
+    address_line: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `UPDATE user_addresses SET ${setClauses.join(", ")}
+     WHERE id = $${idx} AND user_id = $${idx + 1}
+     RETURNING id, title, address_line, is_default, created_at, updated_at`,
+    values
+  );
+
+  if ((result.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "ADDRESS_NOT_FOUND", message: "Address not found" } });
+  }
+
+  const row = result.rows[0];
+  return res.json({
+    data: {
+      id: row.id,
+      title: row.title,
+      addressLine: row.address_line,
+      isDefault: row.is_default,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    },
+  });
+});
+
+authRouter.delete("/me/addresses/:addressId", requireAuth("app"), async (req, res) => {
+  const result = await pool.query(
+    `DELETE FROM user_addresses WHERE id = $1 AND user_id = $2`,
+    [req.params.addressId, req.auth!.userId]
+  );
+
+  if ((result.rowCount ?? 0) === 0) {
+    return res.status(404).json({ error: { code: "ADDRESS_NOT_FOUND", message: "Address not found" } });
+  }
+
+  return res.status(204).end();
+});
