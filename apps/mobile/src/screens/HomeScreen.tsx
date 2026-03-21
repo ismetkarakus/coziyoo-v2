@@ -105,6 +105,7 @@ type MealCard = {
   description: string;
   cuisine: string;
   lotId?: string | null;
+  stock: number;
   rating: string;
   time: string;
   distance: string;
@@ -471,6 +472,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     description: item.description ?? '',
     cuisine: item.cuisine ?? '',
     lotId: item.lotId ?? null,
+    stock: item.stock ?? 0,
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
     distance: item.maxDistance ? `${item.maxDistance} km` : '',
@@ -620,10 +622,14 @@ const MESSAGE_WALLPAPERS = [
 
 function FoodCard({
   meal,
+  totalStock,
+  remainingStock,
   onPress,
   onSellerPress,
 }: {
   meal: MealCard;
+  totalStock: number;
+  remainingStock: number;
   onPress: () => void;
   onSellerPress: () => void;
 }) {
@@ -734,6 +740,9 @@ function FoodCard({
                 ) : null}
               </View>
             </View>
+            <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
+              Toplam: {totalStock} yemek {remainingStock} kaldi
+            </Text>
           </View>
         </View>
         <View style={styles.foodBottomRow}>
@@ -1106,13 +1115,20 @@ export default function HomeScreen({
     setPaymentStatus(null);
     setPendingCheckoutUrls([]);
     setCartItems((prev) => {
+      const latestMeal = meals.find((m) => m.id === meal.id) ?? meal;
+      const totalStock = Math.max(0, latestMeal.stock ?? 0);
       const existing = prev.find((item) => item.meal.id === meal.id);
+      const existingQty = existing?.quantity ?? 0;
+      if (totalStock <= existingQty) {
+        Alert.alert('Stok Tukeniyor', 'Bu yemek icin kalan stok sinirina ulastiniz.');
+        return prev;
+      }
       if (!existing) {
-        return [...prev, { meal, quantity: 1 }];
+        return [...prev, { meal: latestMeal, quantity: 1 }];
       }
       return prev.map((item) =>
         item.meal.id === meal.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, meal: latestMeal, quantity: item.quantity + 1 }
           : item,
       );
     });
@@ -1619,20 +1635,27 @@ export default function HomeScreen({
         ) : null}
 
         {/* Food cards */}
-        {visibleMeals.map((meal) => (
-          <FoodCard
-            key={meal.id}
-            meal={meal}
-            onPress={() => setSelectedMeal(meal)}
-            onSellerPress={() =>
-              setSelectedSeller({
-                id: meal.sellerId,
-                name: meal.seller,
-                image: meal.sellerImage ?? null,
-              })
-            }
-          />
-        ))}
+        {visibleMeals.map((meal) => {
+          const totalStock = Math.max(0, meal.stock ?? 0);
+          const inCartQty = cartItems.find((item) => item.meal.id === meal.id)?.quantity ?? 0;
+          const remainingStock = Math.max(0, totalStock - inCartQty);
+          return (
+            <FoodCard
+              key={meal.id}
+              meal={meal}
+              totalStock={totalStock}
+              remainingStock={remainingStock}
+              onPress={() => setSelectedMeal(meal)}
+              onSellerPress={() =>
+                setSelectedSeller({
+                  id: meal.sellerId,
+                  name: meal.seller,
+                  image: meal.sellerImage ?? null,
+                })
+              }
+            />
+          );
+        })}
 
         {voiceError && !agentModalVisible ? (
           <Text style={styles.inlineError}>{voiceError}</Text>
@@ -2579,6 +2602,7 @@ const styles = StyleSheet.create({
   foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   foodSellerInline: { fontSize: 13, fontWeight: '700' },
   foodCuisineInline: { fontSize: 12, fontWeight: '600' },
+  foodStockText: { fontSize: 11, fontWeight: '600', marginTop: 4 },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
