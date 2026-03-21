@@ -109,7 +109,9 @@ paymentsRouter.post(
         amount: Number(order.total_price),
         provider: env.PAYMENT_PROVIDER_NAME,
         sessionId,
-        checkoutUrl: `${env.PAYMENT_CHECKOUT_BASE_URL}?sessionId=${encodeURIComponent(sessionId)}`,
+        checkoutUrl: env.PAYMENT_PROVIDER_NAME === "mockpay"
+          ? `${req.protocol}://${req.get("host")}/v1/payments/mock-checkout?sessionId=${encodeURIComponent(sessionId)}`
+          : `${env.PAYMENT_CHECKOUT_BASE_URL}?sessionId=${encodeURIComponent(sessionId)}`,
       },
     });
   } catch (error) {
@@ -294,6 +296,271 @@ paymentsRouter.post("/webhook", async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+/* ------------------------------------------------------------------ */
+/*  Mock Checkout Page (development only)                              */
+/* ------------------------------------------------------------------ */
+
+paymentsRouter.get("/mock-checkout", async (req, res) => {
+  const sessionId = String(req.query.sessionId ?? "");
+  if (!sessionId) {
+    return res.status(400).send("sessionId query param required");
+  }
+
+  const result = await pool.query<{
+    order_id: string;
+    status: string;
+    total_price: string;
+    buyer_name: string;
+  }>(
+    `SELECT pa.order_id, pa.status, o.total_price::text,
+            COALESCE(u.display_name, u.email, 'Alici') AS buyer_name
+     FROM payment_attempts pa
+     JOIN orders o ON o.id = pa.order_id
+     JOIN users u ON u.id = pa.buyer_id
+     WHERE pa.provider_session_id = $1`,
+    [sessionId],
+  );
+
+  if ((result.rowCount ?? 0) === 0) {
+    return res.status(404).send("Payment session not found");
+  }
+
+  const row = result.rows[0];
+  const amount = Number(row.total_price).toFixed(2);
+  const apiBase = `${req.protocol}://${req.get("host")}`;
+
+  res.setHeader("content-type", "text/html; charset=utf-8");
+  return res.send(`<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Odeme - Coziyoo</title>
+  <style>
+    :root {
+      --bg: #F5F1EB;
+      --card: #FFFDF9;
+      --primary: #4A7C59;
+      --text: #3D3229;
+      --muted: #A89B8C;
+      --border: #EDE8E0;
+      --error: #DC3545;
+      --success: #28a745;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    .logo {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 24px;
+    }
+    .amount {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 800;
+      margin: 16px 0 8px;
+    }
+    .label {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .field {
+      margin-bottom: 16px;
+    }
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .field input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 16px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+    }
+    .field input:focus {
+      border-color: var(--primary);
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+    .row .field { flex: 1; }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-pay {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-fail {
+      background: var(--border);
+      color: var(--muted);
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .status-msg {
+      text-align: center;
+      margin-top: 16px;
+      font-weight: 600;
+      font-size: 15px;
+      min-height: 24px;
+    }
+    .status-ok { color: var(--success); }
+    .status-err { color: var(--error); }
+    .info {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Coziyoo</div>
+    <div class="amount">₺${amount}</div>
+    <div class="label">${row.buyer_name} &middot; Siparis #${row.order_id.slice(0, 8)}</div>
+
+    <div class="field">
+      <label>Kart Numarasi</label>
+      <input type="text" value="4242 4242 4242 4242" maxlength="19" inputmode="numeric" />
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Son Kullanma</label>
+        <input type="text" value="12/28" maxlength="5" />
+      </div>
+      <div class="field">
+        <label>CVV</label>
+        <input type="text" value="123" maxlength="4" inputmode="numeric" />
+      </div>
+    </div>
+
+    <button class="btn btn-pay" id="payBtn" onclick="processPayment('success')">
+      ₺${amount} Ode
+    </button>
+    <button class="btn btn-fail" id="failBtn" onclick="processPayment('failed')">
+      Odemeyi Basarisiz Yap (Test)
+    </button>
+
+    <div class="status-msg" id="statusMsg"></div>
+    <div class="info">Mock odeme sayfasi &mdash; gercek kart bilgisi islenmez</div>
+  </div>
+
+  <script>
+    const SESSION_ID = ${JSON.stringify(sessionId)};
+    const API_BASE = ${JSON.stringify(apiBase)};
+    const WEBHOOK_SECRET = ${JSON.stringify(env.PAYMENT_WEBHOOK_SECRET)};
+
+    async function processPayment(result) {
+      const payBtn = document.getElementById('payBtn');
+      const failBtn = document.getElementById('failBtn');
+      const msg = document.getElementById('statusMsg');
+      payBtn.disabled = true;
+      failBtn.disabled = true;
+      msg.textContent = 'Isleniyor...';
+      msg.className = 'status-msg';
+
+      try {
+        const providerReferenceId = 'MOCK-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const body = JSON.stringify({
+          sessionId: SESSION_ID,
+          providerReferenceId: providerReferenceId,
+          result: result === 'success' ? 'confirmed' : 'failed',
+        });
+
+        // Compute HMAC signature
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+          'raw', encoder.encode(WEBHOOK_SECRET),
+          { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+        );
+        const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+        const signature = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const res = await fetch(API_BASE + '/v1/payments/webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-provider-signature': signature,
+          },
+          body: body,
+        });
+
+        const json = await res.json();
+
+        if (res.ok && result === 'success') {
+          msg.textContent = 'Odeme basarili! Yonlendiriliyorsunuz...';
+          msg.className = 'status-msg status-ok';
+          setTimeout(() => {
+            window.location.href = API_BASE + '/v1/payments/return?sessionId=' + encodeURIComponent(SESSION_ID) + '&result=success';
+          }, 1500);
+        } else if (res.ok) {
+          msg.textContent = 'Odeme basarisiz olarak islendi.';
+          msg.className = 'status-msg status-err';
+          setTimeout(() => {
+            window.location.href = API_BASE + '/v1/payments/return?sessionId=' + encodeURIComponent(SESSION_ID) + '&result=failed';
+          }, 1500);
+        } else {
+          msg.textContent = json?.error?.message ?? 'Bir hata olustu';
+          msg.className = 'status-msg status-err';
+          payBtn.disabled = false;
+          failBtn.disabled = false;
+        }
+      } catch (err) {
+        msg.textContent = 'Baglanti hatasi: ' + err.message;
+        msg.className = 'status-msg status-err';
+        payBtn.disabled = false;
+        failBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>`);
 });
 
 paymentsRouter.get("/:orderId/status", requireAuth("app"), async (req, res) => {
