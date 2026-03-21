@@ -217,11 +217,11 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-function buildGreetingTitle(name: string, date = new Date()): string {
+function buildGreetingTitle(name: string, date = new Date()): { text: string; emoji: string } {
   const hour = date.getHours();
-  if (hour < 12) return `🌞 Günaydın, ${name}`;
-  if (hour < 18) return `🌤 Tünaydın, ${name}`;
-  return `🌙 İyi akşamlar, ${name}`;
+  if (hour < 12) return { text: `Günaydın, ${name}`, emoji: '🌞' };
+  if (hour < 18) return { text: `Tünaydın, ${name}`, emoji: '🌤' };
+  return { text: `İyi akşamlar, ${name}`, emoji: '🌙' };
 }
 
 function firstNameFromText(value: string | null | undefined): string | null {
@@ -244,10 +244,10 @@ function resolveGreetingName(profile: MeProfile | null | undefined, email?: stri
   return 'Lale';
 }
 
-function resolveGreetingTitleMetrics(title: string): { fontSize: number; lineHeight: number } {
-  if (title.length >= 30) return { fontSize: 19, lineHeight: 25 };
-  if (title.length >= 25) return { fontSize: 21, lineHeight: 27 };
-  if (title.length >= 20) return { fontSize: 23, lineHeight: 29 };
+function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
+  if (text.length >= 26) return { fontSize: 19, lineHeight: 25 };
+  if (text.length >= 21) return { fontSize: 21, lineHeight: 27 };
+  if (text.length >= 16) return { fontSize: 23, lineHeight: 29 };
   return { fontSize: 26, lineHeight: 32 };
 }
 
@@ -889,7 +889,7 @@ export default function HomeScreen({
   const [greetingName, setGreetingName] = useState<string>(() =>
     resolveGreetingName(null, auth.email),
   );
-  const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState<string>(() =>
+  const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState(() =>
     buildGreetingTitle(resolveGreetingName(null, auth.email)),
   );
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
@@ -1682,14 +1682,17 @@ export default function HomeScreen({
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text
-              style={[styles.greetingTitle, resolveGreetingTitleMetrics(dynamicGreetingTitle)]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.72}
-            >
-              {dynamicGreetingTitle}
-            </Text>
+            <View style={styles.greetingTitleWrap}>
+              <Text style={styles.greetingEmoji}>{dynamicGreetingTitle.emoji}</Text>
+              <Text
+                style={[styles.greetingTitle, resolveGreetingTitleMetrics(dynamicGreetingTitle.text)]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+              >
+                {dynamicGreetingTitle.text}
+              </Text>
+            </View>
             <View style={styles.greetingSubtitleRow}>
               <TouchableOpacity
                 onPress={() => setNearbyOnly((prev) => !prev)}
@@ -2674,9 +2677,19 @@ const styles = StyleSheet.create({
     marginBottom: 22,
     marginHorizontal: -12,
   },
-  headerTextWrap: { flex: 1, paddingRight: 20 },
-  greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
-  greetingSubtitleRow: { marginTop: 8, marginLeft: 30, flexDirection: 'row', alignItems: 'center' },
+  headerTextWrap: { flex: 1, paddingRight: 20, maxWidth: '65%' },
+  greetingTitleWrap: { alignSelf: 'flex-start', position: 'relative' },
+  greetingEmoji: {
+    position: 'absolute',
+    left: -6,
+    top: -6,
+    fontSize: 42,
+    opacity: 0.16,
+    zIndex: 1,
+    transform: [{ scaleX: 0.8 }, { scaleY: 1.15 }],
+  },
+  greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700', zIndex: 2 },
+  greetingSubtitleRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center' },
   greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600' },
   headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
