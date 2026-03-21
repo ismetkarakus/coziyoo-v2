@@ -738,11 +738,11 @@ function FoodCard({
                     {meal.cuisine} Mutfagi
                   </Text>
                 ) : null}
+                <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
+                  Toplam: {totalStock} yemek {remainingStock} kaldi
+                </Text>
               </View>
             </View>
-            <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
-              Toplam: {totalStock} yemek {remainingStock} kaldi
-            </Text>
           </View>
         </View>
         <View style={styles.foodBottomRow}>
