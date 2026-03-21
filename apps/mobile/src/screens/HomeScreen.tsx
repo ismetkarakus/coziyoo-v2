@@ -2595,6 +2595,12 @@ const styles = StyleSheet.create({
   searchSloganWrap: {
     marginTop: 8,
     marginBottom: 12,
+    backgroundColor: '#EAF4E6',
+    borderColor: '#D6E6D0',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   searchSloganTitleRow: {
     flexDirection: 'row',
@@ -2605,6 +2611,9 @@ const styles = StyleSheet.create({
     color: '#6E6354',
     fontSize: 14,
     lineHeight: 18,
+    textShadowColor: 'rgba(255,255,255,0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   searchSloganSublineRow: {
     marginTop: 6,
@@ -2627,6 +2636,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     fontWeight: '700',
+    textShadowColor: 'rgba(255,255,255,0.82)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1.4,
   },
   debugBox: {
     backgroundColor: '#FFF3CD',
