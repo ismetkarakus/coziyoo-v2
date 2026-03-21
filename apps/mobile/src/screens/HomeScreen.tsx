@@ -40,6 +40,7 @@ import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl } from '../utils/profileImage';
 import VoiceSessionScreen from './VoiceSessionScreen';
+import { requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -181,16 +182,16 @@ async function readJsonSafe<T = unknown>(response: Response): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new Error(`Sunucudan beklenmeyen cevap geldi (${response.status})`);
+    throw new Error(`${t('error.home.unexpectedResponse')} (${response.status})`);
   }
 }
 
 function humanizeHttpError(status: number): string {
-  if (status === 502) return 'Sunucu gecici olarak erisilemiyor (502). Lutfen biraz sonra tekrar deneyin.';
-  if (status === 503) return 'Sunucu bakimda veya gecici olarak kullanilamiyor (503).';
-  if (status === 504) return 'Sunucu yanit vermekte gecikiyor (504). Lutfen tekrar deneyin.';
-  if (status >= 500) return `Sunucu hatasi (${status}).`;
-  return `Istek basarisiz (${status}).`;
+  if (status === 502) return t('error.home.serverUnavailable502');
+  if (status === 503) return t('error.home.serverUnavailable503');
+  if (status === 504) return t('error.home.serverTimeout504');
+  if (status >= 500) return `${t('error.home.serverGeneric')} (${status})`;
+  return requestErrorLine(status);
 }
 
 function shouldRetryTransientStatus(status: number): boolean {
@@ -747,7 +748,7 @@ function FoodCard({
             </View>
             <View style={styles.foodMetaRow}>
               <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
-                Toplam: {totalStock}/{remainingStock} kaldi
+                {stockLine(totalStock, remainingStock)}
               </Text>
               {meal.cuisine ? (
                 <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
@@ -895,13 +896,13 @@ export default function HomeScreen({
           }
           const json = await readJsonSafe<{ data?: ApiFoodItem[] }>(response);
           if (!Array.isArray(json.data)) {
-            setMealsError('Sunucu cevabinda yemek listesi bulunamadi.');
+            setMealsError(t('error.home.noMealsInResponse'));
             return 'failed';
           }
           setMeals(json.data.map(apiToMealCard));
           return 'ok';
         }
-        setMealsError('Sunucuya su anda ulasilamiyor. Lutfen tekrar deneyin.');
+        setMealsError(t('error.home.retryLater'));
         return 'failed';
       };
 
@@ -911,7 +912,7 @@ export default function HomeScreen({
 
       const refreshed = await refreshAuthSession(url, currentAuth);
       if (!refreshed) {
-        setMealsError('Oturum suresi doldu. Lutfen tekrar giris yapin.');
+        setMealsError(t('error.home.sessionExpired'));
         return;
       }
       setCurrentAuth(refreshed);
@@ -919,7 +920,7 @@ export default function HomeScreen({
       await fetchFoodsWithToken(refreshed.accessToken);
     } catch (err) {
       console.warn('[HomeScreen] failed to fetch foods:', err);
-      setMealsError(err instanceof Error ? err.message : 'fetch failed');
+      setMealsError(err instanceof Error ? err.message : t('error.home.requestFailed'));
     } finally {
       setMealsLoading(false);
     }
@@ -1002,7 +1003,7 @@ export default function HomeScreen({
       return 'Konusma tanima kullanilamiyor. STT sunucusunu kontrol edin.';
     if (code === 'TTS_UNAVAILABLE')
       return 'Ses sentezi kullanilamiyor. TTS sunucusunu kontrol edin.';
-    if (status === 401) return 'Oturum suresi doldu. Lutfen tekrar giris yapin.';
+    if (status === 401) return t('error.home.sessionExpired');
     return payload?.error?.message ?? `Sunucu hatasi ${status}`;
   }
 
@@ -1137,7 +1138,7 @@ export default function HomeScreen({
       const existing = prev.find((item) => item.meal.id === meal.id);
       const existingQty = existing?.quantity ?? 0;
       if (totalStock <= existingQty) {
-        Alert.alert('Stok Tukeniyor', 'Bu yemek icin kalan stok sinirina ulastiniz.');
+        Alert.alert(t('helper.home.stockLimitTitle'), t('helper.home.stockLimitMessage'));
         return prev;
       }
       if (!existing) {
@@ -1176,7 +1177,7 @@ export default function HomeScreen({
 
   async function startCartCheckout() {
     if (cartItems.length === 0) {
-      Alert.alert('Sepet Bos', 'Odeme icin once sepete urun ekle.');
+      Alert.alert(t('helper.home.cartEmptyAlertTitle'), t('helper.home.cartEmptyAlertMessage'));
       return;
     }
 
@@ -1198,7 +1199,7 @@ export default function HomeScreen({
       setCartItems(payableItems);
     }
     if (payableItems.length === 0) {
-      setPaymentError('Sepette odemeye uygun aktif lot kalmadi.');
+      setPaymentError(t('error.home.payableLotsMissing'));
       return;
     }
 
@@ -1510,7 +1511,7 @@ export default function HomeScreen({
       .then(async (response) => {
         const json = await readJsonSafe<{ data?: SellerReview[]; error?: { message?: string } }>(response);
         if (!response.ok) {
-          throw new Error(json.error?.message ?? `request failed (${response.status})`);
+          throw new Error(json.error?.message ?? requestErrorLine(response.status));
         }
         return json.data ?? [];
       })
@@ -1545,8 +1546,8 @@ export default function HomeScreen({
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.greetingTitle}>Gunaydin, Lale</Text>
-            <Text style={styles.greetingSubtitle}>Bugun ne yiyelim?</Text>
+            <Text style={styles.greetingTitle}>{t('headline.home.greetingTitle')}</Text>
+            <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -1601,7 +1602,7 @@ export default function HomeScreen({
                   ref={searchInputRef}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  placeholder="Yemek veya satici ara..."
+                  placeholder={t('helper.home.searchPlaceholder')}
                   placeholderTextColor="#A89B8C"
                   style={styles.searchInput}
                   returnKeyType="search"
@@ -1639,7 +1640,7 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.searchSloganWrap}>
-          <Text style={styles.searchSlogan}>EVIMIZDEN EVINIZE TAZE YEMEKLER</Text>
+          <Text style={styles.searchSlogan}>{t('headline.home.slogan')}</Text>
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
@@ -1723,7 +1724,7 @@ export default function HomeScreen({
             <TextInput
               value={inboxInput}
               onChangeText={setInboxInput}
-              placeholder="Mesaj yaz..."
+              placeholder={t('helper.home.messageInputPlaceholder')}
               placeholderTextColor="#A89B8C"
               style={styles.chatTextInput}
               returnKeyType="send"
@@ -1752,7 +1753,7 @@ export default function HomeScreen({
           </View>
           {cartItems.length === 0 ? (
             <View style={styles.tabPanelCard}>
-              <Text style={styles.tabPanelText}>Sepetin su an bos.</Text>
+              <Text style={styles.tabPanelText}>{t('helper.home.cartEmptyTitle')}</Text>
             </View>
           ) : (
             <>
@@ -1798,11 +1799,11 @@ export default function HomeScreen({
               </View>
               {paymentStatus ? (
                 <View style={styles.paymentStatusCard}>
-                  <Text style={styles.paymentStatusTitle}>Odeme Durumu</Text>
-                  <Text style={styles.paymentStatusText}>Siparis: {paymentStatus.orderId.slice(0, 8)}...</Text>
-                  <Text style={styles.paymentStatusText}>Order: {paymentStatus.orderStatus}</Text>
+                  <Text style={styles.paymentStatusTitle}>{t('status.home.paymentTitle')}</Text>
+                  <Text style={styles.paymentStatusText}>{t('status.home.orderLabel')} {paymentStatus.orderId.slice(0, 8)}...</Text>
+                  <Text style={styles.paymentStatusText}>{t('status.home.orderStatusLabel')} {paymentStatus.orderStatus}</Text>
                   <Text style={styles.paymentStatusText}>
-                    Odeme: {paymentStatus.paymentCompleted ? 'Tamamlandi' : (paymentStatus.latestAttemptStatus ?? 'Beklemede')}
+                    {paymentStatus.paymentCompleted ? t('status.home.paymentDone') : (paymentStatus.latestAttemptStatus ?? t('status.home.paymentWaiting'))}
                   </Text>
                 </View>
               ) : null}
@@ -1822,7 +1823,7 @@ export default function HomeScreen({
                   {paymentLoading ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.paymentActionBtnText}>Odeme Baslat</Text>
+                    <Text style={styles.paymentActionBtnText}>{t('cta.home.cartCheckout')}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1831,7 +1832,7 @@ export default function HomeScreen({
                   activeOpacity={0.9}
                   disabled={paymentLoading || !activeOrderId}
                 >
-                  <Text style={styles.paymentRefreshBtnText}>Durum Yenile</Text>
+                  <Text style={styles.paymentRefreshBtnText}>{t('cta.home.paymentRefresh')}</Text>
                 </TouchableOpacity>
                 {pendingCheckoutUrls.length > 0 ? (
                   <TouchableOpacity
@@ -1839,7 +1840,7 @@ export default function HomeScreen({
                     onPress={openNextCheckout}
                     activeOpacity={0.9}
                   >
-                    <Text style={styles.paymentNextBtnText}>Sonraki Odeme</Text>
+                    <Text style={styles.paymentNextBtnText}>{t('cta.home.paymentNext')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -1851,10 +1852,8 @@ export default function HomeScreen({
     if (activeTab === 'notifications') {
       return (
         <View style={styles.tabPanelCard}>
-          <Text style={styles.tabPanelTitle}>Bildirimler</Text>
-          <Text style={styles.tabPanelText}>
-            Yeni bildirimlerin burada listelenecek.
-          </Text>
+          <Text style={styles.tabPanelTitle}>{t('status.home.notificationsTitle')}</Text>
+          <Text style={styles.tabPanelText}>{t('helper.home.notificationsEmpty')}</Text>
         </View>
       );
     }
@@ -1878,7 +1877,7 @@ export default function HomeScreen({
               )}
             </View>
             <View style={styles.profileMeta}>
-              <Text style={styles.profileTitle}>Profil</Text>
+              <Text style={styles.profileTitle}>{t('status.home.profileTitle')}</Text>
               <Text style={styles.profileEmail}>{currentAuth.email}</Text>
             </View>
           </View>
@@ -1886,25 +1885,25 @@ export default function HomeScreen({
             style={styles.profileButton}
             onPress={onOpenProfileEdit}
           >
-            <Text style={styles.profileButtonText}>Profili Duzenle</Text>
+            <Text style={styles.profileButtonText}>{t('cta.home.profileEdit')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileButton}
             onPress={onOpenAddresses}
           >
-            <Text style={styles.profileButtonText}>Adreslerim</Text>
+            <Text style={styles.profileButtonText}>{t('cta.home.addresses')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileButton}
             onPress={onOpenSettings}
           >
-            <Text style={styles.profileButtonText}>Ayarlar</Text>
+            <Text style={styles.profileButtonText}>{t('cta.home.settings')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileDangerButton}
             onPress={onLogout}
           >
-            <Text style={styles.profileDangerButtonText}>Cikis Yap</Text>
+            <Text style={styles.profileDangerButtonText}>{t('cta.home.logout')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -1947,7 +1946,7 @@ export default function HomeScreen({
       >
         <SafeAreaView style={styles.paymentWebSafe}>
           <View style={styles.paymentWebHeader}>
-            <Text style={styles.paymentWebTitle}>Odeme Ekrani</Text>
+            <Text style={styles.paymentWebTitle}>{t('status.home.paymentWebTitle')}</Text>
             <TouchableOpacity
               onPress={() => {
                 handleClosePaymentWeb();
@@ -1956,7 +1955,7 @@ export default function HomeScreen({
               style={styles.paymentWebClose}
               activeOpacity={0.85}
             >
-              <Text style={styles.paymentWebCloseText}>Kapat</Text>
+              <Text style={styles.paymentWebCloseText}>{t('cta.home.close')}</Text>
             </TouchableOpacity>
           </View>
           {checkoutUrl && PaymentWebView ? (
@@ -1982,9 +1981,7 @@ export default function HomeScreen({
             />
           ) : checkoutUrl ? (
             <View style={styles.paymentWebLoading}>
-              <Text style={styles.paymentWebErrorText}>
-                Uygulama ici odeme modulu yuklu degil.
-              </Text>
+              <Text style={styles.paymentWebErrorText}>{t('error.home.paymentModuleMissing')}</Text>
               <TouchableOpacity
                 style={styles.paymentWebFallbackBtn}
                 activeOpacity={0.85}
@@ -1992,12 +1989,12 @@ export default function HomeScreen({
                   void Linking.openURL(checkoutUrl);
                 }}
               >
-                <Text style={styles.paymentWebFallbackBtnText}>Tarayicida Ac</Text>
+                <Text style={styles.paymentWebFallbackBtnText}>{t('cta.home.openInBrowser')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.paymentWebLoading}>
-              <Text style={styles.paymentWebErrorText}>Checkout baglantisi bulunamadi.</Text>
+              <Text style={styles.paymentWebErrorText}>{t('error.home.checkoutMissing')}</Text>
             </View>
           )}
         </SafeAreaView>
@@ -2086,7 +2083,7 @@ export default function HomeScreen({
                   setSelectedMeal(null);
                 }}
               >
-                <Text style={styles.modalCartButtonText}>Sepete Ekle</Text>
+                <Text style={styles.modalCartButtonText}>{t('cta.home.addToCart')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -2116,7 +2113,7 @@ export default function HomeScreen({
                 </View>
                 <View style={styles.sellerHeaderText}>
                   <Text style={styles.sellerTitle}>{selectedSeller.name}</Text>
-                  <Text style={styles.sellerSubtitle}>Usta Mutfagi</Text>
+                  <Text style={styles.sellerSubtitle}>{t('status.home.sellerKitchen')}</Text>
                 </View>
               </View>
 
@@ -2140,18 +2137,18 @@ export default function HomeScreen({
                 </View>
               ) : null}
 
-              <Text style={styles.sellerSectionTitle}>Yorumlar</Text>
+              <Text style={styles.sellerSectionTitle}>{t('status.home.sellerReviews')}</Text>
               {sellerReviewsLoading ? (
                 <View style={styles.sellerReviewsLoadingRow}>
                   <ActivityIndicator size="small" color="#4A7C59" />
-                  <Text style={styles.sellerReviewsLoadingText}>Yorumlar yukleniyor...</Text>
+                  <Text style={styles.sellerReviewsLoadingText}>{t('status.home.sellerReviewsLoading')}</Text>
                 </View>
               ) : null}
               {sellerReviewsError ? (
                 <Text style={styles.sellerReviewsErrorText}>{sellerReviewsError}</Text>
               ) : null}
               {!sellerReviewsLoading && !sellerReviewsError && sellerReviews.length === 0 ? (
-                <Text style={styles.sellerEmptyReviewsText}>Bu usta icin henuz yorum yok.</Text>
+                <Text style={styles.sellerEmptyReviewsText}>{t('helper.home.sellerReviewsEmpty')}</Text>
               ) : null}
               {!sellerReviewsLoading && !sellerReviewsError ? (
                 <ScrollView
@@ -2178,14 +2175,14 @@ export default function HomeScreen({
                       </View>
                       <Text style={styles.sellerReviewFood}>Yemek: {review.foodName}</Text>
                       <Text style={styles.sellerReviewComment}>
-                        {review.comment?.trim() || 'Yorum metni birakilmadi.'}
+                        {review.comment?.trim() || t('helper.home.sellerCommentFallback')}
                       </Text>
                     </View>
                   ))}
                 </ScrollView>
               ) : null}
 
-              <Text style={styles.sellerSectionTitle}>Ustanin Yemekleri</Text>
+              <Text style={styles.sellerSectionTitle}>{t('status.home.sellerMeals')}</Text>
               <ScrollView
                 style={styles.sellerMealList}
                 showsVerticalScrollIndicator={false}
@@ -2239,7 +2236,7 @@ export default function HomeScreen({
             >
               <Ionicons name="close" size={18} color="#6B5D4F" />
             </TouchableOpacity>
-            <Text style={styles.agentHeaderTitle}>Mutfak asistani</Text>
+            <Text style={styles.agentHeaderTitle}>{t('status.home.agentTitle')}</Text>
             <View style={styles.modePill}>
               <TouchableOpacity
                 style={[
@@ -2297,13 +2294,13 @@ export default function HomeScreen({
                     style={styles.agentRetryBtn}
                     onPress={() => void handleStartVoice()}
                   >
-                    <Text style={styles.agentRetryText}>Tekrar Dene</Text>
+                    <Text style={styles.agentRetryText}>{t('cta.home.retry')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.agentCenter}>
                   <ActivityIndicator size="large" color="#4A7C59" />
-                  <Text style={styles.agentStatusText}>Baglaniyor...</Text>
+                  <Text style={styles.agentStatusText}>{t('status.home.connecting')}</Text>
                 </View>
               )
             ) : (
@@ -2325,7 +2322,7 @@ export default function HomeScreen({
                   <TextInput
                     value={chatInput}
                     onChangeText={setChatInput}
-                    placeholder="Mesaj yazin..."
+                    placeholder={t('helper.home.messageInputPlaceholder')}
                     placeholderTextColor="#A89B8C"
                     style={styles.chatTextInput}
                     returnKeyType="send"

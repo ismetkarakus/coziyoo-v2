@@ -22,6 +22,7 @@ import {
 } from '@livekit/react-native';
 import { ConnectionState, RoomEvent } from 'livekit-client';
 import type { SessionData } from './HomeScreen';
+import { t } from '../copy/brandCopy';
 
 type AgentActionEnvelope = {
   type: 'action';
@@ -69,7 +70,7 @@ export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: P
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           );
           if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            throw new Error('Mikrofon izni gereklidir.');
+            throw new Error('Mikrofon izni gerekiyor.');
           }
         }
 
@@ -92,7 +93,7 @@ export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: P
         console.warn('[AudioSession] setup failed:', err);
         if (mounted) {
           setAudioError(
-            err instanceof Error ? err.message : 'Ses oturumu yapilandirilamadi.',
+            err instanceof Error ? err.message : t('error.voice.setupTitle'),
           );
           setAudioReady(false);
         }
@@ -111,9 +112,9 @@ export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: P
       onEnd();
       return;
     }
-    Alert.alert('Baglanti Kesildi', 'Oturum kesintiye ugradi. Ne yapmak istersiniz?', [
-      { text: 'Oturumu Bitir', style: 'destructive', onPress: onEnd },
-      { text: 'Kapat', style: 'cancel' },
+    Alert.alert(t('headline.voice.disconnected'), t('helper.voice.disconnected'), [
+      { text: t('cta.voice.end'), style: 'destructive', onPress: onEnd },
+      { text: t('cta.voice.cancel'), style: 'cancel' },
     ]);
   }
 
@@ -128,20 +129,20 @@ export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: P
 
   function handleRoomError(error: Error) {
     console.warn('[LiveKitRoom] connection error:', error);
-    setSessionError('Ses oturumuna baglanılamadi. Lutfen tekrar deneyin.');
+    setSessionError(t('error.voice.connectionTitle'));
   }
 
   function handleMediaDeviceFailure() {
-    setSessionError('Mikrofon erisimi basarisiz. Izinleri kontrol edip tekrar deneyin.');
+    setSessionError(t('error.voice.mediaAccess'));
   }
 
   if (audioError) {
     return (
       <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Ses yapilandirmasi basarisiz</Text>
+        <Text style={styles.setupTitle}>{t('error.voice.setupTitle')}</Text>
         <Text style={styles.setupMessage}>{audioError}</Text>
         <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
-          <Text style={styles.setupButtonText}>Geri</Text>
+          <Text style={styles.setupButtonText}>{t('cta.voice.back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -151,10 +152,8 @@ export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: P
     return (
       <View style={styles.setupContainer}>
         <ActivityIndicator size="large" color="#4A7C59" />
-        <Text style={styles.setupTitle}>Ses hazirlaniyor...</Text>
-        <Text style={styles.setupMessage}>
-          Mikrofon ve hoparlor yapilandiriliyor.
-        </Text>
+        <Text style={styles.setupTitle}>{t('status.voice.preparingTitle')}</Text>
+        <Text style={styles.setupMessage}>{t('helper.voice.preparingBody')}</Text>
       </View>
     );
   }
@@ -162,10 +161,10 @@ export default function VoiceSessionScreen({ session, onEnd, onSwitchToText }: P
   if (sessionError) {
     return (
       <View style={styles.setupContainer}>
-        <Text style={styles.setupTitle}>Baglanti basarisiz</Text>
+        <Text style={styles.setupTitle}>{t('error.voice.connectionTitle')}</Text>
         <Text style={styles.setupMessage}>{sessionError}</Text>
         <TouchableOpacity style={styles.setupButton} onPress={onEnd}>
-          <Text style={styles.setupButtonText}>Geri</Text>
+          <Text style={styles.setupButtonText}>{t('cta.voice.back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -252,13 +251,13 @@ function SessionView({ onEnd, onSwitchToText }: SessionViewProps) {
         let banner: string;
         switch (name) {
           case 'navigate':
-            banner = `${params.screen as string} sayfasina git`;
+            banner = `${t('status.voice.navAction')}: ${params.screen as string}`;
             break;
           case 'add_to_cart':
-            banner = `Eklendi: ${params.productName as string} x${params.quantity as number}`;
+            banner = `${t('status.voice.addedAction')}: ${params.productName as string} x${params.quantity as number}`;
             break;
           case 'show_order_summary':
-            banner = `Siparis toplami: ${(params.total as number).toFixed(2)} TL`;
+            banner = `${t('status.voice.orderSummaryAction')}: ${(params.total as number).toFixed(2)} TL`;
             break;
           default:
             return;
@@ -356,15 +355,15 @@ function SessionView({ onEnd, onSwitchToText }: SessionViewProps) {
   function getStatusText() {
     switch (connectionState) {
       case ConnectionState.Connecting:
-        return 'Baglaniyor...';
+        return t('status.voice.connecting');
       case ConnectionState.Reconnecting:
-        return 'Yeniden baglaniyor...';
+        return t('status.voice.reconnecting');
       case ConnectionState.Disconnected:
-        return 'Baglanti kesildi';
+        return t('status.voice.disconnected');
       default:
-        if (!agentParticipant) return 'Baglaniyor...';
-        if (isAgentSpeaking) return 'Konusuyor...';
-        return 'Seni dinliyorum...';
+        if (!agentParticipant) return t('status.voice.connecting');
+        if (isAgentSpeaking) return t('status.voice.speaking');
+        return t('status.voice.listening');
     }
   }
 
@@ -397,7 +396,7 @@ function SessionView({ onEnd, onSwitchToText }: SessionViewProps) {
         </View>
 
         <Text style={styles.statusText}>{getStatusText()}</Text>
-        <Text style={styles.subtitleText}>Ne yemek istedigini soyle</Text>
+        <Text style={styles.subtitleText}>{t('helper.voice.subtitle')}</Text>
       </View>
 
       <View style={styles.bottomButtons}>

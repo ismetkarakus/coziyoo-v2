@@ -19,6 +19,7 @@ import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
+import { t } from '../copy/brandCopy';
 
 type UserProfile = {
   id: string;
@@ -129,7 +130,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setUserType(data.userType ?? '');
       setProfileImageUrl(data.profileImageUrl ?? null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Profil yuklenemedi');
+      setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
     } finally {
       setLoading(false);
     }
@@ -139,7 +140,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Izin Gerekli', 'Galeri erisimi icin izin vermeniz gerekiyor.');
+        Alert.alert(t('helper.profileEdit.permissionTitle'), t('helper.profileEdit.permissionMessage'));
         return;
       }
 
@@ -161,7 +162,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       await saveCachedProfileImageUrl(uri);
 
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
-        Alert.alert('Hata', 'Sadece JPEG, PNG veya WebP formatinda resim yukleyebilirsiniz.');
+        Alert.alert('Hata', t('error.profileEdit.imageType'));
         return;
       }
 
@@ -204,7 +205,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
       setProfileImageUrl(imageUrl);
     } catch (e) {
-      Alert.alert('Hata', e instanceof Error ? e.message : 'Resim yuklenemedi');
+      Alert.alert('Hata', e instanceof Error ? e.message : t('error.profileEdit.imageUpload'));
     } finally {
       setUploadingImage(false);
     }
@@ -212,7 +213,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
   async function handleSave() {
     if (!displayName.trim() || displayName.trim().length < 3) {
-      Alert.alert('Hata', 'Gorunen isim en az 3 karakter olmali.');
+      Alert.alert('Hata', t('error.profileEdit.displayNameMin'));
       return;
     }
 
@@ -247,13 +248,19 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydedilemedi');
+      setError(e instanceof Error ? e.message : t('error.profileEdit.save'));
     } finally {
       setSaving(false);
     }
   }
 
-  const userTypeLabel = userType === 'buyer' ? 'Alici' : userType === 'seller' ? 'Satici' : userType === 'both' ? 'Alici & Satici' : userType;
+  const userTypeLabel = userType === 'buyer'
+    ? t('status.profileEdit.buyer')
+    : userType === 'seller'
+      ? t('status.profileEdit.seller')
+      : userType === 'both'
+        ? t('status.profileEdit.both')
+        : userType;
 
   return (
     <View style={styles.container}>
@@ -264,7 +271,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profili Duzenle</Text>
+        <Text style={styles.headerTitle}>{t('headline.profileEdit.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -317,14 +324,14 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
               </View>
 
               {/* Form */}
-              <View style={styles.form}>
-                <View style={styles.field}>
-                  <Text style={styles.label}>Gorunen Isim</Text>
+                <View style={styles.form}>
+                  <View style={styles.field}>
+                  <Text style={styles.label}>{t('helper.profileEdit.displayNameLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={displayName}
                     onChangeText={setDisplayName}
-                    placeholder="Gorunen isminiz"
+                    placeholder={t('helper.profileEdit.displayNamePlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     autoCapitalize="words"
                     maxLength={40}
@@ -332,12 +339,12 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Ad Soyad</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.fullNameLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={fullName}
                     onChangeText={setFullName}
-                    placeholder="Adiniz ve soyadiniz"
+                    placeholder={t('helper.profileEdit.fullNamePlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     autoCapitalize="words"
                     maxLength={120}
@@ -345,12 +352,12 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Telefon</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.phoneLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={phone}
                     onChangeText={setPhone}
-                    placeholder="+90 555 123 4567"
+                    placeholder={t('helper.profileEdit.phonePlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     keyboardType="phone-pad"
                     maxLength={20}
@@ -358,26 +365,26 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Dogum Tarihi</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.dobLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={dob}
                     onChangeText={setDob}
-                    placeholder="1990-01-15"
+                    placeholder={t('helper.profileEdit.dobPlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     keyboardType="numbers-and-punctuation"
                     maxLength={10}
                   />
-                  <Text style={styles.hint}>Format: YYYY-AA-GG</Text>
+                  <Text style={styles.hint}>{t('helper.profileEdit.dobHint')}</Text>
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Ulke Kodu</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.countryLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={countryCode}
                     onChangeText={setCountryCode}
-                    placeholder="TR"
+                    placeholder={t('helper.profileEdit.countryPlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     autoCapitalize="characters"
                     maxLength={3}
@@ -385,12 +392,12 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Dil</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.languageLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={language}
                     onChangeText={setLanguage}
-                    placeholder="tr"
+                    placeholder={t('helper.profileEdit.languagePlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     autoCapitalize="none"
                     maxLength={10}
@@ -398,7 +405,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                 </View>
 
                 <View style={styles.fieldDisabled}>
-                  <Text style={styles.label}>E-posta</Text>
+                  <Text style={styles.label}>{t('helper.profileEdit.emailLabel')}</Text>
                   <View style={styles.inputDisabled}>
                     <Text style={styles.inputDisabledText}>{email}</Text>
                     <Ionicons name="lock-closed-outline" size={16} color={theme.textSecondary} />
@@ -416,7 +423,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
               {success ? (
                 <View style={styles.successBox}>
                   <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
-                  <Text style={styles.successText}>Profil guncellendi!</Text>
+                  <Text style={styles.successText}>{t('status.profileEdit.saved')}</Text>
                 </View>
               ) : null}
 
@@ -429,7 +436,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                 {saving ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Kaydet</Text>
+                  <Text style={styles.saveBtnText}>{t('cta.profileEdit.save')}</Text>
                 )}
               </TouchableOpacity>
             </>

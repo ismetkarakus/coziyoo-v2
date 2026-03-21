@@ -10,6 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { loadSettings, saveSettings } from '../utils/settings';
+import { t } from '../copy/brandCopy';
 
 type ServerItem = {
   id: string;
@@ -98,7 +99,7 @@ export default function SettingsScreen({ onBack }: Props) {
       setSelectedTts(defTts);
       setSelectedLlm(defLlm);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load servers');
+      setError(e instanceof Error ? e.message : t('error.settings.load'));
     } finally {
       setLoading(false);
     }
@@ -148,7 +149,7 @@ export default function SettingsScreen({ onBack }: Props) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
+      setError(e instanceof Error ? e.message : t('error.settings.save'));
     } finally {
       setSaving(false);
     }
@@ -160,9 +161,9 @@ export default function SettingsScreen({ onBack }: Props) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.backText}>{'<'} Back</Text>
+          <Text style={styles.backText}>{'<'} {t('cta.settings.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>{t('headline.settings.title')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -170,8 +171,8 @@ export default function SettingsScreen({ onBack }: Props) {
 
         {/* ── Connection ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Connection</Text>
-          <Text style={styles.label}>API Base URL</Text>
+          <Text style={styles.sectionTitle}>{t('headline.settings.connection')}</Text>
+          <Text style={styles.label}>{t('helper.settings.apiBaseUrl')}</Text>
           <TextInput
             style={styles.input}
             value={apiUrl}
@@ -183,29 +184,29 @@ export default function SettingsScreen({ onBack }: Props) {
             keyboardType="url"
           />
           <TouchableOpacity style={styles.btnSecondary} onPress={handleSaveConnection} disabled={saving}>
-            <Text style={styles.btnSecondaryText}>{saved ? 'Saved!' : 'Save Connection'}</Text>
+            <Text style={styles.btnSecondaryText}>{saved ? t('cta.settings.saved') : t('cta.settings.saveConnection')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Server Selection ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI Servers</Text>
+          <Text style={styles.sectionTitle}>{t('headline.settings.aiServers')}</Text>
           {loading && <ActivityIndicator color="#fff" size="small" />}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           {agentSettings && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Agent</Text>
+              <Text style={styles.infoLabel}>{t('status.settings.agent')}</Text>
               <Text style={styles.infoValue}>{agentSettings.agentName}</Text>
-              <Text style={styles.infoLabel}>Language</Text>
+              <Text style={styles.infoLabel}>{t('status.settings.language')}</Text>
               <Text style={styles.infoValue}>{agentSettings.voiceLanguage}</Text>
             </View>
           )}
 
           {sttServers.length > 0 && (
             <ServerSelector
-              label="STT Server"
+              label={t('helper.settings.sttServer')}
               servers={sttServers}
               selected={selectedStt}
               onSelect={setSelectedStt}
@@ -214,7 +215,7 @@ export default function SettingsScreen({ onBack }: Props) {
 
           {ttsServers.length > 0 && (
             <ServerSelector
-              label="TTS Server"
+              label={t('helper.settings.ttsServer')}
               servers={ttsServers}
               selected={selectedTts}
               onSelect={setSelectedTts}
@@ -223,7 +224,7 @@ export default function SettingsScreen({ onBack }: Props) {
 
           {llmServers.length > 0 && (
             <ServerSelector
-              label="LLM Server"
+              label={t('helper.settings.llmServer')}
               servers={llmServers}
               selected={selectedLlm}
               onSelect={setSelectedLlm}
@@ -238,14 +239,14 @@ export default function SettingsScreen({ onBack }: Props) {
             >
               {saving
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.btnPrimaryText}>{saved ? 'Saved!' : 'Save Server Selection'}</Text>
+                : <Text style={styles.btnPrimaryText}>{saved ? t('cta.settings.saved') : t('cta.settings.saveServerSelection')}</Text>
               }
             </TouchableOpacity>
           )}
 
           {sttServers.length === 0 && ttsServers.length === 0 && llmServers.length === 0 && !loading && !error && (
             <Text style={styles.emptyHint}>
-              No servers found in default profile. Configure STT/TTS/LLM in Admin Voice Agent Settings.
+              {t('helper.settings.noServers')}
             </Text>
           )}
         </View>
@@ -280,7 +281,7 @@ function ServerSelector({ label, servers, selected, onSelect }: {
               <Text style={selectorStyles.url}>{s.model}</Text>
             )}
           </View>
-          {!s.enabled && <Text style={selectorStyles.disabled}>disabled</Text>}
+          {!s.enabled && <Text style={selectorStyles.disabled}>{t('status.settings.disabled')}</Text>}
         </TouchableOpacity>
       ))}
     </View>

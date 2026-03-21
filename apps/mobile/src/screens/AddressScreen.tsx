@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
+import { t } from '../copy/brandCopy';
 
 type Address = {
   id: string;
@@ -98,7 +99,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
       }
       setAddresses(json.data as Address[]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Adresler yuklenemedi');
+      setError(e instanceof Error ? e.message : t('error.address.load'));
     } finally {
       setLoading(false);
     }
@@ -124,11 +125,11 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
 
   async function handleSaveForm() {
     if (!formTitle.trim()) {
-      setFormError('Adres basligi giriniz');
+      setFormError(t('error.address.titleRequired'));
       return;
     }
     if (!formAddress.trim() || formAddress.trim().length < 3) {
-      setFormError('Adres en az 3 karakter olmali');
+      setFormError(t('error.address.addressTooShort'));
       return;
     }
 
@@ -163,7 +164,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
       setFormVisible(false);
       await fetchAddresses();
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Kaydedilemedi');
+      setFormError(e instanceof Error ? e.message : t('error.address.save'));
     } finally {
       setFormSaving(false);
     }
@@ -171,12 +172,12 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
 
   function handleDelete(addr: Address) {
     Alert.alert(
-      'Adresi Sil',
-      `"${addr.title}" adresini silmek istediginize emin misiniz?`,
+      t('helper.address.deleteTitle'),
+      `"${addr.title}" ${t('helper.address.deleteMessage')}`,
       [
-        { text: 'Vazgec', style: 'cancel' },
+        { text: t('cta.address.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('cta.address.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -186,11 +187,11 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
               });
               if (!res.ok && res.status !== 204) {
                 const json = await res.json();
-                throw new Error(json.error?.message ?? 'Silinemedi');
+                throw new Error(json.error?.message ?? t('error.address.delete'));
               }
               await fetchAddresses();
             } catch (e) {
-              Alert.alert('Hata', e instanceof Error ? e.message : 'Silinemedi');
+              Alert.alert('Hata', e instanceof Error ? e.message : t('error.address.delete'));
             }
           },
         },
@@ -208,11 +209,11 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
       });
       const json = await res.json();
       if (!res.ok || json.error) {
-        throw new Error(json.error?.message ?? 'Degistirilemedi');
+        throw new Error(json.error?.message ?? t('error.address.default'));
       }
       await fetchAddresses();
     } catch (e) {
-      Alert.alert('Hata', e instanceof Error ? e.message : 'Degistirilemedi');
+      Alert.alert('Hata', e instanceof Error ? e.message : t('error.address.default'));
     }
   }
 
@@ -225,7 +226,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Adreslerim</Text>
+        <Text style={styles.headerTitle}>{t('headline.address.title')}</Text>
         <TouchableOpacity onPress={openAddForm} style={styles.addBtn}>
           <Ionicons name="add" size={24} color={theme.primary} />
         </TouchableOpacity>
@@ -241,17 +242,17 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
             <Ionicons name="alert-circle-outline" size={40} color={theme.error} />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={fetchAddresses}>
-              <Text style={styles.retryText}>Tekrar Dene</Text>
+              <Text style={styles.retryText}>{t('cta.address.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : addresses.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="location-outline" size={56} color={theme.border} />
-            <Text style={styles.emptyTitle}>Henuz adres eklenmemis</Text>
-            <Text style={styles.emptySubtitle}>Siparis verebilmek icin bir teslimat adresi ekleyin</Text>
+            <Text style={styles.emptyTitle}>{t('headline.address.emptyTitle')}</Text>
+            <Text style={styles.emptySubtitle}>{t('helper.address.emptySubtitle')}</Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={openAddForm}>
               <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.emptyBtnText}>Adres Ekle</Text>
+              <Text style={styles.emptyBtnText}>{t('cta.address.add')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -263,7 +264,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
                     {addr.isDefault && (
                       <View style={styles.defaultBadge}>
                         <Ionicons name="checkmark-circle" size={14} color={theme.primary} />
-                        <Text style={styles.defaultBadgeText}>Varsayilan</Text>
+                        <Text style={styles.defaultBadgeText}>{t('status.address.default')}</Text>
                       </View>
                     )}
                     <Text style={styles.cardTitle}>{addr.title}</Text>
@@ -281,7 +282,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
                 {!addr.isDefault && (
                   <TouchableOpacity style={styles.setDefaultBtn} onPress={() => handleSetDefault(addr)}>
                     <Ionicons name="locate-outline" size={16} color={theme.primary} />
-                    <Text style={styles.setDefaultText}>Varsayilan Yap</Text>
+                    <Text style={styles.setDefaultText}>{t('cta.address.setDefault')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -300,7 +301,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
-                  {editingId ? 'Adresi Duzenle' : 'Yeni Adres'}
+                  {editingId ? t('headline.address.edit') : t('headline.address.new')}
                 </Text>
                 <TouchableOpacity onPress={() => setFormVisible(false)}>
                   <Ionicons name="close" size={24} color={theme.text} />
@@ -309,24 +310,24 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
 
               <View style={styles.modalForm}>
                 <View style={styles.field}>
-                  <Text style={styles.label}>Adres Basligi</Text>
+                  <Text style={styles.label}>{t('helper.address.titleLabel')}</Text>
                   <TextInput
                     style={styles.input}
                     value={formTitle}
                     onChangeText={setFormTitle}
-                    placeholder="Ev, Is, vb."
+                    placeholder={t('helper.address.titlePlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     maxLength={80}
                   />
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Adres</Text>
+                  <Text style={styles.label}>{t('helper.address.addressLabel')}</Text>
                   <TextInput
                     style={[styles.input, styles.inputMultiline]}
                     value={formAddress}
                     onChangeText={setFormAddress}
-                    placeholder="Mahalle, sokak, bina no, daire..."
+                    placeholder={t('helper.address.addressPlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     multiline
                     numberOfLines={3}
@@ -345,7 +346,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
                     size={22}
                     color={formDefault ? theme.primary : theme.textSecondary}
                   />
-                  <Text style={styles.defaultToggleText}>Varsayilan adres olarak ayarla</Text>
+                  <Text style={styles.defaultToggleText}>{t('helper.address.defaultToggle')}</Text>
                 </TouchableOpacity>
 
                 {formError && (
@@ -364,7 +365,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text style={styles.saveBtnText}>
-                      {editingId ? 'Guncelle' : 'Kaydet'}
+                      {editingId ? t('cta.address.update') : t('cta.address.save')}
                     </Text>
                   )}
                 </TouchableOpacity>

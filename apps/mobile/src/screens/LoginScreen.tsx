@@ -14,6 +14,7 @@ import {
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
 import { theme } from '../theme/colors';
+import { t } from '../copy/brandCopy';
 
 type Props = {
   onLogin: (session: AuthSession) => void;
@@ -35,21 +36,21 @@ export default function LoginScreen({ onLogin }: Props) {
 
   function resolveLoginError(body: LoginResponse, status: number): string {
     const code = body?.error?.code;
-    if (code === 'INVALID_CREDENTIALS') return 'Incorrect email or password.';
-    if (code === 'ACCOUNT_LOCKED') return 'Account is locked. Check your email to unlock.';
-    if (code === 'TOO_MANY_ATTEMPTS') return 'Too many attempts. Please wait and try again.';
-    return body?.error?.message ?? `Login failed (${status})`;
+    if (code === 'INVALID_CREDENTIALS') return t('error.login.invalidCredentials');
+    if (code === 'ACCOUNT_LOCKED') return t('error.login.accountLocked');
+    if (code === 'TOO_MANY_ATTEMPTS') return t('error.login.tooManyAttempts');
+    return body?.error?.message ?? `${t('error.login.generic')} (${status})`;
   }
 
   async function handleLogin() {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
     if (!trimmedEmail) {
-      setError('Please enter your email.');
+      setError(t('error.login.emailRequired'));
       return;
     }
     if (!trimmedPassword) {
-      setError('Please enter your password.');
+      setError(t('error.login.passwordRequired'));
       return;
     }
 
@@ -69,7 +70,7 @@ export default function LoginScreen({ onLogin }: Props) {
       }
       const { user, tokens } = json.data ?? {};
       if (!tokens?.accessToken || !tokens?.refreshToken || !user?.id) {
-        setError('Unexpected response from server.');
+        setError(t('error.login.unexpectedResponse'));
         return;
       }
       const session: AuthSession = {
@@ -82,7 +83,7 @@ export default function LoginScreen({ onLogin }: Props) {
       await saveAuthSession(session);
       onLogin(session);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error. Check your connection.');
+      setError(err instanceof Error ? err.message : t('error.login.network'));
     } finally {
       setLoading(false);
     }
@@ -97,14 +98,14 @@ export default function LoginScreen({ onLogin }: Props) {
       >
         <View style={styles.header}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>C</Text>
+          <Text style={styles.logoText}>C</Text>
           </View>
-          <Text style={styles.title}>Coziyoo</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
+          <Text style={styles.title}>{t('headline.login.title')}</Text>
+          <Text style={styles.subtitle}>{t('headline.login.subtitle')}</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('helper.login.emailLabel')}</Text>
           <TextInput
             style={styles.input}
             value={email}
@@ -112,7 +113,7 @@ export default function LoginScreen({ onLogin }: Props) {
               setEmail(v);
               setError(null);
             }}
-            placeholder="you@example.com"
+            placeholder={t('helper.login.emailPlaceholder')}
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
             autoCorrect={false}
@@ -121,7 +122,7 @@ export default function LoginScreen({ onLogin }: Props) {
             editable={!loading}
           />
 
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>{t('helper.login.passwordLabel')}</Text>
           <TextInput
             style={styles.input}
             value={password}
@@ -129,7 +130,7 @@ export default function LoginScreen({ onLogin }: Props) {
               setPassword(v);
               setError(null);
             }}
-            placeholder="********"
+            placeholder={t('helper.login.passwordPlaceholder')}
             placeholderTextColor={theme.textSecondary}
             secureTextEntry
             returnKeyType="go"
@@ -147,7 +148,7 @@ export default function LoginScreen({ onLogin }: Props) {
             {loading ? (
               <ActivityIndicator color={theme.onPrimary} />
             ) : (
-              <Text style={styles.buttonText}>{error ? 'Try Again' : 'Sign In'}</Text>
+              <Text style={styles.buttonText}>{error ? t('cta.login.tryAgain') : t('cta.login.signIn')}</Text>
             )}
           </TouchableOpacity>
         </View>
