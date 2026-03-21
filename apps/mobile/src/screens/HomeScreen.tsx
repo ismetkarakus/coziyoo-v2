@@ -1642,9 +1642,13 @@ export default function HomeScreen({
         <View style={styles.searchSloganWrap}>
           <View style={styles.searchSloganTitleRow}>
             <Ionicons name="home" size={18} color="#5A4634" />
-            <Text style={styles.searchSlogan}>{t('headline.home.slogan')}</Text>
+            <Text style={styles.searchSlogan} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {t('headline.home.slogan')}
+            </Text>
           </View>
-          <Text style={styles.searchSloganSubline}>{t('helper.home.sloganSubline')}</Text>
+          <Text style={styles.searchSloganSubline} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
+            {t('helper.home.sloganSubline')}
+          </Text>
         </View>
         {__DEV__ ? (
           <View style={styles.debugBox}>
