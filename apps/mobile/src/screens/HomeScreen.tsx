@@ -2168,22 +2168,19 @@ export default function HomeScreen({
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
           {BlurView ? (
-            <BlurView intensity={14} style={styles.heroTopBlur} />
+            <BlurView intensity={15} style={styles.heroFxFill} />
           ) : (
-            <View style={styles.heroTopBlurFallback} />
+            <View style={styles.heroFxFallback} />
           )}
+          <View style={styles.heroOverlayWarm} />
           {LinearGradient ? (
             <LinearGradient
-              colors={[
-                'rgba(90,62,43,0.1)',
-                'rgba(90,62,43,0.04)',
-                'transparent',
-              ]}
-              style={styles.heroOverlay}
+              colors={['transparent', '#ffffff']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.heroFxFill}
             />
-          ) : (
-            <View style={styles.heroOverlayFallback} />
-          )}
+          ) : null}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3457,50 +3454,23 @@ const styles = StyleSheet.create({
   },
   heroFoodBgImg: {
     position: 'absolute',
-    top: 10,
-    right: 6,
-    width: '42%',
-    height: '88%',
-    opacity: 0.78,
-    borderTopLeftRadius: 220,
-    borderBottomLeftRadius: 220,
+    top: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: '100%',
     resizeMode: 'cover',
   },
-  heroTopBlur: {
-    position: 'absolute',
-    top: 10,
-    right: 6,
-    width: '42%',
-    height: 84,
-    borderTopLeftRadius: 220,
+  heroFxFill: {
+    ...StyleSheet.absoluteFillObject,
   },
-  heroTopBlurFallback: {
-    position: 'absolute',
-    top: 10,
-    right: 6,
-    width: '42%',
-    height: 84,
-    borderTopLeftRadius: 220,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  heroFxFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  heroOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 6,
-    width: '42%',
-    height: '88%',
-    borderTopLeftRadius: 220,
-    borderBottomLeftRadius: 220,
-  },
-  heroOverlayFallback: {
-    position: 'absolute',
-    top: 10,
-    right: 6,
-    width: '42%',
-    height: '88%',
-    borderTopLeftRadius: 220,
-    borderBottomLeftRadius: 220,
-    backgroundColor: 'rgba(90,62,43,0.06)',
+  heroOverlayWarm: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 210, 160, 0.15)',
   },
   heroTextArea: {
     zIndex: 3,
