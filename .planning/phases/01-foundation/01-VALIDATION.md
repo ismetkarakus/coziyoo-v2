@@ -56,6 +56,9 @@ Unit tests (vitest) are deferred to Phase 2 when testable business logic is intr
 | auth-ui | 02 | 2 | AUTH-01, AUTH-02, AUTH-03 | build | `npm run build --workspace=apps/voice-dashboard` | pending |
 | deploy-scripts | 03 | 2 | APP-02, APP-03 | syntax | `bash -n installation/scripts/install_voice_dashboard.sh && bash -n installation/scripts/update_voice_dashboard.sh` | pending |
 | deploy-integration | 03 | 2 | APP-03 | grep | `grep "update_voice_dashboard" installation/scripts/update_all.sh` | pending |
+| route-fixup | 04 | 3 | AUTH-01, AUTH-03 | build + grep | `grep 'redirect("/dashboard")' apps/voice-dashboard/src/app/page.tsx && grep 'router.push("/dashboard")' apps/voice-dashboard/src/app/login/page.tsx && npm run build --workspace=apps/voice-dashboard` | pending |
+| cors-fallback-red | 05 | 2 | APP-02 | red-test | `npm run test --workspace=apps/api -- --run src/config/__tests__/env.cors-default.test.ts >/dev/null 2>&1; test $? -ne 0` | pending |
+| cors-fallback-green | 05 | 2 | APP-02 | test + build | `npm run test --workspace=apps/api -- --run src/config/__tests__/env.cors-default.test.ts && npm run build --workspace=apps/api` | pending |
 
 ---
 
@@ -63,7 +66,7 @@ Unit tests (vitest) are deferred to Phase 2 when testable business logic is intr
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Login redirects to dashboard | AUTH-01 | Browser UI interaction | Navigate to /login, enter admin creds, verify redirect to / |
+| Login redirects to dashboard | AUTH-01 | Browser UI interaction | Navigate to /login, enter admin creds, verify redirect to /dashboard |
 | JWT auto-refresh on 401 | AUTH-02 | Requires expired token simulation | Manually expire token, trigger API call, verify session survives |
 | Logout clears session | AUTH-03 | Browser session state | Click logout, verify /login redirect and no auth routes accessible |
 | CORS passes from dashboard | APP-02 | Network-level check | Open dashboard at localhost:3001, open DevTools, verify no CORS errors on API calls |
