@@ -508,6 +508,8 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
 
 const LOCAL_HOME_HEADER_FALLBACK = require('../../assets/images/home-header-fallback.png');
 const ENV_HOME_HEADER_IMAGE_URL = (process.env.EXPO_PUBLIC_HOME_HEADER_IMAGE_URL || '').trim();
+const DEFAULT_HOME_HEADER_IMAGE_URL =
+  'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1800&q=80';
 
 function normalizeDishText(value: string): string {
   return value
@@ -1029,7 +1031,9 @@ export default function HomeScreen({
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
   const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() =>
-    ENV_HOME_HEADER_IMAGE_URL ? { uri: ENV_HOME_HEADER_IMAGE_URL } : LOCAL_HOME_HEADER_FALLBACK,
+    ENV_HOME_HEADER_IMAGE_URL
+      ? { uri: ENV_HOME_HEADER_IMAGE_URL }
+      : { uri: DEFAULT_HOME_HEADER_IMAGE_URL },
   );
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
@@ -1125,7 +1129,9 @@ export default function HomeScreen({
 
       if (!cancelled) {
         setHeaderImageSource(
-          ENV_HOME_HEADER_IMAGE_URL ? { uri: ENV_HOME_HEADER_IMAGE_URL } : LOCAL_HOME_HEADER_FALLBACK,
+          ENV_HOME_HEADER_IMAGE_URL
+            ? { uri: ENV_HOME_HEADER_IMAGE_URL }
+            : { uri: DEFAULT_HOME_HEADER_IMAGE_URL },
         );
       }
     }
@@ -2169,17 +2175,14 @@ export default function HomeScreen({
               style={styles.heroGradient}
             />
           ) : (
-            <>
-              <View style={[styles.heroGradient, { backgroundColor: '#F6E7D8' }]} />
-              <View style={styles.heroGradientFallbackMid} />
-              <View style={styles.heroGradientFallbackBottom} />
-            </>
+            <View style={[styles.heroGradient, { backgroundColor: '#F6E7D8' }]} />
           )}
           {/* Right-side food background image */}
           <View style={styles.heroFoodBgWrap}>
             <Image
               source={headerImageSource}
               style={styles.heroFoodBgImg}
+              onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
             />
             {/* Fade overlays → blend food image into gradient */}
             {LinearGradient ? (
@@ -2211,7 +2214,11 @@ export default function HomeScreen({
               style={styles.heroOverlay}
             />
           ) : (
-            <View style={styles.heroOverlayFallback} />
+            <>
+              <View style={styles.heroOverlayFallbackSoft1} />
+              <View style={styles.heroOverlayFallbackSoft2} />
+              <View style={styles.heroOverlayFallbackSoft3} />
+            </>
           )}
           {/* Profile avatar */}
           <TouchableOpacity
@@ -3477,6 +3484,7 @@ const styles = StyleSheet.create({
     padding: 24,
     marginHorizontal: -18,
     marginTop: -24,
+    backgroundColor: '#F6E7D8',
     overflow: 'hidden',
   },
   /* Real LinearGradient background */
@@ -3486,24 +3494,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  heroGradientFallbackMid: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '72%',
-    backgroundColor: '#F3D6B8',
-    opacity: 0.55,
-  },
-  heroGradientFallbackBottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '44%',
-    backgroundColor: '#FCF8EE',
-    opacity: 0.92,
   },
   /* Right-side food background image */
   heroFoodBgWrap: {
@@ -3528,13 +3518,31 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 2,
   },
-  heroOverlayFallback: {
+  heroOverlayFallbackSoft1: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '56%',
-    backgroundColor: 'rgba(252,248,238,0.78)',
+    height: '72%',
+    backgroundColor: 'rgba(252,248,238,0.22)',
+    zIndex: 2,
+  },
+  heroOverlayFallbackSoft2: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '46%',
+    backgroundColor: 'rgba(252,248,238,0.38)',
+    zIndex: 2,
+  },
+  heroOverlayFallbackSoft3: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '24%',
+    backgroundColor: 'rgba(252,248,238,0.68)',
     zIndex: 2,
   },
   /* Gradient overlays that fade food image into background */
@@ -3542,7 +3550,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '64%',
+    width: '68%',
     height: '100%',
   },
   heroFoodBgOverlayBottom: {
@@ -3550,7 +3558,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '58%',
+    height: '62%',
   },
   heroTextArea: {
     zIndex: 3,
@@ -3562,14 +3570,14 @@ const styles = StyleSheet.create({
   greetingTitle: { color: '#38261D', fontSize: 28, lineHeight: 34, fontWeight: '800' },
   heroSubtitle: {
     color: '#38261D',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     marginTop: 6,
   },
   heroLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
+    marginTop: 12,
     gap: 4,
   },
   heroLocationText: {
