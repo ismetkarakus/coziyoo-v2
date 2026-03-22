@@ -2196,18 +2196,6 @@ export default function HomeScreen({
           ) : (
             <View style={styles.heroOverlayFallback} />
           )}
-          {LinearGradient ? (
-            <LinearGradient
-              colors={[
-                'transparent',
-                'rgba(255,255,255,0.7)',
-                '#ffffff',
-              ]}
-              style={styles.heroBottomFade}
-            />
-          ) : (
-            <View style={styles.heroBottomFadeFallback} />
-          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
