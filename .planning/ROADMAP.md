@@ -41,11 +41,13 @@ Plans:
   3. User can mark a profile as active, see the visual indicator in the sidebar, and verify that the next voice call uses that profile's config
   4. User can clone a profile, delete a non-active profile (with confirmation), and import server config by pasting a cURL command
   5. User can test connectivity for each provider (LLM, TTS, STT, N8N) from the dashboard and see success/failure feedback, including hearing TTS audio playback and seeing STT transcription results
-**Plans:** 3 plans
+**Plans:** 5 plans
 Plans:
 - [x] 02-01-PLAN.md -- Backend API: agent_profiles DB table + CRUD/activate/duplicate routes + integration tests
 - [x] 02-02-PLAN.md -- Frontend shell: dependencies, TanStack Query, profile sidebar with CRUD actions, editor page with 4-tab layout
 - [x] 02-03-PLAN.md -- Tab content: Model/Voice/Transcriber/Tools form fields, connection testing, cURL import
+- [ ] 02-04-PLAN.md -- Gap closure: runtime consumes active agent_profiles config for next voice call
+- [ ] 02-05-PLAN.md -- Gap closure: Model tab LLM connectivity test with user feedback
 
 ### Phase 3: Provider Adapter System
 **Goal**: The Python voice agent uses a unified OpenAI-compatible client with pluggable adapters, so dashboard config overrides (custom headers, body params, endpoint paths) actually take effect at runtime
