@@ -2006,7 +2006,7 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
-        stickyHeaderIndices={[1]}
+        stickyHeaderIndices={[]}
       >
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
