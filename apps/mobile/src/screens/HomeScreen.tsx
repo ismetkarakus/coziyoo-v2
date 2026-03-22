@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
@@ -2010,19 +2011,30 @@ export default function HomeScreen({
       >
         {/* Hero Header with Gradient BG */}
         <View style={styles.heroWrap}>
-          {/* Gradient layers (top warm → bottom white) */}
-          <View style={styles.heroGradientTop} />
-          <View style={styles.heroGradientMid} />
-          <View style={styles.heroGradientBottom} />
+          {/* Real gradient: #F6E7D8 0% → #F3D6B8 40% → #F7EFE7 100% */}
+          <LinearGradient
+            colors={['#F6E7D8', '#F3D6B8', '#F7EFE7']}
+            locations={[0, 0.4, 1]}
+            style={styles.heroGradient}
+          />
           {/* Right-side food background image */}
           <View style={styles.heroFoodBgWrap}>
             <Image
               source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=600&fit=crop' }}
               style={styles.heroFoodBgImg}
             />
-            {/* Fade overlay on food image → blends into gradient */}
-            <View style={styles.heroFoodBgOverlayLeft} />
-            <View style={styles.heroFoodBgOverlayBottom} />
+            {/* Fade overlays → blend food image into gradient */}
+            <LinearGradient
+              colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.6)', 'rgba(246,231,216,0)']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.heroFoodBgOverlayLeft}
+            />
+            <LinearGradient
+              colors={['rgba(247,239,231,0)', 'rgba(247,239,231,0.7)', 'rgba(247,239,231,1)']}
+              locations={[0.4, 0.8, 1]}
+              style={styles.heroFoodBgOverlayBottom}
+            />
           </View>
           {/* Profile avatar */}
           <TouchableOpacity
@@ -3179,31 +3191,13 @@ const styles = StyleSheet.create({
     marginTop: -24,
     overflow: 'hidden',
   },
-  /* Simulated gradient: top warm → bottom white (3 layers) */
-  heroGradientTop: {
+  /* Real LinearGradient background */
+  heroGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '40%',
-    backgroundColor: '#F6E7D8',
-  },
-  heroGradientMid: {
-    position: 'absolute',
-    top: '35%',
-    left: 0,
-    right: 0,
-    height: '35%',
-    backgroundColor: '#F3D6B8',
-    opacity: 0.5,
-  },
-  heroGradientBottom: {
-    position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-    backgroundColor: '#F7EFE7',
   },
   /* Right-side food background image */
   heroFoodBgWrap: {
@@ -3218,24 +3212,20 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0.85,
   },
-  /* Overlays that fade the food image into the gradient */
+  /* Gradient overlays that fade food image into background */
   heroFoodBgOverlayLeft: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '50%',
+    width: '55%',
     height: '100%',
-    backgroundColor: '#F6E7D8',
-    opacity: 0.85,
   },
   heroFoodBgOverlayBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '45%',
-    backgroundColor: '#F7EFE7',
-    opacity: 0.7,
+    height: '50%',
   },
   heroTextArea: {
     zIndex: 3,
