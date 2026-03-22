@@ -29,6 +29,8 @@ import { adminApiTokenRouter } from "./routes/admin-api-tokens.js";
 import { adminSalesCommissionSettingsRouter } from "./routes/admin-sales-commission-settings.js";
 import { adminSecurityRouter } from "./routes/admin-security.js";
 import { foodsRouter } from "./routes/foods.js";
+import { agentProfilesRouter } from "./routes/admin-agent-profiles.js";
+import { requireAuth } from "./middleware/auth.js";
 
 export const app = express();
 
@@ -358,6 +360,7 @@ app.use("/v1/admin", adminApiTokenRouter);
 app.use("/v1/admin", adminSalesCommissionSettingsRouter);
 app.use("/v1/admin", adminSecurityRouter);
 app.use("/v1/admin/livekit", adminLiveKitRouter);
+app.use("/v1/admin/agent-profiles", requireAuth("admin"), agentProfilesRouter);
 app.use("/v1/foods", foodsRouter);
 app.use("/v1/docs", docsRouter);
 app.use("/v1/livekit", liveKitRouter);
