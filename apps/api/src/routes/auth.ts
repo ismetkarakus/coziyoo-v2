@@ -564,6 +564,7 @@ const UpdateProfileSchema = z.object({
   language: z.string().min(2).max(10).optional(),
   phone: z.string().min(7).max(20).optional(),
   dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD format required").optional(),
+  email: z.string().email().optional(),
 });
 
 authRouter.put("/me", requireAuth("app"), async (req, res) => {
@@ -604,6 +605,17 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
   if (fields.dob !== undefined) {
     setClauses.push(`dob = $${idx++}`);
     values.push(fields.dob);
+  }
+  if (fields.email !== undefined) {
+    const existing = await pool.query(
+      `SELECT id FROM users WHERE email = $1 AND id != $2 AND is_active = TRUE`,
+      [fields.email, req.auth!.userId]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: { code: "EMAIL_TAKEN", message: "This email is already in use" } });
+    }
+    setClauses.push(`email = $${idx++}`);
+    values.push(fields.email);
   }
 
   setClauses.push(`updated_at = NOW()`);

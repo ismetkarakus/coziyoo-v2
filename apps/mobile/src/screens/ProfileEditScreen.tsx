@@ -56,7 +56,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | null>(null);
+  const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
@@ -225,6 +225,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       if (phone.trim()) body.phone = phone.trim();
       if (dob.trim()) body.dob = dob.trim();
       if (tcKimlikNo.trim()) body.countryCode = tcKimlikNo.trim();
+      if (email.trim()) body.email = email.trim();
 
       const res = await authedFetch(`${apiUrl}/v1/auth/me`, {
         method: 'PUT',
@@ -249,10 +250,11 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     }
   }
 
-  function openFieldEditor(field: 'displayName' | 'fullName' | 'phone') {
+  function openFieldEditor(field: 'displayName' | 'fullName' | 'phone' | 'email') {
     if (field === 'displayName') setEditValue(displayName);
     if (field === 'fullName') setEditValue(fullName);
     if (field === 'phone') setEditValue(phone);
+    if (field === 'email') setEditValue(email);
     setEditField(field);
   }
 
@@ -262,12 +264,14 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     if (editField === 'displayName') setDisplayName(next);
     if (editField === 'fullName') setFullName(next);
     if (editField === 'phone') setPhone(next);
+    if (editField === 'email') setEmail(next);
     setEditField(null);
   }
 
   function getEditPlaceholder() {
     if (editField === 'fullName') return t('helper.profileEdit.fullNamePlaceholder');
     if (editField === 'phone') return t('helper.profileEdit.phonePlaceholder');
+    if (editField === 'email') return t('helper.profileEdit.emailHint');
     return t('helper.profileEdit.displayNamePlaceholder');
   }
 
@@ -386,6 +390,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                       <Text style={styles.infoTitle}>{t('helper.profileEdit.emailLabel')}</Text>
                       <Text style={styles.infoSubtitle}>{t('helper.profileEdit.emailHint')}</Text>
                     </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('email')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.infoDivider} />
                   <View style={styles.emailRow}>
@@ -443,8 +450,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
               onChangeText={setEditValue}
               placeholder={getEditPlaceholder()}
               placeholderTextColor={theme.textSecondary}
-              autoCapitalize={editField === 'phone' ? 'none' : 'words'}
-              keyboardType={editField === 'phone' ? 'phone-pad' : 'default'}
+              autoCapitalize={editField === 'phone' || editField === 'email' ? 'none' : 'words'}
+              keyboardType={editField === 'phone' ? 'phone-pad' : editField === 'email' ? 'email-address' : 'default'}
               maxLength={editField === 'phone' ? 20 : 120}
               autoFocus
             />
