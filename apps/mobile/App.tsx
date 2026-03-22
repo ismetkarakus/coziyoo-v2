@@ -251,7 +251,6 @@ export default function App() {
       auth={auth}
       initialTab={homeTab}
       onOpenSettings={() => setScreen('settings')}
-      onOpenAddresses={() => setScreen('addresses')}
       onOpenOrders={() => setScreen('orders')}
       onOpenNotifications={() => setScreen('notifications')}
       onOpenChatList={() => setScreen('chatList')}

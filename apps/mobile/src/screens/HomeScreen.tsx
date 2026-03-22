@@ -45,6 +45,7 @@ import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/p
 import { apiRequest } from '../utils/api';
 import VoiceSessionScreen from './VoiceSessionScreen';
 import ProfileEditScreen from './ProfileEditScreen';
+import AddressScreen from './AddressScreen';
 import { randomHomeGreetingSubtitle, requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
 /* ------------------------------------------------------------------ */
@@ -62,7 +63,6 @@ type Props = {
   auth: AuthSession;
   initialTab?: TabKey;
   onOpenSettings: () => void;
-  onOpenAddresses: () => void;
   onOpenOrders: () => void;
   onOpenNotifications?: () => void;
   onOpenChatList?: () => void;
@@ -911,7 +911,6 @@ export default function HomeScreen({
   auth,
   initialTab,
   onOpenSettings,
-  onOpenAddresses,
   onOpenOrders,
   onOpenNotifications,
   onOpenChatList,
@@ -966,6 +965,7 @@ export default function HomeScreen({
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
   );
@@ -2527,7 +2527,7 @@ export default function HomeScreen({
             )}
             <TouchableOpacity
               style={styles.profileActionRow}
-              onPress={onOpenAddresses}
+              onPress={() => setAddressModalVisible(true)}
               activeOpacity={0.85}
             >
               <View style={styles.profileActionMain}>
@@ -2696,6 +2696,28 @@ export default function HomeScreen({
             <ProfileEditScreen
               auth={currentAuth}
               onBack={() => setProfileEditModalVisible(false)}
+              onAuthRefresh={handleAuthRefresh}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={addressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddressModalVisible(false)}
+      >
+        <View style={styles.profileEditOverlay}>
+          <TouchableOpacity
+            style={styles.profileEditBackdrop}
+            activeOpacity={1}
+            onPress={() => setAddressModalVisible(false)}
+          />
+          <View style={styles.profileEditSheet}>
+            <AddressScreen
+              auth={currentAuth}
+              onBack={() => setAddressModalVisible(false)}
               onAuthRefresh={handleAuthRefresh}
             />
           </View>
