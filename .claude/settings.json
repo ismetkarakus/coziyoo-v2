@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dig +short api.coziyoo.com)"
+    ]
+  }
+}

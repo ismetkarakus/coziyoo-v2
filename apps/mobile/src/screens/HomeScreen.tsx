@@ -22,6 +22,7 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 let LinearGradient: React.ComponentType<{
   colors: string[];
   locations?: number[];
@@ -2182,35 +2183,31 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
+          <BlurView intensity={20} style={styles.heroTopBlur} />
           {LinearGradient ? (
             <LinearGradient
               colors={[
-                'rgba(90, 62, 43, 0.25)',
-                'rgba(90, 62, 43, 0.15)',
-                'rgba(255,255,255,0)',
+                'rgba(90,62,43,0.15)',
+                'rgba(90,62,43,0.05)',
+                'transparent',
               ]}
-              style={styles.heroFoodMultiplyOverlay}
-            />
-          ) : null}
-          {/* Eraser-like seam fade between base color and image */}
-          {LinearGradient ? (
-            <LinearGradient
-              colors={['#EAC9A0', 'rgba(234,201,160,0.95)', 'rgba(234,201,160,0.8)', 'rgba(234,201,160,0.58)', 'rgba(234,201,160,0.34)', 'rgba(234,201,160,0.14)', 'rgba(234,201,160,0)']}
-              locations={[0, 0.12, 0.28, 0.45, 0.62, 0.8, 1]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.heroEraseFade}
+              style={styles.heroOverlay}
             />
           ) : (
-            <>
-              <View style={styles.heroEraseFadeFallbackStrong} />
-              <View style={styles.heroEraseFadeFallbackMid} />
-              <View style={styles.heroEraseFadeFallbackSoft} />
-            </>
+            <View style={styles.heroOverlayFallback} />
           )}
-          <View style={styles.heroCloudFade1} />
-          <View style={styles.heroCloudFade2} />
-          <View style={styles.heroCloudFade3} />
+          {LinearGradient ? (
+            <LinearGradient
+              colors={[
+                'transparent',
+                'rgba(255,255,255,0.7)',
+                '#ffffff',
+              ]}
+              style={styles.heroBottomFade}
+            />
+          ) : (
+            <View style={styles.heroBottomFadeFallback} />
+          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3493,72 +3490,30 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 180,
     resizeMode: 'cover',
   },
-  heroFoodMultiplyOverlay: {
+  heroTopBlur: {
     position: 'absolute',
-    top: 0,
+    left: 0,
     right: 0,
-    width: '65%',
-    height: '100%',
-    borderTopLeftRadius: 180,
-    borderBottomLeftRadius: 180,
+    top: 0,
+    height: '42%',
   },
-  heroEraseFade: {
-    position: 'absolute',
-    top: 8,
-    left: '29%',
-    width: '38%',
-    height: '86%',
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
-  heroEraseFadeFallbackStrong: {
-    position: 'absolute',
-    top: 8,
-    left: '29%',
-    width: '16%',
-    height: '86%',
-    backgroundColor: 'rgba(234,201,160,0.9)',
+  heroOverlayFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(90,62,43,0.07)',
   },
-  heroEraseFadeFallbackMid: {
-    position: 'absolute',
-    top: 8,
-    left: '45%',
-    width: '13%',
-    height: '86%',
-    backgroundColor: 'rgba(234,201,160,0.6)',
+  heroBottomFade: {
+    ...StyleSheet.absoluteFillObject,
   },
-  heroEraseFadeFallbackSoft: {
+  heroBottomFadeFallback: {
     position: 'absolute',
-    top: 8,
-    left: '58%',
-    width: '9%',
-    height: '86%',
-    backgroundColor: 'rgba(234,201,160,0.24)',
-  },
-  heroCloudFade1: {
-    position: 'absolute',
-    top: 14,
-    left: '36%',
-    width: 96,
-    height: 126,
-    borderRadius: 64,
-    backgroundColor: 'rgba(234,201,160,0.22)',
-  },
-  heroCloudFade2: {
-    position: 'absolute',
-    top: 70,
-    left: '42%',
-    width: 84,
-    height: 104,
-    borderRadius: 56,
-    backgroundColor: 'rgba(234,201,160,0.18)',
-  },
-  heroCloudFade3: {
-    position: 'absolute',
-    top: 126,
-    left: '33%',
-    width: 76,
-    height: 82,
-    borderRadius: 44,
-    backgroundColor: 'rgba(234,201,160,0.14)',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '44%',
+    backgroundColor: 'rgba(255,255,255,0.72)',
   },
   heroTextArea: {
     zIndex: 3,
