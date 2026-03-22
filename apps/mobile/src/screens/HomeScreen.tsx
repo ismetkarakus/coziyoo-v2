@@ -1861,7 +1861,13 @@ export default function HomeScreen({
         {/* Sticky search + category chips */}
         <View style={styles.searchStickyWrap}>
           <View pointerEvents="none" style={styles.searchTopTint} />
-          <View style={[styles.searchBox, searchMode && styles.searchBoxActive]}>
+          <View
+            style={[
+              styles.searchBox,
+              searchMode && styles.searchBoxSearchMode,
+              searchMode && styles.searchBoxActive,
+            ]}
+          >
             {!searchMode ? (
               <View pointerEvents="none" style={styles.searchFadeWrap}>
                 <View style={styles.searchFadeSolid} />
@@ -1895,7 +1901,7 @@ export default function HomeScreen({
                   onChangeText={setSearchQuery}
                   placeholder={t('helper.home.searchPlaceholder')}
                   placeholderTextColor="#A89B8C"
-                  style={styles.searchInput}
+                  style={[styles.searchInput, styles.searchInputSearchMode]}
                   returnKeyType="search"
                 />
               ) : (
@@ -2950,6 +2956,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  searchBoxSearchMode: {
+    minHeight: 44,
+    paddingVertical: 1,
+  },
   searchBoxActive: {
     borderWidth: 1,
     borderColor: '#EDE8E0',
@@ -3007,6 +3017,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingRight: 8,
     paddingVertical: 4,
+  },
+  searchInputSearchMode: {
+    fontSize: 15,
+    paddingVertical: 2,
   },
   searchCategoryArea: {
     flex: 1,
