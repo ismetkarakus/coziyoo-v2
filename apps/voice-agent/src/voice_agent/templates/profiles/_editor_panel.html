@@ -16,6 +16,10 @@
   {% include "profiles/_editor_transcriber.html" %}
   {% include "profiles/_editor_tools.html" %}
 
+  <div id="profile-status">
+    {% include "profiles/_status.html" %}
+  </div>
+
   {% if message %}
     <div class="muted">{{ message }}</div>
   {% endif %}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -15,7 +16,8 @@ from livekit import api
 from pydantic import BaseModel, Field
 
 from .config.settings import get_settings
-from .dashboard_api import api_request
+from .curl_parser import parse_curl_command
+from .dashboard_api import api_binary_request, api_request
 from .dashboard_auth import (
     clear_auth_cookies,
     ensure_access_token,
@@ -65,6 +67,59 @@ async def _render_sidebar(request: Request, access_token: str, message: str | No
         name="profiles/_sidebar.html",
         context={"profiles": profiles, "message": message or error_message},
     )
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _string_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    mapped: dict[str, str] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            mapped[key] = str(item)
+    return mapped
+
+
+def _status_response(
+    request: Request,
+    *,
+    state: str,
+    title: str,
+    message: str,
+    details: str | None = None,
+    transcript: str | None = None,
+    audio_data_uri: str | None = None,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_status.html",
+        context={
+            "state": state,
+            "title": title,
+            "message": message,
+            "details": details,
+            "transcript": transcript,
+            "audio_data_uri": audio_data_uri,
+        },
+    )
+
+
+def _profile_update_payload(profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": str(profile.get("name") or ""),
+        "speaks_first": bool(profile.get("speaks_first")),
+        "system_prompt": str(profile.get("system_prompt") or ""),
+        "greeting_enabled": bool(profile.get("greeting_enabled", True)),
+        "greeting_instruction": str(profile.get("greeting_instruction") or ""),
+        "voice_language": str(profile.get("voice_language") or "tr"),
+        "llm_config": _dict(profile.get("llm_config")),
+        "tts_config": _dict(profile.get("tts_config")),
+        "stt_config": _dict(profile.get("stt_config")),
+        "n8n_config": _dict(profile.get("n8n_config")),
+    }
 
 
 @app.get("/dashboard/login", response_class=HTMLResponse)
@@ -266,6 +321,357 @@ async def dashboard_profile_save(request: Request, profile_id: str):
         name="profiles/_editor_panel.html",
         context={"profile": profile, "message": message or "Saved"},
         status_code=200 if profile else 502,
+    )
+
+
+@app.post("/dashboard/test/llm", response_class=HTMLResponse)
+async def dashboard_test_llm(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    llm_cfg = _dict(normalized.get("llm_config"))
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/llm",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(llm_cfg.get("base_url") or ""),
+            "endpointPath": str(llm_cfg.get("endpoint_path") or "/v1/chat/completions"),
+            "apiKey": str(llm_cfg.get("api_key") or ""),
+            "model": str(llm_cfg.get("model") or ""),
+            "customHeaders": _string_map(llm_cfg.get("custom_headers")),
+            "customBodyParams": _string_map(llm_cfg.get("custom_body_params")),
+            "prompt": str(form.get("llm_test_prompt") or "Say hello in one short sentence."),
+        },
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    ok = status == 200 and bool(data.get("ok"))
+    if ok:
+        return _status_response(
+            request,
+            state="success",
+            title="LLM test successful",
+            message=f"Provider responded with status {data.get('status', 200)}.",
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="LLM test failed",
+        message=extract_error_message(payload, "LLM request failed"),
+        details=str(_dict(payload.get("error")).get("details") or ""),
+    )
+
+
+@app.post("/dashboard/test/tts", response_class=HTMLResponse)
+async def dashboard_test_tts(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    tts_cfg = _dict(normalized.get("tts_config"))
+    custom_headers = _string_map(tts_cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and str(tts_cfg.get("api_key") or "").strip():
+        auth_header = f"Bearer {str(tts_cfg.get('api_key')).strip()}"
+
+    status, data, content_type = await api_binary_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/tts",
+        access_token=access_token,
+        json_body={
+            "text": str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir."),
+            "baseUrl": str(tts_cfg.get("base_url") or ""),
+            "synthPath": str(tts_cfg.get("endpoint_path") or "/v1/audio/speech"),
+            "textFieldName": str(tts_cfg.get("text_field_name") or "input"),
+            "bodyParams": _string_map(tts_cfg.get("custom_body_params")),
+            "authHeader": auth_header,
+        },
+    )
+
+    if status == 200 and data:
+        ctype = content_type if content_type.startswith("audio/") else "audio/mpeg"
+        encoded = base64.b64encode(data).decode("ascii")
+        return _status_response(
+            request,
+            state="success",
+            title="TTS test successful",
+            message="Audio generated successfully.",
+            audio_data_uri=f"data:{ctype};base64,{encoded}",
+        )
+
+    details = data.decode("utf-8", errors="replace")[:240] if data else ""
+    return _status_response(
+        request,
+        state="error",
+        title="TTS test failed",
+        message=f"Upstream responded with status {status}.",
+        details=details,
+    )
+
+
+@app.post("/dashboard/test/stt", response_class=HTMLResponse)
+async def dashboard_test_stt(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    stt_cfg = _dict(normalized.get("stt_config"))
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/stt",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(stt_cfg.get("base_url") or ""),
+            "transcribePath": str(stt_cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+        },
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    if status == 200 and bool(data.get("ok")):
+        return _status_response(
+            request,
+            state="success",
+            title="STT connectivity successful",
+            message=f"Provider reachable at status {data.get('status', 200)}.",
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="STT connectivity failed",
+        message=extract_error_message(payload, "STT endpoint unreachable"),
+        details=str(data.get("reason") or ""),
+    )
+
+
+@app.post("/dashboard/test/stt/transcribe", response_class=HTMLResponse)
+async def dashboard_test_stt_transcribe(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    stt_cfg = _dict(normalized.get("stt_config"))
+    custom_headers = _string_map(stt_cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and str(stt_cfg.get("api_key") or "").strip():
+        auth_header = str(stt_cfg.get("api_key")).strip()
+
+    audio_base64 = str(form.get("stt_audio_base64") or "").strip()
+    if not audio_base64:
+        return _status_response(
+            request,
+            state="error",
+            title="STT test failed",
+            message="No recording captured. Start and stop recording first.",
+        )
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/stt/transcribe",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(stt_cfg.get("base_url") or ""),
+            "transcribePath": str(stt_cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+            "model": str(stt_cfg.get("model") or ""),
+            "queryParams": _string_map(stt_cfg.get("custom_query_params")),
+            "authHeader": auth_header,
+            "audioBase64": audio_base64,
+            "mimeType": str(form.get("stt_audio_mime") or "audio/webm"),
+            "filename": str(form.get("stt_audio_filename") or "recording.webm"),
+        },
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    ok = status == 200 and bool(data.get("ok"))
+    if ok:
+        transcript = str(data.get("transcript") or "").strip() or "(no text returned)"
+        return _status_response(
+            request,
+            state="success",
+            title="STT transcription successful",
+            message="Audio transcribed successfully.",
+            transcript=transcript,
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="STT transcription failed",
+        message=extract_error_message(payload, "STT transcription failed"),
+        details=str(data.get("reason") or data.get("rawText") or ""),
+    )
+
+
+@app.post("/dashboard/test/n8n", response_class=HTMLResponse)
+async def dashboard_test_n8n(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    n8n_cfg = _dict(normalized.get("n8n_config"))
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/n8n",
+        access_token=access_token,
+        json_body={"baseUrl": str(n8n_cfg.get("base_url") or "")},
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    if status == 200 and bool(data.get("ok")):
+        return _status_response(
+            request,
+            state="success",
+            title="N8N test successful",
+            message="Workflow health checks passed.",
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="N8N test failed",
+        message=extract_error_message(payload, "N8N check failed"),
+        details=str(data.get("reason") or ""),
+    )
+
+
+@app.post("/dashboard/profiles/{profile_id}/import-curl", response_class=HTMLResponse)
+async def dashboard_import_curl(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    raw_curl = str(form.get("import_curl_raw") or "").strip()
+    parsed = parse_curl_command(raw_curl)
+    if not parsed:
+        status, payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/agent-profiles/{profile_id}",
+            access_token=access_token,
+        )
+        profile = payload.get("data") if status == 200 and isinstance(payload, dict) else None
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": profile, "message": "Could not parse cURL command"},
+            status_code=400,
+        )
+
+    get_status, get_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    if get_status != 200 or not isinstance(get_payload, dict):
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": None, "message": extract_error_message(get_payload, "Failed to load profile")},
+            status_code=502,
+        )
+    profile = get_payload.get("data") if isinstance(get_payload.get("data"), dict) else None
+    if not isinstance(profile, dict):
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": None, "message": "Profile response format invalid"},
+            status_code=502,
+        )
+
+    update_payload = _profile_update_payload(profile)
+    fingerprint = f"{str(parsed.get('base_url') or '')} {str(parsed.get('endpoint_path') or '')}".lower()
+    section = "llm_config"
+    if "webhook" in fingerprint or "n8n" in fingerprint:
+        section = "n8n_config"
+    elif "transcri" in fingerprint:
+        section = "stt_config"
+    elif "speech" in fingerprint or "audio" in fingerprint:
+        section = "tts_config"
+
+    custom_headers = _string_map(parsed.get("custom_headers"))
+    custom_body_params = _string_map(parsed.get("custom_body_params"))
+
+    if section == "n8n_config":
+        cfg = _dict(update_payload.get("n8n_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["webhook_path"] = str(parsed.get("endpoint_path") or cfg.get("webhook_path") or "")
+        update_payload["n8n_config"] = cfg
+    elif section == "stt_config":
+        cfg = _dict(update_payload.get("stt_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["api_key"] = str(parsed.get("api_key") or cfg.get("api_key") or "")
+        cfg["model"] = str(parsed.get("model") or cfg.get("model") or "")
+        cfg["endpoint_path"] = str(parsed.get("endpoint_path") or cfg.get("endpoint_path") or "/v1/audio/transcriptions")
+        if custom_headers:
+            cfg["custom_headers"] = custom_headers
+        if custom_body_params:
+            cfg["custom_body_params"] = custom_body_params
+        if parsed.get("text_field_name"):
+            cfg["text_field_name"] = str(parsed.get("text_field_name"))
+        update_payload["stt_config"] = cfg
+    elif section == "tts_config":
+        cfg = _dict(update_payload.get("tts_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["api_key"] = str(parsed.get("api_key") or cfg.get("api_key") or "")
+        cfg["model"] = str(parsed.get("model") or cfg.get("model") or "")
+        cfg["endpoint_path"] = str(parsed.get("endpoint_path") or cfg.get("endpoint_path") or "/v1/audio/speech")
+        cfg["voice_id"] = str(parsed.get("voice_id") or cfg.get("voice_id") or "")
+        cfg["text_field_name"] = str(parsed.get("text_field_name") or cfg.get("text_field_name") or "input")
+        if custom_headers:
+            cfg["custom_headers"] = custom_headers
+        if custom_body_params:
+            cfg["custom_body_params"] = custom_body_params
+        update_payload["tts_config"] = cfg
+    else:
+        cfg = _dict(update_payload.get("llm_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["api_key"] = str(parsed.get("api_key") or cfg.get("api_key") or "")
+        cfg["model"] = str(parsed.get("model") or cfg.get("model") or "")
+        cfg["endpoint_path"] = str(parsed.get("endpoint_path") or cfg.get("endpoint_path") or "/v1/chat/completions")
+        if custom_headers:
+            cfg["custom_headers"] = custom_headers
+        if custom_body_params:
+            cfg["custom_body_params"] = custom_body_params
+        update_payload["llm_config"] = cfg
+
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+        json_body=update_payload,
+    )
+    message = (
+        f"Imported cURL into {section.replace('_config', '').upper()} settings"
+        if put_status == 200
+        else extract_error_message(put_payload, "cURL import failed")
+    )
+
+    final_status, final_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    final_profile = final_payload.get("data") if final_status == 200 and isinstance(final_payload, dict) else profile
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_editor_panel.html",
+        context={"profile": final_profile, "message": message},
+        status_code=200 if isinstance(final_profile, dict) else 502,
     )
 
 
