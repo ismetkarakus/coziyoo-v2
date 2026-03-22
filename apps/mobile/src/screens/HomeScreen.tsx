@@ -2008,9 +2008,41 @@ export default function HomeScreen({
         style={styles.scroll}
         stickyHeaderIndices={[]}
       >
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          {/* Left: Text content */}
+        {/* Hero Header with Gradient BG */}
+        <View style={styles.heroWrap}>
+          {/* Gradient layers (top warm → bottom white) */}
+          <View style={styles.heroGradientTop} />
+          <View style={styles.heroGradientMid} />
+          <View style={styles.heroGradientBottom} />
+          {/* Right-side food background image */}
+          <View style={styles.heroFoodBgWrap}>
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=600&fit=crop' }}
+              style={styles.heroFoodBgImg}
+            />
+            {/* Fade overlay on food image → blends into gradient */}
+            <View style={styles.heroFoodBgOverlayLeft} />
+            <View style={styles.heroFoodBgOverlayBottom} />
+          </View>
+          {/* Profile avatar */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.heroAvatarCircle}
+            onPress={() => handleTabPress('profile')}
+          >
+            {profileImageUrl && !profileImageLoadFailed ? (
+              <Image
+                source={{ uri: profileImageUrl }}
+                style={styles.heroAvatarImage}
+                onError={() => setProfileImageLoadFailed(true)}
+              />
+            ) : cachedLocalImageUrl ? (
+              <Image source={{ uri: cachedLocalImageUrl }} style={styles.heroAvatarImage} />
+            ) : (
+              <Text style={styles.avatarEmoji}>👩‍🍳</Text>
+            )}
+          </TouchableOpacity>
+          {/* Text content */}
           <View style={styles.heroTextArea}>
             <View style={styles.greetingTitleWrap}>
               <Text
@@ -2030,44 +2062,10 @@ export default function HomeScreen({
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               style={styles.heroLocationRow}
             >
-              <Ionicons name="location" size={16} color="#2F7A53" />
+              <Ionicons name="location" size={16} color="#4CAF50" />
               <Text style={styles.heroLocationText}>Kadıköy · 2.5 km çevre</Text>
-              <Ionicons name="chevron-down" size={14} color="#7F7366" style={{ marginLeft: 2 }} />
+              <Ionicons name="chevron-down" size={14} color="#8B6A4E" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
-          </View>
-          {/* Right: Food images + avatar */}
-          <View style={styles.heroRightArea}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.heroAvatarCircle}
-              onPress={() => handleTabPress('profile')}
-            >
-              {profileImageUrl && !profileImageLoadFailed ? (
-                <Image
-                  source={{ uri: profileImageUrl }}
-                  style={styles.heroAvatarImage}
-                  onError={() => setProfileImageLoadFailed(true)}
-                />
-              ) : cachedLocalImageUrl ? (
-                <Image source={{ uri: cachedLocalImageUrl }} style={styles.heroAvatarImage} />
-              ) : (
-                <Text style={styles.avatarEmoji}>👩‍🍳</Text>
-              )}
-            </TouchableOpacity>
-            <View style={styles.heroFoodImagesWrap}>
-              <View style={styles.heroFoodCircleLarge}>
-                <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=300&h=300&fit=crop' }}
-                  style={styles.heroFoodImg}
-                />
-              </View>
-              <View style={styles.heroFoodCircleSmall}>
-                <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=300&h=300&fit=crop' }}
-                  style={styles.heroFoodImg}
-                />
-              </View>
-            </View>
           </View>
         </View>
         {/* Floating Search Bar */}
@@ -2077,7 +2075,7 @@ export default function HomeScreen({
             activeOpacity={0.95}
             onPress={() => !searchMode && setSearchMode(true)}
           >
-            <Ionicons name="search-outline" size={22} color="#9E9E9E" style={{ marginRight: 10 }} />
+            <Ionicons name="search-outline" size={22} color="#8B6A4E" style={{ marginRight: 10 }} />
             {searchMode ? (
               <TextInput
                 ref={searchInputRef}
@@ -2098,11 +2096,11 @@ export default function HomeScreen({
                 activeOpacity={0.7}
                 onPress={() => { setSearchMode(false); setSearchQuery(''); }}
               >
-                <Ionicons name="close-outline" size={24} color="#5F5246" />
+                <Ionicons name="close-outline" size={24} color="#5A3E2B" />
               </TouchableOpacity>
             ) : (
               <View style={styles.floatingSearchFilterBtn}>
-                <Ionicons name="options-outline" size={22} color="#5F5246" />
+                <Ionicons name="options-outline" size={22} color="#5A3E2B" />
               </View>
             )}
           </TouchableOpacity>
@@ -2122,7 +2120,7 @@ export default function HomeScreen({
               onPress={() => setActiveCategory(cat)}
             >
               {cat === 'Tümü' ? (
-                <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5F5246'} style={{ marginRight: 6 }} />
+                <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 6 }} />
               ) : (
                 <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
               )}
@@ -3164,30 +3162,91 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
-  safe: { flex: 1, backgroundColor: '#FBF7F2' },
-  container: { flex: 1, backgroundColor: '#FBF7F2' },
+  safe: { flex: 1, backgroundColor: '#F7EFE7' },
+  container: { flex: 1, backgroundColor: '#F7EFE7' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
+  scrollContent: { paddingBottom: 130 },
 
-  /* --- Hero Section --- */
-  heroSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-    minHeight: 160,
+  /* --- Hero Header with Gradient + Food Image --- */
+  heroWrap: {
+    position: 'relative',
+    minHeight: 220,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    marginHorizontal: -18,
+    marginTop: -24,
+    overflow: 'hidden',
+  },
+  /* Simulated gradient: top warm → bottom white (3 layers) */
+  heroGradientTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+    backgroundColor: '#F6E7D8',
+  },
+  heroGradientMid: {
+    position: 'absolute',
+    top: '35%',
+    left: 0,
+    right: 0,
+    height: '35%',
+    backgroundColor: '#F3D6B8',
+    opacity: 0.5,
+  },
+  heroGradientBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+    backgroundColor: '#F7EFE7',
+  },
+  /* Right-side food background image */
+  heroFoodBgWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '60%',
+    height: '100%',
+  },
+  heroFoodBgImg: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.85,
+  },
+  /* Overlays that fade the food image into the gradient */
+  heroFoodBgOverlayLeft: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '50%',
+    height: '100%',
+    backgroundColor: '#F6E7D8',
+    opacity: 0.85,
+  },
+  heroFoodBgOverlayBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '45%',
+    backgroundColor: '#F7EFE7',
+    opacity: 0.7,
   },
   heroTextArea: {
-    flex: 1,
-    paddingRight: 10,
-    paddingTop: 4,
+    zIndex: 3,
+    maxWidth: '55%',
+    paddingTop: 8,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#2D5A3D', fontSize: 28, lineHeight: 34, fontWeight: '800' },
+  greetingTitle: { color: '#5A3E2B', fontSize: 28, lineHeight: 34, fontWeight: '800' },
   heroSubtitle: {
-    color: '#6B6B6B',
+    color: '#8B6A4E',
     fontSize: 17,
     fontWeight: '500',
     marginTop: 6,
@@ -3195,114 +3254,73 @@ const styles = StyleSheet.create({
   heroLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 14,
     gap: 4,
   },
   heroLocationText: {
-    color: '#3D3229',
+    color: '#5A3E2B',
     fontSize: 14,
     fontWeight: '600',
   },
-  heroRightArea: {
-    width: 140,
-    height: 160,
-    position: 'relative',
-  },
   heroAvatarCircle: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F0ECE6',
+    top: 20,
+    right: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F2F2F2',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2.5,
     borderColor: '#fff',
-    zIndex: 5,
+    zIndex: 10,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  heroAvatarImage: { width: 48, height: 48, borderRadius: 24 },
-  heroFoodImagesWrap: {
-    position: 'absolute',
-    right: -10,
-    top: 10,
-    width: 150,
-    height: 150,
-  },
-  heroFoodCircleLarge: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
+    shadowColor: '#5A3E2B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
   },
-  heroFoodCircleSmall: {
-    position: 'absolute',
-    left: -10,
-    bottom: -5,
-    width: 95,
-    height: 95,
-    borderRadius: 48,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  heroFoodImg: {
-    width: '100%',
-    height: '100%',
-  },
+  heroAvatarImage: { width: 50, height: 50, borderRadius: 25 },
   avatarEmoji: { fontSize: 24 },
 
-  /* --- Floating Search Bar --- */
+  /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
-    marginBottom: 14,
-    marginHorizontal: -6,
+    marginBottom: 16,
+    marginHorizontal: 14,
+    marginTop: -10,
+    zIndex: 5,
   },
   floatingSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7F4F0',
-    borderRadius: 30,
-    minHeight: 56,
-    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    minHeight: 54,
+    paddingHorizontal: 18,
     paddingVertical: 6,
-    borderWidth: 0,
-    borderColor: 'transparent',
+    /* Premium shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04) */
+    shadowColor: 'rgba(90, 62, 43, 1)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
   },
   floatingSearchBarActive: {
-    borderColor: '#D4C9BB',
+    borderWidth: 1,
+    borderColor: '#E8E1D9',
   },
   floatingSearchInput: {
     flex: 1,
-    color: '#3D3229',
+    color: '#5A3E2B',
     fontSize: 16,
     fontWeight: '400',
     paddingVertical: 4,
   },
   floatingSearchPlaceholder: {
     flex: 1,
-    color: '#BDBDBD',
+    color: '#C4B8AC',
     fontSize: 16,
     fontWeight: '400',
   },
@@ -3315,12 +3333,12 @@ const styles = StyleSheet.create({
 
   /* --- Category Chips --- */
   chipScroller: {
-    marginBottom: 18,
-    marginHorizontal: -6,
+    marginBottom: 20,
+    marginHorizontal: 0,
   },
   chipRow: {
     gap: 10,
-    paddingHorizontal: 6,
+    paddingHorizontal: 14,
   },
   chip: {
     flexDirection: 'row',
@@ -3330,7 +3348,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderWidth: 1.5,
-    borderColor: '#EDE4D8',
+    borderColor: '#E8E1D9',
   },
   chipActive: {
     backgroundColor: '#2D5A3D',
@@ -3341,7 +3359,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   chipText: {
-    color: '#5F5246',
+    color: '#5A3E2B',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -3356,7 +3374,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
-    marginHorizontal: -6,
+    paddingHorizontal: 14,
   },
   nearbyHeaderLeft: {
     flexDirection: 'row',
@@ -3367,7 +3385,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   nearbyHeaderTitle: {
-    color: '#3D3229',
+    color: '#5A3E2B',
     fontSize: 18,
     fontWeight: '700',
   },
