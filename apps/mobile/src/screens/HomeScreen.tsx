@@ -2240,7 +2240,7 @@ export default function HomeScreen({
             activeOpacity={0.95}
             onPress={() => !searchMode && setSearchMode(true)}
           >
-            <Ionicons name="search-outline" size={20} color="#8B6A4E" style={{ marginRight: 8 }} />
+            <Ionicons name="search-outline" size={22} color="#8B6A4E" style={{ marginRight: 10 }} />
             {searchMode ? (
               <TextInput
                 ref={searchInputRef}
@@ -2285,7 +2285,7 @@ export default function HomeScreen({
               onPress={() => setActiveCategory(cat)}
             >
               {cat === 'Tümü' ? (
-                <Ionicons name="grid" size={15} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 5 }} />
+                <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 6 }} />
               ) : (
                 <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
               )}
@@ -3449,9 +3449,9 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    height: 195,
+    height: 218,
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: 18,
     marginHorizontal: -18,
     marginTop: -24,
     backgroundColor: '#EDCFAB',
@@ -3489,8 +3489,8 @@ const styles = StyleSheet.create({
   },
   heroTextArea: {
     zIndex: 3,
-    maxWidth: '55%',
-    paddingTop: 8,
+    maxWidth: '58%',
+    paddingTop: 10,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 28, opacity: 0.9, marginLeft: 6 },
@@ -3537,24 +3537,24 @@ const styles = StyleSheet.create({
 
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
-    marginBottom: 10,
+    marginBottom: 14,
     marginHorizontal: 14,
-    marginTop: -22,
+    marginTop: -24,
     zIndex: 5,
   },
   floatingSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: 24,
+    minHeight: 58,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     shadowColor: '#5A3E2B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 8,
   },
   floatingSearchBarActive: {
     borderWidth: 1,
@@ -3563,39 +3563,39 @@ const styles = StyleSheet.create({
   floatingSearchInput: {
     flex: 1,
     color: '#38261D',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '400',
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   floatingSearchPlaceholder: {
     flex: 1,
     color: '#B8B0A6',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '400',
   },
   floatingSearchFilterBtn: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   /* --- Category Chips --- */
   chipScroller: {
-    marginBottom: 14,
+    marginBottom: 20,
     marginHorizontal: 0,
   },
   chipRow: {
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 14,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FCF8EE',
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#E8E1D9',
   },
@@ -3604,12 +3604,12 @@ const styles = StyleSheet.create({
     borderColor: '#38261D',
   },
   chipEmoji: {
-    fontSize: 14,
-    marginRight: 4,
+    fontSize: 16,
+    marginRight: 6,
   },
   chipText: {
     color: '#38261D',
-    fontSize: 11.5,
+    fontSize: 13,
     fontWeight: '600',
   },
   chipTextActive: {
@@ -3622,7 +3622,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 14,
     paddingHorizontal: 14,
   },
   nearbyHeaderLeft: {
