@@ -131,6 +131,13 @@ type FavoriteFoodItem = {
   id: string;
 };
 
+type SellerPreview = {
+  id: string;
+  name: string;
+  image?: string | null;
+  mealCount: number;
+};
+
 type UiCategory =
   | 'Çorbalar'
   | 'Ana Yemekler'
@@ -1744,6 +1751,24 @@ export default function HomeScreen({
         );
       })
     : nearbyFilteredMeals;
+  const sellers = useMemo<SellerPreview[]>(() => {
+    const bySeller = new Map<string, SellerPreview>();
+    meals.forEach((meal) => {
+      const found = bySeller.get(meal.sellerId);
+      if (found) {
+        found.mealCount += 1;
+        if (!found.image && meal.sellerImage) found.image = meal.sellerImage;
+        return;
+      }
+      bySeller.set(meal.sellerId, {
+        id: meal.sellerId,
+        name: meal.seller,
+        image: meal.sellerImage ?? null,
+        mealCount: 1,
+      });
+    });
+    return Array.from(bySeller.values()).sort((a, b) => b.mealCount - a.mealCount);
+  }, [meals]);
   const sellerMeals = selectedSeller
     ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
     : [];
@@ -1991,6 +2016,41 @@ export default function HomeScreen({
         </View>
         {/* Food cards */}
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
+        {sellers.length > 0 ? (
+          <View style={styles.sellersSection}>
+            <Text style={styles.sellersSectionTitle}>Satıcılar</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sellersRow}
+            >
+              {sellers.map((seller) => (
+                <TouchableOpacity
+                  key={seller.id}
+                  style={styles.sellerChip}
+                  activeOpacity={0.86}
+                  onPress={() => setSelectedSeller({
+                    id: seller.id,
+                    name: seller.name,
+                    image: seller.image ?? null,
+                  })}
+                >
+                  <View style={styles.sellerChipAvatar}>
+                    {seller.image ? (
+                      <Image source={{ uri: seller.image }} style={styles.sellerChipAvatarImage} />
+                    ) : (
+                      <Text style={styles.sellerChipAvatarEmoji}>👩‍🍳</Text>
+                    )}
+                  </View>
+                  <View style={styles.sellerChipTextWrap}>
+                    <Text style={styles.sellerChipName} numberOfLines={1}>{seller.name}</Text>
+                    <Text style={styles.sellerChipMeta}>{seller.mealCount} yemek</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
         {visibleMeals.map((meal) => {
           const totalStock = Math.max(0, meal.stock ?? 0);
           const inCartQty = cartItems.find((item) => item.meal.id === meal.id)?.quantity ?? 0;
@@ -3158,6 +3218,46 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#2F7A53',
   },
+  sellersSection: {
+    marginBottom: 12,
+  },
+  sellersSectionTitle: {
+    color: '#3D3229',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sellersRow: {
+    gap: 8,
+    paddingRight: 6,
+  },
+  sellerChip: {
+    minWidth: 150,
+    maxWidth: 182,
+    borderWidth: 1,
+    borderColor: '#E6DED4',
+    borderRadius: 14,
+    backgroundColor: '#FFFDF9',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sellerChipAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F2EBE1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  sellerChipAvatarImage: { width: '100%', height: '100%' },
+  sellerChipAvatarEmoji: { fontSize: 18 },
+  sellerChipTextWrap: { flex: 1, minWidth: 0 },
+  sellerChipName: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
+  sellerChipMeta: { color: '#8D8072', fontSize: 11, marginTop: 1 },
 
   /* --- Food card --- */
   foodCard: {

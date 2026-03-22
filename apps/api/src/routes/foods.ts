@@ -139,6 +139,108 @@ foodsRouter.get("/", async (req, res) => {
 });
 
 /**
+ * GET /v1/foods/sellers/:sellerId/foods
+ * List active/available foods for a specific seller.
+ */
+foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { rows } = await pool.query(
+      `
+        SELECT
+          f.id,
+          f.name,
+          f.card_summary,
+          f.description,
+          f.price,
+          f.image_url,
+          f.rating,
+          f.review_count,
+          f.preparation_time_minutes,
+          f.max_delivery_distance_km,
+          f.allergens_json,
+          f.ingredients_json,
+          f.cuisine,
+          (
+            SELECT pl.id
+            FROM production_lots pl
+            WHERE pl.food_id = f.id
+              AND pl.status IN ('open', 'active')
+              AND pl.quantity_available > 0
+              AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+              AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+            ORDER BY pl.quantity_available DESC, pl.created_at DESC
+            LIMIT 1
+          ) AS lot_id,
+          c.name_tr AS category,
+          u.id AS seller_id,
+          u.display_name AS seller_name,
+          u.profile_image_url AS seller_image,
+          COALESCE(
+            (SELECT SUM(pl.quantity_available)
+             FROM production_lots pl
+             WHERE pl.food_id = f.id
+               AND pl.status IN ('open', 'active')
+               AND pl.quantity_available > 0
+               AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+               AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+            ), 0
+          )::int AS stock
+        FROM foods f
+        JOIN users u ON u.id = f.seller_id
+        LEFT JOIN categories c ON c.id = f.category_id
+        WHERE f.seller_id = $1
+          AND f.is_active = true
+          AND EXISTS (
+            SELECT 1
+            FROM production_lots plx
+            WHERE plx.food_id = f.id
+              AND plx.status IN ('open', 'active')
+              AND plx.quantity_available > 0
+              AND (plx.sale_starts_at IS NULL OR plx.sale_starts_at <= NOW())
+              AND (plx.sale_ends_at IS NULL OR plx.sale_ends_at > NOW())
+          )
+        ORDER BY f.rating DESC NULLS LAST, f.created_at DESC
+      `,
+      [sellerId],
+    );
+
+    const foods = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      cardSummary: r.card_summary,
+      description: r.description,
+      price: parseFloat(r.price),
+      imageUrl: r.image_url,
+      rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
+      reviewCount: r.review_count,
+      prepTime: r.preparation_time_minutes,
+      maxDistance: r.max_delivery_distance_km
+        ? parseFloat(r.max_delivery_distance_km)
+        : null,
+      allergens: parseAllergens(r.allergens_json),
+      ingredients: parseAllergens(r.ingredients_json),
+      cuisine: r.cuisine ?? null,
+      lotId: r.lot_id ?? null,
+      category: r.category,
+      stock: r.stock,
+      seller: {
+        id: r.seller_id,
+        name: r.seller_name,
+        image: r.seller_image,
+      },
+    }));
+
+    res.json({ data: foods });
+  } catch (err) {
+    console.error("[foods] seller foods error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load seller foods" },
+    });
+  }
+});
+
+/**
  * GET /v1/foods/sellers/:sellerId/reviews
  * List recent reviews for a seller.
  */
