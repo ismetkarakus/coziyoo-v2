@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Alert,
-  KeyboardAvoidingView,
+  Modal,
   Platform,
   Image,
 } from 'react-native';
@@ -52,17 +52,12 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
-  const [userType, setUserType] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newPasswordAgain, setNewPasswordAgain] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [codeLoading, setCodeLoading] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -130,7 +125,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setDob(data.dob ?? '');
       setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email ?? '');
-      setUserType(data.userType ?? '');
       setProfileImageUrl(data.profileImageUrl ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
@@ -255,78 +249,27 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     }
   }
 
-  async function handleChangePassword() {
-    setPasswordMessage(null);
-    if (!resetCode.trim() || !newPassword.trim() || !newPasswordAgain.trim()) {
-      setPasswordMessage(t('error.profileEdit.passwordRequired'));
-      return;
-    }
-    if (!/^\d{6}$/.test(resetCode.trim())) {
-      setPasswordMessage(t('error.profileEdit.codeRequired'));
-      return;
-    }
-    if (newPassword.trim().length < 8) {
-      setPasswordMessage(t('error.profileEdit.passwordMin'));
-      return;
-    }
-    if (newPassword !== newPasswordAgain) {
-      setPasswordMessage(t('error.profileEdit.passwordMismatch'));
-      return;
-    }
-
-    setPasswordLoading(true);
-    try {
-      const { apiUrl } = await loadSettings();
-      const res = await authedFetch(`${apiUrl}/v1/auth/me/password-reset/confirm`, {
-        method: 'POST',
-        body: JSON.stringify({
-          code: resetCode.trim(),
-          newPassword: newPassword.trim(),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.error) {
-        throw new Error(json.error?.message ?? `Hata (${res.status})`);
-      }
-      setResetCode('');
-      setNewPassword('');
-      setNewPasswordAgain('');
-      setPasswordMessage(t('status.profileEdit.saved'));
-    } catch (e) {
-      setPasswordMessage(e instanceof Error ? e.message : t('error.profileEdit.save'));
-    } finally {
-      setPasswordLoading(false);
-    }
+  function openFieldEditor(field: 'displayName' | 'fullName' | 'phone') {
+    if (field === 'displayName') setEditValue(displayName);
+    if (field === 'fullName') setEditValue(fullName);
+    if (field === 'phone') setEditValue(phone);
+    setEditField(field);
   }
 
-  async function handleSendResetCode() {
-    setPasswordMessage(null);
-    setCodeLoading(true);
-    try {
-      const { apiUrl } = await loadSettings();
-      const res = await authedFetch(`${apiUrl}/v1/auth/me/password-reset/request`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (!res.ok || json.error) {
-        throw new Error(json.error?.message ?? `Hata (${res.status})`);
-      }
-      setPasswordMessage(t('status.profileEdit.resetCodeSent'));
-    } catch (e) {
-      setPasswordMessage(e instanceof Error ? e.message : t('error.profileEdit.save'));
-    } finally {
-      setCodeLoading(false);
-    }
+  function applyFieldEdit() {
+    if (!editField) return;
+    const next = editValue.trim();
+    if (editField === 'displayName') setDisplayName(next);
+    if (editField === 'fullName') setFullName(next);
+    if (editField === 'phone') setPhone(next);
+    setEditField(null);
   }
 
-  const userTypeLabel = userType === 'buyer'
-    ? t('status.profileEdit.buyer')
-    : userType === 'seller'
-      ? t('status.profileEdit.seller')
-      : userType === 'both'
-        ? t('status.profileEdit.both')
-        : userType;
+  function getEditPlaceholder() {
+    if (editField === 'fullName') return t('helper.profileEdit.fullNamePlaceholder');
+    if (editField === 'phone') return t('helper.profileEdit.phonePlaceholder');
+    return t('helper.profileEdit.displayNamePlaceholder');
+  }
 
   return (
     <View style={styles.container}>
@@ -341,11 +284,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
         <View style={{ width: 40 }} />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {loading ? (
             <View style={styles.center}>
               <ActivityIndicator size="large" color={theme.primary} />
@@ -384,159 +323,79 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                   </View>
                 </TouchableOpacity>
                 <Text style={styles.avatarEmail}>{email}</Text>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{userTypeLabel}</Text>
-                </View>
               </View>
 
-              {/* Form */}
-                <View style={styles.form}>
-                  <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>{t('headline.profileEdit.accountSection')}</Text>
-                    <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.displayNameLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    placeholder={t('helper.profileEdit.displayNamePlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="words"
-                    maxLength={40}
-                  />
+              <View style={styles.cardsWrap}>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#3F855C' }]}>
+                      <Ionicons name="person" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.displayNameLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.profileEdit.displayNameHint')}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('displayName')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{displayName || '-'}</Text>
                 </View>
 
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.fullNameLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={fullName}
-                    onChangeText={setFullName}
-                    placeholder={t('helper.profileEdit.fullNamePlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="words"
-                    maxLength={120}
-                  />
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#DCD2C3' }]}>
+                      <Ionicons name="card-outline" size={18} color="#6F604F" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.fullNameLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.profileEdit.fullNameHint')}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('fullName')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{fullName || '-'}</Text>
                 </View>
 
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.phoneLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={phone}
-                    onChangeText={setPhone}
-                    placeholder={t('helper.profileEdit.phonePlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="phone-pad"
-                    maxLength={20}
-                  />
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#8A4FA4' }]}>
+                      <Ionicons name="call" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.phoneLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.profileEdit.phoneHint')}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('phone')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{phone || t('helper.profileEdit.phonePlaceholder')}</Text>
                 </View>
 
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.dobLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={dob}
-                    onChangeText={setDob}
-                    placeholder={t('helper.profileEdit.dobPlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={10}
-                  />
-                  <Text style={styles.hint}>{t('helper.profileEdit.dobHint')}</Text>
-                </View>
-
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.countryLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={tcKimlikNo}
-                    onChangeText={setTcKimlikNo}
-                    placeholder={t('helper.profileEdit.countryPlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="number-pad"
-                    maxLength={11}
-                  />
-                </View>
-
-                <View style={styles.fieldDisabled}>
-                  <Text style={styles.label}>{t('helper.profileEdit.emailLabel')}</Text>
-                  <View style={styles.inputDisabled}>
-                    <Text style={styles.inputDisabledText}>{email}</Text>
-                    <Ionicons name="lock-closed-outline" size={16} color={theme.textSecondary} />
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#9FB6D8' }]}>
+                      <Ionicons name="mail" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.emailLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.profileEdit.emailHint')}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.emailRow}>
+                    <Text style={styles.infoValue}>{email}</Text>
+                    <View style={styles.verifiedBadge}>
+                      <Ionicons name="lock-closed" size={13} color="#3E845B" />
+                      <Text style={styles.verifiedBadgeText}>{t('status.profileEdit.verified')}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-
-              <View style={styles.sectionCard}>
-                <Text style={styles.sectionTitle}>{t('headline.profileEdit.securitySection')}</Text>
-                <Text style={styles.hint}>{t('helper.profileEdit.forgotPasswordHint')}</Text>
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.codeLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={resetCode}
-                    onChangeText={setResetCode}
-                    placeholder={t('helper.profileEdit.codePlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={[styles.codeBtn, codeLoading && styles.saveBtnDisabled]}
-                  onPress={() => void handleSendResetCode()}
-                  disabled={codeLoading}
-                  activeOpacity={0.8}
-                >
-                  {codeLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.passwordBtnText}>{t('cta.profileEdit.sendResetCode')}</Text>
-                  )}
-                </TouchableOpacity>
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.newPasswordLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder={t('helper.profileEdit.newPasswordPlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-                <View style={styles.field}>
-                  <Text style={styles.label}>{t('helper.profileEdit.newPasswordAgainLabel')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newPasswordAgain}
-                    onChangeText={setNewPasswordAgain}
-                    placeholder={t('helper.profileEdit.newPasswordAgainPlaceholder')}
-                    placeholderTextColor={theme.textSecondary}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-                {passwordMessage ? (
-                  <Text style={styles.passwordMessage}>{passwordMessage}</Text>
-                ) : null}
-                <TouchableOpacity
-                  style={[styles.passwordBtn, passwordLoading && styles.saveBtnDisabled]}
-                  onPress={() => void handleChangePassword()}
-                  disabled={passwordLoading}
-                  activeOpacity={0.8}
-                >
-                  {passwordLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.passwordBtnText}>{t('cta.profileEdit.changePassword')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
               </View>
 
               {error ? (
@@ -555,7 +414,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
               <TouchableOpacity
                 style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                onPress={handleSave}
+                onPress={() => void handleSave()}
                 disabled={saving}
                 activeOpacity={0.8}
               >
@@ -568,7 +427,38 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
             </>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+
+      <Modal
+        visible={!!editField}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditField(null)}
+      >
+        <View style={styles.editModalOverlay}>
+          <View style={styles.editModalCard}>
+            <Text style={styles.editModalTitle}>{t('cta.profileEdit.edit')}</Text>
+            <TextInput
+              style={styles.editModalInput}
+              value={editValue}
+              onChangeText={setEditValue}
+              placeholder={getEditPlaceholder()}
+              placeholderTextColor={theme.textSecondary}
+              autoCapitalize={editField === 'phone' ? 'none' : 'words'}
+              keyboardType={editField === 'phone' ? 'phone-pad' : 'default'}
+              maxLength={editField === 'phone' ? 20 : 120}
+              autoFocus
+            />
+            <View style={styles.editModalActions}>
+              <TouchableOpacity style={styles.editModalCancel} onPress={() => setEditField(null)}>
+                <Text style={styles.editModalCancelText}>{t('cta.address.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.editModalSave} onPress={applyFieldEdit}>
+                <Text style={styles.editModalSaveText}>{t('cta.profileEdit.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -591,96 +481,77 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
 
-  avatarSection: { alignItems: 'center', marginBottom: 28 },
+  avatarSection: { alignItems: 'center', marginBottom: 20 },
   avatarTouchable: { position: 'relative', marginBottom: 12 },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 26,
+    width: 112,
+    height: 112,
+    borderRadius: 36,
     backgroundColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 26,
+    width: 112,
+    height: 112,
+    borderRadius: 36,
   },
   avatarBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    bottom: -4,
+    right: -4,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: theme.background,
   },
   avatarText: { fontSize: 32, fontWeight: '700', color: '#fff' },
-  avatarEmail: { color: theme.textSecondary, fontSize: 14, marginBottom: 6 },
-  badge: {
-    backgroundColor: theme.buttonPassiveBg,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  badgeText: { color: theme.buttonPassiveText, fontSize: 12, fontWeight: '600' },
-
-  form: { gap: 14 },
-  sectionCard: {
-    borderRadius: 14,
+  avatarEmail: { color: theme.textSecondary, fontSize: 14 },
+  cardsWrap: { gap: 12 },
+  infoCard: {
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.card,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  sectionTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
-  field: { gap: 6 },
-  fieldDisabled: { gap: 6, opacity: 0.6 },
-  label: { color: theme.text, fontSize: 13, fontWeight: '600', marginLeft: 4 },
-  input: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 14,
+    borderColor: '#DDD7D0',
+    backgroundColor: '#FCFBF9',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: theme.text,
-    fontSize: 15,
   },
-  inputDisabled: {
-    backgroundColor: theme.buttonPassiveBg,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  infoHead: { flexDirection: 'row', alignItems: 'center' },
+  infoIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  infoHeadText: { flex: 1 },
+  infoTitle: { color: '#332C25', fontSize: 18, fontWeight: '700' },
+  infoSubtitle: { color: '#71685F', fontSize: 14, marginTop: 2 },
+  editChip: {
+    backgroundColor: '#EFEBE6',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  editChipText: { color: '#4A423A', fontSize: 15, fontWeight: '700' },
+  infoDivider: { height: 1, backgroundColor: '#E9E2D9', marginTop: 14, marginBottom: 12 },
+  infoValue: { color: '#2F2924', fontSize: 38 / 2, fontWeight: '700' },
+  emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
+    backgroundColor: '#E4F2E7',
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  inputDisabledText: { color: theme.textSecondary, fontSize: 15 },
-  hint: { color: theme.textSecondary, fontSize: 11, marginLeft: 4, marginTop: 2 },
-  passwordMessage: { color: theme.textSecondary, fontSize: 12, marginTop: 2 },
-  passwordBtn: {
-    backgroundColor: '#3D3229',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  codeBtn: {
-    backgroundColor: theme.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  passwordBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  verifiedBadgeText: { color: '#3E845B', fontSize: 15, fontWeight: '700' },
 
   errorBox: {
     flexDirection: 'row',
@@ -712,4 +583,44 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  editModalCard: {
+    width: '100%',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E6DDD3',
+    padding: 16,
+  },
+  editModalTitle: { color: '#332C25', fontSize: 17, fontWeight: '700', marginBottom: 10 },
+  editModalInput: {
+    borderWidth: 1,
+    borderColor: '#DED4C8',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#322B24',
+    fontSize: 16,
+  },
+  editModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
+  editModalCancel: {
+    backgroundColor: '#F0ECE6',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  editModalCancelText: { color: '#5B5148', fontSize: 14, fontWeight: '600' },
+  editModalSave: {
+    backgroundColor: theme.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  editModalSaveText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });
