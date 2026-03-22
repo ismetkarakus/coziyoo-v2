@@ -64,7 +64,7 @@ describe("agent_profiles CRUD", () => {
     expect(created.id).toBeTruthy();
     expect(created.name).toBe("test-create");
     expect(created.is_active).toBe(false);
-    expect(created.speaks_first).toBe(true);
+    expect(created.speaks_first).toBe(false);
     expect(created.llm_config).toEqual({});
   });
 
