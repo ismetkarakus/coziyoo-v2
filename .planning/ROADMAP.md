@@ -6,7 +6,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** - Next.js workspace scaffold, admin JWT auth, DB schema, API routes, CORS config, deployment pipeline
+- [x] **Phase 1: Foundation** - Next.js workspace scaffold, admin JWT auth, DB schema, API routes, CORS config, deployment pipeline
 - [ ] **Phase 2: Profile Management** - Profile CRUD with sidebar list, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
 - [ ] **Phase 3: Provider Adapter System** - OpenAI-compatible base client in Python voice agent, service-specific adapters with header/body/path/field overrides
 - [ ] **Phase 4: Call Logs** - Call session persistence, log viewer with date and profile filtering
@@ -26,7 +26,7 @@
 **Plans:** 3 plans
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold Next.js workspace and fix CORS defaults
-- [ ] 01-02-PLAN.md -- Implement admin JWT auth (login, token refresh, logout)
+- [x] 01-02-PLAN.md -- Implement admin JWT auth (login, token refresh, logout)
 - [x] 01-03-PLAN.md -- Create deployment pipeline (systemd, install/update scripts, CI/CD integration)
 
 ### Phase 2: Profile Management
@@ -66,7 +66,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 2/3 | In Progress | 2026-03-22 (01-01, 01-03) |
+| 1. Foundation | 3/3 | Complete | 2026-03-22 (01-01, 01-02, 01-03) |
 | 2. Profile Management | 0/? | Not started | - |
 | 3. Provider Adapter System | 0/? | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |

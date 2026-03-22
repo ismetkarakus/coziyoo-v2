@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can log in with admin credentials (email/password) at agent.coziyoo.com/login
-- [ ] **AUTH-02**: User session persists and auto-refreshes JWT on 401 (same pattern as admin panel)
-- [ ] **AUTH-03**: User can log out and is redirected to login page
+- [x] **AUTH-01**: User can log in with admin credentials (email/password) at agent.coziyoo.com/login
+- [x] **AUTH-02**: User session persists and auto-refreshes JWT on 401 (same pattern as admin panel)
+- [x] **AUTH-03**: User can log out and is redirected to login page
 
 ### Profile Management
 
@@ -119,9 +119,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
 | APP-01 | Phase 1 | Complete |
 | APP-02 | Phase 1 | Complete |
 | APP-03 | Phase 1 | Complete |
