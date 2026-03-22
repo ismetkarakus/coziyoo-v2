@@ -2154,7 +2154,7 @@ export default function HomeScreen({
         <View style={styles.heroWrap}>
           {LinearGradient ? (
             <LinearGradient
-              colors={['#FFF5EB', '#FFE8D6', '#FDDCB5']}
+              colors={['#FCF8EE', '#F9E9D5', '#F0D5AE']}
               locations={[0, 0.45, 1]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -2168,19 +2168,22 @@ export default function HomeScreen({
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
           {BlurView ? (
-            <BlurView intensity={15} style={styles.heroFxFill} />
+            <BlurView intensity={14} style={styles.heroTopBlur} />
           ) : (
-            <View style={styles.heroFxFallback} />
+            <View style={styles.heroTopBlurFallback} />
           )}
-          <View style={styles.heroOverlayWarm} />
           {LinearGradient ? (
             <LinearGradient
-              colors={['transparent', '#ffffff']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.heroFxFill}
+              colors={[
+                'rgba(233,194,152,0.18)',
+                'rgba(233,194,152,0.08)',
+                'transparent',
+              ]}
+              style={styles.heroOverlay}
             />
-          ) : null}
+          ) : (
+            <View style={styles.heroOverlayFallback} />
+          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -2219,9 +2222,9 @@ export default function HomeScreen({
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               style={styles.heroLocationRow}
             >
-              <Ionicons name="location" size={16} color="#2E7D32" />
+              <Ionicons name="location" size={16} color="#619670" />
               <Text style={styles.heroLocationText}>{selectedLocationLabel}</Text>
-              <Ionicons name="chevron-down" size={14} color="#2E7D32" style={{ marginLeft: 2 }} />
+              <Ionicons name="chevron-down" size={14} color="#619670" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
         </View>
@@ -3446,7 +3449,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#FFE8D6',
+    backgroundColor: '#F9E9D5',
     overflow: 'hidden',
   },
   heroBaseGradient: {
@@ -3454,23 +3457,50 @@ const styles = StyleSheet.create({
   },
   heroFoodBgImg: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    width: '100%',
-    height: '100%',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    opacity: 0.78,
+    borderTopLeftRadius: 220,
+    borderBottomLeftRadius: 220,
     resizeMode: 'cover',
   },
-  heroFxFill: {
-    ...StyleSheet.absoluteFillObject,
+  heroTopBlur: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: 84,
+    borderTopLeftRadius: 220,
   },
-  heroFxFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  heroTopBlurFallback: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: 84,
+    borderTopLeftRadius: 220,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  heroOverlayWarm: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 210, 160, 0.15)',
+  heroOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    borderTopLeftRadius: 220,
+    borderBottomLeftRadius: 220,
+  },
+  heroOverlayFallback: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    borderTopLeftRadius: 220,
+    borderBottomLeftRadius: 220,
+    backgroundColor: 'rgba(233,194,152,0.12)',
   },
   heroTextArea: {
     zIndex: 3,
@@ -3479,9 +3509,9 @@ const styles = StyleSheet.create({
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 24, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#1A1A1A', fontSize: 26, lineHeight: 32, fontWeight: '900' },
+  greetingTitle: { color: '#38261D', fontSize: 26, lineHeight: 32, fontWeight: '900' },
   heroSubtitle: {
-    color: '#444444',
+    color: '#38261D',
     fontSize: 16,
     fontWeight: '700',
     marginTop: 4,
@@ -3493,7 +3523,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroLocationText: {
-    color: '#2E7D32',
+    color: '#619670',
     fontSize: 14,
     fontWeight: '800',
   },
