@@ -2170,8 +2170,8 @@ export default function HomeScreen({
         <View style={styles.heroWrap}>
           {LinearGradient ? (
             <LinearGradient
-              colors={['#F6E7D8', '#F3D6B8', '#F7EFE7']}
-              locations={[0, 0.4, 1]}
+              colors={['#FFF5EB', '#FFE8D6', '#FDDCB5']}
+              locations={[0, 0.45, 1]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={styles.heroBaseGradient}
@@ -2183,12 +2183,12 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
-          <BlurView intensity={20} style={styles.heroTopBlur} />
+          <BlurView intensity={14} style={styles.heroTopBlur} />
           {LinearGradient ? (
             <LinearGradient
               colors={[
-                'rgba(90,62,43,0.15)',
-                'rgba(90,62,43,0.05)',
+                'rgba(90,62,43,0.1)',
+                'rgba(90,62,43,0.04)',
                 'transparent',
               ]}
               style={styles.heroOverlay}
@@ -2234,9 +2234,9 @@ export default function HomeScreen({
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               style={styles.heroLocationRow}
             >
-              <Ionicons name="location" size={16} color="#4F8E69" />
+              <Ionicons name="location" size={16} color="#2E7D32" />
               <Text style={styles.heroLocationText}>{selectedLocationLabel}</Text>
-              <Ionicons name="chevron-down" size={14} color="#4F8E69" style={{ marginLeft: 2 }} />
+              <Ionicons name="chevron-down" size={14} color="#2E7D32" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
         </View>
@@ -3456,12 +3456,12 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    height: 260,
+    height: 240,
     paddingHorizontal: 24,
     paddingTop: 20,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#EAC9A0',
+    backgroundColor: '#FFE8D6',
     overflow: 'hidden',
   },
   heroBaseGradient: {
@@ -3470,54 +3470,53 @@ const styles = StyleSheet.create({
   heroFoodBgImg: {
     position: 'absolute',
     top: 0,
-    left: 0,
     right: 0,
-    width: '100%',
+    width: '65%',
     height: '100%',
-    opacity: 0.85,
+    opacity: 0.9,
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 180,
     resizeMode: 'cover',
   },
   heroTopBlur: {
     position: 'absolute',
     top: 0,
-    left: 0,
     right: 0,
-    height: 120,
+    width: '65%',
+    height: 110,
+    borderTopLeftRadius: 180,
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '65%',
+    height: '100%',
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 180,
   },
   heroOverlayFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(90,62,43,0.07)',
-  },
-  heroBottomFade: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
+    top: 0,
     right: 0,
-    height: 120,
-  },
-  heroBottomFadeFallback: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '44%',
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    width: '65%',
+    height: '100%',
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 180,
+    backgroundColor: 'rgba(90,62,43,0.06)',
   },
   heroTextArea: {
     zIndex: 3,
-    maxWidth: '62%',
+    maxWidth: '58%',
     paddingTop: 8,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 24, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#3A281F', fontSize: 26, lineHeight: 32, fontWeight: '900' },
+  greetingTitle: { color: '#1A1A1A', fontSize: 26, lineHeight: 32, fontWeight: '900' },
   heroSubtitle: {
-    color: '#3A281F',
+    color: '#444444',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: 4,
   },
   heroLocationRow: {
@@ -3527,7 +3526,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroLocationText: {
-    color: '#4F8E69',
+    color: '#2E7D32',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -3553,7 +3552,7 @@ const styles = StyleSheet.create({
   },
   heroAvatarImage: { width: 62, height: 62, borderRadius: 31 },
   avatarEmoji: { fontSize: 24 },
-
+  
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
     marginBottom: 14,
