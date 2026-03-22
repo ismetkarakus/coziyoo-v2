@@ -150,6 +150,28 @@ def _normalize_call_log_rows(rows: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def _normalize_from_filter(value: str | None) -> str | None:
+    if not value:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if "T" in raw:
+        return raw
+    return f"{raw}T00:00:00.000Z"
+
+
+def _normalize_to_filter(value: str | None) -> str | None:
+    if not value:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if "T" in raw:
+        return raw
+    return f"{raw}T23:59:59.999Z"
+
+
 async def _fetch_call_logs(
     access_token: str,
     *,
@@ -160,10 +182,12 @@ async def _fetch_call_logs(
     params: dict[str, str] = {"limit": "200"}
     if profile_id:
         params["profileId"] = profile_id
-    if from_value:
-        params["from"] = from_value
-    if to_value:
-        params["to"] = to_value
+    normalized_from = _normalize_from_filter(from_value)
+    normalized_to = _normalize_to_filter(to_value)
+    if normalized_from:
+        params["from"] = normalized_from
+    if normalized_to:
+        params["to"] = normalized_to
     query = urlencode(params)
     path = f"/v1/admin/agent-call-logs?{query}" if query else "/v1/admin/agent-call-logs"
     status, payload = await api_request(
@@ -320,11 +344,25 @@ async def dashboard_call_logs(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
         return refresh_response
-    call_logs, error_message = await _fetch_call_logs(access_token)
+    profile_id = str(request.query_params.get("profileId") or "").strip() or None
+    from_value = str(request.query_params.get("from") or "").strip() or None
+    to_value = str(request.query_params.get("to") or "").strip() or None
+    call_logs, error_message = await _fetch_call_logs(
+        access_token,
+        profile_id=profile_id,
+        from_value=from_value,
+        to_value=to_value,
+    )
+    profiles, _ = await _fetch_profiles(access_token)
     return templates.TemplateResponse(
         request=request,
         name="call_logs/index.html",
-        context={"call_logs": call_logs, "message": error_message},
+        context={
+            "call_logs": call_logs,
+            "message": error_message,
+            "profiles": profiles,
+            "filters": {"profileId": profile_id or "", "from": from_value or "", "to": to_value or ""},
+        },
     )
 
 
@@ -333,7 +371,15 @@ async def dashboard_call_logs_table(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
         return refresh_response
-    call_logs, error_message = await _fetch_call_logs(access_token)
+    profile_id = str(request.query_params.get("profileId") or "").strip() or None
+    from_value = str(request.query_params.get("from") or "").strip() or None
+    to_value = str(request.query_params.get("to") or "").strip() or None
+    call_logs, error_message = await _fetch_call_logs(
+        access_token,
+        profile_id=profile_id,
+        from_value=from_value,
+        to_value=to_value,
+    )
     return templates.TemplateResponse(
         request=request,
         name="call_logs/_table.html",
