@@ -30,6 +30,7 @@ import { adminSalesCommissionSettingsRouter } from "./routes/admin-sales-commiss
 import { adminSecurityRouter } from "./routes/admin-security.js";
 import { foodsRouter } from "./routes/foods.js";
 import { agentProfilesRouter } from "./routes/admin-agent-profiles.js";
+import { adminAgentCallLogsRouter } from "./routes/admin-agent-call-logs.js";
 import { requireAuth } from "./middleware/auth.js";
 
 export const app = express();
@@ -361,6 +362,7 @@ app.use("/v1/admin", adminSalesCommissionSettingsRouter);
 app.use("/v1/admin", adminSecurityRouter);
 app.use("/v1/admin/livekit", adminLiveKitRouter);
 app.use("/v1/admin/agent-profiles", requireAuth("admin"), agentProfilesRouter);
+app.use("/v1/admin/agent-call-logs", requireAuth("admin"), adminAgentCallLogsRouter);
 app.use("/v1/foods", foodsRouter);
 app.use("/v1/docs", docsRouter);
 app.use("/v1/livekit", liveKitRouter);
