@@ -11,14 +11,11 @@ import {
   Alert,
   Modal,
   Platform,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
-import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import { t } from '../copy/brandCopy';
 
 type UserProfile = {
@@ -52,10 +49,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
-  const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
-  const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -65,17 +58,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
   useEffect(() => {
     fetchProfile();
-  }, []);
-
-  useEffect(() => {
-    setProfileImageLoadFailed(false);
-  }, [profileImageUrl]);
-
-  useEffect(() => {
-    loadCachedProfileImageUrl().then((cached) => {
-      if (!cached) return;
-      setCachedLocalImageUrl(cached);
-    });
   }, []);
 
   async function authedFetch(url: string, options?: RequestInit) {
@@ -125,86 +107,10 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setDob(data.dob ?? '');
       setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email ?? '');
-      setProfileImageUrl(data.profileImageUrl ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handlePickImage() {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(t('helper.profileEdit.permissionTitle'), t('helper.profileEdit.permissionMessage'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (result.canceled || !result.assets?.[0]) return;
-
-      const asset = result.assets[0];
-      const uri = asset.uri;
-      const mimeType = asset.mimeType ?? 'image/jpeg';
-
-      setProfileImageUrl(uri);
-      setCachedLocalImageUrl(uri);
-      await saveCachedProfileImageUrl(uri);
-
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
-        Alert.alert('Hata', t('error.profileEdit.imageType'));
-        return;
-      }
-
-      setUploadingImage(true);
-
-      const { apiUrl } = await loadSettings();
-
-      // 1. Get presigned upload URL
-      const urlRes = await authedFetch(`${apiUrl}/v1/auth/me/profile-image/upload-url`, {
-        method: 'POST',
-        body: JSON.stringify({ contentType: mimeType }),
-      });
-      const urlJson = await urlRes.json();
-      if (!urlRes.ok || urlJson.error) {
-        throw new Error(urlJson.error?.message ?? 'Upload URL alınamadı');
-      }
-      const { uploadUrl, imageUrl } = urlJson.data;
-
-      // 2. Upload image to S3 via presigned URL
-      const imageResponse = await fetch(uri);
-      const imageBlob = await imageResponse.blob();
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': mimeType },
-        body: imageBlob,
-      });
-      if (!uploadRes.ok) {
-        throw new Error('Resim yüklenemedi');
-      }
-
-      // 3. Save image URL to profile
-      const saveRes = await authedFetch(`${apiUrl}/v1/auth/me/profile-image`, {
-        method: 'PUT',
-        body: JSON.stringify({ imageUrl }),
-      });
-      const saveJson = await saveRes.json();
-      if (!saveRes.ok || saveJson.error) {
-        throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
-      }
-
-      setProfileImageUrl(imageUrl);
-    } catch (e) {
-      Alert.alert('Hata', e instanceof Error ? e.message : t('error.profileEdit.imageUpload'));
-    } finally {
-      setUploadingImage(false);
     }
   }
 
@@ -295,40 +201,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
             </View>
           ) : (
             <>
-              {/* Avatar */}
-              <View style={styles.avatarSection}>
-                <TouchableOpacity
-                  style={styles.avatarTouchable}
-                  onPress={handlePickImage}
-                  disabled={uploadingImage}
-                  activeOpacity={0.7}
-                >
-                  {profileImageUrl && !profileImageLoadFailed ? (
-                    <Image
-                      source={{ uri: profileImageUrl }}
-                      style={styles.avatarImage}
-                      onError={() => setProfileImageLoadFailed(true)}
-                    />
-                  ) : cachedLocalImageUrl ? (
-                    <Image source={{ uri: cachedLocalImageUrl }} style={styles.avatarImage} />
-                  ) : (
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {displayName ? displayName.charAt(0).toUpperCase() : '?'}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.avatarBadge}>
-                    {uploadingImage ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Ionicons name="camera" size={14} color="#fff" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-                <Text style={styles.avatarEmail}>{email}</Text>
-              </View>
-
               <View style={styles.cardsWrap}>
                 <View style={styles.infoCard}>
                   <View style={styles.infoHead}>
@@ -487,37 +359,6 @@ const styles = StyleSheet.create({
   headerTitle: { color: theme.text, fontSize: 18, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-
-  avatarSection: { alignItems: 'center', marginBottom: 20 },
-  avatarTouchable: { position: 'relative', marginBottom: 12 },
-  avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 36,
-    backgroundColor: theme.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarImage: {
-    width: 112,
-    height: 112,
-    borderRadius: 36,
-  },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: theme.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: theme.background,
-  },
-  avatarText: { fontSize: 32, fontWeight: '700', color: '#fff' },
-  avatarEmail: { color: theme.textSecondary, fontSize: 14 },
   cardsWrap: { gap: 12 },
   infoCard: {
     borderRadius: 18,

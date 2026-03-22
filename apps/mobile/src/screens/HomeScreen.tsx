@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
   getColors = require('react-native-image-colors').getColors;
@@ -42,6 +43,7 @@ import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import { apiRequest } from '../utils/api';
 import VoiceSessionScreen from './VoiceSessionScreen';
+import ProfileEditScreen from './ProfileEditScreen';
 import { randomHomeGreetingSubtitle, requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
 /* ------------------------------------------------------------------ */
@@ -59,7 +61,6 @@ type Props = {
   auth: AuthSession;
   initialTab?: TabKey;
   onOpenSettings: () => void;
-  onOpenProfileEdit: () => void;
   onOpenAddresses: () => void;
   onOpenOrders: () => void;
   onOpenNotifications?: () => void;
@@ -459,6 +460,19 @@ const CATEGORY_BG_COLORS: Record<string, string> = {
   Meze: '#E1DDF1',
   Tatlılar: '#ECD4D8',
   İçecekler: '#D4DEE8',
+};
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  Çorbalar: '🍜',
+  'Ana Yemekler': '🍲',
+  Salata: '🥗',
+  Meze: '🧆',
+  Tatlılar: '🧁',
+  İçecekler: '🍹',
+};
+
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  Salata: 'Salatalar',
 };
 
 function normalizeDishText(value: string): string {
@@ -896,7 +910,6 @@ export default function HomeScreen({
   auth,
   initialTab,
   onOpenSettings,
-  onOpenProfileEdit,
   onOpenAddresses,
   onOpenOrders,
   onOpenNotifications,
@@ -950,6 +963,8 @@ export default function HomeScreen({
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
+  const [profileImageUploading, setProfileImageUploading] = useState(false);
+  const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
   );
@@ -1275,6 +1290,101 @@ export default function HomeScreen({
       setProfileDisplayName(resolveProfileDisplayName(json.data, currentAuth.email));
     } catch {
       // Keep fallback avatar when profile fetch fails
+    }
+  }
+
+  async function authedJsonFetch(url: string, options?: RequestInit) {
+    const requestWithToken = async (token: string) =>
+      fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          ...(options?.headers ?? {}),
+        },
+      });
+
+    let response = await requestWithToken(currentAuth.accessToken);
+    if (response.status !== 401) return response;
+
+    const refreshed = await refreshAuthSession(apiUrl, currentAuth);
+    if (!refreshed) return response;
+
+    handleAuthRefresh(refreshed);
+    response = await requestWithToken(refreshed.accessToken);
+    return response;
+  }
+
+  async function handleProfileAvatarPress() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(t('helper.profileEdit.permissionTitle'), t('helper.profileEdit.permissionMessage'));
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+
+      setProfileImageUrl(uri);
+      setCachedLocalImageUrl(uri);
+      await saveCachedProfileImageUrl(uri);
+
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+        Alert.alert('Hata', t('error.profileEdit.imageType'));
+        return;
+      }
+
+      setProfileImageUploading(true);
+      const baseUrl = apiUrl || (await loadSettings()).apiUrl;
+
+      const uploadUrlRes = await authedJsonFetch(`${baseUrl}/v1/auth/me/profile-image/upload-url`, {
+        method: 'POST',
+        body: JSON.stringify({ contentType: mimeType }),
+      });
+      const uploadUrlJson = await uploadUrlRes.json();
+      if (!uploadUrlRes.ok || uploadUrlJson.error) {
+        throw new Error(uploadUrlJson.error?.message ?? 'Upload URL alınamadı');
+      }
+
+      const { uploadUrl, imageUrl } = uploadUrlJson.data as { uploadUrl: string; imageUrl: string };
+
+      const imageResponse = await fetch(uri);
+      const imageBlob = await imageResponse.blob();
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': mimeType },
+        body: imageBlob,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Resim yüklenemedi');
+      }
+
+      const saveRes = await authedJsonFetch(`${baseUrl}/v1/auth/me/profile-image`, {
+        method: 'PUT',
+        body: JSON.stringify({ imageUrl }),
+      });
+      const saveJson = await saveRes.json();
+      if (!saveRes.ok || saveJson.error) {
+        throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
+      }
+
+      setProfileImageUrl(imageUrl);
+      await saveCachedProfileImageUrl(imageUrl);
+    } catch (e) {
+      Alert.alert('Hata', e instanceof Error ? e.message : t('error.profileEdit.imageUpload'));
+    } finally {
+      setProfileImageUploading(false);
     }
   }
 
@@ -1898,9 +2008,43 @@ export default function HomeScreen({
         style={styles.scroll}
         stickyHeaderIndices={[1]}
       >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextWrap}>
+        {/* Hero Banner */}
+        <View style={styles.heroBanner}>
+          {/* Decorative food images */}
+          <View style={styles.heroBannerImagesWrap}>
+            <View style={styles.heroBannerImageCircle1}>
+              <Image
+                source={{ uri: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=200&h=200&fit=crop' }}
+                style={styles.heroBannerFoodImg}
+              />
+            </View>
+            <View style={styles.heroBannerImageCircle2}>
+              <Image
+                source={{ uri: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=200&h=200&fit=crop' }}
+                style={styles.heroBannerFoodImg}
+              />
+            </View>
+          </View>
+          {/* Profile avatar */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.heroAvatarCircle}
+            onPress={() => handleTabPress('profile')}
+          >
+            {profileImageUrl && !profileImageLoadFailed ? (
+              <Image
+                source={{ uri: profileImageUrl }}
+                style={styles.heroAvatarImage}
+                onError={() => setProfileImageLoadFailed(true)}
+              />
+            ) : cachedLocalImageUrl ? (
+              <Image source={{ uri: cachedLocalImageUrl }} style={styles.heroAvatarImage} />
+            ) : (
+              <Text style={styles.avatarEmoji}>👩‍🍳</Text>
+            )}
+          </TouchableOpacity>
+          {/* Text content */}
+          <View style={styles.heroBannerTextArea}>
             <View style={styles.greetingTitleWrap}>
               <Text
                 style={[styles.greetingTitle, resolveGreetingTitleMetrics(dynamicGreetingTitle.text)]}
@@ -1912,174 +2056,101 @@ export default function HomeScreen({
               </Text>
               <Text style={styles.greetingEmoji}>{dynamicGreetingTitle.emoji}</Text>
             </View>
-            <View style={styles.greetingSubtitleRow}>
-              <TouchableOpacity
-                onPress={() => setNearbyOnly((prev) => !prev)}
-                activeOpacity={0.8}
-                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                style={styles.greetingNearbyIconBtn}
-              >
-                <Ionicons
-                  name="location"
-                  size={16}
-                  color={nearbyOnly ? '#D45454' : '#BFAE9D'}
-                />
-              </TouchableOpacity>
-              <Text style={styles.greetingSubtitle}>{greetingSubtitle}</Text>
-            </View>
-          </View>
-          <View style={styles.headerAvatarWrap}>
+            <Text style={styles.heroBannerSubtitle}>Bugün ne yesek?</Text>
             <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.avatarCircle}
-              onPress={() => handleTabPress('profile')}
-            >
-              {profileImageUrl && !profileImageLoadFailed ? (
-                <Image
-                  source={{ uri: profileImageUrl }}
-                  style={styles.avatarCircleImage}
-                  onError={() => setProfileImageLoadFailed(true)}
-                />
-              ) : cachedLocalImageUrl ? (
-                <Image source={{ uri: cachedLocalImageUrl }} style={styles.avatarCircleImage} />
-              ) : (
-                <Text style={styles.avatarEmoji}>👩‍🍳</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-        {/* Sticky search + category chips */}
-        <View style={styles.searchStickyWrap}>
-          <View pointerEvents="none" style={styles.searchTopTint} />
-          <View
-            style={[
-              styles.searchBox,
-              searchMode && styles.searchBoxSearchMode,
-              searchMode && styles.searchBoxActive,
-            ]}
-          >
-            {!searchMode ? (
-              <View pointerEvents="none" style={styles.searchFadeWrap}>
-                <View style={styles.searchFadeSolid} />
-                <View style={styles.searchFadeSoft} />
-              </View>
-            ) : null}
-            <TouchableOpacity
+              onPress={() => setNearbyOnly((prev) => !prev)}
               activeOpacity={0.8}
-              onPress={() => {
-                if (searchMode) {
-                  setSearchMode(false);
-                  setSearchQuery('');
-                  return;
-                }
-                setSearchMode(true);
-              }}
-              style={styles.searchIconButton}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              style={styles.heroBannerLocationRow}
             >
-            <Ionicons
-                name={searchMode ? 'close-outline' : 'search-outline'}
-                size={28}
-                color="#5F5246"
-                style={!searchMode ? styles.searchIconGlyph : undefined}
-              />
+              <Ionicons name="location" size={16} color="#2F7A53" />
+              <Text style={styles.heroBannerLocationText}>Kadıköy · 2.5 km çevre</Text>
+              <Ionicons name="chevron-down" size={14} color="#7F7366" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
-            <View style={styles.searchContent}>
-              {searchMode ? (
-                <TextInput
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder={t('helper.home.searchPlaceholder')}
-                  placeholderTextColor="#A89B8C"
-                  style={[styles.searchInput, styles.searchInputSearchMode]}
-                  returnKeyType="search"
-                />
-              ) : (
-                <View style={styles.searchCategoryArea}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.categoryContent}
-                    style={styles.searchCategoryScroller}
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <TouchableOpacity
-                        key={cat}
-                        style={styles.categoryTextButton}
-                        activeOpacity={0.85}
-                        onPress={() => setActiveCategory(cat)}
-                      >
-                        <Text
-                          style={[
-                            styles.categoryText,
-                            activeCategory === cat && styles.categoryTextActive,
-                          ]}
-                        >
-                          {cat}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  <View style={styles.categoryInputLine} />
-                </View>
-              )}
-            </View>
           </View>
-          {showSloganCard ? (
-            <View style={styles.searchSloganWrap}>
-              <View pointerEvents="none" style={styles.searchSloganHeatGlow} />
-              <View pointerEvents="none" style={styles.searchSloganSteamA} />
-              <View pointerEvents="none" style={styles.searchSloganSteamB} />
-              <View pointerEvents="none" style={styles.searchSloganSteamC} />
-              <View pointerEvents="none" style={styles.searchSloganSteamD} />
-              <View pointerEvents="none" style={styles.searchSloganSteamE} />
-              <View style={styles.searchSloganContent}>
-                <View style={styles.searchSloganTitleRow}>
-                  <Ionicons name="home" size={18} color="#5A4634" />
-                  <Text style={styles.searchSlogan} numberOfLines={1}>
-                    {t('headline.home.slogan')}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  activeOpacity={0.86}
-                  onPress={handleSloganMarqueePress}
-                  style={styles.searchSloganMealsMarqueeTrack}
-                  onLayout={(e) => setSloganTrackWidth(e.nativeEvent.layout.width)}
-                >
-                  <Animated.Text
-                    onLayout={(e) => setSloganTextWidth(e.nativeEvent.layout.width)}
-                    style={[
-                      styles.searchSloganMealsMarqueeText,
-                      { transform: [{ translateX: sloganMarqueeX }] },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {mealsMarqueeText}
-                  </Animated.Text>
-                  <Animated.Text
-                    style={[
-                      styles.searchSloganMealsMarqueeText,
-                      {
-                        transform: [
-                          {
-                            translateX: Animated.add(
-                              sloganMarqueeX,
-                              sloganTextWidth + SLOGAN_MARQUEE_GAP,
-                            ),
-                          },
-                        ],
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {mealsMarqueeText}
-                  </Animated.Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : null}
         </View>
-        {/* Food cards */}
+        {/* Floating Search Bar */}
+        <View style={styles.floatingSearchWrap}>
+          <TouchableOpacity
+            style={[styles.floatingSearchBar, searchMode && styles.floatingSearchBarActive]}
+            activeOpacity={0.95}
+            onPress={() => !searchMode && setSearchMode(true)}
+          >
+            <Ionicons name="search-outline" size={22} color="#9E9E9E" style={{ marginRight: 10 }} />
+            {searchMode ? (
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Yemek ara..."
+                placeholderTextColor="#BDBDBD"
+                style={styles.floatingSearchInput}
+                returnKeyType="search"
+                autoFocus
+              />
+            ) : (
+              <Text style={styles.floatingSearchPlaceholder}>Yemek ara...</Text>
+            )}
+            {searchMode ? (
+              <TouchableOpacity
+                style={styles.floatingSearchFilterBtn}
+                activeOpacity={0.7}
+                onPress={() => { setSearchMode(false); setSearchQuery(''); }}
+              >
+                <Ionicons name="close-outline" size={24} color="#5F5246" />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.floatingSearchFilterBtn}>
+                <Ionicons name="options-outline" size={22} color="#5F5246" />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+        {/* Category Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+          style={styles.chipScroller}
+        >
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={[styles.chip, activeCategory === cat && styles.chipActive]}
+              activeOpacity={0.85}
+              onPress={() => setActiveCategory(cat)}
+            >
+              {cat === 'Tümü' ? (
+                <Ionicons name="grid" size={14} color={activeCategory === cat ? '#fff' : '#5F5246'} style={{ marginRight: 4 }} />
+              ) : (
+                <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
+              )}
+              <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
+                {CATEGORY_DISPLAY_NAMES[cat] || cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <View style={styles.apiStatusCard}>
+          <View style={styles.apiStatusHead}>
+            <Ionicons name="server-outline" size={16} color="#4E433A" />
+            <Text style={styles.apiStatusTitle}>API Bağlantısı</Text>
+          </View>
+          <Text style={styles.apiStatusValue} numberOfLines={1}>
+            {apiUrl || 'API adresi yükleniyor...'}
+          </Text>
+        </View>
+        {/* Yakındaki Lezzetler Section Header */}
+        <View style={styles.nearbyHeader}>
+          <View style={styles.nearbyHeaderLeft}>
+            <Text style={styles.nearbyHeaderEmoji}>🔥</Text>
+            <Text style={styles.nearbyHeaderTitle}>Yakındaki Lezzetler</Text>
+          </View>
+          <TouchableOpacity style={styles.nearbyHeaderBtn} activeOpacity={0.8}>
+            <Text style={styles.nearbyHeaderBtnText}>Tümünü Gör</Text>
+            <Ionicons name="chevron-forward" size={16} color="#D4763C" />
+          </TouchableOpacity>
+        </View>
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
         {recommendedMealsLoading || recommendedMeals.length > 0 ? (
           <View style={styles.sellersSection}>
@@ -2376,7 +2447,12 @@ export default function HomeScreen({
           </View>
 
           <View style={styles.profileHeader}>
-            <View style={styles.profileAvatar}>
+            <TouchableOpacity
+              style={styles.profileAvatar}
+              onPress={() => void handleProfileAvatarPress()}
+              activeOpacity={0.86}
+              disabled={profileImageUploading}
+            >
               {profileImageUrl && !profileImageLoadFailed ? (
                 <Image
                   source={{ uri: profileImageUrl }}
@@ -2390,7 +2466,14 @@ export default function HomeScreen({
                   {profileDisplayName.charAt(0).toUpperCase()}
                 </Text>
               )}
-            </View>
+              <View style={styles.profileAvatarBadge}>
+                {profileImageUploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="camera" size={14} color="#fff" />
+                )}
+              </View>
+            </TouchableOpacity>
           </View>
           <Text style={styles.profileName}>{profileDisplayName}</Text>
           <Text style={styles.profileEmail}>{currentAuth.email}</Text>
@@ -2398,7 +2481,7 @@ export default function HomeScreen({
           <View style={styles.profileGroupCard}>
             <TouchableOpacity
               style={[styles.profileActionRow, styles.profileActionRowDivider]}
-              onPress={onOpenProfileEdit}
+              onPress={() => setProfileEditModalVisible(true)}
               activeOpacity={0.85}
             >
               <View style={styles.profileActionMain}>
@@ -2593,6 +2676,18 @@ export default function HomeScreen({
             </View>
           )}
         </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={profileEditModalVisible}
+        animationType="slide"
+        onRequestClose={() => setProfileEditModalVisible(false)}
+      >
+        <ProfileEditScreen
+          auth={currentAuth}
+          onBack={() => setProfileEditModalVisible(false)}
+          onAuthRefresh={handleAuthRefresh}
+        />
       </Modal>
 
       {/* Meal detail modal */}
@@ -3064,231 +3159,214 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
 
-  /* --- Header --- */
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 22,
-    marginHorizontal: -12,
-  },
-  headerTextWrap: { flex: 1, paddingRight: 20, maxWidth: '65%' },
-  greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
-  greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#3D3229', fontSize: 26, lineHeight: 32, fontWeight: '700' },
-  greetingSubtitleRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center' },
-  greetingNearbyIconBtn: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  greetingSubtitle: { color: '#7F7366', fontSize: 14, fontWeight: '600' },
-  headerAvatarWrap: { alignItems: 'center', marginLeft: 10 },
-  avatarCircle: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#EDE8E0', alignItems: 'center', justifyContent: 'center' },
-  avatarCircleImage: { width: 54, height: 54, borderRadius: 27 },
-  avatarEmoji: { fontSize: 24 },
-  /* --- Search --- */
-  searchStickyWrap: {
-    backgroundColor: '#FFFDF9',
-    zIndex: 1,
-    paddingTop: 4,
-    paddingBottom: 0,
-    marginHorizontal: -12,
+  /* --- Hero Banner --- */
+  heroBanner: {
+    backgroundColor: '#FDECD2',
+    borderRadius: 24,
+    paddingTop: 24,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    marginHorizontal: -6,
     position: 'relative',
     overflow: 'hidden',
+    minHeight: 180,
   },
-  searchTopTint: {
+  heroBannerImagesWrap: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 0,
-    backgroundColor: 'transparent',
+    right: -10,
+    top: 10,
+    bottom: 10,
+    width: '55%',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFDF9',
-    borderRadius: 22,
-    minHeight: 52,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    marginBottom: 10,
-    position: 'relative',
+  heroBannerImageCircle1: {
+    position: 'absolute',
+    right: 10,
+    top: 20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.5)',
   },
-  searchBoxSearchMode: {
-    minHeight: 44,
-    paddingVertical: 1,
-  },
-  searchBoxActive: {
-    borderWidth: 1,
-    borderColor: '#EDE8E0',
-  },
-  searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
-  searchIconButton: {
+  heroBannerImageCircle2: {
     position: 'absolute',
-    left: 6,
-    top: 2,
-    bottom: 2,
-    width: 26,
+    right: 80,
+    bottom: 10,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  heroBannerFoodImg: {
+    width: '100%',
+    height: '100%',
+  },
+  heroAvatarCircle: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EDE8E0',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 3,
-  },
-  searchIconGlyph: {
-    transform: [{ scaleX: -1 }],
-  },
-  searchText: { color: '#A89B8C', fontSize: 14 },
-  searchFadeWrap: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 40,
-    zIndex: 2,
+    borderWidth: 2,
+    borderColor: '#fff',
+    zIndex: 5,
     overflow: 'hidden',
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
   },
-  searchFadeSolid: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 22,
-    backgroundColor: 'rgba(255,253,249,0.45)',
+  heroAvatarImage: { width: 48, height: 48, borderRadius: 24 },
+  heroBannerTextArea: {
+    zIndex: 3,
+    maxWidth: '60%',
   },
-  searchFadeSoft: {
-    position: 'absolute',
-    left: 22,
-    top: 0,
-    bottom: 0,
-    width: 18,
-    backgroundColor: 'rgba(255,253,249,0.18)',
+  greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
+  greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
+  greetingTitle: { color: '#2D5A3D', fontSize: 26, lineHeight: 32, fontWeight: '800' },
+  heroBannerSubtitle: {
+    color: '#5A5A5A',
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 4,
   },
-  searchContent: {
-    flex: 1,
-    marginLeft: 28,
+  heroBannerLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 4,
   },
-  searchInput: {
+  heroBannerLocationText: {
+    color: '#3D3229',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  avatarEmoji: { fontSize: 24 },
+
+  /* --- Floating Search Bar --- */
+  floatingSearchWrap: {
+    marginBottom: 14,
+    marginHorizontal: -6,
+  },
+  floatingSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    minHeight: 52,
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F0EBE3',
+  },
+  floatingSearchBarActive: {
+    borderColor: '#D4C9BB',
+  },
+  floatingSearchInput: {
     flex: 1,
     color: '#3D3229',
     fontSize: 16,
-    fontWeight: '500',
-    paddingRight: 8,
+    fontWeight: '400',
     paddingVertical: 4,
   },
-  searchInputSearchMode: {
-    fontSize: 15,
-    paddingVertical: 2,
-  },
-  searchCategoryArea: {
+  floatingSearchPlaceholder: {
     flex: 1,
+    color: '#BDBDBD',
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  floatingSearchFilterBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  searchCategoryScroller: { flexGrow: 0 },
-  searchSloganWrap: {
-    marginTop: 6,
-    marginBottom: 8,
-    marginHorizontal: 0,
-    backgroundColor: '#F8FCF7',
-    borderColor: '#DDEBD9',
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    overflow: 'hidden',
-    position: 'relative',
+
+  /* --- Category Chips --- */
+  chipScroller: {
+    marginBottom: 18,
+    marginHorizontal: -6,
   },
-  searchSloganContent: {
-    zIndex: 2,
+  chipRow: {
+    gap: 10,
+    paddingHorizontal: 6,
   },
-  searchSloganHeatGlow: {
-    position: 'absolute',
-    left: -28,
-    bottom: -56,
-    width: 280,
-    height: 132,
-    borderRadius: 100,
-    backgroundColor: 'rgba(212, 236, 202, 0.45)',
-  },
-  searchSloganSteamA: {
-    position: 'absolute',
-    right: 26,
-    top: -18,
-    width: 38,
-    height: 78,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.62)',
-    transform: [{ rotate: '-11deg' }],
-  },
-  searchSloganSteamB: {
-    position: 'absolute',
-    right: 62,
-    top: -8,
-    width: 30,
-    height: 64,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.52)',
-    transform: [{ rotate: '9deg' }],
-  },
-  searchSloganSteamC: {
-    position: 'absolute',
-    right: 88,
-    top: -26,
-    width: 44,
-    height: 92,
-    borderRadius: 28,
-    backgroundColor: 'rgba(250,250,250,0.5)',
-    transform: [{ rotate: '-7deg' }],
-  },
-  searchSloganSteamD: {
-    position: 'absolute',
-    right: 122,
-    top: -2,
-    width: 28,
-    height: 56,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.42)',
-    transform: [{ rotate: '12deg' }],
-  },
-  searchSloganSteamE: {
-    position: 'absolute',
-    right: 148,
-    top: -20,
-    width: 24,
-    height: 68,
-    borderRadius: 18,
-    backgroundColor: 'rgba(245,245,245,0.36)',
-    transform: [{ rotate: '-10deg' }],
-  },
-  searchSloganTitleRow: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#FFF5EB',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#F0E6D8',
   },
-  searchSloganMealsMarqueeTrack: {
-    marginTop: 2,
-    height: 20,
-    overflow: 'hidden',
-    justifyContent: 'center',
+  chipActive: {
+    backgroundColor: '#2D5A3D',
+    borderColor: '#2D5A3D',
   },
-  searchSloganMealsMarqueeText: {
-    position: 'absolute',
-    left: 0,
-    color: '#8A7A66',
+  chipEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  chipText: {
+    color: '#5F5246',
     fontSize: 14,
-    lineHeight: 19,
     fontWeight: '600',
   },
-  searchSlogan: {
-    color: '#B45A2A',
-    fontSize: 20,
-    lineHeight: 24,
+  chipTextActive: {
+    color: '#FFFFFF',
     fontWeight: '700',
-    textShadowColor: 'rgba(255,255,255,0.82)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1.4,
   },
+
+  /* --- Nearby Section Header --- */
+  nearbyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    marginHorizontal: -6,
+  },
+  nearbyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nearbyHeaderEmoji: {
+    fontSize: 20,
+  },
+  nearbyHeaderTitle: {
+    color: '#3D3229',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  nearbyHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8D5C4',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  nearbyHeaderBtnText: {
+    color: '#D4763C',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   debugBox: {
     backgroundColor: '#FFF3CD',
     borderWidth: 1,
@@ -3304,19 +3382,22 @@ const styles = StyleSheet.create({
   },
   debugText: { color: '#5C4B1D', fontSize: 12, fontWeight: '500' },
   debugError: { color: '#B42318', fontSize: 12, fontWeight: '600', marginTop: 4 },
-
-  /* --- Categories --- */
-  categoryScroll: { marginBottom: 16 },
-  categoryContent: { gap: 14, paddingRight: 8, paddingBottom: 0, alignItems: 'flex-end' },
-  categoryTextButton: { paddingTop: 0, paddingBottom: 2 },
-  categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 16, fontWeight: '700' },
-  categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
-  categoryInputLine: {
-    marginTop: 0,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#2F7A53',
+  apiStatusCard: {
+    marginTop: 2,
+    marginBottom: 12,
+    backgroundColor: '#F6F1E8',
+    borderWidth: 1,
+    borderColor: '#E4DAC9',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
   },
+  apiStatusHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  apiStatusTitle: { color: '#4E433A', fontSize: 13, fontWeight: '700' },
+  apiStatusValue: { color: '#6B5D4F', fontSize: 12, fontWeight: '600' },
+
+  /* --- Categories (legacy - kept for compat) --- */
   sellersSection: {
     marginBottom: 12,
   },
@@ -3888,6 +3969,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  profileAvatarBadge: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#3F855C',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileAvatarImage: { width: '100%', height: '100%' },
   profileAvatarText: { fontSize: 34, color: '#4E433A', fontWeight: '700' },
