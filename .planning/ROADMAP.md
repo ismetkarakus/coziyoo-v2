@@ -72,7 +72,11 @@ Plans:
   1. When a voice session ends, a log entry is automatically written to the database with the profile ID, start time, duration, and outcome
   2. User can view a table of past call sessions in the dashboard, sorted by date, showing duration, profile used, and outcome
   3. User can filter the call log table by profile and by date range, and filters persist in the URL
-**Plans**: TBD
+**Plans**: 3 planned
+Plans:
+- [ ] 04-01-PLAN.md -- API foundation: call-log table migration + session-end persistence + admin list endpoint
+- [ ] 04-02-PLAN.md -- Dashboard call-log page and table rendering via FastAPI BFF
+- [ ] 04-03-PLAN.md -- Profile/date filters with URL persistence and regression tests
 
 ## Progress
 
@@ -81,7 +85,7 @@ Plans:
 | 1. Foundation | 5/5 | Complete | 2026-03-22 (DB schema, API routes, CORS, deploy) |
 | 2. Profile Management | 3/3 | Complete | 2026-03-22 (FastAPI dashboard profile management delivered) |
 | 3. Provider Adapter System | 3/3 | Complete | 2026-03-22 |
-| 4. Call Logs | 0/? | Not started | - |
+| 4. Call Logs | 0/3 | Planned | - |
 
 ## Dependencies
 
