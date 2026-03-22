@@ -296,7 +296,17 @@ async def dashboard_activate_profile(request: Request, profile_id: str):
         access_token=access_token,
         json_body={},
     )
-    message = None if status == 200 else extract_error_message(payload, "Activation failed")
+    if status == 404:
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="POST",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}/activate",
+            access_token=access_token,
+            json_body={},
+        )
+        message = None if legacy_status == 200 else extract_error_message(legacy_payload, "Activation failed")
+    else:
+        message = None if status == 200 else extract_error_message(payload, "Activation failed")
     return await _render_sidebar(request, access_token, message)
 
 
@@ -312,7 +322,53 @@ async def dashboard_duplicate_profile(request: Request, profile_id: str):
         access_token=access_token,
         json_body={},
     )
-    message = None if status in {200, 201} else extract_error_message(payload, "Duplicate failed")
+    message = None
+    if status in {200, 201}:
+        message = None
+    elif status == 404:
+        # Legacy fallback: duplicate via livekit agent-settings endpoints.
+        get_status, get_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+        )
+        src = get_payload.get("data") if get_status == 200 and isinstance(get_payload, dict) else None
+        if not isinstance(src, dict):
+            message = "Duplicate failed"
+        else:
+            base_name = str(src.get("agentName") or profile_id).strip() or "profile"
+            target_name = f"{base_name} (copy)"
+            slug_base = re.sub(r"[^a-zA-Z0-9_-]+", "-", target_name).strip("-").lower() or "profile-copy"
+            new_id = slug_base[:64]
+            for i in range(1, 50):
+                check_status, _ = await api_request(
+                    api_base_url=settings.api_base_url,
+                    method="GET",
+                    path=f"/v1/admin/livekit/agent-settings/{new_id}",
+                    access_token=access_token,
+                )
+                if check_status == 404:
+                    break
+                new_id = f"{slug_base[:54]}-{i}"
+            create_status, create_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="PUT",
+                path=f"/v1/admin/livekit/agent-settings/{new_id}",
+                access_token=access_token,
+                json_body={
+                    "agentName": target_name,
+                    "voiceLanguage": src.get("voiceLanguage"),
+                    "ttsEnabled": src.get("ttsEnabled"),
+                    "sttEnabled": src.get("sttEnabled"),
+                    "systemPrompt": src.get("systemPrompt"),
+                    "greetingEnabled": src.get("greetingEnabled"),
+                    "greetingInstruction": src.get("greetingInstruction"),
+                },
+            )
+            message = None if create_status in {200, 201} else extract_error_message(create_payload, "Duplicate failed")
+    else:
+        message = extract_error_message(payload, "Duplicate failed")
     return await _render_sidebar(request, access_token, message)
 
 
