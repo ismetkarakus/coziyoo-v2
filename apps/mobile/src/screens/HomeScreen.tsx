@@ -3425,8 +3425,8 @@ const styles = StyleSheet.create({
   heroFoodBgImg: {
     position: 'absolute',
     top: 8,
-    right: -2,
-    width: '58%',
+    right: 2,
+    width: '52%',
     height: '86%',
     resizeMode: 'cover',
   },
