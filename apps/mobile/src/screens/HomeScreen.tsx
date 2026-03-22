@@ -17,6 +17,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
   type ImageSourcePropType,
 } from 'react-native';
@@ -30,7 +31,12 @@ let LinearGradient: React.ComponentType<{
   children?: React.ReactNode;
 }> | null = null;
 try {
-  LinearGradient = require('expo-linear-gradient').LinearGradient;
+  const maybeGradient = require('expo-linear-gradient').LinearGradient;
+  const hasNativeView = Boolean(
+    UIManager.getViewManagerConfig?.('ViewManagerAdapter_ExpoLinearGradient')
+      || UIManager.getViewManagerConfig?.('ExpoLinearGradient'),
+  );
+  LinearGradient = hasNativeView ? maybeGradient : null;
 } catch {
   // Native module not available — will use View fallback
 }
