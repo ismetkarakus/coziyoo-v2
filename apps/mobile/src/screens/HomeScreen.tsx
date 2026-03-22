@@ -1116,8 +1116,14 @@ export default function HomeScreen({
   }, [apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
-    setHeaderImageSource({ uri: HERO_AKCABAT_IMAGE_URL });
-  }, []);
+    const akcaabatMeal = meals.find((meal) => {
+      const normalized = normalizeDishText(meal.title ?? '');
+      return normalized.includes('akcabat') && normalized.includes('kofte');
+    });
+
+    const heroUrl = akcaabatMeal?.imageUrl?.trim() || HERO_AKCABAT_IMAGE_URL;
+    setHeaderImageSource({ uri: heroUrl });
+  }, [meals]);
 
   useEffect(() => {
     setGreetingName(resolveGreetingName(null, currentAuth.email));
