@@ -39,7 +39,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **VOICE-03**: User can set the voice ID used in TTS requests
 - [x] **VOICE-04**: User can add custom body params (e.g. speed, format, model) to override OpenAI base
 - [x] **VOICE-05**: User can add custom request headers for the TTS provider
-- [ ] **VOICE-06**: User can test TTS by sending a test phrase and hearing audio playback in browser
+- [x] **VOICE-06**: User can test TTS by sending a test phrase and hearing audio playback in browser
 
 ### Transcriber Configuration (STT Tab)
 
@@ -48,15 +48,15 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **STT-03**: User can set the STT model and language
 - [x] **STT-04**: User can add custom request headers for the STT provider
 - [x] **STT-05**: User can add custom body/query params to override OpenAI base for the STT provider
-- [ ] **STT-06**: User can test STT by recording from mic and seeing the transcription result
+- [x] **STT-06**: User can test STT by recording from mic and seeing the transcription result
 
 ### Tools Configuration (Tools Tab)
 
 - [x] **TOOLS-01**: User can configure the N8N webhook base URL
 - [x] **TOOLS-02**: User can configure the N8N webhook path for order processing
 - [x] **TOOLS-03**: User can configure the N8N MCP webhook path
-- [ ] **TOOLS-04**: User can test N8N connectivity (ping webhook URL, show success/fail)
-- [ ] **TOOLS-05**: User can import server config by pasting a cURL command (auto-fills fields)
+- [x] **TOOLS-04**: User can test N8N connectivity (ping webhook URL, show success/fail)
+- [x] **TOOLS-05**: User can import server config by pasting a cURL command (auto-fills fields)
 
 ### Provider Adapter System (Voice Agent)
 
@@ -143,18 +143,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VOICE-03 | Phase 2 | Complete |
 | VOICE-04 | Phase 2 | Complete |
 | VOICE-05 | Phase 2 | Complete |
-| VOICE-06 | Phase 2 | Pending |
+| VOICE-06 | Phase 2 | Complete |
 | STT-01 | Phase 2 | Complete |
 | STT-02 | Phase 2 | Complete |
 | STT-03 | Phase 2 | Complete |
 | STT-04 | Phase 2 | Complete |
 | STT-05 | Phase 2 | Complete |
-| STT-06 | Phase 2 | Pending |
+| STT-06 | Phase 2 | Complete |
 | TOOLS-01 | Phase 2 | Complete |
 | TOOLS-02 | Phase 2 | Complete |
 | TOOLS-03 | Phase 2 | Complete |
-| TOOLS-04 | Phase 2 | Pending |
-| TOOLS-05 | Phase 2 | Pending |
+| TOOLS-04 | Phase 2 | Complete |
+| TOOLS-05 | Phase 2 | Complete |
 | ADAPT-01 | Phase 3 | Pending |
 | ADAPT-02 | Phase 3 | Pending |
 | ADAPT-03 | Phase 3 | Pending |

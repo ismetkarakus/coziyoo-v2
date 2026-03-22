@@ -7,7 +7,7 @@
 ## Phases
 
 - [x] **Phase 1: Foundation** - Next.js workspace scaffold, admin JWT auth, DB schema, API routes, CORS config, deployment pipeline
-- [ ] **Phase 2: Profile Management** - Profile CRUD with sidebar list, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
+- [x] **Phase 2: Profile Management** - Profile CRUD with sidebar list, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
 - [ ] **Phase 3: Provider Adapter System** - OpenAI-compatible base client in Python voice agent, service-specific adapters with header/body/path/field overrides
 - [ ] **Phase 4: Call Logs** - Call session persistence, log viewer with date and profile filtering
 
@@ -45,7 +45,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md -- Backend API: agent_profiles DB table + CRUD/activate/duplicate routes + integration tests
 - [x] 02-02-PLAN.md -- Frontend shell: dependencies, TanStack Query, profile sidebar with CRUD actions, editor page with 4-tab layout
-- [ ] 02-03-PLAN.md -- Tab content: Model/Voice/Transcriber/Tools form fields, connection testing, cURL import
+- [x] 02-03-PLAN.md -- Tab content: Model/Voice/Transcriber/Tools form fields, connection testing, cURL import
 
 ### Phase 3: Provider Adapter System
 **Goal**: The Python voice agent uses a unified OpenAI-compatible client with pluggable adapters, so dashboard config overrides (custom headers, body params, endpoint paths) actually take effect at runtime
@@ -77,7 +77,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete | 2026-03-22 (01-01, 01-02, 01-03, 01-04, 01-05) |
-| 2. Profile Management | 2/3 | In progress | 2026-03-22 (02-01, 02-02) |
+| 2. Profile Management | 3/3 | Complete | 2026-03-22 (02-01, 02-02, 02-03) |
 | 3. Provider Adapter System | 0/3 | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |
 

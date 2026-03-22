@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-22T16:13:30.735Z"
+last_updated: "2026-03-22T16:21:53.295Z"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 11
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State: Voice Agent Dashboard
@@ -17,22 +17,22 @@ progress:
 
 **Core Value:** The team can switch between fully-configured voice agent profiles instantly -- tuning model, voice, transcriber, and tools -- without touching code or redeploying the agent.
 
-**Current Focus:** Phase 02 — profile-management
+**Current Focus:** Phase 03 — provider-adapter-system
 
 ## Current Position
 
-Phase: 02 (profile-management) — EXECUTING
-Plan: 3 of 3
+Phase: 03 (provider-adapter-system) — READY
+Plan: 0 of 3
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 7 |
+| Plans completed | 8 |
 | Plans failed | 0 |
 | Total requirements | 45 |
-| Requirements done | 32 |
-| Phases complete | 1/4 |
+| Requirements done | 36 |
+| Phases complete | 2/4 |
 | Phase 01-foundation P01 | 6m | 2 tasks | 32 files |
 | Phase 01-foundation P03 | 10min | 3 tasks | 4 files |
 | Phase 01-foundation P02 | 4min | 2 tasks | 8 files |
@@ -40,6 +40,7 @@ Plan: 3 of 3
 | Phase 01-foundation P04 | 2min | 2 tasks | 3 files |
 | Phase 02-profile-management P01 | 5m | 2 tasks | 3 files |
 | Phase 02-profile-management P02 | 11m | 2 tasks | 28 files |
+| Phase 02-profile-management P03 | 7min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Plan: 3 of 3
 - Kept profile data flow in TanStack Query hooks and invalidated list/detail keys after mutations.
 - Implemented `/profiles` as a redirecting index page so sidebar remains the single navigation source.
 - Stabilized generated shadcn/Radix typing by normalizing imports and intrinsic prop typing to pass Next build.
+- Kept profile config in a single RHF instance and delegated all tab content to dedicated Model/Voice/Transcriber/Tools components.
+- Centralized STT/TTS/N8N connectivity actions in a shared `useConnectionTest` hook for consistent status handling.
+- Mapped cURL import payloads to LLM/TTS/STT/N8N sections using URL/path fingerprint heuristics.
 
 ### Research Findings Applied
 
@@ -86,8 +90,8 @@ Plan: 3 of 3
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T16:13:30.733Z
-**Next action:** Execute 02-03-PLAN.md (tab content, connectivity tests, cURL import).
+**Last session:** 2026-03-22T16:21:53.293Z
+**Next action:** Plan or execute 03-01-PLAN.md (adapter test scaffolding and provider abstraction).
 
 ---
 *State initialized: 2026-03-22*
