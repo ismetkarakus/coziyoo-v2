@@ -3241,10 +3241,8 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    minHeight: 220,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    height: 240,
+    padding: 24,
     marginHorizontal: -18,
     marginTop: -24,
     overflow: 'hidden',
