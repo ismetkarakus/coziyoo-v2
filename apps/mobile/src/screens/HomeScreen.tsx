@@ -3468,7 +3468,7 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    height: 218,
+    height: 260,
     paddingHorizontal: 24,
     paddingTop: 20,
     marginHorizontal: -18,
@@ -3482,20 +3482,19 @@ const styles = StyleSheet.create({
   heroFoodBgImg: {
     position: 'absolute',
     top: 0,
+    left: 0,
     right: 0,
-    width: '65%',
+    width: '100%',
     height: '100%',
     opacity: 0.85,
-    borderTopLeftRadius: 180,
-    borderBottomLeftRadius: 180,
     resizeMode: 'cover',
   },
   heroTopBlur: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    top: 0,
-    height: '42%',
+    height: 120,
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -3505,7 +3504,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(90,62,43,0.07)',
   },
   heroBottomFade: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
   },
   heroBottomFadeFallback: {
     position: 'absolute',
