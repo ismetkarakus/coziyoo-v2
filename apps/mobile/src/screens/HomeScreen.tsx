@@ -315,10 +315,10 @@ function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?
 
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 26) return { fontSize: 21, lineHeight: 27 };
-  if (text.length >= 21) return { fontSize: 24, lineHeight: 30 };
-  if (text.length >= 16) return { fontSize: 26, lineHeight: 32 };
-  return { fontSize: 28, lineHeight: 34 };
+  if (text.length >= 26) return { fontSize: 19, lineHeight: 25 };
+  if (text.length >= 21) return { fontSize: 21, lineHeight: 27 };
+  if (text.length >= 16) return { fontSize: 23, lineHeight: 29 };
+  return { fontSize: 26, lineHeight: 32 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2176,8 +2176,8 @@ export default function HomeScreen({
           {/* Single fade: left solid → transparent right */}
           {LinearGradient ? (
             <LinearGradient
-              colors={['#EDCFAB', 'rgba(237,207,171,0.5)', 'transparent']}
-              locations={[0, 0.35, 0.65]}
+              colors={['#F2D8B4', '#F2D8B4', 'rgba(242,216,180,0.76)', 'rgba(242,216,180,0.34)', 'transparent']}
+              locations={[0, 0.34, 0.54, 0.72, 1]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={StyleSheet.absoluteFillObject}
@@ -2229,7 +2229,7 @@ export default function HomeScreen({
             >
               <Ionicons name="location" size={16} color="#619670" />
               <Text style={styles.heroLocationText}>{selectedLocationLabel}</Text>
-              <Ionicons name="chevron-down" size={14} color="#8B6A4E" style={{ marginLeft: 2 }} />
+              <Ionicons name="chevron-down" size={14} color="#619670" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
         </View>
@@ -3450,16 +3450,18 @@ const styles = StyleSheet.create({
   heroWrap: {
     position: 'relative',
     height: 218,
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingHorizontal: 24,
+    paddingTop: 20,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#EDCFAB',
+    backgroundColor: '#F2D8B4',
     overflow: 'hidden',
   },
   heroFoodBgImg: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
+    position: 'absolute',
+    top: 0,
+    right: -14,
+    width: '74%',
     height: '100%',
     resizeMode: 'cover',
   },
@@ -3467,58 +3469,58 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '50%',
+    width: '56%',
     height: '100%',
-    backgroundColor: 'rgba(237,207,171,0.3)',
+    backgroundColor: 'rgba(242,216,180,0.76)',
   },
   heroFadeFallback2: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '35%',
+    width: '40%',
     height: '100%',
-    backgroundColor: 'rgba(237,207,171,0.55)',
+    backgroundColor: 'rgba(242,216,180,0.5)',
   },
   heroFadeFallback3: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '18%',
+    width: '24%',
     height: '100%',
-    backgroundColor: 'rgba(237,207,171,0.85)',
+    backgroundColor: 'rgba(242,216,180,0.86)',
   },
   heroTextArea: {
     zIndex: 3,
-    maxWidth: '58%',
-    paddingTop: 10,
+    maxWidth: '62%',
+    paddingTop: 8,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
-  greetingEmoji: { fontSize: 28, opacity: 0.9, marginLeft: 6 },
+  greetingEmoji: { fontSize: 24, opacity: 0.9, marginLeft: 6 },
   greetingTitle: { color: '#38261D', fontSize: 26, lineHeight: 32, fontWeight: '900' },
   heroSubtitle: {
     color: '#38261D',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     marginTop: 4,
   },
   heroLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
     gap: 4,
   },
   heroLocationText: {
     color: '#619670',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   heroAvatarCircle: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    top: 14,
+    right: 14,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     backgroundColor: '#F2F2F2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3532,14 +3534,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  heroAvatarImage: { width: 54, height: 54, borderRadius: 27 },
+  heroAvatarImage: { width: 62, height: 62, borderRadius: 31 },
   avatarEmoji: { fontSize: 24 },
 
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
     marginBottom: 14,
     marginHorizontal: 14,
-    marginTop: -24,
+    marginTop: -18,
     zIndex: 5,
   },
   floatingSearchBar: {
@@ -3588,14 +3590,15 @@ const styles = StyleSheet.create({
   chipRow: {
     gap: 8,
     paddingHorizontal: 14,
+    paddingRight: 18,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FCF8EE',
-    borderRadius: 24,
+    borderRadius: 22,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#E8E1D9',
   },
