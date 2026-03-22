@@ -27,6 +27,59 @@ function parseAllergens(value: unknown): string[] {
   return [];
 }
 
+function pickRandom<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)]!;
+}
+
+function buildRecommendationReason(input: {
+  foodName: string;
+  isUntried: boolean;
+  isTopSold: boolean;
+  userOrderCount: number;
+}): string {
+  const { foodName, isUntried, isTopSold, userOrderCount } = input;
+  const normalized = foodName.trim();
+
+  if (isUntried && isTopSold) {
+    return pickRandom([
+      `Hep aynı şeyleri yiyorsun, ${normalized}'a ne dersin?`,
+      `${normalized} çok satanlarda üstte, bence bir dene.`,
+      `${normalized} bayağı tutuluyor, bugün ona gidelim mi?`,
+      `Yeni bir şey deneyelim: ${normalized} çok iyi gidiyor.`,
+    ]);
+  }
+
+  if (isUntried) {
+    return pickRandom([
+      `${normalized}'ı daha önce denemedin, bugün şans verelim mi?`,
+      `Bugün farklı gidelim: ${normalized} nasıl olur?`,
+      `${normalized} güzel bir değişiklik olabilir.`,
+    ]);
+  }
+
+  if (isTopSold) {
+    return pickRandom([
+      `${normalized} çok satanlardan, yine iyi gider.`,
+      `Çok satanlarda ${normalized} var, bir kez daha iyi gider.`,
+      `${normalized} yine trendde, kaçırma derim.`,
+    ]);
+  }
+
+  if (userOrderCount > 0) {
+    return pickRandom([
+      `${normalized} senden tam not almıştı, tekrar ister misin?`,
+      `Bunu sevdiğini biliyorum: ${normalized}.`,
+      `${normalized} yine iyi gider gibi duruyor.`,
+    ]);
+  }
+
+  return pickRandom([
+    `Bugün ${normalized} deneyebilirsin.`,
+    `${normalized} iyi bir tercih olur.`,
+    `${normalized} için içimden iyi bir his geçiyor.`,
+  ]);
+}
+
 /**
  * GET /v1/foods
  * List active foods with seller info, category, and available lot stock.
@@ -335,11 +388,12 @@ foodsRouter.get("/recommendations", async (req, res) => {
       if (isUntried && totalSold === 0) score -= 10;
       score += Math.random() * 12;
 
-      let reason = "Sana uygun bir öneri";
-      if (isUntried && isTopSold) reason = "Yeni ama çok satan";
-      else if (isUntried) reason = "Yeni bir lezzet";
-      else if (isTopSold) reason = "Çok satanlardan";
-      else if (userOrderCount > 0) reason = "Daha önce beğenmiştin";
+      const reason = buildRecommendationReason({
+        foodName: String(r.name ?? ""),
+        isUntried,
+        isTopSold,
+        userOrderCount,
+      });
 
       return {
         score,
