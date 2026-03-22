@@ -79,6 +79,7 @@ async def _fetch_profiles(access_token: str) -> tuple[list[dict[str, Any]], str 
                     "is_active": bool(row.get("is_active")),
                 }
             )
+        mapped.sort(key=lambda item: str(item.get("name") or "").lower())
         return mapped, None
 
     if status != 200 or not isinstance(payload, dict):
@@ -86,7 +87,9 @@ async def _fetch_profiles(access_token: str) -> tuple[list[dict[str, Any]], str 
     rows = payload.get("data")
     if not isinstance(rows, list):
         return [], "Invalid profile list response"
-    return [row for row in rows if isinstance(row, dict)], None
+    normalized = [row for row in rows if isinstance(row, dict)]
+    normalized.sort(key=lambda item: str(item.get("name") or "").lower())
+    return normalized, None
 
 
 async def _render_sidebar(request: Request, access_token: str, message: str | None = None) -> HTMLResponse:
