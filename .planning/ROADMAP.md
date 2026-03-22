@@ -6,8 +6,8 @@
 
 ## Phases
 
-- [x] **Phase 1: Foundation** - Next.js workspace scaffold, admin JWT auth, DB schema, API routes, CORS config, deployment pipeline
-- [x] **Phase 2: Profile Management** - Profile CRUD with sidebar list, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
+- [x] **Phase 1: Foundation** - DB schema, API routes, CORS config, deployment pipeline (Next.js scaffold superseded — see Phase 2 pivot)
+- [ ] **Phase 2: Profile Management** - FastAPI+HTMX dashboard served from voice-agent: profile CRUD, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
 - [ ] **Phase 3: Provider Adapter System** - OpenAI-compatible base client in Python voice agent, service-specific adapters with header/body/path/field overrides
 - [ ] **Phase 4: Call Logs** - Call session persistence, log viewer with date and profile filtering
 
@@ -32,22 +32,18 @@ Plans:
 - [x] 01-05-PLAN.md -- Gap closure: align API fallback CORS default with dashboard production origin + regression test
 
 ### Phase 2: Profile Management
-**Goal**: Users can create, configure, and activate voice agent profiles through a complete dashboard UI -- replacing the old VoiceAgentSettingsPage entirely
-**Depends on**: Phase 1
+**Goal**: Users can create, configure, and activate voice agent profiles through a FastAPI+HTMX dashboard served directly from the voice-agent Python app -- apps/voice-dashboard (Next.js) has been removed
+**Depends on**: Phase 1 (agent_profiles DB table + CRUD API routes remain valid)
 **Requirements**: PROF-01, PROF-02, PROF-03, PROF-04, PROF-05, PROF-06, MODEL-01, MODEL-02, MODEL-03, MODEL-04, MODEL-05, MODEL-06, MODEL-07, VOICE-01, VOICE-02, VOICE-03, VOICE-04, VOICE-05, VOICE-06, STT-01, STT-02, STT-03, STT-04, STT-05, STT-06, TOOLS-01, TOOLS-02, TOOLS-03, TOOLS-04, TOOLS-05
+**Tech Stack**: Python FastAPI + Jinja2 templates + HTMX (no React, no Next.js)
 **Success Criteria** (what must be TRUE):
-  1. User can create a named profile, see it appear in the left sidebar, and click it to open a 4-tab editor (Model | Voice | Transcriber | Tools)
-  2. User can fill out all config fields across all four tabs (base URLs, API keys, custom headers, custom body params, endpoint paths, system prompt, greeting, voice ID, language, webhook URLs) and save -- values persist on page reload
-  3. User can mark a profile as active, see the visual indicator in the sidebar, and verify that the next voice call uses that profile's config
-  4. User can clone a profile, delete a non-active profile (with confirmation), and import server config by pasting a cURL command
-  5. User can test connectivity for each provider (LLM, TTS, STT, N8N) from the dashboard and see success/failure feedback, including hearing TTS audio playback and seeing STT transcription results
-**Plans:** 5 plans
-Plans:
-- [x] 02-01-PLAN.md -- Backend API: agent_profiles DB table + CRUD/activate/duplicate routes + integration tests
-- [x] 02-02-PLAN.md -- Frontend shell: dependencies, TanStack Query, profile sidebar with CRUD actions, editor page with 4-tab layout
-- [x] 02-03-PLAN.md -- Tab content: Model/Voice/Transcriber/Tools form fields, connection testing, cURL import
-- [ ] 02-04-PLAN.md -- Gap closure: runtime consumes active agent_profiles config for next voice call
-- [ ] 02-05-PLAN.md -- Gap closure: Model tab LLM connectivity test with user feedback
+  1. User can navigate to the dashboard URL, log in with admin credentials, and land on an authenticated profile list page
+  2. User can create a named profile, see it appear in the left sidebar, and click it to open a 4-tab editor (Model | Voice | Transcriber | Tools)
+  3. User can fill out all config fields across all four tabs (base URLs, API keys, custom headers, custom body params, endpoint paths, system prompt, greeting, voice ID, language, webhook URLs) and save -- values persist on page reload
+  4. User can mark a profile as active, see the visual indicator in the sidebar, and verify that the next voice call uses that profile's config
+  5. User can clone a profile, delete a non-active profile (with confirmation), and import server config by pasting a cURL command
+  6. User can test connectivity for each provider (LLM, TTS, STT, N8N) from the dashboard and see success/failure feedback
+**Plans**: TBD
 
 ### Phase 3: Provider Adapter System
 **Goal**: The Python voice agent uses a unified OpenAI-compatible client with pluggable adapters, so dashboard config overrides (custom headers, body params, endpoint paths) actually take effect at runtime
@@ -78,8 +74,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 5/5 | Complete | 2026-03-22 (01-01, 01-02, 01-03, 01-04, 01-05) |
-| 2. Profile Management | 3/3 | Complete | 2026-03-22 (02-01, 02-02, 02-03) |
+| 1. Foundation | 5/5 | Complete | 2026-03-22 (DB schema, API routes, CORS, deploy) |
+| 2. Profile Management | 0/? | Not started | Pivoted to FastAPI+HTMX — replanning |
 | 3. Provider Adapter System | 0/3 | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |
 

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-22T16:21:53.295Z"
+last_updated: "2026-03-22T16:39:53.937Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 8
+  completed_phases: 1
+  total_plans: 13
+  completed_plans: 9
 ---
 
 # Project State: Voice Agent Dashboard
@@ -17,22 +17,22 @@ progress:
 
 **Core Value:** The team can switch between fully-configured voice agent profiles instantly -- tuning model, voice, transcriber, and tools -- without touching code or redeploying the agent.
 
-**Current Focus:** Phase 03 — provider-adapter-system
+**Current Focus:** Phase 02 — profile-management (PIVOTED: FastAPI+HTMX replaces Next.js voice-dashboard)
 
 ## Current Position
 
-Phase: 03 (provider-adapter-system) — READY
-Plan: 0 of 3
+Phase: 02 (profile-management) — IN PROGRESS
+Plan: 4 of 5
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 8 |
+| Plans completed | 9 |
 | Plans failed | 0 |
 | Total requirements | 45 |
 | Requirements done | 36 |
-| Phases complete | 2/4 |
+| Phases complete | 1/4 |
 | Phase 01-foundation P01 | 6m | 2 tasks | 32 files |
 | Phase 01-foundation P03 | 10min | 3 tasks | 4 files |
 | Phase 01-foundation P02 | 4min | 2 tasks | 8 files |
@@ -41,6 +41,7 @@ Plan: 0 of 3
 | Phase 02-profile-management P01 | 5m | 2 tasks | 3 files |
 | Phase 02-profile-management P02 | 11m | 2 tasks | 28 files |
 | Phase 02-profile-management P03 | 7min | 2 tasks | 10 files |
+| Phase 02-profile-management P05 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Plan: 0 of 3
 - Kept profile config in a single RHF instance and delegated all tab content to dedicated Model/Voice/Transcriber/Tools components.
 - Centralized STT/TTS/N8N connectivity actions in a shared `useConnectionTest` hook for consistent status handling.
 - Mapped cURL import payloads to LLM/TTS/STT/N8N sections using URL/path fingerprint heuristics.
+- Kept `/test/llm` failures as explicit `502` + `LLM_TEST_FAILED` payloads for deterministic dashboard feedback.
+- Used form-sourced `llm_config` overrides (base URL, endpoint path, headers, body params) directly in LLM test requests.
 
 ### Research Findings Applied
 
@@ -90,8 +93,8 @@ Plan: 0 of 3
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T16:21:53.293Z
-**Next action:** Plan or execute 03-01-PLAN.md (adapter test scaffolding and provider abstraction).
+**Last session:** 2026-03-22T16:39:53.935Z
+**Next action:** Execute 02-04-PLAN.md (runtime active profile consumption for next voice call).
 
 ---
 *State initialized: 2026-03-22*
