@@ -216,29 +216,31 @@ export type BrandCopyKey = keyof typeof brandCopy;
 
 const HOME_SUBTITLE_GENERIC_VARIANTS = [
   'Bugün ne yemek istersin?',
-  'Bugün sana güzel bir şey öneririm.',
   'Canın ne çekiyorsa ona bakalım.',
-  'En çok satan yemeklere bir göz atalım mı?',
+  'Sana güzel bir şey öneririm.',
+  'En çok satanlara bir göz atalım mı?',
+  'Birlikte hızlıca bir şey seçelim mi?',
+  'Bence bugün kendini güzel bir yemekle şımart.',
 ] as const;
 
 const HOME_SUBTITLE_DAYPART_VARIANTS = {
   morning: [
     'Kahvaltıda ne istersin?',
-    'Sana mis gibi bir kahvaltı öneririm.',
     'Kahvaltını yaptın mı, acıktın mı?',
-    'Sabah için nefis seçenekler hazır.',
+    'Sana mis gibi bir kahvaltı öneririm.',
+    'Bugün hafif mi gidelim, doyurucu mu?',
   ],
   noon: [
-    'Öğlene ne istersin?',
-    'Öğlen için güzel bir öneri çıkarırım.',
+    'Ne yemek istersin, beraber seçelim.',
+    'Sana şimdi iyi gidecek bir şey öneririm.',
     'Öğlen acıktın mı, ne yiyelim?',
-    'Bugün öğlene iyi gidecek yemekler hazır.',
+    'Bir tık ev yemeği moduna geçelim mi?',
   ],
   evening: [
-    'Akşama ne istersin?',
-    'Akşam için sıcacık yemekler hazır.',
+    'Canın ne istiyorsa ona gidelim.',
+    'Sana sıcacık bir şey öneririm.',
     'Akşam yemeği için ne düşünüyorsun?',
-    'Bu akşam sana güzel bir menü çıkarırım.',
+    'Bugün menüyü beraber toparlayalım mı?',
   ],
 } as const;
 
