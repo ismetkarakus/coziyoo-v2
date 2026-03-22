@@ -2176,8 +2176,8 @@ export default function HomeScreen({
           {/* Eraser-like seam fade between base color and image */}
           {LinearGradient ? (
             <LinearGradient
-              colors={['#EAC9A0', 'rgba(234,201,160,0.92)', 'rgba(234,201,160,0.62)', 'rgba(234,201,160,0.24)', 'rgba(234,201,160,0)']}
-              locations={[0, 0.22, 0.45, 0.72, 1]}
+              colors={['#EAC9A0', 'rgba(234,201,160,0.95)', 'rgba(234,201,160,0.8)', 'rgba(234,201,160,0.58)', 'rgba(234,201,160,0.34)', 'rgba(234,201,160,0.14)', 'rgba(234,201,160,0)']}
+              locations={[0, 0.12, 0.28, 0.45, 0.62, 0.8, 1]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.heroEraseFade}
@@ -2189,6 +2189,9 @@ export default function HomeScreen({
               <View style={styles.heroEraseFadeFallbackSoft} />
             </>
           )}
+          <View style={styles.heroCloudFade1} />
+          <View style={styles.heroCloudFade2} />
+          <View style={styles.heroCloudFade3} />
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3463,40 +3466,65 @@ const styles = StyleSheet.create({
     right: 4,
     width: '47%',
     height: '86%',
-    borderTopLeftRadius: 180,
-    borderBottomLeftRadius: 180,
     resizeMode: 'cover',
   },
   heroEraseFade: {
     position: 'absolute',
     top: 8,
-    left: '34%',
-    width: '31%',
+    left: '29%',
+    width: '38%',
     height: '86%',
   },
   heroEraseFadeFallbackStrong: {
     position: 'absolute',
     top: 8,
-    left: '34%',
-    width: '13%',
+    left: '29%',
+    width: '16%',
     height: '86%',
-    backgroundColor: 'rgba(234,201,160,0.84)',
+    backgroundColor: 'rgba(234,201,160,0.9)',
   },
   heroEraseFadeFallbackMid: {
     position: 'absolute',
     top: 8,
-    left: '47%',
-    width: '10%',
+    left: '45%',
+    width: '13%',
     height: '86%',
-    backgroundColor: 'rgba(234,201,160,0.52)',
+    backgroundColor: 'rgba(234,201,160,0.6)',
   },
   heroEraseFadeFallbackSoft: {
     position: 'absolute',
     top: 8,
-    left: '57%',
-    width: '8%',
+    left: '58%',
+    width: '9%',
     height: '86%',
-    backgroundColor: 'rgba(234,201,160,0.2)',
+    backgroundColor: 'rgba(234,201,160,0.24)',
+  },
+  heroCloudFade1: {
+    position: 'absolute',
+    top: 14,
+    left: '36%',
+    width: 96,
+    height: 126,
+    borderRadius: 64,
+    backgroundColor: 'rgba(234,201,160,0.22)',
+  },
+  heroCloudFade2: {
+    position: 'absolute',
+    top: 70,
+    left: '42%',
+    width: 84,
+    height: 104,
+    borderRadius: 56,
+    backgroundColor: 'rgba(234,201,160,0.18)',
+  },
+  heroCloudFade3: {
+    position: 'absolute',
+    top: 126,
+    left: '33%',
+    width: 76,
+    height: 82,
+    borderRadius: 44,
+    backgroundColor: 'rgba(234,201,160,0.14)',
   },
   heroTextArea: {
     zIndex: 3,
