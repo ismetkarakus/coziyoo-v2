@@ -2175,7 +2175,11 @@ export default function HomeScreen({
               style={styles.heroGradient}
             />
           ) : (
-            <View style={[styles.heroGradient, { backgroundColor: '#F6E7D8' }]} />
+            <>
+              <View style={styles.heroGradientSolid} />
+              <View style={styles.heroGradientSoftMid} />
+              <View style={styles.heroGradientSoftBottom} />
+            </>
           )}
           {/* Right-side food background image */}
           <View style={styles.heroFoodBgWrap}>
@@ -2185,10 +2189,10 @@ export default function HomeScreen({
               onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
             />
             {/* Fade overlays → blend food image into gradient */}
-            {LinearGradient ? (
-              <>
-                <LinearGradient
-                  colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.78)', 'rgba(246,231,216,0)']}
+          {LinearGradient ? (
+            <>
+              <LinearGradient
+                colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.78)', 'rgba(246,231,216,0)']}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.heroFoodBgOverlayLeft}
@@ -2198,13 +2202,17 @@ export default function HomeScreen({
                   locations={[0.4, 0.8, 1]}
                   style={styles.heroFoodBgOverlayBottom}
                 />
-              </>
-            ) : (
-              <>
-                <View style={[styles.heroFoodBgOverlayLeft, { backgroundColor: 'rgba(246,231,216,0.85)' }]} />
-                <View style={[styles.heroFoodBgOverlayBottom, { backgroundColor: 'rgba(252,248,238,0.72)' }]} />
-              </>
-            )}
+            </>
+          ) : (
+            <>
+              <View style={styles.heroFoodBgFallbackLeft1} />
+              <View style={styles.heroFoodBgFallbackLeft2} />
+              <View style={styles.heroFoodBgFallbackLeft3} />
+              <View style={styles.heroFoodBgFallbackLeft4} />
+              <View style={styles.heroFoodBgFallbackBottom1} />
+              <View style={styles.heroFoodBgFallbackBottom2} />
+            </>
+          )}
           </View>
           {/* Header overlay: transparent top → white bottom (the magic fade) */}
           {LinearGradient ? (
@@ -3480,8 +3488,9 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    height: 240,
-    padding: 24,
+    height: 218,
+    paddingHorizontal: 20,
+    paddingTop: 18,
     marginHorizontal: -18,
     marginTop: -24,
     backgroundColor: '#F6E7D8',
@@ -3495,19 +3504,41 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  heroGradientSolid: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F6E7D8',
+  },
+  heroGradientSoftMid: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '66%',
+    backgroundColor: '#F3D6B8',
+    opacity: 0.48,
+  },
+  heroGradientSoftBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '34%',
+    backgroundColor: '#FCF8EE',
+    opacity: 0.92,
+  },
   /* Right-side food background image */
   heroFoodBgWrap: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: '66%',
+    width: '60%',
     height: '100%',
   },
   heroFoodBgImg: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-    opacity: 0.9,
+    opacity: 0.94,
   },
   /* Full header overlay: transparent → white (inset: 0) */
   heroOverlay: {
@@ -3523,8 +3554,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '72%',
-    backgroundColor: 'rgba(252,248,238,0.22)',
+    height: '64%',
+    backgroundColor: 'rgba(252,248,238,0.16)',
     zIndex: 2,
   },
   heroOverlayFallbackSoft2: {
@@ -3532,8 +3563,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '46%',
-    backgroundColor: 'rgba(252,248,238,0.38)',
+    height: '44%',
+    backgroundColor: 'rgba(252,248,238,0.28)',
     zIndex: 2,
   },
   heroOverlayFallbackSoft3: {
@@ -3541,8 +3572,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '24%',
-    backgroundColor: 'rgba(252,248,238,0.68)',
+    height: '26%',
+    backgroundColor: 'rgba(252,248,238,0.52)',
     zIndex: 2,
   },
   /* Gradient overlays that fade food image into background */
@@ -3550,7 +3581,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '68%',
+    width: '66%',
     height: '100%',
   },
   heroFoodBgOverlayBottom: {
@@ -3558,40 +3589,88 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '62%',
+    height: '64%',
+  },
+  heroFoodBgFallbackLeft1: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(246,231,216,0.16)',
+  },
+  heroFoodBgFallbackLeft2: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '78%',
+    height: '100%',
+    backgroundColor: 'rgba(246,231,216,0.24)',
+  },
+  heroFoodBgFallbackLeft3: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '56%',
+    height: '100%',
+    backgroundColor: 'rgba(246,231,216,0.32)',
+  },
+  heroFoodBgFallbackLeft4: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '36%',
+    height: '100%',
+    backgroundColor: 'rgba(246,231,216,0.42)',
+  },
+  heroFoodBgFallbackBottom1: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '52%',
+    backgroundColor: 'rgba(252,248,238,0.38)',
+  },
+  heroFoodBgFallbackBottom2: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '30%',
+    backgroundColor: 'rgba(252,248,238,0.64)',
   },
   heroTextArea: {
     zIndex: 3,
     maxWidth: '58%',
-    paddingTop: 8,
+    paddingTop: 10,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#38261D', fontSize: 28, lineHeight: 34, fontWeight: '800' },
+  greetingTitle: { color: '#38261D', fontSize: 23, lineHeight: 28, fontWeight: '800' },
   heroSubtitle: {
     color: '#38261D',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: 3,
   },
   heroLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
     gap: 4,
   },
   heroLocationText: {
     color: '#619670',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   heroAvatarCircle: {
     position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    top: 16,
+    right: 16,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#F2F2F2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3605,14 +3684,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  heroAvatarImage: { width: 50, height: 50, borderRadius: 25 },
+  heroAvatarImage: { width: 54, height: 54, borderRadius: 27 },
   avatarEmoji: { fontSize: 24 },
 
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
-    marginBottom: 16,
+    marginBottom: 14,
     marginHorizontal: 14,
-    marginTop: -32,
+    marginTop: -24,
     zIndex: 5,
   },
   floatingSearchBar: {
@@ -3620,13 +3699,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    minHeight: 62,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    minHeight: 58,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     shadowColor: '#5A3E2B',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
     elevation: 8,
   },
   floatingSearchBarActive: {
@@ -3636,14 +3715,14 @@ const styles = StyleSheet.create({
   floatingSearchInput: {
     flex: 1,
     color: '#38261D',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '400',
     paddingVertical: 4,
   },
   floatingSearchPlaceholder: {
     flex: 1,
     color: '#B8B0A6',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '400',
   },
   floatingSearchFilterBtn: {
@@ -3659,16 +3738,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   chipRow: {
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 14,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FCF8EE',
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#E8E1D9',
   },
@@ -3677,12 +3756,12 @@ const styles = StyleSheet.create({
     borderColor: '#38261D',
   },
   chipEmoji: {
-    fontSize: 20,
-    marginRight: 8,
+    fontSize: 16,
+    marginRight: 6,
   },
   chipText: {
     color: '#38261D',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
   },
   chipTextActive: {
@@ -3708,7 +3787,7 @@ const styles = StyleSheet.create({
   },
   nearbyHeaderTitle: {
     color: '#38261D',
-    fontSize: 46 / 2,
+    fontSize: 20,
     fontWeight: '700',
   },
   nearbyHeaderBtn: {
