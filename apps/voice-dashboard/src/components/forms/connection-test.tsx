@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 type ConnectionTestProps = {
   status: "idle" | "testing" | "success" | "error";
   detail?: string;
+  statusCode?: number;
   onTest: () => void;
   label?: string;
 };
@@ -14,6 +15,7 @@ type ConnectionTestProps = {
 export function ConnectionTest({
   status,
   detail,
+  statusCode,
   onTest,
   label = "Test Connection",
 }: ConnectionTestProps) {
@@ -34,6 +36,7 @@ export function ConnectionTest({
         <Badge variant="secondary" className="gap-1.5">
           <CheckCircle2 className="size-3.5" />
           {detail ?? "Connection successful"}
+          {statusCode ? ` (HTTP ${statusCode})` : ""}
         </Badge>
       )}
 
@@ -41,6 +44,7 @@ export function ConnectionTest({
         <Badge variant="destructive" className="gap-1.5">
           <XCircle className="size-3.5" />
           {detail ?? "Connection failed"}
+          {statusCode ? ` (HTTP ${statusCode})` : ""}
         </Badge>
       )}
     </div>

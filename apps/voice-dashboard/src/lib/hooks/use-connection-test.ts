@@ -8,6 +8,7 @@ type TestStatus = "idle" | "testing" | "success" | "error";
 export type TestResult = {
   status: TestStatus;
   detail?: string;
+  statusCode?: number;
   audioBlob?: Blob;
   transcript?: string;
 };
@@ -112,7 +113,45 @@ export function useConnectionTest() {
     }
   }, []);
 
+  const testLlm = useCallback(async (config: {
+    baseUrl: string;
+    endpointPath?: string;
+    apiKey?: string;
+    model: string;
+    customHeaders?: Record<string, string>;
+    customBodyParams?: Record<string, string>;
+    prompt?: string;
+  }) => {
+    setResult({ status: "testing" });
+    try {
+      const response = await request("/v1/admin/livekit/test/llm", {
+        method: "POST",
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) {
+        const fallback = `LLM test failed (${response.status})`;
+        try {
+          const json = await parseJson<{ error?: { message?: string; details?: { status?: number } } }>(response);
+          const message = json.error?.message ?? fallback;
+          const statusCode = json.error?.details?.status ?? response.status;
+          setResult({ status: "error", detail: message, statusCode });
+          return;
+        } catch {
+          setResult({ status: "error", detail: fallback, statusCode: response.status });
+          return;
+        }
+      }
+
+      const json = await parseJson<{ data: { status?: number } }>(response);
+      const statusCode = json.data.status ?? response.status;
+      setResult({ status: "success", detail: "LLM endpoint is reachable", statusCode });
+    } catch (error) {
+      setResult({ status: "error", detail: getErrorMessage(error, "Test failed") });
+    }
+  }, []);
+
   const reset = useCallback(() => setResult({ status: "idle" }), []);
 
-  return { result, testStt, testSttTranscribe, testTts, testN8n, reset };
+  return { result, testStt, testSttTranscribe, testTts, testN8n, testLlm, reset };
 }
