@@ -2789,7 +2789,7 @@ export default function HomeScreen({
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F2EA" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F3EFE6" />
 
       <Modal
         visible={paymentWebVisible}
@@ -3405,8 +3405,8 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
-  safe: { flex: 1, backgroundColor: '#F5F2EA' },
-  container: { flex: 1, backgroundColor: '#F5F2EA' },
+  safe: { flex: 1, backgroundColor: '#F3EFE6' },
+  container: { flex: 1, backgroundColor: '#F3EFE6' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 130 },
@@ -3419,15 +3419,15 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#EFD5B1',
+    backgroundColor: '#EAC9A0',
     overflow: 'hidden',
   },
   heroFoodBgImg: {
     position: 'absolute',
-    top: 0,
-    right: -14,
-    width: '74%',
-    height: '100%',
+    top: 8,
+    right: -10,
+    width: '70%',
+    height: '86%',
     resizeMode: 'cover',
   },
   heroTextArea: {
