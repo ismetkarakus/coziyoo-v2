@@ -1,4 +1,5 @@
 import express from "express";
+import http from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../middleware/auth.js", () => ({
@@ -32,10 +33,42 @@ describe("POST /v1/admin/livekit/test/llm", () => {
     await new Promise<void>((resolve) => server!.once("listening", () => resolve()));
     const address = server.address();
     const port = typeof address === "object" && address ? address.port : 0;
-    return fetch(`http://127.0.0.1:${port}/v1/admin/livekit/test/llm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+
+    return new Promise<{ status: number; json: unknown }>((resolve, reject) => {
+      const payload = JSON.stringify(body);
+      const req = http.request(
+        {
+          hostname: "127.0.0.1",
+          port,
+          path: "/v1/admin/livekit/test/llm",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(payload),
+          },
+        },
+        (res) => {
+          let responseText = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            responseText += chunk;
+          });
+          res.on("end", () => {
+            try {
+              resolve({
+                status: res.statusCode ?? 0,
+                json: JSON.parse(responseText || "{}"),
+              });
+            } catch (err) {
+              reject(err);
+            }
+          });
+        },
+      );
+
+      req.on("error", reject);
+      req.write(payload);
+      req.end();
     });
   }
 
@@ -60,9 +93,10 @@ describe("POST /v1/admin/livekit/test/llm", () => {
     });
 
     expect(response.status).toBe(200);
-    const payload = await response.json();
-    expect(payload.data.ok).toBe(true);
-    expect(payload.data.status).toBe(200);
+    const payload = response.json as Record<string, unknown>;
+    const data = payload.data as Record<string, unknown>;
+    expect(data.ok).toBe(true);
+    expect(data.status).toBe(200);
   });
 
   it("returns non-2xx error payload when upstream is unreachable", async () => {
@@ -78,7 +112,7 @@ describe("POST /v1/admin/livekit/test/llm", () => {
     });
 
     expect(response.status).toBe(502);
-    const payload = await response.json();
+    const payload = response.json as { error?: { code?: string; message?: string } };
     expect(payload.error?.code).toBe("LLM_TEST_FAILED");
     expect(payload.error?.message).toContain("ECONNREFUSED");
   });

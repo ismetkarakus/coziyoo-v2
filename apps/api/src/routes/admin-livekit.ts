@@ -730,6 +730,16 @@ const TestN8nSchema = z.object({
   baseUrl: z.string().optional(),
 });
 
+const TestLlmSchema = z.object({
+  baseUrl: z.string().min(1),
+  endpointPath: z.string().optional(),
+  apiKey: z.string().optional(),
+  model: z.string().min(1),
+  customHeaders: z.record(z.string(), z.string()).optional(),
+  customBodyParams: z.record(z.string(), z.string()).optional(),
+  prompt: z.string().min(1).max(1_000).optional(),
+});
+
 adminLiveKitRouter.post("/test/n8n", async (req, res) => {
   const parsed = TestN8nSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -745,6 +755,70 @@ adminLiveKitRouter.post("/test/n8n", async (req, res) => {
     return res.json({ data: { ok: status.reachable && workflowsOk, status } });
   } catch (err) {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
+  }
+});
+
+adminLiveKitRouter.post("/test/llm", async (req, res) => {
+  const parsed = TestLlmSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { baseUrl, endpointPath, apiKey, model, customHeaders, customBodyParams, prompt } = parsed.data;
+  const path = endpointPath?.trim() || "/v1/chat/completions";
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+  const normalizedHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(customHeaders ?? {}),
+  };
+  if (apiKey?.trim() && !normalizedHeaders.Authorization) {
+    normalizedHeaders.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+
+  const requestBody: Record<string, unknown> = {
+    model: model.trim(),
+    messages: [{ role: "user", content: prompt?.trim() || "Say hello in one short sentence." }],
+    ...(customBodyParams ? coerceBodyParamValues(customBodyParams) : {}),
+  };
+
+  try {
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers: normalizedHeaders,
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!upstream.ok) {
+      const rawText = await upstream.text().catch(() => "");
+      return res.status(502).json({
+        error: {
+          code: "LLM_TEST_FAILED",
+          message: `Upstream responded ${upstream.status}`,
+          details: {
+            status: upstream.status,
+            url,
+            body: rawText.slice(0, 400),
+          },
+        },
+      });
+    }
+
+    return res.json({
+      data: {
+        ok: true,
+        status: upstream.status,
+        url,
+      },
+    });
+  } catch (err) {
+    return res.status(502).json({
+      error: {
+        code: "LLM_TEST_FAILED",
+        message: err instanceof Error ? err.message : "LLM request failed",
+        details: { status: 0, url },
+      },
+    });
   }
 });
 
