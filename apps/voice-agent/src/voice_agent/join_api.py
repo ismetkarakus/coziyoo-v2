@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from livekit import api
 from pydantic import BaseModel, Field
@@ -125,6 +125,21 @@ def _profile_update_payload(profile: dict[str, Any]) -> dict[str, Any]:
 @app.get("/dashboard/login", response_class=HTMLResponse)
 async def dashboard_login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+
+
+@app.get("/", include_in_schema=False)
+async def root_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/login", status_code=307)
+
+
+@app.get("/login", include_in_schema=False)
+async def login_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/login", status_code=307)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_no_content() -> Response:
+    return Response(status_code=204)
 
 
 @app.post("/dashboard/login")
