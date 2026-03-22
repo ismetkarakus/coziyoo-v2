@@ -2192,8 +2192,8 @@ export default function HomeScreen({
           {LinearGradient ? (
             <>
               <LinearGradient
-                colors={['rgba(249,233,213,1)', 'rgba(249,233,213,0.85)', 'rgba(240,213,174,0.4)', 'rgba(240,213,174,0)']}
-                  locations={[0, 0.25, 0.6, 1]}
+                colors={['rgba(249,233,213,1)', 'rgba(249,233,213,0.92)', 'rgba(249,233,213,0.6)', 'rgba(240,213,174,0.2)', 'rgba(240,213,174,0)']}
+                  locations={[0, 0.2, 0.45, 0.72, 1]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.heroFoodBgOverlayLeft}
@@ -2280,7 +2280,7 @@ export default function HomeScreen({
             activeOpacity={0.95}
             onPress={() => !searchMode && setSearchMode(true)}
           >
-            <Ionicons name="search-outline" size={22} color="#8B6A4E" style={{ marginRight: 10 }} />
+            <Ionicons name="search-outline" size={20} color="#8B6A4E" style={{ marginRight: 8 }} />
             {searchMode ? (
               <TextInput
                 ref={searchInputRef}
@@ -2325,7 +2325,7 @@ export default function HomeScreen({
               onPress={() => setActiveCategory(cat)}
             >
               {cat === 'Tümü' ? (
-                <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 6 }} />
+                <Ionicons name="grid" size={15} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 5 }} />
               ) : (
                 <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
               )}
@@ -3489,9 +3489,9 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    height: 218,
+    height: 185,
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 14,
     marginHorizontal: -18,
     marginTop: -24,
     backgroundColor: '#F9E9D5',
@@ -3532,7 +3532,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: '60%',
+    width: '65%',
     height: '100%',
   },
   heroFoodBgImg: {
@@ -3582,7 +3582,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '75%',
+    width: '100%',
     height: '100%',
   },
   heroFoodBgOverlayBottom: {
@@ -3642,8 +3642,8 @@ const styles = StyleSheet.create({
   },
   heroTextArea: {
     zIndex: 3,
-    maxWidth: '58%',
-    paddingTop: 10,
+    maxWidth: '55%',
+    paddingTop: 8,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 28, opacity: 0.9, marginLeft: 6 },
@@ -3690,24 +3690,24 @@ const styles = StyleSheet.create({
 
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
-    marginBottom: 14,
+    marginBottom: 10,
     marginHorizontal: 14,
-    marginTop: -24,
+    marginTop: -22,
     zIndex: 5,
   },
   floatingSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    minHeight: 58,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    borderRadius: 22,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     shadowColor: '#5A3E2B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 6,
   },
   floatingSearchBarActive: {
     borderWidth: 1,
@@ -3716,39 +3716,39 @@ const styles = StyleSheet.create({
   floatingSearchInput: {
     flex: 1,
     color: '#38261D',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '400',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   floatingSearchPlaceholder: {
     flex: 1,
     color: '#B8B0A6',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '400',
   },
   floatingSearchFilterBtn: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   /* --- Category Chips --- */
   chipScroller: {
-    marginBottom: 20,
+    marginBottom: 14,
     marginHorizontal: 0,
   },
   chipRow: {
-    gap: 7,
+    gap: 6,
     paddingHorizontal: 14,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FCF8EE',
-    borderRadius: 22,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: '#E8E1D9',
   },
@@ -3757,12 +3757,12 @@ const styles = StyleSheet.create({
     borderColor: '#38261D',
   },
   chipEmoji: {
-    fontSize: 16,
-    marginRight: 6,
+    fontSize: 15,
+    marginRight: 5,
   },
   chipText: {
     color: '#38261D',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   chipTextActive: {
@@ -3775,7 +3775,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 10,
     paddingHorizontal: 14,
   },
   nearbyHeaderLeft: {
