@@ -3130,11 +3130,11 @@ const styles = StyleSheet.create({
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
   categoryContent: { gap: 14, paddingRight: 8 },
-  categoryTextButton: { paddingTop: 3, paddingBottom: 1 },
+  categoryTextButton: { paddingTop: 2, paddingBottom: 0 },
   categoryText: { color: '#7B6D5E', fontSize: 15, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
-    marginTop: 2,
+    marginTop: 0,
     height: 3,
     borderRadius: 2,
     backgroundColor: '#2F7A53',
