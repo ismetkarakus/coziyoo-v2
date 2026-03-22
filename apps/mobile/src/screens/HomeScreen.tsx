@@ -22,6 +22,17 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+let BlurView: React.ComponentType<{
+  intensity?: number;
+  tint?: 'light' | 'dark' | 'default' | string;
+  style?: any;
+  children?: React.ReactNode;
+}> | null = null;
+try {
+  BlurView = require('expo-blur').BlurView;
+} catch {
+  // Optional at runtime.
+}
 let LinearGradient: React.ComponentType<{
   colors: string[];
   locations?: number[];
@@ -2182,7 +2193,11 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
-          <View style={styles.heroImageBlurFallback} />
+          {BlurView ? (
+            <BlurView intensity={15} style={styles.heroImageBlur} />
+          ) : (
+            <View style={styles.heroImageBlurFallback} />
+          )}
           <View style={styles.heroWarmOverlay} />
           {LinearGradient ? (
             <LinearGradient
@@ -3475,6 +3490,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 180,
     borderBottomLeftRadius: 180,
     resizeMode: 'cover',
+  },
+  heroImageBlur: {
+    ...StyleSheet.absoluteFillObject,
   },
   heroImageBlurFallback: {
     ...StyleSheet.absoluteFillObject,
