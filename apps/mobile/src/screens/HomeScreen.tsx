@@ -2165,34 +2165,30 @@ export default function HomeScreen({
         style={styles.scroll}
         stickyHeaderIndices={[]}
       >
-        {/* Hero Header with Gradient BG */}
+        {/* Hero Header */}
         <View style={styles.heroWrap}>
-          {/* Background: single warm color, no gradient needed */}
-          <View style={styles.heroGradientSolid} />
-          {/* Food image — full width, clean, no extra overlays */}
-          <View style={styles.heroFoodBgWrap}>
-            <Image
-              source={headerImageSource}
-              style={styles.heroFoodBgImg}
-              onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
-            />
-            {/* Only a left fade so text is readable — nothing else */}
+          {/* Food image — covers entire hero */}
+          <Image
+            source={headerImageSource}
+            style={styles.heroFoodBgImg}
+            onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
+          />
+          {/* Single fade: left solid → transparent right */}
           {LinearGradient ? (
-              <LinearGradient
-                colors={['#EDCFAB', 'rgba(237,207,171,0.6)', 'transparent']}
-                  locations={[0, 0.4, 0.7]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.heroFoodBgOverlayLeft}
-                />
+            <LinearGradient
+              colors={['#EDCFAB', 'rgba(237,207,171,0.5)', 'transparent']}
+              locations={[0, 0.35, 0.65]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFillObject}
+            />
           ) : (
             <>
-              <View style={styles.heroFoodBgFallbackLeft1} />
-              <View style={styles.heroFoodBgFallbackLeft2} />
-              <View style={styles.heroFoodBgFallbackLeft3} />
+              <View style={styles.heroFadeFallback1} />
+              <View style={styles.heroFadeFallback2} />
+              <View style={styles.heroFadeFallback3} />
             </>
           )}
-          </View>
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3461,54 +3457,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDCFAB',
     overflow: 'hidden',
   },
-  heroGradientSolid: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#EDCFAB',
-  },
-  /* Right-side food background image */
-  heroFoodBgWrap: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '65%',
-    height: '100%',
-  },
   heroFoodBgImg: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-    opacity: 1,
   },
-  heroFoodBgOverlayLeft: {
+  heroFadeFallback1: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '55%',
+    width: '50%',
     height: '100%',
+    backgroundColor: 'rgba(237,207,171,0.3)',
   },
-  heroFoodBgFallbackLeft1: {
+  heroFadeFallback2: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '45%',
+    width: '35%',
     height: '100%',
-    backgroundColor: 'rgba(237,207,171,0.25)',
+    backgroundColor: 'rgba(237,207,171,0.55)',
   },
-  heroFoodBgFallbackLeft2: {
+  heroFadeFallback3: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '30%',
+    width: '18%',
     height: '100%',
-    backgroundColor: 'rgba(237,207,171,0.50)',
-  },
-  heroFoodBgFallbackLeft3: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '15%',
-    height: '100%',
-    backgroundColor: 'rgba(237,207,171,0.80)',
+    backgroundColor: 'rgba(237,207,171,0.85)',
   },
   heroTextArea: {
     zIndex: 3,
