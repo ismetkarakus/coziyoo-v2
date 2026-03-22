@@ -20,7 +20,19 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+let LinearGradient: React.ComponentType<{
+  colors: string[];
+  locations?: number[];
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
+  style?: any;
+  children?: React.ReactNode;
+}> | null = null;
+try {
+  LinearGradient = require('expo-linear-gradient').LinearGradient;
+} catch {
+  // Native module not available — will use View fallback
+}
 import * as ImagePicker from 'expo-image-picker';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
@@ -2011,12 +2023,20 @@ export default function HomeScreen({
       >
         {/* Hero Header with Gradient BG */}
         <View style={styles.heroWrap}>
-          {/* Real gradient: #F6E7D8 0% → #F3D6B8 40% → #F7EFE7 100% */}
-          <LinearGradient
-            colors={['#F6E7D8', '#F3D6B8', '#F7EFE7']}
-            locations={[0, 0.4, 1]}
-            style={styles.heroGradient}
-          />
+          {/* Gradient: #F6E7D8 0% → #F3D6B8 40% → #F7EFE7 100% */}
+          {LinearGradient ? (
+            <LinearGradient
+              colors={['#F6E7D8', '#F3D6B8', '#F7EFE7']}
+              locations={[0, 0.4, 1]}
+              style={styles.heroGradient}
+            />
+          ) : (
+            <>
+              <View style={[styles.heroGradient, { backgroundColor: '#F6E7D8' }]} />
+              <View style={[styles.heroGradient, { top: '40%', backgroundColor: '#F3D6B8', opacity: 0.5 }]} />
+              <View style={[styles.heroGradient, { top: '70%', backgroundColor: '#F7EFE7' }]} />
+            </>
+          )}
           {/* Right-side food background image */}
           <View style={styles.heroFoodBgWrap}>
             <Image
@@ -2024,24 +2044,37 @@ export default function HomeScreen({
               style={styles.heroFoodBgImg}
             />
             {/* Fade overlays → blend food image into gradient */}
-            <LinearGradient
-              colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.6)', 'rgba(246,231,216,0)']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.heroFoodBgOverlayLeft}
-            />
-            <LinearGradient
-              colors={['rgba(247,239,231,0)', 'rgba(247,239,231,0.7)', 'rgba(247,239,231,1)']}
-              locations={[0.4, 0.8, 1]}
-              style={styles.heroFoodBgOverlayBottom}
-            />
+            {LinearGradient ? (
+              <>
+                <LinearGradient
+                  colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.6)', 'rgba(246,231,216,0)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.heroFoodBgOverlayLeft}
+                />
+                <LinearGradient
+                  colors={['rgba(247,239,231,0)', 'rgba(247,239,231,0.7)', 'rgba(247,239,231,1)']}
+                  locations={[0.4, 0.8, 1]}
+                  style={styles.heroFoodBgOverlayBottom}
+                />
+              </>
+            ) : (
+              <>
+                <View style={[styles.heroFoodBgOverlayLeft, { backgroundColor: 'rgba(246,231,216,0.85)' }]} />
+                <View style={[styles.heroFoodBgOverlayBottom, { backgroundColor: 'rgba(247,239,231,0.7)' }]} />
+              </>
+            )}
           </View>
           {/* Header overlay: transparent top → white bottom (the magic fade) */}
-          <LinearGradient
-            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.7)', '#ffffff']}
-            locations={[0.4, 0.8, 1]}
-            style={styles.heroOverlay}
-          />
+          {LinearGradient ? (
+            <LinearGradient
+              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.7)', '#ffffff']}
+              locations={[0.4, 0.8, 1]}
+              style={styles.heroOverlay}
+            />
+          ) : (
+            <View style={[styles.heroOverlay, { top: '50%', backgroundColor: 'rgba(255,255,255,0.6)' }]} />
+          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
