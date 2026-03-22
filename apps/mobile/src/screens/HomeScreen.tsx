@@ -2933,8 +2933,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 20,
-    backgroundColor: '#F3F9EF',
+    height: 0,
+    backgroundColor: 'transparent',
   },
   searchBox: {
     flexDirection: 'row',
