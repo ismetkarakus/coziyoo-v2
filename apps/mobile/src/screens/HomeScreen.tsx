@@ -3164,10 +3164,10 @@ const styles = StyleSheet.create({
   foodPriceBadge: {
     backgroundColor: 'rgba(61,50,41,0.9)',
     borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  foodPriceBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  foodPriceBadgeText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   ratingBadge: {
     backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8,
     paddingHorizontal: 9, paddingVertical: 3,
