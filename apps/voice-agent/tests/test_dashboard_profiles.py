@@ -88,3 +88,70 @@ def test_dashboard_test_routes_render_status_partial(monkeypatch) -> None:
         assert response.status_code == 200
         assert "text/html" in response.headers.get("content-type", "")
         assert "data-status-state" in response.text
+
+
+def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if path == "/v1/admin/agent-profiles/aktif-profil-9":
+            return 404, {"error": {"code": "NOT_FOUND"}}
+        if path == "/v1/admin/livekit/agent-settings/aktif-profil-9":
+            return 200, {
+                "data": {
+                    "deviceId": "aktif-profil-9",
+                    "agentName": "Aktif Profil 9",
+                    "voiceLanguage": "tr",
+                    "ollamaModel": "llama3.1:8b",
+                    "ttsConfig": {
+                        "baseUrl": "https://tts.example.com",
+                        "stt": {"baseUrl": "https://stt.example.com", "transcribePath": "/v1/audio/transcriptions"},
+                        "llm": {"baseUrl": "https://llm.example.com/v1", "endpointPath": "/v1/chat/completions"},
+                        "n8n": {"baseUrl": "https://n8n.example.com"},
+                    },
+                }
+            }
+        return 200, {"data": []}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get("/dashboard/profiles/aktif-profil-9")
+    assert response.status_code == 200
+    assert "Editing: Aktif Profil 9" in response.text
+    assert "https://llm.example.com/v1" in response.text
+
+
+def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
+    calls: list[tuple[str, str]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path))
+        if method == "PUT" and path == "/v1/admin/agent-profiles/aktif-profil-9":
+            return 404, {"error": {"code": "NOT_FOUND"}}
+        if method == "PUT" and path == "/v1/admin/livekit/agent-settings/aktif-profil-9":
+            return 200, {"data": {"deviceId": "aktif-profil-9"}}
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/aktif-profil-9":
+            return 200, {"data": {"deviceId": "aktif-profil-9", "agentName": "Aktif Profil 9", "ttsConfig": {}}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/profiles/aktif-profil-9/save",
+        data={
+            "name": "Aktif Profil 9",
+            "voice_language": "tr",
+            "system_prompt": "test",
+        },
+    )
+    assert response.status_code == 200
+    assert "Saved" in response.text
+    assert ("PUT", "/v1/admin/livekit/agent-settings/aktif-profil-9") in calls

@@ -205,6 +205,135 @@ def _dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _extract_auth_header(config: dict[str, Any], api_key: str | None = None) -> str:
+    headers = _dict(config.get("custom_headers"))
+    for key in ("authorization", "Authorization", "AUTHORIZATION"):
+        value = str(headers.get(key) or "").strip()
+        if value:
+            return value
+    clean_api_key = str(api_key or config.get("api_key") or "").strip()
+    return f"Bearer {clean_api_key}" if clean_api_key else ""
+
+
+def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) -> dict[str, Any]:
+    tts_config = _dict(settings_data.get("ttsConfig"))
+    stt_legacy = _dict(tts_config.get("stt"))
+    llm_legacy = _dict(tts_config.get("llm"))
+    n8n_legacy = _dict(tts_config.get("n8n"))
+
+    llm_base_url = str(
+        llm_legacy.get("baseUrl")
+        or llm_legacy.get("ollamaBaseUrl")
+        or settings_data.get("ollamaBaseUrl")
+        or ""
+    )
+    stt_base_url = str(stt_legacy.get("baseUrl") or settings_data.get("sttBaseUrl") or "")
+    tts_base_url = str(tts_config.get("baseUrl") or settings_data.get("ttsBaseUrl") or "")
+
+    return {
+        "id": profile_id,
+        "name": str(settings_data.get("agentName") or settings_data.get("agent_name") or profile_id),
+        "is_active": bool(settings_data.get("isActive") or settings_data.get("is_active")),
+        "speaks_first": bool(settings_data.get("speaksFirst") or settings_data.get("speaks_first")),
+        "system_prompt": str(settings_data.get("systemPrompt") or ""),
+        "greeting_enabled": bool(settings_data.get("greetingEnabled", True)),
+        "greeting_instruction": str(settings_data.get("greetingInstruction") or ""),
+        "voice_language": str(settings_data.get("voiceLanguage") or "tr"),
+        "llm_config": {
+            "base_url": llm_base_url,
+            "api_key": str(llm_legacy.get("apiKey") or ""),
+            "model": str(settings_data.get("ollamaModel") or llm_legacy.get("model") or ""),
+            "endpoint_path": str(llm_legacy.get("endpointPath") or "/v1/chat/completions"),
+            "custom_headers": _dict(llm_legacy.get("customHeaders")),
+            "custom_body_params": _dict(llm_legacy.get("customBodyParams")),
+        },
+        "stt_config": {
+            "base_url": stt_base_url,
+            "api_key": str(stt_legacy.get("apiKey") or ""),
+            "model": str(stt_legacy.get("model") or settings_data.get("sttModel") or ""),
+            "endpoint_path": str(stt_legacy.get("transcribePath") or settings_data.get("sttTranscribePath") or "/v1/audio/transcriptions"),
+            "language": str(stt_legacy.get("language") or ""),
+            "custom_headers": _dict(stt_legacy.get("customHeaders")),
+            "custom_body_params": _dict(stt_legacy.get("customBodyParams")),
+            "custom_query_params": _dict(stt_legacy.get("queryParams")),
+        },
+        "tts_config": {
+            "base_url": tts_base_url,
+            "api_key": str(tts_config.get("apiKey") or ""),
+            "model": str(tts_config.get("model") or ""),
+            "endpoint_path": str(tts_config.get("path") or "/v1/audio/speech"),
+            "voice_id": str(tts_config.get("voiceId") or ""),
+            "text_field_name": str(tts_config.get("textFieldName") or "input"),
+            "custom_headers": _dict(tts_config.get("customHeaders")),
+            "custom_body_params": _dict(tts_config.get("customBodyParams")),
+            "custom_query_params": _dict(tts_config.get("queryParams")),
+        },
+        "n8n_config": {
+            "base_url": str(n8n_legacy.get("baseUrl") or settings_data.get("n8nBaseUrl") or ""),
+            "webhook_path": str(n8n_legacy.get("webhookPath") or ""),
+            "mcp_webhook_path": str(n8n_legacy.get("mcpWebhookPath") or ""),
+        },
+    }
+
+
+def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    llm_config = _dict(payload.get("llm_config"))
+    stt_config = _dict(payload.get("stt_config"))
+    tts_config = _dict(payload.get("tts_config"))
+    n8n_config = _dict(payload.get("n8n_config"))
+
+    stt_auth = _extract_auth_header(stt_config)
+    tts_auth = _extract_auth_header(tts_config)
+
+    return {
+        "agentName": str(payload.get("name") or "profile"),
+        "voiceLanguage": str(payload.get("voice_language") or "tr"),
+        "systemPrompt": str(payload.get("system_prompt") or ""),
+        "greetingEnabled": bool(payload.get("greeting_enabled", True)),
+        "greetingInstruction": str(payload.get("greeting_instruction") or ""),
+        "ttsEnabled": True,
+        "sttEnabled": True,
+        "sttProvider": "remote-speech-server",
+        "sttBaseUrl": str(stt_config.get("base_url") or ""),
+        "sttTranscribePath": str(stt_config.get("endpoint_path") or "/v1/audio/transcriptions"),
+        "sttModel": str(stt_config.get("model") or ""),
+        "sttQueryParams": _string_map(stt_config.get("custom_query_params")),
+        "sttAuthHeader": stt_auth,
+        "ttsBaseUrl": str(tts_config.get("base_url") or ""),
+        "ttsSynthPath": str(tts_config.get("endpoint_path") or "/v1/audio/speech"),
+        "ttsQueryParams": _string_map(tts_config.get("custom_query_params")),
+        "ttsAuthHeader": tts_auth,
+        "n8nBaseUrl": str(n8n_config.get("base_url") or ""),
+        "ollamaBaseUrl": str(llm_config.get("base_url") or ""),
+        "ttsConfig": {
+            "baseUrl": str(tts_config.get("base_url") or ""),
+            "path": str(tts_config.get("endpoint_path") or "/v1/audio/speech"),
+            "stt": {
+                "provider": "remote-speech-server",
+                "baseUrl": str(stt_config.get("base_url") or ""),
+                "transcribePath": str(stt_config.get("endpoint_path") or "/v1/audio/transcriptions"),
+                "model": str(stt_config.get("model") or ""),
+                "queryParams": _dict(stt_config.get("custom_query_params")),
+                "customHeaders": _dict(stt_config.get("custom_headers")),
+                "customBodyParams": _dict(stt_config.get("custom_body_params")),
+            },
+            "llm": {
+                "baseUrl": str(llm_config.get("base_url") or ""),
+                "apiKey": str(llm_config.get("api_key") or ""),
+                "model": str(llm_config.get("model") or ""),
+                "endpointPath": str(llm_config.get("endpoint_path") or "/v1/chat/completions"),
+                "customHeaders": _dict(llm_config.get("custom_headers")),
+                "customBodyParams": _dict(llm_config.get("custom_body_params")),
+            },
+            "n8n": {
+                "baseUrl": str(n8n_config.get("base_url") or ""),
+                "webhookPath": str(n8n_config.get("webhook_path") or ""),
+                "mcpWebhookPath": str(n8n_config.get("mcp_webhook_path") or ""),
+            },
+        },
+    }
+
+
 def _string_map(value: Any) -> dict[str, str]:
     if not isinstance(value, dict):
         return {}
@@ -574,6 +703,28 @@ async def dashboard_profile_editor(request: Request, profile_id: str):
         path=f"/v1/admin/agent-profiles/{profile_id}",
         access_token=access_token,
     )
+    if status == 404:
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+        )
+        if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
+            profile = _legacy_settings_to_profile(profile_id, legacy_payload["data"])
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context={"profile": profile, "message": None},
+            )
+        message = extract_error_message(legacy_payload, "Failed to load profile")
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": None, "message": message},
+            status_code=200,
+        )
+
     if status != 200 or not isinstance(payload, dict):
         message = extract_error_message(payload, "Failed to load profile")
         return templates.TemplateResponse(
@@ -604,6 +755,37 @@ async def dashboard_profile_save(request: Request, profile_id: str):
         access_token=access_token,
         json_body=payload,
     )
+    if status == 404:
+        legacy_body = _to_legacy_profile_payload(payload)
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="PUT",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+            json_body=legacy_body,
+        )
+        message = None if legacy_status in {200, 201} else extract_error_message(legacy_payload, "Profile save failed")
+        current_status, current_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+        )
+        if current_status == 200 and isinstance(current_payload, dict) and isinstance(current_payload.get("data"), dict):
+            profile = _legacy_settings_to_profile(profile_id, current_payload["data"])
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context={"profile": profile, "message": message or "Saved"},
+                status_code=200,
+            )
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": None, "message": message or "Profile save failed"},
+            status_code=200,
+        )
+
     message = None if status == 200 else extract_error_message(update_payload, "Profile save failed")
 
     current_status, current_payload = await api_request(
