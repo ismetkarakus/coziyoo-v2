@@ -5,10 +5,11 @@ import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ProfileEditScreen from './src/screens/ProfileEditScreen';
 import AddressScreen from './src/screens/AddressScreen';
+import OrdersScreen from './src/screens/OrdersScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { theme } from './src/theme/colors';
 
-type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit' | 'addresses';
+type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit' | 'addresses' | 'orders';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
 
 export default function App() {
@@ -85,6 +86,14 @@ export default function App() {
     );
   }
 
+  if (screen === 'orders') {
+    return (
+      <OrdersScreen
+        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
+      />
+    );
+  }
+
   return (
     <HomeScreen
       auth={auth}
@@ -92,6 +101,7 @@ export default function App() {
       onOpenSettings={() => setScreen('settings')}
       onOpenProfileEdit={() => setScreen('profileEdit')}
       onOpenAddresses={() => setScreen('addresses')}
+      onOpenOrders={() => setScreen('orders')}
       onLogout={handleLogout}
       onAuthRefresh={setAuth}
     />

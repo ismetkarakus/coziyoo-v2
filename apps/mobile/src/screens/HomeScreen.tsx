@@ -60,6 +60,7 @@ type Props = {
   onOpenSettings: () => void;
   onOpenProfileEdit: () => void;
   onOpenAddresses: () => void;
+  onOpenOrders: () => void;
   onLogout: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
@@ -851,6 +852,7 @@ export default function HomeScreen({
   onOpenSettings,
   onOpenProfileEdit,
   onOpenAddresses,
+  onOpenOrders,
   onLogout,
   onAuthRefresh,
 }: Props) {
@@ -2131,7 +2133,7 @@ export default function HomeScreen({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.profileActionRow, styles.profileActionRowDivider]}
-              onPress={() => handleTabPress('cart')}
+              onPress={onOpenOrders}
               activeOpacity={0.85}
             >
               <View style={styles.profileActionMain}>
@@ -2145,74 +2147,6 @@ export default function HomeScreen({
               </View>
               <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
             </TouchableOpacity>
-          </View>
-
-          {/* Demo Siparişlerim */}
-          <View style={styles.demoOrdersSection}>
-            <Text style={styles.demoOrdersSectionTitle}>Son Siparişlerim</Text>
-
-            <View style={styles.demoOrderCard}>
-              <View style={styles.demoOrderHeader}>
-                <View style={[styles.demoOrderStatusBadge, { backgroundColor: '#E4F2E7' }]}>
-                  <Text style={[styles.demoOrderStatusText, { color: '#3E845B' }]}>Teslim Edildi</Text>
-                </View>
-                <Text style={styles.demoOrderDate}>19 Mar 2026</Text>
-              </View>
-              <View style={styles.demoOrderBody}>
-                <Text style={styles.demoOrderShop}>Annem Mutfağı</Text>
-                <Text style={styles.demoOrderItems}>Kuru Fasulye, Pilav, Ayran</Text>
-              </View>
-              <View style={styles.demoOrderFooter}>
-                <Text style={styles.demoOrderTotal}>₺185,00</Text>
-                <View style={styles.demoOrderDetailBtn}>
-                  <Text style={styles.demoOrderDetailBtnText}>Detay</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#5D7394" />
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.demoOrderCard}>
-              <View style={styles.demoOrderHeader}>
-                <View style={[styles.demoOrderStatusBadge, { backgroundColor: '#FFF4E5' }]}>
-                  <Text style={[styles.demoOrderStatusText, { color: '#B8860B' }]}>Hazırlanıyor</Text>
-                </View>
-                <Text style={styles.demoOrderDate}>22 Mar 2026</Text>
-              </View>
-              <View style={styles.demoOrderBody}>
-                <Text style={styles.demoOrderShop}>Zeynep'in Böreği</Text>
-                <Text style={styles.demoOrderItems}>Su Böreği (2), Çay</Text>
-              </View>
-              <View style={styles.demoOrderFooter}>
-                <Text style={styles.demoOrderTotal}>₺120,00</Text>
-                <View style={styles.demoOrderDetailBtn}>
-                  <Text style={styles.demoOrderDetailBtnText}>Detay</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#5D7394" />
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.demoOrderCard}>
-              <View style={styles.demoOrderHeader}>
-                <View style={[styles.demoOrderStatusBadge, { backgroundColor: '#EDE8F5' }]}>
-                  <Text style={[styles.demoOrderStatusText, { color: '#6B4FA2' }]}>Yolda</Text>
-                </View>
-                <Text style={styles.demoOrderDate}>22 Mar 2026</Text>
-              </View>
-              <View style={styles.demoOrderBody}>
-                <Text style={styles.demoOrderShop}>Hatay Künefe</Text>
-                <Text style={styles.demoOrderItems}>Künefe (1), Türk Kahvesi</Text>
-              </View>
-              <View style={styles.demoOrderFooter}>
-                <Text style={styles.demoOrderTotal}>₺95,00</Text>
-                <View style={styles.demoOrderDetailBtn}>
-                  <Text style={styles.demoOrderDetailBtnText}>Detay</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#5D7394" />
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.profileGroupCard}>
             <TouchableOpacity
               style={styles.profileActionRow}
               onPress={onOpenAddresses}
@@ -3670,27 +3604,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   profileSellerButtonText: { color: '#3D8758', fontSize: 31 / 2, fontWeight: '800' },
-
-  demoOrdersSection: { marginTop: 16, gap: 10 },
-  demoOrdersSectionTitle: { color: '#332C25', fontSize: 17, fontWeight: '700', marginBottom: 4, paddingHorizontal: 4 },
-  demoOrderCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E6DDD3',
-    backgroundColor: '#FCFBF9',
-    padding: 14,
-  },
-  demoOrderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  demoOrderStatusBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  demoOrderStatusText: { fontSize: 12, fontWeight: '700' },
-  demoOrderDate: { color: '#9B8E80', fontSize: 12, fontWeight: '500' },
-  demoOrderBody: { marginBottom: 10 },
-  demoOrderShop: { color: '#332C25', fontSize: 15, fontWeight: '700' },
-  demoOrderItems: { color: '#71685F', fontSize: 13, marginTop: 2 },
-  demoOrderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EDE8E1', paddingTop: 10 },
-  demoOrderTotal: { color: '#332C25', fontSize: 16, fontWeight: '800' },
-  demoOrderDetailBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  demoOrderDetailBtnText: { color: '#5D7394', fontSize: 13, fontWeight: '600' },
 
   profileLogoutButton: {
     marginTop: 12,
