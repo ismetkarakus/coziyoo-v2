@@ -13,12 +13,17 @@ import { Label } from "@/components/ui/label";
 
 type LoginResponse = {
   data: {
+    admin?: AdminUser;
     tokens: Tokens;
   };
   error?: {
     message?: string;
   };
 };
+
+type MeResponse = {
+  data?: AdminUser;
+} & Partial<AdminUser>;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,13 +45,20 @@ export default function LoginPage() {
       }
 
       setTokens(json.data.tokens);
+      let admin = json.data.admin ?? null;
+
       const meResp = await request("/v1/admin/auth/me");
-      if (meResp.status !== 200) {
+      if (meResp.status === 200) {
+        const me = await parseJson<MeResponse>(meResp);
+        admin = me.data ?? (me.id ? (me as AdminUser) : admin);
+      }
+
+      if (!admin) {
         toast.error("Profile load failed");
         return;
       }
-      const me = await parseJson<{ data: AdminUser }>(meResp);
-      setAdmin(me.data);
+
+      setAdmin(admin);
       router.push("/dashboard");
     } catch (error) {
       const err = error as ApiError;
