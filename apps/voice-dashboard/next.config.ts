@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const apiProxyTarget = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const apiProxyTarget = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.coziyoo.com";
 
 const nextConfig: NextConfig = {
   output: "standalone",
