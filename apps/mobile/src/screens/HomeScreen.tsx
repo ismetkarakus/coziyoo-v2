@@ -42,7 +42,7 @@ import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import { apiRequest } from '../utils/api';
 import VoiceSessionScreen from './VoiceSessionScreen';
-import { requestErrorLine, stockLine, t } from '../copy/brandCopy';
+import { randomHomeGreetingSubtitle, requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -947,6 +947,9 @@ export default function HomeScreen({
   const [greetingName, setGreetingName] = useState<string>(() =>
     resolveGreetingName(null, auth.email),
   );
+  const [greetingSubtitle, setGreetingSubtitle] = useState<string>(() =>
+    randomHomeGreetingSubtitle(),
+  );
   const [dynamicGreetingTitle, setDynamicGreetingTitle] = useState(() =>
     buildGreetingTitle(resolveGreetingName(null, auth.email)),
   );
@@ -1009,6 +1012,13 @@ export default function HomeScreen({
     const interval = setInterval(refreshGreeting, 60_000);
     return () => clearInterval(interval);
   }, [greetingName]);
+
+  useEffect(() => {
+    const refreshSubtitle = () => setGreetingSubtitle(randomHomeGreetingSubtitle());
+    refreshSubtitle();
+    const interval = setInterval(refreshSubtitle, 15 * 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!sloganTrackWidth || !sloganTextWidth) return;
@@ -1874,7 +1884,7 @@ export default function HomeScreen({
                   color={nearbyOnly ? '#D45454' : '#BFAE9D'}
                 />
               </TouchableOpacity>
-              <Text style={styles.greetingSubtitle}>{t('headline.home.greetingSubtitle')}</Text>
+              <Text style={styles.greetingSubtitle}>{greetingSubtitle}</Text>
             </View>
           </View>
           <View style={styles.headerAvatarWrap}>
@@ -2974,7 +2984,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFDF9' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 16, paddingHorizontal: 18, paddingBottom: 130 },
+  scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
 
   /* --- Header --- */
   headerRow: {
@@ -2999,7 +3009,7 @@ const styles = StyleSheet.create({
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
     zIndex: 1,
-    paddingTop: 0,
+    paddingTop: 4,
     paddingBottom: 0,
     marginHorizontal: -12,
     position: 'relative',
@@ -3220,8 +3230,8 @@ const styles = StyleSheet.create({
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
   categoryContent: { gap: 14, paddingRight: 8, paddingBottom: 0, alignItems: 'flex-end' },
-  categoryTextButton: { paddingTop: 0, paddingBottom: 0 },
-  categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 15, fontWeight: '700' },
+  categoryTextButton: { paddingTop: 0, paddingBottom: 2 },
+  categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
     marginTop: 0,

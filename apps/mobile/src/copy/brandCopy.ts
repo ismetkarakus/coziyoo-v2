@@ -214,8 +214,49 @@ export const brandCopy = {
 
 export type BrandCopyKey = keyof typeof brandCopy;
 
+const HOME_SUBTITLE_GENERIC_VARIANTS = [
+  'Bugün ne yesek?',
+  'Bugün ne tavsiye etmemi istersin?',
+  'En çok satan yemeklere bakalım mı?',
+] as const;
+
+const HOME_SUBTITLE_DAYPART_VARIANTS = {
+  morning: [
+    'Kahvaltıda ne yesek?',
+    'Kahvaltı için ne tavsiye etmemi istersin?',
+    'Bugün kahvaltıda ne yiyelim?',
+  ],
+  noon: [
+    'Öğlene ne yesek?',
+    'Öğlen için ne tavsiye etmemi istersin?',
+    'Bugün öğlen ne yiyelim?',
+  ],
+  evening: [
+    'Akşama ne yesek?',
+    'Akşam için ne tavsiye etmemi istersin?',
+    'Bu akşam ne yemek istersin?',
+  ],
+} as const;
+
 export function t(key: BrandCopyKey): string {
   return brandCopy[key];
+}
+
+export function randomHomeGreetingSubtitle(date = new Date()): string {
+  const hour = date.getHours();
+  const dayPart =
+    hour < 11
+      ? 'morning'
+      : hour < 17
+        ? 'noon'
+        : 'evening';
+
+  const pool = [
+    ...HOME_SUBTITLE_DAYPART_VARIANTS[dayPart],
+    ...HOME_SUBTITLE_GENERIC_VARIANTS,
+  ];
+
+  return pool[Math.floor(Math.random() * pool.length)] ?? 'Bugün ne yesek?';
 }
 
 export function stockLine(totalStock: number, remainingStock: number): string {
