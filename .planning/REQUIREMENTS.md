@@ -20,7 +20,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PROF-03**: User can delete a profile (with confirmation, cannot delete the active profile)
 - [x] **PROF-04**: User can clone an existing profile as a starting point for a new one
 - [x] **PROF-05**: User can mark one profile as active (exclusive — only one active at a time)
-- [ ] **PROF-06**: Active profile is visually indicated in the sidebar
+- [x] **PROF-06**: Active profile is visually indicated in the sidebar
 
 ### Model Configuration (LLM Tab)
 
@@ -130,7 +130,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROF-03 | Phase 2 | Complete |
 | PROF-04 | Phase 2 | Complete |
 | PROF-05 | Phase 2 | Complete |
-| PROF-06 | Phase 2 | Pending |
+| PROF-06 | Phase 2 | Complete |
 | MODEL-01 | Phase 2 | Complete |
 | MODEL-02 | Phase 2 | Complete |
 | MODEL-03 | Phase 2 | Complete |

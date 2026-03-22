@@ -43,8 +43,8 @@ Plans:
   5. User can test connectivity for each provider (LLM, TTS, STT, N8N) from the dashboard and see success/failure feedback, including hearing TTS audio playback and seeing STT transcription results
 **Plans:** 3 plans
 Plans:
-- [ ] 02-01-PLAN.md -- Backend API: agent_profiles DB table + CRUD/activate/duplicate routes + integration tests
-- [ ] 02-02-PLAN.md -- Frontend shell: dependencies, TanStack Query, profile sidebar with CRUD actions, editor page with 4-tab layout
+- [x] 02-01-PLAN.md -- Backend API: agent_profiles DB table + CRUD/activate/duplicate routes + integration tests
+- [x] 02-02-PLAN.md -- Frontend shell: dependencies, TanStack Query, profile sidebar with CRUD actions, editor page with 4-tab layout
 - [ ] 02-03-PLAN.md -- Tab content: Model/Voice/Transcriber/Tools form fields, connection testing, cURL import
 
 ### Phase 3: Provider Adapter System
@@ -77,7 +77,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete | 2026-03-22 (01-01, 01-02, 01-03, 01-04, 01-05) |
-| 2. Profile Management | 0/3 | In progress | - |
+| 2. Profile Management | 2/3 | In progress | 2026-03-22 (02-01, 02-02) |
 | 3. Provider Adapter System | 0/3 | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |
 

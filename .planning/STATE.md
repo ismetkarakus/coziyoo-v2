@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-22T16:00:35.981Z"
+last_updated: "2026-03-22T16:13:30.735Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 6
+  total_plans: 11
+  completed_plans: 7
 ---
 
 # Project State: Voice Agent Dashboard
@@ -22,16 +22,16 @@ progress:
 ## Current Position
 
 Phase: 02 (profile-management) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 6 |
+| Plans completed | 7 |
 | Plans failed | 0 |
 | Total requirements | 45 |
-| Requirements done | 31 |
+| Requirements done | 32 |
 | Phases complete | 1/4 |
 | Phase 01-foundation P01 | 6m | 2 tasks | 32 files |
 | Phase 01-foundation P03 | 10min | 3 tasks | 4 files |
@@ -39,6 +39,7 @@ Plan: 2 of 3
 | Phase 01-foundation P05 | 2min | 2 tasks | 2 files |
 | Phase 01-foundation P04 | 2min | 2 tasks | 3 files |
 | Phase 02-profile-management P01 | 5m | 2 tasks | 3 files |
+| Phase 02-profile-management P02 | 11m | 2 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Plan: 2 of 3
 - Mounted `/v1/admin/agent-profiles` behind `requireAuth("admin")` and isolated handler logic in a dedicated router.
 - Preserved provider flexibility by storing profile provider settings in JSONB (`llm_config`, `stt_config`, `tts_config`, `n8n_config`).
 - Enforced exclusive active profile switching with transaction (`BEGIN` → clear active → set target active → `COMMIT`).
+- Kept profile data flow in TanStack Query hooks and invalidated list/detail keys after mutations.
+- Implemented `/profiles` as a redirecting index page so sidebar remains the single navigation source.
+- Stabilized generated shadcn/Radix typing by normalizing imports and intrinsic prop typing to pass Next build.
 
 ### Research Findings Applied
 
@@ -82,8 +86,8 @@ Plan: 2 of 3
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T16:00:35.979Z
-**Next action:** Execute 02-02-PLAN.md (frontend profile sidebar/editor shell).
+**Last session:** 2026-03-22T16:13:30.733Z
+**Next action:** Execute 02-03-PLAN.md (tab content, connectivity tests, cURL import).
 
 ---
 *State initialized: 2026-03-22*
