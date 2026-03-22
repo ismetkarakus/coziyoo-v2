@@ -75,7 +75,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### App & Deployment
 
-- [ ] **APP-01**: Dashboard runs as a standalone Next.js app in the npm monorepo (apps/voice-dashboard)
+- [x] **APP-01**: Dashboard runs as a standalone Next.js app in the npm monorepo (apps/voice-dashboard)
 - [ ] **APP-02**: Dashboard is accessible at agent.coziyoo.com via Nginx proxy
 - [ ] **APP-03**: Dashboard integrates with CI/CD pipeline (deploy on push, same as other services)
 
@@ -122,7 +122,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
-| APP-01 | Phase 1 | Pending |
+| APP-01 | Phase 1 | Complete |
 | APP-02 | Phase 1 | Pending |
 | APP-03 | Phase 1 | Pending |
 | PROF-01 | Phase 2 | Pending |
