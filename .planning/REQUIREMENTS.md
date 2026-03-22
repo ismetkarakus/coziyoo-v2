@@ -60,11 +60,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Provider Adapter System (Voice Agent)
 
-- [ ] **ADAPT-01**: Voice agent uses OpenAI-compatible client as the base for all LLM, TTS, and STT requests
-- [ ] **ADAPT-02**: Service-specific adapters can override request headers on top of the OpenAI base
-- [ ] **ADAPT-03**: Service-specific adapters can override body params on top of the OpenAI base
-- [ ] **ADAPT-04**: Service-specific adapters can override endpoint paths on top of the OpenAI base
-- [ ] **ADAPT-05**: Service-specific adapters can remap request/response fields for non-OpenAI response shapes
+- [x] **ADAPT-01**: Voice agent uses OpenAI-compatible client as the base for all LLM, TTS, and STT requests
+- [x] **ADAPT-02**: Service-specific adapters can override request headers on top of the OpenAI base
+- [x] **ADAPT-03**: Service-specific adapters can override body params on top of the OpenAI base
+- [x] **ADAPT-04**: Service-specific adapters can override endpoint paths on top of the OpenAI base
+- [x] **ADAPT-05**: Service-specific adapters can remap request/response fields for non-OpenAI response shapes
 
 ### Call Logs
 
@@ -155,11 +155,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TOOLS-03 | Phase 2 | Complete |
 | TOOLS-04 | Phase 2 | Complete |
 | TOOLS-05 | Phase 2 | Complete |
-| ADAPT-01 | Phase 3 | Pending |
-| ADAPT-02 | Phase 3 | Pending |
-| ADAPT-03 | Phase 3 | Pending |
-| ADAPT-04 | Phase 3 | Pending |
-| ADAPT-05 | Phase 3 | Pending |
+| ADAPT-01 | Phase 3 | Complete |
+| ADAPT-02 | Phase 3 | Complete |
+| ADAPT-03 | Phase 3 | Complete |
+| ADAPT-04 | Phase 3 | Complete |
+| ADAPT-05 | Phase 3 | Complete |
 | LOGS-01 | Phase 4 | Pending |
 | LOGS-02 | Phase 4 | Pending |
 | LOGS-03 | Phase 4 | Pending |

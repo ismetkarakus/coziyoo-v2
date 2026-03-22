@@ -7,8 +7,8 @@
 ## Phases
 
 - [x] **Phase 1: Foundation** - DB schema, API routes, CORS config, deployment pipeline (Next.js scaffold superseded — see Phase 2 pivot)
-- [ ] **Phase 2: Profile Management** - FastAPI+HTMX dashboard served from voice-agent: profile CRUD, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
-- [ ] **Phase 3: Provider Adapter System** - OpenAI-compatible base client in Python voice agent, service-specific adapters with header/body/path/field overrides
+- [x] **Phase 2: Profile Management** - FastAPI+HTMX dashboard served from voice-agent: profile CRUD, 4-tab config editor (Model|Voice|Transcriber|Tools), activation toggle, connection testing, cURL import
+- [x] **Phase 3: Provider Adapter System** - OpenAI-compatible base client in Python voice agent, service-specific adapters with header/body/path/field overrides (completed 2026-03-22)
 - [ ] **Phase 4: Call Logs** - Call session persistence, log viewer with date and profile filtering
 
 ## Phase Details
@@ -58,11 +58,11 @@ Plans:
   2. Custom headers configured in a dashboard profile are injected into the outgoing provider request at call time
   3. Custom body params and endpoint path overrides configured in a dashboard profile are applied to the outgoing provider request
   4. Non-OpenAI providers that return different response shapes have their fields remapped transparently -- the agent code does not branch on provider type
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
-- [ ] 03-01-PLAN.md -- Wave 0: pytest infrastructure + test stubs for all ADAPT requirements
-- [ ] 03-02-PLAN.md -- Adapter module: Pydantic config models, factory functions (build_llm/tts/stt), response remapping
-- [ ] 03-03-PLAN.md -- Entrypoint wiring: refactor _build_* functions to delegate to adapter module
+- [x] 03-01-PLAN.md -- Wave 0: pytest infrastructure + test stubs for all ADAPT requirements
+- [x] 03-02-PLAN.md -- Adapter module: Pydantic config models, factory functions (build_llm/tts/stt), response remapping
+- [x] 03-03-PLAN.md -- Entrypoint wiring: refactor _build_* functions to delegate to adapter module
 
 ### Phase 4: Call Logs
 **Goal**: Users can see what happened with past voice sessions -- which profile was used, how long the call lasted, and whether it succeeded
@@ -80,7 +80,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete | 2026-03-22 (DB schema, API routes, CORS, deploy) |
 | 2. Profile Management | 3/3 | Complete | 2026-03-22 (FastAPI dashboard profile management delivered) |
-| 3. Provider Adapter System | 0/3 | Not started | - |
+| 3. Provider Adapter System | 3/3 | Complete | 2026-03-22 |
 | 4. Call Logs | 0/? | Not started | - |
 
 ## Dependencies
