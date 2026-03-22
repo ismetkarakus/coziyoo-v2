@@ -315,10 +315,10 @@ function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?
 
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 26) return { fontSize: 19, lineHeight: 25 };
-  if (text.length >= 21) return { fontSize: 21, lineHeight: 27 };
-  if (text.length >= 16) return { fontSize: 23, lineHeight: 29 };
-  return { fontSize: 26, lineHeight: 32 };
+  if (text.length >= 26) return { fontSize: 21, lineHeight: 27 };
+  if (text.length >= 21) return { fontSize: 24, lineHeight: 30 };
+  if (text.length >= 16) return { fontSize: 26, lineHeight: 32 };
+  return { fontSize: 28, lineHeight: 34 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2167,11 +2167,11 @@ export default function HomeScreen({
       >
         {/* Hero Header with Gradient BG */}
         <View style={styles.heroWrap}>
-          {/* Gradient: #F6E7D8 0% → #F3D6B8 40% → #F7EFE7 100% */}
+          {/* Gradient: warm palette #F9E9D5 → #F0D5AE → #FCF8EE */}
           {LinearGradient ? (
             <LinearGradient
-              colors={['#F6E7D8', '#F3D6B8', '#F7EFE7']}
-              locations={[0, 0.4, 1]}
+              colors={['#F9E9D5', '#F0D5AE', '#FCF8EE']}
+              locations={[0, 0.45, 1]}
               style={styles.heroGradient}
             />
           ) : (
@@ -2192,14 +2192,15 @@ export default function HomeScreen({
           {LinearGradient ? (
             <>
               <LinearGradient
-                colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.78)', 'rgba(246,231,216,0)']}
+                colors={['rgba(249,233,213,1)', 'rgba(249,233,213,0.85)', 'rgba(240,213,174,0.4)', 'rgba(240,213,174,0)']}
+                  locations={[0, 0.25, 0.6, 1]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.heroFoodBgOverlayLeft}
                 />
                 <LinearGradient
-                  colors={['rgba(247,239,231,0)', 'rgba(252,248,238,0.72)', '#FCF8EE']}
-                  locations={[0.4, 0.8, 1]}
+                  colors={['rgba(252,248,238,0)', 'rgba(252,248,238,0.55)', '#FCF8EE']}
+                  locations={[0.35, 0.75, 1]}
                   style={styles.heroFoodBgOverlayBottom}
                 />
             </>
@@ -2217,8 +2218,8 @@ export default function HomeScreen({
           {/* Header overlay: transparent top → white bottom (the magic fade) */}
           {LinearGradient ? (
             <LinearGradient
-              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.6)', '#ffffff']}
-              locations={[0.4, 0.75, 1]}
+              colors={['rgba(252,248,238,0)', 'rgba(252,248,238,0.5)', '#FCF8EE']}
+              locations={[0.45, 0.78, 1]}
               style={styles.heroOverlay}
             />
           ) : (
@@ -3493,7 +3494,7 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#F6E7D8',
+    backgroundColor: '#F9E9D5',
     overflow: 'hidden',
   },
   /* Real LinearGradient background */
@@ -3506,7 +3507,7 @@ const styles = StyleSheet.create({
   },
   heroGradientSolid: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#F6E7D8',
+    backgroundColor: '#F9E9D5',
   },
   heroGradientSoftMid: {
     position: 'absolute',
@@ -3514,7 +3515,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '66%',
-    backgroundColor: '#F3D6B8',
+    backgroundColor: '#F0D5AE',
     opacity: 0.48,
   },
   heroGradientSoftBottom: {
@@ -3554,8 +3555,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '64%',
-    backgroundColor: 'rgba(252,248,238,0.16)',
+    height: '58%',
+    backgroundColor: 'rgba(252,248,238,0.14)',
     zIndex: 2,
   },
   heroOverlayFallbackSoft2: {
@@ -3563,8 +3564,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '44%',
-    backgroundColor: 'rgba(252,248,238,0.28)',
+    height: '38%',
+    backgroundColor: 'rgba(252,248,238,0.30)',
     zIndex: 2,
   },
   heroOverlayFallbackSoft3: {
@@ -3572,8 +3573,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '26%',
-    backgroundColor: 'rgba(252,248,238,0.52)',
+    height: '22%',
+    backgroundColor: 'rgba(252,248,238,0.55)',
     zIndex: 2,
   },
   /* Gradient overlays that fade food image into background */
@@ -3581,7 +3582,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '66%',
+    width: '75%',
     height: '100%',
   },
   heroFoodBgOverlayBottom: {
@@ -3597,7 +3598,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(246,231,216,0.16)',
+    backgroundColor: 'rgba(249,233,213,0.16)',
   },
   heroFoodBgFallbackLeft2: {
     position: 'absolute',
@@ -3605,7 +3606,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '78%',
     height: '100%',
-    backgroundColor: 'rgba(246,231,216,0.24)',
+    backgroundColor: 'rgba(249,233,213,0.28)',
   },
   heroFoodBgFallbackLeft3: {
     position: 'absolute',
@@ -3613,7 +3614,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '56%',
     height: '100%',
-    backgroundColor: 'rgba(246,231,216,0.32)',
+    backgroundColor: 'rgba(249,233,213,0.40)',
   },
   heroFoodBgFallbackLeft4: {
     position: 'absolute',
@@ -3621,7 +3622,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '36%',
     height: '100%',
-    backgroundColor: 'rgba(246,231,216,0.42)',
+    backgroundColor: 'rgba(249,233,213,0.55)',
   },
   heroFoodBgFallbackBottom1: {
     position: 'absolute',
@@ -3645,13 +3646,13 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
-  greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#38261D', fontSize: 23, lineHeight: 28, fontWeight: '800' },
+  greetingEmoji: { fontSize: 28, opacity: 0.9, marginLeft: 6 },
+  greetingTitle: { color: '#38261D', fontSize: 26, lineHeight: 32, fontWeight: '900' },
   heroSubtitle: {
     color: '#38261D',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    marginTop: 3,
+    marginTop: 4,
   },
   heroLocationRow: {
     flexDirection: 'row',
@@ -3738,16 +3739,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   chipRow: {
-    gap: 8,
+    gap: 7,
     paddingHorizontal: 14,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FCF8EE',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderRadius: 22,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#E8E1D9',
   },
