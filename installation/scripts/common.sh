@@ -243,7 +243,8 @@ ensure_api_env_defaults() {
   local pg_user_default="${PG_USER:-coziyoo}"
   local pg_password_default="${PG_PASSWORD:-coziyoo}"
   local admin_domain="${ADMIN_DOMAIN:-admin.coziyoo.com}"
-  local cors_default="${API_CORS_ALLOWED_ORIGINS:-https://${admin_domain},http://${admin_domain},http://localhost:8081,http://localhost:5173,http://localhost:19006}"
+  local voice_dashboard_domain="${VOICE_DASHBOARD_DOMAIN:-agent.coziyoo.com}"
+  local cors_default="${API_CORS_ALLOWED_ORIGINS:-https://${admin_domain},http://${admin_domain},https://${voice_dashboard_domain},http://localhost:8081,http://localhost:5173,http://localhost:19006,http://localhost:3001}"
   local defaults=(
     "PGHOST=127.0.0.1"
     "PGPORT=5432"

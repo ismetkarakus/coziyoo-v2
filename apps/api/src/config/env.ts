@@ -18,7 +18,7 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ALLOWED_ORIGINS: z
     .string()
-    .default("http://localhost:8081,http://localhost:5173,http://localhost:19006"),
+    .default("http://localhost:8081,http://localhost:5173,http://localhost:19006,http://localhost:3001"),
   DATABASE_URL: z.string().url().optional(),
   PGHOST: z.string().min(1).optional(),
   PGPORT: z.coerce.number().int().positive().optional(),
