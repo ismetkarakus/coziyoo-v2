@@ -488,6 +488,9 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   Salata: 'Salatalar',
 };
 
+const DEFAULT_HOME_HEADER_IMAGE_URL =
+  'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1400&q=80';
+
 function normalizeDishText(value: string): string {
   return value
     .toLocaleLowerCase('tr-TR')
@@ -978,6 +981,10 @@ export default function HomeScreen({
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
+  // TODO: admin panelden gelecek header görsel URL'i bu state'e bağlanacak.
+  const [headerImageUrl] = useState(DEFAULT_HOME_HEADER_IMAGE_URL);
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
   );
@@ -1583,6 +1590,23 @@ export default function HomeScreen({
     setMessagesWallpaperIndex((prev) => (prev + 1) % MESSAGE_WALLPAPERS.length);
   }
 
+  function applyLocationSelection(type: 'current' | 'home' | 'work' | 'new') {
+    if (type === 'current') {
+      setSelectedLocationLabel('Kadıköy • 2.5 km çevre');
+      setNearbyOnly(true);
+    } else if (type === 'home') {
+      setSelectedLocationLabel('Ev • 4.0 km çevre');
+      setNearbyOnly(false);
+    } else if (type === 'work') {
+      setSelectedLocationLabel('İş • 3.0 km çevre');
+      setNearbyOnly(false);
+    } else {
+      setSelectedLocationLabel('Yeni adres • 5.0 km çevre');
+      setNearbyOnly(false);
+    }
+    setLocationModalVisible(false);
+  }
+
   function addMealToCart(meal: MealCard) {
     setActiveOrderId(null);
     setActiveOrderIds([]);
@@ -2040,20 +2064,20 @@ export default function HomeScreen({
           {/* Right-side food background image */}
           <View style={styles.heroFoodBgWrap}>
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=600&fit=crop' }}
+              source={{ uri: headerImageUrl }}
               style={styles.heroFoodBgImg}
             />
             {/* Fade overlays → blend food image into gradient */}
             {LinearGradient ? (
               <>
                 <LinearGradient
-                  colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.6)', 'rgba(246,231,216,0)']}
+                  colors={['rgba(246,231,216,1)', 'rgba(246,231,216,0.78)', 'rgba(246,231,216,0)']}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.heroFoodBgOverlayLeft}
                 />
                 <LinearGradient
-                  colors={['rgba(247,239,231,0)', 'rgba(247,239,231,0.7)', 'rgba(247,239,231,1)']}
+                  colors={['rgba(247,239,231,0)', 'rgba(252,248,238,0.72)', '#FCF8EE']}
                   locations={[0.4, 0.8, 1]}
                   style={styles.heroFoodBgOverlayBottom}
                 />
@@ -2061,7 +2085,7 @@ export default function HomeScreen({
             ) : (
               <>
                 <View style={[styles.heroFoodBgOverlayLeft, { backgroundColor: 'rgba(246,231,216,0.85)' }]} />
-                <View style={[styles.heroFoodBgOverlayBottom, { backgroundColor: 'rgba(247,239,231,0.7)' }]} />
+                <View style={[styles.heroFoodBgOverlayBottom, { backgroundColor: 'rgba(252,248,238,0.72)' }]} />
               </>
             )}
           </View>
@@ -2108,13 +2132,13 @@ export default function HomeScreen({
             </View>
             <Text style={styles.heroSubtitle}>Bugün ne yesek?</Text>
             <TouchableOpacity
-              onPress={() => setNearbyOnly((prev) => !prev)}
+              onPress={() => setLocationModalVisible(true)}
               activeOpacity={0.8}
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               style={styles.heroLocationRow}
             >
-              <Ionicons name="location" size={16} color="#4CAF50" />
-              <Text style={styles.heroLocationText}>Kadıköy · 2.5 km çevre</Text>
+              <Ionicons name="location" size={16} color="#619670" />
+              <Text style={styles.heroLocationText}>{selectedLocationLabel}</Text>
               <Ionicons name="chevron-down" size={14} color="#8B6A4E" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
@@ -2726,6 +2750,52 @@ export default function HomeScreen({
       </Modal>
 
       <Modal
+        visible={locationModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLocationModalVisible(false)}
+      >
+        <View style={styles.profileEditOverlay}>
+          <TouchableOpacity
+            style={styles.profileEditBackdrop}
+            activeOpacity={1}
+            onPress={() => setLocationModalVisible(false)}
+          />
+          <View style={styles.locationSheet}>
+            <Text style={styles.locationSheetTitle}>Adres Seç</Text>
+            <TouchableOpacity
+              style={styles.locationSheetButton}
+              activeOpacity={0.86}
+              onPress={() => applyLocationSelection('current')}
+            >
+              <Text style={styles.locationSheetButtonText}>📍 Konumumu kullan</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.locationSheetButton}
+              activeOpacity={0.86}
+              onPress={() => applyLocationSelection('home')}
+            >
+              <Text style={styles.locationSheetButtonText}>🏠 Ev</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.locationSheetButton}
+              activeOpacity={0.86}
+              onPress={() => applyLocationSelection('work')}
+            >
+              <Text style={styles.locationSheetButtonText}>🏢 İş</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.locationSheetButton}
+              activeOpacity={0.86}
+              onPress={() => applyLocationSelection('new')}
+            >
+              <Text style={styles.locationSheetButtonText}>+ Yeni adres ekle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={profileEditModalVisible}
         transparent
         animationType="fade"
@@ -3232,8 +3302,8 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
-  safe: { flex: 1, backgroundColor: '#F7EFE7' },
-  container: { flex: 1, backgroundColor: '#F7EFE7' },
+  safe: { flex: 1, backgroundColor: '#FCF8EE' },
+  container: { flex: 1, backgroundColor: '#FCF8EE' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 130 },
@@ -3260,7 +3330,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: '65%',
+    width: '66%',
     height: '100%',
   },
   heroFoodBgImg: {
@@ -3283,7 +3353,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '55%',
+    width: '64%',
     height: '100%',
   },
   heroFoodBgOverlayBottom: {
@@ -3291,20 +3361,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '50%',
+    height: '58%',
   },
   heroTextArea: {
     zIndex: 3,
-    maxWidth: '55%',
+    maxWidth: '58%',
     paddingTop: 8,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
   greetingTitle: { color: '#5A3E2B', fontSize: 28, lineHeight: 34, fontWeight: '800' },
   heroSubtitle: {
-    color: '#8B6A4E',
+    color: '#5A3E2B',
     fontSize: 17,
-    fontWeight: '500',
+    fontWeight: '700',
     marginTop: 6,
   },
   heroLocationRow: {
@@ -3314,9 +3384,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroLocationText: {
-    color: '#5A3E2B',
+    color: '#619670',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   heroAvatarCircle: {
     position: 'absolute',
@@ -3345,7 +3415,7 @@ const styles = StyleSheet.create({
   floatingSearchWrap: {
     marginBottom: 16,
     marginHorizontal: 14,
-    marginTop: -10,
+    marginTop: -32,
     zIndex: 5,
   },
   floatingSearchBar: {
@@ -3353,15 +3423,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    minHeight: 54,
-    paddingHorizontal: 18,
-    paddingVertical: 6,
-    /* Premium shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04) */
-    shadowColor: 'rgba(90, 62, 43, 1)',
-    shadowOffset: { width: 0, height: 8 },
+    minHeight: 62,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    shadowColor: '#5A3E2B',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
+    shadowRadius: 30,
+    elevation: 8,
   },
   floatingSearchBarActive: {
     borderWidth: 1,
@@ -3376,7 +3445,7 @@ const styles = StyleSheet.create({
   },
   floatingSearchPlaceholder: {
     flex: 1,
-    color: '#C4B8AC',
+    color: '#B8B0A6',
     fontSize: 16,
     fontWeight: '400',
   },
@@ -3399,16 +3468,16 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5EB',
+    backgroundColor: '#FCF8EE',
     borderRadius: 28,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderWidth: 1.5,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderWidth: 1,
     borderColor: '#E8E1D9',
   },
   chipActive: {
-    backgroundColor: '#2D5A3D',
-    borderColor: '#2D5A3D',
+    backgroundColor: '#38261D',
+    borderColor: '#38261D',
   },
   chipEmoji: {
     fontSize: 20,
@@ -3442,21 +3511,22 @@ const styles = StyleSheet.create({
   },
   nearbyHeaderTitle: {
     color: '#5A3E2B',
-    fontSize: 18,
+    fontSize: 46 / 2,
     fontWeight: '700',
   },
   nearbyHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8D5C4',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    borderColor: '#F0CFC0',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     gap: 4,
+    backgroundColor: '#FFF8F4',
   },
   nearbyHeaderBtnText: {
-    color: '#D4763C',
+    color: '#E35A33',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -4376,6 +4446,39 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
     backgroundColor: '#FFFDF9',
+  },
+  locationSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 26,
+    gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  locationSheetTitle: {
+    color: '#38261D',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  locationSheetButton: {
+    backgroundColor: '#FCF8EE',
+    borderWidth: 1,
+    borderColor: '#E8E1D9',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  locationSheetButtonText: {
+    color: '#5A3E2B',
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   /* --- Agent modal --- */
