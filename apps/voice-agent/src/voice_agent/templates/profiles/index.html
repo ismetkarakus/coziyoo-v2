@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Agent Profiles{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+  <h2 style="margin:0;">Agent Profiles</h2>
+  <form method="post" action="/dashboard/logout">
+    <button class="btn" type="submit">Logout</button>
+  </form>
+</div>
+
+<div class="layout">
+  <div class="card">
+    <div id="profiles-sidebar">
+      {% include "profiles/_sidebar.html" %}
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0;">Profile Editor</h3>
+    <p class="muted">Select a profile from the left panel to open editor tabs.</p>
+    <div id="profile-editor"></div>
+  </div>
+</div>
+{% endblock %}

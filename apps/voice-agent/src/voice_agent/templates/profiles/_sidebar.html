@@ -1,0 +1,42 @@
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+  <h3 style="margin:0;">Profiles</h3>
+</div>
+
+<form
+  hx-post="/dashboard/profiles"
+  hx-target="#profiles-sidebar"
+  hx-swap="outerHTML"
+  style="display:flex; gap:8px; margin-bottom:12px;">
+  <input class="input" type="text" name="name" placeholder="New profile name" required />
+  <button class="btn btn-primary" type="submit">Create</button>
+</form>
+
+{% if message %}
+  <div class="muted" style="margin-bottom:10px;">{{ message }}</div>
+{% endif %}
+
+<div class="list">
+  {% for profile in profiles %}
+    <div class="card" style="padding:10px; border-radius:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <button
+          class="btn"
+          type="button"
+          hx-get="/dashboard/profiles/{{ profile.id }}"
+          hx-target="#profile-editor"
+          hx-swap="innerHTML"
+          style="flex:1; text-align:left;">
+          {{ profile.name }}
+        </button>
+        {% if profile.is_active %}
+          <span class="badge badge-active">Active</span>
+        {% endif %}
+      </div>
+      <div style="display:flex; gap:6px; margin-top:8px;">
+        <button class="btn" type="button" hx-post="/dashboard/profiles/{{ profile.id }}/activate" hx-target="#profiles-sidebar" hx-swap="outerHTML">Activate</button>
+        <button class="btn" type="button" hx-post="/dashboard/profiles/{{ profile.id }}/duplicate" hx-target="#profiles-sidebar" hx-swap="outerHTML">Duplicate</button>
+        <button class="btn" type="button" hx-post="/dashboard/profiles/{{ profile.id }}/delete" hx-target="#profiles-sidebar" hx-swap="outerHTML">Delete</button>
+      </div>
+    </div>
+  {% endfor %}
+</div>

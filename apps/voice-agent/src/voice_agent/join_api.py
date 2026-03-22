@@ -6,13 +6,22 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.templating import Jinja2Templates
 from livekit import api
 from pydantic import BaseModel, Field
 
 from .config.settings import get_settings
+from .dashboard_api import api_request
+from .dashboard_auth import (
+    clear_auth_cookies,
+    ensure_access_token,
+    extract_error_message,
+    set_auth_cookies,
+)
 
 logger = logging.getLogger("coziyoo-voice-agent-join")
 settings = get_settings()
@@ -23,6 +32,7 @@ if not settings.ai_server_shared_secret or len(settings.ai_server_shared_secret)
         "Set it in .env or the environment before starting the join API."
     )
 app = FastAPI(title="coziyoo-voice-agent-join")
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 request_log_file = Path(
     os.getenv("VOICE_AGENT_REQUEST_LOG_FILE", "/workspace/.runtime/voice-agent-requests.log")
 )
@@ -30,6 +40,174 @@ worker_heartbeat_file = Path(
     os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_FILE", "/workspace/.runtime/voice-agent-worker-heartbeat.json")
 )
 worker_heartbeat_stale_seconds = int(os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_STALE_SECONDS", "20"))
+
+
+async def _fetch_profiles(access_token: str) -> tuple[list[dict[str, Any]], str | None]:
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/agent-profiles",
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return [], extract_error_message(payload, "Failed to load profiles")
+    rows = payload.get("data")
+    if not isinstance(rows, list):
+        return [], "Invalid profile list response"
+    return [row for row in rows if isinstance(row, dict)], None
+
+
+async def _render_sidebar(request: Request, access_token: str, message: str | None = None) -> HTMLResponse:
+    profiles, error_message = await _fetch_profiles(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_sidebar.html",
+        context={"profiles": profiles, "message": message or error_message},
+    )
+
+
+@app.get("/dashboard/login", response_class=HTMLResponse)
+async def dashboard_login_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+
+
+@app.post("/dashboard/login")
+async def dashboard_login(request: Request):
+    form = await request.form()
+    email = str(form.get("email") or "").strip().lower()
+    password = str(form.get("password") or "")
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/auth/login",
+        access_token=None,
+        json_body={"email": email, "password": password},
+    )
+
+    if status != 200 or not isinstance(payload, dict):
+        message = extract_error_message(payload, "Login failed")
+        return templates.TemplateResponse(request=request, name="login.html", context={"error": message}, status_code=401)
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    tokens = data.get("tokens") if isinstance(data, dict) else None
+    access = tokens.get("accessToken") if isinstance(tokens, dict) else None
+    refresh = tokens.get("refreshToken") if isinstance(tokens, dict) else None
+    if not isinstance(access, str) or not isinstance(refresh, str):
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"error": "Login response did not include tokens"},
+            status_code=502,
+        )
+
+    response = RedirectResponse(url="/dashboard/profiles", status_code=303)
+    set_auth_cookies(response, access, refresh)
+    return response
+
+
+@app.post("/dashboard/logout")
+async def dashboard_logout(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/auth/logout",
+        access_token=access_token,
+        json_body={},
+    )
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
+    clear_auth_cookies(response)
+    return response
+
+
+@app.get("/dashboard/profiles", response_class=HTMLResponse)
+async def dashboard_profiles(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    profiles, error_message = await _fetch_profiles(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/index.html",
+        context={"profiles": profiles, "message": error_message},
+    )
+
+
+@app.post("/dashboard/profiles", response_class=HTMLResponse)
+async def dashboard_create_profile(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    form = await request.form()
+    name = str(form.get("name") or "").strip()
+    message = None
+    if not name:
+        message = "Profile name is required"
+    else:
+        status, payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="POST",
+            path="/v1/admin/agent-profiles",
+            access_token=access_token,
+            json_body={"name": name},
+        )
+        if status not in {200, 201}:
+            message = extract_error_message(payload, "Profile create failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.post("/dashboard/profiles/{profile_id}/activate", response_class=HTMLResponse)
+async def dashboard_activate_profile(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path=f"/v1/admin/agent-profiles/{profile_id}/activate",
+        access_token=access_token,
+        json_body={},
+    )
+    message = None if status == 200 else extract_error_message(payload, "Activation failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.post("/dashboard/profiles/{profile_id}/duplicate", response_class=HTMLResponse)
+async def dashboard_duplicate_profile(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path=f"/v1/admin/agent-profiles/{profile_id}/duplicate",
+        access_token=access_token,
+        json_body={},
+    )
+    message = None if status in {200, 201} else extract_error_message(payload, "Duplicate failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.post("/dashboard/profiles/{profile_id}/delete", response_class=HTMLResponse)
+async def dashboard_delete_profile(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="DELETE",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    message = None
+    if status == 409:
+        message = extract_error_message(payload, "CANNOT_DELETE_ACTIVE")
+    elif status != 200:
+        message = extract_error_message(payload, "Delete failed")
+    return await _render_sidebar(request, access_token, message)
 
 
 class JoinRequest(BaseModel):
