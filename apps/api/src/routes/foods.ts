@@ -139,6 +139,83 @@ foodsRouter.get("/", async (req, res) => {
 });
 
 /**
+ * GET /v1/foods/top-sold
+ * List most sold dishes aggregated across all sellers by dish name.
+ * Query params: limit (default 12, max 50)
+ */
+foodsRouter.get("/top-sold", async (req, res) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "12"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 12;
+
+    const { rows } = await pool.query(
+      `
+        WITH per_food AS (
+          SELECT
+            f.id,
+            f.name,
+            f.image_url,
+            f.rating,
+            f.review_count,
+            COALESCE(SUM(oi.quantity), 0)::int AS sold_qty
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          JOIN foods f ON f.id = oi.food_id
+          WHERE o.payment_completed = TRUE
+            AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')
+          GROUP BY f.id, f.name, f.image_url, f.rating, f.review_count
+        ),
+        by_name AS (
+          SELECT
+            lower(trim(name)) AS name_key,
+            MIN(name) AS name,
+            SUM(sold_qty)::int AS total_sold
+          FROM per_food
+          GROUP BY lower(trim(name))
+        ),
+        top_visual AS (
+          SELECT
+            lower(trim(name)) AS name_key,
+            id AS food_id,
+            image_url,
+            ROW_NUMBER() OVER (
+              PARTITION BY lower(trim(name))
+              ORDER BY sold_qty DESC, review_count DESC NULLS LAST, rating DESC NULLS LAST, id
+            ) AS rn
+          FROM per_food
+        )
+        SELECT
+          b.name,
+          b.total_sold,
+          tv.food_id,
+          tv.image_url
+        FROM by_name b
+        LEFT JOIN top_visual tv
+          ON tv.name_key = b.name_key
+         AND tv.rn = 1
+        ORDER BY b.total_sold DESC, b.name ASC
+        LIMIT $1
+      `,
+      [limit],
+    );
+
+    const data = rows.map((r) => ({
+      id: r.food_id ?? `dish-${String(r.name ?? "").toLowerCase()}`,
+      name: r.name as string,
+      imageUrl: (r.image_url as string | null) ?? null,
+      totalSold: Number(r.total_sold ?? 0),
+    }));
+
+    res.json({ data });
+  } catch (err) {
+    console.error("[foods] top sold error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load top sold foods" },
+    });
+  }
+});
+
+/**
  * GET /v1/foods/sellers/:sellerId/foods
  * List active/available foods for a specific seller.
  */

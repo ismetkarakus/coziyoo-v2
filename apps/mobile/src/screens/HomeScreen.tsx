@@ -131,11 +131,11 @@ type FavoriteFoodItem = {
   id: string;
 };
 
-type SellerPreview = {
+type TopSoldFoodItem = {
   id: string;
   name: string;
-  image?: string | null;
-  mealCount: number;
+  imageUrl: string | null;
+  totalSold: number;
 };
 
 type UiCategory =
@@ -953,6 +953,8 @@ export default function HomeScreen({
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
   const [foodSectionOffsetY, setFoodSectionOffsetY] = useState(0);
+  const [topSoldFoods, setTopSoldFoods] = useState<TopSoldFoodItem[]>([]);
+  const [topSoldFoodsLoading, setTopSoldFoodsLoading] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
   const [favoritePendingIds, setFavoritePendingIds] = useState<Record<string, true>>({});
   const showSloganCard = false;
@@ -1043,6 +1045,32 @@ export default function HomeScreen({
     }
     fetchFoods(apiUrl);
   }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTopSoldFoodsLoading(true);
+    apiRequest<TopSoldFoodItem[]>(
+      '/v1/foods/top-sold?limit=12',
+      currentAuth,
+      { actorRole: 'buyer' },
+      handleAuthRefresh,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setTopSoldFoods([]);
+          return;
+        }
+        setTopSoldFoods(Array.isArray(result.data) ? result.data : []);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setTopSoldFoodsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAuth, handleAuthRefresh]);
 
   useEffect(() => {
     if (!currentAuth.accessToken) return;
@@ -1751,24 +1779,6 @@ export default function HomeScreen({
         );
       })
     : nearbyFilteredMeals;
-  const sellers = useMemo<SellerPreview[]>(() => {
-    const bySeller = new Map<string, SellerPreview>();
-    meals.forEach((meal) => {
-      const found = bySeller.get(meal.sellerId);
-      if (found) {
-        found.mealCount += 1;
-        if (!found.image && meal.sellerImage) found.image = meal.sellerImage;
-        return;
-      }
-      bySeller.set(meal.sellerId, {
-        id: meal.sellerId,
-        name: meal.seller,
-        image: meal.sellerImage ?? null,
-        mealCount: 1,
-      });
-    });
-    return Array.from(bySeller.values()).sort((a, b) => b.mealCount - a.mealCount);
-  }, [meals]);
   const sellerMeals = selectedSeller
     ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
     : [];
@@ -2016,37 +2026,34 @@ export default function HomeScreen({
         </View>
         {/* Food cards */}
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
-        {sellers.length > 0 ? (
+        {topSoldFoodsLoading || topSoldFoods.length > 0 ? (
           <View style={styles.sellersSection}>
-            <Text style={styles.sellersSectionTitle}>Satıcılar</Text>
+            <Text style={styles.sellersSectionTitle}>En çok satılan yemekler</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.sellersRow}
             >
-              {sellers.map((seller) => (
-                <TouchableOpacity
-                  key={seller.id}
-                  style={styles.sellerChip}
-                  activeOpacity={0.86}
-                  onPress={() => setSelectedSeller({
-                    id: seller.id,
-                    name: seller.name,
-                    image: seller.image ?? null,
-                  })}
-                >
+              {topSoldFoodsLoading ? (
+                <View style={styles.topSoldLoadingChip}>
+                  <ActivityIndicator size="small" color="#4A7C59" />
+                  <Text style={styles.topSoldLoadingText}>Yükleniyor...</Text>
+                </View>
+              ) : null}
+              {topSoldFoods.map((food) => (
+                <View key={food.id} style={styles.sellerChip}>
                   <View style={styles.sellerChipAvatar}>
-                    {seller.image ? (
-                      <Image source={{ uri: seller.image }} style={styles.sellerChipAvatarImage} />
+                    {food.imageUrl ? (
+                      <Image source={{ uri: food.imageUrl }} style={styles.sellerChipAvatarImage} />
                     ) : (
-                      <Text style={styles.sellerChipAvatarEmoji}>👩‍🍳</Text>
+                      <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
                     )}
                   </View>
                   <View style={styles.sellerChipTextWrap}>
-                    <Text style={styles.sellerChipName} numberOfLines={1}>{seller.name}</Text>
-                    <Text style={styles.sellerChipMeta}>{seller.mealCount} yemek</Text>
+                    <Text style={styles.sellerChipName} numberOfLines={1}>{food.name}</Text>
+                    <Text style={styles.sellerChipMeta}>{food.totalSold} satış</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               ))}
             </ScrollView>
           </View>
@@ -3258,6 +3265,18 @@ const styles = StyleSheet.create({
   sellerChipTextWrap: { flex: 1, minWidth: 0 },
   sellerChipName: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
   sellerChipMeta: { color: '#8D8072', fontSize: 11, marginTop: 1 },
+  topSoldLoadingChip: {
+    borderWidth: 1,
+    borderColor: '#E6DED4',
+    borderRadius: 14,
+    backgroundColor: '#FFFDF9',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  topSoldLoadingText: { color: '#7E7163', fontSize: 12, fontWeight: '600' },
 
   /* --- Food card --- */
   foodCard: {
