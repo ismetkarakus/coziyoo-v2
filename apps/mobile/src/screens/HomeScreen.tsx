@@ -17,29 +17,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  UIManager,
   View,
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-let LinearGradient: React.ComponentType<{
-  colors: string[];
-  locations?: number[];
-  start?: { x: number; y: number };
-  end?: { x: number; y: number };
-  style?: any;
-  children?: React.ReactNode;
-}> | null = null;
-try {
-  const maybeGradient = require('expo-linear-gradient').LinearGradient;
-  const hasNativeView = Boolean(
-    UIManager.getViewManagerConfig?.('ViewManagerAdapter_ExpoLinearGradient')
-      || UIManager.getViewManagerConfig?.('ExpoLinearGradient'),
-  );
-  LinearGradient = hasNativeView ? maybeGradient : null;
-} catch {
-  // Native module not available — will use View fallback
-}
 import * as ImagePicker from 'expo-image-picker';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
@@ -2173,22 +2154,6 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
-          {/* Single fade: left solid → transparent right */}
-          {LinearGradient ? (
-            <LinearGradient
-              colors={['#F2D8B4', '#F2D8B4', 'rgba(242,216,180,0.76)', 'rgba(242,216,180,0.34)', 'transparent']}
-              locations={[0, 0.34, 0.54, 0.72, 1]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          ) : (
-            <>
-              <View style={styles.heroFadeFallback1} />
-              <View style={styles.heroFadeFallback2} />
-              <View style={styles.heroFadeFallback3} />
-            </>
-          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3464,30 +3429,6 @@ const styles = StyleSheet.create({
     width: '74%',
     height: '100%',
     resizeMode: 'cover',
-  },
-  heroFadeFallback1: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '56%',
-    height: '100%',
-    backgroundColor: 'rgba(242,216,180,0.76)',
-  },
-  heroFadeFallback2: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '40%',
-    height: '100%',
-    backgroundColor: 'rgba(242,216,180,0.5)',
-  },
-  heroFadeFallback3: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '24%',
-    height: '100%',
-    backgroundColor: 'rgba(242,216,180,0.86)',
   },
   heroTextArea: {
     zIndex: 3,
