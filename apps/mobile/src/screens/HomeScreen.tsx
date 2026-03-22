@@ -2008,43 +2008,10 @@ export default function HomeScreen({
         style={styles.scroll}
         stickyHeaderIndices={[]}
       >
-        {/* Hero Banner */}
-        <View style={styles.heroBanner}>
-          {/* Decorative food images */}
-          <View style={styles.heroBannerImagesWrap}>
-            <View style={styles.heroBannerImageCircle1}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=200&h=200&fit=crop' }}
-                style={styles.heroBannerFoodImg}
-              />
-            </View>
-            <View style={styles.heroBannerImageCircle2}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=200&h=200&fit=crop' }}
-                style={styles.heroBannerFoodImg}
-              />
-            </View>
-          </View>
-          {/* Profile avatar */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.heroAvatarCircle}
-            onPress={() => handleTabPress('profile')}
-          >
-            {profileImageUrl && !profileImageLoadFailed ? (
-              <Image
-                source={{ uri: profileImageUrl }}
-                style={styles.heroAvatarImage}
-                onError={() => setProfileImageLoadFailed(true)}
-              />
-            ) : cachedLocalImageUrl ? (
-              <Image source={{ uri: cachedLocalImageUrl }} style={styles.heroAvatarImage} />
-            ) : (
-              <Text style={styles.avatarEmoji}>👩‍🍳</Text>
-            )}
-          </TouchableOpacity>
-          {/* Text content */}
-          <View style={styles.heroBannerTextArea}>
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          {/* Left: Text content */}
+          <View style={styles.heroTextArea}>
             <View style={styles.greetingTitleWrap}>
               <Text
                 style={[styles.greetingTitle, resolveGreetingTitleMetrics(dynamicGreetingTitle.text)]}
@@ -2056,17 +2023,51 @@ export default function HomeScreen({
               </Text>
               <Text style={styles.greetingEmoji}>{dynamicGreetingTitle.emoji}</Text>
             </View>
-            <Text style={styles.heroBannerSubtitle}>Bugün ne yesek?</Text>
+            <Text style={styles.heroSubtitle}>Bugün ne yesek?</Text>
             <TouchableOpacity
               onPress={() => setNearbyOnly((prev) => !prev)}
               activeOpacity={0.8}
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-              style={styles.heroBannerLocationRow}
+              style={styles.heroLocationRow}
             >
               <Ionicons name="location" size={16} color="#2F7A53" />
-              <Text style={styles.heroBannerLocationText}>Kadıköy · 2.5 km çevre</Text>
+              <Text style={styles.heroLocationText}>Kadıköy · 2.5 km çevre</Text>
               <Ionicons name="chevron-down" size={14} color="#7F7366" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
+          </View>
+          {/* Right: Food images + avatar */}
+          <View style={styles.heroRightArea}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.heroAvatarCircle}
+              onPress={() => handleTabPress('profile')}
+            >
+              {profileImageUrl && !profileImageLoadFailed ? (
+                <Image
+                  source={{ uri: profileImageUrl }}
+                  style={styles.heroAvatarImage}
+                  onError={() => setProfileImageLoadFailed(true)}
+                />
+              ) : cachedLocalImageUrl ? (
+                <Image source={{ uri: cachedLocalImageUrl }} style={styles.heroAvatarImage} />
+              ) : (
+                <Text style={styles.avatarEmoji}>👩‍🍳</Text>
+              )}
+            </TouchableOpacity>
+            <View style={styles.heroFoodImagesWrap}>
+              <View style={styles.heroFoodCircleLarge}>
+                <Image
+                  source={{ uri: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=300&h=300&fit=crop' }}
+                  style={styles.heroFoodImg}
+                />
+              </View>
+              <View style={styles.heroFoodCircleSmall}>
+                <Image
+                  source={{ uri: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=300&h=300&fit=crop' }}
+                  style={styles.heroFoodImg}
+                />
+              </View>
+            </View>
           </View>
         </View>
         {/* Floating Search Bar */}
@@ -2121,7 +2122,7 @@ export default function HomeScreen({
               onPress={() => setActiveCategory(cat)}
             >
               {cat === 'Tümü' ? (
-                <Ionicons name="grid" size={14} color={activeCategory === cat ? '#fff' : '#5F5246'} style={{ marginRight: 4 }} />
+                <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5F5246'} style={{ marginRight: 6 }} />
               ) : (
                 <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
               )}
@@ -3163,99 +3164,113 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
-  safe: { flex: 1, backgroundColor: '#FFFDF9' },
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+  safe: { flex: 1, backgroundColor: '#FBF7F2' },
+  container: { flex: 1, backgroundColor: '#FBF7F2' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
   scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
 
-  /* --- Hero Banner --- */
-  heroBanner: {
-    backgroundColor: '#FDECD2',
-    borderRadius: 24,
-    paddingTop: 24,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    marginHorizontal: -6,
-    position: 'relative',
-    overflow: 'hidden',
-    minHeight: 180,
+  /* --- Hero Section --- */
+  heroSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    minHeight: 160,
   },
-  heroBannerImagesWrap: {
-    position: 'absolute',
-    right: -10,
-    top: 10,
-    bottom: 10,
-    width: '55%',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  heroBannerImageCircle1: {
-    position: 'absolute',
-    right: 10,
-    top: 20,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.5)',
-  },
-  heroBannerImageCircle2: {
-    position: 'absolute',
-    right: 80,
-    bottom: 10,
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.5)',
-  },
-  heroBannerFoodImg: {
-    width: '100%',
-    height: '100%',
-  },
-  heroAvatarCircle: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EDE8E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    zIndex: 5,
-    overflow: 'hidden',
-  },
-  heroAvatarImage: { width: 48, height: 48, borderRadius: 24 },
-  heroBannerTextArea: {
-    zIndex: 3,
-    maxWidth: '60%',
+  heroTextArea: {
+    flex: 1,
+    paddingRight: 10,
+    paddingTop: 4,
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#2D5A3D', fontSize: 26, lineHeight: 32, fontWeight: '800' },
-  heroBannerSubtitle: {
-    color: '#5A5A5A',
-    fontSize: 16,
+  greetingTitle: { color: '#2D5A3D', fontSize: 28, lineHeight: 34, fontWeight: '800' },
+  heroSubtitle: {
+    color: '#6B6B6B',
+    fontSize: 17,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: 6,
   },
-  heroBannerLocationRow: {
+  heroLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 12,
     gap: 4,
   },
-  heroBannerLocationText: {
+  heroLocationText: {
     color: '#3D3229',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  heroRightArea: {
+    width: 140,
+    height: 160,
+    position: 'relative',
+  },
+  heroAvatarCircle: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F0ECE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: '#fff',
+    zIndex: 5,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  heroAvatarImage: { width: 48, height: 48, borderRadius: 24 },
+  heroFoodImagesWrap: {
+    position: 'absolute',
+    right: -10,
+    top: 10,
+    width: 150,
+    height: 150,
+  },
+  heroFoodCircleLarge: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.7)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  heroFoodCircleSmall: {
+    position: 'absolute',
+    left: -10,
+    bottom: -5,
+    width: 95,
+    height: 95,
+    borderRadius: 48,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.7)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  heroFoodImg: {
+    width: '100%',
+    height: '100%',
   },
   avatarEmoji: { fontSize: 24 },
 
@@ -3267,18 +3282,13 @@ const styles = StyleSheet.create({
   floatingSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    minHeight: 52,
-    paddingHorizontal: 18,
+    backgroundColor: '#F7F4F0',
+    borderRadius: 30,
+    minHeight: 56,
+    paddingHorizontal: 20,
     paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#F0EBE3',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   floatingSearchBarActive: {
     borderColor: '#D4C9BB',
@@ -3316,23 +3326,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF5EB',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#F0E6D8',
+    borderRadius: 28,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: '#EDE4D8',
   },
   chipActive: {
     backgroundColor: '#2D5A3D',
     borderColor: '#2D5A3D',
   },
   chipEmoji: {
-    fontSize: 16,
-    marginRight: 6,
+    fontSize: 20,
+    marginRight: 8,
   },
   chipText: {
     color: '#5F5246',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   chipTextActive: {
