@@ -3154,9 +3154,9 @@ const styles = StyleSheet.create({
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
     marginTop: 0,
-    height: 0,
+    height: 3,
     borderRadius: 2,
-    backgroundColor: 'transparent',
+    backgroundColor: '#2F7A53',
   },
 
   /* --- Food card --- */
