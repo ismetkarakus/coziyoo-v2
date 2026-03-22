@@ -2922,7 +2922,7 @@ const styles = StyleSheet.create({
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
     zIndex: 1,
-    paddingTop: 14,
+    paddingTop: 8,
     paddingBottom: 0,
     marginHorizontal: -12,
     position: 'relative',
