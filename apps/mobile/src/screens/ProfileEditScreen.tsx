@@ -270,8 +270,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                   <View style={styles.emailRow}>
                     <Text style={styles.infoValue}>{email}</Text>
                     <View style={styles.verifiedBadge}>
-                      <Ionicons name="lock-closed" size={13} color="#3E845B" />
-                      <Text style={styles.verifiedBadgeText}>{t('status.profileEdit.verified')}</Text>
+                      <Ionicons name="checkmark-circle" size={18} color="#3E845B" />
                     </View>
                   </View>
                 </View>
@@ -391,15 +390,13 @@ const styles = StyleSheet.create({
   infoValue: { color: '#2F2924', fontSize: 38 / 2, fontWeight: '700' },
   emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   verifiedBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     backgroundColor: '#E4F2E7',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderRadius: 14,
+    width: 28,
+    height: 28,
   },
-  verifiedBadgeText: { color: '#3E845B', fontSize: 15, fontWeight: '700' },
 
   errorBox: {
     flexDirection: 'row',

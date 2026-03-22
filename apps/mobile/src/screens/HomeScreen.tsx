@@ -22,6 +22,22 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+let BlurView: React.ComponentType<{
+  intensity?: number;
+  tint?: 'light' | 'dark' | 'default' | string;
+  style?: any;
+  children?: React.ReactNode;
+}> | null = null;
+try {
+  const maybeBlurView = require('expo-blur').BlurView;
+  const hasNativeView = Boolean(
+    UIManager.getViewManagerConfig?.('ViewManagerAdapter_ExpoBlurView')
+      || UIManager.getViewManagerConfig?.('ExpoBlurView'),
+  );
+  BlurView = hasNativeView ? maybeBlurView : null;
+} catch {
+  // Optional at runtime; fallback view is used when unavailable.
+}
 let LinearGradient: React.ComponentType<{
   colors: string[];
   locations?: number[];
@@ -1031,9 +1047,9 @@ export default function HomeScreen({
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
-  const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() =>
-    { uri: HERO_AKCABAT_IMAGE_URL },
-  );
+  const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() => (
+    { uri: HERO_AKCABAT_IMAGE_URL }
+  ));
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
   );
@@ -2152,25 +2168,74 @@ export default function HomeScreen({
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
           {LinearGradient ? (
+            <>
+              <LinearGradient
+                colors={[
+                  '#F6D8B8',
+                  'rgba(246,216,184,0.88)',
+                  'rgba(246,216,184,0.45)',
+                  'transparent',
+                ]}
+                locations={[0, 0.24, 0.58, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.heroFeatherLeft}
+              />
+              <LinearGradient
+                colors={['rgba(252,235,221,0.78)', 'rgba(252,235,221,0.36)', 'transparent']}
+                locations={[0, 0.46, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.heroFeatherLeftSoft}
+              />
+              <LinearGradient
+                colors={['rgba(252,235,221,0.76)', 'rgba(252,235,221,0.34)', 'transparent']}
+                locations={[0, 0.52, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.heroFeatherTop}
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.52)', 'rgba(255,255,255,0.95)']}
+                locations={[0, 0.56, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.heroFeatherBottom}
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(247,237,228,0.42)', 'rgba(247,237,228,0.68)']}
+                locations={[0, 0.62, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.heroFeatherRight}
+              />
+            </>
+          ) : null}
+          {BlurView ? (
+            <BlurView intensity={8} style={styles.heroTopBlur} />
+          ) : (
+            <View style={styles.heroTopBlurFallback} />
+          )}
+          {LinearGradient ? (
+            <LinearGradient
+              colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.01)']}
+              locations={[0, 0.5, 1]}
+              style={styles.heroMistOverlay}
+            />
+          ) : (
+            <View style={styles.heroMistOverlayFallback} />
+          )}
+          {LinearGradient ? (
             <LinearGradient
               colors={[
-                'rgba(90,62,43,0.25)',
-                'rgba(90,62,43,0.1)',
+                'rgba(233,194,152,0.18)',
+                'rgba(233,194,152,0.08)',
                 'transparent',
               ]}
               style={styles.heroOverlay}
             />
           ) : (
             <View style={styles.heroOverlayFallback} />
-          )}
-          {LinearGradient ? (
-            <LinearGradient
-              colors={['transparent', 'rgba(255,255,255,0.7)', '#FFFFFF']}
-              locations={[0.4, 0.75, 1]}
-              style={styles.heroBottomFade}
-            />
-          ) : (
-            <View style={styles.heroBottomFadeFallback} />
           )}
           {/* Profile avatar */}
           <TouchableOpacity
@@ -3432,7 +3497,7 @@ const styles = StyleSheet.create({
   /* --- Hero Header with Gradient + Food Image --- */
   heroWrap: {
     position: 'relative',
-    height: 240,
+    height: 260,
     paddingHorizontal: 24,
     paddingTop: 20,
     marginHorizontal: -18,
@@ -3449,28 +3514,88 @@ const styles = StyleSheet.create({
     right: 6,
     width: '42%',
     height: '88%',
-    opacity: 0.78,
-    borderTopLeftRadius: 220,
-    borderBottomLeftRadius: 220,
+    opacity: 1,
     resizeMode: 'cover',
   },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroOverlayFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(90,62,43,0.12)',
-  },
-  heroBottomFade: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroBottomFadeFallback: {
+  heroTopBlur: {
     position: 'absolute',
-    left: 0,
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+  },
+  heroTopBlurFallback: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  heroFeatherLeft: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '76%',
+    height: '100%',
+  },
+  heroFeatherLeftSoft: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '68%',
+    height: '100%',
+  },
+  heroFeatherTop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '65%',
+    height: '48%',
+  },
+  heroFeatherBottom: {
+    position: 'absolute',
     right: 0,
     bottom: 0,
-    height: '45%',
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    width: '65%',
+    height: '46%',
+  },
+  heroFeatherRight: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '48%',
+    height: '88%',
+  },
+  heroMistOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+  },
+  heroMistOverlayFallback: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+  },
+  heroOverlayFallback: {
+    position: 'absolute',
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    backgroundColor: 'rgba(233,194,152,0.12)',
   },
   heroTextArea: {
     zIndex: 3,
