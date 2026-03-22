@@ -198,15 +198,37 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       const orderCount = Number(existingOrderCount.rows[0]?.count ?? "0");
 
       if (orderCount === 0) {
+        const orderStatuses: Array<{ status: string; paymentCompleted: boolean; hoursAgo: number; eventFrom: string; eventTo: string }> = [
+          { status: "completed", paymentCompleted: true, hoursAgo: 48, eventFrom: "delivered", eventTo: "completed" },
+          { status: "in_delivery", paymentCompleted: true, hoursAgo: 1, eventFrom: "ready", eventTo: "in_delivery" },
+          { status: "preparing", paymentCompleted: true, hoursAgo: 0, eventFrom: "paid", eventTo: "preparing" },
+          { status: "pending_seller_approval", paymentCompleted: false, hoursAgo: 0, eventFrom: "created", eventTo: "pending_seller_approval" },
+          { status: "delivered", paymentCompleted: true, hoursAgo: 6, eventFrom: "in_delivery", eventTo: "delivered" },
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 24, eventFrom: "pending_seller_approval", eventTo: "cancelled" },
+          { status: "rejected", paymentCompleted: false, hoursAgo: 72, eventFrom: "pending_seller_approval", eventTo: "rejected" },
+          { status: "completed", paymentCompleted: true, hoursAgo: 120, eventFrom: "delivered", eventTo: "completed" },
+          { status: "completed", paymentCompleted: true, hoursAgo: 168, eventFrom: "delivered", eventTo: "completed" },
+        ];
+        const addresses = [
+          { city: "Istanbul", district: "Kadikoy", line: "Caferaga Mah. Moda Cad. No:12/A" },
+          { city: "Istanbul", district: "Besiktas", line: "Sinanpasa Mah. Ciragan Cad. No:5" },
+          { city: "Istanbul", district: "Uskudar", line: "Altunizade Mah. Kisikli Cad. No:8" },
+          { city: "Istanbul", district: "Sisli", line: "Mecidiyekoy Mah. Buyukdere Cad. No:22" },
+          { city: "Istanbul", district: "Bakirkoy", line: "Atakoy 7-8 Kisim Mah." },
+        ];
+
         for (const [foodIndex, row] of foods.rows.entries()) {
+          const statusDef = orderStatuses[(sellerIndex * foods.rows.length + foodIndex) % orderStatuses.length];
+          const address = addresses[(sellerIndex + foodIndex) % addresses.length];
           const unitPrice = Number(row.price);
-          const quantity = 1;
+          const quantity = foodIndex === 0 ? 2 : 1;
           const lineTotal = unitPrice * quantity;
+          const deliveryType = foodIndex % 2 === 0 ? "delivery" : "pickup";
           const orderInsert = await client.query<{ id: string }>(
             `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at, payment_completed)
-             VALUES ($1, $2, 'completed', 'delivery', $3::jsonb, $4, now() - ($5::int * interval '2 hour'), TRUE)
+             VALUES ($1, $2, $3, $4, $5::jsonb, $6, now() - ($7::int * interval '1 hour'), $8)
              RETURNING id::text`,
-            [buyerId, seller.id, JSON.stringify({ city: "Istanbul", line: "Kadikoy" }), lineTotal, sellerIndex + foodIndex + 1]
+            [buyerId, seller.id, statusDef.status, deliveryType, JSON.stringify(address), lineTotal, statusDef.hoursAgo, statusDef.paymentCompleted]
           );
           await client.query(
             `INSERT INTO order_items (order_id, food_id, quantity, unit_price, line_total)
@@ -215,8 +237,8 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           );
           await client.query(
             `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
-             VALUES ($1, $2, 'status_update', 'delivered', 'completed', $3::jsonb)`,
-            [orderInsert.rows[0].id, seller.id, JSON.stringify({ source: "admin_demo_seed" })]
+             VALUES ($1, $2, 'status_update', $3, $4, $5::jsonb)`,
+            [orderInsert.rows[0].id, seller.id, statusDef.eventFrom, statusDef.eventTo, JSON.stringify({ source: "admin_demo_seed" })]
           );
           ordersCreated += 1;
         }
