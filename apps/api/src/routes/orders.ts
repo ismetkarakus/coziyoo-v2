@@ -246,16 +246,54 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     seller_id: string;
     status: string;
     delivery_type: string;
+    delivery_address_json: unknown;
     total_price: string;
     created_at: string;
+    seller_name: string;
+    seller_image: string | null;
+    buyer_name: string;
   }>(
-    `SELECT id, buyer_id, seller_id, status, delivery_type, total_price::text, created_at::text
-     FROM orders
-     WHERE buyer_id = $1 OR seller_id = $1
-     ORDER BY created_at ${sortDir === "asc" ? "ASC" : "DESC"}, id ${sortDir === "asc" ? "ASC" : "DESC"}
+    `SELECT o.id, o.buyer_id, o.seller_id, o.status, o.delivery_type,
+            o.delivery_address_json, o.total_price::text, o.created_at::text,
+            s.display_name AS seller_name, s.profile_image_url AS seller_image,
+            b.display_name AS buyer_name
+     FROM orders o
+     JOIN users s ON s.id = o.seller_id
+     JOIN users b ON b.id = o.buyer_id
+     WHERE o.buyer_id = $1 OR o.seller_id = $1
+     ORDER BY o.created_at ${sortDir === "asc" ? "ASC" : "DESC"}, o.id ${sortDir === "asc" ? "ASC" : "DESC"}
      LIMIT $2 OFFSET $3`,
     [req.auth!.userId, pageSize, offset]
   );
+
+  // Fetch order items for all orders in one query
+  const orderIds = listResult.rows.map((r) => r.id);
+  let itemsByOrder: Record<string, { name: string; quantity: number; unitPrice: number; lineTotal: number }[]> = {};
+  if (orderIds.length > 0) {
+    const itemsResult = await pool.query<{
+      order_id: string;
+      food_name: string;
+      quantity: number;
+      unit_price: string;
+      line_total: string;
+    }>(
+      `SELECT oi.order_id, f.name AS food_name, oi.quantity, oi.unit_price::text, oi.line_total::text
+       FROM order_items oi
+       JOIN foods f ON f.id = oi.food_id
+       WHERE oi.order_id = ANY($1)
+       ORDER BY oi.created_at ASC`,
+      [orderIds]
+    );
+    for (const item of itemsResult.rows) {
+      if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+      itemsByOrder[item.order_id].push({
+        name: item.food_name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unit_price),
+        lineTotal: Number(item.line_total),
+      });
+    }
+  }
 
   const total = Number(totalResult.rows[0].count);
   return res.json({
@@ -265,8 +303,13 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       sellerId: row.seller_id,
       status: row.status,
       deliveryType: row.delivery_type,
+      deliveryAddress: row.delivery_address_json,
       totalPrice: Number(row.total_price),
       createdAt: row.created_at,
+      sellerName: row.seller_name,
+      sellerImage: row.seller_image,
+      buyerName: row.buyer_name,
+      items: itemsByOrder[row.id] ?? [],
     })),
     pagination: {
       mode: "offset",
@@ -274,6 +317,89 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       pageSize,
       total,
       totalPages: Math.ceil(total / pageSize),
+    },
+  });
+});
+
+/* ────── GET /orders/:id — order detail with items + events ────── */
+ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
+  const orderId = req.params.id;
+  const userId = req.auth!.userId;
+
+  const orderResult = await pool.query<{
+    id: string; buyer_id: string; seller_id: string; status: string;
+    delivery_type: string; delivery_address_json: unknown;
+    total_price: string; payment_completed: boolean;
+    requested_at: string | null; estimated_delivery_time: string | null;
+    created_at: string; updated_at: string;
+    seller_name: string; seller_image: string | null;
+    buyer_name: string;
+  }>(
+    `SELECT o.*, s.display_name AS seller_name, s.profile_image_url AS seller_image,
+            b.display_name AS buyer_name
+     FROM orders o
+     JOIN users s ON s.id = o.seller_id
+     JOIN users b ON b.id = o.buyer_id
+     WHERE o.id = $1 AND (o.buyer_id = $2 OR o.seller_id = $2)`,
+    [orderId, userId]
+  );
+
+  if (orderResult.rows.length === 0) {
+    return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
+  }
+  const o = orderResult.rows[0];
+
+  const [itemsRes, eventsRes] = await Promise.all([
+    pool.query<{
+      food_name: string; food_image: string | null; quantity: number;
+      unit_price: string; line_total: string;
+    }>(
+      `SELECT f.name AS food_name, f.image_url AS food_image, oi.quantity,
+              oi.unit_price::text, oi.line_total::text
+       FROM order_items oi JOIN foods f ON f.id = oi.food_id
+       WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
+      [orderId]
+    ),
+    pool.query<{
+      event_type: string; from_status: string | null; to_status: string | null;
+      created_at: string;
+    }>(
+      `SELECT event_type, from_status, to_status, created_at::text
+       FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`,
+      [orderId]
+    ),
+  ]);
+
+  return res.json({
+    data: {
+      id: o.id,
+      buyerId: o.buyer_id,
+      sellerId: o.seller_id,
+      status: o.status,
+      deliveryType: o.delivery_type,
+      deliveryAddress: o.delivery_address_json,
+      totalPrice: Number(o.total_price),
+      paymentCompleted: o.payment_completed,
+      requestedAt: o.requested_at,
+      estimatedDeliveryTime: o.estimated_delivery_time,
+      createdAt: o.created_at,
+      updatedAt: o.updated_at,
+      sellerName: o.seller_name,
+      sellerImage: o.seller_image,
+      buyerName: o.buyer_name,
+      items: itemsRes.rows.map((i) => ({
+        name: i.food_name,
+        image: i.food_image,
+        quantity: i.quantity,
+        unitPrice: Number(i.unit_price),
+        lineTotal: Number(i.line_total),
+      })),
+      events: eventsRes.rows.map((e) => ({
+        eventType: e.event_type,
+        fromStatus: e.from_status,
+        toStatus: e.to_status,
+        createdAt: e.created_at,
+      })),
     },
   });
 });

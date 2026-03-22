@@ -61,6 +61,10 @@ type Props = {
   onOpenProfileEdit: () => void;
   onOpenAddresses: () => void;
   onOpenOrders: () => void;
+  onOpenNotifications?: () => void;
+  onOpenChatList?: () => void;
+  onOpenFavorites?: () => void;
+  onOpenFoodDetail?: (food: any) => void;
   onLogout: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
@@ -853,6 +857,10 @@ export default function HomeScreen({
   onOpenProfileEdit,
   onOpenAddresses,
   onOpenOrders,
+  onOpenNotifications,
+  onOpenChatList,
+  onOpenFavorites,
+  onOpenFoodDetail,
   onLogout,
   onAuthRefresh,
 }: Props) {
@@ -1605,6 +1613,8 @@ export default function HomeScreen({
   }
 
   function handleTabPress(tab: TabKey) {
+    if (tab === 'messages' && onOpenChatList) { onOpenChatList(); return; }
+    if (tab === 'notifications' && onOpenNotifications) { onOpenNotifications(); return; }
     setActiveTab(tab);
   }
 
@@ -2147,6 +2157,21 @@ export default function HomeScreen({
               </View>
               <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
             </TouchableOpacity>
+            {onOpenFavorites && (
+            <TouchableOpacity
+              style={[styles.profileActionRow, styles.profileActionRowDivider]}
+              onPress={onOpenFavorites}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileActionMain}>
+                <View style={[styles.profileActionIconWrap, { backgroundColor: '#FDECEC' }]}>
+                  <Ionicons name="heart-outline" size={18} color="#C0392B" />
+                </View>
+                <Text style={styles.profileActionTitle}>Favorilerim</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
+            </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.profileActionRow}
               onPress={onOpenAddresses}

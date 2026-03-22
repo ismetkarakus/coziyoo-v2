@@ -1,0 +1,130 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../theme/colors';
+import { type AuthSession } from '../utils/auth';
+import { apiRequest } from '../utils/api';
+import ScreenHeader from '../components/ScreenHeader';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+
+type ProofRecord = {
+  orderId: string;
+  proofMode: string;
+  pinSentAt: string | null;
+  pinVerifiedAt: string | null;
+  verificationAttempts: number;
+  status: 'pending' | 'verified' | 'failed' | 'expired';
+};
+
+type Props = {
+  auth: AuthSession;
+  orderId: string;
+  onBack: () => void;
+  onAuthRefresh?: (session: AuthSession) => void;
+};
+
+export default function DeliveryPinScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
+  const [record, setRecord] = useState<ProofRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProof = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const result = await apiRequest<ProofRecord>(
+      `/v1/orders/${orderId}/delivery-proof`,
+      auth,
+      { actorRole: 'buyer' },
+      onAuthRefresh,
+    );
+    if (result.ok) {
+      setRecord(result.data);
+    } else if (result.status === 404) {
+      setRecord(null);
+    } else {
+      setError(result.message ?? 'Yüklenemedi');
+    }
+    setLoading(false);
+  }, [orderId, auth, onAuthRefresh]);
+
+  useEffect(() => { fetchProof(); }, [fetchProof]);
+
+  const statusConfig = {
+    pending: { icon: 'time-outline' as const, color: '#D4740B', bg: '#FFF4E5', label: 'PIN Bekleniyor', sub: 'Satıcı sana bir PIN gönderdi. Teslimat anında satıcıya bu PIN\'i göster.' },
+    verified: { icon: 'checkmark-circle' as const, color: '#3E845B', bg: '#E4F2E7', label: 'PIN Doğrulandı', sub: 'Teslimat başarıyla doğrulandı.' },
+    failed: { icon: 'close-circle' as const, color: '#C0392B', bg: '#FDECEC', label: 'PIN Doğrulanamadı', sub: 'Çok fazla yanlış deneme yapıldı.' },
+    expired: { icon: 'timer-outline' as const, color: '#C0392B', bg: '#FDECEC', label: 'PIN Süresi Doldu', sub: 'PIN süresi doldu. Satıcıdan yeni PIN istemelisin.' },
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
+      <ScreenHeader title="Teslimat PIN" onBack={onBack} />
+
+      {loading ? (
+        <LoadingState message="Yükleniyor..." />
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchProof} />
+      ) : !record ? (
+        <View style={styles.center}>
+          <Ionicons name="lock-open-outline" size={48} color={theme.textSecondary} />
+          <Text style={styles.emptyTitle}>PIN henüz gönderilmedi</Text>
+          <Text style={styles.emptySub}>Satıcı teslimat PIN\'ini gönderdikten sonra burada görünecek.</Text>
+        </View>
+      ) : (
+        <View style={styles.center}>
+          <View style={[styles.statusCircle, { backgroundColor: statusConfig[record.status].bg }]}>
+            <Ionicons
+              name={statusConfig[record.status].icon}
+              size={56}
+              color={statusConfig[record.status].color}
+            />
+          </View>
+          <Text style={styles.statusLabel}>{statusConfig[record.status].label}</Text>
+          <Text style={styles.statusSub}>{statusConfig[record.status].sub}</Text>
+
+          {record.status === 'pending' && (
+            <View style={styles.pinInfo}>
+              <Text style={styles.pinHint}>
+                PIN bildirimlerinden veya SMS'den sana gönderildi.
+              </Text>
+              <Text style={styles.pinAttempts}>
+                Deneme hakkı: {5 - record.verificationAttempts} / 5
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  emptyTitle: { color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 },
+  emptySub: { color: theme.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 22 },
+  statusCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  statusLabel: { color: theme.text, fontSize: 22, fontWeight: '800' },
+  statusSub: { color: '#71685F', fontSize: 14, textAlign: 'center', lineHeight: 22, marginTop: 8 },
+  pinInfo: {
+    marginTop: 24,
+    backgroundColor: '#FCFBF9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E6DDD3',
+    padding: 16,
+    alignItems: 'center',
+    width: '100%',
+  },
+  pinHint: { color: '#71685F', fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  pinAttempts: { color: theme.text, fontSize: 14, fontWeight: '700', marginTop: 8 },
+});

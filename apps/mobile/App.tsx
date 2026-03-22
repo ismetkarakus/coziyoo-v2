@@ -6,16 +6,42 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import ProfileEditScreen from './src/screens/ProfileEditScreen';
 import AddressScreen from './src/screens/AddressScreen';
 import OrdersScreen from './src/screens/OrdersScreen';
+import OrderDetailScreen from './src/screens/OrderDetailScreen';
+import FoodDetailScreen, { type FoodItem } from './src/screens/FoodDetailScreen';
+import PaymentScreen from './src/screens/PaymentScreen';
+import AllergenDisclosureScreen from './src/screens/AllergenDisclosureScreen';
+import DeliveryPinScreen from './src/screens/DeliveryPinScreen';
+import ReviewScreen from './src/screens/ReviewScreen';
+import ComplaintScreen from './src/screens/ComplaintScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import ChatListScreen from './src/screens/ChatListScreen';
+import ChatScreen from './src/screens/ChatScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { theme } from './src/theme/colors';
 
-type Screen = 'loading' | 'login' | 'home' | 'settings' | 'profileEdit' | 'addresses' | 'orders';
+type Screen =
+  | 'loading' | 'login' | 'home'
+  | 'settings' | 'profileEdit' | 'addresses'
+  | 'orders' | 'orderDetail'
+  | 'foodDetail' | 'payment'
+  | 'allergenDisclosure' | 'deliveryPin'
+  | 'review' | 'complaint'
+  | 'notifications' | 'favorites'
+  | 'chatList' | 'chat';
+
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
   const [homeTab, setHomeTab] = useState<TabKey>('home');
   const [auth, setAuth] = useState<AuthSession | null>(null);
+
+  // Screen params
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [selectedChatName, setSelectedChatName] = useState('');
 
   useEffect(() => {
     loadAuthSession().then((stored) => {
@@ -39,6 +65,11 @@ export default function App() {
     await clearAuthSession();
   }
 
+  function goHome(tab: TabKey = 'home') {
+    setHomeTab(tab);
+    setScreen('home');
+  }
+
   if (screen === 'loading') {
     return (
       <View style={styles.loading}>
@@ -47,11 +78,7 @@ export default function App() {
     );
   }
 
-  if (screen === 'login') {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
-
-  if (!auth) {
+  if (screen === 'login' || !auth) {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
@@ -59,7 +86,7 @@ export default function App() {
     return (
       <SettingsScreen
         auth={auth}
-        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
+        onBack={() => goHome('profile')}
         onAuthRefresh={setAuth}
         onOpenProfileEdit={() => setScreen('profileEdit')}
       />
@@ -70,7 +97,7 @@ export default function App() {
     return (
       <ProfileEditScreen
         auth={auth}
-        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
+        onBack={() => goHome('profile')}
         onAuthRefresh={setAuth}
       />
     );
@@ -80,7 +107,7 @@ export default function App() {
     return (
       <AddressScreen
         auth={auth}
-        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
+        onBack={() => goHome('profile')}
         onAuthRefresh={setAuth}
       />
     );
@@ -89,7 +116,133 @@ export default function App() {
   if (screen === 'orders') {
     return (
       <OrdersScreen
-        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
+        auth={auth}
+        onBack={() => goHome('profile')}
+        onOpenOrderDetail={(id) => { setSelectedOrderId(id); setScreen('orderDetail'); }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'orderDetail' && selectedOrderId) {
+    return (
+      <OrderDetailScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => setScreen('orders')}
+        onOpenPayment={(id) => { setSelectedOrderId(id); setScreen('payment'); }}
+        onOpenReview={(id) => { setSelectedOrderId(id); setScreen('review'); }}
+        onOpenComplaint={(id) => { setSelectedOrderId(id); setScreen('complaint'); }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'foodDetail' && selectedFood) {
+    return (
+      <FoodDetailScreen
+        food={selectedFood}
+        onBack={() => goHome('home')}
+        onAddToCart={() => goHome('cart')}
+      />
+    );
+  }
+
+  if (screen === 'payment' && selectedOrderId) {
+    return (
+      <PaymentScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => { setScreen('orderDetail'); }}
+        onPaymentComplete={() => { setScreen('orderDetail'); }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'allergenDisclosure' && selectedOrderId) {
+    return (
+      <AllergenDisclosureScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => setScreen('orderDetail')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'deliveryPin' && selectedOrderId) {
+    return (
+      <DeliveryPinScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => setScreen('orderDetail')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'review' && selectedOrderId) {
+    return (
+      <ReviewScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => setScreen('orderDetail')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'complaint' && selectedOrderId) {
+    return (
+      <ComplaintScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => setScreen('orderDetail')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'notifications') {
+    return (
+      <NotificationsScreen
+        auth={auth}
+        onBack={() => goHome('notifications')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'chatList') {
+    return (
+      <ChatListScreen
+        auth={auth}
+        onBack={() => goHome('messages')}
+        onOpenChat={(chatId, name) => { setSelectedChatId(chatId); setSelectedChatName(name); setScreen('chat'); }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'chat' && selectedChatId) {
+    return (
+      <ChatScreen
+        auth={auth}
+        chatId={selectedChatId}
+        sellerName={selectedChatName}
+        onBack={() => setScreen('chatList')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'favorites') {
+    return (
+      <FavoritesScreen
+        auth={auth}
+        onBack={() => goHome('profile')}
+        onAuthRefresh={setAuth}
       />
     );
   }
@@ -102,6 +255,10 @@ export default function App() {
       onOpenProfileEdit={() => setScreen('profileEdit')}
       onOpenAddresses={() => setScreen('addresses')}
       onOpenOrders={() => setScreen('orders')}
+      onOpenNotifications={() => setScreen('notifications')}
+      onOpenChatList={() => setScreen('chatList')}
+      onOpenFavorites={() => setScreen('favorites')}
+      onOpenFoodDetail={(food: FoodItem) => { setSelectedFood(food); setScreen('foodDetail'); }}
       onLogout={handleLogout}
       onAuthRefresh={setAuth}
     />
