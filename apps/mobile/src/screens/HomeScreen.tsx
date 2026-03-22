@@ -2160,75 +2160,81 @@ export default function HomeScreen({
           </TouchableOpacity>
         </View>
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
-        {recommendedMealsLoading || recommendedMeals.length > 0 ? (
-          <View style={styles.sellersSection}>
-            <Text style={styles.sellersSectionTitle}>Sana öneriler</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.sellersRow}
-            >
-              {recommendedMealsLoading ? (
-                <View style={styles.topSoldLoadingChip}>
-                  <ActivityIndicator size="small" color="#4A7C59" />
-                  <Text style={styles.topSoldLoadingText}>Öneriler hazırlanıyor...</Text>
+        <View style={styles.sellersSection}>
+          <Text style={styles.sellersSectionTitle}>Sana öneriler</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sellersRow}
+          >
+            {recommendedMealsLoading ? (
+              <View style={styles.topSoldLoadingChip}>
+                <ActivityIndicator size="small" color="#4A7C59" />
+                <Text style={styles.topSoldLoadingText}>Öneriler hazırlanıyor...</Text>
+              </View>
+            ) : null}
+            {!recommendedMealsLoading && recommendedMeals.length === 0 ? (
+              <View style={styles.topSoldLoadingChip}>
+                <Text style={styles.topSoldLoadingText}>Şu an öneri bulunamadı.</Text>
+              </View>
+            ) : null}
+            {recommendedMeals.map((meal) => (
+              <TouchableOpacity
+                key={`rec-${meal.id}`}
+                style={styles.sellerChip}
+                activeOpacity={0.86}
+                onPress={() => setSelectedMeal(meal)}
+              >
+                <View style={styles.sellerChipAvatar}>
+                  {meal.imageUrl ? (
+                    <Image source={{ uri: meal.imageUrl }} style={styles.sellerChipAvatarImage} />
+                  ) : (
+                    <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
+                  )}
                 </View>
-              ) : null}
-              {recommendedMeals.map((meal) => (
-                <TouchableOpacity
-                  key={`rec-${meal.id}`}
-                  style={styles.sellerChip}
-                  activeOpacity={0.86}
-                  onPress={() => setSelectedMeal(meal)}
-                >
-                  <View style={styles.sellerChipAvatar}>
-                    {meal.imageUrl ? (
-                      <Image source={{ uri: meal.imageUrl }} style={styles.sellerChipAvatarImage} />
-                    ) : (
-                      <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
-                    )}
-                  </View>
-                  <View style={styles.sellerChipTextWrap}>
-                    <Text style={styles.sellerChipName} numberOfLines={1}>{meal.title}</Text>
-                    <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.reason}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-        {topSoldFoodsLoading || topSoldFoods.length > 0 ? (
-          <View style={styles.sellersSection}>
-            <Text style={styles.sellersSectionTitle}>En çok satılan yemekler</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.sellersRow}
-            >
-              {topSoldFoodsLoading ? (
-                <View style={styles.topSoldLoadingChip}>
-                  <ActivityIndicator size="small" color="#4A7C59" />
-                  <Text style={styles.topSoldLoadingText}>Yükleniyor...</Text>
+                <View style={styles.sellerChipTextWrap}>
+                  <Text style={styles.sellerChipName} numberOfLines={1}>{meal.title}</Text>
+                  <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.reason}</Text>
                 </View>
-              ) : null}
-              {topSoldFoods.map((food) => (
-                <View key={food.id} style={styles.sellerChip}>
-                  <View style={styles.sellerChipAvatar}>
-                    {food.imageUrl ? (
-                      <Image source={{ uri: food.imageUrl }} style={styles.sellerChipAvatarImage} />
-                    ) : (
-                      <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
-                    )}
-                  </View>
-                  <View style={styles.sellerChipTextWrap}>
-                    <Text style={styles.sellerChipName} numberOfLines={1}>{food.name}</Text>
-                    <Text style={styles.sellerChipMeta}>{food.totalSold} satış</Text>
-                  </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+        <View style={styles.sellersSection}>
+          <Text style={styles.sellersSectionTitle}>En çok satılan yemekler</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sellersRow}
+          >
+            {topSoldFoodsLoading ? (
+              <View style={styles.topSoldLoadingChip}>
+                <ActivityIndicator size="small" color="#4A7C59" />
+                <Text style={styles.topSoldLoadingText}>Yükleniyor...</Text>
+              </View>
+            ) : null}
+            {!topSoldFoodsLoading && topSoldFoods.length === 0 ? (
+              <View style={styles.topSoldLoadingChip}>
+                <Text style={styles.topSoldLoadingText}>Henüz satış verisi yok.</Text>
+              </View>
+            ) : null}
+            {topSoldFoods.map((food) => (
+              <View key={food.id} style={styles.sellerChip}>
+                <View style={styles.sellerChipAvatar}>
+                  {food.imageUrl ? (
+                    <Image source={{ uri: food.imageUrl }} style={styles.sellerChipAvatarImage} />
+                  ) : (
+                    <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
+                  )}
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
+                <View style={styles.sellerChipTextWrap}>
+                  <Text style={styles.sellerChipName} numberOfLines={1}>{food.name}</Text>
+                  <Text style={styles.sellerChipMeta}>{food.totalSold} satış</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
         {visibleMeals.map((meal) => {
           const totalStock = Math.max(0, meal.stock ?? 0);
           const inCartQty = cartItems.find((item) => item.meal.id === meal.id)?.quantity ?? 0;
