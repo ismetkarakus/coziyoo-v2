@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-22T14:21:07.917Z"
+status: unknown
+last_updated: "2026-03-22T16:00:35.981Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
 ---
 
 # Project State: Voice Agent Dashboard
@@ -17,27 +17,28 @@ progress:
 
 **Core Value:** The team can switch between fully-configured voice agent profiles instantly -- tuning model, voice, transcriber, and tools -- without touching code or redeploying the agent.
 
-**Current Focus:** Phase 02 — profile management
+**Current Focus:** Phase 02 — profile-management
 
 ## Current Position
 
-Phase: 02 (profile management) — READY FOR PLANNING
-Plan: 0 of TBD
+Phase: 02 (profile-management) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 5 |
+| Plans completed | 6 |
 | Plans failed | 0 |
 | Total requirements | 45 |
-| Requirements done | 6 |
+| Requirements done | 31 |
 | Phases complete | 1/4 |
 | Phase 01-foundation P01 | 6m | 2 tasks | 32 files |
 | Phase 01-foundation P03 | 10min | 3 tasks | 4 files |
 | Phase 01-foundation P02 | 4min | 2 tasks | 8 files |
 | Phase 01-foundation P05 | 2min | 2 tasks | 2 files |
 | Phase 01-foundation P04 | 2min | 2 tasks | 3 files |
+| Phase 02-profile-management P01 | 5m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -59,6 +60,9 @@ Plan: 0 of TBD
 - Mocked dotenv in env fallback test to guarantee deterministic fallback assertions.
 - Used explicit /dashboard route as authenticated landing target to avoid root/login redirect loop.
 - Kept logout behavior unchanged in dashboard UI: `await logout(); router.push("/login")`.
+- Mounted `/v1/admin/agent-profiles` behind `requireAuth("admin")` and isolated handler logic in a dedicated router.
+- Preserved provider flexibility by storing profile provider settings in JSONB (`llm_config`, `stt_config`, `tts_config`, `n8n_config`).
+- Enforced exclusive active profile switching with transaction (`BEGIN` → clear active → set target active → `COMMIT`).
 
 ### Research Findings Applied
 
@@ -78,8 +82,8 @@ Plan: 0 of TBD
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T14:21:07.915Z
-**Next action:** Plan and execute Phase 02 profile management.
+**Last session:** 2026-03-22T16:00:35.979Z
+**Next action:** Execute 02-02-PLAN.md (frontend profile sidebar/editor shell).
 
 ---
 *State initialized: 2026-03-22*

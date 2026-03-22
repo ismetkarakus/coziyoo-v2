@@ -15,46 +15,46 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Profile Management
 
-- [ ] **PROF-01**: User can create a named agent profile
-- [ ] **PROF-02**: User can view all profiles in a left sidebar list
-- [ ] **PROF-03**: User can delete a profile (with confirmation, cannot delete the active profile)
-- [ ] **PROF-04**: User can clone an existing profile as a starting point for a new one
-- [ ] **PROF-05**: User can mark one profile as active (exclusive — only one active at a time)
+- [x] **PROF-01**: User can create a named agent profile
+- [x] **PROF-02**: User can view all profiles in a left sidebar list
+- [x] **PROF-03**: User can delete a profile (with confirmation, cannot delete the active profile)
+- [x] **PROF-04**: User can clone an existing profile as a starting point for a new one
+- [x] **PROF-05**: User can mark one profile as active (exclusive — only one active at a time)
 - [ ] **PROF-06**: Active profile is visually indicated in the sidebar
 
 ### Model Configuration (LLM Tab)
 
-- [ ] **MODEL-01**: User can set the base connection using OpenAI-compatible schema (base URL, API key, model name)
-- [ ] **MODEL-02**: User can add custom request headers to override the OpenAI base for the LLM provider
-- [ ] **MODEL-03**: User can add custom body params to override the OpenAI base for the LLM provider
-- [ ] **MODEL-04**: User can configure a custom endpoint path (override default /v1/chat/completions)
-- [ ] **MODEL-05**: User can write and save the system prompt for the assistant
-- [ ] **MODEL-06**: User can configure the first message (assistant speaks first or waits)
-- [ ] **MODEL-07**: User can enable/disable greeting and set the greeting instruction
+- [x] **MODEL-01**: User can set the base connection using OpenAI-compatible schema (base URL, API key, model name)
+- [x] **MODEL-02**: User can add custom request headers to override the OpenAI base for the LLM provider
+- [x] **MODEL-03**: User can add custom body params to override the OpenAI base for the LLM provider
+- [x] **MODEL-04**: User can configure a custom endpoint path (override default /v1/chat/completions)
+- [x] **MODEL-05**: User can write and save the system prompt for the assistant
+- [x] **MODEL-06**: User can configure the first message (assistant speaks first or waits)
+- [x] **MODEL-07**: User can enable/disable greeting and set the greeting instruction
 
 ### Voice Configuration (TTS Tab)
 
-- [ ] **VOICE-01**: User can set the TTS base connection using OpenAI-compatible schema (base URL, API key)
-- [ ] **VOICE-02**: User can configure a custom endpoint path (override default /v1/audio/speech)
-- [ ] **VOICE-03**: User can set the voice ID used in TTS requests
-- [ ] **VOICE-04**: User can add custom body params (e.g. speed, format, model) to override OpenAI base
-- [ ] **VOICE-05**: User can add custom request headers for the TTS provider
+- [x] **VOICE-01**: User can set the TTS base connection using OpenAI-compatible schema (base URL, API key)
+- [x] **VOICE-02**: User can configure a custom endpoint path (override default /v1/audio/speech)
+- [x] **VOICE-03**: User can set the voice ID used in TTS requests
+- [x] **VOICE-04**: User can add custom body params (e.g. speed, format, model) to override OpenAI base
+- [x] **VOICE-05**: User can add custom request headers for the TTS provider
 - [ ] **VOICE-06**: User can test TTS by sending a test phrase and hearing audio playback in browser
 
 ### Transcriber Configuration (STT Tab)
 
-- [ ] **STT-01**: User can set the STT base connection using OpenAI-compatible schema (base URL, API key)
-- [ ] **STT-02**: User can configure a custom endpoint path (override default /v1/audio/transcriptions)
-- [ ] **STT-03**: User can set the STT model and language
-- [ ] **STT-04**: User can add custom request headers for the STT provider
-- [ ] **STT-05**: User can add custom body/query params to override OpenAI base for the STT provider
+- [x] **STT-01**: User can set the STT base connection using OpenAI-compatible schema (base URL, API key)
+- [x] **STT-02**: User can configure a custom endpoint path (override default /v1/audio/transcriptions)
+- [x] **STT-03**: User can set the STT model and language
+- [x] **STT-04**: User can add custom request headers for the STT provider
+- [x] **STT-05**: User can add custom body/query params to override OpenAI base for the STT provider
 - [ ] **STT-06**: User can test STT by recording from mic and seeing the transcription result
 
 ### Tools Configuration (Tools Tab)
 
-- [ ] **TOOLS-01**: User can configure the N8N webhook base URL
-- [ ] **TOOLS-02**: User can configure the N8N webhook path for order processing
-- [ ] **TOOLS-03**: User can configure the N8N MCP webhook path
+- [x] **TOOLS-01**: User can configure the N8N webhook base URL
+- [x] **TOOLS-02**: User can configure the N8N webhook path for order processing
+- [x] **TOOLS-03**: User can configure the N8N MCP webhook path
 - [ ] **TOOLS-04**: User can test N8N connectivity (ping webhook URL, show success/fail)
 - [ ] **TOOLS-05**: User can import server config by pasting a cURL command (auto-fills fields)
 
@@ -125,34 +125,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APP-01 | Phase 1 | Complete |
 | APP-02 | Phase 1 | Complete |
 | APP-03 | Phase 1 | Complete |
-| PROF-01 | Phase 2 | Pending |
-| PROF-02 | Phase 2 | Pending |
-| PROF-03 | Phase 2 | Pending |
-| PROF-04 | Phase 2 | Pending |
-| PROF-05 | Phase 2 | Pending |
+| PROF-01 | Phase 2 | Complete |
+| PROF-02 | Phase 2 | Complete |
+| PROF-03 | Phase 2 | Complete |
+| PROF-04 | Phase 2 | Complete |
+| PROF-05 | Phase 2 | Complete |
 | PROF-06 | Phase 2 | Pending |
-| MODEL-01 | Phase 2 | Pending |
-| MODEL-02 | Phase 2 | Pending |
-| MODEL-03 | Phase 2 | Pending |
-| MODEL-04 | Phase 2 | Pending |
-| MODEL-05 | Phase 2 | Pending |
-| MODEL-06 | Phase 2 | Pending |
-| MODEL-07 | Phase 2 | Pending |
-| VOICE-01 | Phase 2 | Pending |
-| VOICE-02 | Phase 2 | Pending |
-| VOICE-03 | Phase 2 | Pending |
-| VOICE-04 | Phase 2 | Pending |
-| VOICE-05 | Phase 2 | Pending |
+| MODEL-01 | Phase 2 | Complete |
+| MODEL-02 | Phase 2 | Complete |
+| MODEL-03 | Phase 2 | Complete |
+| MODEL-04 | Phase 2 | Complete |
+| MODEL-05 | Phase 2 | Complete |
+| MODEL-06 | Phase 2 | Complete |
+| MODEL-07 | Phase 2 | Complete |
+| VOICE-01 | Phase 2 | Complete |
+| VOICE-02 | Phase 2 | Complete |
+| VOICE-03 | Phase 2 | Complete |
+| VOICE-04 | Phase 2 | Complete |
+| VOICE-05 | Phase 2 | Complete |
 | VOICE-06 | Phase 2 | Pending |
-| STT-01 | Phase 2 | Pending |
-| STT-02 | Phase 2 | Pending |
-| STT-03 | Phase 2 | Pending |
-| STT-04 | Phase 2 | Pending |
-| STT-05 | Phase 2 | Pending |
+| STT-01 | Phase 2 | Complete |
+| STT-02 | Phase 2 | Complete |
+| STT-03 | Phase 2 | Complete |
+| STT-04 | Phase 2 | Complete |
+| STT-05 | Phase 2 | Complete |
 | STT-06 | Phase 2 | Pending |
-| TOOLS-01 | Phase 2 | Pending |
-| TOOLS-02 | Phase 2 | Pending |
-| TOOLS-03 | Phase 2 | Pending |
+| TOOLS-01 | Phase 2 | Complete |
+| TOOLS-02 | Phase 2 | Complete |
+| TOOLS-03 | Phase 2 | Complete |
 | TOOLS-04 | Phase 2 | Pending |
 | TOOLS-05 | Phase 2 | Pending |
 | ADAPT-01 | Phase 3 | Pending |
