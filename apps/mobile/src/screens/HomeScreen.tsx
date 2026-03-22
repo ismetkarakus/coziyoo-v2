@@ -2036,6 +2036,12 @@ export default function HomeScreen({
               style={styles.heroFoodBgOverlayBottom}
             />
           </View>
+          {/* Header overlay: transparent top → white bottom (the magic fade) */}
+          <LinearGradient
+            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.7)', '#ffffff']}
+            locations={[0.4, 0.8, 1]}
+            style={styles.heroOverlay}
+          />
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3225,6 +3231,15 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
     opacity: 0.9,
+  },
+  /* Full header overlay: transparent → white (inset: 0) */
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
   },
   /* Gradient overlays that fade food image into background */
   heroFoodBgOverlayLeft: {
