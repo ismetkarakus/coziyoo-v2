@@ -2192,9 +2192,9 @@ export default function HomeScreen({
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
               style={styles.heroLocationRow}
             >
-              <Ionicons name="location" size={16} color="#619670" />
+              <Ionicons name="location" size={16} color="#4F8E69" />
               <Text style={styles.heroLocationText}>{selectedLocationLabel}</Text>
-              <Ionicons name="chevron-down" size={14} color="#619670" style={{ marginLeft: 2 }} />
+              <Ionicons name="chevron-down" size={14} color="#4F8E69" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
         </View>
@@ -2205,7 +2205,7 @@ export default function HomeScreen({
             activeOpacity={0.95}
             onPress={() => !searchMode && setSearchMode(true)}
           >
-            <Ionicons name="search-outline" size={22} color="#8B6A4E" style={{ marginRight: 10 }} />
+            <Ionicons name="search-outline" size={22} color="#6B4D3A" style={{ marginRight: 10 }} />
             {searchMode ? (
               <TextInput
                 ref={searchInputRef}
@@ -2226,11 +2226,11 @@ export default function HomeScreen({
                 activeOpacity={0.7}
                 onPress={() => { setSearchMode(false); setSearchQuery(''); }}
               >
-                <Ionicons name="close-outline" size={24} color="#5A3E2B" />
+                <Ionicons name="close-outline" size={24} color="#6B4D3A" />
               </TouchableOpacity>
             ) : (
               <View style={styles.floatingSearchFilterBtn}>
-                <Ionicons name="options-outline" size={22} color="#5A3E2B" />
+                <Ionicons name="options-outline" size={22} color="#6B4D3A" />
               </View>
             )}
           </TouchableOpacity>
@@ -2789,7 +2789,7 @@ export default function HomeScreen({
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FCF8EE" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F2EA" />
 
       <Modal
         visible={paymentWebVisible}
@@ -3405,8 +3405,8 @@ export default function HomeScreen({
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
-  safe: { flex: 1, backgroundColor: '#FCF8EE' },
-  container: { flex: 1, backgroundColor: '#FCF8EE' },
+  safe: { flex: 1, backgroundColor: '#F5F2EA' },
+  container: { flex: 1, backgroundColor: '#F5F2EA' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 130 },
@@ -3419,7 +3419,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#F2D8B4',
+    backgroundColor: '#EFD5B1',
     overflow: 'hidden',
   },
   heroFoodBgImg: {
@@ -3437,9 +3437,9 @@ const styles = StyleSheet.create({
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 24, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#38261D', fontSize: 26, lineHeight: 32, fontWeight: '900' },
+  greetingTitle: { color: '#3A281F', fontSize: 26, lineHeight: 32, fontWeight: '900' },
   heroSubtitle: {
-    color: '#38261D',
+    color: '#3A281F',
     fontSize: 16,
     fontWeight: '800',
     marginTop: 4,
@@ -3451,7 +3451,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroLocationText: {
-    color: '#619670',
+    color: '#4F8E69',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -3462,7 +3462,7 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: '#F2F2F2',
+    backgroundColor: '#E7E5E2',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2.5,
@@ -3488,31 +3488,31 @@ const styles = StyleSheet.create({
   floatingSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F3F2F0',
     borderRadius: 24,
     minHeight: 58,
     paddingHorizontal: 18,
     paddingVertical: 10,
-    shadowColor: '#5A3E2B',
+    shadowColor: '#3F2C22',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 8,
   },
   floatingSearchBarActive: {
     borderWidth: 1,
-    borderColor: '#E8E1D9',
+    borderColor: '#E0D8CD',
   },
   floatingSearchInput: {
     flex: 1,
-    color: '#38261D',
+    color: '#3A281F',
     fontSize: 15,
     fontWeight: '400',
     paddingVertical: 4,
   },
   floatingSearchPlaceholder: {
     flex: 1,
-    color: '#B8B0A6',
+    color: '#AFA79C',
     fontSize: 15,
     fontWeight: '400',
   },
@@ -3536,23 +3536,23 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FCF8EE',
+    backgroundColor: '#F4F0E9',
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#E8E1D9',
+    borderColor: '#E5DDD2',
   },
   chipActive: {
-    backgroundColor: '#38261D',
-    borderColor: '#38261D',
+    backgroundColor: '#3C2920',
+    borderColor: '#3C2920',
   },
   chipEmoji: {
     fontSize: 16,
     marginRight: 6,
   },
   chipText: {
-    color: '#38261D',
+    color: '#3D2B22',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -3578,7 +3578,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   nearbyHeaderTitle: {
-    color: '#38261D',
+    color: '#3A281F',
     fontSize: 20,
     fontWeight: '700',
   },
@@ -3586,15 +3586,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F0CFC0',
+    borderColor: '#EFC7B3',
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 4,
-    backgroundColor: '#FFF8F4',
+    backgroundColor: '#FFF6F1',
   },
   nearbyHeaderBtnText: {
-    color: '#E35A33',
+    color: '#E66A3C',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -3620,7 +3620,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sellersSectionTitle: {
-    color: '#3D3229',
+    color: '#3D2B22',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 8,
