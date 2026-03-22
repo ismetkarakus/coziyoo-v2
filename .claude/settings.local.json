@@ -51,16 +51,7 @@
       "mcp__jcodemunch-mcp__get_repo_outline",
       "mcp__jcodemunch-mcp__get_file_outline",
       "mcp__jcodemunch-mcp__search_symbols",
-      "mcp__jcodemunch-mcp__index_folder",
-      "Bash(open /Users/ismetkarakus/Work/coziyoo-v2/apps/mobile/ios/Coziyoo.xcworkspace)",
-      "Bash(export PATH=\"/usr/local/opt/postgresql@16/bin:$PATH\")",
-      "Bash(psql \"postgresql://postgres.yhfribehpmkbjrrgixsv:t6gOe6V8SsO4rU@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require\" -c \"SELECT DISTINCT name FROM foods ORDER BY name;\")",
-      "Bash(curl -s http://localhost:3000/v1/health)",
-      "Bash(psql \"postgresql://postgres.yhfribehpmkbjrrgixsv:t6gOe6V8SsO4rU@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name=''foods'' ORDER BY ordinal_position;\")",
-      "Bash(npx expo:*)",
-      "Bash(xcrun devicectl:*)",
-      "Bash(dig +short s3.drascom.uk)",
-      "Bash(nslookup s3.drascom.uk)"
+      "mcp__jcodemunch-mcp__index_folder"
     ]
   }
 }
