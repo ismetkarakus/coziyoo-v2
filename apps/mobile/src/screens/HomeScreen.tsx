@@ -1770,15 +1770,19 @@ export default function HomeScreen({
         return km !== null && km <= 2;
       })
     : filteredMeals;
+  const baseVisibleMeals =
+    nearbyOnly && nearbyFilteredMeals.length === 0
+      ? filteredMeals
+      : nearbyFilteredMeals;
   const visibleMeals = searchQuery.trim()
-    ? nearbyFilteredMeals.filter((m) => {
+    ? baseVisibleMeals.filter((m) => {
         const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
         return (
           m.title.toLocaleLowerCase('tr-TR').includes(q) ||
           m.seller.toLocaleLowerCase('tr-TR').includes(q)
         );
       })
-    : nearbyFilteredMeals;
+    : baseVisibleMeals;
   const sellerMeals = selectedSeller
     ? meals.filter((meal) => meal.sellerId === selectedSeller.id)
     : [];
