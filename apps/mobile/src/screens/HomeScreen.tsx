@@ -3425,9 +3425,11 @@ const styles = StyleSheet.create({
   heroFoodBgImg: {
     position: 'absolute',
     top: 8,
-    right: 2,
-    width: '52%',
+    right: 4,
+    width: '47%',
     height: '86%',
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 180,
     resizeMode: 'cover',
   },
   heroTextArea: {
