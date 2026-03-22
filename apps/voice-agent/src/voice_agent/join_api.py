@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,34 @@ async def _fetch_profiles(access_token: str) -> tuple[list[dict[str, Any]], str 
         path="/v1/admin/agent-profiles",
         access_token=access_token,
     )
+    if status == 404:
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path="/v1/admin/livekit/agent-settings",
+            access_token=access_token,
+        )
+        if legacy_status != 200 or not isinstance(legacy_payload, dict):
+            return [], "Failed to load profiles"
+        legacy_rows = legacy_payload.get("data")
+        if not isinstance(legacy_rows, list):
+            return [], "Invalid profile list response"
+        mapped: list[dict[str, Any]] = []
+        for row in legacy_rows:
+            if not isinstance(row, dict):
+                continue
+            profile_id = str(row.get("device_id") or "").strip()
+            if not profile_id:
+                continue
+            mapped.append(
+                {
+                    "id": profile_id,
+                    "name": str(row.get("agent_name") or profile_id),
+                    "is_active": bool(row.get("is_active")),
+                }
+            )
+        return mapped, None
+
     if status != 200 or not isinstance(payload, dict):
         return [], extract_error_message(payload, "Failed to load profiles")
     rows = payload.get("data")
@@ -225,7 +254,32 @@ async def dashboard_create_profile(request: Request):
             access_token=access_token,
             json_body={"name": name},
         )
-        if status not in {200, 201}:
+        if status in {200, 201}:
+            message = None
+        elif status == 404:
+            slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", name.strip()).strip("-").lower()
+            device_id = slug[:64] or "profile"
+            # Ensure unique device_id for legacy endpoint.
+            for i in range(1, 50):
+                check_status, check_payload = await api_request(
+                    api_base_url=settings.api_base_url,
+                    method="GET",
+                    path=f"/v1/admin/livekit/agent-settings/{device_id}",
+                    access_token=access_token,
+                )
+                if check_status == 404:
+                    break
+                device_id = f"{slug[:54]}-{i}" if slug else f"profile-{i}"
+            legacy_status, legacy_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="PUT",
+                path=f"/v1/admin/livekit/agent-settings/{device_id}",
+                access_token=access_token,
+                json_body={"agentName": name},
+            )
+            if legacy_status not in {200, 201}:
+                message = extract_error_message(legacy_payload, "Profile create failed")
+        else:
             message = extract_error_message(payload, "Profile create failed")
     return await _render_sidebar(request, access_token, message)
 
