@@ -23,11 +23,13 @@
   3. User can log out and is redirected to the login page, with no authenticated routes accessible
   4. The dashboard builds and deploys via the existing CI/CD pipeline (push to main triggers deploy to VPS)
   5. The API accepts requests from the dashboard origin without CORS errors (both localhost dev and production domain)
-**Plans:** 3 plans
+**Plans:** 5 plans
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold Next.js workspace and fix CORS defaults
 - [x] 01-02-PLAN.md -- Implement admin JWT auth (login, token refresh, logout)
 - [x] 01-03-PLAN.md -- Create deployment pipeline (systemd, install/update scripts, CI/CD integration)
+- [ ] 01-04-PLAN.md -- Gap closure: fix reachable post-login dashboard routing and logout accessibility
+- [ ] 01-05-PLAN.md -- Gap closure: align API fallback CORS default with dashboard production origin + regression test
 
 ### Phase 2: Profile Management
 **Goal**: Users can create, configure, and activate voice agent profiles through a complete dashboard UI -- replacing the old VoiceAgentSettingsPage entirely
@@ -66,7 +68,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 3/3 | Complete | 2026-03-22 (01-01, 01-02, 01-03) |
+| 1. Foundation | 3/5 | In progress (gap closure) | 2026-03-22 (01-01, 01-02, 01-03) |
 | 2. Profile Management | 0/? | Not started | - |
 | 3. Provider Adapter System | 0/? | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |
