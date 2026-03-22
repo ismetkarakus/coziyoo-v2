@@ -143,7 +143,7 @@ export default function App() {
       <FoodDetailScreen
         food={selectedFood}
         onBack={() => goHome('home')}
-        onAddToCart={() => goHome('cart')}
+        onAddToCart={(_food: FoodItem, _quantity: number) => goHome('cart')}
       />
     );
   }

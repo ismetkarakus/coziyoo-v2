@@ -29,6 +29,10 @@ import { adminApiTokenRouter } from "./routes/admin-api-tokens.js";
 import { adminSalesCommissionSettingsRouter } from "./routes/admin-sales-commission-settings.js";
 import { adminSecurityRouter } from "./routes/admin-security.js";
 import { foodsRouter } from "./routes/foods.js";
+import { complaintsRouter } from "./routes/complaints.js";
+import { notificationsRouter } from "./routes/notifications.js";
+import { chatsRouter } from "./routes/chats.js";
+import { favoritesRouter } from "./routes/favorites.js";
 
 export const app = express();
 
@@ -359,6 +363,10 @@ app.use("/v1/admin", adminSalesCommissionSettingsRouter);
 app.use("/v1/admin", adminSecurityRouter);
 app.use("/v1/admin/livekit", adminLiveKitRouter);
 app.use("/v1/foods", foodsRouter);
+app.use("/v1/complaints", complaintsRouter);
+app.use("/v1/notifications", notificationsRouter);
+app.use("/v1/chats", chatsRouter);
+app.use("/v1/favorites", favoritesRouter);
 app.use("/v1/docs", docsRouter);
 app.use("/v1/livekit", liveKitRouter);
 app.use("/v1/voice", voiceRouter);
