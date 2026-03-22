@@ -22,22 +22,6 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-let BlurView: React.ComponentType<{
-  intensity?: number;
-  tint?: 'light' | 'dark' | 'default' | string;
-  style?: any;
-  children?: React.ReactNode;
-}> | null = null;
-try {
-  const maybeBlurView = require('expo-blur').BlurView;
-  const hasNativeView = Boolean(
-    UIManager.getViewManagerConfig?.('ViewManagerAdapter_ExpoBlurView')
-      || UIManager.getViewManagerConfig?.('ExpoBlurView'),
-  );
-  BlurView = hasNativeView ? maybeBlurView : null;
-} catch {
-  // Optional at runtime; fallback view is used when unavailable.
-}
 let LinearGradient: React.ComponentType<{
   colors: string[];
   locations?: number[];
@@ -2154,8 +2138,8 @@ export default function HomeScreen({
         <View style={styles.heroWrap}>
           {LinearGradient ? (
             <LinearGradient
-              colors={['#FCF8EE', '#F9E9D5', '#F0D5AE']}
-              locations={[0, 0.45, 1]}
+              colors={['#FCEBDD', '#F6D8B8', '#F7EDE4', '#FFFFFF']}
+              locations={[0, 0.35, 0.65, 1]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={styles.heroBaseGradient}
@@ -2167,16 +2151,11 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
-          {BlurView ? (
-            <BlurView intensity={14} style={styles.heroTopBlur} />
-          ) : (
-            <View style={styles.heroTopBlurFallback} />
-          )}
           {LinearGradient ? (
             <LinearGradient
               colors={[
-                'rgba(233,194,152,0.18)',
-                'rgba(233,194,152,0.08)',
+                'rgba(90,62,43,0.25)',
+                'rgba(90,62,43,0.1)',
                 'transparent',
               ]}
               style={styles.heroOverlay}
@@ -2186,14 +2165,12 @@ export default function HomeScreen({
           )}
           {LinearGradient ? (
             <LinearGradient
-              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.7)', '#FFFFFF']}
-              locations={[0.4, 0.8, 1]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.heroHeaderOverlay}
+              colors={['transparent', 'rgba(255,255,255,0.7)', '#FFFFFF']}
+              locations={[0.4, 0.75, 1]}
+              style={styles.heroBottomFade}
             />
           ) : (
-            <View style={styles.heroHeaderOverlayFallback} />
+            <View style={styles.heroBottomFadeFallback} />
           )}
           {/* Profile avatar */}
           <TouchableOpacity
@@ -3468,53 +3445,32 @@ const styles = StyleSheet.create({
   },
   heroFoodBgImg: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '60%',
-    height: '100%',
-    opacity: 0.9,
+    top: 10,
+    right: 6,
+    width: '42%',
+    height: '88%',
+    opacity: 0.78,
+    borderTopLeftRadius: 220,
+    borderBottomLeftRadius: 220,
     resizeMode: 'cover',
   },
-  heroTopBlur: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '60%',
-    height: 84,
-  },
-  heroTopBlurFallback: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '60%',
-    height: 84,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
   heroOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '60%',
-    height: '100%',
-  },
-  heroOverlayFallback: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '60%',
-    height: '100%',
-    backgroundColor: 'rgba(233,194,152,0.12)',
-  },
-  heroHeaderOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  heroHeaderOverlayFallback: {
+  heroOverlayFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(90,62,43,0.12)',
+  },
+  heroBottomFade: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroBottomFadeFallback: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: '40%',
     bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    height: '45%',
+    backgroundColor: 'rgba(255,255,255,0.6)',
   },
   heroTextArea: {
     zIndex: 3,
