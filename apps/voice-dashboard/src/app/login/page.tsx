@@ -43,7 +43,7 @@ export default function LoginPage() {
       const json = (await response.json()) as LoginResponse;
       setTokens(json.data.tokens);
       setAdmin(json.data.admin);
-      router.push("/");
+      router.push("/dashboard");
     } catch {
       toast.error("Login failed");
     } finally {
