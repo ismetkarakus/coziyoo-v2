@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
+import { ModelTab } from "@/components/tabs/model-tab";
+import { ToolsTab } from "@/components/tabs/tools-tab";
+import { TranscriberTab } from "@/components/tabs/transcriber-tab";
+import { VoiceTab } from "@/components/tabs/voice-tab";
 import { useProfile, useUpdateProfile } from "@/lib/hooks/use-profiles";
 import { profileFormSchema, type ProfileFormValues } from "@/lib/schemas/profile";
 import type { AgentProfile } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -171,21 +173,6 @@ export function ProfileEditor({ profileId }: { profileId: string }) {
           <Label htmlFor="profile-name">Profile Name</Label>
           <Input id="profile-name" {...form.register("name")} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="system-prompt">System Prompt</Label>
-          <Textarea id="system-prompt" rows={4} {...form.register("system_prompt")} />
-        </div>
-        <div className="flex items-center justify-between rounded-md border p-3 md:col-span-2">
-          <div>
-            <p className="text-sm font-medium">Speaks first</p>
-            <p className="text-xs text-muted-foreground">Agent starts the conversation automatically.</p>
-          </div>
-          <Controller
-            control={form.control}
-            name="speaks_first"
-            render={({ field }) => <Switch checked={field.value} onCheckedChange={field.onChange} />}
-          />
-        </div>
       </div>
 
       <Tabs defaultValue="model" className="w-full">
@@ -196,18 +183,21 @@ export function ProfileEditor({ profileId }: { profileId: string }) {
           <TabsTrigger value="tools">Tools</TabsTrigger>
         </TabsList>
         <TabsContent value="model">
-          <div className="rounded-lg border p-4 text-sm text-muted-foreground">Model tab content (Plan 03)</div>
+          <ModelTab control={form.control} register={form.register} watch={form.watch} setValue={form.setValue} />
         </TabsContent>
         <TabsContent value="voice">
-          <div className="rounded-lg border p-4 text-sm text-muted-foreground">Voice tab content (Plan 03)</div>
+          <VoiceTab control={form.control} register={form.register} watch={form.watch} setValue={form.setValue} />
         </TabsContent>
         <TabsContent value="transcriber">
-          <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-            Transcriber tab content (Plan 03)
-          </div>
+          <TranscriberTab
+            control={form.control}
+            register={form.register}
+            watch={form.watch}
+            setValue={form.setValue}
+          />
         </TabsContent>
         <TabsContent value="tools">
-          <div className="rounded-lg border p-4 text-sm text-muted-foreground">Tools tab content (Plan 03)</div>
+          <ToolsTab control={form.control} register={form.register} watch={form.watch} setValue={form.setValue} />
         </TabsContent>
       </Tabs>
     </form>
