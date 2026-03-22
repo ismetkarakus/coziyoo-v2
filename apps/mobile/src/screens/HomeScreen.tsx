@@ -39,7 +39,7 @@ try {
 }
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
-import { loadCachedProfileImageUrl } from '../utils/profileImage';
+import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import VoiceSessionScreen from './VoiceSessionScreen';
 import { requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
@@ -1067,6 +1067,7 @@ export default function HomeScreen({
         const retryJson = await readJsonSafe<{ data?: MeProfile }>(retryRes);
         const imageUrl = retryJson.data?.profileImageUrl ?? null;
         setProfileImageUrl(imageUrl);
+        if (imageUrl) saveCachedProfileImageUrl(imageUrl);
         setGreetingName(resolveGreetingName(retryJson.data, currentAuth.email));
         setProfileDisplayName(resolveProfileDisplayName(retryJson.data, currentAuth.email));
         return;
@@ -1075,6 +1076,7 @@ export default function HomeScreen({
       const json = await readJsonSafe<{ data?: MeProfile }>(response);
       const imageUrl = json.data?.profileImageUrl ?? null;
       setProfileImageUrl(imageUrl);
+      if (imageUrl) saveCachedProfileImageUrl(imageUrl);
       setGreetingName(resolveGreetingName(json.data, currentAuth.email));
       setProfileDisplayName(resolveProfileDisplayName(json.data, currentAuth.email));
     } catch {
