@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-22T16:39:53.937Z"
+last_updated: "2026-03-22T17:51:27.782Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 13
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 6
 ---
 
 # Project State: Voice Agent Dashboard
@@ -17,12 +17,12 @@ progress:
 
 **Core Value:** The team can switch between fully-configured voice agent profiles instantly -- tuning model, voice, transcriber, and tools -- without touching code or redeploying the agent.
 
-**Current Focus:** Phase 02 — profile-management (PIVOTED: FastAPI+HTMX replaces Next.js voice-dashboard)
+**Current Focus:** Phase 02 — profile-management
 
 ## Current Position
 
-Phase: 02 (profile-management) — IN PROGRESS
-Plan: 4 of 5
+Phase: 02 (profile-management) — EXECUTING
+Plan: 3 of 3 (02-03 completed)
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Plan: 4 of 5
 | Phase 02-profile-management P02 | 11m | 2 tasks | 28 files |
 | Phase 02-profile-management P03 | 7min | 2 tasks | 10 files |
 | Phase 02-profile-management P05 | 5min | 2 tasks | 5 files |
+| Phase 02-profile-management P03 | 21min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Plan: 4 of 5
 - Mapped cURL import payloads to LLM/TTS/STT/N8N sections using URL/path fingerprint heuristics.
 - Kept `/test/llm` failures as explicit `502` + `LLM_TEST_FAILED` payloads for deterministic dashboard feedback.
 - Used form-sourced `llm_config` overrides (base URL, endpoint path, headers, body params) directly in LLM test requests.
+- Enforced same-origin dashboard test calls (`/dashboard/test/*`) so browser never calls upstream API directly.
+- Set `API_BASE_URL` default to `https://api.coziyoo.com` while retaining env override for quick switching.
+- Migrated legacy `starter_agent_settings` records into normalized `agent_profiles` JSON shape in Supabase.
 
 ### Research Findings Applied
 
@@ -93,8 +97,8 @@ Plan: 4 of 5
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T16:39:53.935Z
-**Next action:** Execute 02-04-PLAN.md (runtime active profile consumption for next voice call).
+**Last session:** 2026-03-22T17:51:27.780Z
+**Next action:** Start Phase 03 (provider adapter system) with 03-01-PLAN.md.
 
 ---
 *State initialized: 2026-03-22*

@@ -43,7 +43,11 @@ Plans:
   4. User can mark a profile as active, see the visual indicator in the sidebar, and verify that the next voice call uses that profile's config
   5. User can clone a profile, delete a non-active profile (with confirmation), and import server config by pasting a cURL command
   6. User can test connectivity for each provider (LLM, TTS, STT, N8N) from the dashboard and see success/failure feedback
-**Plans**: TBD
+**Plans:** 3/3 plans executed
+Plans:
+- [x] 02-01-PLAN.md -- FastAPI dashboard shell + auth + profile sidebar CRUD
+- [x] 02-02-PLAN.md -- 4-tab profile editor with full field persistence
+- [x] 02-03-PLAN.md -- provider connectivity tests (LLM/TTS/STT/N8N) + cURL import
 
 ### Phase 3: Provider Adapter System
 **Goal**: The Python voice agent uses a unified OpenAI-compatible client with pluggable adapters, so dashboard config overrides (custom headers, body params, endpoint paths) actually take effect at runtime
@@ -54,7 +58,7 @@ Plans:
   2. Custom headers configured in a dashboard profile are injected into the outgoing provider request at call time
   3. Custom body params and endpoint path overrides configured in a dashboard profile are applied to the outgoing provider request
   4. Non-OpenAI providers that return different response shapes have their fields remapped transparently -- the agent code does not branch on provider type
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 03-01-PLAN.md -- Wave 0: pytest infrastructure + test stubs for all ADAPT requirements
 - [ ] 03-02-PLAN.md -- Adapter module: Pydantic config models, factory functions (build_llm/tts/stt), response remapping
@@ -75,7 +79,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete | 2026-03-22 (DB schema, API routes, CORS, deploy) |
-| 2. Profile Management | 0/? | Not started | Pivoted to FastAPI+HTMX — replanning |
+| 2. Profile Management | 3/3 | Complete | 2026-03-22 (FastAPI dashboard profile management delivered) |
 | 3. Provider Adapter System | 0/3 | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |
 
