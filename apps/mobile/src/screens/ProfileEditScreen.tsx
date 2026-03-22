@@ -49,7 +49,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
-  const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'email' | null>(null);
+  const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
@@ -156,10 +156,11 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     }
   }
 
-  function openFieldEditor(field: 'displayName' | 'fullName' | 'phone' | 'email') {
+  function openFieldEditor(field: 'displayName' | 'fullName' | 'phone' | 'dob' | 'email') {
     if (field === 'displayName') setEditValue(displayName);
     if (field === 'fullName') setEditValue(fullName);
     if (field === 'phone') setEditValue(phone);
+    if (field === 'dob') setEditValue(dob);
     if (field === 'email') setEditValue(email);
     setEditField(field);
   }
@@ -170,6 +171,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     if (editField === 'displayName') setDisplayName(next);
     if (editField === 'fullName') setFullName(next);
     if (editField === 'phone') setPhone(next);
+    if (editField === 'dob') setDob(next);
     if (editField === 'email') setEmail(next);
     setEditField(null);
   }
@@ -177,6 +179,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   function getEditPlaceholder() {
     if (editField === 'fullName') return t('helper.profileEdit.fullNamePlaceholder');
     if (editField === 'phone') return t('helper.profileEdit.phonePlaceholder');
+    if (editField === 'dob') return t('helper.profileEdit.dobPlaceholder');
     if (editField === 'email') return t('helper.profileEdit.emailHint');
     return t('helper.profileEdit.displayNamePlaceholder');
   }
@@ -255,6 +258,23 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
                 <View style={styles.infoCard}>
                   <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#E9C298' }]}>
+                      <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.dobLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.profileEdit.dobHint')}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('dob')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{dob || t('helper.profileEdit.dobPlaceholder')}</Text>
+                </View>
+
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
                     <View style={[styles.infoIconWrap, { backgroundColor: '#9FB6D8' }]}>
                       <Ionicons name="mail" size={18} color="#FFFFFF" />
                     </View>
@@ -321,9 +341,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
               onChangeText={setEditValue}
               placeholder={getEditPlaceholder()}
               placeholderTextColor={theme.textSecondary}
-              autoCapitalize={editField === 'phone' || editField === 'email' ? 'none' : 'words'}
-              keyboardType={editField === 'phone' ? 'phone-pad' : editField === 'email' ? 'email-address' : 'default'}
-              maxLength={editField === 'phone' ? 20 : 120}
+              autoCapitalize={editField === 'phone' || editField === 'email' || editField === 'dob' ? 'none' : 'words'}
+              keyboardType={editField === 'phone' ? 'phone-pad' : editField === 'email' ? 'email-address' : editField === 'dob' ? 'numbers-and-punctuation' : 'default'}
+              maxLength={editField === 'phone' ? 20 : editField === 'dob' ? 10 : 120}
               autoFocus
             />
             <View style={styles.editModalActions}>
