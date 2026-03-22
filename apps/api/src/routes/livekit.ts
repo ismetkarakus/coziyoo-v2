@@ -68,6 +68,7 @@ const EndSessionSchema = z.object({
   jobId: z.string().max(256).optional(),
   userIdentity: z.string().max(256).optional(),
   agentIdentity: z.string().max(256).optional(),
+  profileId: z.string().max(128).optional(),
   summary: z.string().min(1).max(32_000),
   startedAt: z.string().datetime().optional(),
   endedAt: z.string().datetime().optional(),
@@ -81,6 +82,22 @@ const EndSessionSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/)
     .optional(),
 });
+
+function asUuidOrNull(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(normalized) ? normalized : null;
+}
+
+function computeDurationSeconds(startedAt?: string, endedAt?: string): number {
+  if (!startedAt || !endedAt) return 0;
+  const started = Date.parse(startedAt);
+  const ended = Date.parse(endedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(ended)) return 0;
+  return Math.max(0, Math.floor((ended - started) / 1000));
+}
 
 const AgentChatSchema = z.object({
   roomName: z.string().min(1).max(128),
@@ -484,6 +501,40 @@ liveKitRouter.post("/session/end", async (req, res) => {
   }
 
   const input = parsed.data;
+  const metadataProfileId =
+    input.metadata && typeof input.metadata.settingsProfileId === "string"
+      ? input.metadata.settingsProfileId
+      : null;
+  const resolvedProfileId = asUuidOrNull(input.profileId) ?? asUuidOrNull(metadataProfileId);
+  const startedAt = input.startedAt ?? input.endedAt ?? new Date().toISOString();
+  const endedAt = input.endedAt ?? startedAt;
+  const durationSeconds = computeDurationSeconds(startedAt, endedAt);
+
+  try {
+    await pool.query(
+      `INSERT INTO agent_call_logs
+        (room_name, profile_id, started_at, ended_at, duration_seconds, outcome, summary, device_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        input.roomName,
+        resolvedProfileId,
+        startedAt,
+        endedAt,
+        durationSeconds,
+        input.outcome ?? "completed",
+        input.summary,
+        input.deviceId ?? null,
+      ],
+    );
+  } catch (error) {
+    return res.status(500).json({
+      error: {
+        code: "CALL_LOG_PERSIST_FAILED",
+        message: error instanceof Error ? error.message : "Failed to persist call log",
+      },
+    });
+  }
+
   let n8nBaseUrlOverride: string | null = null;
   if (input.deviceId) {
     const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
@@ -505,8 +556,8 @@ liveKitRouter.post("/session/end", async (req, res) => {
       userIdentity: input.userIdentity,
       agentIdentity: input.agentIdentity,
       summary: input.summary,
-      startedAt: input.startedAt,
-      endedAt: input.endedAt,
+      startedAt: input.startedAt ?? startedAt,
+      endedAt: input.endedAt ?? endedAt,
       outcome: input.outcome,
       sentiment: input.sentiment,
       metadata: input.metadata,
