@@ -1,10 +1,8 @@
 import { getTokens, setTokens, setAdmin } from "./auth";
 
-const configuredApiBase =
-  (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined)?.trim() || "https://api.coziyoo.com";
-
-// Call API directly instead of same-origin proxy routes.
-export const API_BASE = configuredApiBase.replace(/\/+$/, "");
+// Browser calls same-origin `/v1/*`; Next.js rewrites proxy to real API origin.
+// This avoids browser-side CORS while still hitting the real backend.
+export const API_BASE = "";
 
 export let refreshInFlight: Promise<boolean> | null = null;
 
