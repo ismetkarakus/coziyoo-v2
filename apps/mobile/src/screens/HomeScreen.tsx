@@ -2170,8 +2170,8 @@ export default function HomeScreen({
           {/* Background gradient — warm palette */}
           {LinearGradient ? (
             <LinearGradient
-              colors={['#E9C298', '#F0D5AE', '#F5DFC4']}
-              locations={[0, 0.55, 1]}
+              colors={['#EDCFAB', '#F2DBBD', '#F7E6CF']}
+              locations={[0, 0.5, 1]}
               style={styles.heroGradient}
             />
           ) : (
@@ -2191,8 +2191,8 @@ export default function HomeScreen({
             {/* Left fade — seamless blend into gradient */}
           {LinearGradient ? (
               <LinearGradient
-                colors={['rgba(233,194,152,0.95)', 'rgba(240,213,174,0.65)', 'rgba(245,223,196,0.25)', 'transparent']}
-                  locations={[0, 0.28, 0.52, 0.75]}
+                colors={['rgba(237,207,171,1)', 'rgba(242,219,189,0.75)', 'rgba(247,230,207,0.35)', 'transparent']}
+                  locations={[0, 0.3, 0.55, 0.78]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.heroFoodBgOverlayLeft}
@@ -2208,8 +2208,8 @@ export default function HomeScreen({
           {/* Subtle bottom fade for smooth transition */}
           {LinearGradient ? (
               <LinearGradient
-                colors={['transparent', 'rgba(252,248,238,0.4)', 'rgba(252,248,238,0.85)']}
-                  locations={[0.3, 0.7, 1]}
+                colors={['transparent', 'rgba(247,230,207,0.3)', 'rgba(252,248,238,0.7)']}
+                  locations={[0.35, 0.72, 1]}
                   style={styles.heroFoodBgOverlayBottom}
                 />
           ) : null}
@@ -3479,7 +3479,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     marginHorizontal: -18,
     marginTop: -24,
-    backgroundColor: '#E9C298',
+    backgroundColor: '#EDCFAB',
     overflow: 'hidden',
   },
   /* Real LinearGradient background */
@@ -3492,7 +3492,7 @@ const styles = StyleSheet.create({
   },
   heroGradientSolid: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#E9C298',
+    backgroundColor: '#EDCFAB',
   },
   heroGradientSoftMid: {
     position: 'absolute',
@@ -3500,7 +3500,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '55%',
-    backgroundColor: '#F0D5AE',
+    backgroundColor: '#F2DBBD',
     opacity: 0.7,
   },
   heroGradientSoftBottom: {
@@ -3509,7 +3509,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '22%',
-    backgroundColor: '#F5DFC4',
+    backgroundColor: '#F7E6CF',
     opacity: 0.85,
   },
   /* Right-side food background image */
@@ -3548,7 +3548,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '75%',
     height: '100%',
-    backgroundColor: 'rgba(233,194,152,0.15)',
+    backgroundColor: 'rgba(237,207,171,0.18)',
   },
   heroFoodBgFallbackLeft2: {
     position: 'absolute',
@@ -3556,7 +3556,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '52%',
     height: '100%',
-    backgroundColor: 'rgba(233,194,152,0.35)',
+    backgroundColor: 'rgba(237,207,171,0.40)',
   },
   heroFoodBgFallbackLeft3: {
     position: 'absolute',
@@ -3564,7 +3564,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '35%',
     height: '100%',
-    backgroundColor: 'rgba(233,194,152,0.60)',
+    backgroundColor: 'rgba(237,207,171,0.65)',
   },
   heroFoodBgFallbackLeft4: {
     position: 'absolute',
@@ -3572,7 +3572,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: '18%',
     height: '100%',
-    backgroundColor: 'rgba(233,194,152,0.85)',
+    backgroundColor: 'rgba(237,207,171,0.88)',
   },
   heroTextArea: {
     zIndex: 3,
