@@ -68,10 +68,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Call Logs
 
-- [ ] **LOGS-01**: Call sessions are persisted to the database when a session ends (profile ID, start time, duration, outcome)
-- [ ] **LOGS-02**: User can view a table of past call sessions with date, duration, profile used, and outcome
-- [ ] **LOGS-03**: User can filter call logs by profile
-- [ ] **LOGS-04**: User can filter call logs by date range
+- [x] **LOGS-01**: Call sessions are persisted to the database when a session ends (profile ID, start time, duration, outcome)
+- [x] **LOGS-02**: User can view a table of past call sessions with date, duration, profile used, and outcome
+- [x] **LOGS-03**: User can filter call logs by profile
+- [x] **LOGS-04**: User can filter call logs by date range
 
 ### App & Deployment
 
@@ -160,10 +160,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADAPT-03 | Phase 3 | Complete |
 | ADAPT-04 | Phase 3 | Complete |
 | ADAPT-05 | Phase 3 | Complete |
-| LOGS-01 | Phase 4 | Pending |
-| LOGS-02 | Phase 4 | Pending |
-| LOGS-03 | Phase 4 | Pending |
-| LOGS-04 | Phase 4 | Pending |
+| LOGS-01 | Phase 4 | Complete |
+| LOGS-02 | Phase 4 | Complete |
+| LOGS-03 | Phase 4 | Complete |
+| LOGS-04 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 45 total

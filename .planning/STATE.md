@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-22T19:20:00.000Z"
+status: complete
+last_updated: "2026-03-22T20:08:46.551Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 9
+  completed_plans: 12
 ---
 
 # Project State: Voice Agent Dashboard
@@ -17,22 +17,22 @@ progress:
 
 **Core Value:** The team can switch between fully-configured voice agent profiles instantly -- tuning model, voice, transcriber, and tools -- without touching code or redeploying the agent.
 
-**Current Focus:** Phase 04 — call-logs (planned, ready for execution)
+**Current Focus:** Phase 04 — call-logs (completed)
 
 ## Current Position
 
-Phase: 04 (call-logs) — PLANNED
-Plan: 0 of 3 executed (04-01..04-03 drafted)
+Phase: 04 (call-logs) — COMPLETE
+Plan: 3 of 3 executed (04-01..04-03 completed)
 
 ## Performance Metrics
 
 | Metric | Value |
 |--------|-------|
-| Plans completed | 9 |
+| Plans completed | 12 |
 | Plans failed | 0 |
 | Total requirements | 45 |
-| Requirements done | 41 |
-| Phases complete | 2/4 |
+| Requirements done | 45 |
+| Phases complete | 4/4 |
 | Phase 01-foundation P01 | 6m | 2 tasks | 32 files |
 | Phase 01-foundation P03 | 10min | 3 tasks | 4 files |
 | Phase 01-foundation P02 | 4min | 2 tasks | 8 files |
@@ -46,6 +46,9 @@ Plan: 0 of 3 executed (04-01..04-03 drafted)
 | Phase 03-provider-adapter-system P01 | 18min | 2 tasks | 4 files |
 | Phase 03-provider-adapter-system P02 | 32min | 2 tasks | 7 files |
 | Phase 03-provider-adapter-system P03 | 20min | 1 tasks | 2 files |
+| Phase 04-call-logs P01 | 20min | 2 tasks | 6 files |
+| Phase 04-call-logs P02 | 18min | 2 tasks | 4 files |
+| Phase 04-call-logs P03 | 16min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -82,6 +85,8 @@ Plan: 0 of 3 executed (04-01..04-03 drafted)
 - Enforced same-origin dashboard test calls (`/dashboard/test/*`) so browser never calls upstream API directly.
 - Set `API_BASE_URL` default to `https://api.coziyoo.com` while retaining env override for quick switching.
 - Migrated legacy `starter_agent_settings` records into normalized `agent_profiles` JSON shape in Supabase.
+- Persisted call logs inside `/v1/livekit/session/end` before n8n forwarding to keep local observability durable.
+- Implemented GET + `hx-push-url` call-log filters with BFF date normalization (`YYYY-MM-DD` -> UTC datetime).
 
 ### Research Findings Applied
 
@@ -101,8 +106,8 @@ Plan: 0 of 3 executed (04-01..04-03 drafted)
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T19:20:00.000Z
-**Next action:** Execute 04-01-PLAN.md.
+**Last session:** 2026-03-22T20:08:46.549Z
+**Next action:** Run phase verification/UAT for call logs and continue with v2 backlog items.
 
 ---
 *State initialized: 2026-03-22*
