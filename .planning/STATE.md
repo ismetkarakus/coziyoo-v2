@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-22T13:05:30.219Z"
+last_updated: "2026-03-22T13:39:55.069Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State: Voice Agent Dashboard
@@ -31,9 +31,10 @@ Plan: 2 of 3
 | Plans completed | 1 |
 | Plans failed | 0 |
 | Total requirements | 45 |
-| Requirements done | 1 |
+| Requirements done | 3 |
 | Phases complete | 0/4 |
 | Phase 01-foundation P01 | 6m | 2 tasks | 32 files |
+| Phase 01-foundation P03 | 10min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -47,6 +48,8 @@ Plan: 2 of 3
 - Used Next.js rewrites for dashboard API proxy in development.
 - Kept standalone Next output for deployment compatibility.
 - Added VOICE_DASHBOARD_DOMAIN-backed CORS default for production origin.
+- Deployed voice dashboard as Next.js standalone systemd service (`coziyoo-voice-dashboard`) on port 3001.
+- Integrated dashboard stop/update flow into `update_all.sh` and `run_all.sh` via `voice-dashboard` alias.
 
 ### Research Findings Applied
 
@@ -66,7 +69,7 @@ Plan: 2 of 3
 
 ## Session Continuity
 
-**Last session:** 2026-03-22T13:05:30.218Z
+**Last session:** 2026-03-22T13:39:55.067Z
 **Next action:** Execute `01-02-PLAN.md` for admin JWT auth implementation.
 
 ---
