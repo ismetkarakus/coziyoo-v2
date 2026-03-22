@@ -3130,7 +3130,7 @@ const styles = StyleSheet.create({
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
   categoryContent: { gap: 14, paddingRight: 8, paddingBottom: 0, alignItems: 'flex-end' },
-  categoryTextButton: { paddingTop: 0, paddingBottom: 2 },
+  categoryTextButton: { paddingTop: 0, paddingBottom: 4 },
   categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
