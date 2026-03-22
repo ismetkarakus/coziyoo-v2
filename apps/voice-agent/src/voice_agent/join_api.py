@@ -328,7 +328,28 @@ async def dashboard_delete_profile(request: Request, profile_id: str):
         access_token=access_token,
     )
     message = None
-    if status == 409:
+    if status == 404:
+        # Legacy fallback when new agent-profiles routes are not deployed yet.
+        list_status, list_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path="/v1/admin/livekit/agent-settings",
+            access_token=access_token,
+        )
+        if list_status == 200 and isinstance(list_payload, dict) and isinstance(list_payload.get("data"), list):
+            for row in list_payload["data"]:
+                if isinstance(row, dict) and str(row.get("device_id") or "") == profile_id and bool(row.get("is_active")):
+                    message = "Cannot delete the active profile. Activate a different profile first."
+                    return await _render_sidebar(request, access_token, message)
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="DELETE",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+        )
+        if legacy_status != 200:
+            message = extract_error_message(legacy_payload, "Delete failed")
+    elif status == 409:
         message = extract_error_message(payload, "CANNOT_DELETE_ACTIVE")
     elif status != 200:
         message = extract_error_message(payload, "Delete failed")
