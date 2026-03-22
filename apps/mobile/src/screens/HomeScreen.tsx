@@ -159,6 +159,17 @@ type TopSoldFoodItem = {
   totalSold: number;
 };
 
+type MarketplaceSellerItem = {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  userType: 'seller' | 'both';
+  activeFoodCount: number;
+  openLotCount: number;
+  reviewCount: number;
+  avgRating: number;
+};
+
 type ApiRecommendationItem = ApiFoodItem & {
   reason?: string | null;
   totalSold?: number;
@@ -1039,6 +1050,8 @@ export default function HomeScreen({
   const [recommendedMealsLoading, setRecommendedMealsLoading] = useState(false);
   const [topSoldFoods, setTopSoldFoods] = useState<TopSoldFoodItem[]>([]);
   const [topSoldFoodsLoading, setTopSoldFoodsLoading] = useState(false);
+  const [marketplaceSellers, setMarketplaceSellers] = useState<MarketplaceSellerItem[]>([]);
+  const [marketplaceSellersLoading, setMarketplaceSellersLoading] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
   const [favoritePendingIds, setFavoritePendingIds] = useState<Record<string, true>>({});
   const showSloganCard = false;
@@ -1227,6 +1240,32 @@ export default function HomeScreen({
       .finally(() => {
         if (cancelled) return;
         setTopSoldFoodsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAuth, handleAuthRefresh]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMarketplaceSellersLoading(true);
+    apiRequest<MarketplaceSellerItem[]>(
+      '/v1/foods/sellers?limit=200',
+      currentAuth,
+      { actorRole: 'buyer' },
+      handleAuthRefresh,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setMarketplaceSellers([]);
+          return;
+        }
+        setMarketplaceSellers(Array.isArray(result.data) ? result.data : []);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setMarketplaceSellersLoading(false);
       });
     return () => {
       cancelled = true;
@@ -2290,6 +2329,54 @@ export default function HomeScreen({
             <Text style={styles.nearbyHeaderBtnText}>Tümünü Gör</Text>
             <Ionicons name="chevron-forward" size={16} color="#D4763C" />
           </TouchableOpacity>
+        </View>
+        <View style={styles.sellersSection}>
+          <Text style={styles.sellersSectionTitle}>Tüm Satıcılar</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sellersRow}
+          >
+            {marketplaceSellersLoading ? (
+              <View style={styles.topSoldLoadingChip}>
+                <ActivityIndicator size="small" color="#4A7C59" />
+                <Text style={styles.topSoldLoadingText}>Satıcılar yükleniyor...</Text>
+              </View>
+            ) : null}
+            {!marketplaceSellersLoading && marketplaceSellers.length === 0 ? (
+              <View style={styles.topSoldLoadingChip}>
+                <Text style={styles.topSoldLoadingText}>Aktif satıcı bulunamadı.</Text>
+              </View>
+            ) : null}
+            {marketplaceSellers.map((seller) => (
+              <TouchableOpacity
+                key={`seller-${seller.id}`}
+                style={styles.sellerChip}
+                activeOpacity={0.86}
+                onPress={() =>
+                  setSelectedSeller({
+                    id: seller.id,
+                    name: seller.name,
+                    image: seller.imageUrl,
+                  })
+                }
+              >
+                <View style={styles.sellerChipAvatar}>
+                  {seller.imageUrl ? (
+                    <Image source={{ uri: seller.imageUrl }} style={styles.sellerChipAvatarImage} />
+                  ) : (
+                    <Text style={styles.sellerChipAvatarEmoji}>👩‍🍳</Text>
+                  )}
+                </View>
+                <View style={styles.sellerChipTextWrap}>
+                  <Text style={styles.sellerChipName} numberOfLines={1}>{seller.name}</Text>
+                  <Text style={styles.sellerChipMeta} numberOfLines={1}>
+                    {seller.activeFoodCount} yemek • ★ {seller.avgRating.toFixed(1)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
         <View style={styles.sellersSection}>

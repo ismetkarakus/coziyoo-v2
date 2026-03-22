@@ -438,6 +438,83 @@ foodsRouter.get("/recommendations", async (req, res) => {
 });
 
 /**
+ * GET /v1/foods/sellers
+ * List all active sellers from users table (seller/both), independent of seed data.
+ * Query params: limit (default 200, max 500)
+ */
+foodsRouter.get("/sellers", async (req, res) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "200"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 500) : 200;
+
+    const { rows } = await pool.query(
+      `
+        SELECT
+          u.id,
+          COALESCE(NULLIF(u.display_name, ''), NULLIF(u.full_name, ''), u.email) AS seller_name,
+          u.profile_image_url AS seller_image,
+          u.user_type,
+          COALESCE(stats.active_food_count, 0)::int AS active_food_count,
+          COALESCE(stats.open_lot_count, 0)::int AS open_lot_count,
+          COALESCE(review_stats.review_count, 0)::int AS review_count,
+          COALESCE(review_stats.avg_rating, 0)::numeric AS avg_rating
+        FROM users u
+        LEFT JOIN LATERAL (
+          SELECT
+            COUNT(DISTINCT CASE WHEN f.is_active = TRUE THEN f.id END)::int AS active_food_count,
+            COUNT(
+              DISTINCT CASE
+                WHEN pl.status IN ('open', 'active')
+                 AND pl.quantity_available > 0
+                 AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+                 AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+                THEN pl.id
+              END
+            )::int AS open_lot_count
+          FROM foods f
+          LEFT JOIN production_lots pl ON pl.food_id = f.id
+          WHERE f.seller_id = u.id
+        ) stats ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT
+            COUNT(*)::int AS review_count,
+            AVG(r.rating)::numeric AS avg_rating
+          FROM reviews r
+          WHERE r.seller_id = u.id
+        ) review_stats ON TRUE
+        WHERE u.is_active = TRUE
+          AND u.user_type IN ('seller', 'both')
+        ORDER BY
+          stats.open_lot_count DESC,
+          stats.active_food_count DESC,
+          review_stats.review_count DESC,
+          seller_name ASC
+        LIMIT $1
+      `,
+      [limit],
+    );
+
+    const data = rows.map((r) => ({
+      id: r.id as string,
+      name: r.seller_name as string,
+      imageUrl: (r.seller_image as string | null) ?? null,
+      userType: r.user_type as "seller" | "both",
+      activeFoodCount: Number(r.active_food_count ?? 0),
+      openLotCount: Number(r.open_lot_count ?? 0),
+      reviewCount: Number(r.review_count ?? 0),
+      avgRating: r.avg_rating ? Number.parseFloat(String(r.avg_rating)) : 0,
+    }));
+
+    res.json({ data });
+  } catch (err) {
+    console.error("[foods] sellers list error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load sellers" },
+    });
+  }
+});
+
+/**
  * GET /v1/foods/sellers/:sellerId/foods
  * List active/available foods for a specific seller.
  */
