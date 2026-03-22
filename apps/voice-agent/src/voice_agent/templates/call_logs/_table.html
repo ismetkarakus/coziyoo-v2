@@ -20,14 +20,13 @@
       {% for row in call_logs %}
       <tr style="border-bottom:1px solid #1e293b;">
         <td style="padding:8px;">{{ row.started_at_display }}</td>
-        <td style="padding:8px;">{{ row.duration_display }}</td>
-        <td style="padding:8px;">{{ row.profile_name }}</td>
-        <td style="padding:8px;">{{ row.outcome }}</td>
-        <td style="padding:8px;">{{ row.room_name }}</td>
+        <td style="padding:8px;">{{ row.duration_display or "0s" }}</td>
+        <td style="padding:8px;">{{ row.profile_name or "Unknown profile" }}</td>
+        <td style="padding:8px;">{{ row.outcome or "unknown" }}</td>
+        <td style="padding:8px;">{{ row.room_name or "-" }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 {% endif %}
-
