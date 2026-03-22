@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("dotenv", () => ({
+  default: {
+    config: vi.fn(),
+  },
+}));
+
 const REQUIRED_ENV: Record<string, string> = {
   APP_JWT_SECRET: "a".repeat(32),
   ADMIN_JWT_SECRET: "b".repeat(32),
@@ -22,7 +28,7 @@ function resetEnvForTest() {
 
 async function loadEnvModule() {
   vi.resetModules();
-  return import("../env");
+  return import("../env.js");
 }
 
 describe("env CORS fallback defaults", () => {
