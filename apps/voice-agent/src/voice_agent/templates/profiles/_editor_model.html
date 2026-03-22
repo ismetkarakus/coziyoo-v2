@@ -20,4 +20,17 @@
     <div><label>llm_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_headers">{{ (profile.llm_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
     <div><label>llm_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_body_params">{{ (profile.llm_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
   </div>
+  <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
+    <div style="flex:1;">
+      <label>LLM Test Prompt</label>
+      <input class="input" name="llm_test_prompt" value="Say hello in one short sentence." />
+    </div>
+    <button
+      class="btn"
+      type="button"
+      hx-post="/dashboard/test/llm"
+      hx-include="closest form"
+      hx-target="#profile-status"
+      hx-swap="innerHTML">Test LLM</button>
+  </div>
 </section>

@@ -25,7 +25,7 @@ def get_settings() -> Settings:
         livekit_api_key=os.getenv("LIVEKIT_API_KEY", ""),
         livekit_api_secret=os.getenv("LIVEKIT_API_SECRET", ""),
         ai_server_shared_secret=os.getenv("AI_SERVER_SHARED_SECRET", ""),
-        api_base_url=os.getenv("API_BASE_URL", ""),
+        api_base_url=os.getenv("API_BASE_URL", "https://api.coziyoo.com"),
         ai_server_host=os.getenv("AI_SERVER_HOST", "0.0.0.0"),
         ai_server_port=int(os.getenv("AI_SERVER_PORT", "9000")),
     )

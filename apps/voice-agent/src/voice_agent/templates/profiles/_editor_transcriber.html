@@ -15,4 +15,89 @@
     <label>stt_config.custom_query_params (JSON)</label>
     <textarea class="input" rows="3" name="stt_config.custom_query_params">{{ (profile.stt_config or {}).get('custom_query_params', {}) | tojson }}</textarea>
   </div>
+  <div data-stt-panel style="margin-top:10px;">
+    <input type="hidden" name="stt_audio_base64" data-stt-base64 />
+    <input type="hidden" name="stt_audio_mime" data-stt-mime value="audio/webm" />
+    <input type="hidden" name="stt_audio_filename" data-stt-filename value="recording.webm" />
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn" type="button" onclick="dashboardStt.start(this)">Start Recording</button>
+      <button class="btn" type="button" onclick="dashboardStt.stop(this)">Stop Recording</button>
+      <button class="btn" type="button" onclick="dashboardStt.transcribe(this)">Transcribe Recording</button>
+      <button
+        class="btn"
+        type="button"
+        hx-post="/dashboard/test/stt"
+        hx-include="closest form"
+        hx-target="#profile-status"
+        hx-swap="innerHTML">Test STT Connectivity</button>
+    </div>
+    <div class="muted" data-stt-state style="margin-top:6px;">No recording yet.</div>
+  </div>
 </section>
+<script>
+  window.dashboardStt = window.dashboardStt || {
+    stream: null,
+    recorder: null,
+    chunks: [],
+    async start(button) {
+      const panel = button.closest("[data-stt-panel]");
+      const stateEl = panel.querySelector("[data-stt-state]");
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.chunks = [];
+        this.recorder = new MediaRecorder(this.stream);
+        this.recorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) this.chunks.push(ev.data);
+        };
+        this.recorder.start();
+        stateEl.textContent = "Recording started...";
+      } catch (err) {
+        stateEl.textContent = "Microphone permission denied or unavailable.";
+      }
+    },
+    stop(button) {
+      const panel = button.closest("[data-stt-panel]");
+      const stateEl = panel.querySelector("[data-stt-state]");
+      if (!this.recorder) {
+        stateEl.textContent = "Start recording first.";
+        return;
+      }
+      this.recorder.onstop = async () => {
+        const blob = new Blob(this.chunks, { type: this.recorder.mimeType || "audio/webm" });
+        const arr = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arr);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        panel.querySelector("[data-stt-base64]").value = btoa(binary);
+        panel.querySelector("[data-stt-mime]").value = blob.type || "audio/webm";
+        panel.querySelector("[data-stt-filename]").value = (blob.type || "audio/webm").includes("ogg")
+          ? "recording.ogg"
+          : "recording.webm";
+        stateEl.textContent = "Recording ready for transcription.";
+      };
+      this.recorder.stop();
+      if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+    },
+    async transcribe(button) {
+      const panel = button.closest("[data-stt-panel]");
+      const form = button.closest("form");
+      const stateEl = panel.querySelector("[data-stt-state]");
+      const base64 = panel.querySelector("[data-stt-base64]").value;
+      if (!base64) {
+        stateEl.textContent = "No recording captured.";
+        return;
+      }
+      stateEl.textContent = "Uploading recording...";
+      const fd = new FormData(form);
+      const response = await fetch("/dashboard/test/stt/transcribe", {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+      });
+      const html = await response.text();
+      const target = document.getElementById("profile-status");
+      if (target) target.innerHTML = html;
+      stateEl.textContent = response.ok ? "Transcription completed." : "Transcription failed.";
+    },
+  };
+</script>
