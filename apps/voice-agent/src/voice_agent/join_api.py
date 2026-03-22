@@ -9,6 +9,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
@@ -99,6 +100,81 @@ async def _render_sidebar(request: Request, access_token: str, message: str | No
         name="profiles/_sidebar.html",
         context={"profiles": profiles, "message": message or error_message},
     )
+
+
+def _format_duration(seconds: Any) -> str:
+    try:
+        total = max(0, int(seconds))
+    except (TypeError, ValueError):
+        return "-"
+    mins, secs = divmod(total, 60)
+    hours, mins = divmod(mins, 60)
+    if hours:
+        return f"{hours}h {mins}m {secs}s"
+    if mins:
+        return f"{mins}m {secs}s"
+    return f"{secs}s"
+
+
+def _format_started_at(value: Any) -> str:
+    if not isinstance(value, str) or not value:
+        return "-"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    return parsed.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _normalize_call_log_rows(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        normalized.append(
+            {
+                "id": str(row.get("id") or ""),
+                "room_name": str(row.get("room_name") or "-"),
+                "profile_id": str(row.get("profile_id") or ""),
+                "profile_name": str(row.get("profile_name") or "Unknown profile"),
+                "started_at": str(row.get("started_at") or ""),
+                "started_at_display": _format_started_at(row.get("started_at")),
+                "ended_at": str(row.get("ended_at") or ""),
+                "duration_seconds": int(row.get("duration_seconds") or 0),
+                "duration_display": _format_duration(row.get("duration_seconds")),
+                "outcome": str(row.get("outcome") or "unknown"),
+            }
+        )
+    return normalized
+
+
+async def _fetch_call_logs(
+    access_token: str,
+    *,
+    profile_id: str | None = None,
+    from_value: str | None = None,
+    to_value: str | None = None,
+) -> tuple[list[dict[str, Any]], str | None]:
+    params: dict[str, str] = {"limit": "200"}
+    if profile_id:
+        params["profileId"] = profile_id
+    if from_value:
+        params["from"] = from_value
+    if to_value:
+        params["to"] = to_value
+    query = urlencode(params)
+    path = f"/v1/admin/agent-call-logs?{query}" if query else "/v1/admin/agent-call-logs"
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=path,
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return [], extract_error_message(payload, "Failed to load call logs")
+    return _normalize_call_log_rows(payload.get("data")), None
 
 
 def _dict(value: Any) -> dict[str, Any]:
@@ -236,6 +312,32 @@ async def dashboard_profiles(request: Request):
         request=request,
         name="profiles/index.html",
         context={"profiles": profiles, "message": error_message},
+    )
+
+
+@app.get("/dashboard/call-logs", response_class=HTMLResponse)
+async def dashboard_call_logs(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    call_logs, error_message = await _fetch_call_logs(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="call_logs/index.html",
+        context={"call_logs": call_logs, "message": error_message},
+    )
+
+
+@app.get("/dashboard/call-logs/table", response_class=HTMLResponse)
+async def dashboard_call_logs_table(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    call_logs, error_message = await _fetch_call_logs(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="call_logs/_table.html",
+        context={"call_logs": call_logs, "message": error_message},
     )
 
 
