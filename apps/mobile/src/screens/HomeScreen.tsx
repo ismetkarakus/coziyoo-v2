@@ -138,6 +138,15 @@ type TopSoldFoodItem = {
   totalSold: number;
 };
 
+type ApiRecommendationItem = ApiFoodItem & {
+  reason?: string | null;
+  totalSold?: number;
+};
+
+type RecommendationMeal = MealCard & {
+  reason: string;
+};
+
 type UiCategory =
   | 'Çorbalar'
   | 'Ana Yemekler'
@@ -956,6 +965,8 @@ export default function HomeScreen({
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
   const [foodSectionOffsetY, setFoodSectionOffsetY] = useState(0);
+  const [recommendedMeals, setRecommendedMeals] = useState<RecommendationMeal[]>([]);
+  const [recommendedMealsLoading, setRecommendedMealsLoading] = useState(false);
   const [topSoldFoods, setTopSoldFoods] = useState<TopSoldFoodItem[]>([]);
   const [topSoldFoodsLoading, setTopSoldFoodsLoading] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
@@ -1055,6 +1066,36 @@ export default function HomeScreen({
     }
     fetchFoods(apiUrl);
   }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRecommendedMealsLoading(true);
+    apiRequest<ApiRecommendationItem[]>(
+      '/v1/foods/recommendations?limit=8',
+      currentAuth,
+      { actorRole: 'buyer' },
+      handleAuthRefresh,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setRecommendedMeals([]);
+          return;
+        }
+        const mapped = (Array.isArray(result.data) ? result.data : []).map((item) => ({
+          ...apiToMealCard(item),
+          reason: (item.reason ?? 'Sana uygun bir öneri').trim(),
+        }));
+        setRecommendedMeals(mapped);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setRecommendedMealsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAuth, handleAuthRefresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2040,6 +2081,43 @@ export default function HomeScreen({
         </View>
         {/* Food cards */}
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
+        {recommendedMealsLoading || recommendedMeals.length > 0 ? (
+          <View style={styles.sellersSection}>
+            <Text style={styles.sellersSectionTitle}>Sana öneriler</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sellersRow}
+            >
+              {recommendedMealsLoading ? (
+                <View style={styles.topSoldLoadingChip}>
+                  <ActivityIndicator size="small" color="#4A7C59" />
+                  <Text style={styles.topSoldLoadingText}>Öneriler hazırlanıyor...</Text>
+                </View>
+              ) : null}
+              {recommendedMeals.map((meal) => (
+                <TouchableOpacity
+                  key={`rec-${meal.id}`}
+                  style={styles.sellerChip}
+                  activeOpacity={0.86}
+                  onPress={() => setSelectedMeal(meal)}
+                >
+                  <View style={styles.sellerChipAvatar}>
+                    {meal.imageUrl ? (
+                      <Image source={{ uri: meal.imageUrl }} style={styles.sellerChipAvatarImage} />
+                    ) : (
+                      <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
+                    )}
+                  </View>
+                  <View style={styles.sellerChipTextWrap}>
+                    <Text style={styles.sellerChipName} numberOfLines={1}>{meal.title}</Text>
+                    <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.reason}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
         {topSoldFoodsLoading || topSoldFoods.length > 0 ? (
           <View style={styles.sellersSection}>
             <Text style={styles.sellersSectionTitle}>En çok satılan yemekler</Text>

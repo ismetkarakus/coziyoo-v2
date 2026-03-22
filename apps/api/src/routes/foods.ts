@@ -216,6 +216,174 @@ foodsRouter.get("/top-sold", async (req, res) => {
 });
 
 /**
+ * GET /v1/foods/recommendations
+ * Personalized recommendations for current buyer:
+ * - prioritize foods the buyer has not ordered before
+ * - mix in top sellers
+ * - occasionally include familiar top sellers
+ */
+foodsRouter.get("/recommendations", async (req, res) => {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? "8"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 30) : 8;
+    const buyerId = req.auth?.userId;
+
+    const { rows } = await pool.query(
+      `
+        WITH available_foods AS (
+          SELECT
+            f.id,
+            f.name,
+            f.card_summary,
+            f.description,
+            f.price,
+            f.image_url,
+            f.rating,
+            f.review_count,
+            f.preparation_time_minutes,
+            f.max_delivery_distance_km,
+            f.allergens_json,
+            f.ingredients_json,
+            f.cuisine,
+            (
+              SELECT pl.id
+              FROM production_lots pl
+              WHERE pl.food_id = f.id
+                AND pl.status IN ('open', 'active')
+                AND pl.quantity_available > 0
+                AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+                AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+              ORDER BY pl.quantity_available DESC, pl.created_at DESC
+              LIMIT 1
+            ) AS lot_id,
+            c.name_tr AS category,
+            u.id AS seller_id,
+            u.display_name AS seller_name,
+            u.profile_image_url AS seller_image,
+            COALESCE(
+              (SELECT SUM(pl.quantity_available)
+               FROM production_lots pl
+               WHERE pl.food_id = f.id
+                 AND pl.status IN ('open', 'active')
+                 AND pl.quantity_available > 0
+                 AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+                 AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+              ), 0
+            )::int AS stock
+          FROM foods f
+          JOIN users u ON u.id = f.seller_id
+          LEFT JOIN categories c ON c.id = f.category_id
+          WHERE f.is_active = TRUE
+            AND EXISTS (
+              SELECT 1
+              FROM production_lots plx
+              WHERE plx.food_id = f.id
+                AND plx.status IN ('open', 'active')
+                AND plx.quantity_available > 0
+                AND (plx.sale_starts_at IS NULL OR plx.sale_starts_at <= NOW())
+                AND (plx.sale_ends_at IS NULL OR plx.sale_ends_at > NOW())
+            )
+        ),
+        user_history AS (
+          SELECT
+            oi.food_id,
+            SUM(oi.quantity)::int AS user_order_count
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE o.buyer_id = $1
+            AND o.payment_completed = TRUE
+            AND o.status IN ('delivered', 'completed')
+          GROUP BY oi.food_id
+        ),
+        global_sales AS (
+          SELECT
+            oi.food_id,
+            SUM(oi.quantity)::int AS total_sold
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE o.payment_completed = TRUE
+            AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')
+          GROUP BY oi.food_id
+        )
+        SELECT
+          af.*,
+          COALESCE(uh.user_order_count, 0)::int AS user_order_count,
+          COALESCE(gs.total_sold, 0)::int AS total_sold
+        FROM available_foods af
+        LEFT JOIN user_history uh ON uh.food_id = af.id
+        LEFT JOIN global_sales gs ON gs.food_id = af.id
+      `,
+      [buyerId],
+    );
+
+    const maxSold = rows.reduce((max, r) => Math.max(max, Number(r.total_sold ?? 0)), 0);
+    const topSoldThreshold = Math.max(3, Math.floor(maxSold * 0.4));
+
+    const scored = rows.map((r) => {
+      const userOrderCount = Number(r.user_order_count ?? 0);
+      const totalSold = Number(r.total_sold ?? 0);
+      const isUntried = userOrderCount === 0;
+      const isTopSold = totalSold >= topSoldThreshold;
+
+      let score = 0;
+      if (isUntried) score += 55;
+      else score += Math.max(6, 22 - userOrderCount * 4);
+
+      score += Math.log1p(totalSold) * 12;
+      if (isTopSold) score += 18;
+      if (!isUntried && isTopSold && Math.random() < 0.3) score += 10;
+      if (isUntried && totalSold === 0) score -= 10;
+      score += Math.random() * 12;
+
+      let reason = "Sana uygun bir öneri";
+      if (isUntried && isTopSold) reason = "Yeni ama çok satan";
+      else if (isUntried) reason = "Yeni bir lezzet";
+      else if (isTopSold) reason = "Çok satanlardan";
+      else if (userOrderCount > 0) reason = "Daha önce beğenmiştin";
+
+      return {
+        score,
+        item: {
+          id: r.id,
+          name: r.name,
+          cardSummary: r.card_summary,
+          description: r.description,
+          price: parseFloat(r.price),
+          imageUrl: r.image_url,
+          rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
+          reviewCount: r.review_count,
+          prepTime: r.preparation_time_minutes,
+          maxDistance: r.max_delivery_distance_km
+            ? parseFloat(r.max_delivery_distance_km)
+            : null,
+          allergens: parseAllergens(r.allergens_json),
+          ingredients: parseAllergens(r.ingredients_json),
+          cuisine: r.cuisine ?? null,
+          lotId: r.lot_id ?? null,
+          category: r.category,
+          stock: Number(r.stock ?? 0),
+          totalSold,
+          reason,
+          seller: {
+            id: r.seller_id,
+            name: r.seller_name,
+            image: r.seller_image,
+          },
+        },
+      };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    res.json({ data: scored.slice(0, limit).map((x) => x.item) });
+  } catch (err) {
+    console.error("[foods] recommendations error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load recommendations" },
+    });
+  }
+});
+
+/**
  * GET /v1/foods/sellers/:sellerId/foods
  * List active/available foods for a specific seller.
  */
