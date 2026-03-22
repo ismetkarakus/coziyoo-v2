@@ -56,7 +56,11 @@ Plans:
   2. Custom headers configured in a dashboard profile are injected into the outgoing provider request at call time
   3. Custom body params and endpoint path overrides configured in a dashboard profile are applied to the outgoing provider request
   4. Non-OpenAI providers that return different response shapes have their fields remapped transparently -- the agent code does not branch on provider type
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md -- Wave 0: pytest infrastructure + test stubs for all ADAPT requirements
+- [ ] 03-02-PLAN.md -- Adapter module: Pydantic config models, factory functions (build_llm/tts/stt), response remapping
+- [ ] 03-03-PLAN.md -- Entrypoint wiring: refactor _build_* functions to delegate to adapter module
 
 ### Phase 4: Call Logs
 **Goal**: Users can see what happened with past voice sessions -- which profile was used, how long the call lasted, and whether it succeeded
@@ -74,7 +78,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete | 2026-03-22 (01-01, 01-02, 01-03, 01-04, 01-05) |
 | 2. Profile Management | 0/3 | In progress | - |
-| 3. Provider Adapter System | 0/? | Not started | - |
+| 3. Provider Adapter System | 0/3 | Not started | - |
 | 4. Call Logs | 0/? | Not started | - |
 
 ## Dependencies
