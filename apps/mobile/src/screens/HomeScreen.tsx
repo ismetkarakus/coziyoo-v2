@@ -2162,15 +2162,14 @@ export default function HomeScreen({
           </TouchableOpacity>
 
           <View style={styles.profileSellerCard}>
-            <Text style={styles.profileSellerBody}>{t('helper.home.profileSellerPromo')}</Text>
-            <View style={styles.profileSellerQuestionRow}>
-              <Text style={styles.profileSellerQuestion}>{t('helper.home.profileSellerQuestion')}</Text>
-              <Ionicons
-                name="return-down-forward-outline"
-                size={18}
-                color="#7A6A5A"
-                style={styles.profileSellerHintIcon}
-              />
+            <View style={styles.profileSellerContent}>
+              <View style={styles.profileSellerEmojiWrap}>
+                <Text style={styles.profileSellerEmoji}>👨‍🍳</Text>
+              </View>
+              <View style={styles.profileSellerTextWrap}>
+                <Text style={styles.profileSellerTitle}>{t('headline.home.profileSellerTitle')}</Text>
+                <Text style={styles.profileSellerBody}>{t('helper.home.profileSellerBody')}</Text>
+              </View>
             </View>
             <TouchableOpacity
               style={styles.profileSellerButton}
@@ -3539,42 +3538,52 @@ const styles = StyleSheet.create({
   profileActionSubtitle: { color: '#8D8072', fontSize: 12, marginTop: 2 },
   profileSellerCard: {
     marginTop: 2,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ECE4D9',
+    borderColor: '#D5DDD1',
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 16,
-    backgroundColor: '#F8F4EE',
-  },
-  profileSellerBody: { color: '#7F7063', fontSize: 14, textAlign: 'center', lineHeight: 21 },
-  profileSellerQuestionRow: {
-    position: 'relative',
+    paddingVertical: 14,
+    backgroundColor: '#F5F7F3',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  profileSellerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  profileSellerEmojiWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EEF1EC',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    marginBottom: 11,
+    marginRight: 10,
   },
-  profileSellerHintIcon: {
-    position: 'absolute',
-    right: 34,
-    top: 1,
+  profileSellerEmoji: { fontSize: 20 },
+  profileSellerTextWrap: { flex: 1 },
+  profileSellerTitle: {
+    color: '#2E2A26',
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '800',
   },
-  profileSellerQuestion: {
-    color: '#3E332B',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
+  profileSellerBody: { color: '#6D665E', fontSize: 13, lineHeight: 19, marginTop: 4 },
   profileSellerButton: {
-    backgroundColor: '#4A865E',
-    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#3D8758',
+    backgroundColor: '#F4F8F2',
+    borderRadius: 14,
+    minWidth: 104,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  profileSellerButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  profileSellerButtonText: { color: '#3D8758', fontSize: 31 / 2, fontWeight: '800' },
   profileLogoutButton: {
     marginTop: 12,
     alignItems: 'center',
