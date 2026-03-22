@@ -2171,8 +2171,8 @@ export default function HomeScreen({
           ) : (
             <>
               <View style={[styles.heroGradient, { backgroundColor: '#F6E7D8' }]} />
-              <View style={[styles.heroGradient, { top: '40%', backgroundColor: '#F3D6B8', opacity: 0.5 }]} />
-              <View style={[styles.heroGradient, { top: '70%', backgroundColor: '#F7EFE7' }]} />
+              <View style={styles.heroGradientFallbackMid} />
+              <View style={styles.heroGradientFallbackBottom} />
             </>
           )}
           {/* Right-side food background image */}
@@ -2211,7 +2211,7 @@ export default function HomeScreen({
               style={styles.heroOverlay}
             />
           ) : (
-            <View style={[styles.heroOverlay, { top: '50%', backgroundColor: 'rgba(255,255,255,0.6)' }]} />
+            <View style={styles.heroOverlayFallback} />
           )}
           {/* Profile avatar */}
           <TouchableOpacity
@@ -2848,7 +2848,7 @@ export default function HomeScreen({
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFDF9" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FCF8EE" />
 
       <Modal
         visible={paymentWebVisible}
@@ -3487,6 +3487,24 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  heroGradientFallbackMid: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '72%',
+    backgroundColor: '#F3D6B8',
+    opacity: 0.55,
+  },
+  heroGradientFallbackBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '44%',
+    backgroundColor: '#FCF8EE',
+    opacity: 0.92,
+  },
   /* Right-side food background image */
   heroFoodBgWrap: {
     position: 'absolute',
@@ -3508,6 +3526,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 2,
+  },
+  heroOverlayFallback: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '56%',
+    backgroundColor: 'rgba(252,248,238,0.78)',
     zIndex: 2,
   },
   /* Gradient overlays that fade food image into background */
@@ -3532,9 +3559,9 @@ const styles = StyleSheet.create({
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 26, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#5A3E2B', fontSize: 28, lineHeight: 34, fontWeight: '800' },
+  greetingTitle: { color: '#38261D', fontSize: 28, lineHeight: 34, fontWeight: '800' },
   heroSubtitle: {
-    color: '#5A3E2B',
+    color: '#38261D',
     fontSize: 17,
     fontWeight: '700',
     marginTop: 6,
@@ -3600,7 +3627,7 @@ const styles = StyleSheet.create({
   },
   floatingSearchInput: {
     flex: 1,
-    color: '#5A3E2B',
+    color: '#38261D',
     fontSize: 16,
     fontWeight: '400',
     paddingVertical: 4,
@@ -3646,7 +3673,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   chipText: {
-    color: '#5A3E2B',
+    color: '#38261D',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -3672,7 +3699,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   nearbyHeaderTitle: {
-    color: '#5A3E2B',
+    color: '#38261D',
     fontSize: 46 / 2,
     fontWeight: '700',
   },
