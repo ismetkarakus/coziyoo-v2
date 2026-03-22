@@ -2182,6 +2182,16 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
+          {LinearGradient ? (
+            <LinearGradient
+              colors={[
+                'rgba(90, 62, 43, 0.25)',
+                'rgba(90, 62, 43, 0.15)',
+                'rgba(255,255,255,0)',
+              ]}
+              style={styles.heroFoodMultiplyOverlay}
+            />
+          ) : null}
           {/* Eraser-like seam fade between base color and image */}
           {LinearGradient ? (
             <LinearGradient
@@ -3479,10 +3489,18 @@ const styles = StyleSheet.create({
     width: '65%',
     height: '100%',
     opacity: 0.85,
-    tintColor: 'rgba(90,62,43,0.18)',
     borderTopLeftRadius: 180,
     borderBottomLeftRadius: 180,
     resizeMode: 'cover',
+  },
+  heroFoodMultiplyOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '65%',
+    height: '100%',
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 180,
   },
   heroEraseFade: {
     position: 'absolute',
