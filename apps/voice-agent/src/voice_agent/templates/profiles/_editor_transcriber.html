@@ -1,0 +1,18 @@
+<section class="card" style="margin-bottom:10px;">
+  <h3 style="margin-top:0;">Transcriber</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div><label>STT Base URL</label><input class="input" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" /></div>
+    <div><label>STT API Key</label><input class="input" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" /></div>
+    <div><label>STT Model</label><input class="input" name="stt_config.model" value="{{ (profile.stt_config or {}).get('model','') }}" /></div>
+    <div><label>STT Endpoint Path</label><input class="input" name="stt_config.endpoint_path" value="{{ (profile.stt_config or {}).get('endpoint_path','/v1/audio/transcriptions') }}" /></div>
+    <div><label>Language</label><input class="input" name="stt_config.language" value="{{ (profile.stt_config or {}).get('language','') }}" /></div>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+    <div><label>stt_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="stt_config.custom_headers">{{ (profile.stt_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
+    <div><label>stt_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="stt_config.custom_body_params">{{ (profile.stt_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
+  </div>
+  <div style="margin-top:10px;">
+    <label>stt_config.custom_query_params (JSON)</label>
+    <textarea class="input" rows="3" name="stt_config.custom_query_params">{{ (profile.stt_config or {}).get('custom_query_params', {}) | tojson }}</textarea>
+  </div>
+</section>

@@ -22,6 +22,7 @@ from .dashboard_auth import (
     extract_error_message,
     set_auth_cookies,
 )
+from .dashboard_forms import normalize_profile_payload
 
 logger = logging.getLogger("coziyoo-voice-agent-join")
 settings = get_settings()
@@ -208,6 +209,64 @@ async def dashboard_delete_profile(request: Request, profile_id: str):
     elif status != 200:
         message = extract_error_message(payload, "Delete failed")
     return await _render_sidebar(request, access_token, message)
+
+
+@app.get("/dashboard/profiles/{profile_id}", response_class=HTMLResponse)
+async def dashboard_profile_editor(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(payload, dict):
+        message = extract_error_message(payload, "Failed to load profile")
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": None, "message": message},
+            status_code=404 if status == 404 else 502,
+        )
+    profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_editor_panel.html",
+        context={"profile": profile, "message": None},
+    )
+
+
+@app.post("/dashboard/profiles/{profile_id}/save", response_class=HTMLResponse)
+async def dashboard_profile_save(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    form = await request.form()
+    payload = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    status, update_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+        json_body=payload,
+    )
+    message = None if status == 200 else extract_error_message(update_payload, "Profile save failed")
+
+    current_status, current_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    profile = current_payload.get("data") if current_status == 200 and isinstance(current_payload, dict) else None
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_editor_panel.html",
+        context={"profile": profile, "message": message or "Saved"},
+        status_code=200 if profile else 502,
+    )
 
 
 class JoinRequest(BaseModel):

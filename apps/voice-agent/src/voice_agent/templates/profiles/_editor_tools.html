@@ -1,0 +1,8 @@
+<section class="card" style="margin-bottom:10px;">
+  <h3 style="margin-top:0;">Tools</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div><label>N8N Base URL</label><input class="input" name="n8n_config.base_url" value="{{ (profile.n8n_config or {}).get('base_url','') }}" /></div>
+    <div><label>N8N Webhook Path</label><input class="input" name="n8n_config.webhook_path" value="{{ (profile.n8n_config or {}).get('webhook_path','') }}" /></div>
+    <div><label>N8N MCP Webhook Path</label><input class="input" name="n8n_config.mcp_webhook_path" value="{{ (profile.n8n_config or {}).get('mcp_webhook_path','') }}" /></div>
+  </div>
+</section>

@@ -1,0 +1,23 @@
+<section class="card" style="margin-bottom:10px;">
+  <h3 style="margin-top:0;">Model</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div><label>LLM Base URL</label><input class="input" name="llm_config.base_url" value="{{ (profile.llm_config or {}).get('base_url','') }}" /></div>
+    <div><label>LLM API Key</label><input class="input" name="llm_config.api_key" value="{{ (profile.llm_config or {}).get('api_key','') }}" /></div>
+    <div><label>LLM Model</label><input class="input" name="llm_config.model" value="{{ (profile.llm_config or {}).get('model','') }}" /></div>
+    <div><label>LLM Endpoint Path</label><input class="input" name="llm_config.endpoint_path" value="{{ (profile.llm_config or {}).get('endpoint_path','/v1/chat/completions') }}" /></div>
+  </div>
+  <div style="margin-top:10px;">
+    <label>System Prompt</label>
+    <textarea class="input" name="system_prompt" rows="4">{{ profile.system_prompt or "" }}</textarea>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+    <label><input type="checkbox" name="speaks_first" {% if profile.speaks_first %}checked{% endif %} /> speaks_first</label>
+    <label><input type="checkbox" name="greeting_enabled" {% if profile.greeting_enabled %}checked{% endif %} /> greeting_enabled</label>
+    <div><label>Greeting Instruction</label><input class="input" name="greeting_instruction" value="{{ profile.greeting_instruction or '' }}" /></div>
+    <div><label>Voice Language</label><input class="input" name="voice_language" value="{{ profile.voice_language or 'tr' }}" /></div>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+    <div><label>llm_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_headers">{{ (profile.llm_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
+    <div><label>llm_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_body_params">{{ (profile.llm_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
+  </div>
+</section>

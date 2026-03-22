@@ -1,0 +1,25 @@
+{% if profile %}
+<form
+  hx-post="/dashboard/profiles/{{ profile.id }}/save"
+  hx-target="#profile-editor"
+  hx-swap="innerHTML"
+  style="display:flex; flex-direction:column; gap:10px;">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0;">Editing: {{ profile.name }}</h3>
+    <button class="btn btn-primary" type="submit">Save</button>
+  </div>
+
+  <div><label>Profile Name</label><input class="input" name="name" value="{{ profile.name }}" /></div>
+
+  {% include "profiles/_editor_model.html" %}
+  {% include "profiles/_editor_voice.html" %}
+  {% include "profiles/_editor_transcriber.html" %}
+  {% include "profiles/_editor_tools.html" %}
+
+  {% if message %}
+    <div class="muted">{{ message }}</div>
+  {% endif %}
+</form>
+{% else %}
+<div class="muted">Select a profile to edit.</div>
+{% endif %}

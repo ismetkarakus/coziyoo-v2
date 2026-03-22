@@ -1,0 +1,15 @@
+<section class="card" style="margin-bottom:10px;">
+  <h3 style="margin-top:0;">Voice</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div><label>TTS Base URL</label><input class="input" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
+    <div><label>TTS API Key</label><input class="input" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" /></div>
+    <div><label>TTS Model</label><input class="input" name="tts_config.model" value="{{ (profile.tts_config or {}).get('model','') }}" /></div>
+    <div><label>TTS Endpoint Path</label><input class="input" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" /></div>
+    <div><label>Voice ID</label><input class="input" name="tts_config.voice_id" value="{{ (profile.tts_config or {}).get('voice_id','') }}" /></div>
+    <div><label>Text Field Name</label><input class="input" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" /></div>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+    <div><label>tts_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
+    <div><label>tts_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="tts_config.custom_body_params">{{ (profile.tts_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
+  </div>
+</section>
