@@ -2,7 +2,11 @@
 {% block title %}Agent Profiles{% endblock %}
 {% block content %}
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-  <h2 style="margin:0;">Agent Profiles</h2>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <h2 style="margin:0;">Agent Profiles</h2>
+    <a class="btn btn-primary" href="/dashboard/profiles">Profiles</a>
+    <a class="btn" href="/dashboard/call-logs">Call Logs</a>
+  </div>
   <form method="post" action="/dashboard/logout">
     <button class="btn" type="submit">Logout</button>
   </form>
