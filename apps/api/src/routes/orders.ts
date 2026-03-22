@@ -159,10 +159,10 @@ ordersRouter.post(
     }
     total = Number(total.toFixed(2));
 
-    const orderInsert = await client.query<{ id: string; order_number: string }>(
-      `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at, order_number)
-       VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6, 'CZY-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(nextval('order_number_seq')::text, 4, '0'))
-       RETURNING id, order_number`,
+    const orderInsert = await client.query<{ id: string }>(
+      `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
+       VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6)
+       RETURNING id`,
       [
         req.auth!.userId,
         input.sellerId,
@@ -248,9 +248,8 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     delivery_type: string;
     total_price: string;
     created_at: string;
-    order_number: string;
   }>(
-    `SELECT id, buyer_id, seller_id, status, delivery_type, total_price::text, created_at::text, order_number
+    `SELECT id, buyer_id, seller_id, status, delivery_type, total_price::text, created_at::text
      FROM orders
      WHERE buyer_id = $1 OR seller_id = $1
      ORDER BY created_at ${sortDir === "asc" ? "ASC" : "DESC"}, id ${sortDir === "asc" ? "ASC" : "DESC"}
@@ -268,7 +267,6 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       deliveryType: row.delivery_type,
       totalPrice: Number(row.total_price),
       createdAt: row.created_at,
-      orderNumber: row.order_number,
     })),
     pagination: {
       mode: "offset",
@@ -694,10 +692,10 @@ voiceOrderRouter.post(
       }
       total = Number(total.toFixed(2));
 
-      const orderInsert = await client.query<{ id: string; order_number: string }>(
-        `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at, order_number)
-         VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6, 'CZY-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(nextval('order_number_seq')::text, 4, '0'))
-         RETURNING id, order_number`,
+      const orderInsert = await client.query<{ id: string }>(
+        `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
+         VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6)
+         RETURNING id`,
         [
           input.userId,
           input.sellerId,
