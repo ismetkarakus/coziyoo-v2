@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -40,6 +40,7 @@ try {
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
+import { apiRequest } from '../utils/api';
 import VoiceSessionScreen from './VoiceSessionScreen';
 import { requestErrorLine, stockLine, t } from '../copy/brandCopy';
 
@@ -124,6 +125,10 @@ type MealCard = {
   backgroundColor: string;
   category: string;
   imageUrl?: string;
+};
+
+type FavoriteFoodItem = {
+  id: string;
 };
 
 type UiCategory =
@@ -708,14 +713,20 @@ function FoodCard({
   meal,
   totalStock,
   remainingStock,
+  isFavorite,
+  favoritePending,
   onPress,
   onSellerPress,
+  onFavoritePress,
 }: {
   meal: MealCard;
   totalStock: number;
   remainingStock: number;
+  isFavorite: boolean;
+  favoritePending: boolean;
   onPress: () => void;
   onSellerPress: () => void;
+  onFavoritePress: () => void;
 }) {
   const [colors, setColors] = useState<CardColors>(
     deriveCardColors(meal.backgroundColor),
@@ -785,6 +796,21 @@ function FoodCard({
         ) : (
           <Text style={styles.foodEmoji}>🍽️</Text>
         )}
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={(event) => {
+            event.stopPropagation();
+            onFavoritePress();
+          }}
+          style={styles.foodFavoriteBtn}
+          disabled={favoritePending}
+        >
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={18}
+            color={isFavorite ? '#C0392B' : '#3D3229'}
+          />
+        </TouchableOpacity>
         <View style={styles.foodBadgesRight}>
           <View style={styles.foodPriceBadge}>
             <Text style={styles.foodPriceBadgeText}>{meal.price}</Text>
@@ -920,6 +946,8 @@ export default function HomeScreen({
   const [sloganTrackWidth, setSloganTrackWidth] = useState(0);
   const [sloganTextWidth, setSloganTextWidth] = useState(0);
   const [foodSectionOffsetY, setFoodSectionOffsetY] = useState(0);
+  const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
+  const [favoritePendingIds, setFavoritePendingIds] = useState<Record<string, true>>({});
   const showSloganCard = false;
   const mealsMarqueeText = useMemo(
     () => DAILY_FLASH_MEALS.join(' • '),
@@ -936,6 +964,11 @@ export default function HomeScreen({
   useEffect(() => {
     setCurrentAuth(auth);
   }, [auth]);
+
+  const handleAuthRefresh = useCallback((session: AuthSession) => {
+    setCurrentAuth(session);
+    onAuthRefresh?.(session);
+  }, [onAuthRefresh]);
 
   useEffect(() => {
     loadSettings().then((s) => setApiUrl(s.apiUrl));
@@ -1003,6 +1036,71 @@ export default function HomeScreen({
     }
     fetchFoods(apiUrl);
   }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (!currentAuth.accessToken) return;
+    let cancelled = false;
+
+    async function fetchFavoriteIds() {
+      const result = await apiRequest<FavoriteFoodItem[]>(
+        '/v1/favorites',
+        currentAuth,
+        { actorRole: 'buyer' },
+        handleAuthRefresh,
+      );
+      if (!result.ok || cancelled) return;
+
+      const nextIds: Record<string, true> = {};
+      for (const item of result.data ?? []) {
+        if (item?.id) nextIds[item.id] = true;
+      }
+      setFavoriteIds(nextIds);
+    }
+
+    void fetchFavoriteIds();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAuth, handleAuthRefresh]);
+
+  const toggleFavorite = useCallback(async (foodId: string) => {
+    if (!foodId || favoritePendingIds[foodId]) return;
+
+    const wasFavorite = Boolean(favoriteIds[foodId]);
+    setFavoritePendingIds((prev) => ({ ...prev, [foodId]: true }));
+    setFavoriteIds((prev) => {
+      const next = { ...prev };
+      if (wasFavorite) {
+        delete next[foodId];
+      } else {
+        next[foodId] = true;
+      }
+      return next;
+    });
+
+    const result = await apiRequest(
+      `/v1/favorites/${foodId}`,
+      currentAuth,
+      { method: wasFavorite ? 'DELETE' : 'POST', actorRole: 'buyer' },
+      handleAuthRefresh,
+    );
+
+    if (!result.ok) {
+      setFavoriteIds((prev) => {
+        const next = { ...prev };
+        if (wasFavorite) next[foodId] = true;
+        else delete next[foodId];
+        return next;
+      });
+      Alert.alert('İşlem başarısız', 'Favori güncellenemedi. Tekrar dene.');
+    }
+
+    setFavoritePendingIds((prev) => {
+      const next = { ...prev };
+      delete next[foodId];
+      return next;
+    });
+  }, [currentAuth, favoriteIds, favoritePendingIds, handleAuthRefresh]);
 
   async function fetchFoods(url: string) {
     setMealsLoading(true);
@@ -1897,7 +1995,12 @@ export default function HomeScreen({
               meal={meal}
               totalStock={totalStock}
               remainingStock={remainingStock}
+              isFavorite={Boolean(favoriteIds[meal.id])}
+              favoritePending={Boolean(favoritePendingIds[meal.id])}
               onPress={() => setSelectedMeal(meal)}
+              onFavoritePress={() => {
+                void toggleFavorite(meal.id);
+              }}
               onSellerPress={() =>
                 setSelectedSeller({
                   id: meal.sellerId,
@@ -3038,6 +3141,19 @@ const styles = StyleSheet.create({
   foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   foodImage: { width: '100%', height: '100%' },
   foodEmoji: { fontSize: 56 },
+  foodFavoriteBtn: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(61,50,41,0.14)',
+  },
   foodBadgesRight: {
     position: 'absolute',
     top: 10,
