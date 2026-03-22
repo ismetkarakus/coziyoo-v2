@@ -2128,6 +2128,22 @@ export default function HomeScreen({
               <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
             </TouchableOpacity>
             <TouchableOpacity
+              style={[styles.profileActionRow, styles.profileActionRowDivider]}
+              onPress={() => handleTabPress('cart')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileActionMain}>
+                <View style={[styles.profileActionIconWrap, { backgroundColor: '#E8EDF6' }]}>
+                  <Ionicons name="receipt-outline" size={18} color="#5D7394" />
+                </View>
+                <View style={styles.profileActionTextBlock}>
+                  <Text style={styles.profileActionTitle}>{t('cta.home.myOrders')}</Text>
+                  <Text style={styles.profileActionSubtitle}>{t('helper.home.myOrdersHint')}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.profileActionRow}
               onPress={onOpenAddresses}
               activeOpacity={0.85}

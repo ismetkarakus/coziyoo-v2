@@ -24,6 +24,8 @@ export const brandCopy = {
   'helper.home.messageInputPlaceholder': 'Mesajını yaz...',
   'status.home.profileTitle': 'Profil',
   'cta.home.profileEdit': 'Profili düzenle',
+  'cta.home.myOrders': 'Siparişlerim',
+  'helper.home.myOrdersHint': 'Geçmiş ve aktif siparişlerini gör',
   'cta.home.addresses': 'Adreslerim',
   'cta.home.deliveryAddressChange': 'Teslimat adresi değiştir',
   'helper.home.deliveryAddressHint': 'Siparişlerin bu adrese gider. Farklı yere geçtiysen buradan güncelle.',
