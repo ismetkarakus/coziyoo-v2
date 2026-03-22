@@ -526,6 +526,7 @@ const LOCAL_HOME_HEADER_FALLBACK = require('../../assets/images/home-header-fall
 const ENV_HOME_HEADER_IMAGE_URL = (process.env.EXPO_PUBLIC_HOME_HEADER_IMAGE_URL || '').trim();
 const DEFAULT_HOME_HEADER_IMAGE_URL =
   'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1800&q=80';
+const HERO_AKCABAT_IMAGE_URL = resolveSecondaryDishImage('Akçaabat Köfte', 'Ana Yemekler');
 
 function normalizeDishText(value: string): string {
   return value
@@ -1047,9 +1048,7 @@ export default function HomeScreen({
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
   const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() =>
-    ENV_HOME_HEADER_IMAGE_URL
-      ? { uri: ENV_HOME_HEADER_IMAGE_URL }
-      : { uri: DEFAULT_HOME_HEADER_IMAGE_URL },
+    { uri: HERO_AKCABAT_IMAGE_URL },
   );
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
@@ -1117,46 +1116,8 @@ export default function HomeScreen({
   }, [apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
-    if (!apiUrl) return;
-    let cancelled = false;
-
-    async function loadHeaderImageFromAdmin() {
-      const endpoints = [
-        '/v1/settings/public',
-        '/v1/settings/app',
-        '/v1/settings/branding',
-      ];
-
-      for (const endpoint of endpoints) {
-        try {
-          const response = await fetch(`${apiUrl}${endpoint}`, {
-            headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
-          });
-          if (!response.ok) continue;
-          const json = await readJsonSafe(response);
-          const adminUrl = resolveHomeHeaderImageUrl(json);
-          if (!adminUrl) continue;
-          if (!cancelled) setHeaderImageSource({ uri: adminUrl });
-          return;
-        } catch {
-          // continue
-        }
-      }
-
-      if (!cancelled) {
-        setHeaderImageSource(
-          ENV_HOME_HEADER_IMAGE_URL
-            ? { uri: ENV_HOME_HEADER_IMAGE_URL }
-            : { uri: DEFAULT_HOME_HEADER_IMAGE_URL },
-        );
-      }
-    }
-
-    void loadHeaderImageFromAdmin();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiUrl, currentAuth.accessToken]);
+    setHeaderImageSource({ uri: HERO_AKCABAT_IMAGE_URL });
+  }, []);
 
   useEffect(() => {
     setGreetingName(resolveGreetingName(null, currentAuth.email));
