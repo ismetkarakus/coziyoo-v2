@@ -2142,15 +2142,6 @@ export default function HomeScreen({
             </TouchableOpacity>
           ))}
         </ScrollView>
-        <View style={styles.apiStatusCard}>
-          <View style={styles.apiStatusHead}>
-            <Ionicons name="server-outline" size={16} color="#4E433A" />
-            <Text style={styles.apiStatusTitle}>API Bağlantısı</Text>
-          </View>
-          <Text style={styles.apiStatusValue} numberOfLines={1}>
-            {apiUrl || 'API adresi yükleniyor...'}
-          </Text>
-        </View>
         {/* Yakındaki Lezzetler Section Header */}
         <View style={styles.nearbyHeader}>
           <View style={styles.nearbyHeaderLeft}>
@@ -3210,7 +3201,8 @@ const styles = StyleSheet.create({
   heroFoodBgImg: {
     width: '100%',
     height: '100%',
-    opacity: 0.85,
+    resizeMode: 'cover',
+    opacity: 0.9,
   },
   /* Gradient overlays that fade food image into background */
   heroFoodBgOverlayLeft: {
@@ -3410,20 +3402,6 @@ const styles = StyleSheet.create({
   },
   debugText: { color: '#5C4B1D', fontSize: 12, fontWeight: '500' },
   debugError: { color: '#B42318', fontSize: 12, fontWeight: '600', marginTop: 4 },
-  apiStatusCard: {
-    marginTop: 2,
-    marginBottom: 12,
-    backgroundColor: '#F6F1E8',
-    borderWidth: 1,
-    borderColor: '#E4DAC9',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-  },
-  apiStatusHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  apiStatusTitle: { color: '#4E433A', fontSize: 13, fontWeight: '700' },
-  apiStatusValue: { color: '#6B5D4F', fontSize: 12, fontWeight: '600' },
 
   /* --- Categories (legacy - kept for compat) --- */
   sellersSection: {
