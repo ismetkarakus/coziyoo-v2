@@ -10292,14 +10292,17 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.04));
 }
 
-:root:not(.dark) .seller-detail-page .seller-quick-access-menu {
+:root:not(.dark) .seller-detail-page .seller-quick-access-menu,
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu {
   border-color: color-mix(in srgb, #8fa8dc 34%, var(--color-border));
   background: color-mix(in srgb, #f5f9ff 96%, white);
   box-shadow: 0 10px 24px rgba(78, 108, 163, 0.18);
 }
 
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu a,
-:root:not(.dark) .seller-detail-page .seller-quick-access-menu span {
+:root:not(.dark) .seller-detail-page .seller-quick-access-menu span,
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu a,
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu span {
   color: var(--color-text);
   border-bottom-color: color-mix(in srgb, #90a9da 30%, var(--color-border));
 }
