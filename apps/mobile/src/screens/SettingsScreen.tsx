@@ -1,103 +1,91 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   StatusBar,
+  Alert,
+  Platform,
 } from 'react-native';
-import { loadSettings, saveSettings } from '../utils/settings';
+import { Ionicons } from '@expo/vector-icons';
+import { loadSettings } from '../utils/settings';
+import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { t } from '../copy/brandCopy';
 
-type ServerItem = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  baseUrl?: string;
-  provider?: string;
-  model?: string;
-};
-
-type AgentSettings = {
-  agentName: string;
-  voiceLanguage: string;
-  ollamaModel: string;
-  ttsEngine: string;
-  ttsEnabled: boolean;
-  sttEnabled: boolean;
-  ttsConfig: Record<string, unknown> | null;
+type UserProfile = {
+  email: string;
+  phone: string | null;
 };
 
 type Props = {
+  auth: AuthSession;
   onBack: () => void;
+  onAuthRefresh?: (session: AuthSession) => void;
+  onOpenProfileEdit: () => void;
 };
 
-export default function SettingsScreen({ onBack }: Props) {
-  const [apiUrl, setApiUrl] = useState('http://localhost:3000');
-
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+export default function SettingsScreen({ auth, onBack, onAuthRefresh, onOpenProfileEdit }: Props) {
+  const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
+  const [loading, setLoading] = useState(true);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
-  const [agentSettings, setAgentSettings] = useState<AgentSettings | null>(null);
-  const [sttServers, setSttServers] = useState<ServerItem[]>([]);
-  const [ttsServers, setTtsServers] = useState<ServerItem[]>([]);
-  const [llmServers, setLlmServers] = useState<ServerItem[]>([]);
-  const [selectedStt, setSelectedStt] = useState('');
-  const [selectedTts, setSelectedTts] = useState('');
-  const [selectedLlm, setSelectedLlm] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
 
   useEffect(() => {
-    loadSettings().then((s) => {
-      const normalizedUrl = s.apiUrl.trim().replace(/\/$/, '');
-      setApiUrl(normalizedUrl);
-      void fetchServers(normalizedUrl);
-    });
+    setCurrentAuth(auth);
+  }, [auth]);
+
+  useEffect(() => {
+    void fetchProfile();
   }, []);
 
-  async function fetchServers(url: string) {
+  async function authedFetch(url: string, options?: RequestInit) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentAuth.accessToken}`,
+        ...(options?.headers ?? {}),
+      },
+    });
+
+    if (response.status === 401) {
+      const settings = await loadSettings();
+      const refreshed = await refreshAuthSession(settings.apiUrl, currentAuth);
+      if (refreshed) {
+        setCurrentAuth(refreshed);
+        onAuthRefresh?.(refreshed);
+        return fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${refreshed.accessToken}`,
+            ...(options?.headers ?? {}),
+          },
+        });
+      }
+    }
+
+    return response;
+  }
+
+  async function fetchProfile() {
     setLoading(true);
     setError(null);
-    setAgentSettings(null);
-    setSttServers([]);
-    setTtsServers([]);
-    setLlmServers([]);
     try {
-      const res = await fetch(`${url}/v1/livekit/starter/agent-settings/default`);
+      const { apiUrl } = await loadSettings();
+      const res = await authedFetch(`${apiUrl}/v1/auth/me`);
       const json = await res.json();
       if (!res.ok || json.error) {
-        throw new Error(json.error?.message ?? `Server error ${res.status}`);
+        throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
-      const data = json.data;
-      const cfg = (data.ttsConfig ?? {}) as Record<string, unknown>;
-
-      setAgentSettings({
-        agentName: data.agentName ?? '',
-        voiceLanguage: data.voiceLanguage ?? 'en',
-        ollamaModel: data.ollamaModel ?? '',
-        ttsEngine: data.ttsEngine ?? 'f5-tts',
-        ttsEnabled: data.ttsEnabled ?? true,
-        sttEnabled: data.sttEnabled ?? true,
-        ttsConfig: cfg,
-      });
-
-      const sttList = Array.isArray(cfg.sttServers) ? (cfg.sttServers as ServerItem[]) : [];
-      const ttsList = Array.isArray(cfg.ttsServers) ? (cfg.ttsServers as ServerItem[]) : [];
-      const llmList = Array.isArray(cfg.llmServers) ? (cfg.llmServers as ServerItem[]) : [];
-      const defStt = typeof cfg.defaultSttServerId === 'string' ? cfg.defaultSttServerId : sttList[0]?.id ?? '';
-      const defTts = typeof cfg.defaultTtsServerId === 'string' ? cfg.defaultTtsServerId : ttsList[0]?.id ?? '';
-      const defLlm = typeof cfg.defaultLlmServerId === 'string' ? cfg.defaultLlmServerId : llmList[0]?.id ?? '';
-
-      setSttServers(sttList);
-      setTtsServers(ttsList);
-      setLlmServers(llmList);
-      setSelectedStt(defStt);
-      setSelectedTts(defTts);
-      setSelectedLlm(defLlm);
+      const data = json.data as UserProfile;
+      setEmail(data.email ?? '');
+      setPhone(data.phone?.trim() || t('status.security.phoneFallback'));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error.settings.load'));
     } finally {
@@ -105,280 +93,237 @@ export default function SettingsScreen({ onBack }: Props) {
     }
   }
 
-  async function handleSaveConnection() {
-    setSaving(true);
-    setSaved(false);
-    setError(null);
-    const trimUrl = apiUrl.trim().replace(/\/$/, '');
-    await saveSettings({ apiUrl: trimUrl });
-    setApiUrl(trimUrl);
-    await fetchServers(trimUrl);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    setSaving(false);
-  }
-
-  async function handleSaveServers() {
-    if (!agentSettings) return;
-    setSaving(true);
-    setError(null);
+  async function handleSendResetCode() {
+    setPasswordLoading(true);
     try {
-      const updatedCfg = {
-        ...(agentSettings.ttsConfig ?? {}),
-        defaultSttServerId: selectedStt,
-        defaultTtsServerId: selectedTts,
-        defaultLlmServerId: selectedLlm,
-      };
-      const body = {
-        agentName: agentSettings.agentName || 'coziyoo-agent',
-        voiceLanguage: agentSettings.voiceLanguage || 'en',
-        ollamaModel: agentSettings.ollamaModel || 'llama3.1:8b',
-        ttsEngine: agentSettings.ttsEngine || 'f5-tts',
-        ttsEnabled: agentSettings.ttsEnabled,
-        sttEnabled: agentSettings.sttEnabled,
-        greetingEnabled: true,
-        ttsConfig: updatedCfg,
-      };
-      const res = await fetch(`${apiUrl}/v1/livekit/starter/agent-settings/default`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const { apiUrl } = await loadSettings();
+      const res = await authedFetch(`${apiUrl}/v1/auth/me/password-reset/request`, {
+        method: 'POST',
+        body: JSON.stringify({}),
       });
       const json = await res.json();
-      if (!res.ok || json.error) throw new Error(json.error?.message ?? `Server error ${res.status}`);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      if (!res.ok || json.error) {
+        throw new Error(json.error?.message ?? `Hata (${res.status})`);
+      }
+      Alert.alert(t('status.security.passwordTitle'), t('status.profileEdit.resetCodeSent'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('error.settings.save'));
+      Alert.alert('Hata', e instanceof Error ? e.message : t('error.profileEdit.save'));
     } finally {
-      setSaving(false);
+      setPasswordLoading(false);
     }
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F7F4EF" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.backText}>{'<'} {t('cta.settings.back')}</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.8}>
+          <Ionicons name="chevron-back" size={22} color="#332C25" />
+          <Text style={styles.backText}>{t('cta.settings.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('headline.settings.title')}</Text>
-        <View style={{ width: 60 }} />
+        <Text style={styles.headerTitle}>{t('headline.settings.title')}</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.subtitle}>{t('helper.settings.securitySubtitle')}</Text>
 
-        {/* ── Connection ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('headline.settings.connection')}</Text>
-          <Text style={styles.label}>{t('helper.settings.apiBaseUrl')}</Text>
-          <TextInput
-            style={styles.input}
-            value={apiUrl}
-            onChangeText={setApiUrl}
-            placeholder="http://localhost:3000"
-            placeholderTextColor="#555"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-          />
-          <TouchableOpacity style={styles.btnSecondary} onPress={handleSaveConnection} disabled={saving}>
-            <Text style={styles.btnSecondaryText}>{saved ? t('cta.settings.saved') : t('cta.settings.saveConnection')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Server Selection ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('headline.settings.aiServers')}</Text>
-          {loading && <ActivityIndicator color="#fff" size="small" />}
-
-          {!!error && <Text style={styles.error}>{error}</Text>}
-
-          {agentSettings && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t('status.settings.agent')}</Text>
-              <Text style={styles.infoValue}>{agentSettings.agentName}</Text>
-              <Text style={styles.infoLabel}>{t('status.settings.language')}</Text>
-              <Text style={styles.infoValue}>{agentSettings.voiceLanguage}</Text>
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#3F855C" />
+          </View>
+        ) : (
+          <>
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.iconWrap, { backgroundColor: '#F18E33' }]}>
+                  <Ionicons name="lock-closed" size={18} color="#fff" />
+                </View>
+                <View style={styles.headTextWrap}>
+                  <Text style={styles.cardTitle}>{t('status.security.passwordTitle')}</Text>
+                  <Text style={styles.cardValue}>********</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.buttonOutline, passwordLoading && styles.buttonDisabled]}
+                onPress={() => void handleSendResetCode()}
+                disabled={passwordLoading}
+                activeOpacity={0.85}
+              >
+                {passwordLoading ? (
+                  <ActivityIndicator size="small" color="#3E845B" />
+                ) : (
+                  <Text style={styles.buttonOutlineText}>{t('cta.security.changePassword')}</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.cardMeta}>{t('helper.settings.passwordLastChanged')}</Text>
             </View>
-          )}
 
-          {sttServers.length > 0 && (
-            <ServerSelector
-              label={t('helper.settings.sttServer')}
-              servers={sttServers}
-              selected={selectedStt}
-              onSelect={setSelectedStt}
-            />
-          )}
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.iconWrap, { backgroundColor: '#4B90DE' }]}>
+                  <Ionicons name="mail" size={18} color="#fff" />
+                </View>
+                <View style={styles.headTextWrap}>
+                  <Text style={styles.cardTitle}>{t('status.security.emailVerification')}</Text>
+                  <View style={styles.verifiedBadge}>
+                    <Text style={styles.verifiedText}>{t('status.profileEdit.verified')}</Text>
+                    <Ionicons name="checkmark" size={13} color="#3E845B" />
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.cardValue}>{email || '-'}</Text>
+              <TouchableOpacity style={styles.buttonSoft} onPress={onOpenProfileEdit} activeOpacity={0.85}>
+                <Text style={styles.buttonSoftText}>{t('cta.security.changeEmail')}</Text>
+              </TouchableOpacity>
+            </View>
 
-          {ttsServers.length > 0 && (
-            <ServerSelector
-              label={t('helper.settings.ttsServer')}
-              servers={ttsServers}
-              selected={selectedTts}
-              onSelect={setSelectedTts}
-            />
-          )}
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.iconWrap, { backgroundColor: '#8452B7' }]}>
+                  <Ionicons name="call" size={18} color="#fff" />
+                </View>
+                <View style={styles.headTextWrap}>
+                  <Text style={styles.cardTitle}>{t('status.security.phoneVerification')}</Text>
+                  <View style={styles.verifiedBadge}>
+                    <Text style={styles.verifiedText}>{t('status.profileEdit.verified')}</Text>
+                    <Ionicons name="checkmark" size={13} color="#3E845B" />
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.cardValue}>{phone}</Text>
+              <TouchableOpacity style={styles.buttonSoft} onPress={onOpenProfileEdit} activeOpacity={0.85}>
+                <Text style={styles.buttonSoftText}>{t('cta.security.changePhone')}</Text>
+              </TouchableOpacity>
+            </View>
 
-          {llmServers.length > 0 && (
-            <ServerSelector
-              label={t('helper.settings.llmServer')}
-              servers={llmServers}
-              selected={selectedLlm}
-              onSelect={setSelectedLlm}
-            />
-          )}
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.iconWrap, { backgroundColor: '#BFC2C5' }]}>
+                  <Ionicons name="shield-checkmark" size={18} color="#fff" />
+                </View>
+                <View style={styles.headTextWrap}>
+                  <Text style={styles.cardTitle}>{t('status.security.twoFactorTitle')}</Text>
+                  <Text style={styles.cardMetaInline}>{t('helper.settings.twoFactorSubtitle')}</Text>
+                  <Text style={styles.cardMetaInline}>{t('status.security.off')}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.buttonSoft}
+                onPress={() => Alert.alert(t('status.security.twoFactorTitle'), t('helper.settings.twoFactorComingSoon'))}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.buttonSoftText}>{t('cta.security.enable')}</Text>
+              </TouchableOpacity>
+            </View>
 
-          {(sttServers.length > 0 || ttsServers.length > 0 || llmServers.length > 0) && (
-            <TouchableOpacity
-              style={[styles.btnPrimary, saving && styles.btnDisabled]}
-              onPress={handleSaveServers}
-              disabled={saving}
-            >
-              {saving
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.btnPrimaryText}>{saved ? t('cta.settings.saved') : t('cta.settings.saveServerSelection')}</Text>
-              }
+            <View style={styles.infoCard}>
+              <View style={styles.infoHeadRow}>
+                <Ionicons name="information-circle-outline" size={24} color="#3A83E2" />
+                <Text style={styles.infoTitle}>{t('headline.settings.whyImportant')}</Text>
+              </View>
+              <Text style={styles.infoBody}>{t('helper.settings.whyImportantBody')}</Text>
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity style={styles.doneBtn} onPress={onBack} activeOpacity={0.85}>
+              <Text style={styles.doneBtnText}>{t('cta.settings.done')}</Text>
             </TouchableOpacity>
-          )}
-
-          {sttServers.length === 0 && ttsServers.length === 0 && llmServers.length === 0 && !loading && !error && (
-            <Text style={styles.emptyHint}>
-              {t('helper.settings.noServers')}
-            </Text>
-          )}
-        </View>
-
+          </>
+        )}
       </ScrollView>
     </View>
   );
 }
 
-function ServerSelector({ label, servers, selected, onSelect }: {
-  label: string;
-  servers: ServerItem[];
-  selected: string;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <View style={selectorStyles.container}>
-      <Text style={selectorStyles.label}>{label}</Text>
-      {servers.map((s) => (
-        <TouchableOpacity
-          key={s.id}
-          style={[selectorStyles.row, selected === s.id && selectorStyles.rowSelected]}
-          onPress={() => onSelect(s.id)}
-        >
-          <View style={[selectorStyles.radio, selected === s.id && selectorStyles.radioSelected]} />
-          <View style={selectorStyles.info}>
-            <Text style={selectorStyles.name}>{s.name}</Text>
-            {!!s.baseUrl && (
-              <Text style={selectorStyles.url} numberOfLines={1}>{s.baseUrl}</Text>
-            )}
-            {!!s.model && (
-              <Text style={selectorStyles.url}>{s.model}</Text>
-            )}
-          </View>
-          {!s.enabled && <Text style={selectorStyles.disabled}>{t('status.settings.disabled')}</Text>}
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  container: { flex: 1, backgroundColor: '#F7F4EF' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: Platform.OS === 'ios' ? 56 : 16,
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a1a',
+    paddingBottom: 10,
   },
-  backBtn: { width: 60 },
-  backText: { color: '#6C63FF', fontSize: 15 },
-  title: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  content: { padding: 20, gap: 24 },
-  section: { gap: 12 },
-  sectionTitle: {
-    color: '#888',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 2,
-  },
-  label: { color: '#ccc', fontSize: 13, fontWeight: '500' },
-  input: {
-    backgroundColor: '#1a1a1a',
+  backBtn: { width: 76, flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backText: { color: '#332C25', fontSize: 18 / 2, fontWeight: '500' },
+  headerTitle: { color: '#2D2722', fontSize: 18, fontWeight: '700' },
+  headerSpacer: { width: 76 },
+  content: { paddingHorizontal: 16, paddingBottom: 36, gap: 14 },
+  subtitle: { color: '#3E3630', fontSize: 30 / 2, marginTop: 6, marginBottom: 2 },
+  loadingBox: { paddingTop: 70, alignItems: 'center', justifyContent: 'center' },
+  card: {
+    backgroundColor: '#FCFBF9',
     borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#fff',
-    fontSize: 14,
+    borderColor: '#E2DBD2',
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
   },
-  hint: { color: '#555', fontSize: 12, lineHeight: 18 },
-  code: { color: '#6C63FF' },
-  error: { color: '#ff6b6b', fontSize: 13 },
-  emptyHint: { color: '#444', fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8 },
-  infoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  infoLabel: { color: '#555', fontSize: 12 },
-  infoValue: { color: '#aaa', fontSize: 12, fontWeight: '600', marginRight: 12 },
-  btnPrimary: {
-    backgroundColor: '#6C63FF',
+  cardHead: { flexDirection: 'row', alignItems: 'center' },
+  iconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  headTextWrap: { flex: 1 },
+  cardTitle: { color: '#2E2924', fontSize: 33 / 2, fontWeight: '700' },
+  cardValue: { color: '#2E2924', fontSize: 32 / 2, fontWeight: '600' },
+  cardMeta: { color: '#6E665E', fontSize: 13 },
+  cardMetaInline: { color: '#6E665E', fontSize: 13, lineHeight: 18 },
+  buttonOutline: {
+    borderWidth: 1.5,
+    borderColor: '#4E956A',
+    borderRadius: 12,
+    paddingVertical: 11,
     alignItems: 'center',
   },
-  btnPrimaryText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  btnSecondary: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 10,
-    paddingVertical: 13,
+  buttonOutlineText: { color: '#3E845B', fontSize: 15, fontWeight: '700' },
+  buttonSoft: {
+    backgroundColor: '#EFEBE7',
+    borderRadius: 12,
+    paddingVertical: 11,
     alignItems: 'center',
   },
-  btnSecondaryText: { color: '#aaa', fontSize: 14, fontWeight: '500' },
-  btnDisabled: { opacity: 0.6 },
-});
-
-const selectorStyles = StyleSheet.create({
-  container: { gap: 6, marginTop: 4 },
-  label: { color: '#aaa', fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  row: {
+  buttonSoftText: { color: '#3F3730', fontSize: 15, fontWeight: '700' },
+  buttonDisabled: { opacity: 0.65 },
+  verifiedBadge: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 10,
-    padding: 12,
+    gap: 6,
+    backgroundColor: '#E5F2E8',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  rowSelected: {
-    borderColor: '#6C63FF',
-    backgroundColor: '#0f0a1f',
+  verifiedText: { color: '#3E845B', fontSize: 13, fontWeight: '700' },
+  infoCard: {
+    borderWidth: 1.5,
+    borderColor: '#72A8EB',
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    padding: 14,
+    gap: 8,
+    marginTop: 4,
   },
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#444',
+  infoHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  infoTitle: { color: '#2E2924', fontSize: 17, fontWeight: '700' },
+  infoBody: { color: '#4B433C', fontSize: 14, lineHeight: 21 },
+  error: { color: '#C23E3E', fontSize: 13, textAlign: 'center' },
+  doneBtn: {
+    marginTop: 6,
+    backgroundColor: '#2F8658',
+    borderRadius: 13,
+    paddingVertical: 14,
+    alignItems: 'center',
   },
-  radioSelected: {
-    borderColor: '#6C63FF',
-    backgroundColor: '#6C63FF',
-  },
-  info: { flex: 1 },
-  name: { color: '#fff', fontSize: 14, fontWeight: '500' },
-  url: { color: '#555', fontSize: 11, marginTop: 2 },
-  disabled: { color: '#ff6b6b', fontSize: 11 },
+  doneBtnText: { color: '#FFFFFF', fontSize: 31 / 2, fontWeight: '700' },
 });

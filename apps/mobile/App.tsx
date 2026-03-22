@@ -55,7 +55,14 @@ export default function App() {
   }
 
   if (screen === 'settings') {
-    return <SettingsScreen onBack={() => { setHomeTab('profile'); setScreen('home'); }} />;
+    return (
+      <SettingsScreen
+        auth={auth}
+        onBack={() => { setHomeTab('profile'); setScreen('home'); }}
+        onAuthRefresh={setAuth}
+        onOpenProfileEdit={() => setScreen('profileEdit')}
+      />
+    );
   }
 
   if (screen === 'profileEdit') {
