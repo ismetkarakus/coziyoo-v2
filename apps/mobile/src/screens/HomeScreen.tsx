@@ -3466,6 +3466,8 @@ const styles = StyleSheet.create({
     right: 4,
     width: '47%',
     height: '86%',
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 180,
     resizeMode: 'cover',
   },
   heroEraseFade: {
