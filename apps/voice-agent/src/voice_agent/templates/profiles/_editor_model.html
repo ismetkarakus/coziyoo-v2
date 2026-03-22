@@ -1,5 +1,6 @@
 <section class="card" style="margin-bottom:10px;">
-  <h3 style="margin-top:0;">Model</h3>
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Model</summary>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div><label>LLM Base URL</label><input class="input" name="llm_config.base_url" value="{{ (profile.llm_config or {}).get('base_url','') }}" /></div>
     <div><label>LLM API Key</label><input class="input" name="llm_config.api_key" value="{{ (profile.llm_config or {}).get('api_key','') }}" /></div>
@@ -33,4 +34,5 @@
       hx-target="#profile-status"
       hx-swap="innerHTML">Test LLM</button>
   </div>
+  </details>
 </section>

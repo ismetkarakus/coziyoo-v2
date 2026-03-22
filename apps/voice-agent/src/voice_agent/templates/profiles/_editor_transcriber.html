@@ -1,5 +1,6 @@
 <section class="card" style="margin-bottom:10px;">
-  <h3 style="margin-top:0;">Transcriber</h3>
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Transcriber</summary>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div><label>STT Base URL</label><input class="input" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" /></div>
     <div><label>STT API Key</label><input class="input" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" /></div>
@@ -33,6 +34,7 @@
     </div>
     <div class="muted" data-stt-state style="margin-top:6px;">No recording yet.</div>
   </div>
+  </details>
 </section>
 <script>
   window.dashboardStt = window.dashboardStt || {

@@ -11,10 +11,17 @@
 
   <div><label>Profile Name</label><input class="input" name="name" value="{{ profile.name }}" /></div>
 
-  {% include "profiles/_editor_model.html" %}
-  {% include "profiles/_editor_voice.html" %}
-  {% include "profiles/_editor_transcriber.html" %}
-  {% include "profiles/_editor_tools.html" %}
+  <div style="display:flex; gap:8px; flex-wrap:wrap; border-bottom:1px solid #1f2937; padding-bottom:10px;">
+    <button class="btn btn-primary" data-tab-btn="model" type="button" onclick="dashboardProfileTabs.show(this, 'model')">Model</button>
+    <button class="btn" data-tab-btn="voice" type="button" onclick="dashboardProfileTabs.show(this, 'voice')">Voice</button>
+    <button class="btn" data-tab-btn="transcriber" type="button" onclick="dashboardProfileTabs.show(this, 'transcriber')">Transcriber</button>
+    <button class="btn" data-tab-btn="tools" type="button" onclick="dashboardProfileTabs.show(this, 'tools')">Tools</button>
+  </div>
+
+  <div data-tab-pane="model">{% include "profiles/_editor_model.html" %}</div>
+  <div data-tab-pane="voice" style="display:none;">{% include "profiles/_editor_voice.html" %}</div>
+  <div data-tab-pane="transcriber" style="display:none;">{% include "profiles/_editor_transcriber.html" %}</div>
+  <div data-tab-pane="tools" style="display:none;">{% include "profiles/_editor_tools.html" %}</div>
 
   <div id="profile-status">
     {% include "profiles/_status.html" %}
@@ -24,6 +31,21 @@
     <div class="muted">{{ message }}</div>
   {% endif %}
 </form>
+<script>
+  window.dashboardProfileTabs = window.dashboardProfileTabs || {
+    show(button, tabName) {
+      const form = button.closest("form");
+      if (!form) return;
+      form.querySelectorAll("[data-tab-pane]").forEach((pane) => {
+        pane.style.display = pane.getAttribute("data-tab-pane") === tabName ? "" : "none";
+      });
+      form.querySelectorAll("[data-tab-btn]").forEach((btn) => {
+        if (btn.getAttribute("data-tab-btn") === tabName) btn.classList.add("btn-primary");
+        else btn.classList.remove("btn-primary");
+      });
+    },
+  };
+</script>
 {% else %}
 <div class="muted">Select a profile to edit.</div>
 {% endif %}

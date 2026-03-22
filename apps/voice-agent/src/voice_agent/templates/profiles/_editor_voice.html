@@ -1,5 +1,6 @@
 <section class="card" style="margin-bottom:10px;">
-  <h3 style="margin-top:0;">Voice</h3>
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Voice</summary>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div><label>TTS Base URL</label><input class="input" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
     <div><label>TTS API Key</label><input class="input" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" /></div>
@@ -25,4 +26,5 @@
       hx-target="#profile-status"
       hx-swap="innerHTML">Test TTS</button>
   </div>
+  </details>
 </section>
