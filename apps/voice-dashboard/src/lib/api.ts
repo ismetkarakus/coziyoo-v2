@@ -1,6 +1,8 @@
 import { getTokens, setTokens, setAdmin } from "./auth";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+// Always call same-origin `/v1/*` from the browser and let Next rewrites proxy to API.
+// This avoids browser CORS preflight issues when dashboard is opened from LAN/dev origins.
+export const API_BASE = "";
 
 export let refreshInFlight: Promise<boolean> | null = null;
 

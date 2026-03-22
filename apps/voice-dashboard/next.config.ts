@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const apiProxyTarget = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@coziyoo/shared-types", "@coziyoo/shared-utils"],
@@ -7,7 +9,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/v1/:path*",
-        destination: "http://localhost:3000/v1/:path*",
+        destination: `${apiProxyTarget}/v1/:path*`,
       },
     ];
   },
