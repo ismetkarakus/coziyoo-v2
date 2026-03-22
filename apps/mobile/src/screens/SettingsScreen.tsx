@@ -8,12 +8,14 @@ import {
   ActivityIndicator,
   StatusBar,
   Alert,
+  Modal,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { t } from '../copy/brandCopy';
+import ProfileEditScreen from './ProfileEditScreen';
 
 type UserProfile = {
   email: string;
@@ -24,11 +26,11 @@ type Props = {
   auth: AuthSession;
   onBack: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
-  onOpenProfileEdit: () => void;
 };
 
-export default function SettingsScreen({ auth, onBack, onAuthRefresh, onOpenProfileEdit }: Props) {
+export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
+  const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,7 +176,11 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh, onOpenProf
                 </View>
               </View>
               <Text style={styles.cardValue}>{email || '-'}</Text>
-              <TouchableOpacity style={styles.buttonSoft} onPress={onOpenProfileEdit} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.buttonSoft}
+                onPress={() => setProfileEditModalVisible(true)}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.buttonSoftText}>{t('cta.security.changeEmail')}</Text>
               </TouchableOpacity>
             </View>
@@ -193,7 +199,11 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh, onOpenProf
                 </View>
               </View>
               <Text style={styles.cardValue}>{phone}</Text>
-              <TouchableOpacity style={styles.buttonSoft} onPress={onOpenProfileEdit} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.buttonSoft}
+                onPress={() => setProfileEditModalVisible(true)}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.buttonSoftText}>{t('cta.security.changePhone')}</Text>
               </TouchableOpacity>
             </View>
@@ -234,6 +244,21 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh, onOpenProf
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={profileEditModalVisible}
+        animationType="slide"
+        onRequestClose={() => setProfileEditModalVisible(false)}
+      >
+        <ProfileEditScreen
+          auth={currentAuth}
+          onBack={() => setProfileEditModalVisible(false)}
+          onAuthRefresh={(session) => {
+            setCurrentAuth(session);
+            onAuthRefresh?.(session);
+          }}
+        />
+      </Modal>
     </View>
   );
 }

@@ -88,7 +88,6 @@ export default function App() {
         auth={auth}
         onBack={() => goHome('profile')}
         onAuthRefresh={setAuth}
-        onOpenProfileEdit={() => setScreen('profileEdit')}
       />
     );
   }
