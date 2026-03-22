@@ -75,12 +75,6 @@ type MeProfile = {
   name?: string | null;
 };
 
-type ProfileAddress = {
-  id: string;
-  title: string;
-  addressLine: string;
-  isDefault: boolean;
-};
 
 type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -261,16 +255,6 @@ function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?
   return 'Komşu';
 }
 
-function resolveAddressPreview(addresses: ProfileAddress[]): string {
-  if (!addresses.length) return t('helper.home.profileAddressFallback');
-  const preferred = addresses.find((addr) => addr.isDefault) ?? addresses[0];
-  const normalized = preferred.addressLine.trim();
-  if (!normalized) return t('helper.home.profileAddressFallback');
-  const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
-  if (parts.length === 1) return parts[0];
-  return t('helper.home.profileAddressFallback');
-}
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
   if (text.length >= 26) return { fontSize: 19, lineHeight: 25 };
@@ -917,7 +901,6 @@ export default function HomeScreen({
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
   );
-  const [profileAddressPreview, setProfileAddressPreview] = useState<string>(t('helper.home.profileAddressFallback'));
   const [greetingName, setGreetingName] = useState<string>(() =>
     resolveGreetingName(null, auth.email),
   );
@@ -963,11 +946,6 @@ export default function HomeScreen({
     if (!apiUrl) return;
     void fetchMeProfile(apiUrl, currentAuth.accessToken);
   }, [apiUrl, currentAuth.accessToken]);
-
-  useEffect(() => {
-    if (activeTab !== 'profile' || !apiUrl) return;
-    void fetchProfileAddressPreview(apiUrl, currentAuth.accessToken);
-  }, [activeTab, apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
     setGreetingName(resolveGreetingName(null, currentAuth.email));
@@ -1101,32 +1079,6 @@ export default function HomeScreen({
       setProfileDisplayName(resolveProfileDisplayName(json.data, currentAuth.email));
     } catch {
       // Keep fallback avatar when profile fetch fails
-    }
-  }
-
-  async function fetchProfileAddressPreview(url: string, accessToken: string) {
-    try {
-      const response = await fetch(`${url}/v1/auth/me/addresses`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (response.status === 401) {
-        const refreshed = await refreshAuthSession(url, currentAuth);
-        if (!refreshed) return;
-        setCurrentAuth(refreshed);
-        onAuthRefresh?.(refreshed);
-        const retryRes = await fetch(`${url}/v1/auth/me/addresses`, {
-          headers: { Authorization: `Bearer ${refreshed.accessToken}` },
-        });
-        if (!retryRes.ok) return;
-        const retryJson = await readJsonSafe<{ data?: ProfileAddress[] }>(retryRes);
-        setProfileAddressPreview(resolveAddressPreview(retryJson.data ?? []));
-        return;
-      }
-      if (!response.ok) return;
-      const json = await readJsonSafe<{ data?: ProfileAddress[] }>(response);
-      setProfileAddressPreview(resolveAddressPreview(json.data ?? []));
-    } catch {
-      setProfileAddressPreview(t('helper.home.profileAddressFallback'));
     }
   }
 
@@ -2185,8 +2137,8 @@ export default function HomeScreen({
                   <Ionicons name="location" size={18} color="#8B7255" />
                 </View>
                 <View style={styles.profileActionTextBlock}>
-                  <Text style={styles.profileActionTitle}>{t('cta.home.addresses')}</Text>
-                  <Text style={styles.profileActionSubtitle}>{profileAddressPreview}</Text>
+                  <Text style={styles.profileActionTitle}>{t('cta.home.deliveryAddressChange')}</Text>
+                  <Text style={styles.profileActionSubtitle}>{t('helper.home.deliveryAddressHint')}</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
