@@ -17,10 +17,29 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+let LinearGradient: React.ComponentType<{
+  colors: string[];
+  locations?: number[];
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
+  style?: any;
+  children?: React.ReactNode;
+}> | null = null;
+try {
+  const maybeGradient = require('expo-linear-gradient').LinearGradient;
+  const hasNativeView = Boolean(
+    UIManager.getViewManagerConfig?.('ViewManagerAdapter_ExpoLinearGradient')
+      || UIManager.getViewManagerConfig?.('ExpoLinearGradient'),
+  );
+  LinearGradient = hasNativeView ? maybeGradient : null;
+} catch {
+  // Optional at runtime; fallback views are used when unavailable.
+}
 import * as ImagePicker from 'expo-image-picker';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
@@ -2154,6 +2173,22 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
+          {/* Eraser-like seam fade between base color and image */}
+          {LinearGradient ? (
+            <LinearGradient
+              colors={['#EAC9A0', 'rgba(234,201,160,0.92)', 'rgba(234,201,160,0.62)', 'rgba(234,201,160,0.24)', 'rgba(234,201,160,0)']}
+              locations={[0, 0.22, 0.45, 0.72, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.heroEraseFade}
+            />
+          ) : (
+            <>
+              <View style={styles.heroEraseFadeFallbackStrong} />
+              <View style={styles.heroEraseFadeFallbackMid} />
+              <View style={styles.heroEraseFadeFallbackSoft} />
+            </>
+          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3431,6 +3466,37 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 180,
     borderBottomLeftRadius: 180,
     resizeMode: 'cover',
+  },
+  heroEraseFade: {
+    position: 'absolute',
+    top: 8,
+    left: '34%',
+    width: '31%',
+    height: '86%',
+  },
+  heroEraseFadeFallbackStrong: {
+    position: 'absolute',
+    top: 8,
+    left: '34%',
+    width: '13%',
+    height: '86%',
+    backgroundColor: 'rgba(234,201,160,0.84)',
+  },
+  heroEraseFadeFallbackMid: {
+    position: 'absolute',
+    top: 8,
+    left: '47%',
+    width: '10%',
+    height: '86%',
+    backgroundColor: 'rgba(234,201,160,0.52)',
+  },
+  heroEraseFadeFallbackSoft: {
+    position: 'absolute',
+    top: 8,
+    left: '57%',
+    width: '8%',
+    height: '86%',
+    backgroundColor: 'rgba(234,201,160,0.2)',
   },
   heroTextArea: {
     zIndex: 3,
