@@ -1861,7 +1861,7 @@ export default function HomeScreen({
         {/* Sticky search + category chips */}
         <View style={styles.searchStickyWrap}>
           <View pointerEvents="none" style={styles.searchTopTint} />
-          <View style={styles.searchBox}>
+          <View style={[styles.searchBox, searchMode && styles.searchBoxActive]}>
             {!searchMode ? (
               <View pointerEvents="none" style={styles.searchFadeWrap}>
                 <View style={styles.searchFadeSolid} />
@@ -2944,10 +2944,15 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingVertical: 3,
     paddingHorizontal: 6,
-    borderWidth: 1, borderColor: '#EDE8E0',
+    borderWidth: 0,
+    borderColor: 'transparent',
     marginBottom: 10,
     position: 'relative',
     overflow: 'hidden',
+  },
+  searchBoxActive: {
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
   },
   searchIcon: { color: '#6B5D4F', fontSize: 34, fontWeight: '800' },
   searchIconButton: {
