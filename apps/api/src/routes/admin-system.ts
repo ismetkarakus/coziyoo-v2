@@ -203,8 +203,8 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           const quantity = 1;
           const lineTotal = unitPrice * quantity;
           const orderInsert = await client.query<{ id: string }>(
-            `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at, payment_completed)
-             VALUES ($1, $2, 'completed', 'delivery', $3::jsonb, $4, now() - ($5::int * interval '2 hour'), TRUE)
+            `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at, payment_completed, order_number)
+             VALUES ($1, $2, 'completed', 'delivery', $3::jsonb, $4, now() - ($5::int * interval '2 hour'), TRUE, 'CZY-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(nextval('order_number_seq')::text, 4, '0'))
              RETURNING id::text`,
             [buyerId, seller.id, JSON.stringify({ city: "Istanbul", line: "Kadikoy" }), lineTotal, sellerIndex + foodIndex + 1]
           );
