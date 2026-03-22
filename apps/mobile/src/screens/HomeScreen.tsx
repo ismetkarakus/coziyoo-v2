@@ -2922,7 +2922,7 @@ const styles = StyleSheet.create({
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
     zIndex: 1,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 0,
     marginHorizontal: -12,
     position: 'relative',
@@ -2941,8 +2941,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFDF9',
     borderRadius: 22,
-    minHeight: 58,
-    paddingVertical: 6,
+    minHeight: 52,
+    paddingVertical: 3,
     paddingHorizontal: 6,
     borderWidth: 1, borderColor: '#EDE8E0',
     marginBottom: 10,
@@ -2953,8 +2953,8 @@ const styles = StyleSheet.create({
   searchIconButton: {
     position: 'absolute',
     left: 6,
-    top: 0,
-    bottom: 0,
+    top: 2,
+    bottom: 2,
     width: 26,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2998,14 +2998,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: '#3D3229',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '500',
     paddingRight: 8,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   searchCategoryArea: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   searchCategoryScroller: { flexGrow: 0 },
   searchSloganWrap: {
@@ -3130,7 +3130,7 @@ const styles = StyleSheet.create({
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
   categoryContent: { gap: 14, paddingRight: 8, paddingBottom: 0, alignItems: 'flex-end' },
-  categoryTextButton: { paddingTop: 0, paddingBottom: 6 },
+  categoryTextButton: { paddingTop: 0, paddingBottom: 2 },
   categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
