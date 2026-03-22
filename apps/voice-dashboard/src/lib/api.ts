@@ -56,6 +56,27 @@ export async function refreshToken(refreshTokenValue: string): Promise<boolean> 
   return true;
 }
 
+export async function parseJson<T>(response: Response): Promise<T> {
+  return (await response.json()) as T;
+}
+
+export async function postJsonWith415Fallback(path: string, payload: unknown): Promise<Response> {
+  const asJson = JSON.stringify(payload);
+
+  const primary = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: asJson,
+  });
+  if (primary.status !== 415) return primary;
+
+  return fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "content-type": "text/plain; charset=utf-8", accept: "application/json" },
+    body: asJson,
+  });
+}
+
 export async function logout(): Promise<void> {
   try {
     await request("/v1/admin/auth/logout", { method: "POST" });

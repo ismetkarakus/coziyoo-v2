@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { request } from "@/lib/api";
+import { parseJson, postJsonWith415Fallback, request } from "@/lib/api";
 import { setAdmin, setTokens } from "@/lib/auth";
 import type { AdminUser, ApiError, Tokens } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,17 @@ import { Label } from "@/components/ui/label";
 
 type LoginResponse = {
   data: {
-    admin: AdminUser;
     tokens: Tokens;
+  };
+  error?: {
+    message?: string;
   };
 };
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("test@deneme.com");
-  const [password, setPassword] = useState("1234");
+  const [email, setEmail] = useState("admin@coziyoo.com");
+  const [password, setPassword] = useState("Admin12345");
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -29,23 +31,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await request("/v1/admin/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await postJsonWith415Fallback("/v1/admin/auth/login", { email, password });
+      const json = await parseJson<LoginResponse>(response);
 
-      if (!response.ok) {
-        const json = (await response.json()) as ApiError;
+      if (response.status !== 200 || !json.data?.tokens) {
         toast.error(json.error?.message ?? "Login failed");
         return;
       }
 
-      const json = (await response.json()) as LoginResponse;
       setTokens(json.data.tokens);
-      setAdmin(json.data.admin);
+      const meResp = await request("/v1/admin/auth/me");
+      if (meResp.status !== 200) {
+        toast.error("Profile load failed");
+        return;
+      }
+      const me = await parseJson<{ data: AdminUser }>(meResp);
+      setAdmin(me.data);
       router.push("/dashboard");
-    } catch {
-      toast.error("Login failed");
+    } catch (error) {
+      const err = error as ApiError;
+      toast.error(err.error?.message ?? "Login failed");
     } finally {
       setLoading(false);
     }
