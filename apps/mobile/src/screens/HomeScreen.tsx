@@ -2974,7 +2974,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFDF9' },
   content: { flex: 1, zIndex: 10 },
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 24, paddingHorizontal: 18, paddingBottom: 130 },
+  scrollContent: { paddingTop: 16, paddingHorizontal: 18, paddingBottom: 130 },
 
   /* --- Header --- */
   headerRow: {
@@ -2999,7 +2999,7 @@ const styles = StyleSheet.create({
   searchStickyWrap: {
     backgroundColor: '#FFFDF9',
     zIndex: 1,
-    paddingTop: 4,
+    paddingTop: 0,
     paddingBottom: 0,
     marginHorizontal: -12,
     position: 'relative',
@@ -3220,8 +3220,8 @@ const styles = StyleSheet.create({
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
   categoryContent: { gap: 14, paddingRight: 8, paddingBottom: 0, alignItems: 'flex-end' },
-  categoryTextButton: { paddingTop: 0, paddingBottom: 2 },
-  categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 16, fontWeight: '700' },
+  categoryTextButton: { paddingTop: 0, paddingBottom: 0 },
+  categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 15, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
     marginTop: 0,
