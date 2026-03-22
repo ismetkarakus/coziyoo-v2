@@ -2680,14 +2680,24 @@ export default function HomeScreen({
 
       <Modal
         visible={profileEditModalVisible}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setProfileEditModalVisible(false)}
       >
-        <ProfileEditScreen
-          auth={currentAuth}
-          onBack={() => setProfileEditModalVisible(false)}
-          onAuthRefresh={handleAuthRefresh}
-        />
+        <View style={styles.profileEditOverlay}>
+          <TouchableOpacity
+            style={styles.profileEditBackdrop}
+            activeOpacity={1}
+            onPress={() => setProfileEditModalVisible(false)}
+          />
+          <View style={styles.profileEditSheet}>
+            <ProfileEditScreen
+              auth={currentAuth}
+              onBack={() => setProfileEditModalVisible(false)}
+              onAuthRefresh={handleAuthRefresh}
+            />
+          </View>
+        </View>
       </Modal>
 
       {/* Meal detail modal */}
@@ -4282,6 +4292,21 @@ const styles = StyleSheet.create({
   sellerMealMeta: { color: '#8D8072', fontSize: 12, marginTop: 2 },
   sellerMealRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sellerMealPrice: { color: '#3D3229', fontSize: 15, fontWeight: '700' },
+  profileEditOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  profileEditBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+  },
+  profileEditSheet: {
+    height: '82%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#FFFDF9',
+  },
 
   /* --- Agent modal --- */
   agentModalSafe: { flex: 1, backgroundColor: '#F5F1EB' },

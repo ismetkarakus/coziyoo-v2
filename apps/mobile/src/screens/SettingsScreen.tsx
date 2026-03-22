@@ -247,17 +247,27 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
 
       <Modal
         visible={profileEditModalVisible}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setProfileEditModalVisible(false)}
       >
-        <ProfileEditScreen
-          auth={currentAuth}
-          onBack={() => setProfileEditModalVisible(false)}
-          onAuthRefresh={(session) => {
-            setCurrentAuth(session);
-            onAuthRefresh?.(session);
-          }}
-        />
+        <View style={styles.profileEditOverlay}>
+          <TouchableOpacity
+            style={styles.profileEditBackdrop}
+            activeOpacity={1}
+            onPress={() => setProfileEditModalVisible(false)}
+          />
+          <View style={styles.profileEditSheet}>
+            <ProfileEditScreen
+              auth={currentAuth}
+              onBack={() => setProfileEditModalVisible(false)}
+              onAuthRefresh={(session) => {
+                setCurrentAuth(session);
+                onAuthRefresh?.(session);
+              }}
+            />
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -351,4 +361,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneBtnText: { color: '#FFFFFF', fontSize: 31 / 2, fontWeight: '700' },
+  profileEditOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  profileEditBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+  },
+  profileEditSheet: {
+    height: '82%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#F7F4EF',
+  },
 });
