@@ -2941,7 +2941,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFDF9',
     borderRadius: 22,
-    paddingVertical: 2,
+    minHeight: 58,
+    paddingVertical: 6,
     paddingHorizontal: 6,
     borderWidth: 1, borderColor: '#EDE8E0',
     marginBottom: 10,
@@ -2997,10 +2998,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: '#3D3229',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '500',
     paddingRight: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   searchCategoryArea: {
     flex: 1,
@@ -3130,7 +3131,7 @@ const styles = StyleSheet.create({
   categoryScroll: { marginBottom: 16 },
   categoryContent: { gap: 14, paddingRight: 8 },
   categoryTextButton: { paddingVertical: 4 },
-  categoryText: { color: '#7B6D5E', fontSize: 13, fontWeight: '600' },
+  categoryText: { color: '#7B6D5E', fontSize: 15, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
     marginTop: 5,
