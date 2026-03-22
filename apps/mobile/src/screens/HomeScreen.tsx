@@ -1116,12 +1116,14 @@ export default function HomeScreen({
   }, [apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
-    const akcaabatMeal = meals.find((meal) => {
+    const heroCandidate = meals.find((meal) => {
       const normalized = normalizeDishText(meal.title ?? '');
-      return normalized.includes('akcabat') && normalized.includes('kofte');
+      const hasImage = Boolean(meal.imageUrl && meal.imageUrl.trim());
+      const isAkcaabat = normalized.includes('akcabat') && normalized.includes('kofte');
+      return hasImage && !isAkcaabat;
     });
 
-    const heroUrl = akcaabatMeal?.imageUrl?.trim() || HERO_AKCABAT_IMAGE_URL;
+    const heroUrl = heroCandidate?.imageUrl?.trim() || HERO_AKCABAT_IMAGE_URL;
     setHeaderImageSource({ uri: heroUrl });
   }, [meals]);
 
