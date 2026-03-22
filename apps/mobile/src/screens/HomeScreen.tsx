@@ -1899,33 +1899,33 @@ export default function HomeScreen({
                   returnKeyType="search"
                 />
               ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoryContent}
-                  style={styles.searchCategoryScroller}
-                >
-                  {CATEGORIES.map((cat) => (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[
-                        styles.categoryChip,
-                        activeCategory === cat && styles.categoryChipActive,
-                      ]}
-                      activeOpacity={0.85}
-                      onPress={() => setActiveCategory(cat)}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryText,
-                          activeCategory === cat && styles.categoryTextActive,
-                        ]}
+                <View style={styles.searchCategoryArea}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoryContent}
+                    style={styles.searchCategoryScroller}
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={styles.categoryTextButton}
+                        activeOpacity={0.85}
+                        onPress={() => setActiveCategory(cat)}
                       >
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                        <Text
+                          style={[
+                            styles.categoryText,
+                            activeCategory === cat && styles.categoryTextActive,
+                          ]}
+                        >
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <View style={styles.categoryInputLine} />
+                </View>
               )}
             </View>
           </View>
@@ -3002,6 +3002,10 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     paddingVertical: 4,
   },
+  searchCategoryArea: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   searchCategoryScroller: { flex: 1 },
   searchSloganWrap: {
     marginTop: 6,
@@ -3124,11 +3128,16 @@ const styles = StyleSheet.create({
 
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
-  categoryContent: { gap: 6 },
-  categoryChip: { backgroundColor: '#EDE8E0', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7 },
-  categoryChipActive: { backgroundColor: '#3D3229' },
-  categoryText: { color: '#6B5D4F', fontSize: 13, fontWeight: '600' },
-  categoryTextActive: { color: '#F5F1EB' },
+  categoryContent: { gap: 14, paddingRight: 8 },
+  categoryTextButton: { paddingVertical: 4 },
+  categoryText: { color: '#7B6D5E', fontSize: 13, fontWeight: '600' },
+  categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
+  categoryInputLine: {
+    marginTop: 5,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#D7CEC2',
+  },
 
   /* --- Food card --- */
   foodCard: {
