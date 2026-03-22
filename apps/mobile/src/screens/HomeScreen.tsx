@@ -3005,9 +3005,9 @@ const styles = StyleSheet.create({
   },
   searchCategoryArea: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
   },
-  searchCategoryScroller: { flex: 1 },
+  searchCategoryScroller: { flexGrow: 0 },
   searchSloganWrap: {
     marginTop: 6,
     marginBottom: 8,
@@ -3129,9 +3129,9 @@ const styles = StyleSheet.create({
 
   /* --- Categories --- */
   categoryScroll: { marginBottom: 16 },
-  categoryContent: { gap: 14, paddingRight: 8 },
-  categoryTextButton: { paddingTop: 2, paddingBottom: 0 },
-  categoryText: { color: '#7B6D5E', fontSize: 15, fontWeight: '700' },
+  categoryContent: { gap: 14, paddingRight: 8, paddingBottom: 0, alignItems: 'flex-end' },
+  categoryTextButton: { paddingTop: 0, paddingBottom: 0 },
+  categoryText: { color: '#7B6D5E', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   categoryTextActive: { color: '#2F7A53', fontWeight: '800' },
   categoryInputLine: {
     marginTop: 0,
