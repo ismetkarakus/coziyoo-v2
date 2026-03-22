@@ -2184,6 +2184,17 @@ export default function HomeScreen({
           ) : (
             <View style={styles.heroOverlayFallback} />
           )}
+          {LinearGradient ? (
+            <LinearGradient
+              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.7)', '#FFFFFF']}
+              locations={[0.4, 0.8, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.heroHeaderOverlay}
+            />
+          ) : (
+            <View style={styles.heroHeaderOverlayFallback} />
+          )}
           {/* Profile avatar */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -3493,6 +3504,17 @@ const styles = StyleSheet.create({
     width: '60%',
     height: '100%',
     backgroundColor: 'rgba(233,194,152,0.12)',
+  },
+  heroHeaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroHeaderOverlayFallback: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '40%',
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
   heroTextArea: {
     zIndex: 3,
