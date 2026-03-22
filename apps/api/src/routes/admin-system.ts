@@ -167,7 +167,170 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       fullName: "Demo Alici",
       userType: "buyer",
     });
+
+    // ── Extra buyer scenarios ──
+    const demoBuyers = [
+      {
+        email: "can.aydin@coziyoo.local",
+        displayName: "Can Aydin",
+        fullName: "Can Aydin",
+        phone: "+90 532 111 22 33",
+        scenarios: [
+          // Duzgun tamamlanan siparisler
+          { status: "completed", paymentCompleted: true, hoursAgo: 24, sellerIdx: 0, foodIdx: 0, qty: 1, deliveryType: "delivery" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 96, sellerIdx: 1, foodIdx: 1, qty: 2, deliveryType: "pickup" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 240, sellerIdx: 0, foodIdx: 2, qty: 1, deliveryType: "delivery" as const },
+          // Aktif siparis
+          { status: "preparing", paymentCompleted: true, hoursAgo: 0, sellerIdx: 2, foodIdx: 0, qty: 1, deliveryType: "delivery" as const },
+          // Iptal edilen
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 48, sellerIdx: 1, foodIdx: 2, qty: 1, deliveryType: "delivery" as const },
+        ],
+        complaints: [
+          { sellerIdx: 0, description: "Siparis 40 dakika gec geldi, yemek sogumtu.", priority: "medium" as const, status: "resolved" as const },
+        ],
+      },
+      {
+        email: "elif.demir@coziyoo.local",
+        displayName: "Elif Demir",
+        fullName: "Elif Demir",
+        phone: "+90 544 222 33 44",
+        scenarios: [
+          { status: "completed", paymentCompleted: true, hoursAgo: 12, sellerIdx: 0, foodIdx: 1, qty: 1, deliveryType: "delivery" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 72, sellerIdx: 2, foodIdx: 2, qty: 3, deliveryType: "pickup" as const },
+          { status: "delivered", paymentCompleted: true, hoursAgo: 2, sellerIdx: 1, foodIdx: 0, qty: 1, deliveryType: "delivery" as const },
+          // Reddedilen siparis
+          { status: "rejected", paymentCompleted: false, hoursAgo: 36, sellerIdx: 2, foodIdx: 1, qty: 1, deliveryType: "delivery" as const },
+          // Bekleyen siparis
+          { status: "pending_seller_approval", paymentCompleted: false, hoursAgo: 0, sellerIdx: 0, foodIdx: 0, qty: 2, deliveryType: "pickup" as const },
+        ],
+        complaints: [
+          { sellerIdx: 2, description: "Yanlis urun gonderildi, Nohut Pilavi yerine Acili Tavuk geldi.", priority: "high" as const, status: "open" as const },
+          { sellerIdx: 2, description: "Siparis reddedildi ama sebep belirtilmedi.", priority: "low" as const, status: "in_review" as const },
+        ],
+      },
+      {
+        email: "ahmet.yilmaz@coziyoo.local",
+        displayName: "Ahmet Yilmaz",
+        fullName: "Ahmet Yilmaz",
+        phone: "+90 555 333 44 55",
+        scenarios: [
+          { status: "completed", paymentCompleted: true, hoursAgo: 168, sellerIdx: 0, foodIdx: 0, qty: 2, deliveryType: "delivery" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 336, sellerIdx: 1, foodIdx: 1, qty: 1, deliveryType: "pickup" as const },
+          // Yolda olan
+          { status: "in_delivery", paymentCompleted: true, hoursAgo: 0, sellerIdx: 0, foodIdx: 1, qty: 1, deliveryType: "delivery" as const },
+          // 2 iptal — sorunlu alici senaryosu
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 24, sellerIdx: 1, foodIdx: 0, qty: 1, deliveryType: "delivery" as const },
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 72, sellerIdx: 2, foodIdx: 2, qty: 1, deliveryType: "delivery" as const },
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 120, sellerIdx: 0, foodIdx: 2, qty: 1, deliveryType: "pickup" as const },
+        ],
+        complaints: [
+          { sellerIdx: 1, description: "Yemek paketi acik geldi, hijyen sorunu var.", priority: "high" as const, status: "open" as const },
+          { sellerIdx: 0, description: "Teslimat suresi cok uzun, 1.5 saat beklendi.", priority: "medium" as const, status: "open" as const },
+          { sellerIdx: 2, description: "Porsiyon cok kucuktu, fiyatina gore yetersiz.", priority: "low" as const, status: "resolved" as const },
+        ],
+      },
+      {
+        email: "zeynep.kara@coziyoo.local",
+        displayName: "Zeynep Kara",
+        fullName: "Zeynep Kara",
+        phone: "+90 533 444 55 66",
+        scenarios: [
+          { status: "completed", paymentCompleted: true, hoursAgo: 6, sellerIdx: 1, foodIdx: 0, qty: 1, deliveryType: "delivery" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 48, sellerIdx: 0, foodIdx: 2, qty: 2, deliveryType: "delivery" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 144, sellerIdx: 2, foodIdx: 1, qty: 1, deliveryType: "pickup" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 360, sellerIdx: 1, foodIdx: 2, qty: 1, deliveryType: "delivery" as const },
+          { status: "completed", paymentCompleted: true, hoursAgo: 480, sellerIdx: 0, foodIdx: 1, qty: 3, deliveryType: "pickup" as const },
+        ],
+        complaints: [],
+      },
+    ];
+
+    const buyerAddresses = [
+      { city: "Istanbul", district: "Kadikoy", line: "Caferaga Mah. Moda Cad. No:12/A" },
+      { city: "Istanbul", district: "Besiktas", line: "Sinanpasa Mah. Ciragan Cad. No:5" },
+      { city: "Istanbul", district: "Uskudar", line: "Altunizade Mah. Kisikli Cad. No:8" },
+      { city: "Istanbul", district: "Sisli", line: "Mecidiyekoy Mah. Buyukdere Cad. No:22" },
+      { city: "Istanbul", district: "Bakirkoy", line: "Atakoy 7-8 Kisim Mah." },
+      { city: "Istanbul", district: "Fatih", line: "Sultanahmet Mah. Divanyolu Cad. No:3" },
+    ];
+
+    let buyersCreated = 0;
     let complaintsCreated = 0;
+    for (const buyer of demoBuyers) {
+      const bId = await ensureUser({ email: buyer.email, displayName: buyer.displayName, fullName: buyer.fullName, userType: "buyer" });
+      // Set phone if user was just created
+      await client.query(`UPDATE users SET phone = $1 WHERE id = $2 AND phone IS NULL`, [buyer.phone, bId]);
+      buyersCreated += 1;
+
+      // Check existing orders for this buyer
+      const existingBuyerOrders = await client.query<{ count: string }>(
+        "SELECT count(*)::text AS count FROM orders WHERE buyer_id = $1", [bId]
+      );
+      if (Number(existingBuyerOrders.rows[0]?.count ?? "0") > 0) continue;
+
+      // Preload all seller foods
+      const sellerFoodsMap = new Map<number, Array<{ id: string; price: string }>>();
+      for (const [si, seller] of sellerAccounts.entries()) {
+        const f = await client.query<{ id: string; price: string }>(
+          "SELECT id::text, price::text FROM foods WHERE seller_id = $1 AND is_active = TRUE ORDER BY created_at ASC LIMIT 4", [seller.id]
+        );
+        sellerFoodsMap.set(si, f.rows);
+      }
+
+      const createdOrderIds: string[] = [];
+      for (const [sIdx, scenario] of buyer.scenarios.entries()) {
+        const seller = sellerAccounts[scenario.sellerIdx];
+        const foods = sellerFoodsMap.get(scenario.sellerIdx) ?? [];
+        const food = foods[scenario.foodIdx % foods.length];
+        if (!food || !seller) continue;
+
+        const unitPrice = Number(food.price);
+        const lineTotal = unitPrice * scenario.qty;
+        const address = buyerAddresses[(sIdx) % buyerAddresses.length];
+
+        const oi = await client.query<{ id: string }>(
+          `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at, payment_completed)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, now() - ($7::int * interval '1 hour'), $8)
+           RETURNING id::text`,
+          [bId, seller.id, scenario.status, scenario.deliveryType, JSON.stringify(address), lineTotal, scenario.hoursAgo, scenario.paymentCompleted]
+        );
+        const orderId = oi.rows[0].id;
+        createdOrderIds.push(orderId);
+
+        await client.query(
+          `INSERT INTO order_items (order_id, food_id, quantity, unit_price, line_total) VALUES ($1, $2, $3, $4, $5)`,
+          [orderId, food.id, scenario.qty, unitPrice, lineTotal]
+        );
+
+        const eventFrom = scenario.status === "completed" ? "delivered" : scenario.status === "cancelled" ? "pending_seller_approval" : "created";
+        await client.query(
+          `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+           VALUES ($1, $2, 'status_update', $3, $4, $5::jsonb)`,
+          [orderId, seller.id, eventFrom, scenario.status, JSON.stringify({ source: "admin_demo_seed" })]
+        );
+        ordersCreated += 1;
+      }
+
+      // Complaints for this buyer
+      for (const [cIdx, complaint] of buyer.complaints.entries()) {
+        const targetOrderId = createdOrderIds[cIdx % createdOrderIds.length];
+        if (!targetOrderId) continue;
+
+        const existingC = await client.query<{ id: string }>(
+          `SELECT id::text FROM complaints WHERE order_id = $1 AND complainant_user_id = $2 AND description = $3 LIMIT 1`,
+          [targetOrderId, bId, complaint.description]
+        );
+        if ((existingC.rowCount ?? 0) > 0) continue;
+
+        await client.query(
+          `INSERT INTO complaints (order_id, complainant_buyer_id, complainant_type, complainant_user_id, description, priority, status, created_at, updated_at)
+           VALUES ($1, $2, 'buyer', $3, $4, $5, $6, now() - ($7::int * interval '1 hour'), now())`,
+          [targetOrderId, bId, bId, complaint.description, complaint.priority, complaint.status, cIdx + 2]
+        );
+        complaintsCreated += 1;
+      }
+    }
+
     for (const [sellerIndex, seller] of sellerAccounts.entries()) {
       const existingFoods = await client.query<{ id: string; price: string }>(
         "SELECT id::text, price::text FROM foods WHERE seller_id = $1 AND is_active = TRUE ORDER BY created_at ASC",
@@ -505,6 +668,7 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
         sellerEmail,
         sellerEmails: sellerAccounts.map((seller) => seller.email),
         sellersCreated,
+        buyersCreated,
         buyerEmail,
         defaultPassword,
         foodsCreated,
