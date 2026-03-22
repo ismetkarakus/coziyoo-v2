@@ -22,7 +22,22 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+let BlurView: React.ComponentType<{
+  intensity?: number;
+  tint?: 'light' | 'dark' | 'default' | string;
+  style?: any;
+  children?: React.ReactNode;
+}> | null = null;
+try {
+  const maybeBlurView = require('expo-blur').BlurView;
+  const hasNativeView = Boolean(
+    UIManager.getViewManagerConfig?.('ViewManagerAdapter_ExpoBlurView')
+      || UIManager.getViewManagerConfig?.('ExpoBlurView'),
+  );
+  BlurView = hasNativeView ? maybeBlurView : null;
+} catch {
+  // Optional at runtime; fallback view is used when unavailable.
+}
 let LinearGradient: React.ComponentType<{
   colors: string[];
   locations?: number[];
@@ -2183,7 +2198,11 @@ export default function HomeScreen({
             style={styles.heroFoodBgImg}
             onError={() => setHeaderImageSource(LOCAL_HOME_HEADER_FALLBACK)}
           />
-          <BlurView intensity={14} style={styles.heroTopBlur} />
+          {BlurView ? (
+            <BlurView intensity={14} style={styles.heroTopBlur} />
+          ) : (
+            <View style={styles.heroTopBlurFallback} />
+          )}
           {LinearGradient ? (
             <LinearGradient
               colors={[
@@ -3485,6 +3504,15 @@ const styles = StyleSheet.create({
     width: '65%',
     height: 110,
     borderTopLeftRadius: 180,
+  },
+  heroTopBlurFallback: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '65%',
+    height: 110,
+    borderTopLeftRadius: 180,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   heroOverlay: {
     position: 'absolute',
