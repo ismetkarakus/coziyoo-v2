@@ -2213,7 +2213,12 @@ export default function HomeScreen({
             <Text style={styles.profileSellerBody}>{t('helper.home.profileSellerPromo')}</Text>
             <View style={styles.profileSellerQuestionRow}>
               <Text style={styles.profileSellerQuestion}>{t('helper.home.profileSellerQuestion')}</Text>
-              <Ionicons name="return-up-forward-outline" size={18} color="#7A6A5A" />
+              <Ionicons
+                name="return-down-forward-outline"
+                size={18}
+                color="#7A6A5A"
+                style={styles.profileSellerHintIcon}
+              />
             </View>
             <TouchableOpacity
               style={styles.profileSellerButton}
@@ -3592,12 +3597,17 @@ const styles = StyleSheet.create({
   },
   profileSellerBody: { color: '#7F7063', fontSize: 14, textAlign: 'center', lineHeight: 21 },
   profileSellerQuestionRow: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     marginTop: 6,
     marginBottom: 11,
+  },
+  profileSellerHintIcon: {
+    position: 'absolute',
+    right: 34,
+    top: 1,
   },
   profileSellerQuestion: {
     color: '#3E332B',
