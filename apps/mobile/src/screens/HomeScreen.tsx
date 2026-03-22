@@ -2068,8 +2068,8 @@ export default function HomeScreen({
           {/* Header overlay: transparent top → white bottom (the magic fade) */}
           {LinearGradient ? (
             <LinearGradient
-              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.7)', '#ffffff']}
-              locations={[0.4, 0.8, 1]}
+              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.6)', '#ffffff']}
+              locations={[0.4, 0.75, 1]}
               style={styles.heroOverlay}
             />
           ) : (
