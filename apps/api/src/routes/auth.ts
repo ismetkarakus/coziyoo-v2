@@ -178,6 +178,15 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
       [user.id, "register_success", req.ip, req.headers["user-agent"] ?? null]
     );
 
+    await recordPresenceEvent({
+      subjectType: "app_user",
+      subjectId: user.id,
+      sessionId: sessionInsert.rows[0].id,
+      eventType: "login",
+      ip: req.ip ?? null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+
     const accessToken = signAccessToken({
       sub: user.id,
       sessionId: sessionInsert.rows[0].id,
