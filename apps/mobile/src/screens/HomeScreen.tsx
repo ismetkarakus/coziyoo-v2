@@ -18,6 +18,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 let LinearGradient: React.ComponentType<{
@@ -488,8 +489,8 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   Salata: 'Salatalar',
 };
 
-const DEFAULT_HOME_HEADER_IMAGE_URL =
-  'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1400&q=80';
+const LOCAL_HOME_HEADER_FALLBACK = require('../../assets/images/home-header-fallback.png');
+const ENV_HOME_HEADER_IMAGE_URL = (process.env.EXPO_PUBLIC_HOME_HEADER_IMAGE_URL || '').trim();
 
 function normalizeDishText(value: string): string {
   return value
@@ -616,6 +617,33 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     category: uiCategory,
     imageUrl: item.imageUrl ?? resolveDishImage(item.name, uiCategory),
   };
+}
+
+function resolveHomeHeaderImageUrl(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const root = payload as Record<string, unknown>;
+  const data = (root.data && typeof root.data === 'object' ? root.data : root) as Record<string, unknown>;
+  const branding = (data.branding && typeof data.branding === 'object' ? data.branding : null) as Record<string, unknown> | null;
+  const home = (data.home && typeof data.home === 'object' ? data.home : null) as Record<string, unknown> | null;
+  const themeConfig = (data.theme && typeof data.theme === 'object' ? data.theme : null) as Record<string, unknown> | null;
+
+  const candidates = [
+    data.homeHeaderImageUrl,
+    data.mobileHomeHeaderImageUrl,
+    data.headerImageUrl,
+    branding?.homeHeaderImageUrl,
+    branding?.mobileHomeHeaderImageUrl,
+    home?.headerImageUrl,
+    home?.heroImageUrl,
+    themeConfig?.homeHeaderImageUrl,
+  ];
+
+  for (const item of candidates) {
+    if (typeof item === 'string' && /^https?:\/\//.test(item.trim())) {
+      return item.trim();
+    }
+  }
+  return null;
 }
 
 function hashString(input: string): number {
@@ -983,8 +1011,9 @@ export default function HomeScreen({
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
-  // TODO: admin panelden gelecek header görsel URL'i bu state'e bağlanacak.
-  const [headerImageUrl] = useState(DEFAULT_HOME_HEADER_IMAGE_URL);
+  const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() =>
+    ENV_HOME_HEADER_IMAGE_URL ? { uri: ENV_HOME_HEADER_IMAGE_URL } : LOCAL_HOME_HEADER_FALLBACK,
+  );
   const [profileDisplayName, setProfileDisplayName] = useState<string>(() =>
     resolveProfileDisplayName(null, auth.email),
   );
@@ -1046,6 +1075,46 @@ export default function HomeScreen({
   useEffect(() => {
     if (!apiUrl) return;
     void fetchMeProfile(apiUrl, currentAuth.accessToken);
+  }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (!apiUrl) return;
+    let cancelled = false;
+
+    async function loadHeaderImageFromAdmin() {
+      const endpoints = [
+        '/v1/settings/public',
+        '/v1/settings/app',
+        '/v1/settings/branding',
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(`${apiUrl}${endpoint}`, {
+            headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
+          });
+          if (!response.ok) continue;
+          const json = await readJsonSafe(response);
+          const adminUrl = resolveHomeHeaderImageUrl(json);
+          if (!adminUrl) continue;
+          if (!cancelled) setHeaderImageSource({ uri: adminUrl });
+          return;
+        } catch {
+          // continue
+        }
+      }
+
+      if (!cancelled) {
+        setHeaderImageSource(
+          ENV_HOME_HEADER_IMAGE_URL ? { uri: ENV_HOME_HEADER_IMAGE_URL } : LOCAL_HOME_HEADER_FALLBACK,
+        );
+      }
+    }
+
+    void loadHeaderImageFromAdmin();
+    return () => {
+      cancelled = true;
+    };
   }, [apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
@@ -2064,7 +2133,7 @@ export default function HomeScreen({
           {/* Right-side food background image */}
           <View style={styles.heroFoodBgWrap}>
             <Image
-              source={{ uri: headerImageUrl }}
+              source={headerImageSource}
               style={styles.heroFoodBgImg}
             />
             {/* Fade overlays → blend food image into gradient */}
