@@ -195,13 +195,11 @@ export function formatLoginRelativeDayMonth(value: string | null | undefined, la
   if (Number.isNaN(date)) return "-";
   const diffMs = Math.max(0, Date.now() - date);
   const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (days === 0) return language === "tr" ? "Bugun" : "Today";
-  if (days === 1) return language === "tr" ? "Dun" : "Yesterday";
   if (days < 30) {
-    if (language === "tr") return `${days} gun once`;
-    return `${days} days ago`;
+    if (language === "tr") return `${days} gun`;
+    return `${days} day${days === 1 ? "" : "s"}`;
   }
   const months = Math.max(1, Math.floor(days / 30));
-  if (language === "tr") return `${months} ay once`;
-  return `${months} month${months === 1 ? "" : "s"} ago`;
+  if (language === "tr") return `${months} ay`;
+  return `${months} month${months === 1 ? "" : "s"}`;
 }
