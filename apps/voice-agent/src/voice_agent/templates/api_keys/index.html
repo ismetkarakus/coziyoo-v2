@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}API Keys — Coziyoo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span class="page-title">API Keys</span>
+</div>
+<div class="page-body">
+  <div class="card" style="max-width:980px;">
+    <p class="muted" style="margin-bottom:14px;">
+      Save provider API keys once and reuse them across presets. Keys are stored in dashboard settings.
+    </p>
+
+    {% if message %}
+    <div style="margin-bottom:12px; font-size:12px; color:{% if 'fail' in (message|lower) or 'error' in (message|lower) %}#fca5a5{% else %}var(--primary){% endif %};">
+      {{ message }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/dashboard/org/api-keys" style="display:flex; flex-direction:column; gap:14px;">
+      {% for section, rows in groups.items() %}
+      <section class="card" style="padding:12px;">
+        <h3 style="margin:0 0 10px 0;">{{ section }} Providers</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          {% for row in rows %}
+          <div>
+            <label>{{ row.label }}</label>
+            <input
+              class="input"
+              type="password"
+              name="provider_keys.{{ row.id }}"
+              value="{{ row.value }}"
+              placeholder="Enter API key" />
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary btn-save" type="submit">Save API Keys</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -306,7 +306,6 @@ def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:
     protected_paths = [
         "/dashboard/tools",
         "/dashboard/phone-numbers",
-        "/dashboard/org/api-keys",
         "/dashboard/org",
         "/dashboard/squads",
         "/dashboard/test-suites",
@@ -330,3 +329,65 @@ def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:
         response = authed_client.get(path, follow_redirects=False)
         assert response.status_code == 200
         assert "Coming soon" in response.text
+
+
+def test_api_keys_page_requires_auth_and_renders(monkeypatch) -> None:
+    client = TestClient(join_api.app)
+    redirect = client.get("/dashboard/org/api-keys", follow_redirects=False)
+    assert redirect.status_code == 303
+    assert redirect.headers.get("location") == "/dashboard/login"
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ttsConfig": {"providerApiKeys": {"llm.openai": "sk-openai", "tts.openai": "sk-tts"}}}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+    authed = TestClient(join_api.app)
+    response = authed.get("/dashboard/org/api-keys")
+    assert response.status_code == 200
+    assert "API Keys" in response.text
+    assert 'name="provider_keys.llm.openai"' in response.text
+    assert 'value="sk-openai"' in response.text
+
+
+def test_api_keys_save_posts_provider_map(monkeypatch) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path, json_body))
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"agentName": "coziyoo-agent", "ttsConfig": {}}}
+        if method == "PUT" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ok": True}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/org/api-keys",
+        data={
+            "provider_keys.llm.openai": "sk-openai",
+            "provider_keys.stt.deepgram": "dg-key",
+            "provider_keys.tts.elevenlabs": "el-key",
+            "provider_keys.llm.custom": "custom-llm",
+        },
+    )
+    assert response.status_code == 200
+    put_call = next((c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/default"), None)
+    assert put_call is not None
+    payload = put_call[2] or {}
+    keys = (((payload.get("ttsConfig") or {}).get("providerApiKeys")) or {})
+    assert keys.get("llm.openai") == "sk-openai"
+    assert keys.get("stt.deepgram") == "dg-key"
+    assert keys.get("tts.elevenlabs") == "el-key"
+    assert keys.get("llm.custom") == "custom-llm"

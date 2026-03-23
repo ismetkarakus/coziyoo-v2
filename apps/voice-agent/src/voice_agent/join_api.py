@@ -389,6 +389,50 @@ def _status_response(
     )
 
 
+PROVIDER_API_KEY_FIELDS: list[tuple[str, str, str]] = [
+    ("llm.openai", "LLM", "OpenAI"),
+    ("llm.gemini", "LLM", "Google Gemini"),
+    ("llm.anthropic", "LLM", "Anthropic"),
+    ("llm.kimi", "LLM", "Kimi (Moonshot)"),
+    ("llm.custom", "LLM", "Custom Provider"),
+    ("tts.elevenlabs", "TTS", "ElevenLabs"),
+    ("tts.openai", "TTS", "OpenAI"),
+    ("tts.cartesia", "TTS", "Cartesia"),
+    ("tts.azure", "TTS", "Azure"),
+    ("tts.google", "TTS", "Google"),
+    ("tts.playht", "TTS", "PlayHT"),
+    ("tts.custom", "TTS", "Custom Provider"),
+    ("stt.deepgram", "STT", "Deepgram"),
+    ("stt.google", "STT", "Google"),
+    ("stt.assemblyai", "STT", "AssemblyAI"),
+    ("stt.azure", "STT", "Azure"),
+    ("stt.openai", "STT", "OpenAI"),
+    ("stt.speechmatics", "STT", "Speechmatics"),
+    ("stt.custom", "STT", "Custom Provider"),
+]
+
+
+def _default_provider_api_keys() -> dict[str, str]:
+    return {key: "" for key, _, _ in PROVIDER_API_KEY_FIELDS}
+
+
+def _normalize_provider_api_keys(value: Any) -> dict[str, str]:
+    defaults = _default_provider_api_keys()
+    if not isinstance(value, dict):
+        return defaults
+    for key in defaults.keys():
+        if key in value:
+            defaults[key] = str(value.get(key) or "").strip()
+    return defaults
+
+
+def _provider_api_key_groups(keys: dict[str, str]) -> dict[str, list[dict[str, str]]]:
+    grouped: dict[str, list[dict[str, str]]] = {"LLM": [], "TTS": [], "STT": []}
+    for key, section, label in PROVIDER_API_KEY_FIELDS:
+        grouped.setdefault(section, []).append({"id": key, "label": label, "value": str(keys.get(key) or "")})
+    return grouped
+
+
 async def _direct_llm_test(
     *,
     llm_cfg: dict[str, Any],
@@ -616,10 +660,72 @@ async def dashboard_phone_numbers_page(request: Request):
 
 @app.get("/dashboard/org/api-keys", response_class=HTMLResponse)
 async def dashboard_api_keys_page(request: Request):
-    return await _render_placeholder_page(
-        request,
-        page_title="API Keys",
-        page_description="View and rotate organization API keys used by clients and services.",
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    keys = _default_provider_api_keys()
+    message: str | None = None
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = payload.get("data") or {}
+        tts_cfg = _dict(_dict(settings_data).get("ttsConfig"))
+        keys = _normalize_provider_api_keys(tts_cfg.get("providerApiKeys"))
+    elif status != 404:
+        message = extract_error_message(payload, "Failed to load API keys")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="api_keys/index.html",
+        context={"groups": _provider_api_key_groups(keys), "message": message},
+    )
+
+
+@app.post("/dashboard/org/api-keys", response_class=HTMLResponse)
+async def dashboard_api_keys_save(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    keys = _default_provider_api_keys()
+    for key in keys.keys():
+        keys[key] = str(form.get(f"provider_keys.{key}") or "").strip()
+
+    # Load current default settings and merge providerApiKeys without clobbering unrelated config.
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+
+    existing_data: dict[str, Any] = {}
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        existing_data = _dict(payload.get("data"))
+
+    tts_cfg = _dict(existing_data.get("ttsConfig"))
+    tts_cfg["providerApiKeys"] = keys
+
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+        json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
+    )
+
+    message = "API keys saved" if put_status in {200, 201} else extract_error_message(put_payload, "Failed to save API keys")
+    return templates.TemplateResponse(
+        request=request,
+        name="api_keys/index.html",
+        context={"groups": _provider_api_key_groups(keys), "message": message},
+        status_code=200,
     )
 
 
