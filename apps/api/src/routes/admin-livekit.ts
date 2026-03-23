@@ -440,6 +440,8 @@ const AdminAgentSettingsSchema = z.object({
   ttsQueryParams: z.record(z.string(), z.string()).optional(),
   sttAuthHeader: z.string().max(512).optional(),
   ttsAuthHeader: z.string().max(512).optional(),
+  // Legacy-compatible nested config payload (used by voice dashboard BFF)
+  ttsConfig: z.record(z.string(), z.unknown()).optional(),
   // Multi-server arrays
   sttServers: z.array(ServerRecordSchema).optional(),
   defaultSttServerId: z.string().max(128).optional(),
@@ -542,6 +544,7 @@ adminLiveKitRouter.put("/agent-settings/:deviceId", async (req, res) => {
 
   const mergedTtsConfig = {
     ...existingTtsConfig,
+    ...(input.ttsConfig !== undefined ? input.ttsConfig : {}),
     ...(input.ttsBaseUrl !== undefined ? { baseUrl: input.ttsBaseUrl || null } : {}),
     ...(input.ttsSynthPath !== undefined ? { path: input.ttsSynthPath || null } : {}),
     ...(input.ttsQueryParams !== undefined ? { queryParams: input.ttsQueryParams } : {}),
