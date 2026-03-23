@@ -18,6 +18,14 @@ def test_unauthorized_dashboard_access_redirects_to_login() -> None:
     assert response.headers.get("location") == "/dashboard/login"
 
 
+def test_login_page_has_theme_toggle() -> None:
+    client = TestClient(join_api.app)
+    response = client.get("/dashboard/login")
+    assert response.status_code == 200
+    assert 'data-theme-icon' in response.text
+    assert "toggleTheme" in response.text
+
+
 def test_invalid_or_expired_token_auto_logs_out(monkeypatch) -> None:
     async def fake_ensure_access_token(*, request, api_base_url):
         return "token-1", None

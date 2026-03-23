@@ -5,18 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Coziyoo Voice Agent{% endblock %}</title>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script>
+    (function () {
+      try {
+        var key = "cz_theme";
+        var saved = localStorage.getItem(key);
+        var theme = saved === "light" || saved === "dark" ? saved : "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (_err) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
   <style>
     :root {
       --bg:        #020817;
+      --card-bg:   #020817;
       --border:    #1e293b;
       --muted-fg:  #94a3b8;
       --text:      #f8fafc;
       --primary:   #37aa9d;
+      --btn-bg:    rgba(30,41,59,.5);
+      --btn-bg-hover: rgba(30,41,59,.9);
+      --input-bg:  rgba(2,8,23,.8);
+      --sidebar-item-fg: rgba(248,250,252,.65);
       --p10:       rgba(55,170,157,.10);
       --p20:       rgba(55,170,157,.20);
       --radius:    .5rem;
       --sw:        220px;
       --swc:       46px;
+    }
+    :root[data-theme="light"] {
+      --bg:        #f8fafc;
+      --card-bg:   #ffffff;
+      --border:    #cbd5e1;
+      --muted-fg:  #475569;
+      --text:      #0f172a;
+      --primary:   #0f766e;
+      --btn-bg:    #f1f5f9;
+      --btn-bg-hover: #e2e8f0;
+      --input-bg:  #ffffff;
+      --sidebar-item-fg: #334155;
+      --p10:       rgba(15,118,110,.10);
+      --p20:       rgba(15,118,110,.20);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
@@ -50,7 +81,7 @@
     .sidebar-logo-text { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; }
     .sidebar-toggle {
       width: 28px; height: 28px; flex-shrink: 0;
-      background: none; border: 1px solid transparent; color: rgba(248,250,252,.45);
+      background: none; border: 1px solid transparent; color: var(--muted-fg);
       border-radius: 6px; display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: background .15s, border-color .15s;
     }
@@ -77,7 +108,7 @@
     .sidebar-item {
       display: flex; align-items: center; gap: 8px; padding: 2px 4px; margin: 1px 0;
       border-radius: 6px; border: 1px solid transparent; cursor: pointer;
-      color: rgba(248,250,252,.65); width: 100%; min-height: 30px; overflow: hidden;
+      color: var(--sidebar-item-fg); width: 100%; min-height: 30px; overflow: hidden;
       transition: background .1s, border-color .1s, color .1s; text-align: left; background: none;
     }
     .sidebar-item:hover { background: var(--p10); border-color: rgba(55,170,157,.12); color: var(--text); }
@@ -191,15 +222,15 @@
     }
 
     /* ── UI primitives ── */
-    .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
     .btn {
       display: inline-flex; align-items: center; gap: 6px;
-      border: 1px solid var(--border); background: rgba(30,41,59,.5);
+      border: 1px solid var(--border); background: var(--btn-bg);
       color: var(--text); border-radius: 6px; padding: 6px 12px;
       font-size: 13px; font-weight: 500; cursor: pointer;
       transition: border-color .15s, background .15s; white-space: nowrap;
     }
-    .btn:hover { border-color: rgba(148,163,184,.35); background: rgba(30,41,59,.9); }
+    .btn:hover { border-color: rgba(148,163,184,.35); background: var(--btn-bg-hover); }
     .btn:disabled { opacity: .4; pointer-events: none; }
       .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
       .btn-primary:hover { background: #2e9990; border-color: #2e9990; }
@@ -223,7 +254,7 @@
     .btn-sm { padding: 3px 8px; font-size: 12px; }
     .btn-icon { padding: 5px; width: 28px; height: 28px; justify-content: center; }
     .input {
-      width: 100%; background: rgba(2,8,23,.8); border: 1px solid var(--border);
+      width: 100%; background: var(--input-bg); border: 1px solid var(--border);
       border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 13px;
       transition: border-color .15s; outline: none;
     }
@@ -250,8 +281,37 @@
 
     /* login page */
     .login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .login-card { width: 100%; max-width: 380px; background: #0a1628; border: 1px solid var(--border); border-radius: 12px; padding: 32px; }
+    .login-card { width: 100%; max-width: 380px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; position: relative; }
+    .theme-btn {
+      width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 999px;
+      background: var(--btn-bg); color: var(--text); display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    .theme-btn:hover { background: var(--btn-bg-hover); }
   </style>
+  <script>
+    (function () {
+      var KEY = "cz_theme";
+      function currentTheme() {
+        return document.documentElement.getAttribute("data-theme") || "dark";
+      }
+      window.toggleTheme = function () {
+        var next = currentTheme() === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem(KEY, next); } catch (_err) {}
+        if (typeof window.syncThemeToggles === "function") window.syncThemeToggles();
+      };
+      window.syncThemeToggles = function () {
+        var isDark = currentTheme() === "dark";
+        document.querySelectorAll("[data-theme-icon]").forEach(function (el) {
+          el.textContent = isDark ? "☀" : "☾";
+        });
+      };
+      document.addEventListener("DOMContentLoaded", function () {
+        window.syncThemeToggles();
+      });
+    })();
+  </script>
 </head>
 <body>
 {% block shell %}
@@ -262,7 +322,9 @@
       <svg width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"/></svg>
     </button>
     <span style="font-weight:700;font-size:15px;">Coziyoo</span>
-    <div style="width:28px;"></div>
+    <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+      <span data-theme-icon>☀</span>
+    </button>
   </div>
 
   <aside class="sidebar" id="sidebar">
@@ -275,9 +337,14 @@
           </div>
           <span class="sidebar-logo-text">Coziyoo</span>
         </div>
-        <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
-          <svg width="17" height="17" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H88V56H216V200ZM40,200V56H72V200Z"/></svg>
-        </button>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+            <span data-theme-icon>☀</span>
+          </button>
+          <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+            <svg width="17" height="17" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H88V56H216V200ZM40,200V56H72V200Z"/></svg>
+          </button>
+        </div>
       </div>
 
       <div class="sidebar-org">

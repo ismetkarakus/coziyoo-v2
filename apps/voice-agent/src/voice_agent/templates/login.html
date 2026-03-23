@@ -3,6 +3,9 @@
 {% block shell %}
 <div class="login-page">
   <div class="login-card">
+    <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Toggle theme" style="position:absolute;top:14px;right:14px;">
+      <span data-theme-icon>☀</span>
+    </button>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px;">
       <div style="width:32px;height:32px;background:var(--p10);border-radius:8px;display:flex;align-items:center;justify-content:center;">
         <svg width="18" height="18" fill="var(--primary)" viewBox="0 0 256 256"><path d="M227.99,107.98a96.05,96.05,0,0,0-179.98,0A64,64,0,1,0,80,228.57a95.88,95.88,0,0,0,96,0A64,64,0,1,0,227.99,107.98ZM64,216a48,48,0,1,1,48-48A48.05,48.05,0,0,1,64,216Zm128,0a48,48,0,1,1,48-48A48.05,48.05,0,0,1,192,216Z"/></svg>
