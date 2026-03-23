@@ -2442,7 +2442,7 @@ export default function HomeScreen({
               <Ionicons name="heart" size={22} color="#FFFFFF" />
             </View>
             <View style={styles.nearbyHeaderTextWrap}>
-              <Text style={styles.nearbyHeaderTitle}>🏠 Anne Eli Değmiş Gibi</Text>
+              <Text style={styles.nearbyHeaderTitle}>Anne Eli Değmiş Gibi</Text>
               <Text style={styles.nearbyHeaderSubtitle}>Tüm yemekler ev yapımı ve günlük taze 🧡</Text>
             </View>
           </View>
