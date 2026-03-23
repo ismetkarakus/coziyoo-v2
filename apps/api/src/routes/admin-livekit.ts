@@ -428,7 +428,7 @@ const AdminAgentSettingsSchema = z.object({
   ttsBaseUrl: z.string().optional(),
   ttsSynthPath: z.string().max(256).optional(),
   sttEnabled: z.boolean().optional(),
-  sttProvider: z.string().max(64).optional(),
+  sttProvider: z.string().max(128).optional(),
   sttBaseUrl: z.string().optional(),
   sttTranscribePath: z.string().max(256).optional(),
   sttModel: z.string().max(128).optional(),

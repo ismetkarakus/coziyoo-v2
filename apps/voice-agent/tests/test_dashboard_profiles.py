@@ -663,3 +663,69 @@ def test_custom_providers_page_and_crud(monkeypatch) -> None:
     ids = {str(item.get("id")) for item in custom if isinstance(item, dict)}
     assert "llm-groq-eu" in ids
     assert any(str(item.get("id")) == "stt-whisperx" for item in custom if isinstance(item, dict))
+
+
+def test_profile_editor_includes_custom_provider_options(monkeypatch) -> None:
+    profile_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == f"/v1/admin/agent-profiles/{profile_id}":
+            return 200, {
+                "data": {
+                    "id": profile_id,
+                    "name": "Custom Provider Test",
+                    "llm_config": {"provider": "llm-groq-eu", "model": "llama-3.3-70b-versatile"},
+                    "tts_config": {"provider": "tts-myvoice", "model": "my-voice-model"},
+                    "stt_config": {"provider": "stt-whisperx", "model": "whisper-large-v3"},
+                }
+            }
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "ttsConfig": {
+                        "customProviders": [
+                            {
+                                "id": "llm-groq-eu",
+                                "type": "llm",
+                                "name": "Groq EU",
+                                "baseUrl": "https://groq.example.com",
+                                "endpointPath": "/v1/chat/completions",
+                                "modelsPath": "/v1/models",
+                                "model": "llama-3.3-70b-versatile",
+                            },
+                            {
+                                "id": "tts-myvoice",
+                                "type": "tts",
+                                "name": "My Voice TTS",
+                                "baseUrl": "https://tts.myvoice.example.com",
+                                "endpointPath": "/v1/audio/speech",
+                                "modelsPath": "/v1/models",
+                                "model": "my-voice-model",
+                            },
+                            {
+                                "id": "stt-whisperx",
+                                "type": "stt",
+                                "name": "WhisperX STT",
+                                "baseUrl": "https://stt.whisperx.example.com",
+                                "endpointPath": "/v1/audio/transcriptions",
+                                "modelsPath": "/v1/models",
+                                "model": "whisper-large-v3",
+                            },
+                        ]
+                    }
+                }
+            }
+        return 404, {"error": {"code": "NOT_FOUND"}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get(f"/dashboard/profiles/{profile_id}")
+    assert response.status_code == 200
+    assert '<option value="llm-groq-eu" selected>Groq EU</option>' in response.text
+    assert '<option value="tts-myvoice" selected>My Voice TTS</option>' in response.text
+    assert '<option value="stt-whisperx" selected>WhisperX STT</option>' in response.text

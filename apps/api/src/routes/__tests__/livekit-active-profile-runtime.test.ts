@@ -88,6 +88,83 @@ describe("resolveRuntimeProfileConfig", () => {
 
     expect(resolved).toBeNull();
   });
+
+  it("resolves provider configs by custom provider id from default provider registry", async () => {
+    mockPoolQuery.mockResolvedValue({
+      rowCount: 1,
+      rows: [
+        {
+          id: "profile-custom-provider",
+          is_active: true,
+          system_prompt: "custom prompt",
+          greeting_enabled: true,
+          greeting_instruction: "selam",
+          voice_language: "tr",
+          llm_config: {
+            provider: "llm-groq-eu",
+            base_url: "http://stale-llm.local",
+            model: "stale-model",
+          },
+          stt_config: {
+            provider: "stt-whisperx",
+            base_url: "http://stale-stt.local",
+          },
+          tts_config: {
+            provider: "tts-myvoice",
+            base_url: "http://stale-tts.local",
+          },
+          n8n_config: {},
+          default_tts_config_json: {
+            providerApiKeys: {
+              "llm.openai.prod": "sk-llm-key",
+            },
+            customProviders: [
+              {
+                id: "llm-groq-eu",
+                type: "llm",
+                name: "Groq EU",
+                baseUrl: "https://groq.example.com",
+                endpointPath: "/v1/chat/completions",
+                model: "llama-3.3-70b",
+                apiKeyId: "llm.openai.prod",
+                customHeaders: { "x-tenant": "coziyoo" },
+              },
+              {
+                id: "stt-whisperx",
+                type: "stt",
+                name: "WhisperX",
+                baseUrl: "https://stt.example.com",
+                endpointPath: "/v1/audio/transcriptions",
+                model: "whisper-large-v3",
+              },
+              {
+                id: "tts-myvoice",
+                type: "tts",
+                name: "MyVoice",
+                baseUrl: "https://tts.example.com",
+                endpointPath: "/v1/audio/speech",
+                model: "my-voice-v2",
+                textFieldName: "input",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const { resolveRuntimeProfileConfig } = await import("../../services/agent-profile-runtime.js");
+    const resolved = await resolveRuntimeProfileConfig();
+
+    expect(resolved).not.toBeNull();
+    expect(resolved?.providers.llm.provider).toBe("llm-groq-eu");
+    expect(resolved?.providers.llm.baseUrl).toBe("https://groq.example.com");
+    expect(resolved?.providers.llm.model).toBe("llama-3.3-70b");
+    expect(resolved?.providers.llm.endpointPath).toBe("/v1/chat/completions");
+    expect(resolved?.providers.llm.customHeaders).toEqual({ "x-tenant": "coziyoo" });
+    expect(resolved?.providers.llm.authHeader).toBe("Bearer sk-llm-key");
+    expect(resolved?.providers.stt.baseUrl).toBe("https://stt.example.com");
+    expect(resolved?.providers.tts.baseUrl).toBe("https://tts.example.com");
+  });
 });
 
 async function shutdown(server: Server) {
@@ -101,6 +178,7 @@ async function shutdown(server: Server) {
 
 describe("livekit session start runtime profile wiring", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.resetModules();
   });
 
@@ -268,7 +346,14 @@ describe("livekit session start runtime profile wiring", () => {
       listOllamaModels: vi.fn().mockResolvedValue([]),
     }));
 
-    vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ worker: { running: true } }), { status: 200 }));
+    const originalFetch = global.fetch.bind(global);
+    vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/health")) {
+        return new Response(JSON.stringify({ worker: { running: true } }), { status: 200 });
+      }
+      return originalFetch(input as RequestInfo, init);
+    });
 
     const { liveKitRouter } = await import("../livekit.js");
     const app = express();
@@ -362,7 +447,7 @@ describe("livekit session start runtime profile wiring", () => {
       listOllamaModels: vi.fn().mockResolvedValue([]),
     }));
 
-    const originalFetch = global.fetch;
+    const originalFetch = global.fetch.bind(global);
     vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : (input as Request).url;
       if (url.includes("/health") || url.includes("stt.local") || url.includes("tts.local")) {

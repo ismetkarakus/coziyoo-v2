@@ -14,6 +14,7 @@ type AgentProfileRow = {
   stt_config: JsonRecord | null;
   tts_config: JsonRecord | null;
   n8n_config: JsonRecord | null;
+  default_tts_config_json?: JsonRecord | null;
 };
 
 export type RuntimeProfileProviders = {
@@ -23,20 +24,28 @@ export type RuntimeProfileProviders = {
     transcribePath: string;
     model: string;
     queryParams: Record<string, string>;
+    customHeaders: Record<string, string>;
+    customBodyParams: Record<string, unknown>;
     authHeader: string | null;
   };
   llm: {
+    provider: string;
     baseUrl: string | null;
     model: string;
+    endpointPath: string;
+    customHeaders: Record<string, string>;
+    customBodyParams: Record<string, unknown>;
     authHeader: string | null;
   };
   tts: {
+    provider: string;
     engine: string;
     baseUrl: string | null;
     synthPath: string;
     textFieldName: string;
     bodyParams: Record<string, unknown>;
     queryParams: Record<string, string>;
+    customHeaders: Record<string, string>;
     authHeader: string | null;
   };
   n8n: {
@@ -99,37 +108,139 @@ function bodyParamsOf(value: unknown): Record<string, unknown> {
   return output;
 }
 
+function firstNonEmptyStringMap(primary: Record<string, string>, secondary: Record<string, string>): Record<string, string> {
+  return Object.keys(primary).length > 0 ? primary : secondary;
+}
+
+function firstNonEmptyUnknownMap(
+  primary: Record<string, unknown>,
+  secondary: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.keys(primary).length > 0 ? primary : secondary;
+}
+
+function extractCustomProviderMaps(ttsConfig: JsonRecord): {
+  providersByTypeAndId: Record<string, JsonRecord>;
+  providerApiKeys: Record<string, string>;
+} {
+  const providersByTypeAndId: Record<string, JsonRecord> = {};
+  const rawProviders = ttsConfig.customProviders;
+  if (Array.isArray(rawProviders)) {
+    for (const raw of rawProviders) {
+      const item = toRecord(raw);
+      const providerType = str(item.type);
+      const providerId = str(item.id);
+      if (!providerType || !providerId) continue;
+      providersByTypeAndId[`${providerType}::${providerId}`] = item;
+    }
+  }
+  const providerApiKeys = queryParamsOf(ttsConfig.providerApiKeys);
+  return { providersByTypeAndId, providerApiKeys };
+}
+
+function authFromApiKey(apiKey: string | null): string | null {
+  if (!apiKey) return null;
+  const cleaned = apiKey.trim();
+  if (!cleaned) return null;
+  return /^bearer\s+/i.test(cleaned) ? cleaned : `Bearer ${cleaned}`;
+}
+
 function normalizeProviders(row: AgentProfileRow): RuntimeProfileProviders {
   const stt = toRecord(row.stt_config);
   const llm = toRecord(row.llm_config);
   const tts = toRecord(row.tts_config);
   const n8n = toRecord(row.n8n_config);
+  const defaultsTtsConfig = toRecord(row.default_tts_config_json);
+  const { providersByTypeAndId, providerApiKeys } = extractCustomProviderMaps(defaultsTtsConfig);
+
+  const llmProviderId = strWithFallback(pick(llm, "provider"), "custom");
+  const ttsProviderId = strWithFallback(pick(tts, "provider"), "custom");
+  const sttProviderId = strWithFallback(pick(stt, "provider"), "remote-speech-server");
+
+  const llmCustom = toRecord(providersByTypeAndId[`llm::${llmProviderId}`]);
+  const ttsCustom = toRecord(providersByTypeAndId[`tts::${ttsProviderId}`]);
+  const sttCustom = toRecord(providersByTypeAndId[`stt::${sttProviderId}`]);
+
+  const llmCustomApiKey = str(llmCustom.apiKeyId) ? providerApiKeys[str(llmCustom.apiKeyId)!] ?? null : null;
+  const ttsCustomApiKey = str(ttsCustom.apiKeyId) ? providerApiKeys[str(ttsCustom.apiKeyId)!] ?? null : null;
+  const sttCustomApiKey = str(sttCustom.apiKeyId) ? providerApiKeys[str(sttCustom.apiKeyId)!] ?? null : null;
 
   return {
     stt: {
-      provider: strWithFallback(pick(stt, "provider"), "remote-speech-server"),
-      baseUrl: str(pick(stt, "baseUrl", "base_url")) ?? env.SPEECH_TO_TEXT_BASE_URL ?? null,
+      provider: sttProviderId,
+      baseUrl:
+        str(pick(sttCustom, "baseUrl")) ??
+        str(pick(stt, "baseUrl", "base_url")) ??
+        env.SPEECH_TO_TEXT_BASE_URL ??
+        null,
       transcribePath: strWithFallback(
-        pick(stt, "transcribePath", "transcribe_path"),
+        pick(sttCustom, "endpointPath", "transcribePath")
+          ?? pick(stt, "transcribePath", "transcribe_path"),
         env.SPEECH_TO_TEXT_TRANSCRIBE_PATH,
       ),
-      model: strWithFallback(pick(stt, "model"), env.SPEECH_TO_TEXT_MODEL),
-      queryParams: queryParamsOf(pick(stt, "queryParams", "query_params")),
-      authHeader: str(pick(stt, "authHeader", "auth_header")),
+      model: strWithFallback(pick(sttCustom, "model") ?? pick(stt, "model"), env.SPEECH_TO_TEXT_MODEL),
+      queryParams: firstNonEmptyStringMap(
+        queryParamsOf(pick(sttCustom, "customQueryParams")),
+        queryParamsOf(pick(stt, "queryParams", "query_params")),
+      ),
+      customHeaders: firstNonEmptyStringMap(
+        queryParamsOf(pick(sttCustom, "customHeaders")),
+        queryParamsOf(pick(stt, "customHeaders", "custom_headers")),
+      ),
+      customBodyParams: firstNonEmptyUnknownMap(
+        bodyParamsOf(pick(sttCustom, "customBodyParams")),
+        bodyParamsOf(pick(stt, "customBodyParams", "custom_body_params")),
+      ),
+      authHeader: str(pick(stt, "authHeader", "auth_header")) ?? authFromApiKey(sttCustomApiKey),
     },
     llm: {
-      baseUrl: str(pick(llm, "baseUrl", "base_url")) ?? env.OLLAMA_BASE_URL ?? null,
-      model: strWithFallback(pick(llm, "model"), env.OLLAMA_CHAT_MODEL),
-      authHeader: str(pick(llm, "authHeader", "auth_header")),
+      provider: llmProviderId,
+      baseUrl:
+        str(pick(llmCustom, "baseUrl")) ??
+        str(pick(llm, "baseUrl", "base_url")) ??
+        env.OLLAMA_BASE_URL ??
+        null,
+      model: strWithFallback(pick(llmCustom, "model") ?? pick(llm, "model"), env.OLLAMA_CHAT_MODEL),
+      endpointPath: strWithFallback(
+        pick(llmCustom, "endpointPath") ?? pick(llm, "endpointPath", "endpoint_path"),
+        "/v1/chat/completions",
+      ),
+      customHeaders: firstNonEmptyStringMap(
+        queryParamsOf(pick(llmCustom, "customHeaders")),
+        queryParamsOf(pick(llm, "customHeaders", "custom_headers")),
+      ),
+      customBodyParams: firstNonEmptyUnknownMap(
+        bodyParamsOf(pick(llmCustom, "customBodyParams")),
+        bodyParamsOf(pick(llm, "customBodyParams", "custom_body_params")),
+      ),
+      authHeader: str(pick(llm, "authHeader", "auth_header")) ?? authFromApiKey(llmCustomApiKey),
     },
     tts: {
+      provider: ttsProviderId,
       engine: strWithFallback(pick(tts, "engine"), "f5-tts"),
-      baseUrl: str(pick(tts, "baseUrl", "base_url")),
-      synthPath: strWithFallback(pick(tts, "synthPath", "synth_path", "path"), "/tts"),
-      textFieldName: strWithFallback(pick(tts, "textFieldName", "text_field_name"), "text"),
-      bodyParams: bodyParamsOf(pick(tts, "bodyParams", "body_params")),
-      queryParams: queryParamsOf(pick(tts, "queryParams", "query_params")),
-      authHeader: str(pick(tts, "authHeader", "auth_header")),
+      baseUrl: str(pick(ttsCustom, "baseUrl")) ?? str(pick(tts, "baseUrl", "base_url")),
+      synthPath: strWithFallback(
+        pick(ttsCustom, "endpointPath", "synthPath")
+          ?? pick(tts, "synthPath", "synth_path", "path"),
+        "/tts",
+      ),
+      textFieldName: strWithFallback(
+        pick(ttsCustom, "textFieldName") ?? pick(tts, "textFieldName", "text_field_name"),
+        "text",
+      ),
+      bodyParams: firstNonEmptyUnknownMap(
+        bodyParamsOf(pick(ttsCustom, "customBodyParams")),
+        bodyParamsOf(pick(tts, "bodyParams", "body_params")),
+      ),
+      queryParams: firstNonEmptyStringMap(
+        queryParamsOf(pick(ttsCustom, "customQueryParams")),
+        queryParamsOf(pick(tts, "queryParams", "query_params")),
+      ),
+      customHeaders: firstNonEmptyStringMap(
+        queryParamsOf(pick(ttsCustom, "customHeaders")),
+        queryParamsOf(pick(tts, "customHeaders", "custom_headers")),
+      ),
+      authHeader: str(pick(tts, "authHeader", "auth_header")) ?? authFromApiKey(ttsCustomApiKey),
     },
     n8n: {
       baseUrl: str(pick(n8n, "baseUrl", "base_url")) ?? env.N8N_HOST ?? null,
@@ -151,14 +262,16 @@ export async function resolveRuntimeProfileConfig(settingsProfileId?: string): P
   const query = selectedProfileId
     ? `
       SELECT id, is_active, system_prompt, greeting_enabled, greeting_instruction, voice_language,
-             llm_config, stt_config, tts_config, n8n_config
+             llm_config, stt_config, tts_config, n8n_config,
+             (SELECT tts_config_json FROM starter_agent_settings WHERE device_id = 'default' LIMIT 1) AS default_tts_config_json
       FROM agent_profiles
       WHERE id = $1
       LIMIT 1
     `
     : `
       SELECT id, is_active, system_prompt, greeting_enabled, greeting_instruction, voice_language,
-             llm_config, stt_config, tts_config, n8n_config
+             llm_config, stt_config, tts_config, n8n_config,
+             (SELECT tts_config_json FROM starter_agent_settings WHERE device_id = 'default' LIMIT 1) AS default_tts_config_json
       FROM agent_profiles
       WHERE is_active = TRUE
       ORDER BY updated_at DESC

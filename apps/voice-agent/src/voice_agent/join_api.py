@@ -318,6 +318,7 @@ def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) 
         "greeting_instruction": str(settings_data.get("greetingInstruction") or ""),
         "voice_language": str(settings_data.get("voiceLanguage") or "tr"),
         "llm_config": {
+            "provider": str(llm_legacy.get("provider") or "custom"),
             "base_url": llm_base_url,
             "api_key": str(llm_legacy.get("apiKey") or ""),
             "api_key_id": str(llm_legacy.get("apiKeyId") or ""),
@@ -413,6 +414,7 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "customBodyParams": _dict(stt_config.get("custom_body_params")),
             },
             "llm": {
+                "provider": str(llm_config.get("provider") or "custom"),
                 "baseUrl": str(llm_config.get("base_url") or ""),
                 "apiKey": str(llm_config.get("api_key") or ""),
                 "apiKeyId": str(llm_config.get("api_key_id") or ""),
@@ -667,6 +669,32 @@ def _extract_custom_providers(tts_cfg: dict[str, Any]) -> list[dict[str, str]]:
     return result
 
 
+def _custom_provider_option_groups(tts_cfg: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    for item in _extract_custom_providers(tts_cfg):
+        provider_type = str(item.get("type") or "").strip().lower()
+        if provider_type not in grouped:
+            continue
+        grouped[provider_type].append(
+            {
+                "id": str(item.get("id") or "").strip(),
+                "name": str(item.get("name") or "").strip() or str(item.get("id") or "").strip(),
+                "base_url": str(item.get("base_url") or "").strip(),
+                "endpoint_path": str(item.get("endpoint_path") or "").strip(),
+                "models_path": str(item.get("models_path") or "").strip(),
+                "api_key_id": str(item.get("api_key_id") or "").strip(),
+                "model": str(item.get("model") or "").strip(),
+                "language": str(item.get("language") or "").strip(),
+                "voice_id": str(item.get("voice_id") or "").strip(),
+                "text_field_name": str(item.get("text_field_name") or "").strip(),
+                "custom_headers": _dict(item.get("custom_headers")),
+                "custom_body_params": _dict(item.get("custom_body_params")),
+                "custom_query_params": _dict(item.get("custom_query_params")),
+            }
+        )
+    return grouped
+
+
 def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any] | None = None) -> dict[str, Any]:
     def _json_map(value: Any) -> dict[str, Any]:
         raw = str(value or "").strip()
@@ -721,6 +749,68 @@ def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any]
         base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
         base["custom_query_params"] = _json_map(form.get("custom_query_params")) if form else base["custom_query_params"]
     return base
+
+
+async def _strip_custom_provider_snapshot_fields(
+    *,
+    access_token: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    status, settings_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(settings_payload, dict) or not isinstance(settings_payload.get("data"), dict):
+        return payload
+
+    settings_data = _dict(settings_payload.get("data"))
+    tts_cfg = _dict(settings_data.get("ttsConfig"))
+    custom = _extract_custom_providers(tts_cfg)
+    custom_ids_by_type: dict[str, set[str]] = {"llm": set(), "tts": set(), "stt": set()}
+    for item in custom:
+        provider_type = str(item.get("type") or "").strip().lower()
+        provider_id = str(item.get("id") or "").strip()
+        if provider_type in custom_ids_by_type and provider_id:
+            custom_ids_by_type[provider_type].add(provider_id)
+
+    llm_cfg = _dict(payload.get("llm_config"))
+    llm_provider = str(llm_cfg.get("provider") or "").strip()
+    if llm_provider and llm_provider in custom_ids_by_type["llm"]:
+        llm_cfg["base_url"] = ""
+        llm_cfg["endpoint_path"] = "/v1/chat/completions"
+        llm_cfg["model"] = ""
+        llm_cfg["custom_headers"] = {}
+        llm_cfg["custom_body_params"] = {}
+        payload["llm_config"] = llm_cfg
+
+    tts_cfg_payload = _dict(payload.get("tts_config"))
+    tts_provider = str(tts_cfg_payload.get("provider") or "").strip()
+    if tts_provider and tts_provider in custom_ids_by_type["tts"]:
+        tts_cfg_payload["base_url"] = ""
+        tts_cfg_payload["endpoint_path"] = "/v1/audio/speech"
+        tts_cfg_payload["models_path"] = "/v1/models"
+        tts_cfg_payload["model"] = ""
+        tts_cfg_payload["voice_id"] = ""
+        tts_cfg_payload["text_field_name"] = "input"
+        tts_cfg_payload["custom_headers"] = {}
+        tts_cfg_payload["custom_body_params"] = {}
+        payload["tts_config"] = tts_cfg_payload
+
+    stt_cfg_payload = _dict(payload.get("stt_config"))
+    stt_provider = str(stt_cfg_payload.get("provider") or "").strip()
+    if stt_provider and stt_provider in custom_ids_by_type["stt"]:
+        stt_cfg_payload["base_url"] = ""
+        stt_cfg_payload["endpoint_path"] = "/v1/audio/transcriptions"
+        stt_cfg_payload["models_path"] = "/v1/models"
+        stt_cfg_payload["model"] = ""
+        stt_cfg_payload["custom_headers"] = {}
+        stt_cfg_payload["custom_body_params"] = {}
+        stt_cfg_payload["custom_query_params"] = {}
+        payload["stt_config"] = stt_cfg_payload
+
+    return payload
 
 
 def _provider_key_scope_and_provider(key_id: str) -> tuple[str, str]:
@@ -801,11 +891,24 @@ async def _editor_panel_context(
     profile: dict[str, Any] | None,
     message: str | None,
 ) -> dict[str, Any]:
-    provider_keys = await _load_provider_api_keys(access_token)
+    provider_keys = _default_provider_api_keys()
+    custom_provider_options: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = _dict(payload.get("data"))
+        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        provider_keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+        custom_provider_options = _custom_provider_option_groups(tts_cfg)
     return {
         "profile": profile,
         "message": message,
         "provider_api_key_options": _provider_api_key_select_options(provider_keys),
+        "custom_provider_options": custom_provider_options,
     }
 
 
@@ -1683,6 +1786,7 @@ async def dashboard_profile_save(request: Request, profile_id: str):
     form = await request.form()
     payload = normalize_profile_payload({k: str(v) for k, v in form.items()})
     payload = await _apply_selected_api_keys(access_token=access_token, payload=payload)
+    payload = await _strip_custom_provider_snapshot_fields(access_token=access_token, payload=payload)
 
     use_legacy = not _is_uuid(profile_id)
 

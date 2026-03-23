@@ -13,6 +13,11 @@
       <option value="azure" {% if tts_provider == "azure" %}selected{% endif %}>Azure</option>
       <option value="google" {% if tts_provider == "google" %}selected{% endif %}>Google</option>
       <option value="playht" {% if tts_provider == "playht" %}selected{% endif %}>PlayHT</option>
+      {% for opt in (custom_provider_options.tts or []) %}
+        {% if opt.id and opt.id not in ["custom", "elevenlabs", "openai", "cartesia", "azure", "google", "playht"] %}
+      <option value="{{ opt.id }}" {% if tts_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
+        {% endif %}
+      {% endfor %}
     </select>
   </div>
   <input type="hidden" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" />
@@ -63,6 +68,7 @@
   </details>
 </section>
 <script>
+  const CUSTOM_TTS_PROVIDERS = {{ custom_provider_options.tts | default([], true) | tojson }};
   window.dashboardTtsModels = window.dashboardTtsModels || {
     providers: {
       elevenlabs: {
@@ -123,11 +129,19 @@
     applyProvider(providerKey) {
       const p = this.providers[providerKey];
       if (!p) return;
+      const providerSelect = document.getElementById("tts-provider-select");
+      if (providerSelect) providerSelect.value = providerKey;
       document.getElementById("tts-base-url").value = p.base_url;
       document.getElementById("tts-endpoint-path").value = p.endpoint_path;
       document.getElementById("tts-models-path").value = p.models_path;
       document.getElementById("tts-text-field-name").value = p.text_field_name;
       document.getElementById("tts-language").value = p.language;
+      if (typeof p.api_key_id === "string") document.getElementById("tts-api-key-id").value = p.api_key_id;
+      if (p.custom_headers !== undefined) document.getElementById("tts-custom-headers").value = JSON.stringify(p.custom_headers || {}, null, 2);
+      if (p.custom_body_params !== undefined) {
+        const bodyField = document.querySelector("textarea[name='tts_config.custom_body_params']");
+        if (bodyField) bodyField.value = JSON.stringify(p.custom_body_params || {}, null, 2);
+      }
       const modelSelect = document.getElementById("tts-model");
       if (modelSelect) {
         const current = (modelSelect.value || "").trim();
@@ -217,5 +231,20 @@
       }
     },
   };
+  for (const provider of CUSTOM_TTS_PROVIDERS) {
+    const id = String(provider?.id || "").trim();
+    if (!id) continue;
+    window.dashboardTtsModels.providers[id] = {
+      base_url: String(provider?.base_url || ""),
+      endpoint_path: String(provider?.endpoint_path || "/v1/audio/speech"),
+      models_path: String(provider?.models_path || "/v1/models"),
+      default_model: String(provider?.model || ""),
+      text_field_name: String(provider?.text_field_name || "input"),
+      language: String(provider?.language || "multilingual"),
+      api_key_id: String(provider?.api_key_id || ""),
+      custom_headers: (provider?.custom_headers && typeof provider.custom_headers === "object") ? provider.custom_headers : {},
+      custom_body_params: (provider?.custom_body_params && typeof provider.custom_body_params === "object") ? provider.custom_body_params : {},
+    };
+  }
   window.dashboardTtsModels.init();
 </script>

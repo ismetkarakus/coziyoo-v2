@@ -198,7 +198,7 @@ const StarterAgentSettingsSchema = z.object({
     })
     .passthrough()
     .optional(),
-  sttProvider: z.string().max(64).optional(),
+  sttProvider: z.string().max(128).optional(),
   sttBaseUrl: z.string().url().optional(),
   sttTranscribePath: z.string().max(256).optional(),
   sttModel: z.string().max(128).optional(),

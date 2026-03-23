@@ -42,6 +42,7 @@ def normalize_profile_payload(form_data: Mapping[str, str]) -> dict:
         "greeting_instruction": _as_text(form_data.get("greeting_instruction")),
         "voice_language": _as_text(form_data.get("voice_language"), default="tr") or "tr",
         "llm_config": {
+            "provider": _as_text(form_data.get("llm_config.provider"), "custom") or "custom",
             "base_url": _as_text(form_data.get("llm_config.base_url")),
             "api_key": _as_text(form_data.get("llm_config.api_key")),
             "api_key_id": _as_text(form_data.get("llm_config.api_key_id")),

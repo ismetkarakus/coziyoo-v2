@@ -170,4 +170,23 @@ describe("PUT /v1/admin/livekit/agent-settings/:deviceId", () => {
     expect(llm.model).toBe("ministral-3:8b");
     expect(llm.endpointPath).toBe("/v1/chat/completions");
   });
+
+  it("accepts long custom sttProvider ids", async () => {
+    const customProviderId = `stt-${"x".repeat(100)}`;
+    const response = await putAgentSettings("default", {
+      agentName: "coziyoo-agent",
+      voiceLanguage: "tr",
+      ttsEnabled: true,
+      sttEnabled: true,
+      sttProvider: customProviderId,
+    });
+
+    expect(response.status).toBe(200);
+    expect(upsertStarterAgentSettingsMock).toHaveBeenCalledTimes(1);
+
+    const [upsertArg] = upsertStarterAgentSettingsMock.mock.calls[0] as [Record<string, unknown>];
+    const ttsConfig = upsertArg.ttsConfig as Record<string, unknown>;
+    const stt = ttsConfig.stt as Record<string, unknown>;
+    expect(stt.provider).toBe(customProviderId);
+  });
 });

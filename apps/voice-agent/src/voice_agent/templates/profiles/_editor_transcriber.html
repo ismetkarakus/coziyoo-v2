@@ -13,6 +13,11 @@
       <option value="azure" {% if stt_provider == "azure" %}selected{% endif %}>Azure</option>
       <option value="openai" {% if stt_provider == "openai" %}selected{% endif %}>OpenAI</option>
       <option value="speechmatics" {% if stt_provider == "speechmatics" %}selected{% endif %}>Speechmatics</option>
+      {% for opt in (custom_provider_options.stt or []) %}
+        {% if opt.id and opt.id not in ["custom", "deepgram", "google", "assemblyai", "azure", "openai", "speechmatics"] %}
+      <option value="{{ opt.id }}" {% if stt_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
+        {% endif %}
+      {% endfor %}
     </select>
   </div>
   <input type="hidden" id="stt-base-url" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" />
@@ -67,6 +72,7 @@
   </details>
 </section>
 <script>
+  const CUSTOM_STT_PROVIDERS = {{ custom_provider_options.stt | default([], true) | tojson }};
   window.dashboardSttModels = window.dashboardSttModels || {
     providers: {
       deepgram: {
@@ -121,10 +127,22 @@
     applyProvider(providerKey) {
       const p = this.providers[providerKey];
       if (!p) return;
+      const providerSelect = document.getElementById("stt-provider-select");
+      if (providerSelect) providerSelect.value = providerKey;
       document.getElementById("stt-base-url").value = p.base_url;
       document.getElementById("stt-endpoint-path").value = p.endpoint_path;
       document.getElementById("stt-models-path").value = p.models_path;
       document.getElementById("stt-language").value = p.language;
+      if (typeof p.api_key_id === "string") document.getElementById("stt-api-key-id").value = p.api_key_id;
+      if (p.custom_headers !== undefined) document.getElementById("stt-custom-headers").value = JSON.stringify(p.custom_headers || {}, null, 2);
+      if (p.custom_body_params !== undefined) {
+        const bodyField = document.querySelector("textarea[name='stt_config.custom_body_params']");
+        if (bodyField) bodyField.value = JSON.stringify(p.custom_body_params || {}, null, 2);
+      }
+      if (p.custom_query_params !== undefined) {
+        const queryField = document.querySelector("textarea[name='stt_config.custom_query_params']");
+        if (queryField) queryField.value = JSON.stringify(p.custom_query_params || {}, null, 2);
+      }
       const modelSelect = document.getElementById("stt-model");
       if (modelSelect) {
         const current = (modelSelect.value || "").trim();
@@ -214,6 +232,21 @@
       }
     },
   };
+  for (const provider of CUSTOM_STT_PROVIDERS) {
+    const id = String(provider?.id || "").trim();
+    if (!id) continue;
+    window.dashboardSttModels.providers[id] = {
+      base_url: String(provider?.base_url || ""),
+      endpoint_path: String(provider?.endpoint_path || "/v1/audio/transcriptions"),
+      models_path: String(provider?.models_path || "/v1/models"),
+      default_model: String(provider?.model || ""),
+      language: String(provider?.language || "multilingual"),
+      api_key_id: String(provider?.api_key_id || ""),
+      custom_headers: (provider?.custom_headers && typeof provider.custom_headers === "object") ? provider.custom_headers : {},
+      custom_body_params: (provider?.custom_body_params && typeof provider.custom_body_params === "object") ? provider.custom_body_params : {},
+      custom_query_params: (provider?.custom_query_params && typeof provider.custom_query_params === "object") ? provider.custom_query_params : {},
+    };
+  }
   window.dashboardSttModels.init();
 
   window.dashboardStt = window.dashboardStt || {
