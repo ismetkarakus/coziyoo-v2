@@ -969,12 +969,21 @@ async def dashboard_test_llm(request: Request):
             title="LLM test successful",
             message=f"Provider responded with status {data.get('status', 200)}.",
         )
+    details = ""
+    if isinstance(payload, dict):
+        error_obj = payload.get("error")
+        if isinstance(error_obj, dict):
+            details = str(error_obj.get("details") or "")
+        elif isinstance(error_obj, str):
+            details = error_obj
+    elif isinstance(payload, str):
+        details = re.sub(r"\s+", " ", payload).strip()[:240]
     return _status_response(
         request,
         state="error",
         title="LLM test failed",
         message=extract_error_message(payload, "LLM request failed"),
-        details=str(_dict(payload.get("error")).get("details") or ""),
+        details=details,
     )
 
 

@@ -97,6 +97,25 @@ def test_dashboard_test_routes_render_status_partial(monkeypatch) -> None:
         assert "data-status-state" in response.text
 
 
+def test_dashboard_test_llm_handles_string_error_payload(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if path.endswith("/test/llm"):
+            return 404, "Cannot POST /v1/admin/livekit/test/llm"
+        return 200, {"data": {"ok": True, "status": 200}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post("/dashboard/test/llm", data={"llm_config.base_url": "https://llm.example.com"})
+    assert response.status_code == 200
+    assert "LLM test failed" in response.text
+    assert "Cannot POST /v1/admin/livekit/test/llm" in response.text
+
+
 def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:
     async def fake_ensure_access_token(*, request, api_base_url):
         return "token-1", None
