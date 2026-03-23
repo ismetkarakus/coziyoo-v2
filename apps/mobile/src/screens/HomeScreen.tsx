@@ -3909,7 +3909,7 @@ const styles = StyleSheet.create({
   
   /* --- Sticky Search + Chips wrapper --- */
   stickySearchChips: {
-    backgroundColor: theme.background,
+    backgroundColor: '#F3EFE6',
     paddingTop: 18,
     paddingBottom: 4,
     zIndex: 10,
