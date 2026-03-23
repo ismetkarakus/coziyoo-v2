@@ -18,6 +18,29 @@ def test_unauthorized_dashboard_access_redirects_to_login() -> None:
     assert response.headers.get("location") == "/dashboard/login"
 
 
+def test_invalid_or_expired_token_auto_logs_out(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_raw_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        return 401, {"error": {"message": "Invalid or expired token"}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "_raw_api_request", fake_raw_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get(
+        "/dashboard/assistants",
+        cookies={"coziyoo_admin_at": "bad-token", "coziyoo_admin_rt": "bad-refresh"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/dashboard/login"
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "coziyoo_admin_at=" in set_cookie
+    assert "coziyoo_admin_rt=" in set_cookie
+
+
 def test_profile_list_route_calls_bff_helper(monkeypatch) -> None:
     calls: list[tuple[str, str, str]] = []
 

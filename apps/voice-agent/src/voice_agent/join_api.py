@@ -20,7 +20,8 @@ from pydantic import BaseModel, Field
 
 from .config.settings import get_settings
 from .curl_parser import parse_curl_command
-from .dashboard_api import api_binary_request, api_request
+from .dashboard_api import api_binary_request as _raw_api_binary_request
+from .dashboard_api import api_request as _raw_api_request
 from .dashboard_auth import (
     clear_auth_cookies,
     ensure_access_token,
@@ -46,6 +47,75 @@ worker_heartbeat_file = Path(
     os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_FILE", "/workspace/.runtime/voice-agent-worker-heartbeat.json")
 )
 worker_heartbeat_stale_seconds = int(os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_STALE_SECONDS", "20"))
+
+
+class InvalidSessionError(Exception):
+    pass
+
+
+def _is_invalid_session_response(status: int, payload: Any) -> bool:
+    if status not in {401, 403}:
+        return False
+    needle = "invalid or expired token"
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or "").strip().lower()
+            code = str(error.get("code") or "").strip().lower()
+            return needle in message or code in {"invalid_token", "expired_token", "token_invalid_or_expired"}
+        return needle in str(payload).lower()
+    if isinstance(payload, str):
+        return needle in payload.lower()
+    return False
+
+
+async def api_request(
+    *,
+    api_base_url: str,
+    method: str,
+    path: str,
+    access_token: str | None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[int, Any]:
+    status, payload = await _raw_api_request(
+        api_base_url=api_base_url,
+        method=method,
+        path=path,
+        access_token=access_token,
+        json_body=json_body,
+    )
+    if _is_invalid_session_response(status, payload):
+        raise InvalidSessionError()
+    return status, payload
+
+
+async def api_binary_request(
+    *,
+    api_base_url: str,
+    method: str,
+    path: str,
+    access_token: str | None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[int, bytes, str]:
+    status, data, content_type = await _raw_api_binary_request(
+        api_base_url=api_base_url,
+        method=method,
+        path=path,
+        access_token=access_token,
+        json_body=json_body,
+    )
+    if status in {401, 403}:
+        text = data.decode("utf-8", errors="ignore")
+        if _is_invalid_session_response(status, text):
+            raise InvalidSessionError()
+    return status, data, content_type
+
+
+@app.exception_handler(InvalidSessionError)
+async def invalid_session_exception_handler(_request: Request, _exc: InvalidSessionError) -> Response:
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
+    clear_auth_cookies(response)
+    return response
 
 
 async def _fetch_profiles(access_token: str) -> tuple[list[dict[str, Any]], str | None]:
