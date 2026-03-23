@@ -54,17 +54,20 @@
                 <div><label>Default Model</label><input class="input" type="text" value="{{ provider.model or '' }}" disabled /></div>
                 <div>
                   <label>Bound API Key</label>
-                  <select class="input" name="selected_key_id" data-known-provider-key-select data-scope="{{ provider.type }}">
+                  <select class="input" name="selected_key_id" data-known-provider-key-select data-scope="{{ provider.type }}" {% if not provider.api_key_slot %}disabled{% endif %}>
                     <option value="">None (clear)</option>
                     {% for opt in provider_api_key_options %}
                     <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.api_key_slot and provider.api_key_slot == opt.id %}selected{% endif %}>{{ opt.label }}</option>
                     {% endfor %}
                   </select>
+                  {% if not provider.api_key_slot %}
+                  <div class="muted" style="font-size:12px; margin-top:4px;">This provider does not use API key binding.</div>
+                  {% endif %}
                 </div>
               </div>
 
               <div style="display:flex; gap:6px;">
-                <button class="btn btn-primary btn-save" type="submit">Save Binding</button>
+                <button class="btn btn-primary btn-save" type="submit" {% if not provider.api_key_slot %}disabled{% endif %}>Save Binding</button>
               </div>
             </form>
           </div>
