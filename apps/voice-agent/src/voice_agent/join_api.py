@@ -1466,7 +1466,9 @@ async def dashboard_api_keys_page(request: Request):
         name="api_keys/index.html",
         context={
             "entries": _provider_api_key_entries(keys),
+            "provider_options": _provider_api_key_options(),
             "message": message,
+            "show_add_form": False,
         },
     )
 

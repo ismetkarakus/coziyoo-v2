@@ -432,7 +432,7 @@ def test_api_keys_page_requires_auth_and_renders(monkeypatch) -> None:
     assert response.status_code == 200
     assert "API Keys" in response.text
     assert "Added Keys" in response.text
-    assert "Manage in Providers" in response.text
+    assert "+ Add API Key" in response.text
     assert "OpenAI" in response.text
     assert "sk-o...enai" in response.text
 

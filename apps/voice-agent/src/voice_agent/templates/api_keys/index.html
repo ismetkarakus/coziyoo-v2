@@ -6,10 +6,6 @@
 </div>
 <div class="page-body">
   <div class="card" style="max-width:980px;">
-    <p class="muted" style="margin-bottom:14px;">
-      Read-only API key registry. Add and bind keys from Providers page.
-    </p>
-
     {% if message %}
     <div style="margin-bottom:12px; font-size:12px; color:{% if 'fail' in (message|lower) or 'error' in (message|lower) %}#fca5a5{% else %}var(--primary){% endif %};">
       {{ message }}
@@ -19,7 +15,44 @@
     <section class="card" style="padding:12px; margin-bottom:12px;">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
         <h3 style="margin:0;">Added Keys</h3>
-        <a class="btn" href="/dashboard/providers">Manage in Providers</a>
+        <button class="btn btn-primary" type="button" onclick="toggleAddApiKeyForm()">+ Add API Key</button>
+      </div>
+
+      <div id="add-api-key-form" style="display:{% if show_add_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
+        <form method="post" action="/dashboard/org/api-keys" style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:8px; align-items:end;">
+          <input type="hidden" name="action" value="add" />
+          <div>
+            <label>Provider</label>
+            <select class="input" id="provider-id-select" name="provider_id" required onchange="toggleNewProviderFields()">
+              <option value="">Select provider…</option>
+              {% for opt in provider_options %}
+              <option value="{{ opt.id }}">{{ opt.label }}</option>
+              {% endfor %}
+              <option value="__new_custom_provider__">+ Add New Custom Provider</option>
+            </select>
+          </div>
+          <div id="new-provider-fields" style="display:none;">
+            <label>Provider Type</label>
+            <select class="input" name="provider_scope" id="provider-scope-select">
+              <option value="llm">LLM</option>
+              <option value="tts">TTS</option>
+              <option value="stt">STT</option>
+            </select>
+          </div>
+          <div id="new-provider-name-wrap" style="display:none;">
+            <label>Provider Name</label>
+            <input class="input" id="provider-name" type="text" name="provider_name" placeholder="e.g. Groq, Together, Fireworks" />
+          </div>
+          <div>
+            <label>API Key Name (optional)</label>
+            <input class="input" id="api-key-name" type="text" name="api_key_name" placeholder="e.g. Production, Backup" />
+          </div>
+          <div>
+            <label>API Key</label>
+            <input class="input" type="password" name="provider_key" placeholder="Enter API key" required />
+          </div>
+          <button class="btn btn-primary btn-save" type="submit">Save</button>
+        </form>
       </div>
 
       {% if entries|length == 0 %}
@@ -63,6 +96,26 @@
   </div>
 </div>
 <script>
+  function toggleAddApiKeyForm() {
+    const el = document.getElementById("add-api-key-form");
+    if (!el) return;
+    el.style.display = el.style.display === "none" ? "block" : "none";
+    toggleNewProviderFields();
+  }
+
+  function toggleNewProviderFields() {
+    const providerSelect = document.getElementById("provider-id-select");
+    const isNewProvider = providerSelect && providerSelect.value === "__new_custom_provider__";
+    const fields = document.getElementById("new-provider-fields");
+    const nameWrap = document.getElementById("new-provider-name-wrap");
+    const scopeSelect = document.getElementById("provider-scope-select");
+    const providerName = document.getElementById("provider-name");
+    if (fields) fields.style.display = isNewProvider ? "block" : "none";
+    if (nameWrap) nameWrap.style.display = isNewProvider ? "block" : "none";
+    if (scopeSelect) scopeSelect.required = !!isNewProvider;
+    if (providerName) providerName.required = !!isNewProvider;
+  }
+
   async function copyApiKey(button) {
     const value = button?.dataset?.key || "";
     if (!value) return;
@@ -80,5 +133,7 @@
       button.title = "Copy API key";
     }, 900);
   }
+
+  toggleNewProviderFields();
 </script>
 {% endblock %}
