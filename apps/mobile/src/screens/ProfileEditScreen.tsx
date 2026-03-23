@@ -52,6 +52,17 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
 
+  function normalizeDobValue(value: string | null | undefined): string {
+    const raw = (value ?? '').trim();
+    if (!raw) return '';
+    const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
+    const digits = datePart.replace(/\D/g, '').slice(0, 8);
+    if (digits.length === 8) {
+      return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+    }
+    return datePart;
+  }
+
   useEffect(() => {
     setCurrentAuth(auth);
   }, [auth]);
@@ -104,7 +115,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setDisplayName(data.displayName ?? '');
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
-      setDob(data.dob ?? '');
+      setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email ?? '');
     } catch (e) {
@@ -145,7 +156,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
       setDisplayName(data.displayName ?? '');
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
-      setDob(data.dob ?? '');
+      setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2500);
