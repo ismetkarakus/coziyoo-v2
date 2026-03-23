@@ -41,6 +41,33 @@ def test_profile_list_route_calls_bff_helper(monkeypatch) -> None:
     assert captured["api_base_url"] == "https://api.coziyoo.com"
 
 
+def test_assistants_load_selects_default_profile_and_renders_editor(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_fetch_profiles(access_token: str):
+        return [
+            {"id": "default", "name": "Default", "is_active": True},
+            {"id": "other", "name": "Other", "is_active": False},
+        ], None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"deviceId": "default", "agentName": "Default", "ttsConfig": {}}}
+        return 404, {"error": {"code": "NOT_FOUND"}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "_fetch_profiles", fake_fetch_profiles)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get("/dashboard/assistants")
+    assert response.status_code == 200
+    assert '/dashboard/profiles/default/save' in response.text
+    assert 'id="asst-row-default"' in response.text
+    assert "asst-row selected" in response.text
+
+
 def test_profiles_route_redirects_to_assistants() -> None:
     client = TestClient(join_api.app)
     response = client.get("/dashboard/profiles", follow_redirects=False)
@@ -151,13 +178,13 @@ def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:
 
 
 def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
-    calls: list[tuple[str, str]] = []
+    calls: list[tuple[str, str, dict | None]] = []
 
     async def fake_ensure_access_token(*, request, api_base_url):
         return "token-1", None
 
     async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
-        calls.append((method, path))
+        calls.append((method, path, json_body))
         if method == "PUT" and path == "/v1/admin/agent-profiles/aktif-profil-9":
             return 404, {"error": {"code": "NOT_FOUND"}}
         if method == "PUT" and path == "/v1/admin/livekit/agent-settings/aktif-profil-9":
@@ -176,12 +203,16 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
             "name": "Aktif Profil 9",
             "voice_language": "tr",
             "system_prompt": "test",
+            "tts_config.model": "alloy",
         },
         follow_redirects=False,
     )
     assert response.status_code == 303
     assert response.headers.get("location") == "/dashboard/assistants"
-    assert ("PUT", "/v1/admin/livekit/agent-settings/aktif-profil-9") in calls
+    save_call = next((c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/aktif-profil-9"), None)
+    assert save_call is not None
+    assert isinstance(save_call[2], dict)
+    assert (save_call[2].get("ttsConfig") or {}).get("model") == "alloy"
 
 
 def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:

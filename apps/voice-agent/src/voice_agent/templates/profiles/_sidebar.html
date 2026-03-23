@@ -14,7 +14,7 @@
 
   <div class="asst-list-items">
     {% for profile in profiles %}
-    <div class="asst-row" id="asst-row-{{ profile.id }}">
+    <div class="asst-row {% if (selected_profile_id|default('')) == profile.id %}selected{% endif %}" id="asst-row-{{ profile.id }}">
       <div class="asst-row-top">
         <button
           class="asst-name-btn"

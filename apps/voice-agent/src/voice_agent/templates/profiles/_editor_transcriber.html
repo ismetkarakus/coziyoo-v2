@@ -2,14 +2,25 @@
   <details open>
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Transcriber</summary>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-    <div><label>STT Base URL</label><input class="input" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" /></div>
-    <div><label>STT API Key</label><input class="input" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" /></div>
-    <div><label>STT Model</label><input class="input" name="stt_config.model" value="{{ (profile.stt_config or {}).get('model','') }}" /></div>
+    <div><label>STT Base URL</label><input class="input" id="stt-base-url" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" /></div>
+    <div><label>STT API Key</label><input class="input" id="stt-api-key" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" /></div>
+    <div>
+      <label>STT Model</label>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select class="input" id="stt-model" name="stt_config.model" style="flex:1;">
+          {% set stt_existing_model = (profile.stt_config or {}).get('model','') %}
+          <option value="{{ stt_existing_model }}">{{ stt_existing_model or 'Select model…' }}</option>
+        </select>
+        <button type="button" id="stt-fetch-models-btn" class="btn" title="Fetch STT models" onclick="dashboardSttModels.fetch()">↻</button>
+      </div>
+      <div id="stt-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
+    </div>
     <div><label>STT Endpoint Path</label><input class="input" name="stt_config.endpoint_path" value="{{ (profile.stt_config or {}).get('endpoint_path','/v1/audio/transcriptions') }}" /></div>
     <div><label>Language</label><input class="input" name="stt_config.language" value="{{ (profile.stt_config or {}).get('language','') }}" /></div>
+    <div><label>STT Models Path</label><input class="input" id="stt-models-path" value="/v1/models" /></div>
   </div>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-    <div><label>stt_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="stt_config.custom_headers">{{ (profile.stt_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
+    <div><label>stt_config.custom_headers (JSON)</label><textarea class="input" rows="3" id="stt-custom-headers" name="stt_config.custom_headers">{{ (profile.stt_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
     <div><label>stt_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="stt_config.custom_body_params">{{ (profile.stt_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
   </div>
   <div style="margin-top:10px;">
@@ -37,6 +48,80 @@
   </details>
 </section>
 <script>
+  window.dashboardSttModels = window.dashboardSttModels || {
+    setStatus(msg, isError) {
+      const el = document.getElementById("stt-model-status");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    populate(models) {
+      const select = document.getElementById("stt-model");
+      if (!select) return;
+      const current = (select.value || "").trim();
+      const unique = new Set(models);
+      if (current) unique.add(current);
+      select.innerHTML = ['<option value="">Select model…</option>']
+        .concat(Array.from(unique).sort().map((m) => `<option value="${m}">${m}</option>`))
+        .join("");
+      if (current) select.value = current;
+    },
+    async fetch() {
+      const btn = document.getElementById("stt-fetch-models-btn");
+      const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
+      const apiKey = (document.getElementById("stt-api-key")?.value || "").trim();
+      const modelsPath = (document.getElementById("stt-models-path")?.value || "/v1/models").trim() || "/v1/models";
+      const headersRaw = (document.getElementById("stt-custom-headers")?.value || "").trim();
+      if (!baseUrl) {
+        this.setStatus("Set STT Base URL first.", true);
+        return;
+      }
+      let customHeaders = {};
+      try {
+        customHeaders = headersRaw ? JSON.parse(headersRaw) : {};
+      } catch {
+        this.setStatus("custom_headers JSON is invalid.", true);
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "…";
+      this.setStatus("Fetching models...");
+      try {
+        const resp = await fetch("/dashboard/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          this.setStatus("Error: " + data.error, true);
+          return;
+        }
+        const models = (data.models || []).sort();
+        if (!models.length) {
+          this.setStatus("No models returned.", true);
+          return;
+        }
+        this.populate(models);
+        const modelSelect = document.getElementById("stt-model");
+        if (modelSelect && !models.includes((modelSelect.value || "").trim())) modelSelect.value = models[0];
+        this.setStatus(`${models.length} models loaded.`);
+      } catch (err) {
+        this.setStatus("Request failed: " + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻";
+      }
+    },
+    init() {
+      const select = document.getElementById("stt-model");
+      if (!select) return;
+      const current = (select.value || "").trim();
+      if (current) this.populate([current]);
+    },
+  };
+  window.dashboardSttModels.init();
+
   window.dashboardStt = window.dashboardStt || {
     stream: null,
     recorder: null,

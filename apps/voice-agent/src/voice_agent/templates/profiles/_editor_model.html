@@ -118,10 +118,12 @@
     const select = document.getElementById("llm-model");
     if (!select) return;
     const current = (select.value || "").trim();
+    const unique = new Set(models);
+    if (current) unique.add(current);
     const options = ['<option value="">Select model…</option>']
-      .concat(models.map((m) => `<option value="${m}">${m}</option>`));
+      .concat(Array.from(unique).sort().map((m) => `<option value="${m}">${m}</option>`));
     select.innerHTML = options.join("");
-    if (current && models.includes(current)) {
+    if (current) {
       select.value = current;
     }
   }

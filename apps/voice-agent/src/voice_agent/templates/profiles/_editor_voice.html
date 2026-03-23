@@ -2,15 +2,26 @@
   <details open>
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Voice</summary>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-    <div><label>TTS Base URL</label><input class="input" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
-    <div><label>TTS API Key</label><input class="input" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" /></div>
-    <div><label>TTS Model</label><input class="input" name="tts_config.model" value="{{ (profile.tts_config or {}).get('model','') }}" /></div>
+    <div><label>TTS Base URL</label><input class="input" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
+    <div><label>TTS API Key</label><input class="input" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" /></div>
+    <div>
+      <label>TTS Model</label>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select class="input" id="tts-model" name="tts_config.model" style="flex:1;">
+          {% set tts_existing_model = (profile.tts_config or {}).get('model','') %}
+          <option value="{{ tts_existing_model }}">{{ tts_existing_model or 'Select model…' }}</option>
+        </select>
+        <button type="button" id="tts-fetch-models-btn" class="btn" title="Fetch TTS models" onclick="dashboardTtsModels.fetch()">↻</button>
+      </div>
+      <div id="tts-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
+    </div>
     <div><label>TTS Endpoint Path</label><input class="input" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" /></div>
     <div><label>Voice ID</label><input class="input" name="tts_config.voice_id" value="{{ (profile.tts_config or {}).get('voice_id','') }}" /></div>
     <div><label>Text Field Name</label><input class="input" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" /></div>
+    <div><label>TTS Models Path</label><input class="input" id="tts-models-path" value="/v1/models" /></div>
   </div>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-    <div><label>tts_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
+    <div><label>tts_config.custom_headers (JSON)</label><textarea class="input" rows="3" id="tts-custom-headers" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
     <div><label>tts_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="tts_config.custom_body_params">{{ (profile.tts_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
   </div>
   <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
@@ -28,3 +39,78 @@
   </div>
   </details>
 </section>
+<script>
+  window.dashboardTtsModels = window.dashboardTtsModels || {
+    setStatus(msg, isError) {
+      const el = document.getElementById("tts-model-status");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    populate(models) {
+      const select = document.getElementById("tts-model");
+      if (!select) return;
+      const current = (select.value || "").trim();
+      const unique = new Set(models);
+      if (current) unique.add(current);
+      select.innerHTML = ['<option value="">Select model…</option>']
+        .concat(Array.from(unique).sort().map((m) => `<option value="${m}">${m}</option>`))
+        .join("");
+      if (current) select.value = current;
+    },
+    async fetch() {
+      const btn = document.getElementById("tts-fetch-models-btn");
+      const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
+      const apiKey = (document.getElementById("tts-api-key")?.value || "").trim();
+      const modelsPath = (document.getElementById("tts-models-path")?.value || "/v1/models").trim() || "/v1/models";
+      const headersRaw = (document.getElementById("tts-custom-headers")?.value || "").trim();
+      if (!baseUrl) {
+        this.setStatus("Set TTS Base URL first.", true);
+        return;
+      }
+      let customHeaders = {};
+      try {
+        customHeaders = headersRaw ? JSON.parse(headersRaw) : {};
+      } catch {
+        this.setStatus("custom_headers JSON is invalid.", true);
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "…";
+      this.setStatus("Fetching models...");
+      try {
+        const resp = await fetch("/dashboard/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          this.setStatus("Error: " + data.error, true);
+          return;
+        }
+        const models = (data.models || []).sort();
+        if (!models.length) {
+          this.setStatus("No models returned.", true);
+          return;
+        }
+        this.populate(models);
+        const modelSelect = document.getElementById("tts-model");
+        if (modelSelect && !models.includes((modelSelect.value || "").trim())) modelSelect.value = models[0];
+        this.setStatus(`${models.length} models loaded.`);
+      } catch (err) {
+        this.setStatus("Request failed: " + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻";
+      }
+    },
+    init() {
+      const select = document.getElementById("tts-model");
+      if (!select) return;
+      const current = (select.value || "").trim();
+      if (current) this.populate([current]);
+    },
+  };
+  window.dashboardTtsModels.init();
+</script>

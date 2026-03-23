@@ -315,6 +315,7 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "ollamaBaseUrl": str(llm_config.get("base_url") or ""),
         "ttsConfig": {
             "baseUrl": str(tts_config.get("base_url") or ""),
+            "model": str(tts_config.get("model") or ""),
             "path": str(tts_config.get("endpoint_path") or "/v1/audio/speech"),
             "stt": {
                 "provider": "remote-speech-server",
@@ -469,10 +470,46 @@ async def dashboard_assistants(request: Request):
     if refresh_response is not None:
         return refresh_response
     profiles, error_message = await _fetch_profiles(access_token)
+    selected_profile_id = str(request.query_params.get("profileId") or "").strip() or ""
+    if not selected_profile_id and profiles:
+        active_profile = next((p for p in profiles if bool(p.get("is_active"))), None)
+        selected_profile_id = str((active_profile or profiles[0]).get("id") or "")
+
+    initial_profile: dict[str, Any] | None = None
+    initial_message: str | None = None
+    if selected_profile_id:
+        if _is_uuid(selected_profile_id):
+            status, payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="GET",
+                path=f"/v1/admin/agent-profiles/{selected_profile_id}",
+                access_token=access_token,
+            )
+            if status == 200 and isinstance(payload, dict):
+                initial_profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
+            elif status != 404:
+                initial_message = extract_error_message(payload, "Failed to load profile")
+        if initial_profile is None:
+            legacy_status, legacy_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="GET",
+                path=f"/v1/admin/livekit/agent-settings/{selected_profile_id}",
+                access_token=access_token,
+            )
+            if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
+                initial_profile = _legacy_settings_to_profile(selected_profile_id, legacy_payload["data"])
+            elif legacy_status != 404 and initial_message is None:
+                initial_message = extract_error_message(legacy_payload, "Failed to load profile")
+
     return templates.TemplateResponse(
         request=request,
         name="profiles/index.html",
-        context={"profiles": profiles, "message": error_message},
+        context={
+            "profiles": profiles,
+            "message": initial_message or error_message,
+            "selected_profile_id": selected_profile_id,
+            "profile": initial_profile,
+        },
     )
 
 
