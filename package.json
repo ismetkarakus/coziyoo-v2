@@ -5,18 +5,18 @@
   "workspaces": [
     "apps/api",
     "apps/admin",
-    "apps/voice-dashboard",
+    "apps/voice-agent",
     "packages/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:admin": "npm run dev --workspace=apps/admin",
-    "dev:voice-dashboard": "npm run dev --workspace=apps/voice-dashboard",
+    "dev:voice-agent": "npm run dev --workspace=apps/voice-agent",
     "dev:mobile": "npm --prefix apps/mobile run start",
     "build:api": "npm run build --workspace=apps/api",
     "build:admin": "npm run build --workspace=apps/admin",
-    "build:voice-dashboard": "npm run build --workspace=apps/voice-dashboard",
+    "build:voice-agent": "npm run build --workspace=apps/voice-agent",
     "build:mobile": "echo \"Standalone mobile app: run from apps/mobile (npm run ios|android)\"",
     "install:all": "bash installation/scripts/install_all.sh",
     "update:all": "bash installation/scripts/update_all.sh",

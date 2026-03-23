@@ -10,13 +10,12 @@ ACTION="${1:-}"
 SERVICE="${2:-}"
 
 if [[ -z "${ACTION}" ]]; then
-  echo "Usage: $0 <start|stop|restart|status|logs> [api|admin|voice-dashboard|voice-agent-api|voice-agent-worker]"
+  echo "Usage: $0 <start|stop|restart|status|logs> [api|admin|voice-agent|voice-agent-api|voice-agent-worker]"
   exit 1
 fi
 
 api_service="${API_SERVICE_NAME:-coziyoo-api}"
 admin_service="${ADMIN_SERVICE_NAME:-coziyoo-admin}"
-voice_dashboard_service="${VOICE_DASHBOARD_SERVICE_NAME:-coziyoo-voice-dashboard}"
 voice_agent_api_service="${VOICE_AGENT_API_SERVICE_NAME:-coziyoo-voice-agent-api}"
 voice_agent_worker_service="${VOICE_AGENT_WORKER_SERVICE_NAME:-coziyoo-voice-agent-worker}"
 
@@ -24,7 +23,6 @@ service_for_name() {
   case "$1" in
     api) echo "${api_service}" ;;
     admin) echo "${admin_service}" ;;
-    voice-dashboard) echo "${voice_dashboard_service}" ;;
     voice-agent-api) echo "${voice_agent_api_service}" ;;
     voice-agent-worker) echo "${voice_agent_worker_service}" ;;
     *) fail "Unknown service name: $1" ;;
@@ -33,6 +31,11 @@ service_for_name() {
 
 run_on_service() {
   local name="$1"
+  if [[ "${name}" == "voice-agent" ]]; then
+    run_on_service voice-agent-api
+    run_on_service voice-agent-worker
+    return
+  fi
   local resolved
   resolved="$(service_for_name "${name}")"
 
@@ -54,7 +57,7 @@ if [[ -n "${SERVICE}" ]]; then
 else
   run_on_service api
   run_on_service admin
-  run_on_service voice-dashboard
+  run_on_service voice-agent
   run_on_service voice-agent-api
   run_on_service voice-agent-worker
 fi
