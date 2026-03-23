@@ -2436,17 +2436,18 @@ export default function HomeScreen({
             ))}
           </ScrollView>
         </View>
-        {/* Yakındaki Lezzetler Section Header */}
-        <View style={styles.nearbyHeader}>
+        <TouchableOpacity style={styles.nearbyHeader} activeOpacity={0.88}>
           <View style={styles.nearbyHeaderLeft}>
-            <Text style={styles.nearbyHeaderEmoji}>🔥</Text>
-            <Text style={styles.nearbyHeaderTitle}>Yakındaki Lezzetler</Text>
+            <View style={styles.nearbyHeaderIconBox}>
+              <Ionicons name="heart" size={22} color="#FFFFFF" />
+            </View>
+            <View style={styles.nearbyHeaderTextWrap}>
+              <Text style={styles.nearbyHeaderTitle}>🏠 Anne Eli Değmiş Gibi</Text>
+              <Text style={styles.nearbyHeaderSubtitle}>Tüm yemekler ev yapımı ve günlük taze 🧡</Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.nearbyHeaderBtn} activeOpacity={0.8}>
-            <Text style={styles.nearbyHeaderBtnText}>Tümünü Gör</Text>
-            <Ionicons name="chevron-forward" size={16} color="#D4763C" />
-          </TouchableOpacity>
-        </View>
+          <Ionicons name="chevron-forward" size={22} color="#8B6A52" />
+        </TouchableOpacity>
         <View style={styles.sellersSection}>
           <Text style={styles.sellersSectionTitle}>Tüm Satıcılar</Text>
           <ScrollView
@@ -3989,41 +3990,51 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* --- Nearby Section Header --- */
+  /* --- Nearby Signature Card --- */
   nearbyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F0DEC9',
+    borderRadius: 18,
+    backgroundColor: '#FFF9F2',
     paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#A56A3E',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  nearbyHeaderTextWrap: {
+    flexShrink: 1,
+    gap: 2,
+  },
+  nearbyHeaderIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#4A7C59',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  nearbyHeaderSubtitle: {
+    color: '#7E6D5D',
+    fontSize: 14,
+    fontWeight: '500',
   },
   nearbyHeaderLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  nearbyHeaderEmoji: {
-    fontSize: 20,
+    marginRight: 12,
   },
   nearbyHeaderTitle: {
     color: '#3A281F',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  nearbyHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#EFC7B3',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 4,
-    backgroundColor: '#FFF6F1',
-  },
-  nearbyHeaderBtnText: {
-    color: '#E66A3C',
-    fontSize: 13,
+    fontSize: 19,
     fontWeight: '700',
   },
 
