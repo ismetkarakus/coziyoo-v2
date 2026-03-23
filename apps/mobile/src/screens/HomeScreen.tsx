@@ -2252,7 +2252,7 @@ export default function HomeScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
-        stickyHeaderIndices={[]}
+        stickyHeaderIndices={[1]}
       >
         {/* Hero Header */}
         <View style={styles.heroWrap}>
@@ -2385,68 +2385,69 @@ export default function HomeScreen({
             </TouchableOpacity>
           </View>
         </View>
-        {/* Floating Search Bar */}
-        <View style={styles.floatingSearchWrap}>
-          <TouchableOpacity
-            style={[styles.floatingSearchBar, searchMode && styles.floatingSearchBarActive]}
-            activeOpacity={0.95}
-            onPress={() => !searchMode && setSearchMode(true)}
-          >
-            <Ionicons name="search-outline" size={22} color="#6B4D3A" style={{ marginRight: 10 }} />
-            {searchMode ? (
-              <TextInput
-                ref={searchInputRef}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Yemek ara..."
-                placeholderTextColor="#BDBDBD"
-                style={styles.floatingSearchInput}
-                returnKeyType="search"
-                autoFocus
-              />
-            ) : (
-              <Text style={styles.floatingSearchPlaceholder}>Yemek ara...</Text>
-            )}
-            {searchMode ? (
-              <TouchableOpacity
-                style={styles.floatingSearchFilterBtn}
-                activeOpacity={0.7}
-                onPress={() => { setSearchMode(false); setSearchQuery(''); }}
-              >
-                <Ionicons name="close-outline" size={24} color="#6B4D3A" />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.floatingSearchFilterBtn}>
-                <Ionicons name="options-outline" size={22} color="#6B4D3A" />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-        {/* Category Chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-          style={styles.chipScroller}
-        >
-          {CATEGORIES.map((cat) => (
+        {/* Sticky: Search Bar + Category Chips */}
+        <View style={styles.stickySearchChips}>
+          <View style={styles.floatingSearchWrap}>
             <TouchableOpacity
-              key={cat}
-              style={[styles.chip, activeCategory === cat && styles.chipActive]}
-              activeOpacity={0.85}
-              onPress={() => setActiveCategory(cat)}
+              style={[styles.floatingSearchBar, searchMode && styles.floatingSearchBarActive]}
+              activeOpacity={0.95}
+              onPress={() => !searchMode && setSearchMode(true)}
             >
-              {cat === 'Tümü' ? (
-                <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 6 }} />
+              <Ionicons name="search-outline" size={22} color="#6B4D3A" style={{ marginRight: 10 }} />
+              {searchMode ? (
+                <TextInput
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Yemek ara..."
+                  placeholderTextColor="#BDBDBD"
+                  style={styles.floatingSearchInput}
+                  returnKeyType="search"
+                  autoFocus
+                />
               ) : (
-                <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
+                <Text style={styles.floatingSearchPlaceholder}>Yemek ara...</Text>
               )}
-              <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
-                {CATEGORY_DISPLAY_NAMES[cat] || cat}
-              </Text>
+              {searchMode ? (
+                <TouchableOpacity
+                  style={styles.floatingSearchFilterBtn}
+                  activeOpacity={0.7}
+                  onPress={() => { setSearchMode(false); setSearchQuery(''); }}
+                >
+                  <Ionicons name="close-outline" size={24} color="#6B4D3A" />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.floatingSearchFilterBtn}>
+                  <Ionicons name="options-outline" size={22} color="#6B4D3A" />
+                </View>
+              )}
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+            style={styles.chipScroller}
+          >
+            {CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.chip, activeCategory === cat && styles.chipActive]}
+                activeOpacity={0.85}
+                onPress={() => setActiveCategory(cat)}
+              >
+                {cat === 'Tümü' ? (
+                  <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 6 }} />
+                ) : (
+                  <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
+                )}
+                <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
+                  {CATEGORY_DISPLAY_NAMES[cat] || cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
         {/* Yakındaki Lezzetler Section Header */}
         <View style={styles.nearbyHeader}>
           <View style={styles.nearbyHeaderLeft}>
@@ -3906,11 +3907,18 @@ const styles = StyleSheet.create({
   heroAvatarImage: { width: 62, height: 62, borderRadius: 31 },
   avatarEmoji: { fontSize: 24 },
   
+  /* --- Sticky Search + Chips wrapper --- */
+  stickySearchChips: {
+    backgroundColor: theme.background,
+    paddingTop: 6,
+    paddingBottom: 2,
+    zIndex: 10,
+  },
+
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
     marginBottom: 14,
     marginHorizontal: 14,
-    marginTop: -18,
     zIndex: 5,
   },
   floatingSearchBar: {
