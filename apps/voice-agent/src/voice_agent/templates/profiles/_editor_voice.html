@@ -15,13 +15,14 @@
       <option value="playht" {% if tts_provider == "playht" %}selected{% endif %}>PlayHT</option>
     </select>
   </div>
-  <div style="margin-bottom:12px;">
-    <label>Saved API Key</label>
-    {% set tts_selected_api_key_id = (profile.tts_config or {}).get('api_key_id', '') %}
-    <select class="input" id="tts-api-key-id" name="tts_config.api_key_id"></select>
-    <input type="hidden" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" />
-    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
-  </div>
+  <input type="hidden" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" />
+  <input type="hidden" id="tts-endpoint-path" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" />
+  <input type="hidden" id="tts-models-path" name="tts_config.models_path" value="{{ (profile.tts_config or {}).get('models_path','/v1/models') }}" />
+  <input type="hidden" id="tts-text-field-name" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" />
+  <input type="hidden" id="tts-api-key-id" name="tts_config.api_key_id" value="{{ (profile.tts_config or {}).get('api_key_id','') }}" />
+  <input type="hidden" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" />
+  <textarea style="display:none;" id="tts-custom-headers" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea>
+  <textarea style="display:none;" name="tts_config.custom_body_params">{{ (profile.tts_config or {}).get('custom_body_params', {}) | tojson }}</textarea>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div>
@@ -33,8 +34,6 @@
         <option value="en" {% if tts_language == "en" %}selected{% endif %}>English (en)</option>
       </select>
     </div>
-    <div><label>TTS Base URL</label><input class="input" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
-    <div></div>
     <div>
       <label>TTS Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
@@ -46,14 +45,7 @@
       </div>
       <div id="tts-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
     </div>
-    <div><label>TTS Endpoint Path</label><input class="input" id="tts-endpoint-path" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" /></div>
     <div><label>Voice ID</label><input class="input" name="tts_config.voice_id" value="{{ (profile.tts_config or {}).get('voice_id','') }}" /></div>
-    <div><label>Text Field Name</label><input class="input" id="tts-text-field-name" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" /></div>
-    <div><label>TTS Models Path</label><input class="input" id="tts-models-path" name="tts_config.models_path" value="{{ (profile.tts_config or {}).get('models_path','/v1/models') }}" /></div>
-  </div>
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-    <div><label>tts_config.custom_headers (JSON)</label><textarea class="input" rows="3" id="tts-custom-headers" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
-    <div><label>tts_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="tts_config.custom_body_params">{{ (profile.tts_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
   </div>
   <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
     <div style="flex:1;">
@@ -71,37 +63,6 @@
   </details>
 </section>
 <script>
-  window.dashboardProviderApiKeys = window.dashboardProviderApiKeys || {
-    options: {{ provider_api_key_options | default([], true) | tojson }},
-    providerAliases: { llm: { claude: "anthropic", ollama: "custom" }, tts: {}, stt: {} },
-    providersFor(section, provider) {
-      const aliases = this.providerAliases[section] || {};
-      const mapped = aliases[provider] || provider || "custom";
-      const set = new Set([mapped, "custom"]);
-      return Array.from(set);
-    },
-    fillSelect(selectId, section, provider, selectedId) {
-      const select = document.getElementById(selectId);
-      if (!select) return;
-      const providers = this.providersFor(section, provider);
-      const matching = this.options.filter((o) => o.section === section && providers.includes(o.provider));
-      const options = ['<option value="">Manual API key kullan</option>'].concat(
-        matching.map((o) => `<option value="${o.id}" data-key="${(o.value || "").replace(/"/g, "&quot;")}">${o.label}</option>`)
-      );
-      select.innerHTML = options.join("");
-      const normalizedSelected = (selectedId || "").trim();
-      if (normalizedSelected && matching.some((o) => o.id === normalizedSelected)) {
-        select.value = normalizedSelected;
-      }
-    },
-    selectedKey(selectId) {
-      const select = document.getElementById(selectId);
-      if (!select) return "";
-      const opt = select.options[select.selectedIndex];
-      return opt ? String(opt.getAttribute("data-key") || "") : "";
-    },
-  };
-
   window.dashboardTtsModels = window.dashboardTtsModels || {
     providers: {
       elevenlabs: {
@@ -162,16 +123,6 @@
     applyProvider(providerKey) {
       const p = this.providers[providerKey];
       if (!p) return;
-      window.dashboardProviderApiKeys.fillSelect(
-        "tts-api-key-id",
-        "tts",
-        providerKey,
-        document.getElementById("tts-api-key-id")?.value || "",
-      );
-      const selectedKey = window.dashboardProviderApiKeys.selectedKey("tts-api-key-id");
-      if (selectedKey) {
-        document.getElementById("tts-api-key").value = selectedKey;
-      }
       document.getElementById("tts-base-url").value = p.base_url;
       document.getElementById("tts-endpoint-path").value = p.endpoint_path;
       document.getElementById("tts-models-path").value = p.models_path;
@@ -260,16 +211,6 @@
             break;
           }
         }
-      }
-      window.dashboardProviderApiKeys.fillSelect("tts-api-key-id", "tts", (sel?.value || "custom"), "{{ tts_selected_api_key_id }}");
-      const selectedKey = window.dashboardProviderApiKeys.selectedKey("tts-api-key-id");
-      if (selectedKey) document.getElementById("tts-api-key").value = selectedKey;
-      const keySelect = document.getElementById("tts-api-key-id");
-      if (keySelect) {
-        keySelect.addEventListener("change", function () {
-          const selectedKey = window.dashboardProviderApiKeys.selectedKey("tts-api-key-id");
-          document.getElementById("tts-api-key").value = selectedKey || "";
-        });
       }
       if (baseUrl) {
         setTimeout(() => this.fetch(), 0);
