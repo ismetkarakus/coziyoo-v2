@@ -433,6 +433,31 @@ def _provider_api_key_groups(keys: dict[str, str]) -> dict[str, list[dict[str, s
     return grouped
 
 
+def _provider_api_key_options() -> list[dict[str, str]]:
+    return [{"id": key, "section": section, "label": label} for key, section, label in PROVIDER_API_KEY_FIELDS]
+
+
+def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
+    index = {key: (section, label) for key, section, label in PROVIDER_API_KEY_FIELDS}
+    entries: list[dict[str, str]] = []
+    for key, value in keys.items():
+        clean = str(value or "").strip()
+        if not clean:
+            continue
+        section, label = index.get(key, ("Custom", key))
+        entries.append(
+            {
+                "id": key,
+                "section": section,
+                "label": label,
+                "value": clean,
+                "masked": f"{clean[:4]}...{clean[-4:]}" if len(clean) > 8 else "********",
+            }
+        )
+    entries.sort(key=lambda item: f"{item['section']}::{item['label']}")
+    return entries
+
+
 async def _direct_llm_test(
     *,
     llm_cfg: dict[str, Any],
@@ -682,7 +707,12 @@ async def dashboard_api_keys_page(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="api_keys/index.html",
-        context={"groups": _provider_api_key_groups(keys), "message": message},
+        context={
+            "entries": _provider_api_key_entries(keys),
+            "provider_options": _provider_api_key_options(),
+            "message": message,
+            "show_add_form": False,
+        },
     )
 
 
@@ -693,9 +723,6 @@ async def dashboard_api_keys_save(request: Request):
         return refresh_response
 
     form = await request.form()
-    keys = _default_provider_api_keys()
-    for key in keys.keys():
-        keys[key] = str(form.get(f"provider_keys.{key}") or "").strip()
 
     # Load current default settings and merge providerApiKeys without clobbering unrelated config.
     status, payload = await api_request(
@@ -710,6 +737,40 @@ async def dashboard_api_keys_save(request: Request):
         existing_data = _dict(payload.get("data"))
 
     tts_cfg = _dict(existing_data.get("ttsConfig"))
+    keys = _normalize_provider_api_keys(tts_cfg.get("providerApiKeys"))
+    action = str(form.get("action") or "").strip().lower()
+    provider_id = str(form.get("provider_id") or "").strip()
+    provider_key = str(form.get("provider_key") or "").strip()
+    show_add_form = False
+
+    # Backward compatibility: full-map save via provider_keys.* form fields.
+    posted_bulk = False
+    for key in keys.keys():
+        field = f"provider_keys.{key}"
+        if field in form:
+            keys[key] = str(form.get(field) or "").strip()
+            posted_bulk = True
+
+    message: str
+    if posted_bulk and not action:
+        message = "API keys saved"
+    else:
+        if action not in {"add", "update", "delete"}:
+            action = "add"
+        if provider_id not in keys:
+            message = "Please select a valid provider"
+            show_add_form = True
+        elif action in {"add", "update"} and not provider_key:
+            message = "API key cannot be empty"
+            show_add_form = True
+        elif action == "delete":
+            keys[provider_id] = ""
+            message = "API key removed"
+        else:
+            keys[provider_id] = provider_key
+            message = "API key saved"
+
+    tts_cfg = _dict(existing_data.get("ttsConfig"))
     tts_cfg["providerApiKeys"] = keys
 
     put_status, put_payload = await api_request(
@@ -720,11 +781,18 @@ async def dashboard_api_keys_save(request: Request):
         json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
     )
 
-    message = "API keys saved" if put_status in {200, 201} else extract_error_message(put_payload, "Failed to save API keys")
+    if put_status not in {200, 201}:
+        message = extract_error_message(put_payload, "Failed to save API keys")
+        show_add_form = True
     return templates.TemplateResponse(
         request=request,
         name="api_keys/index.html",
-        context={"groups": _provider_api_key_groups(keys), "message": message},
+        context={
+            "entries": _provider_api_key_entries(keys),
+            "provider_options": _provider_api_key_options(),
+            "message": message,
+            "show_add_form": show_add_form,
+        },
         status_code=200,
     )
 

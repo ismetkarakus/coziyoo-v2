@@ -7,7 +7,7 @@
 <div class="page-body">
   <div class="card" style="max-width:980px;">
     <p class="muted" style="margin-bottom:14px;">
-      Save provider API keys once and reuse them across presets. Keys are stored in dashboard settings.
+      Manage provider API keys used by LLM, TTS and STT presets.
     </p>
 
     {% if message %}
@@ -16,30 +16,72 @@
     </div>
     {% endif %}
 
-    <form method="post" action="/dashboard/org/api-keys" style="display:flex; flex-direction:column; gap:14px;">
-      {% for section, rows in groups.items() %}
-      <section class="card" style="padding:12px;">
-        <h3 style="margin:0 0 10px 0;">{{ section }} Providers</h3>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          {% for row in rows %}
-          <div>
-            <label>{{ row.label }}</label>
-            <input
-              class="input"
-              type="password"
-              name="provider_keys.{{ row.id }}"
-              value="{{ row.value }}"
-              placeholder="Enter API key" />
-          </div>
-          {% endfor %}
-        </div>
-      </section>
-      {% endfor %}
-
-      <div style="display:flex; justify-content:flex-end;">
-        <button class="btn btn-primary btn-save" type="submit">Save API Keys</button>
+    <section class="card" style="padding:12px; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <h3 style="margin:0;">Added Keys</h3>
+        <button class="btn btn-primary" type="button" onclick="toggleAddApiKeyForm()">
+          + Add API Key
+        </button>
       </div>
-    </form>
+
+      <div id="add-api-key-form" style="display:{% if show_add_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
+        <form method="post" action="/dashboard/org/api-keys" style="display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end;">
+          <input type="hidden" name="action" value="add" />
+          <div>
+            <label>Provider</label>
+            <select class="input" name="provider_id" required>
+              <option value="">Select provider…</option>
+              {% for opt in provider_options %}
+              <option value="{{ opt.id }}">{{ opt.section }} — {{ opt.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>API Key</label>
+            <input class="input" type="password" name="provider_key" placeholder="Enter API key" required />
+          </div>
+          <button class="btn btn-primary btn-save" type="submit">Save</button>
+        </form>
+      </div>
+
+      {% if entries|length == 0 %}
+      <div class="muted" style="font-size:12px;">No API keys added yet.</div>
+      {% else %}
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        {% for entry in entries %}
+        <div class="card" style="padding:10px; border-radius:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div>
+              <div style="font-size:12px; color:var(--muted-fg);">{{ entry.section }}</div>
+              <div style="font-weight:600;">{{ entry.label }}</div>
+              <div class="muted" style="font-size:12px;">{{ entry.masked }}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <form method="post" action="/dashboard/org/api-keys" style="display:flex; gap:6px; align-items:center;">
+                <input type="hidden" name="action" value="update" />
+                <input type="hidden" name="provider_id" value="{{ entry.id }}" />
+                <input class="input" type="password" name="provider_key" placeholder="New key" style="width:220px;" required />
+                <button class="btn" type="submit">Update</button>
+              </form>
+              <form method="post" action="/dashboard/org/api-keys" style="margin:0;">
+                <input type="hidden" name="action" value="delete" />
+                <input type="hidden" name="provider_id" value="{{ entry.id }}" />
+                <button class="btn btn-danger" type="submit">Delete</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
   </div>
 </div>
+<script>
+  function toggleAddApiKeyForm() {
+    const el = document.getElementById("add-api-key-form");
+    if (!el) return;
+    el.style.display = el.style.display === "none" ? "block" : "none";
+  }
+</script>
 {% endblock %}
