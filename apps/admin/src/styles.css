@@ -9767,12 +9767,12 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   }
 
   .buyer-ref-info-row {
-    grid-template-columns: 1fr;
-    gap: 3px;
+    grid-template-columns: minmax(120px, 38%) minmax(0, 1fr);
+    gap: 10px;
   }
 
   .buyer-ref-info-value {
-    text-align: left;
+    text-align: right;
   }
 
   .buyer-ref-phone-row {
