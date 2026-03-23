@@ -114,6 +114,7 @@ export default function App() {
     return (
       <ProfileEditScreen
         auth={auth}
+        isNewRegistration={isNewRegistration}
         onBack={() => {
           if (isNewRegistration) {
             setIsNewRegistration(false);

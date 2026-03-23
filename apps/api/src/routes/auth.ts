@@ -24,9 +24,9 @@ import {
 const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
-  displayName: z.string().min(3).max(40),
+  displayName: z.string().min(3).max(40).optional(),
   fullName: z.string().min(1).max(120).optional(),
-  userType: z.enum(["buyer", "seller", "both"]),
+  userType: z.enum(["buyer", "seller", "both"]).optional(),
   countryCode: z.string().min(2).max(3).optional(),
   language: z.string().min(2).max(10).optional(),
 });
@@ -137,7 +137,9 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
 
   const input = parsed.data;
   const passwordHash = await hashPassword(input.password);
-  const displayNameNormalized = normalizeDisplayName(input.displayName);
+  const displayName = input.displayName ?? input.email.split("@")[0].slice(0, 40);
+  const userType = input.userType ?? "buyer";
+  const displayNameNormalized = normalizeDisplayName(displayName);
 
   try {
     const userInsert = await pool.query<{
@@ -152,10 +154,10 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
       [
         input.email.toLowerCase(),
         passwordHash,
-        input.displayName,
+        displayName,
         displayNameNormalized,
         input.fullName ?? null,
-        input.userType,
+        userType,
         input.countryCode ?? null,
         input.language ?? null,
       ]
@@ -521,6 +523,170 @@ authRouter.post("/unlock", async (req, res) => {
     return res.status(400).json({ error: { code: "UNLOCK_TOKEN_INVALID", message: "Invalid or expired unlock token." } });
   }
   return res.json({ data: { success: true } });
+});
+
+/* ── Public Forgot Password ── */
+
+const ForgotPasswordRequestSchema = z.object({
+  email: z.string().email(),
+});
+
+const ForgotPasswordConfirmSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, "6-digit code required"),
+  newPassword: z.string().min(8).max(128),
+});
+
+authRouter.post("/forgot-password/request", abuseProtection({ flow: "forgot_password", ipLimit: 10, userLimit: 5, windowMs: 60_000 }), async (req, res) => {
+  const parsed = ForgotPasswordRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const userResult = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string | null;
+    is_active: boolean;
+  }>(
+    `SELECT id, email, display_name, is_active
+     FROM users
+     WHERE email = $1
+     LIMIT 1`,
+    [parsed.data.email.trim().toLowerCase()]
+  );
+
+  // Always return success to prevent email enumeration
+  if ((userResult.rowCount ?? 0) === 0 || !userResult.rows[0].is_active) {
+    return res.json({ data: { codeSent: true, expiresInMinutes: PASSWORD_RESET_CODE_TTL_MINUTES } });
+  }
+  const user = userResult.rows[0];
+
+  const latestRequest = await pool.query<{ requested_at: string }>(
+    `SELECT created_at::text AS requested_at
+     FROM password_reset_codes
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [user.id]
+  );
+  if ((latestRequest.rowCount ?? 0) > 0) {
+    const latestAt = new Date(latestRequest.rows[0].requested_at);
+    if (!Number.isNaN(latestAt.getTime())) {
+      const elapsedSeconds = Math.floor((Date.now() - latestAt.getTime()) / 1000);
+      if (elapsedSeconds < PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS) {
+        const retryAfter = PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS - elapsedSeconds;
+        res.setHeader("Retry-After", String(retryAfter));
+        return res.status(429).json({
+          error: {
+            code: "PASSWORD_RESET_TOO_FREQUENT",
+            message: `Lütfen ${retryAfter} saniye bekleyin.`,
+            retryAfterSeconds: retryAfter,
+          },
+        });
+      }
+    }
+  }
+
+  const code = String(randomInt(100000, 1000000));
+  const codeHash = hashResetCode(code);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_CODE_TTL_MINUTES * 60_000);
+
+  const insertResult = await pool.query<{ id: string }>(
+    `INSERT INTO password_reset_codes
+       (user_id, code_hash, expires_at, request_ip, request_user_agent)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [user.id, codeHash, expiresAt.toISOString(), req.ip ?? null, req.headers["user-agent"] ?? null]
+  );
+  const codeId = insertResult.rows[0].id;
+
+  try {
+    await sendPasswordResetCodeEmail({
+      email: user.email,
+      displayName: user.display_name,
+      code,
+      expiresInMinutes: PASSWORD_RESET_CODE_TTL_MINUTES,
+    });
+  } catch {
+    await pool.query("DELETE FROM password_reset_codes WHERE id = $1", [codeId]);
+    return res.status(503).json({
+      error: { code: "EMAIL_DELIVERY_UNAVAILABLE", message: "Şu anda e-posta gönderilemedi." },
+    });
+  }
+
+  await pool.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
+    user.id,
+    "forgot_password_requested",
+    req.ip,
+    req.headers["user-agent"] ?? null,
+  ]);
+
+  return res.json({ data: { codeSent: true, expiresInMinutes: PASSWORD_RESET_CODE_TTL_MINUTES } });
+});
+
+authRouter.post("/forgot-password/confirm", abuseProtection({ flow: "forgot_password_confirm", ipLimit: 10, userLimit: 5, windowMs: 60_000 }), async (req, res) => {
+  const parsed = ForgotPasswordConfirmSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const userResult = await pool.query<{ id: string; is_active: boolean }>(
+    `SELECT id, is_active FROM users WHERE email = $1 LIMIT 1`,
+    [parsed.data.email.trim().toLowerCase()]
+  );
+  if ((userResult.rowCount ?? 0) === 0 || !userResult.rows[0].is_active) {
+    return res.status(400).json({ error: { code: "PASSWORD_RESET_CODE_INVALID", message: "Kod geçersiz veya süresi dolmuş." } });
+  }
+  const userId = userResult.rows[0].id;
+
+  const hashed = hashResetCode(parsed.data.code);
+  const codeResult = await pool.query<{ id: string }>(
+    `SELECT id
+     FROM password_reset_codes
+     WHERE user_id = $1
+       AND consumed_at IS NULL
+       AND expires_at > now()
+       AND code_hash = $2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId, hashed]
+  );
+  if ((codeResult.rowCount ?? 0) === 0) {
+    return res.status(400).json({ error: { code: "PASSWORD_RESET_CODE_INVALID", message: "Kod geçersiz veya süresi dolmuş." } });
+  }
+
+  const passwordHash = await hashPassword(parsed.data.newPassword);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 AND is_active = TRUE`,
+      [passwordHash, userId]
+    );
+    await client.query(
+      `UPDATE password_reset_codes SET consumed_at = now() WHERE user_id = $1 AND consumed_at IS NULL`,
+      [userId]
+    );
+    await client.query(
+      `UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+      [userId]
+    );
+    await client.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
+      userId,
+      "forgot_password_completed",
+      req.ip,
+      req.headers["user-agent"] ?? null,
+    ]);
+    await client.query("COMMIT");
+  } catch {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Şifre güncellenemedi" } });
+  } finally {
+    client.release();
+  }
+
+  return res.json({ data: { success: true, message: "Şifre başarıyla güncellendi." } });
 });
 
 authRouter.get("/me", requireAuth("app"), async (req, res) => {

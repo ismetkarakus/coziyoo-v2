@@ -178,7 +178,11 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
       setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 2500);
+      if (isNewRegistration) {
+        setTimeout(() => onBack(), 800);
+      } else {
+        setTimeout(() => setSuccess(false), 2500);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error.profileEdit.save'));
     } finally {
@@ -247,6 +251,15 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
             </View>
           ) : (
             <>
+              {isNewRegistration && (
+                <View style={styles.mandatoryBanner}>
+                  <Ionicons name="information-circle" size={18} color={theme.primary} />
+                  <Text style={styles.mandatoryBannerText}>
+                    Devam etmek için tüm alanları doldurman gerekiyor
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.cardsWrap}>
                 <View style={styles.infoCard}>
                   <View style={styles.infoHead}>
@@ -325,9 +338,11 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
                       <Text style={styles.infoTitle}>{t('helper.profileEdit.emailLabel')}</Text>
                       <Text style={styles.infoSubtitle}>{t('helper.profileEdit.emailHint')}</Text>
                     </View>
-                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('email')}>
-                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
-                    </TouchableOpacity>
+                    {!isNewRegistration && (
+                      <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('email')}>
+                        <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <View style={styles.infoDivider} />
                   <View style={styles.emailRow}>
@@ -453,6 +468,21 @@ const styles = StyleSheet.create({
   headerTitle: { color: theme.text, fontSize: 18, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  mandatoryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0F7F2',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  mandatoryBannerText: {
+    color: theme.primary,
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
   cardsWrap: { gap: 12 },
   infoCard: {
     borderRadius: 18,

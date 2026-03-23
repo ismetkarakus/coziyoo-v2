@@ -11,16 +11,13 @@ import {
   StatusBar,
   SafeAreaView,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
 import { theme } from '../theme/colors';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-type Step = 'welcome' | 'role' | 'email' | 'password';
+type Step = 'welcome' | 'register';
 
 type Props = {
   onComplete: (session: AuthSession) => void;
@@ -37,9 +34,7 @@ type RegisterResponse = {
 
 export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
   const [step, setStep] = useState<Step>('welcome');
-  const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
   const [email, setEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,22 +52,10 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     });
   }
 
-  function goBack() {
-    if (step === 'password') animateTransition('email');
-    else if (step === 'email') animateTransition('role');
-    else if (step === 'role') animateTransition('welcome');
-  }
-
-  function handleEmailNext() {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) { setError('E-posta adresini gir'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError('Geçerli bir e-posta gir'); return; }
-    const nameT = displayName.trim();
-    if (!nameT || nameT.length < 3) { setError('Kullanıcı adı en az 3 karakter olmalı'); return; }
-    animateTransition('password');
-  }
-
-  function handlePasswordNext() {
+  function handleRegisterPress() {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) { setError('E-posta adresini gir'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setError('Geçerli bir e-posta gir'); return; }
     if (password.length < 8) { setError('Şifre en az 8 karakter olmalı'); return; }
     if (password !== passwordConfirm) { setError('Şifreler eşleşmiyor'); return; }
     handleRegister();
@@ -89,8 +72,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
-          displayName: displayName.trim(),
-          userType: role,
         }),
       });
       const json = (await response.json()) as RegisterResponse;
@@ -98,13 +79,11 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
       if (!response.ok || json.error) {
         const code = json.error?.code;
         if (code === 'EMAIL_TAKEN') setError('Bu e-posta zaten kayıtlı');
-        else if (code === 'DISPLAY_NAME_TAKEN') setError('Bu kullanıcı adı zaten alınmış');
         else if (code === 'VALIDATION_ERROR') {
           const details = (json.error as Record<string, unknown>)?.details as { fieldErrors?: Record<string, string[]> } | undefined;
           const fields = details?.fieldErrors;
           if (fields?.password?.length) setError('Şifre en az 8 karakter olmalı');
           else if (fields?.email?.length) setError('Geçerli bir e-posta gir');
-          else if (fields?.displayName?.length) setError('Kullanıcı adı 3-40 karakter olmalı');
           else setError('Lütfen bilgileri kontrol et');
         }
         else setError(json.error?.message ?? `Kayıt başarısız (${response.status})`);
@@ -121,7 +100,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         userId: user.id,
-        userType: user.userType ?? role,
+        userType: user.userType ?? 'buyer',
         email: user.email ?? email.trim().toLowerCase(),
       };
       await saveAuthSession(session);
@@ -133,7 +112,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     }
   }
 
-  /* ── WELCOME ── */
   function renderWelcome() {
     return (
       <View style={styles.centerContent}>
@@ -146,7 +124,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
           Komşunuzun mutfağından, kapınıza.{'\n'}Sıcacık, ev yapımı lezzetler sizi bekliyor.
         </Text>
 
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => animateTransition('role')} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => animateTransition('register')} activeOpacity={0.85}>
           <Text style={styles.primaryBtnText}>Başlayalım</Text>
           <Ionicons name="arrow-forward" size={20} color="#fff" />
         </TouchableOpacity>
@@ -158,76 +136,11 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     );
   }
 
-  /* ── ROLE SELECTION ── */
-  function renderRole() {
-    return (
-      <View style={styles.stepContent}>
-        <Text style={styles.stepTitle}>Ne yapmak istersin?</Text>
-        <Text style={styles.stepSubtitle}>Daha sonra değiştirebilirsin</Text>
-
-        <View style={styles.roleCards}>
-          <TouchableOpacity
-            style={[styles.roleCard, role === 'buyer' && styles.roleCardActive]}
-            onPress={() => setRole('buyer')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.roleEmoji}>🛒</Text>
-            <Text style={[styles.roleLabel, role === 'buyer' && styles.roleLabelActive]}>Yemek Sipariş Et</Text>
-            <Text style={[styles.roleDesc, role === 'buyer' && styles.roleDescActive]}>Yakınındaki ev şeflerinden sipariş ver</Text>
-            {role === 'buyer' && (
-              <View style={styles.roleCheck}>
-                <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.roleCard, role === 'seller' && styles.roleCardActive]}
-            onPress={() => setRole('seller')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.roleEmoji}>👩‍🍳</Text>
-            <Text style={[styles.roleLabel, role === 'seller' && styles.roleLabelActive]}>Yemek Sat</Text>
-            <Text style={[styles.roleDesc, role === 'seller' && styles.roleDescActive]}>Mutfağını gelire dönüştür</Text>
-            {role === 'seller' && (
-              <View style={styles.roleCheck}>
-                <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => animateTransition('email')} activeOpacity={0.85}>
-          <Text style={styles.primaryBtnText}>Devam Et</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  /* ── EMAIL + DISPLAY NAME ── */
-  function renderEmail() {
+  function renderRegister() {
     return (
       <View style={styles.stepContent}>
         <Text style={styles.stepTitle}>Hesabını oluştur</Text>
-        <Text style={styles.stepSubtitle}>E-posta ve kullanıcı adını gir</Text>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Kullanıcı Adı</Text>
-          <View style={styles.inputWrap}>
-            <Ionicons name="person-outline" size={20} color={theme.textSecondary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={displayName}
-              onChangeText={(v) => { setDisplayName(v); setError(null); }}
-              placeholder="ör. ismet123"
-              placeholderTextColor={theme.textSecondary}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-          </View>
-        </View>
+        <Text style={styles.stepSubtitle}>E-posta ve şifreni gir</Text>
 
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>E-posta</Text>
@@ -247,23 +160,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
           </View>
         </View>
 
-        {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-        <TouchableOpacity style={styles.primaryBtn} onPress={handleEmailNext} activeOpacity={0.85}>
-          <Text style={styles.primaryBtnText}>Devam Et</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  /* ── PASSWORD ── */
-  function renderPassword() {
-    return (
-      <View style={styles.stepContent}>
-        <Text style={styles.stepTitle}>Şifreni belirle</Text>
-        <Text style={styles.stepSubtitle}>En az 8 karakter olmalı</Text>
-
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Şifre</Text>
           <View style={styles.inputWrap}>
@@ -272,7 +168,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
               style={styles.input}
               value={password}
               onChangeText={(v) => { setPassword(v); setError(null); }}
-              placeholder="Şifreni gir"
+              placeholder="En az 8 karakter"
               placeholderTextColor={theme.textSecondary}
               secureTextEntry={!showPassword}
               editable={!loading}
@@ -295,7 +191,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
               placeholderTextColor={theme.textSecondary}
               secureTextEntry={!showPasswordConfirm}
               returnKeyType="go"
-              onSubmitEditing={handlePasswordNext}
+              onSubmitEditing={handleRegisterPress}
               editable={!loading}
             />
             <TouchableOpacity onPress={() => setShowPasswordConfirm(!showPasswordConfirm)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -308,7 +204,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
 
         <TouchableOpacity
           style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
-          onPress={handlePasswordNext}
+          onPress={handleRegisterPress}
           disabled={loading}
           activeOpacity={0.85}
         >
@@ -321,12 +217,15 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
             </>
           )}
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryBtn} onPress={onGoToLogin} activeOpacity={0.8}>
+          <Text style={styles.secondaryBtnText}>Zaten hesabım var? <Text style={styles.loginLink}>Giriş yap</Text></Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const showBack = step !== 'welcome';
-  const stepIndex = ['welcome', 'role', 'email', 'password'].indexOf(step);
+  const showBack = step === 'register';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -335,33 +234,18 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header with back button + progress */}
         {showBack && (
           <View style={styles.header}>
-            <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7} disabled={loading}>
+            <TouchableOpacity onPress={() => animateTransition('welcome')} style={styles.backBtn} activeOpacity={0.7} disabled={loading}>
               <Ionicons name="arrow-back" size={24} color={theme.text} />
             </TouchableOpacity>
-            <View style={styles.progressBar}>
-              {[1, 2, 3].map((i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.progressDot,
-                    i <= stepIndex && styles.progressDotActive,
-                  ]}
-                />
-              ))}
-            </View>
-            <View style={{ width: 40 }} />
+            <View style={{ flex: 1 }} />
           </View>
         )}
 
-        {/* Step content */}
         <Animated.View style={[styles.body, { opacity: fadeAnim }]}>
           {step === 'welcome' && renderWelcome()}
-          {step === 'role' && renderRole()}
-          {step === 'email' && renderEmail()}
-          {step === 'password' && renderPassword()}
+          {step === 'register' && renderRegister()}
         </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -374,7 +258,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,
@@ -387,22 +270,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.surface,
   },
-  progressBar: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  progressDot: {
-    width: 28,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.border,
-  },
-  progressDotActive: {
-    backgroundColor: theme.primary,
-  },
   body: { flex: 1, paddingHorizontal: 24 },
 
-  /* ── Welcome ── */
   centerContent: {
     flex: 1,
     justifyContent: 'center',
@@ -440,7 +309,6 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
 
-  /* ── Step common ── */
   stepContent: {
     flex: 1,
     justifyContent: 'center',
@@ -458,41 +326,6 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
 
-  /* ── Role selection ── */
-  roleCards: { gap: 14, marginBottom: 32 },
-  roleCard: {
-    backgroundColor: theme.card,
-    borderWidth: 2,
-    borderColor: theme.border,
-    borderRadius: 16,
-    padding: 20,
-    position: 'relative',
-  },
-  roleCardActive: {
-    borderColor: theme.primary,
-    backgroundColor: '#F0F7F2',
-  },
-  roleEmoji: { fontSize: 32, marginBottom: 8 },
-  roleLabel: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: theme.text,
-    marginBottom: 4,
-  },
-  roleLabelActive: { color: theme.primary },
-  roleDesc: {
-    fontSize: 13,
-    color: theme.textSecondary,
-    lineHeight: 18,
-  },
-  roleDescActive: { color: '#5A8A66' },
-  roleCheck: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-
-  /* ── Input fields ── */
   inputGroup: { marginBottom: 16 },
   inputLabel: {
     fontSize: 13,
@@ -517,7 +350,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
 
-  /* ── Buttons ── */
   primaryBtn: {
     backgroundColor: theme.primary,
     borderRadius: 14,
@@ -544,8 +376,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  loginLink: {
+    color: theme.primary,
+    fontWeight: '700',
+  },
 
-  /* ── Error ── */
   errorText: {
     color: theme.error,
     fontSize: 13,

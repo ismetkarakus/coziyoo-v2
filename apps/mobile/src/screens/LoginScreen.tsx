@@ -10,6 +10,8 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
+  Modal,
+  Alert,
 } from 'react-native';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
@@ -30,10 +32,22 @@ type LoginResponse = {
 };
 
 export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
-  const [email, setEmail] = useState('test@deneme.com');
-  const [password, setPassword] = useState('test');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Forgot password state
+  const [forgotModal, setForgotModal] = useState<'none' | 'email' | 'code' | 'newPassword'>('none');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotNewPasswordConfirm, setForgotNewPasswordConfirm] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
+  // Forgot email info modal
+  const [showForgotEmailInfo, setShowForgotEmailInfo] = useState(false);
 
   function resolveLoginError(body: LoginResponse, status: number): string {
     const code = body?.error?.code;
@@ -90,6 +104,95 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
     }
   }
 
+  function openForgotPassword() {
+    setForgotEmail(email.trim());
+    setForgotCode('');
+    setForgotNewPassword('');
+    setForgotNewPasswordConfirm('');
+    setForgotError(null);
+    setForgotModal('email');
+  }
+
+  function closeForgotPassword() {
+    setForgotModal('none');
+    setForgotError(null);
+  }
+
+  async function handleForgotPasswordRequest() {
+    const trimmed = forgotEmail.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setForgotError('Geçerli bir e-posta gir');
+      return;
+    }
+    setForgotError(null);
+    setForgotLoading(true);
+    try {
+      const { apiUrl } = await loadSettings();
+      const response = await fetch(`${apiUrl}/v1/auth/forgot-password/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        const code = json?.error?.code;
+        if (code === 'PASSWORD_RESET_TOO_FREQUENT') {
+          setForgotError(`Lütfen ${json.error.retryAfterSeconds ?? 60} saniye bekleyin`);
+        } else {
+          setForgotError(json?.error?.message ?? 'Bir hata oluştu');
+        }
+        return;
+      }
+      setForgotModal('code');
+    } catch (err) {
+      setForgotError(err instanceof Error ? err.message : 'Bağlantı hatası');
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
+  async function handleForgotPasswordConfirm() {
+    if (!/^\d{6}$/.test(forgotCode)) {
+      setForgotError('6 haneli kodu gir');
+      return;
+    }
+    if (forgotNewPassword.length < 8) {
+      setForgotError('Şifre en az 8 karakter olmalı');
+      return;
+    }
+    if (forgotNewPassword !== forgotNewPasswordConfirm) {
+      setForgotError('Şifreler eşleşmiyor');
+      return;
+    }
+    setForgotError(null);
+    setForgotLoading(true);
+    try {
+      const { apiUrl } = await loadSettings();
+      const response = await fetch(`${apiUrl}/v1/auth/forgot-password/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          code: forgotCode,
+          newPassword: forgotNewPassword,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok || json.error) {
+        const code = json?.error?.code;
+        if (code === 'PASSWORD_RESET_CODE_INVALID') setForgotError('Kod geçersiz veya süresi dolmuş');
+        else setForgotError(json?.error?.message ?? 'Bir hata oluştu');
+        return;
+      }
+      closeForgotPassword();
+      Alert.alert('Başarılı', 'Şifren güncellendi. Yeni şifrenle giriş yapabilirsin.');
+    } catch (err) {
+      setForgotError(err instanceof Error ? err.message : 'Bağlantı hatası');
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
@@ -141,6 +244,15 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
+          <View style={styles.forgotRow}>
+            <TouchableOpacity onPress={() => setShowForgotEmailInfo(true)} activeOpacity={0.7}>
+              <Text style={styles.forgotText}>E-postamı unuttum</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={openForgotPassword} activeOpacity={0.7}>
+              <Text style={styles.forgotText}>Şifremi unuttum</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[styles.button, !!error && styles.buttonError, loading && styles.buttonDisabled]}
             onPress={handleLogin}
@@ -160,6 +272,117 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* Forgot Email Info Modal */}
+      <Modal visible={showForgotEmailInfo} transparent animationType="fade" onRequestClose={() => setShowForgotEmailInfo(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>E-postanı mı unuttun?</Text>
+            <Text style={styles.modalDesc}>
+              Kayıt olurken kullandığın e-posta adresini hatırlamıyorsan, destek ekibimize ulaşabilirsin.
+            </Text>
+            <Text style={styles.modalDesc}>
+              E-posta: destek@coziyoo.com
+            </Text>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowForgotEmailInfo(false)}>
+              <Text style={styles.modalCloseBtnText}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Forgot Password Modal */}
+      <Modal visible={forgotModal !== 'none'} transparent animationType="fade" onRequestClose={closeForgotPassword}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            {forgotModal === 'email' && (
+              <>
+                <Text style={styles.modalTitle}>Şifreni Sıfırla</Text>
+                <Text style={styles.modalDesc}>Kayıtlı e-posta adresini gir, sana doğrulama kodu göndereceğiz.</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={forgotEmail}
+                  onChangeText={(v) => { setForgotEmail(v); setForgotError(null); }}
+                  placeholder="ornek@email.com"
+                  placeholderTextColor={theme.textSecondary}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoFocus
+                />
+                {!!forgotError && <Text style={styles.modalError}>{forgotError}</Text>}
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={closeForgotPassword}>
+                    <Text style={styles.modalCancelBtnText}>İptal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalPrimaryBtn, forgotLoading && styles.buttonDisabled]}
+                    onPress={handleForgotPasswordRequest}
+                    disabled={forgotLoading}
+                  >
+                    {forgotLoading ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.modalPrimaryBtnText}>Kod Gönder</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {forgotModal === 'code' && (
+              <>
+                <Text style={styles.modalTitle}>Şifreni Sıfırla</Text>
+                <Text style={styles.modalDesc}>
+                  {forgotEmail} adresine gönderilen 6 haneli kodu ve yeni şifreni gir.
+                </Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={forgotCode}
+                  onChangeText={(v) => { setForgotCode(v.replace(/\D/g, '').slice(0, 6)); setForgotError(null); }}
+                  placeholder="6 haneli kod"
+                  placeholderTextColor={theme.textSecondary}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  value={forgotNewPassword}
+                  onChangeText={(v) => { setForgotNewPassword(v); setForgotError(null); }}
+                  placeholder="Yeni şifre (en az 8 karakter)"
+                  placeholderTextColor={theme.textSecondary}
+                  secureTextEntry
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  value={forgotNewPasswordConfirm}
+                  onChangeText={(v) => { setForgotNewPasswordConfirm(v); setForgotError(null); }}
+                  placeholder="Yeni şifre tekrar"
+                  placeholderTextColor={theme.textSecondary}
+                  secureTextEntry
+                />
+                {!!forgotError && <Text style={styles.modalError}>{forgotError}</Text>}
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setForgotModal('email')}>
+                    <Text style={styles.modalCancelBtnText}>Geri</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalPrimaryBtn, forgotLoading && styles.buttonDisabled]}
+                    onPress={handleForgotPasswordConfirm}
+                    disabled={forgotLoading}
+                  >
+                    {forgotLoading ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.modalPrimaryBtnText}>Şifreyi Güncelle</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -230,6 +453,15 @@ const styles = StyleSheet.create({
     color: theme.error,
     fontSize: 13,
   },
+  forgotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  forgotText: {
+    color: theme.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   button: {
     backgroundColor: theme.primary,
     borderRadius: 12,
@@ -259,6 +491,91 @@ const styles = StyleSheet.create({
   },
   registerLinkBold: {
     color: theme.primary,
+    fontWeight: '700',
+  },
+
+  /* Modal styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  modalTitle: {
+    color: theme.text,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  modalDesc: {
+    color: theme.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  modalInput: {
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: theme.text,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  modalError: {
+    color: theme.error,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 4,
+  },
+  modalCancelBtn: {
+    backgroundColor: theme.surface,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalCancelBtnText: {
+    color: theme.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalPrimaryBtn: {
+    backgroundColor: theme.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  modalPrimaryBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalCloseBtn: {
+    backgroundColor: theme.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  modalCloseBtnText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

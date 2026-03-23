@@ -8,7 +8,9 @@ type AbuseFlow =
   | "order_create"
   | "payment_start"
   | "refund_request"
-  | "pin_verify";
+  | "pin_verify"
+  | "forgot_password"
+  | "forgot_password_confirm";
 
 type AbuseConfig = {
   flow: AbuseFlow;
