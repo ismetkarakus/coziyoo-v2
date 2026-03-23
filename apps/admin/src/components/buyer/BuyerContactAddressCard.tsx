@@ -1,10 +1,9 @@
 import type { BuyerContactInfo } from "../../types/buyer";
+import { formatBirthDate } from "../../lib/format";
 
 function formatDob(value: string | null | undefined) {
   if (!value) return "Yok";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("tr-TR");
+  return formatBirthDate(value);
 }
 
 function AddressSection({ title, value, accent }: { title: string; value: string; accent?: string }) {

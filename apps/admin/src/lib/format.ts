@@ -69,6 +69,20 @@ export function formatUiDate(value: string | null | undefined, language: Languag
   return new Date(date).toLocaleDateString(language === "tr" ? "tr-TR" : "en-US");
 }
 
+export function formatBirthDate(value: string | null | undefined): string {
+  if (!value) return "-";
+  const raw = String(value).trim();
+  const datePart = raw.includes("T") ? raw.split("T")[0] : raw;
+  const digits = datePart.replace(/\D/g, "").slice(0, 8);
+  if (digits.length !== 8) return raw;
+  // YYYYMMDD -> DD-MM-YYYY
+  if (datePart.includes("-") && datePart.split("-")[0]?.length === 4) {
+    return `${digits.slice(6, 8)}-${digits.slice(4, 6)}-${digits.slice(0, 4)}`;
+  }
+  // Already DDMMYYYY
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 8)}`;
+}
+
 export function foodDateKey(value: string | null | undefined): string | null {
   const date = Date.parse(String(value ?? ""));
   if (Number.isNaN(date)) return null;

@@ -59,9 +59,22 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
     const digits = datePart.replace(/\D/g, '').slice(0, 8);
     if (digits.length === 8) {
-      return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+      // API formatı YYYY-MM-DD, UI formatı DD-MM-YYYY
+      if (datePart.includes('-') && datePart.split('-')[0]?.length === 4) {
+        return `${digits.slice(6, 8)}-${digits.slice(4, 6)}-${digits.slice(0, 4)}`;
+      }
+      return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 8)}`;
     }
     return datePart;
+  }
+
+  function toApiDob(value: string): string | null {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length !== 8) return null;
+    const day = digits.slice(0, 2);
+    const month = digits.slice(2, 4);
+    const year = digits.slice(4, 8);
+    return `${year}-${month}-${day}`;
   }
 
   useEffect(() => {
@@ -158,7 +171,15 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       if (displayName.trim()) body.displayName = displayName.trim();
       if (fullName.trim()) body.fullName = fullName.trim();
       if (phone.trim()) body.phone = phone.trim();
-      if (dob.trim()) body.dob = dob.trim();
+      if (dob.trim()) {
+        const apiDob = toApiDob(dob.trim());
+        if (!apiDob) {
+          Alert.alert('Hata', 'Doğum tarihi formatı GG-AA-YYYY olmalı');
+          setSaving(false);
+          return;
+        }
+        body.dob = apiDob;
+      }
       if (tcKimlikNo.trim()) body.countryCode = tcKimlikNo.trim();
       if (email.trim()) body.email = email.trim();
 
@@ -219,9 +240,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
 
   function formatDobInput(value: string): string {
     const digits = value.replace(/\D/g, '').slice(0, 8);
-    if (digits.length <= 4) return digits;
-    if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 8)}`;
   }
 
   return (

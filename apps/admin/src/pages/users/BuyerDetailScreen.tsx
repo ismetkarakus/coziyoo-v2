@@ -4,7 +4,7 @@ import { request, parseJson } from "../../lib/api";
 import { getCachedUser, setCachedUser } from "../../lib/prefetch";
 import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
-import { formatUiDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
+import { formatUiDate, formatBirthDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
 import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
@@ -279,7 +279,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const latestLoginLocation = locations[0] ?? null;
   const detailLastLoginAtRaw = latestLoginLocation?.createdAt ?? contactInfo?.identity.lastLoginAt ?? null;
   const detailLastLoginAt = formatLoginRelativeDayMonth(detailLastLoginAtRaw, language);
-  const birthDateText = contactInfo?.contact?.dob ? formatUiDate(contactInfo.contact.dob, language) : "-";
+  const birthDateText = formatBirthDate(contactInfo?.contact?.dob);
   const allAddresses = useMemo(() => {
     const next: Array<{ id: string; title: string; addressLine: string; isDefault: boolean }> = [];
     if (contactInfo?.addresses.home) {
