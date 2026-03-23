@@ -1,5 +1,7 @@
 {% if profile %}
 <form
+  method="post"
+  action="/dashboard/profiles/{{ profile.id }}/save"
   hx-post="/dashboard/profiles/{{ profile.id }}/save"
   hx-target="#profile-editor"
   hx-swap="innerHTML"

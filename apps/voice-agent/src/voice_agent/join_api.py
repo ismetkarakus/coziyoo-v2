@@ -855,6 +855,7 @@ async def dashboard_profile_save(request: Request, profile_id: str):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
         return refresh_response
+    is_htmx = request.headers.get("HX-Request", "").lower() == "true"
     form = await request.form()
     payload = normalize_profile_payload({k: str(v) for k, v in form.items()})
 
@@ -878,6 +879,8 @@ async def dashboard_profile_save(request: Request, profile_id: str):
                 access_token=access_token,
             )
             profile = current_payload.get("data") if current_status == 200 and isinstance(current_payload, dict) else None
+            if not is_htmx:
+                return RedirectResponse(url="/dashboard/assistants", status_code=303)
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
@@ -886,6 +889,8 @@ async def dashboard_profile_save(request: Request, profile_id: str):
             )
         else:
             message = extract_error_message(update_payload, "Profile save failed")
+            if not is_htmx:
+                return RedirectResponse(url="/dashboard/assistants", status_code=303)
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
@@ -911,12 +916,16 @@ async def dashboard_profile_save(request: Request, profile_id: str):
     )
     if current_status == 200 and isinstance(current_payload, dict) and isinstance(current_payload.get("data"), dict):
         profile = _legacy_settings_to_profile(profile_id, current_payload["data"])
+        if not is_htmx:
+            return RedirectResponse(url="/dashboard/assistants", status_code=303)
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
             context={"profile": profile, "message": message or "Saved"},
             status_code=200,
         )
+    if not is_htmx:
+        return RedirectResponse(url="/dashboard/assistants", status_code=303)
     return templates.TemplateResponse(
         request=request,
         name="profiles/_editor_panel.html",

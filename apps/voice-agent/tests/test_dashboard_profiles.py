@@ -158,9 +158,10 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
             "voice_language": "tr",
             "system_prompt": "test",
         },
+        follow_redirects=False,
     )
-    assert response.status_code == 200
-    assert "Saved" in response.text
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/dashboard/assistants"
     assert ("PUT", "/v1/admin/livekit/agent-settings/aktif-profil-9") in calls
 
 
