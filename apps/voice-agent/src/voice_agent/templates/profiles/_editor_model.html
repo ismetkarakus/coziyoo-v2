@@ -239,15 +239,22 @@
   // Detect current provider from existing base_url on page load
   (function detectProvider() {
     const currentUrl = (document.getElementById("llm-base-url")?.value || "").trim();
-    if (!currentUrl) return;
     const sel = document.getElementById("llm-provider-select");
-    for (const [key, p] of Object.entries(PROVIDERS)) {
-      if (currentUrl.startsWith(p.base_url)) {
-        sel.value = key;
-        populateModelList(p.models);
-        setModelStatus("Static defaults — click ↻ to fetch live models.");
-        break;
+    let matchedProvider = false;
+    if (currentUrl) {
+      for (const [key, p] of Object.entries(PROVIDERS)) {
+        if (currentUrl.startsWith(p.base_url)) {
+          sel.value = key;
+          populateModelList(p.models);
+          setModelStatus("Static defaults — fetching live models...");
+          matchedProvider = true;
+          break;
+        }
       }
+    }
+    // Always try live fetch on load when a base URL exists (or when provider fallback can fill it).
+    if (currentUrl || matchedProvider || sel.value === "ollama") {
+      setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
     }
   })();
 })();

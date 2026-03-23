@@ -107,9 +107,13 @@
     },
     init() {
       const select = document.getElementById("tts-model");
+      const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
+      if (baseUrl) {
+        setTimeout(() => this.fetch(), 0);
+      }
     },
   };
   window.dashboardTtsModels.init();

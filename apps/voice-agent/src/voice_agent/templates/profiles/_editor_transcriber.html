@@ -115,9 +115,13 @@
     },
     init() {
       const select = document.getElementById("stt-model");
+      const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
+      if (baseUrl) {
+        setTimeout(() => this.fetch(), 0);
+      }
     },
   };
   window.dashboardSttModels.init();
