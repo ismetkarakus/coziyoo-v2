@@ -17,8 +17,10 @@
   </div>
   <div style="margin-bottom:12px;">
     <label>Saved API Key</label>
-    <select class="input" id="tts-api-key-id"></select>
-    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun key seçince TTS API Key alanı otomatik dolar.</div>
+    {% set tts_selected_api_key_id = (profile.tts_config or {}).get('api_key_id', '') %}
+    <select class="input" id="tts-api-key-id" name="tts_config.api_key_id"></select>
+    <input type="hidden" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" />
+    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
   </div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -32,7 +34,7 @@
       </select>
     </div>
     <div><label>TTS Base URL</label><input class="input" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
-    <div><label>TTS API Key</label><input class="input" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" /></div>
+    <div></div>
     <div>
       <label>TTS Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
@@ -164,7 +166,7 @@
         "tts-api-key-id",
         "tts",
         providerKey,
-        "",
+        document.getElementById("tts-api-key-id")?.value || "",
       );
       const selectedKey = window.dashboardProviderApiKeys.selectedKey("tts-api-key-id");
       if (selectedKey) {
@@ -259,14 +261,9 @@
           }
         }
       }
-      window.dashboardProviderApiKeys.fillSelect("tts-api-key-id", "tts", (sel?.value || "custom"), "");
-      const prefilledApiKey = (document.getElementById("tts-api-key")?.value || "").trim();
-      if (!prefilledApiKey) {
-        const selectedKey = window.dashboardProviderApiKeys.selectedKey("tts-api-key-id");
-        if (selectedKey) {
-          document.getElementById("tts-api-key").value = selectedKey;
-        }
-      }
+      window.dashboardProviderApiKeys.fillSelect("tts-api-key-id", "tts", (sel?.value || "custom"), "{{ tts_selected_api_key_id }}");
+      const selectedKey = window.dashboardProviderApiKeys.selectedKey("tts-api-key-id");
+      if (selectedKey) document.getElementById("tts-api-key").value = selectedKey;
       const keySelect = document.getElementById("tts-api-key-id");
       if (keySelect) {
         keySelect.addEventListener("change", function () {

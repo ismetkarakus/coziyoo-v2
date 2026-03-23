@@ -611,6 +611,23 @@ async def _resolve_api_key_from_id(
     return str(explicit_api_key or "").strip()
 
 
+async def _apply_selected_api_keys(
+    *,
+    access_token: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    provider_keys = await _load_provider_api_keys(access_token)
+    for section in ("llm_config", "tts_config", "stt_config"):
+        cfg = _dict(payload.get(section))
+        key_id = str(cfg.get("api_key_id") or "").strip()
+        if key_id:
+            resolved = str(provider_keys.get(key_id) or "").strip()
+            if resolved:
+                cfg["api_key"] = resolved
+        payload[section] = cfg
+    return payload
+
+
 async def _editor_panel_context(
     *,
     access_token: str,
@@ -1324,6 +1341,7 @@ async def dashboard_profile_save(request: Request, profile_id: str):
     is_htmx = request.headers.get("HX-Request", "").lower() == "true"
     form = await request.form()
     payload = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    payload = await _apply_selected_api_keys(access_token=access_token, payload=payload)
 
     use_legacy = not _is_uuid(profile_id)
 

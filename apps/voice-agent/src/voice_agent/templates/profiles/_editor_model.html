@@ -16,13 +16,15 @@
   </div>
   <div style="margin-bottom:12px;">
     <label>Saved API Key</label>
-    <select class="input" id="llm-api-key-id"></select>
-    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun key seçince LLM API Key alanı otomatik dolar.</div>
+    {% set llm_selected_api_key_id = (profile.llm_config or {}).get('api_key_id', '') %}
+    <select class="input" id="llm-api-key-id" name="llm_config.api_key_id"></select>
+    <input type="hidden" id="llm-api-key" name="llm_config.api_key" value="{{ (profile.llm_config or {}).get('api_key','') }}" />
+    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
   </div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div><label>LLM Base URL</label><input class="input" name="llm_config.base_url" id="llm-base-url" value="{{ (profile.llm_config or {}).get('base_url','') }}" /></div>
-    <div><label>LLM API Key</label><input class="input" name="llm_config.api_key" id="llm-api-key" value="{{ (profile.llm_config or {}).get('api_key','') }}" /></div>
+    <div></div>
     <div>
       <label>LLM Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
@@ -176,7 +178,7 @@
         "llm-api-key-id",
         "llm",
         providerKey,
-        "",
+        document.getElementById("llm-api-key-id")?.value || "",
       );
       const selectedKey = window.dashboardProviderApiKeys.selectedKey("llm-api-key-id");
       if (selectedKey) {
@@ -204,7 +206,7 @@
     async fetchModels() {
       const btn = document.getElementById("llm-fetch-models-btn");
       let baseUrl = document.getElementById("llm-base-url").value.trim();
-      const apiKey = document.getElementById("llm-api-key").value.trim();
+      const apiKey = (document.getElementById("llm-api-key").value || "").trim();
       const headersRaw = document.getElementById("llm-custom-headers").value.trim();
       const providerKey = document.getElementById("llm-provider-select").value;
       const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
@@ -302,14 +304,9 @@
         }
       }
     }
-    window.dashboardProviderApiKeys.fillSelect("llm-api-key-id", "llm", sel.value || "custom", "");
-    const prefilledApiKey = (document.getElementById("llm-api-key")?.value || "").trim();
-    if (!prefilledApiKey) {
-      const selectedKey = window.dashboardProviderApiKeys.selectedKey("llm-api-key-id");
-      if (selectedKey) {
-        document.getElementById("llm-api-key").value = selectedKey;
-      }
-    }
+    window.dashboardProviderApiKeys.fillSelect("llm-api-key-id", "llm", sel.value || "custom", "{{ llm_selected_api_key_id }}");
+    const selectedKey = window.dashboardProviderApiKeys.selectedKey("llm-api-key-id");
+    if (selectedKey) document.getElementById("llm-api-key").value = selectedKey;
     const keySelect = document.getElementById("llm-api-key-id");
     if (keySelect) {
       keySelect.addEventListener("change", function () {

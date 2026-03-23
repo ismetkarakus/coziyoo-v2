@@ -17,8 +17,10 @@
   </div>
   <div style="margin-bottom:12px;">
     <label>Saved API Key</label>
-    <select class="input" id="stt-api-key-id"></select>
-    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun key seçince STT API Key alanı otomatik dolar.</div>
+    {% set stt_selected_api_key_id = (profile.stt_config or {}).get('api_key_id', '') %}
+    <select class="input" id="stt-api-key-id" name="stt_config.api_key_id"></select>
+    <input type="hidden" id="stt-api-key" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" />
+    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
   </div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -32,7 +34,7 @@
       </select>
     </div>
     <div><label>STT Base URL</label><input class="input" id="stt-base-url" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" /></div>
-    <div><label>STT API Key</label><input class="input" id="stt-api-key" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" /></div>
+    <div></div>
     <div>
       <label>STT Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
@@ -165,7 +167,7 @@
         "stt-api-key-id",
         "stt",
         providerKey,
-        "",
+        document.getElementById("stt-api-key-id")?.value || "",
       );
       const selectedKey = window.dashboardProviderApiKeys.selectedKey("stt-api-key-id");
       if (selectedKey) {
@@ -259,14 +261,9 @@
           }
         }
       }
-      window.dashboardProviderApiKeys.fillSelect("stt-api-key-id", "stt", (sel?.value || "custom"), "");
-      const prefilledApiKey = (document.getElementById("stt-api-key")?.value || "").trim();
-      if (!prefilledApiKey) {
-        const selectedKey = window.dashboardProviderApiKeys.selectedKey("stt-api-key-id");
-        if (selectedKey) {
-          document.getElementById("stt-api-key").value = selectedKey;
-        }
-      }
+      window.dashboardProviderApiKeys.fillSelect("stt-api-key-id", "stt", (sel?.value || "custom"), "{{ stt_selected_api_key_id }}");
+      const selectedKey = window.dashboardProviderApiKeys.selectedKey("stt-api-key-id");
+      if (selectedKey) document.getElementById("stt-api-key").value = selectedKey;
       const keySelect = document.getElementById("stt-api-key-id");
       if (keySelect) {
         keySelect.addEventListener("change", function () {
