@@ -1,11 +1,28 @@
 <section class="card" style="margin-bottom:10px;">
   <details open>
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Model</summary>
+
+  <!-- Provider preset picker -->
+  <div style="margin-bottom:12px;">
+    <label>Provider Preset</label>
+    <select id="llm-provider-select" class="input" onchange="llmProviderPreset.apply(this.value)">
+      <option value="custom">— Custom —</option>
+      <option value="openai">OpenAI</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="kimi">Kimi K2 (Moonshot AI)</option>
+      <option value="claude">Anthropic Claude</option>
+    </select>
+  </div>
+
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-    <div><label>LLM Base URL</label><input class="input" name="llm_config.base_url" value="{{ (profile.llm_config or {}).get('base_url','') }}" /></div>
-    <div><label>LLM API Key</label><input class="input" name="llm_config.api_key" value="{{ (profile.llm_config or {}).get('api_key','') }}" /></div>
-    <div><label>LLM Model</label><input class="input" name="llm_config.model" value="{{ (profile.llm_config or {}).get('model','') }}" /></div>
-    <div><label>LLM Endpoint Path</label><input class="input" name="llm_config.endpoint_path" value="{{ (profile.llm_config or {}).get('endpoint_path','/v1/chat/completions') }}" /></div>
+    <div><label>LLM Base URL</label><input class="input" name="llm_config.base_url" id="llm-base-url" value="{{ (profile.llm_config or {}).get('base_url','') }}" /></div>
+    <div><label>LLM API Key</label><input class="input" name="llm_config.api_key" id="llm-api-key" value="{{ (profile.llm_config or {}).get('api_key','') }}" /></div>
+    <div>
+      <label>LLM Model</label>
+      <input class="input" name="llm_config.model" id="llm-model" value="{{ (profile.llm_config or {}).get('model','') }}" list="llm-model-list" autocomplete="off" />
+      <datalist id="llm-model-list"></datalist>
+    </div>
+    <div><label>LLM Endpoint Path</label><input class="input" name="llm_config.endpoint_path" id="llm-endpoint-path" value="{{ (profile.llm_config or {}).get('endpoint_path','/v1/chat/completions') }}" /></div>
   </div>
   <div style="margin-top:10px;">
     <label>System Prompt</label>
@@ -18,7 +35,7 @@
     <div><label>Voice Language</label><input class="input" name="voice_language" value="{{ profile.voice_language or 'tr' }}" /></div>
   </div>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
-    <div><label>llm_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_headers">{{ (profile.llm_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
+    <div><label>llm_config.custom_headers (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_headers" id="llm-custom-headers">{{ (profile.llm_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
     <div><label>llm_config.custom_body_params (JSON)</label><textarea class="input" rows="3" name="llm_config.custom_body_params">{{ (profile.llm_config or {}).get('custom_body_params', {}) | tojson }}</textarea></div>
   </div>
   <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
@@ -36,3 +53,81 @@
   </div>
   </details>
 </section>
+
+<script>
+(function () {
+  const PROVIDERS = {
+    openai: {
+      base_url: "https://api.openai.com",
+      endpoint: "/v1/chat/completions",
+      default_model: "gpt-4o",
+      models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+      headers: {}
+    },
+    gemini: {
+      base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
+      endpoint: "/v1/chat/completions",
+      default_model: "gemini-2.0-flash",
+      models: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
+      headers: {}
+    },
+    kimi: {
+      base_url: "https://api.moonshot.cn",
+      endpoint: "/v1/chat/completions",
+      default_model: "kimi-k2",
+      models: ["kimi-k2", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+      headers: {}
+    },
+    claude: {
+      base_url: "https://api.anthropic.com",
+      endpoint: "/v1/messages",
+      default_model: "claude-sonnet-4-6",
+      models: ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"],
+      headers: { "anthropic-version": "2023-06-01", "x-api-key": "" }
+    }
+  };
+
+  window.llmProviderPreset = {
+    apply(providerKey) {
+      const p = PROVIDERS[providerKey];
+      if (!p) return; // custom — leave fields as-is
+
+      document.getElementById("llm-base-url").value = p.base_url;
+      document.getElementById("llm-endpoint-path").value = p.endpoint;
+
+      // Only overwrite model if currently empty or switching away from another known provider
+      const modelInput = document.getElementById("llm-model");
+      const currentModel = modelInput.value.trim();
+      const knownModels = Object.values(PROVIDERS).flatMap(x => x.models);
+      if (!currentModel || knownModels.includes(currentModel)) {
+        modelInput.value = p.default_model;
+      }
+
+      // Populate datalist suggestions
+      const list = document.getElementById("llm-model-list");
+      list.innerHTML = p.models.map(m => `<option value="${m}">`).join("");
+
+      // Set custom_headers only when non-empty defaults exist
+      if (Object.keys(p.headers).length > 0) {
+        document.getElementById("llm-custom-headers").value = JSON.stringify(p.headers, null, 2);
+      }
+    }
+  };
+
+  // Detect current provider from existing base_url on page load
+  (function detectProvider() {
+    const currentUrl = (document.getElementById("llm-base-url")?.value || "").trim();
+    if (!currentUrl) return;
+    const sel = document.getElementById("llm-provider-select");
+    for (const [key, p] of Object.entries(PROVIDERS)) {
+      if (currentUrl.startsWith(p.base_url)) {
+        sel.value = key;
+        // Populate model datalist without overwriting existing values
+        const list = document.getElementById("llm-model-list");
+        list.innerHTML = p.models.map(m => `<option value="${m}">`).join("");
+        break;
+      }
+    }
+  })();
+})();
+</script>
