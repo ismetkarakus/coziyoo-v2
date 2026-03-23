@@ -337,6 +337,8 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
     [user.id, refreshTokenHash, expiresAt, req.headers["user-agent"] ?? null, req.ip]
   );
 
+  await pool.query("UPDATE users SET last_sign_in_at = now() WHERE id = $1", [user.id]);
+
   await pool.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
     user.id,
     "login_success",
@@ -368,22 +370,20 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
     role: user.user_type,
   });
 
-  if (input.location) {
-    await pool.query(
-      `INSERT INTO user_login_locations (user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        user.id,
-        sessionInsert.rows[0].id,
-        input.location.latitude,
-        input.location.longitude,
-        input.location.accuracyM ?? null,
-        input.location.source ?? "app",
-        req.ip ?? null,
-        req.headers["user-agent"] ?? null,
-      ]
-    );
-  }
+  await pool.query(
+    `INSERT INTO user_login_locations (user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      user.id,
+      sessionInsert.rows[0].id,
+      input.location?.latitude ?? null,
+      input.location?.longitude ?? null,
+      input.location?.accuracyM ?? null,
+      input.location?.source ?? "ip",
+      req.ip ?? null,
+      req.headers["user-agent"] ?? null,
+    ]
+  );
 
   return res.json({
     data: {
