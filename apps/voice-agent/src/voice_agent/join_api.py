@@ -1082,16 +1082,21 @@ async def dashboard_assistants(request: Request):
             elif legacy_status != 404 and initial_message is None:
                 initial_message = extract_error_message(legacy_payload, "Failed to load profile")
 
-    provider_keys = await _load_provider_api_keys(access_token)
+    panel_context = await _editor_panel_context(
+        access_token=access_token,
+        profile=initial_profile,
+        message=initial_message or error_message,
+    )
     return templates.TemplateResponse(
         request=request,
         name="profiles/index.html",
         context={
             "profiles": profiles,
-            "message": initial_message or error_message,
+            "message": panel_context.get("message"),
             "selected_profile_id": selected_profile_id,
-            "profile": initial_profile,
-            "provider_api_key_options": _provider_api_key_select_options(provider_keys),
+            "profile": panel_context.get("profile"),
+            "provider_api_key_options": panel_context.get("provider_api_key_options"),
+            "custom_provider_options": panel_context.get("custom_provider_options"),
         },
     )
 
