@@ -303,9 +303,9 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
     assert '<option value="new-tts-model">new-tts-model</option>' in response.text
     assert 'name="tts_config.models_path" value="/v1/models"' in response.text
     assert 'name="stt_config.models_path" value="/v1/models"' in response.text
-    assert 'name="llm_config.api_key_id"' in response.text
-    assert 'name="tts_config.api_key_id"' in response.text
-    assert 'name="stt_config.api_key_id"' in response.text
+    assert 'id="llm-api-key-id"' in response.text
+    assert 'id="tts-api-key-id"' in response.text
+    assert 'id="stt-api-key-id"' in response.text
 
 
 def test_dashboard_models_uses_api_key_id_when_direct_key_missing(monkeypatch) -> None:

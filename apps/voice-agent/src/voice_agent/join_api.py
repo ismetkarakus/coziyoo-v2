@@ -575,6 +575,7 @@ def _provider_api_key_select_options(keys: dict[str, str]) -> list[dict[str, str
                 "section": scope,
                 "provider": provider,
                 "label": f"{entry.get('label', '')} ({entry.get('masked', '********')})",
+                "value": str(entry.get("value") or ""),
             }
         )
     return options

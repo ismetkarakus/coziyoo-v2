@@ -16,10 +16,9 @@
     </select>
   </div>
   <div style="margin-bottom:12px;">
-    <label>API Key</label>
-    {% set stt_selected_api_key_id = (profile.stt_config or {}).get('api_key_id', '') %}
-    <select class="input" id="stt-api-key-id" name="stt_config.api_key_id"></select>
-    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
+    <label>Saved API Key</label>
+    <select class="input" id="stt-api-key-id"></select>
+    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun key seçince STT API Key alanı otomatik dolar.</div>
   </div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -90,16 +89,21 @@
       const select = document.getElementById(selectId);
       if (!select) return;
       const providers = this.providersFor(section, provider);
-      const matching = this.options.filter((o) => providers.includes(o.provider));
+      const matching = this.options.filter((o) => o.section === section && providers.includes(o.provider));
       const options = ['<option value="">Manual API key kullan</option>'].concat(
-        matching.map((o) => `<option value="${o.id}">${o.label}</option>`)
+        matching.map((o) => `<option value="${o.id}" data-key="${(o.value || "").replace(/"/g, "&quot;")}">${o.label}</option>`)
       );
       select.innerHTML = options.join("");
       const normalizedSelected = (selectedId || "").trim();
-      if (normalizedSelected && !matching.some((o) => o.id === normalizedSelected)) {
-        select.innerHTML += `<option value="${normalizedSelected}">${normalizedSelected}</option>`;
+      if (normalizedSelected && matching.some((o) => o.id === normalizedSelected)) {
+        select.value = normalizedSelected;
       }
-      select.value = normalizedSelected;
+    },
+    selectedKey(selectId) {
+      const select = document.getElementById(selectId);
+      if (!select) return "";
+      const opt = select.options[select.selectedIndex];
+      return opt ? String(opt.getAttribute("data-key") || "") : "";
     },
   };
 
@@ -161,8 +165,12 @@
         "stt-api-key-id",
         "stt",
         providerKey,
-        document.getElementById("stt-api-key-id")?.value || "",
+        "",
       );
+      const selectedKey = window.dashboardProviderApiKeys.selectedKey("stt-api-key-id");
+      if (selectedKey) {
+        document.getElementById("stt-api-key").value = selectedKey;
+      }
       document.getElementById("stt-base-url").value = p.base_url;
       document.getElementById("stt-endpoint-path").value = p.endpoint_path;
       document.getElementById("stt-models-path").value = p.models_path;
@@ -193,7 +201,6 @@
       const btn = document.getElementById("stt-fetch-models-btn");
       const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
       const apiKey = (document.getElementById("stt-api-key")?.value || "").trim();
-      const apiKeyId = (document.getElementById("stt-api-key-id")?.value || "").trim();
       const modelsPath = (document.getElementById("stt-models-path")?.value || "/v1/models").trim() || "/v1/models";
       const headersRaw = (document.getElementById("stt-custom-headers")?.value || "").trim();
       if (!baseUrl) {
@@ -214,7 +221,7 @@
         const resp = await fetch("/dashboard/models", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseUrl, modelsPath, apiKey, apiKeyId, customHeaders }),
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
         });
         const data = await resp.json();
         if (data.error) {
@@ -240,7 +247,6 @@
     init() {
       const select = document.getElementById("stt-model");
       const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
-      const selectedApiKeyId = document.getElementById("stt-api-key-id")?.value || "{{ stt_selected_api_key_id }}";
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
@@ -253,7 +259,21 @@
           }
         }
       }
-      window.dashboardProviderApiKeys.fillSelect("stt-api-key-id", "stt", (sel?.value || "custom"), selectedApiKeyId);
+      window.dashboardProviderApiKeys.fillSelect("stt-api-key-id", "stt", (sel?.value || "custom"), "");
+      const prefilledApiKey = (document.getElementById("stt-api-key")?.value || "").trim();
+      if (!prefilledApiKey) {
+        const selectedKey = window.dashboardProviderApiKeys.selectedKey("stt-api-key-id");
+        if (selectedKey) {
+          document.getElementById("stt-api-key").value = selectedKey;
+        }
+      }
+      const keySelect = document.getElementById("stt-api-key-id");
+      if (keySelect) {
+        keySelect.addEventListener("change", function () {
+          const selectedKey = window.dashboardProviderApiKeys.selectedKey("stt-api-key-id");
+          document.getElementById("stt-api-key").value = selectedKey || "";
+        });
+      }
       if (baseUrl) {
         setTimeout(() => this.fetch(), 0);
       }
