@@ -626,6 +626,40 @@ def _extract_provider_api_keys_from_tts_config(tts_cfg: dict[str, Any]) -> dict[
     return keys
 
 
+def _slugify(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]+", "-", str(value or "").strip()).strip("-").lower()
+
+
+def _extract_custom_providers(tts_cfg: dict[str, Any]) -> list[dict[str, str]]:
+    raw = tts_cfg.get("customProviders")
+    if not isinstance(raw, list):
+        return []
+    result: list[dict[str, str]] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        provider_type = str(row.get("type") or "").strip().lower()
+        if provider_type not in {"llm", "tts", "stt"}:
+            continue
+        item = {
+            "id": str(row.get("id") or "").strip(),
+            "type": provider_type,
+            "name": str(row.get("name") or "").strip(),
+            "base_url": str(row.get("baseUrl") or "").strip(),
+            "endpoint_path": str(row.get("endpointPath") or "").strip(),
+            "models_path": str(row.get("modelsPath") or "").strip(),
+            "api_key_id": str(row.get("apiKeyId") or "").strip(),
+        }
+        if not item["id"]:
+            candidate = _slugify(f"{provider_type}-{item['name']}")
+            item["id"] = candidate or f"{provider_type}-provider"
+        if not item["name"]:
+            item["name"] = item["id"]
+        result.append(item)
+    result.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
+    return result
+
+
 def _provider_key_scope_and_provider(key_id: str) -> tuple[str, str]:
     parts = str(key_id or "").split(".")
     if len(parts) >= 2:
@@ -1086,6 +1120,160 @@ async def dashboard_api_keys_save(request: Request):
         context={
             "entries": _provider_api_key_entries(keys),
             "provider_options": _provider_api_key_options(),
+            "message": message,
+            "show_add_form": show_add_form,
+        },
+        status_code=200,
+    )
+
+
+@app.get("/dashboard/providers", response_class=HTMLResponse)
+async def dashboard_custom_providers_page(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    providers: list[dict[str, str]] = []
+    provider_api_key_options: list[dict[str, str]] = []
+    message: str | None = None
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = _dict(payload.get("data"))
+        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        providers = _extract_custom_providers(tts_cfg)
+        keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+        provider_api_key_options = _provider_api_key_select_options(keys)
+    elif status != 404:
+        message = extract_error_message(payload, "Failed to load providers")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="providers/index.html",
+        context={
+            "providers": providers,
+            "provider_options": _provider_api_key_options(),
+            "provider_api_key_options": provider_api_key_options,
+            "message": message,
+            "show_add_form": False,
+        },
+    )
+
+
+@app.post("/dashboard/providers", response_class=HTMLResponse)
+async def dashboard_custom_providers_save(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    existing_data: dict[str, Any] = {}
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        existing_data = _dict(payload.get("data"))
+
+    tts_cfg = _dict(existing_data.get("ttsConfig"))
+    providers = _extract_custom_providers(tts_cfg)
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+    by_id = {p["id"]: p for p in providers}
+    action = str(form.get("action") or "add").strip().lower()
+    message = "Saved"
+    show_add_form = False
+
+    if action == "delete":
+        provider_id = str(form.get("provider_id") or "").strip()
+        providers = [p for p in providers if p.get("id") != provider_id]
+        message = "Provider removed"
+    elif action == "update":
+        provider_id = str(form.get("provider_id") or "").strip()
+        current = by_id.get(provider_id)
+        if not current:
+            message = "Provider not found"
+        else:
+            provider_type = str(form.get("provider_type") or current.get("type") or "").strip().lower()
+            provider_name = str(form.get("provider_name") or current.get("name") or "").strip()
+            if provider_type not in {"llm", "tts", "stt"} or not provider_name:
+                message = "Provider type and name are required"
+            else:
+                current.update(
+                    {
+                        "type": provider_type,
+                        "name": provider_name,
+                        "base_url": str(form.get("base_url") or "").strip(),
+                        "endpoint_path": str(form.get("endpoint_path") or "").strip(),
+                        "models_path": str(form.get("models_path") or "").strip(),
+                        "api_key_id": str(form.get("api_key_id") or "").strip(),
+                    }
+                )
+                message = "Provider updated"
+    else:
+        provider_type = str(form.get("provider_type") or "").strip().lower()
+        provider_name = str(form.get("provider_name") or "").strip()
+        if provider_type not in {"llm", "tts", "stt"} or not provider_name:
+            message = "Provider type and name are required"
+            show_add_form = True
+        else:
+            base_id = _slugify(f"{provider_type}-{provider_name}") or f"{provider_type}-provider"
+            provider_id = base_id
+            counter = 2
+            existing_ids = {p["id"] for p in providers}
+            while provider_id in existing_ids:
+                provider_id = f"{base_id}-{counter}"
+                counter += 1
+            providers.append(
+                {
+                    "id": provider_id,
+                    "type": provider_type,
+                    "name": provider_name,
+                    "base_url": str(form.get("base_url") or "").strip(),
+                    "endpoint_path": str(form.get("endpoint_path") or "").strip(),
+                    "models_path": str(form.get("models_path") or "").strip(),
+                    "api_key_id": str(form.get("api_key_id") or "").strip(),
+                }
+            )
+            message = "Provider added"
+
+    providers.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
+    tts_cfg["customProviders"] = [
+        {
+            "id": p["id"],
+            "type": p["type"],
+            "name": p["name"],
+            "baseUrl": p["base_url"],
+            "endpointPath": p["endpoint_path"],
+            "modelsPath": p["models_path"],
+            "apiKeyId": p["api_key_id"],
+        }
+        for p in providers
+    ]
+
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+        json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
+    )
+    if put_status not in {200, 201}:
+        message = extract_error_message(put_payload, "Failed to save providers")
+        show_add_form = True
+
+    return templates.TemplateResponse(
+        request=request,
+        name="providers/index.html",
+        context={
+            "providers": providers,
+            "provider_options": _provider_api_key_options(),
+            "provider_api_key_options": _provider_api_key_select_options(keys),
             "message": message,
             "show_add_form": show_add_form,
         },
