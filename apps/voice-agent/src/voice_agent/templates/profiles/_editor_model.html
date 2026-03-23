@@ -21,8 +21,10 @@
     <div>
       <label>LLM Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
-        <input class="input" name="llm_config.model" id="llm-model" value="{{ (profile.llm_config or {}).get('model','') }}" list="llm-model-list" autocomplete="off" style="flex:1;" />
-        <datalist id="llm-model-list"></datalist>
+        <select class="input" name="llm_config.model" id="llm-model" style="flex:1;">
+          {% set existing_model = (profile.llm_config or {}).get('model','') %}
+          <option value="{{ existing_model }}">{{ existing_model or 'Select model…' }}</option>
+        </select>
         <button type="button" id="llm-fetch-models-btn" class="btn" title="Fetch available models from provider" onclick="llmProviderPreset.fetchModels()">↻</button>
       </div>
       <div id="llm-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
@@ -113,9 +115,15 @@
   }
 
   function populateModelList(models) {
-    const list = document.getElementById("llm-model-list");
-    if (!list) return;
-    list.innerHTML = models.map(m => `<option value="${m}">`).join("");
+    const select = document.getElementById("llm-model");
+    if (!select) return;
+    const current = (select.value || "").trim();
+    const options = ['<option value="">Select model…</option>']
+      .concat(models.map((m) => `<option value="${m}">${m}</option>`));
+    select.innerHTML = options.join("");
+    if (current && models.includes(current)) {
+      select.value = current;
+    }
   }
 
   window.llmProviderPreset = {
