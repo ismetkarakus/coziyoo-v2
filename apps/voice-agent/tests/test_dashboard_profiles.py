@@ -403,6 +403,7 @@ def test_api_keys_page_requires_auth_and_renders(monkeypatch) -> None:
     assert "Added Keys" in response.text
     assert "OpenAI" in response.text
     assert "sk-o...enai" in response.text
+    assert response.text.count('value="openai"') == 1
 
 
 def test_api_keys_save_posts_provider_map(monkeypatch) -> None:

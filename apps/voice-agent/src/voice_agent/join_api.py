@@ -442,7 +442,56 @@ def _provider_api_key_groups(keys: dict[str, str]) -> dict[str, list[dict[str, s
 
 
 def _provider_api_key_options() -> list[dict[str, str]]:
-    return [{"id": key, "section": section, "label": label} for key, section, label in PROVIDER_API_KEY_FIELDS]
+    provider_labels: dict[str, str] = {}
+    for key, _section, label in PROVIDER_API_KEY_FIELDS:
+        _scope, provider = _provider_key_scope_and_provider(key)
+        if provider and provider not in provider_labels:
+            provider_labels[provider] = label
+    ordered_providers = [
+        "openai",
+        "gemini",
+        "anthropic",
+        "kimi",
+        "elevenlabs",
+        "cartesia",
+        "azure",
+        "google",
+        "playht",
+        "deepgram",
+        "assemblyai",
+        "speechmatics",
+        "custom",
+    ]
+    options: list[dict[str, str]] = []
+    for provider in ordered_providers:
+        if provider in provider_labels:
+            options.append({"id": provider, "label": provider_labels[provider]})
+    return options
+
+
+def _canonical_provider_id(provider_id: str) -> str:
+    clean = str(provider_id or "").strip().lower()
+    if not clean:
+        return ""
+    known_base_ids = set(_default_provider_api_keys().keys())
+    if clean in known_base_ids:
+        return clean
+    aliases = {
+        "openai": "llm.openai",
+        "gemini": "llm.gemini",
+        "anthropic": "llm.anthropic",
+        "kimi": "llm.kimi",
+        "elevenlabs": "tts.elevenlabs",
+        "cartesia": "tts.cartesia",
+        "azure": "tts.azure",
+        "google": "tts.google",
+        "playht": "tts.playht",
+        "deepgram": "stt.deepgram",
+        "assemblyai": "stt.assemblyai",
+        "speechmatics": "stt.speechmatics",
+        "custom": "llm.custom",
+    }
+    return aliases.get(clean, clean)
 
 
 def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
@@ -878,19 +927,20 @@ async def dashboard_api_keys_save(request: Request):
         if action not in {"add", "update", "delete"}:
             action = "add"
         known_base_ids = set(_default_provider_api_keys().keys())
+        canonical_provider_id = _canonical_provider_id(provider_id)
         if action == "add":
-            if provider_id not in known_base_ids:
+            if canonical_provider_id not in known_base_ids:
                 message = "Please select a valid provider"
                 show_add_form = True
             elif not provider_key:
                 message = "API key cannot be empty"
                 show_add_form = True
             else:
-                storage_id = provider_id
+                storage_id = canonical_provider_id
                 if api_key_name:
                     slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", api_key_name).strip("-").lower()
                     if slug:
-                        storage_id = f"{provider_id}.{slug}"
+                        storage_id = f"{canonical_provider_id}.{slug}"
                 keys[storage_id] = provider_key
                 message = "API key saved"
         elif action == "update":

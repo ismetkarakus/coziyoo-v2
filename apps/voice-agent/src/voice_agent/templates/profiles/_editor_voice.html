@@ -83,7 +83,7 @@
       const select = document.getElementById(selectId);
       if (!select) return;
       const providers = this.providersFor(section, provider);
-      const matching = this.options.filter((o) => o.section === section && providers.includes(o.provider));
+      const matching = this.options.filter((o) => providers.includes(o.provider));
       const options = ['<option value="">Manual API key kullan</option>'].concat(
         matching.map((o) => `<option value="${o.id}">${o.label}</option>`)
       );
