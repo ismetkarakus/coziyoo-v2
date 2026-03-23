@@ -871,7 +871,24 @@ adminLiveKitRouter.post("/llm/models", async (req, res) => {
 
     const json = await upstream.json() as Record<string, unknown>;
     const dataArr = Array.isArray(json["data"]) ? (json["data"] as Array<{ id?: string }>) : [];
-    const models = dataArr.map((m) => m.id).filter(Boolean) as string[];
+    let models = dataArr.map((m) => m.id).filter(Boolean) as string[];
+
+    // Ollama /api/tags shape: { models: [{ name, model, ... }] }
+    if (models.length === 0 && Array.isArray(json["models"])) {
+      const ollamaArr = json["models"] as Array<Record<string, unknown> | string>;
+      models = ollamaArr
+        .map((m) => {
+          if (typeof m === "string") return m;
+          const name = m?.name;
+          if (typeof name === "string" && name.trim()) return name;
+          const model = m?.model;
+          if (typeof model === "string" && model.trim()) return model;
+          const id = m?.id;
+          if (typeof id === "string" && id.trim()) return id;
+          return "";
+        })
+        .filter(Boolean);
+    }
     return res.json({ data: { models } });
   } catch (err) {
     return res.status(502).json({

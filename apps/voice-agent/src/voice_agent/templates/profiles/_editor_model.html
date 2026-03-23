@@ -9,6 +9,7 @@
       <option value="custom">— Custom —</option>
       <option value="openai">OpenAI</option>
       <option value="gemini">Google Gemini</option>
+      <option value="ollama">Ollama</option>
       <option value="kimi">Kimi K2 (Moonshot AI)</option>
       <option value="claude">Anthropic Claude</option>
     </select>
@@ -60,6 +61,7 @@
 
 <script>
 (function () {
+  const OLLAMA_FALLBACK_BASE_URL = "https://ollama.drascom.uk";
   const PROVIDERS = {
     openai: {
       base_url: "https://api.openai.com",
@@ -75,6 +77,14 @@
       models_path: "/models",
       default_model: "gemini-2.0-flash",
       models: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
+      headers: {}
+    },
+    ollama: {
+      base_url: OLLAMA_FALLBACK_BASE_URL,
+      endpoint: "/v1/chat/completions",
+      models_path: "/api/tags",
+      default_model: "llama3.1:8b",
+      models: ["llama3.1:8b", "qwen2.5:7b", "mistral:7b"],
       headers: {}
     },
     kimi: {
@@ -133,15 +143,20 @@
 
     async fetchModels() {
       const btn = document.getElementById("llm-fetch-models-btn");
-      const baseUrl = document.getElementById("llm-base-url").value.trim();
+      let baseUrl = document.getElementById("llm-base-url").value.trim();
       const apiKey = document.getElementById("llm-api-key").value.trim();
       const headersRaw = document.getElementById("llm-custom-headers").value.trim();
       const providerKey = document.getElementById("llm-provider-select").value;
       const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
 
       if (!baseUrl) {
-        setModelStatus("Set a Base URL first.", true);
-        return;
+        if (providerKey === "ollama") {
+          baseUrl = OLLAMA_FALLBACK_BASE_URL;
+          document.getElementById("llm-base-url").value = baseUrl;
+        } else {
+          setModelStatus("Set a Base URL first.", true);
+          return;
+        }
       }
 
       let customHeaders = {};
@@ -157,12 +172,29 @@
       setModelStatus("Fetching models…");
 
       try {
-        const resp = await fetch("/dashboard/models", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
-        });
-        const data = await resp.json();
+        const requestModels = async (targetBaseUrl) => {
+          const resp = await fetch("/dashboard/models", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ baseUrl: targetBaseUrl, modelsPath, apiKey, customHeaders }),
+          });
+          return await resp.json();
+        };
+
+        let data = await requestModels(baseUrl);
+
+        // Ollama-specific safety net: retry against fallback host once.
+        if (
+          providerKey === "ollama" &&
+          (data.error || !Array.isArray(data.models) || data.models.length === 0) &&
+          baseUrl !== OLLAMA_FALLBACK_BASE_URL
+        ) {
+          data = await requestModels(OLLAMA_FALLBACK_BASE_URL);
+          if (!data.error && Array.isArray(data.models) && data.models.length > 0) {
+            document.getElementById("llm-base-url").value = OLLAMA_FALLBACK_BASE_URL;
+            setModelStatus("Primary host failed, loaded from Ollama fallback.");
+          }
+        }
 
         if (data.error) {
           setModelStatus("Error: " + data.error, true);
@@ -176,7 +208,9 @@
         }
 
         populateModelList(models);
-        setModelStatus(`${models.length} models loaded. Click the field to see suggestions.`);
+        if (!document.getElementById("llm-model-status").textContent.includes("fallback")) {
+          setModelStatus(`${models.length} models loaded. Click the field to see suggestions.`);
+        }
 
         // If current model value not in list, suggest first result
         const modelInput = document.getElementById("llm-model");
