@@ -1,0 +1,36 @@
+<section class="card" style="margin-bottom:10px;">
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Tools</summary>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div><label>N8N Base URL</label><input class="input" name="n8n_config.base_url" value="{{ (profile.n8n_config or {}).get('base_url','') }}" /></div>
+    <div><label>N8N Webhook Path</label><input class="input" name="n8n_config.webhook_path" value="{{ (profile.n8n_config or {}).get('webhook_path','') }}" /></div>
+    <div><label>N8N MCP Webhook Path</label><input class="input" name="n8n_config.mcp_webhook_path" value="{{ (profile.n8n_config or {}).get('mcp_webhook_path','') }}" /></div>
+  </div>
+  <div style="margin-top:10px; display:flex; gap:8px;">
+    <button
+      class="btn"
+      type="button"
+      hx-post="/dashboard/test/n8n"
+      hx-include="closest form"
+      hx-target="#profile-status"
+      hx-swap="innerHTML">Test N8N</button>
+  </div>
+  <div style="margin-top:12px;">
+    <label>Import Config from cURL</label>
+    <textarea
+      class="input"
+      name="import_curl_raw"
+      rows="4"
+      placeholder="Paste full cURL command here"></textarea>
+    <div style="margin-top:8px;">
+      <button
+        class="btn"
+        type="button"
+        hx-post="/dashboard/profiles/{{ profile.id }}/import-curl"
+        hx-include="closest form"
+        hx-target="#profile-editor"
+        hx-swap="innerHTML">Import cURL</button>
+    </div>
+  </div>
+  </details>
+</section>

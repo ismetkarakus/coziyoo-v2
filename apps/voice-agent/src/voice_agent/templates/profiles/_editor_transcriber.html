@@ -1,0 +1,317 @@
+<section class="card" style="margin-bottom:10px;">
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Transcriber</summary>
+
+  <div style="margin-bottom:12px;">
+    <label>STT Provider Preset</label>
+    {% set stt_provider = (profile.stt_config or {}).get('provider', 'custom') %}
+    <select id="stt-provider-select" class="input" name="stt_config.provider" onchange="dashboardSttModels.applyProvider(this.value)">
+      <option value="custom" {% if stt_provider == "custom" %}selected{% endif %}>— Custom —</option>
+      <option value="deepgram" {% if stt_provider == "deepgram" %}selected{% endif %}>Deepgram</option>
+      <option value="google" {% if stt_provider == "google" %}selected{% endif %}>Google</option>
+      <option value="assemblyai" {% if stt_provider == "assemblyai" %}selected{% endif %}>AssemblyAI</option>
+      <option value="azure" {% if stt_provider == "azure" %}selected{% endif %}>Azure</option>
+      <option value="openai" {% if stt_provider == "openai" %}selected{% endif %}>OpenAI</option>
+      <option value="speechmatics" {% if stt_provider == "speechmatics" %}selected{% endif %}>Speechmatics</option>
+      {% for opt in (custom_provider_options.stt or []) %}
+        {% if opt.id and opt.id not in ["custom", "deepgram", "google", "assemblyai", "azure", "openai", "speechmatics"] %}
+      <option value="{{ opt.id }}" {% if stt_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+  <input type="hidden" id="stt-base-url" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" />
+  <input type="hidden" id="stt-endpoint-path" name="stt_config.endpoint_path" value="{{ (profile.stt_config or {}).get('endpoint_path','/v1/audio/transcriptions') }}" />
+  <input type="hidden" id="stt-models-path" name="stt_config.models_path" value="{{ (profile.stt_config or {}).get('models_path','/v1/models') }}" />
+  <input type="hidden" id="stt-api-key-id" name="stt_config.api_key_id" value="{{ (profile.stt_config or {}).get('api_key_id','') }}" />
+  <input type="hidden" id="stt-api-key" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" />
+  <textarea style="display:none;" id="stt-custom-headers" name="stt_config.custom_headers">{{ (profile.stt_config or {}).get('custom_headers', {}) | tojson }}</textarea>
+  <textarea style="display:none;" name="stt_config.custom_body_params">{{ (profile.stt_config or {}).get('custom_body_params', {}) | tojson }}</textarea>
+  <textarea style="display:none;" name="stt_config.custom_query_params">{{ (profile.stt_config or {}).get('custom_query_params', {}) | tojson }}</textarea>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div>
+      <label>Language</label>
+      {% set stt_language = (profile.stt_config or {}).get('language', 'multilingual') %}
+      <select class="input" id="stt-language" name="stt_config.language">
+        <option value="multilingual" {% if stt_language == "multilingual" %}selected{% endif %}>Multilingual</option>
+        <option value="tr" {% if stt_language == "tr" %}selected{% endif %}>Turkish (tr)</option>
+        <option value="en" {% if stt_language == "en" %}selected{% endif %}>English (en)</option>
+      </select>
+    </div>
+    <div>
+      <label>STT Model</label>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select class="input" id="stt-model" name="stt_config.model" style="flex:1;" onchange="window.dashboardProfileEditor && window.dashboardProfileEditor.autoSaveOnModelChange(this)">
+          {% set stt_existing_model = (profile.stt_config or {}).get('model','') %}
+          <option value="{{ stt_existing_model }}">{{ stt_existing_model or 'Select model…' }}</option>
+        </select>
+        <button type="button" id="stt-fetch-models-btn" class="btn" title="Fetch STT models" onclick="dashboardSttModels.fetch()">↻</button>
+      </div>
+      <div id="stt-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
+    </div>
+  </div>
+  <div data-stt-panel style="margin-top:10px;">
+    <input type="hidden" name="stt_audio_base64" data-stt-base64 />
+    <input type="hidden" name="stt_audio_mime" data-stt-mime value="audio/webm" />
+    <input type="hidden" name="stt_audio_filename" data-stt-filename value="recording.webm" />
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn" type="button" onclick="dashboardStt.start(this)">Start Recording</button>
+      <button class="btn" type="button" onclick="dashboardStt.stop(this)">Stop Recording</button>
+      <button class="btn" type="button" onclick="dashboardStt.transcribe(this)">Transcribe Recording</button>
+      <button
+        class="btn"
+        type="button"
+        hx-post="/dashboard/test/stt"
+        hx-include="closest form"
+        hx-target="#profile-status"
+        hx-swap="innerHTML">Test STT Connectivity</button>
+    </div>
+    <div class="muted" data-stt-state style="margin-top:6px;">No recording yet.</div>
+  </div>
+  </details>
+</section>
+<script>
+  const CUSTOM_STT_PROVIDERS = {{ custom_provider_options.stt | default([], true) | tojson }};
+  window.dashboardSttModels = window.dashboardSttModels || {
+    providers: {
+      deepgram: {
+        base_url: "https://api.deepgram.com",
+        endpoint_path: "/v1/listen",
+        models_path: "/v1/models",
+        default_model: "nova-2",
+        language: "multilingual",
+      },
+      google: {
+        base_url: "https://speech.googleapis.com",
+        endpoint_path: "/v1/speech:recognize",
+        models_path: "/v1/models",
+        default_model: "latest_long",
+        language: "multilingual",
+      },
+      assemblyai: {
+        base_url: "https://api.assemblyai.com",
+        endpoint_path: "/v2/transcript",
+        models_path: "/v2/models",
+        default_model: "best",
+        language: "multilingual",
+      },
+      azure: {
+        base_url: "https://YOUR_RESOURCE_NAME.cognitiveservices.azure.com",
+        endpoint_path: "/speechtotext/transcriptions:transcribe?api-version=2024-11-15",
+        models_path: "/speechtotext/models?api-version=2024-11-15",
+        default_model: "latest",
+        language: "multilingual",
+      },
+      openai: {
+        base_url: "https://api.openai.com",
+        endpoint_path: "/v1/audio/transcriptions",
+        models_path: "/v1/models",
+        default_model: "gpt-4o-transcribe",
+        language: "multilingual",
+      },
+      speechmatics: {
+        base_url: "https://asr.api.speechmatics.com",
+        endpoint_path: "/v2/jobs",
+        models_path: "/v1/models",
+        default_model: "latest",
+        language: "multilingual",
+      },
+    },
+    setStatus(msg, isError) {
+      const el = document.getElementById("stt-model-status");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    applyProvider(providerKey) {
+      const p = this.providers[providerKey];
+      if (!p) return;
+      const providerSelect = document.getElementById("stt-provider-select");
+      if (providerSelect) providerSelect.value = providerKey;
+      document.getElementById("stt-base-url").value = p.base_url;
+      document.getElementById("stt-endpoint-path").value = p.endpoint_path;
+      document.getElementById("stt-models-path").value = p.models_path;
+      document.getElementById("stt-language").value = p.language;
+      if (typeof p.api_key_id === "string") document.getElementById("stt-api-key-id").value = p.api_key_id;
+      if (p.custom_headers !== undefined) document.getElementById("stt-custom-headers").value = JSON.stringify(p.custom_headers || {}, null, 2);
+      if (p.custom_body_params !== undefined) {
+        const bodyField = document.querySelector("textarea[name='stt_config.custom_body_params']");
+        if (bodyField) bodyField.value = JSON.stringify(p.custom_body_params || {}, null, 2);
+      }
+      if (p.custom_query_params !== undefined) {
+        const queryField = document.querySelector("textarea[name='stt_config.custom_query_params']");
+        if (queryField) queryField.value = JSON.stringify(p.custom_query_params || {}, null, 2);
+      }
+      const modelSelect = document.getElementById("stt-model");
+      if (modelSelect) {
+        const current = (modelSelect.value || "").trim();
+        if (!current || current === "Select model…") {
+          this.populate([p.default_model]);
+          modelSelect.value = p.default_model;
+        }
+      }
+      this.setStatus("Preset applied. Fetching live models...");
+      setTimeout(() => this.fetch(), 0);
+    },
+    populate(models) {
+      const select = document.getElementById("stt-model");
+      if (!select) return;
+      const current = (select.value || "").trim();
+      const unique = new Set(models);
+      if (current) unique.add(current);
+      select.innerHTML = ['<option value="">Select model…</option>']
+        .concat(Array.from(unique).sort().map((m) => `<option value="${m}">${m}</option>`))
+        .join("");
+      if (current) select.value = current;
+    },
+    async fetch() {
+      const btn = document.getElementById("stt-fetch-models-btn");
+      const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
+      const apiKey = (document.getElementById("stt-api-key")?.value || "").trim();
+      const modelsPath = (document.getElementById("stt-models-path")?.value || "/v1/models").trim() || "/v1/models";
+      const headersRaw = (document.getElementById("stt-custom-headers")?.value || "").trim();
+      if (!baseUrl) {
+        this.setStatus("Set STT Base URL first.", true);
+        return;
+      }
+      let customHeaders = {};
+      try {
+        customHeaders = headersRaw ? JSON.parse(headersRaw) : {};
+      } catch {
+        this.setStatus("custom_headers JSON is invalid.", true);
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "…";
+      this.setStatus("Fetching models...");
+      try {
+        const resp = await fetch("/dashboard/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          this.setStatus("Error: " + data.error, true);
+          return;
+        }
+        const models = (data.models || []).sort();
+        if (!models.length) {
+          this.setStatus("No models returned.", true);
+          return;
+        }
+        this.populate(models);
+        const modelSelect = document.getElementById("stt-model");
+        if (modelSelect && !models.includes((modelSelect.value || "").trim())) modelSelect.value = models[0];
+        this.setStatus(`${models.length} models loaded.`);
+      } catch (err) {
+        this.setStatus("Request failed: " + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻";
+      }
+    },
+    init() {
+      const select = document.getElementById("stt-model");
+      const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
+      if (!select) return;
+      const current = (select.value || "").trim();
+      if (current) this.populate([current]);
+      const sel = document.getElementById("stt-provider-select");
+      if (baseUrl && sel) {
+        for (const [key, p] of Object.entries(this.providers)) {
+          if (baseUrl.startsWith(p.base_url)) {
+            sel.value = key;
+            break;
+          }
+        }
+      }
+      if (baseUrl) {
+        setTimeout(() => this.fetch(), 0);
+      }
+    },
+  };
+  for (const provider of CUSTOM_STT_PROVIDERS) {
+    const id = String(provider?.id || "").trim();
+    if (!id) continue;
+    window.dashboardSttModels.providers[id] = {
+      base_url: String(provider?.base_url || ""),
+      endpoint_path: String(provider?.endpoint_path || "/v1/audio/transcriptions"),
+      models_path: String(provider?.models_path || "/v1/models"),
+      default_model: String(provider?.model || ""),
+      language: String(provider?.language || "multilingual"),
+      api_key_id: String(provider?.api_key_id || ""),
+      custom_headers: (provider?.custom_headers && typeof provider.custom_headers === "object") ? provider.custom_headers : {},
+      custom_body_params: (provider?.custom_body_params && typeof provider.custom_body_params === "object") ? provider.custom_body_params : {},
+      custom_query_params: (provider?.custom_query_params && typeof provider.custom_query_params === "object") ? provider.custom_query_params : {},
+    };
+  }
+  window.dashboardSttModels.init();
+
+  window.dashboardStt = window.dashboardStt || {
+    stream: null,
+    recorder: null,
+    chunks: [],
+    async start(button) {
+      const panel = button.closest("[data-stt-panel]");
+      const stateEl = panel.querySelector("[data-stt-state]");
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.chunks = [];
+        this.recorder = new MediaRecorder(this.stream);
+        this.recorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) this.chunks.push(ev.data);
+        };
+        this.recorder.start();
+        stateEl.textContent = "Recording started...";
+      } catch (err) {
+        stateEl.textContent = "Microphone permission denied or unavailable.";
+      }
+    },
+    stop(button) {
+      const panel = button.closest("[data-stt-panel]");
+      const stateEl = panel.querySelector("[data-stt-state]");
+      if (!this.recorder) {
+        stateEl.textContent = "Start recording first.";
+        return;
+      }
+      this.recorder.onstop = async () => {
+        const blob = new Blob(this.chunks, { type: this.recorder.mimeType || "audio/webm" });
+        const arr = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arr);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        panel.querySelector("[data-stt-base64]").value = btoa(binary);
+        panel.querySelector("[data-stt-mime]").value = blob.type || "audio/webm";
+        panel.querySelector("[data-stt-filename]").value = (blob.type || "audio/webm").includes("ogg")
+          ? "recording.ogg"
+          : "recording.webm";
+        stateEl.textContent = "Recording ready for transcription.";
+      };
+      this.recorder.stop();
+      if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+    },
+    async transcribe(button) {
+      const panel = button.closest("[data-stt-panel]");
+      const form = button.closest("form");
+      const stateEl = panel.querySelector("[data-stt-state]");
+      const base64 = panel.querySelector("[data-stt-base64]").value;
+      if (!base64) {
+        stateEl.textContent = "No recording captured.";
+        return;
+      }
+      stateEl.textContent = "Uploading recording...";
+      const fd = new FormData(form);
+      const response = await fetch("/dashboard/test/stt/transcribe", {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+      });
+      const html = await response.text();
+      const target = document.getElementById("profile-status");
+      if (target) target.innerHTML = html;
+      stateEl.textContent = response.ok ? "Transcription completed." : "Transcription failed.";
+    },
+  };
+</script>

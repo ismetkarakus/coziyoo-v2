@@ -1,0 +1,9 @@
+{
+  "name": "@coziyoo/voice-agent",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"voice-agent is a Python service; run installation/scripts/update_voice_agent_service.sh for deploy/runtime updates\"",
+    "build": "echo \"voice-agent Python service has no Node build step\""
+  }
+}

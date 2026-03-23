@@ -1,18 +1,34 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlencode
 
+import aiohttp
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.templating import Jinja2Templates
 from livekit import api
 from pydantic import BaseModel, Field
 
 from .config.settings import get_settings
+from .curl_parser import parse_curl_command
+from .dashboard_api import api_binary_request as _raw_api_binary_request
+from .dashboard_api import api_request as _raw_api_request
+from .dashboard_auth import (
+    clear_auth_cookies,
+    ensure_access_token,
+    extract_error_message,
+    set_auth_cookies,
+)
+from .dashboard_forms import normalize_profile_payload
 
 logger = logging.getLogger("coziyoo-voice-agent-join")
 settings = get_settings()
@@ -23,6 +39,7 @@ if not settings.ai_server_shared_secret or len(settings.ai_server_shared_secret)
         "Set it in .env or the environment before starting the join API."
     )
 app = FastAPI(title="coziyoo-voice-agent-join")
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 request_log_file = Path(
     os.getenv("VOICE_AGENT_REQUEST_LOG_FILE", "/workspace/.runtime/voice-agent-requests.log")
 )
@@ -30,6 +47,2347 @@ worker_heartbeat_file = Path(
     os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_FILE", "/workspace/.runtime/voice-agent-worker-heartbeat.json")
 )
 worker_heartbeat_stale_seconds = int(os.getenv("VOICE_AGENT_WORKER_HEARTBEAT_STALE_SECONDS", "20"))
+
+
+class InvalidSessionError(Exception):
+    pass
+
+
+def _is_invalid_session_response(status: int, payload: Any) -> bool:
+    if status not in {401, 403}:
+        return False
+    needle = "invalid or expired token"
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or "").strip().lower()
+            code = str(error.get("code") or "").strip().lower()
+            return needle in message or code in {"invalid_token", "expired_token", "token_invalid_or_expired"}
+        return needle in str(payload).lower()
+    if isinstance(payload, str):
+        return needle in payload.lower()
+    return False
+
+
+async def api_request(
+    *,
+    api_base_url: str,
+    method: str,
+    path: str,
+    access_token: str | None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[int, Any]:
+    status, payload = await _raw_api_request(
+        api_base_url=api_base_url,
+        method=method,
+        path=path,
+        access_token=access_token,
+        json_body=json_body,
+    )
+    if _is_invalid_session_response(status, payload):
+        raise InvalidSessionError()
+    return status, payload
+
+
+async def api_binary_request(
+    *,
+    api_base_url: str,
+    method: str,
+    path: str,
+    access_token: str | None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[int, bytes, str]:
+    status, data, content_type = await _raw_api_binary_request(
+        api_base_url=api_base_url,
+        method=method,
+        path=path,
+        access_token=access_token,
+        json_body=json_body,
+    )
+    if status in {401, 403}:
+        text = data.decode("utf-8", errors="ignore")
+        if _is_invalid_session_response(status, text):
+            raise InvalidSessionError()
+    return status, data, content_type
+
+
+@app.exception_handler(InvalidSessionError)
+async def invalid_session_exception_handler(_request: Request, _exc: InvalidSessionError) -> Response:
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
+    clear_auth_cookies(response)
+    return response
+
+
+async def _fetch_profiles(access_token: str) -> tuple[list[dict[str, Any]], str | None]:
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/agent-profiles",
+        access_token=access_token,
+    )
+    if status == 404:
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path="/v1/admin/livekit/agent-settings",
+            access_token=access_token,
+        )
+        if legacy_status != 200 or not isinstance(legacy_payload, dict):
+            return [], "Failed to load profiles"
+        legacy_rows = legacy_payload.get("data")
+        if not isinstance(legacy_rows, list):
+            return [], "Invalid profile list response"
+        mapped: list[dict[str, Any]] = []
+        for row in legacy_rows:
+            if not isinstance(row, dict):
+                continue
+            profile_id = str(row.get("device_id") or "").strip()
+            if not profile_id:
+                continue
+            mapped.append(
+                {
+                    "id": profile_id,
+                    "name": str(row.get("agent_name") or profile_id),
+                    "is_active": bool(row.get("is_active")),
+                }
+            )
+        mapped.sort(key=lambda item: str(item.get("name") or "").lower())
+        return mapped, None
+
+    if status != 200 or not isinstance(payload, dict):
+        return [], extract_error_message(payload, "Failed to load profiles")
+    rows = payload.get("data")
+    if not isinstance(rows, list):
+        return [], "Invalid profile list response"
+    normalized = [row for row in rows if isinstance(row, dict)]
+    normalized.sort(key=lambda item: str(item.get("name") or "").lower())
+    return normalized, None
+
+
+async def _render_sidebar(request: Request, access_token: str, message: str | None = None) -> HTMLResponse:
+    profiles, error_message = await _fetch_profiles(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_sidebar.html",
+        context={"profiles": profiles, "message": message or error_message},
+    )
+
+
+def _format_duration(seconds: Any) -> str:
+    try:
+        total = max(0, int(seconds))
+    except (TypeError, ValueError):
+        return "-"
+    mins, secs = divmod(total, 60)
+    hours, mins = divmod(mins, 60)
+    if hours:
+        return f"{hours}h {mins}m {secs}s"
+    if mins:
+        return f"{mins}m {secs}s"
+    return f"{secs}s"
+
+
+def _format_started_at(value: Any) -> str:
+    if not isinstance(value, str) or not value:
+        return "-"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    return parsed.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _normalize_call_log_rows(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        normalized.append(
+            {
+                "id": str(row.get("id") or ""),
+                "room_name": str(row.get("room_name") or "-"),
+                "profile_id": str(row.get("profile_id") or ""),
+                "profile_name": str(row.get("profile_name") or "Unknown profile"),
+                "started_at": str(row.get("started_at") or ""),
+                "started_at_display": _format_started_at(row.get("started_at")),
+                "ended_at": str(row.get("ended_at") or ""),
+                "duration_seconds": int(row.get("duration_seconds") or 0),
+                "duration_display": _format_duration(row.get("duration_seconds")),
+                "outcome": str(row.get("outcome") or "unknown"),
+            }
+        )
+    return normalized
+
+
+def _normalize_from_filter(value: str | None) -> str | None:
+    if not value:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if "T" in raw:
+        return raw
+    return f"{raw}T00:00:00.000Z"
+
+
+def _normalize_to_filter(value: str | None) -> str | None:
+    if not value:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if "T" in raw:
+        return raw
+    return f"{raw}T23:59:59.999Z"
+
+
+async def _fetch_call_logs(
+    access_token: str,
+    *,
+    profile_id: str | None = None,
+    from_value: str | None = None,
+    to_value: str | None = None,
+) -> tuple[list[dict[str, Any]], str | None]:
+    params: dict[str, str] = {"limit": "200"}
+    if profile_id:
+        params["profileId"] = profile_id
+    normalized_from = _normalize_from_filter(from_value)
+    normalized_to = _normalize_to_filter(to_value)
+    if normalized_from:
+        params["from"] = normalized_from
+    if normalized_to:
+        params["to"] = normalized_to
+    query = urlencode(params)
+    path = f"/v1/admin/agent-call-logs?{query}" if query else "/v1/admin/agent-call-logs"
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=path,
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(payload, dict):
+        return [], extract_error_message(payload, "Failed to load call logs")
+    return _normalize_call_log_rows(payload.get("data")), None
+
+
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def _is_uuid(s: str) -> bool:
+    return bool(_UUID_RE.match(s))
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _extract_auth_header(config: dict[str, Any], api_key: str | None = None) -> str:
+    headers = _dict(config.get("custom_headers"))
+    for key in ("authorization", "Authorization", "AUTHORIZATION"):
+        value = str(headers.get(key) or "").strip()
+        if value:
+            return value
+    clean_api_key = str(api_key or config.get("api_key") or "").strip()
+    return f"Bearer {clean_api_key}" if clean_api_key else ""
+
+
+def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) -> dict[str, Any]:
+    tts_config = _dict(settings_data.get("ttsConfig"))
+    stt_legacy = _dict(tts_config.get("stt"))
+    llm_legacy = _dict(tts_config.get("llm"))
+    n8n_legacy = _dict(tts_config.get("n8n"))
+
+    llm_base_url = str(
+        llm_legacy.get("baseUrl")
+        or llm_legacy.get("ollamaBaseUrl")
+        or settings_data.get("ollamaBaseUrl")
+        or ""
+    )
+    stt_base_url = str(stt_legacy.get("baseUrl") or settings_data.get("sttBaseUrl") or "")
+    tts_base_url = str(tts_config.get("baseUrl") or settings_data.get("ttsBaseUrl") or "")
+
+    return {
+        "id": profile_id,
+        "name": str(settings_data.get("agentName") or settings_data.get("agent_name") or profile_id),
+        "is_active": bool(settings_data.get("isActive") or settings_data.get("is_active")),
+        "speaks_first": bool(settings_data.get("speaksFirst") or settings_data.get("speaks_first")),
+        "system_prompt": str(settings_data.get("systemPrompt") or ""),
+        "greeting_enabled": bool(settings_data.get("greetingEnabled", True)),
+        "greeting_instruction": str(settings_data.get("greetingInstruction") or ""),
+        "voice_language": str(settings_data.get("voiceLanguage") or "tr"),
+        "llm_config": {
+            "provider": str(llm_legacy.get("provider") or "custom"),
+            "base_url": llm_base_url,
+            "api_key": str(llm_legacy.get("apiKey") or ""),
+            "api_key_id": str(llm_legacy.get("apiKeyId") or ""),
+            # Prefer nested llm.model over legacy top-level ollamaModel to avoid stale values.
+            "model": str(llm_legacy.get("model") or settings_data.get("ollamaModel") or ""),
+            "endpoint_path": str(llm_legacy.get("endpointPath") or "/v1/chat/completions"),
+            "custom_headers": _dict(llm_legacy.get("customHeaders")),
+            "custom_body_params": _dict(llm_legacy.get("customBodyParams")),
+        },
+        "stt_config": {
+            "provider": str(stt_legacy.get("provider") or settings_data.get("sttProvider") or "custom"),
+            "base_url": stt_base_url,
+            "api_key": str(stt_legacy.get("apiKey") or ""),
+            "api_key_id": str(stt_legacy.get("apiKeyId") or ""),
+            "model": str(stt_legacy.get("model") or settings_data.get("sttModel") or ""),
+            "models_path": str(stt_legacy.get("modelsPath") or "/v1/models"),
+            "endpoint_path": str(stt_legacy.get("transcribePath") or settings_data.get("sttTranscribePath") or "/v1/audio/transcriptions"),
+            "language": str(stt_legacy.get("language") or ""),
+            "custom_headers": _dict(stt_legacy.get("customHeaders")),
+            "custom_body_params": _dict(stt_legacy.get("customBodyParams")),
+            "custom_query_params": _dict(stt_legacy.get("queryParams")),
+        },
+        "tts_config": {
+            "provider": str(tts_config.get("provider") or "custom"),
+            "language": str(tts_config.get("language") or "multilingual"),
+            "base_url": tts_base_url,
+            "api_key": str(tts_config.get("apiKey") or ""),
+            "api_key_id": str(tts_config.get("apiKeyId") or ""),
+            "model": str(tts_config.get("model") or ""),
+            "models_path": str(tts_config.get("modelsPath") or "/v1/models"),
+            "endpoint_path": str(tts_config.get("path") or "/v1/audio/speech"),
+            "voice_id": str(tts_config.get("voiceId") or ""),
+            "text_field_name": str(tts_config.get("textFieldName") or "input"),
+            "custom_headers": _dict(tts_config.get("customHeaders")),
+            "custom_body_params": _dict(tts_config.get("customBodyParams")),
+            "custom_query_params": _dict(tts_config.get("queryParams")),
+        },
+        "n8n_config": {
+            "base_url": str(n8n_legacy.get("baseUrl") or settings_data.get("n8nBaseUrl") or ""),
+            "webhook_path": str(n8n_legacy.get("webhookPath") or ""),
+            "mcp_webhook_path": str(n8n_legacy.get("mcpWebhookPath") or ""),
+        },
+    }
+
+
+def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    llm_config = _dict(payload.get("llm_config"))
+    stt_config = _dict(payload.get("stt_config"))
+    tts_config = _dict(payload.get("tts_config"))
+    n8n_config = _dict(payload.get("n8n_config"))
+
+    stt_auth = _extract_auth_header(stt_config)
+    tts_auth = _extract_auth_header(tts_config)
+
+    return {
+        "agentName": str(payload.get("name") or "profile"),
+        "voiceLanguage": str(payload.get("voice_language") or "tr"),
+        "systemPrompt": str(payload.get("system_prompt") or ""),
+        "greetingEnabled": bool(payload.get("greeting_enabled", True)),
+        "greetingInstruction": str(payload.get("greeting_instruction") or ""),
+        "ttsEnabled": True,
+        "sttEnabled": True,
+        "sttProvider": str(stt_config.get("provider") or "custom"),
+        "sttBaseUrl": str(stt_config.get("base_url") or ""),
+        "sttTranscribePath": str(stt_config.get("endpoint_path") or "/v1/audio/transcriptions"),
+        "sttModel": str(stt_config.get("model") or ""),
+        "sttQueryParams": _string_map(stt_config.get("custom_query_params")),
+        "sttAuthHeader": stt_auth,
+        "ttsBaseUrl": str(tts_config.get("base_url") or ""),
+        "ttsSynthPath": str(tts_config.get("endpoint_path") or "/v1/audio/speech"),
+        "ttsQueryParams": _string_map(tts_config.get("custom_query_params")),
+        "ttsAuthHeader": tts_auth,
+        "n8nBaseUrl": str(n8n_config.get("base_url") or ""),
+        "ollamaBaseUrl": str(llm_config.get("base_url") or ""),
+        "ollamaModel": str(llm_config.get("model") or ""),
+        "ttsConfig": {
+            "provider": str(tts_config.get("provider") or "custom"),
+            "language": str(tts_config.get("language") or "multilingual"),
+            "baseUrl": str(tts_config.get("base_url") or ""),
+            "model": str(tts_config.get("model") or ""),
+            "modelsPath": str(tts_config.get("models_path") or "/v1/models"),
+            "path": str(tts_config.get("endpoint_path") or "/v1/audio/speech"),
+            "stt": {
+                "provider": str(stt_config.get("provider") or "custom"),
+                "baseUrl": str(stt_config.get("base_url") or ""),
+                "apiKeyId": str(stt_config.get("api_key_id") or ""),
+                "transcribePath": str(stt_config.get("endpoint_path") or "/v1/audio/transcriptions"),
+                "model": str(stt_config.get("model") or ""),
+                "modelsPath": str(stt_config.get("models_path") or "/v1/models"),
+                "language": str(stt_config.get("language") or ""),
+                "queryParams": _dict(stt_config.get("custom_query_params")),
+                "customHeaders": _dict(stt_config.get("custom_headers")),
+                "customBodyParams": _dict(stt_config.get("custom_body_params")),
+            },
+            "llm": {
+                "provider": str(llm_config.get("provider") or "custom"),
+                "baseUrl": str(llm_config.get("base_url") or ""),
+                "apiKey": str(llm_config.get("api_key") or ""),
+                "apiKeyId": str(llm_config.get("api_key_id") or ""),
+                "model": str(llm_config.get("model") or ""),
+                "endpointPath": str(llm_config.get("endpoint_path") or "/v1/chat/completions"),
+                "customHeaders": _dict(llm_config.get("custom_headers")),
+                "customBodyParams": _dict(llm_config.get("custom_body_params")),
+            },
+            "n8n": {
+                "baseUrl": str(n8n_config.get("base_url") or ""),
+                "webhookPath": str(n8n_config.get("webhook_path") or ""),
+                "mcpWebhookPath": str(n8n_config.get("mcp_webhook_path") or ""),
+            },
+            "apiKeyId": str(tts_config.get("api_key_id") or ""),
+        },
+    }
+
+
+def _string_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    mapped: dict[str, str] = {}
+    for key, item in value.items():
+        if isinstance(key, str):
+            mapped[key] = str(item)
+    return mapped
+
+
+def _status_response(
+    request: Request,
+    *,
+    state: str,
+    title: str,
+    message: str,
+    details: str | None = None,
+    transcript: str | None = None,
+    audio_data_uri: str | None = None,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_status.html",
+        context={
+            "state": state,
+            "title": title,
+            "message": message,
+            "details": details,
+            "transcript": transcript,
+            "audio_data_uri": audio_data_uri,
+        },
+    )
+
+
+PROVIDER_API_KEY_FIELDS: list[tuple[str, str, str]] = [
+    ("llm.openai", "LLM", "OpenAI"),
+    ("llm.gemini", "LLM", "Google Gemini"),
+    ("llm.anthropic", "LLM", "Anthropic"),
+    ("llm.kimi", "LLM", "Kimi (Moonshot)"),
+    ("llm.custom", "LLM", "Custom Provider"),
+    ("tts.elevenlabs", "TTS", "ElevenLabs"),
+    ("tts.openai", "TTS", "OpenAI"),
+    ("tts.cartesia", "TTS", "Cartesia"),
+    ("tts.azure", "TTS", "Azure"),
+    ("tts.google", "TTS", "Google"),
+    ("tts.playht", "TTS", "PlayHT"),
+    ("tts.custom", "TTS", "Custom Provider"),
+    ("stt.deepgram", "STT", "Deepgram"),
+    ("stt.google", "STT", "Google"),
+    ("stt.assemblyai", "STT", "AssemblyAI"),
+    ("stt.azure", "STT", "Azure"),
+    ("stt.openai", "STT", "OpenAI"),
+    ("stt.speechmatics", "STT", "Speechmatics"),
+    ("stt.custom", "STT", "Custom Provider"),
+]
+
+
+def _default_provider_api_keys() -> dict[str, str]:
+    return {key: "" for key, _, _ in PROVIDER_API_KEY_FIELDS}
+
+
+def _normalize_provider_api_keys(value: Any) -> dict[str, str]:
+    defaults = _default_provider_api_keys()
+    if not isinstance(value, dict):
+        return defaults
+    merged = dict(defaults)
+    # Preserve known keys and any previously saved custom/unknown provider ids.
+    for key, raw in value.items():
+        if isinstance(key, str):
+            merged[key] = str(raw or "").strip()
+    return merged
+
+
+def _provider_api_key_groups(keys: dict[str, str]) -> dict[str, list[dict[str, str]]]:
+    grouped: dict[str, list[dict[str, str]]] = {"LLM": [], "TTS": [], "STT": []}
+    for key, section, label in PROVIDER_API_KEY_FIELDS:
+        grouped.setdefault(section, []).append({"id": key, "label": label, "value": str(keys.get(key) or "")})
+    return grouped
+
+
+def _provider_api_key_options() -> list[dict[str, str]]:
+    provider_labels: dict[str, str] = {}
+    for key, _section, label in PROVIDER_API_KEY_FIELDS:
+        _scope, provider = _provider_key_scope_and_provider(key)
+        if provider and provider not in provider_labels:
+            provider_labels[provider] = label
+    ordered_providers = [
+        "openai",
+        "gemini",
+        "anthropic",
+        "kimi",
+        "elevenlabs",
+        "cartesia",
+        "azure",
+        "google",
+        "playht",
+        "deepgram",
+        "assemblyai",
+        "speechmatics",
+        "custom",
+    ]
+    options: list[dict[str, str]] = []
+    for provider in ordered_providers:
+        if provider in provider_labels:
+            options.append({"id": provider, "label": provider_labels[provider]})
+    return options
+
+
+def _canonical_provider_id(provider_id: str) -> str:
+    clean = str(provider_id or "").strip().lower()
+    if not clean:
+        return ""
+    known_base_ids = set(_default_provider_api_keys().keys())
+    if clean in known_base_ids:
+        return clean
+    aliases = {
+        "openai": "llm.openai",
+        "gemini": "llm.gemini",
+        "anthropic": "llm.anthropic",
+        "kimi": "llm.kimi",
+        "elevenlabs": "tts.elevenlabs",
+        "cartesia": "tts.cartesia",
+        "azure": "tts.azure",
+        "google": "tts.google",
+        "playht": "tts.playht",
+        "deepgram": "stt.deepgram",
+        "assemblyai": "stt.assemblyai",
+        "speechmatics": "stt.speechmatics",
+        "custom": "llm.custom",
+    }
+    return aliases.get(clean, clean)
+
+
+def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
+    index = {key: (section, label) for key, section, label in PROVIDER_API_KEY_FIELDS}
+    entries: list[dict[str, str]] = []
+    for key, value in keys.items():
+        clean = str(value or "").strip()
+        if not clean:
+            continue
+        if key in index:
+            section, label = index[key]
+        else:
+            # Named key id pattern: <base_provider_id>.<name-slug>
+            matched_base = None
+            for base_key in index.keys():
+                if key.startswith(f"{base_key}."):
+                    matched_base = base_key
+                    break
+            if matched_base:
+                section, base_label = index[matched_base]
+                custom_name = key[len(matched_base) + 1 :].replace("-", " ").strip()
+                if matched_base.endswith(".custom"):
+                    label = custom_name.title() if custom_name else "Custom Provider"
+                else:
+                    label = f"{base_label} ({custom_name.title()})" if custom_name else base_label
+            else:
+                # Heuristic mapping for unknown ids.
+                if key.startswith("llm."):
+                    section = "LLM"
+                elif key.startswith("tts."):
+                    section = "TTS"
+                elif key.startswith("stt."):
+                    section = "STT"
+                else:
+                    section = "Custom"
+                label = key
+        entries.append(
+            {
+                "id": key,
+                "section": section,
+                "label": label,
+                "value": clean,
+                "masked": f"{clean[:4]}...{clean[-4:]}" if len(clean) > 8 else "********",
+            }
+        )
+    entries.sort(key=lambda item: f"{item['section']}::{item['label']}")
+    return entries
+
+
+def _extract_provider_api_keys_from_tts_config(tts_cfg: dict[str, Any]) -> dict[str, str]:
+    # Primary field
+    keys = _normalize_provider_api_keys(tts_cfg.get("providerApiKeys"))
+    if any(v for v in keys.values()):
+        return keys
+    # Backward/legacy aliases
+    aliases = ("provider_keys", "providerKeys", "apiKeys")
+    for alias in aliases:
+        alias_value = tts_cfg.get(alias)
+        alias_keys = _normalize_provider_api_keys(alias_value)
+        if any(v for v in alias_keys.values()):
+            return alias_keys
+    return keys
+
+
+def _slugify(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]+", "-", str(value or "").strip()).strip("-").lower()
+
+
+def _extract_custom_providers(tts_cfg: dict[str, Any]) -> list[dict[str, str]]:
+    raw = tts_cfg.get("customProviders")
+    if not isinstance(raw, list):
+        return []
+    result: list[dict[str, str]] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        provider_type = str(row.get("type") or "").strip().lower()
+        if provider_type not in {"llm", "tts", "stt"}:
+            continue
+        item = {
+            "id": str(row.get("id") or "").strip(),
+            "type": provider_type,
+            "name": str(row.get("name") or "").strip(),
+            "base_url": str(row.get("baseUrl") or "").strip(),
+            "endpoint_path": str(row.get("endpointPath") or "").strip(),
+            "models_path": str(row.get("modelsPath") or "").strip(),
+            "api_key_id": str(row.get("apiKeyId") or "").strip(),
+            "model": str(row.get("model") or "").strip(),
+            "language": str(row.get("language") or "").strip(),
+            "voice_id": str(row.get("voiceId") or "").strip(),
+            "text_field_name": str(row.get("textFieldName") or "").strip(),
+            "custom_headers": _dict(row.get("customHeaders")),
+            "custom_body_params": _dict(row.get("customBodyParams")),
+            "custom_query_params": _dict(row.get("customQueryParams")),
+        }
+        if not item["id"]:
+            candidate = _slugify(f"{provider_type}-{item['name']}")
+            item["id"] = candidate or f"{provider_type}-provider"
+        if not item["name"]:
+            item["name"] = item["id"]
+        result.append(item)
+    result.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
+    return result
+
+
+def _custom_provider_option_groups(tts_cfg: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    for item in _extract_custom_providers(tts_cfg):
+        provider_type = str(item.get("type") or "").strip().lower()
+        if provider_type not in grouped:
+            continue
+        grouped[provider_type].append(
+            {
+                "id": str(item.get("id") or "").strip(),
+                "name": str(item.get("name") or "").strip() or str(item.get("id") or "").strip(),
+                "base_url": str(item.get("base_url") or "").strip(),
+                "endpoint_path": str(item.get("endpoint_path") or "").strip(),
+                "models_path": str(item.get("models_path") or "").strip(),
+                "api_key_id": str(item.get("api_key_id") or "").strip(),
+                "model": str(item.get("model") or "").strip(),
+                "language": str(item.get("language") or "").strip(),
+                "voice_id": str(item.get("voice_id") or "").strip(),
+                "text_field_name": str(item.get("text_field_name") or "").strip(),
+                "custom_headers": _dict(item.get("custom_headers")),
+                "custom_body_params": _dict(item.get("custom_body_params")),
+                "custom_query_params": _dict(item.get("custom_query_params")),
+            }
+        )
+    return grouped
+
+
+def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _json_map(value: Any) -> dict[str, Any]:
+        raw = str(value or "").strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return {}
+        return _dict(parsed)
+
+    base: dict[str, Any] = {
+        "base_url": str((form.get("base_url") if form else None) or (current or {}).get("base_url") or "").strip(),
+        "endpoint_path": str((form.get("endpoint_path") if form else None) or (current or {}).get("endpoint_path") or "").strip(),
+        "models_path": str((form.get("models_path") if form else None) or (current or {}).get("models_path") or "").strip(),
+        "api_key_id": str((form.get("api_key_id") if form else None) or (current or {}).get("api_key_id") or "").strip(),
+    }
+    if provider_type == "llm":
+        base.update(
+            {
+                "model": str((form.get("model") if form else None) or (current or {}).get("model") or "").strip(),
+                "custom_headers": _dict((current or {}).get("custom_headers")),
+                "custom_body_params": _dict((current or {}).get("custom_body_params")),
+            }
+        )
+        base["custom_headers"] = _json_map(form.get("custom_headers")) if form else base["custom_headers"]
+        base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
+    elif provider_type == "tts":
+        base.update(
+            {
+                "model": str((form.get("model") if form else None) or (current or {}).get("model") or "").strip(),
+                "language": str((form.get("language") if form else None) or (current or {}).get("language") or "").strip(),
+                "voice_id": str((form.get("voice_id") if form else None) or (current or {}).get("voice_id") or "").strip(),
+                "text_field_name": str((form.get("text_field_name") if form else None) or (current or {}).get("text_field_name") or "").strip(),
+                "custom_headers": _dict((current or {}).get("custom_headers")),
+                "custom_body_params": _dict((current or {}).get("custom_body_params")),
+            }
+        )
+        base["custom_headers"] = _json_map(form.get("custom_headers")) if form else base["custom_headers"]
+        base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
+    elif provider_type == "stt":
+        base.update(
+            {
+                "model": str((form.get("model") if form else None) or (current or {}).get("model") or "").strip(),
+                "language": str((form.get("language") if form else None) or (current or {}).get("language") or "").strip(),
+                "custom_headers": _dict((current or {}).get("custom_headers")),
+                "custom_body_params": _dict((current or {}).get("custom_body_params")),
+                "custom_query_params": _dict((current or {}).get("custom_query_params")),
+            }
+        )
+        base["custom_headers"] = _json_map(form.get("custom_headers")) if form else base["custom_headers"]
+        base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
+        base["custom_query_params"] = _json_map(form.get("custom_query_params")) if form else base["custom_query_params"]
+    return base
+
+
+async def _strip_custom_provider_snapshot_fields(
+    *,
+    access_token: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    status, settings_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(settings_payload, dict) or not isinstance(settings_payload.get("data"), dict):
+        return payload
+
+    settings_data = _dict(settings_payload.get("data"))
+    tts_cfg = _dict(settings_data.get("ttsConfig"))
+    custom = _extract_custom_providers(tts_cfg)
+    custom_ids_by_type: dict[str, set[str]] = {"llm": set(), "tts": set(), "stt": set()}
+    for item in custom:
+        provider_type = str(item.get("type") or "").strip().lower()
+        provider_id = str(item.get("id") or "").strip()
+        if provider_type in custom_ids_by_type and provider_id:
+            custom_ids_by_type[provider_type].add(provider_id)
+
+    llm_cfg = _dict(payload.get("llm_config"))
+    llm_provider = str(llm_cfg.get("provider") or "").strip()
+    if llm_provider and llm_provider in custom_ids_by_type["llm"]:
+        llm_cfg["base_url"] = ""
+        llm_cfg["endpoint_path"] = "/v1/chat/completions"
+        llm_cfg["model"] = ""
+        llm_cfg["custom_headers"] = {}
+        llm_cfg["custom_body_params"] = {}
+        payload["llm_config"] = llm_cfg
+
+    tts_cfg_payload = _dict(payload.get("tts_config"))
+    tts_provider = str(tts_cfg_payload.get("provider") or "").strip()
+    if tts_provider and tts_provider in custom_ids_by_type["tts"]:
+        tts_cfg_payload["base_url"] = ""
+        tts_cfg_payload["endpoint_path"] = "/v1/audio/speech"
+        tts_cfg_payload["models_path"] = "/v1/models"
+        tts_cfg_payload["model"] = ""
+        tts_cfg_payload["voice_id"] = ""
+        tts_cfg_payload["text_field_name"] = "input"
+        tts_cfg_payload["custom_headers"] = {}
+        tts_cfg_payload["custom_body_params"] = {}
+        payload["tts_config"] = tts_cfg_payload
+
+    stt_cfg_payload = _dict(payload.get("stt_config"))
+    stt_provider = str(stt_cfg_payload.get("provider") or "").strip()
+    if stt_provider and stt_provider in custom_ids_by_type["stt"]:
+        stt_cfg_payload["base_url"] = ""
+        stt_cfg_payload["endpoint_path"] = "/v1/audio/transcriptions"
+        stt_cfg_payload["models_path"] = "/v1/models"
+        stt_cfg_payload["model"] = ""
+        stt_cfg_payload["custom_headers"] = {}
+        stt_cfg_payload["custom_body_params"] = {}
+        stt_cfg_payload["custom_query_params"] = {}
+        payload["stt_config"] = stt_cfg_payload
+
+    return payload
+
+
+def _provider_key_scope_and_provider(key_id: str) -> tuple[str, str]:
+    parts = str(key_id or "").split(".")
+    if len(parts) >= 2:
+        return parts[0].lower(), parts[1].lower()
+    return "", "custom"
+
+
+def _provider_api_key_select_options(keys: dict[str, str]) -> list[dict[str, str]]:
+    options: list[dict[str, str]] = []
+    for entry in _provider_api_key_entries(keys):
+        scope, provider = _provider_key_scope_and_provider(entry.get("id", ""))
+        if scope not in {"llm", "tts", "stt"}:
+            continue
+        options.append(
+            {
+                "id": str(entry.get("id") or ""),
+                "section": scope,
+                "provider": provider,
+                "label": f"{entry.get('label', '')} ({entry.get('masked', '********')})",
+                "value": str(entry.get("value") or ""),
+            }
+        )
+    return options
+
+
+async def _load_provider_api_keys(access_token: str) -> dict[str, str]:
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    keys = _default_provider_api_keys()
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = _dict(payload.get("data"))
+        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        return _extract_provider_api_keys_from_tts_config(tts_cfg)
+    return keys
+
+
+async def _resolve_api_key_from_id(
+    *,
+    access_token: str,
+    explicit_api_key: str,
+    api_key_id: str,
+) -> str:
+    key_id = str(api_key_id or "").strip()
+    if key_id:
+        provider_keys = await _load_provider_api_keys(access_token)
+        resolved = str(provider_keys.get(key_id) or "").strip()
+        if resolved:
+            return resolved
+    return str(explicit_api_key or "").strip()
+
+
+async def _apply_selected_api_keys(
+    *,
+    access_token: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    provider_keys = await _load_provider_api_keys(access_token)
+    for section in ("llm_config", "tts_config", "stt_config"):
+        cfg = _dict(payload.get(section))
+        key_id = str(cfg.get("api_key_id") or "").strip()
+        if key_id:
+            resolved = str(provider_keys.get(key_id) or "").strip()
+            if resolved:
+                cfg["api_key"] = resolved
+        payload[section] = cfg
+    return payload
+
+
+async def _editor_panel_context(
+    *,
+    access_token: str,
+    profile: dict[str, Any] | None,
+    message: str | None,
+) -> dict[str, Any]:
+    provider_keys = _default_provider_api_keys()
+    custom_provider_options: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = _dict(payload.get("data"))
+        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        provider_keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+        custom_provider_options = _custom_provider_option_groups(tts_cfg)
+    return {
+        "profile": profile,
+        "message": message,
+        "provider_api_key_options": _provider_api_key_select_options(provider_keys),
+        "custom_provider_options": custom_provider_options,
+    }
+
+
+async def _direct_llm_test(
+    *,
+    llm_cfg: dict[str, Any],
+    prompt: str,
+) -> tuple[bool, str, str | None]:
+    base_url = str(llm_cfg.get("base_url") or "").strip()
+    endpoint_path = str(llm_cfg.get("endpoint_path") or "/v1/chat/completions").strip() or "/v1/chat/completions"
+    if not base_url:
+        return False, "LLM Base URL is required", None
+
+    url = f"{base_url.rstrip('/')}{endpoint_path}"
+    api_key = str(llm_cfg.get("api_key") or "").strip()
+    custom_headers = _string_map(llm_cfg.get("custom_headers"))
+    custom_body_params = _dict(llm_cfg.get("custom_body_params"))
+    model = str(llm_cfg.get("model") or "").strip()
+
+    headers: dict[str, str] = dict(custom_headers)
+    if api_key and "Authorization" not in headers and "authorization" not in headers and "x-api-key" not in headers:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    body: dict[str, Any] = dict(custom_body_params)
+    if model and "model" not in body:
+        body["model"] = model
+
+    # Anthropic-style endpoint compatibility.
+    if endpoint_path.rstrip("/").endswith("/messages"):
+        if "messages" not in body:
+            body["messages"] = [{"role": "user", "content": prompt}]
+        body.setdefault("max_tokens", 128)
+    else:
+        if "messages" not in body:
+            body["messages"] = [{"role": "user", "content": prompt}]
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=body, headers=headers) as upstream:
+                text = await upstream.text()
+                if upstream.status >= 400:
+                    compact = re.sub(r"\s+", " ", text).strip()[:240]
+                    return False, f"Provider returned {upstream.status}", compact or None
+                return True, f"Provider responded with status {upstream.status}.", None
+    except Exception as err:
+        return False, "LLM request failed", str(err)
+
+
+def _profile_update_payload(profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": str(profile.get("name") or ""),
+        "speaks_first": bool(profile.get("speaks_first")),
+        "system_prompt": str(profile.get("system_prompt") or ""),
+        "greeting_enabled": bool(profile.get("greeting_enabled", True)),
+        "greeting_instruction": str(profile.get("greeting_instruction") or ""),
+        "voice_language": str(profile.get("voice_language") or "tr"),
+        "llm_config": _dict(profile.get("llm_config")),
+        "tts_config": _dict(profile.get("tts_config")),
+        "stt_config": _dict(profile.get("stt_config")),
+        "n8n_config": _dict(profile.get("n8n_config")),
+    }
+
+
+@app.get("/dashboard/login", response_class=HTMLResponse)
+async def dashboard_login_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+
+
+@app.get("/", include_in_schema=False)
+async def root_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/login", status_code=307)
+
+
+@app.get("/login", include_in_schema=False)
+async def login_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/login", status_code=307)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_no_content() -> Response:
+    return Response(status_code=204)
+
+
+@app.post("/dashboard/login")
+async def dashboard_login(request: Request):
+    form = await request.form()
+    email = str(form.get("email") or "").strip().lower()
+    password = str(form.get("password") or "")
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/auth/login",
+        access_token=None,
+        json_body={"email": email, "password": password},
+    )
+
+    if status != 200 or not isinstance(payload, dict):
+        message = extract_error_message(payload, "Login failed")
+        return templates.TemplateResponse(request=request, name="login.html", context={"error": message}, status_code=401)
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    tokens = data.get("tokens") if isinstance(data, dict) else None
+    access = tokens.get("accessToken") if isinstance(tokens, dict) else None
+    refresh = tokens.get("refreshToken") if isinstance(tokens, dict) else None
+    if not isinstance(access, str) or not isinstance(refresh, str):
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"error": "Login response did not include tokens"},
+            status_code=502,
+        )
+
+    response = RedirectResponse(url="/dashboard/assistants", status_code=303)
+    set_auth_cookies(response, access, refresh)
+    return response
+
+
+@app.post("/dashboard/logout")
+async def dashboard_logout(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/auth/logout",
+        access_token=access_token,
+        json_body={},
+    )
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
+    clear_auth_cookies(response)
+    return response
+
+
+@app.get("/dashboard/assistants", response_class=HTMLResponse)
+async def dashboard_assistants(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    profiles, error_message = await _fetch_profiles(access_token)
+    selected_profile_id = str(request.query_params.get("profileId") or "").strip() or ""
+    if not selected_profile_id and profiles:
+        active_profile = next((p for p in profiles if bool(p.get("is_active"))), None)
+        selected_profile_id = str((active_profile or profiles[0]).get("id") or "")
+
+    initial_profile: dict[str, Any] | None = None
+    initial_message: str | None = None
+    if selected_profile_id:
+        if _is_uuid(selected_profile_id):
+            status, payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="GET",
+                path=f"/v1/admin/agent-profiles/{selected_profile_id}",
+                access_token=access_token,
+            )
+            if status == 200 and isinstance(payload, dict):
+                initial_profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
+            elif status != 404:
+                initial_message = extract_error_message(payload, "Failed to load profile")
+        if initial_profile is None:
+            legacy_status, legacy_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="GET",
+                path=f"/v1/admin/livekit/agent-settings/{selected_profile_id}",
+                access_token=access_token,
+            )
+            if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
+                initial_profile = _legacy_settings_to_profile(selected_profile_id, legacy_payload["data"])
+            elif legacy_status != 404 and initial_message is None:
+                initial_message = extract_error_message(legacy_payload, "Failed to load profile")
+
+    provider_keys = await _load_provider_api_keys(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/index.html",
+        context={
+            "profiles": profiles,
+            "message": initial_message or error_message,
+            "selected_profile_id": selected_profile_id,
+            "profile": initial_profile,
+            "provider_api_key_options": _provider_api_key_select_options(provider_keys),
+        },
+    )
+
+
+@app.get("/dashboard/profiles", include_in_schema=False)
+async def dashboard_profiles_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/assistants", status_code=303)
+
+
+async def _render_placeholder_page(
+    request: Request,
+    *,
+    page_title: str,
+    page_description: str,
+) -> HTMLResponse:
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    return templates.TemplateResponse(
+        request=request,
+        name="_placeholder.html",
+        context={
+            "page_title": page_title,
+            "page_description": page_description,
+            "access_token": access_token,
+        },
+    )
+
+
+@app.get("/dashboard/tools", response_class=HTMLResponse)
+async def dashboard_tools_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Tools",
+        page_description="Manage reusable tools, webhooks, and integrations for assistants.",
+    )
+
+
+@app.get("/dashboard/phone-numbers", response_class=HTMLResponse)
+async def dashboard_phone_numbers_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Phone Numbers",
+        page_description="Manage call entry numbers and routing targets for your assistants.",
+    )
+
+
+@app.get("/dashboard/org/api-keys", response_class=HTMLResponse)
+async def dashboard_api_keys_page(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    keys = _default_provider_api_keys()
+    message: str | None = None
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = payload.get("data") or {}
+        tts_cfg = _dict(_dict(settings_data).get("ttsConfig"))
+        keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+    elif status != 404:
+        message = extract_error_message(payload, "Failed to load API keys")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="api_keys/index.html",
+        context={
+            "entries": _provider_api_key_entries(keys),
+            "provider_options": _provider_api_key_options(),
+            "message": message,
+            "show_add_form": False,
+        },
+    )
+
+
+@app.post("/dashboard/org/api-keys", response_class=HTMLResponse)
+async def dashboard_api_keys_save(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+
+    # Load current default settings and merge providerApiKeys without clobbering unrelated config.
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+
+    existing_data: dict[str, Any] = {}
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        existing_data = _dict(payload.get("data"))
+
+    tts_cfg = _dict(existing_data.get("ttsConfig"))
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+    action = str(form.get("action") or "").strip().lower()
+    provider_id = str(form.get("provider_id") or "").strip()
+    provider_key = str(form.get("provider_key") or "").strip()
+    api_key_name = str(form.get("api_key_name") or "").strip()
+    provider_scope = str(form.get("provider_scope") or "").strip().lower()
+    provider_name = str(form.get("provider_name") or "").strip()
+    show_add_form = False
+
+    # Backward compatibility: full-map save via provider_keys.* form fields.
+    posted_bulk = False
+    for key in keys.keys():
+        field = f"provider_keys.{key}"
+        if field in form:
+            keys[key] = str(form.get(field) or "").strip()
+            posted_bulk = True
+
+    message: str
+    if posted_bulk and not action:
+        message = "API keys saved"
+    else:
+        if action not in {"add", "update", "delete"}:
+            action = "add"
+        known_base_ids = set(_default_provider_api_keys().keys())
+        canonical_provider_id = _canonical_provider_id(provider_id)
+        if action == "add":
+            if provider_id == "__new_custom_provider__":
+                if provider_scope not in {"llm", "tts", "stt"}:
+                    message = "Please select provider type"
+                    show_add_form = True
+                    canonical_provider_id = ""
+                elif not provider_name:
+                    message = "Provider name is required"
+                    show_add_form = True
+                    canonical_provider_id = ""
+                else:
+                    canonical_provider_id = f"{provider_scope}.custom"
+                    if not api_key_name:
+                        api_key_name = provider_name
+            if show_add_form:
+                pass
+            elif canonical_provider_id not in known_base_ids:
+                message = "Please select a valid provider"
+                show_add_form = True
+            elif not provider_key:
+                message = "API key cannot be empty"
+                show_add_form = True
+            else:
+                storage_id = canonical_provider_id
+                if api_key_name:
+                    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", api_key_name).strip("-").lower()
+                    if slug:
+                        storage_id = f"{canonical_provider_id}.{slug}"
+                keys[storage_id] = provider_key
+                message = "API key saved"
+        elif action == "update":
+            if provider_id not in keys:
+                message = "Provider key entry not found"
+                show_add_form = True
+            elif not provider_key:
+                message = "API key cannot be empty"
+                show_add_form = True
+            else:
+                keys[provider_id] = provider_key
+                message = "API key saved"
+        elif action == "delete":
+            if provider_id in keys:
+                keys[provider_id] = ""
+            message = "API key removed"
+        else:
+            message = "Unsupported action"
+            show_add_form = True
+
+    tts_cfg = _dict(existing_data.get("ttsConfig"))
+    tts_cfg["providerApiKeys"] = keys
+
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+        json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
+    )
+
+    if put_status not in {200, 201}:
+        message = extract_error_message(put_payload, "Failed to save API keys")
+        show_add_form = True
+    return templates.TemplateResponse(
+        request=request,
+        name="api_keys/index.html",
+        context={
+            "entries": _provider_api_key_entries(keys),
+            "provider_options": _provider_api_key_options(),
+            "message": message,
+            "show_add_form": show_add_form,
+        },
+        status_code=200,
+    )
+
+
+@app.get("/dashboard/providers", response_class=HTMLResponse)
+async def dashboard_custom_providers_page(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    providers: list[dict[str, str]] = []
+    provider_api_key_options: list[dict[str, str]] = []
+    message: str | None = None
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = _dict(payload.get("data"))
+        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        providers = _extract_custom_providers(tts_cfg)
+        keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+        provider_api_key_options = _provider_api_key_select_options(keys)
+    elif status != 404:
+        message = extract_error_message(payload, "Failed to load providers")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="providers/index.html",
+        context={
+            "providers": providers,
+            "provider_options": _provider_api_key_options(),
+            "provider_api_key_options": provider_api_key_options,
+            "message": message,
+            "show_add_form": False,
+        },
+    )
+
+
+@app.post("/dashboard/providers", response_class=HTMLResponse)
+async def dashboard_custom_providers_save(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    existing_data: dict[str, Any] = {}
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        existing_data = _dict(payload.get("data"))
+
+    tts_cfg = _dict(existing_data.get("ttsConfig"))
+    providers = _extract_custom_providers(tts_cfg)
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+    by_id = {p["id"]: p for p in providers}
+    action = str(form.get("action") or "add").strip().lower()
+    message = "Saved"
+    show_add_form = False
+
+    if action == "delete":
+        provider_id = str(form.get("provider_id") or "").strip()
+        providers = [p for p in providers if p.get("id") != provider_id]
+        message = "Provider removed"
+    elif action == "update":
+        provider_id = str(form.get("provider_id") or "").strip()
+        current = by_id.get(provider_id)
+        if not current:
+            message = "Provider not found"
+        else:
+            provider_type = str(form.get("provider_type") or current.get("type") or "").strip().lower()
+            provider_name = str(form.get("provider_name") or current.get("name") or "").strip()
+            if provider_type not in {"llm", "tts", "stt"} or not provider_name:
+                message = "Provider type and name are required"
+            else:
+                cfg = _provider_form_config(provider_type, form, current=current)
+                current.update(
+                    {
+                        "type": provider_type,
+                        "name": provider_name,
+                        **cfg,
+                    }
+                )
+                message = "Provider updated"
+    else:
+        provider_type = str(form.get("provider_type") or "").strip().lower()
+        provider_name = str(form.get("provider_name") or "").strip()
+        if provider_type not in {"llm", "tts", "stt"} or not provider_name:
+            message = "Provider type and name are required"
+            show_add_form = True
+        else:
+            base_id = _slugify(f"{provider_type}-{provider_name}") or f"{provider_type}-provider"
+            provider_id = base_id
+            counter = 2
+            existing_ids = {p["id"] for p in providers}
+            while provider_id in existing_ids:
+                provider_id = f"{base_id}-{counter}"
+                counter += 1
+            cfg = _provider_form_config(provider_type, form)
+            providers.append(
+                {
+                    "id": provider_id,
+                    "type": provider_type,
+                    "name": provider_name,
+                    **cfg,
+                }
+            )
+            message = "Provider added"
+
+    providers.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
+    tts_cfg["customProviders"] = [
+        {
+            "id": p["id"],
+            "type": p["type"],
+            "name": p["name"],
+            "baseUrl": p["base_url"],
+            "endpointPath": p["endpoint_path"],
+            "modelsPath": p["models_path"],
+            "apiKeyId": p["api_key_id"],
+            "model": p.get("model", ""),
+            "language": p.get("language", ""),
+            "voiceId": p.get("voice_id", ""),
+            "textFieldName": p.get("text_field_name", ""),
+            "customHeaders": _dict(p.get("custom_headers")),
+            "customBodyParams": _dict(p.get("custom_body_params")),
+            "customQueryParams": _dict(p.get("custom_query_params")),
+        }
+        for p in providers
+    ]
+
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+        json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
+    )
+    if put_status not in {200, 201}:
+        message = extract_error_message(put_payload, "Failed to save providers")
+        show_add_form = True
+
+    return templates.TemplateResponse(
+        request=request,
+        name="providers/index.html",
+        context={
+            "providers": providers,
+            "provider_options": _provider_api_key_options(),
+            "provider_api_key_options": _provider_api_key_select_options(keys),
+            "message": message,
+            "show_add_form": show_add_form,
+        },
+        status_code=200,
+    )
+
+
+@app.get("/dashboard/org", response_class=HTMLResponse)
+async def dashboard_org_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Organization",
+        page_description="Organization profile, billing, members, and workspace-wide settings.",
+    )
+
+
+@app.get("/dashboard/squads", response_class=HTMLResponse)
+async def dashboard_squads_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Squads",
+        page_description="Create multi-assistant squads and define handoff strategies.",
+    )
+
+
+@app.get("/dashboard/test-suites", response_class=HTMLResponse)
+async def dashboard_test_suites_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Test Suites",
+        page_description="Run scripted tests to validate assistant behavior before production rollout.",
+    )
+
+
+@app.get("/dashboard/evals", response_class=HTMLResponse)
+async def dashboard_evals_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Evals",
+        page_description="Define call success criteria and evaluate assistant quality over time.",
+    )
+
+
+@app.get("/dashboard/library/voice", response_class=HTMLResponse)
+async def dashboard_voice_library_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Voice Library",
+        page_description="Browse and configure available TTS voices for assistant profiles.",
+    )
+
+
+@app.get("/dashboard/call-logs", response_class=HTMLResponse)
+async def dashboard_call_logs(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    profile_id = str(request.query_params.get("profileId") or "").strip() or None
+    from_value = str(request.query_params.get("from") or "").strip() or None
+    to_value = str(request.query_params.get("to") or "").strip() or None
+    call_logs, error_message = await _fetch_call_logs(
+        access_token,
+        profile_id=profile_id,
+        from_value=from_value,
+        to_value=to_value,
+    )
+    profiles, _ = await _fetch_profiles(access_token)
+    return templates.TemplateResponse(
+        request=request,
+        name="call_logs/index.html",
+        context={
+            "call_logs": call_logs,
+            "message": error_message,
+            "profiles": profiles,
+            "filters": {"profileId": profile_id or "", "from": from_value or "", "to": to_value or ""},
+        },
+    )
+
+
+@app.get("/dashboard/call-logs/table", response_class=HTMLResponse)
+async def dashboard_call_logs_table(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    profile_id = str(request.query_params.get("profileId") or "").strip() or None
+    from_value = str(request.query_params.get("from") or "").strip() or None
+    to_value = str(request.query_params.get("to") or "").strip() or None
+    call_logs, error_message = await _fetch_call_logs(
+        access_token,
+        profile_id=profile_id,
+        from_value=from_value,
+        to_value=to_value,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="call_logs/_table.html",
+        context={"call_logs": call_logs, "message": error_message},
+    )
+
+
+@app.post("/dashboard/profiles", response_class=HTMLResponse)
+@app.post("/dashboard/assistants", response_class=HTMLResponse)
+async def dashboard_create_profile(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    form = await request.form()
+    name = str(form.get("name") or "").strip()
+    message = None
+    if not name:
+        message = "Profile name is required"
+    else:
+        status, payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="POST",
+            path="/v1/admin/agent-profiles",
+            access_token=access_token,
+            json_body={"name": name},
+        )
+        if status in {200, 201}:
+            message = None
+        elif status == 404:
+            slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", name.strip()).strip("-").lower()
+            device_id = slug[:64] or "profile"
+            # Ensure unique device_id for legacy endpoint.
+            for i in range(1, 50):
+                check_status, check_payload = await api_request(
+                    api_base_url=settings.api_base_url,
+                    method="GET",
+                    path=f"/v1/admin/livekit/agent-settings/{device_id}",
+                    access_token=access_token,
+                )
+                if check_status == 404:
+                    break
+                device_id = f"{slug[:54]}-{i}" if slug else f"profile-{i}"
+            legacy_status, legacy_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="PUT",
+                path=f"/v1/admin/livekit/agent-settings/{device_id}",
+                access_token=access_token,
+                json_body={"agentName": name},
+            )
+            if legacy_status not in {200, 201}:
+                message = extract_error_message(legacy_payload, "Profile create failed")
+        else:
+            message = extract_error_message(payload, "Profile create failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.post("/dashboard/profiles/{profile_id}/activate", response_class=HTMLResponse)
+async def dashboard_activate_profile(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path=f"/v1/admin/agent-profiles/{profile_id}/activate",
+        access_token=access_token,
+        json_body={},
+    )
+    if status == 404:
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="POST",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}/activate",
+            access_token=access_token,
+            json_body={},
+        )
+        message = None if legacy_status == 200 else extract_error_message(legacy_payload, "Activation failed")
+    else:
+        message = None if status == 200 else extract_error_message(payload, "Activation failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.post("/dashboard/profiles/{profile_id}/duplicate", response_class=HTMLResponse)
+async def dashboard_duplicate_profile(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path=f"/v1/admin/agent-profiles/{profile_id}/duplicate",
+        access_token=access_token,
+        json_body={},
+    )
+    message = None
+    if status in {200, 201}:
+        message = None
+    elif status == 404:
+        # Legacy fallback: duplicate via livekit agent-settings endpoints.
+        get_status, get_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+        )
+        src = get_payload.get("data") if get_status == 200 and isinstance(get_payload, dict) else None
+        if not isinstance(src, dict):
+            message = "Duplicate failed"
+        else:
+            base_name = str(src.get("agentName") or profile_id).strip() or "profile"
+            target_name = f"{base_name} (copy)"
+            slug_base = re.sub(r"[^a-zA-Z0-9_-]+", "-", target_name).strip("-").lower() or "profile-copy"
+            new_id = slug_base[:64]
+            for i in range(1, 50):
+                check_status, _ = await api_request(
+                    api_base_url=settings.api_base_url,
+                    method="GET",
+                    path=f"/v1/admin/livekit/agent-settings/{new_id}",
+                    access_token=access_token,
+                )
+                if check_status == 404:
+                    break
+                new_id = f"{slug_base[:54]}-{i}"
+            create_status, create_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="PUT",
+                path=f"/v1/admin/livekit/agent-settings/{new_id}",
+                access_token=access_token,
+                json_body={
+                    "agentName": target_name,
+                    "voiceLanguage": src.get("voiceLanguage"),
+                    "ttsEnabled": src.get("ttsEnabled"),
+                    "sttEnabled": src.get("sttEnabled"),
+                    "systemPrompt": src.get("systemPrompt"),
+                    "greetingEnabled": src.get("greetingEnabled"),
+                    "greetingInstruction": src.get("greetingInstruction"),
+                },
+            )
+            message = None if create_status in {200, 201} else extract_error_message(create_payload, "Duplicate failed")
+    else:
+        message = extract_error_message(payload, "Duplicate failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.post("/dashboard/profiles/{profile_id}/delete", response_class=HTMLResponse)
+async def dashboard_delete_profile(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="DELETE",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    message = None
+    if status == 404:
+        # Legacy fallback when new agent-profiles routes are not deployed yet.
+        list_status, list_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path="/v1/admin/livekit/agent-settings",
+            access_token=access_token,
+        )
+        if list_status == 200 and isinstance(list_payload, dict) and isinstance(list_payload.get("data"), list):
+            for row in list_payload["data"]:
+                if isinstance(row, dict) and str(row.get("device_id") or "") == profile_id and bool(row.get("is_active")):
+                    message = "Cannot delete the active profile. Activate a different profile first."
+                    return await _render_sidebar(request, access_token, message)
+        legacy_status, legacy_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="DELETE",
+            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            access_token=access_token,
+        )
+        if legacy_status != 200:
+            message = extract_error_message(legacy_payload, "Delete failed")
+    elif status == 409:
+        message = extract_error_message(payload, "CANNOT_DELETE_ACTIVE")
+    elif status != 200:
+        message = extract_error_message(payload, "Delete failed")
+    return await _render_sidebar(request, access_token, message)
+
+
+@app.get("/dashboard/profiles/{profile_id}", response_class=HTMLResponse)
+async def dashboard_profile_editor(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    # Non-UUID IDs are legacy device_id values — skip the modern API entirely.
+    if _is_uuid(profile_id):
+        status, payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/agent-profiles/{profile_id}",
+            access_token=access_token,
+        )
+        if status == 200 and isinstance(payload, dict):
+            profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
+            context = await _editor_panel_context(access_token=access_token, profile=profile, message=None)
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context=context,
+            )
+        if status != 404:
+            message = extract_error_message(payload, "Failed to load profile")
+            context = await _editor_panel_context(access_token=access_token, profile=None, message=message)
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context=context,
+                status_code=200,
+            )
+        # 404 — fall through to legacy
+
+    legacy_status, legacy_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+        access_token=access_token,
+    )
+    if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
+        profile = _legacy_settings_to_profile(profile_id, legacy_payload["data"])
+        context = await _editor_panel_context(access_token=access_token, profile=profile, message=None)
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context=context,
+        )
+    message = extract_error_message(legacy_payload, "Failed to load profile")
+    context = await _editor_panel_context(access_token=access_token, profile=None, message=message)
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_editor_panel.html",
+        context=context,
+        status_code=200,
+    )
+
+
+@app.post("/dashboard/profiles/{profile_id}/save", response_class=HTMLResponse)
+async def dashboard_profile_save(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    is_htmx = request.headers.get("HX-Request", "").lower() == "true"
+    form = await request.form()
+    payload = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    payload = await _apply_selected_api_keys(access_token=access_token, payload=payload)
+    payload = await _strip_custom_provider_snapshot_fields(access_token=access_token, payload=payload)
+
+    use_legacy = not _is_uuid(profile_id)
+
+    if not use_legacy:
+        status, update_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="PUT",
+            path=f"/v1/admin/agent-profiles/{profile_id}",
+            access_token=access_token,
+            json_body=payload,
+        )
+        if status == 404:
+            use_legacy = True
+        elif status == 200:
+            current_status, current_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="GET",
+                path=f"/v1/admin/agent-profiles/{profile_id}",
+                access_token=access_token,
+            )
+            profile = current_payload.get("data") if current_status == 200 and isinstance(current_payload, dict) else None
+            if not is_htmx:
+                return RedirectResponse(url="/dashboard/assistants", status_code=303)
+            context = await _editor_panel_context(access_token=access_token, profile=profile, message="Saved")
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context=context,
+                status_code=200,
+            )
+        else:
+            message = extract_error_message(update_payload, "Profile save failed")
+            if not is_htmx:
+                return RedirectResponse(url="/dashboard/assistants", status_code=303)
+            context = await _editor_panel_context(access_token=access_token, profile=None, message=message)
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context=context,
+                status_code=200,
+            )
+
+    # Legacy path (non-UUID device_id or modern 404)
+    legacy_body = _to_legacy_profile_payload(payload)
+    legacy_status, legacy_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+        access_token=access_token,
+        json_body=legacy_body,
+    )
+    message = None if legacy_status in {200, 201} else extract_error_message(legacy_payload, "Profile save failed")
+    current_status, current_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+        access_token=access_token,
+    )
+    if current_status == 200 and isinstance(current_payload, dict) and isinstance(current_payload.get("data"), dict):
+        profile = _legacy_settings_to_profile(profile_id, current_payload["data"])
+        if not is_htmx:
+            return RedirectResponse(url="/dashboard/assistants", status_code=303)
+        context = await _editor_panel_context(access_token=access_token, profile=profile, message=message or "Saved")
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context=context,
+            status_code=200,
+        )
+    if not is_htmx:
+        return RedirectResponse(url="/dashboard/assistants", status_code=303)
+    context = await _editor_panel_context(access_token=access_token, profile=None, message=message or "Profile save failed")
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_editor_panel.html",
+        context=context,
+        status_code=200,
+    )
+
+
+@app.post("/dashboard/test/llm", response_class=HTMLResponse)
+async def dashboard_test_llm(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    llm_cfg = _dict(normalized.get("llm_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(llm_cfg.get("api_key") or ""),
+        api_key_id=str(llm_cfg.get("api_key_id") or ""),
+    )
+    llm_cfg["api_key"] = resolved_api_key
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/llm",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(llm_cfg.get("base_url") or ""),
+            "endpointPath": str(llm_cfg.get("endpoint_path") or "/v1/chat/completions"),
+            "apiKey": resolved_api_key,
+            "model": str(llm_cfg.get("model") or ""),
+            "customHeaders": _string_map(llm_cfg.get("custom_headers")),
+            "customBodyParams": _string_map(llm_cfg.get("custom_body_params")),
+            "prompt": str(form.get("llm_test_prompt") or "Say hello in one short sentence."),
+        },
+    )
+    fallback_candidate = (
+        status in {404, 405}
+        or (isinstance(payload, str) and "Cannot POST /v1/admin/livekit/test/llm" in payload)
+    )
+    if fallback_candidate:
+        ok, message, details = await _direct_llm_test(
+            llm_cfg=llm_cfg,
+            prompt=str(form.get("llm_test_prompt") or "Say hello in one short sentence."),
+        )
+        if ok:
+            return _status_response(
+                request,
+                state="success",
+                title="LLM test successful",
+                message=message,
+            )
+        return _status_response(
+            request,
+            state="error",
+            title="LLM test failed",
+            message=message,
+            details=details,
+        )
+
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    ok = status == 200 and bool(data.get("ok"))
+    if ok:
+        return _status_response(
+            request,
+            state="success",
+            title="LLM test successful",
+            message=f"Provider responded with status {data.get('status', 200)}.",
+        )
+    details = ""
+    if isinstance(payload, dict):
+        error_obj = payload.get("error")
+        if isinstance(error_obj, dict):
+            details = str(error_obj.get("details") or "")
+        elif isinstance(error_obj, str):
+            details = error_obj
+    elif isinstance(payload, str):
+        details = re.sub(r"\s+", " ", payload).strip()[:240]
+    return _status_response(
+        request,
+        state="error",
+        title="LLM test failed",
+        message=extract_error_message(payload, "LLM request failed"),
+        details=details,
+    )
+
+
+@app.post("/dashboard/models")
+async def dashboard_llm_models(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    body = await request.json()
+    base_url = str(body.get("baseUrl") or "").strip()
+    models_path = str(body.get("modelsPath") or "/v1/models").strip() or "/v1/models"
+    api_key = str(body.get("apiKey") or "").strip()
+    api_key_id = str(body.get("apiKeyId") or "").strip()
+    if not api_key and api_key_id:
+        api_key = await _resolve_api_key_from_id(
+            access_token=access_token,
+            explicit_api_key="",
+            api_key_id=api_key_id,
+        )
+    custom_headers = body.get("customHeaders") or {}
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/llm/models",
+        access_token=access_token,
+        json_body={
+            "baseUrl": base_url,
+            "modelsPath": models_path,
+            "apiKey": api_key,
+            "customHeaders": custom_headers,
+        },
+    )
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        return {"models": payload["data"].get("models", [])}
+
+    # Backward-compat fallback:
+    # If real API has not deployed /v1/admin/livekit/llm/models yet, fetch provider directly.
+    fallback_candidate = (
+        status in {404, 405}
+        or (isinstance(payload, str) and "Cannot POST /v1/admin/livekit/llm/models" in payload)
+    )
+    if fallback_candidate and base_url:
+        url = f"{base_url.rstrip('/')}{models_path}"
+        headers: dict[str, str] = {}
+        if isinstance(custom_headers, dict):
+            headers = {str(k): str(v) for k, v in custom_headers.items()}
+        if api_key and "Authorization" not in headers and "x-api-key" not in headers:
+            headers["Authorization"] = f"Bearer {api_key}"
+        try:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url, headers=headers) as upstream:
+                    raw = await upstream.text()
+                    if upstream.status >= 400:
+                        return {"models": [], "error": f"Provider returned {upstream.status}"}
+                    parsed = json.loads(raw)
+                    models: list[str] = []
+                    if isinstance(parsed, dict):
+                        data_items = parsed.get("data")
+                        if isinstance(data_items, list):
+                            models.extend(
+                                str(item.get("id"))
+                                for item in data_items
+                                if isinstance(item, dict) and item.get("id")
+                            )
+                        ollama_items = parsed.get("models")
+                        if isinstance(ollama_items, list):
+                            for item in ollama_items:
+                                if isinstance(item, str) and item.strip():
+                                    models.append(item.strip())
+                                elif isinstance(item, dict):
+                                    name = item.get("name") or item.get("model") or item.get("id")
+                                    if isinstance(name, str) and name.strip():
+                                        models.append(name.strip())
+                    models = sorted(set(models))
+                    return {"models": models}
+        except Exception as err:
+            return {"models": [], "error": f"Fallback fetch failed: {err}"}
+
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            code = error.get("code")
+            if isinstance(message, str) and message.strip():
+                return {"models": [], "error": message}
+            if isinstance(code, str) and code.strip():
+                return {"models": [], "error": f"{code} (status {status})"}
+    if isinstance(payload, str) and payload.strip():
+        compact = re.sub(r"\s+", " ", payload).strip()
+        return {"models": [], "error": compact[:160]}
+    return {"models": [], "error": f"Failed to fetch models (status {status})"}
+
+
+@app.post("/dashboard/test/tts", response_class=HTMLResponse)
+async def dashboard_test_tts(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    tts_cfg = _dict(normalized.get("tts_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(tts_cfg.get("api_key") or ""),
+        api_key_id=str(tts_cfg.get("api_key_id") or ""),
+    )
+    custom_headers = _string_map(tts_cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and resolved_api_key:
+        auth_header = f"Bearer {resolved_api_key}"
+
+    status, data, content_type = await api_binary_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/tts",
+        access_token=access_token,
+        json_body={
+            "text": str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir."),
+            "baseUrl": str(tts_cfg.get("base_url") or ""),
+            "synthPath": str(tts_cfg.get("endpoint_path") or "/v1/audio/speech"),
+            "textFieldName": str(tts_cfg.get("text_field_name") or "input"),
+            "bodyParams": _string_map(tts_cfg.get("custom_body_params")),
+            "authHeader": auth_header,
+        },
+    )
+
+    if status == 200 and data:
+        ctype = content_type if content_type.startswith("audio/") else "audio/mpeg"
+        encoded = base64.b64encode(data).decode("ascii")
+        return _status_response(
+            request,
+            state="success",
+            title="TTS test successful",
+            message="Audio generated successfully.",
+            audio_data_uri=f"data:{ctype};base64,{encoded}",
+        )
+
+    details = data.decode("utf-8", errors="replace")[:240] if data else ""
+    return _status_response(
+        request,
+        state="error",
+        title="TTS test failed",
+        message=f"Upstream responded with status {status}.",
+        details=details,
+    )
+
+
+@app.post("/dashboard/test/stt", response_class=HTMLResponse)
+async def dashboard_test_stt(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    stt_cfg = _dict(normalized.get("stt_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(stt_cfg.get("api_key") or ""),
+        api_key_id=str(stt_cfg.get("api_key_id") or ""),
+    )
+    custom_headers = _string_map(stt_cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and resolved_api_key:
+        auth_header = resolved_api_key
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/stt",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(stt_cfg.get("base_url") or ""),
+            "transcribePath": str(stt_cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+            "authHeader": auth_header,
+        },
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    if status == 200 and bool(data.get("ok")):
+        return _status_response(
+            request,
+            state="success",
+            title="STT connectivity successful",
+            message=f"Provider reachable at status {data.get('status', 200)}.",
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="STT connectivity failed",
+        message=extract_error_message(payload, "STT endpoint unreachable"),
+        details=str(data.get("reason") or ""),
+    )
+
+
+@app.post("/dashboard/test/stt/transcribe", response_class=HTMLResponse)
+async def dashboard_test_stt_transcribe(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    stt_cfg = _dict(normalized.get("stt_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(stt_cfg.get("api_key") or ""),
+        api_key_id=str(stt_cfg.get("api_key_id") or ""),
+    )
+    custom_headers = _string_map(stt_cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and resolved_api_key:
+        auth_header = resolved_api_key
+
+    audio_base64 = str(form.get("stt_audio_base64") or "").strip()
+    if not audio_base64:
+        return _status_response(
+            request,
+            state="error",
+            title="STT test failed",
+            message="No recording captured. Start and stop recording first.",
+        )
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/stt/transcribe",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(stt_cfg.get("base_url") or ""),
+            "transcribePath": str(stt_cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+            "model": str(stt_cfg.get("model") or ""),
+            "queryParams": _string_map(stt_cfg.get("custom_query_params")),
+            "authHeader": auth_header,
+            "audioBase64": audio_base64,
+            "mimeType": str(form.get("stt_audio_mime") or "audio/webm"),
+            "filename": str(form.get("stt_audio_filename") or "recording.webm"),
+        },
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    ok = status == 200 and bool(data.get("ok"))
+    if ok:
+        transcript = str(data.get("transcript") or "").strip() or "(no text returned)"
+        return _status_response(
+            request,
+            state="success",
+            title="STT transcription successful",
+            message="Audio transcribed successfully.",
+            transcript=transcript,
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="STT transcription failed",
+        message=extract_error_message(payload, "STT transcription failed"),
+        details=str(data.get("reason") or data.get("rawText") or ""),
+    )
+
+
+@app.post("/dashboard/test/n8n", response_class=HTMLResponse)
+async def dashboard_test_n8n(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    n8n_cfg = _dict(normalized.get("n8n_config"))
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/n8n",
+        access_token=access_token,
+        json_body={"baseUrl": str(n8n_cfg.get("base_url") or "")},
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    if status == 200 and bool(data.get("ok")):
+        return _status_response(
+            request,
+            state="success",
+            title="N8N test successful",
+            message="Workflow health checks passed.",
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="N8N test failed",
+        message=extract_error_message(payload, "N8N check failed"),
+        details=str(data.get("reason") or ""),
+    )
+
+
+@app.post("/dashboard/profiles/{profile_id}/import-curl", response_class=HTMLResponse)
+async def dashboard_import_curl(request: Request, profile_id: str):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    raw_curl = str(form.get("import_curl_raw") or "").strip()
+    parsed = parse_curl_command(raw_curl)
+    if not parsed:
+        status, payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="GET",
+            path=f"/v1/admin/agent-profiles/{profile_id}",
+            access_token=access_token,
+        )
+        profile = payload.get("data") if status == 200 and isinstance(payload, dict) else None
+        context = await _editor_panel_context(
+            access_token=access_token,
+            profile=profile if isinstance(profile, dict) else None,
+            message="Could not parse cURL command",
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context=context,
+            status_code=400,
+        )
+
+    get_status, get_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    if get_status != 200 or not isinstance(get_payload, dict):
+        context = await _editor_panel_context(
+            access_token=access_token,
+            profile=None,
+            message=extract_error_message(get_payload, "Failed to load profile"),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context=context,
+            status_code=502,
+        )
+    profile = get_payload.get("data") if isinstance(get_payload.get("data"), dict) else None
+    if not isinstance(profile, dict):
+        context = await _editor_panel_context(
+            access_token=access_token,
+            profile=None,
+            message="Profile response format invalid",
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context=context,
+            status_code=502,
+        )
+
+    update_payload = _profile_update_payload(profile)
+    fingerprint = f"{str(parsed.get('base_url') or '')} {str(parsed.get('endpoint_path') or '')}".lower()
+    section = "llm_config"
+    if "webhook" in fingerprint or "n8n" in fingerprint:
+        section = "n8n_config"
+    elif "transcri" in fingerprint:
+        section = "stt_config"
+    elif "speech" in fingerprint or "audio" in fingerprint:
+        section = "tts_config"
+
+    custom_headers = _string_map(parsed.get("custom_headers"))
+    custom_body_params = _string_map(parsed.get("custom_body_params"))
+
+    if section == "n8n_config":
+        cfg = _dict(update_payload.get("n8n_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["webhook_path"] = str(parsed.get("endpoint_path") or cfg.get("webhook_path") or "")
+        update_payload["n8n_config"] = cfg
+    elif section == "stt_config":
+        cfg = _dict(update_payload.get("stt_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["api_key"] = str(parsed.get("api_key") or cfg.get("api_key") or "")
+        cfg["model"] = str(parsed.get("model") or cfg.get("model") or "")
+        cfg["endpoint_path"] = str(parsed.get("endpoint_path") or cfg.get("endpoint_path") or "/v1/audio/transcriptions")
+        if custom_headers:
+            cfg["custom_headers"] = custom_headers
+        if custom_body_params:
+            cfg["custom_body_params"] = custom_body_params
+        if parsed.get("text_field_name"):
+            cfg["text_field_name"] = str(parsed.get("text_field_name"))
+        update_payload["stt_config"] = cfg
+    elif section == "tts_config":
+        cfg = _dict(update_payload.get("tts_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["api_key"] = str(parsed.get("api_key") or cfg.get("api_key") or "")
+        cfg["model"] = str(parsed.get("model") or cfg.get("model") or "")
+        cfg["endpoint_path"] = str(parsed.get("endpoint_path") or cfg.get("endpoint_path") or "/v1/audio/speech")
+        cfg["voice_id"] = str(parsed.get("voice_id") or cfg.get("voice_id") or "")
+        cfg["text_field_name"] = str(parsed.get("text_field_name") or cfg.get("text_field_name") or "input")
+        if custom_headers:
+            cfg["custom_headers"] = custom_headers
+        if custom_body_params:
+            cfg["custom_body_params"] = custom_body_params
+        update_payload["tts_config"] = cfg
+    else:
+        cfg = _dict(update_payload.get("llm_config"))
+        cfg["base_url"] = str(parsed.get("base_url") or cfg.get("base_url") or "")
+        cfg["api_key"] = str(parsed.get("api_key") or cfg.get("api_key") or "")
+        cfg["model"] = str(parsed.get("model") or cfg.get("model") or "")
+        cfg["endpoint_path"] = str(parsed.get("endpoint_path") or cfg.get("endpoint_path") or "/v1/chat/completions")
+        if custom_headers:
+            cfg["custom_headers"] = custom_headers
+        if custom_body_params:
+            cfg["custom_body_params"] = custom_body_params
+        update_payload["llm_config"] = cfg
+
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+        json_body=update_payload,
+    )
+    message = (
+        f"Imported cURL into {section.replace('_config', '').upper()} settings"
+        if put_status == 200
+        else extract_error_message(put_payload, "cURL import failed")
+    )
+
+    final_status, final_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/agent-profiles/{profile_id}",
+        access_token=access_token,
+    )
+    final_profile = final_payload.get("data") if final_status == 200 and isinstance(final_payload, dict) else profile
+    context = await _editor_panel_context(
+        access_token=access_token,
+        profile=final_profile if isinstance(final_profile, dict) else None,
+        message=message,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="profiles/_editor_panel.html",
+        context=context,
+        status_code=200 if isinstance(final_profile, dict) else 502,
+    )
 
 
 class JoinRequest(BaseModel):

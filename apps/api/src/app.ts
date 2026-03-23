@@ -33,6 +33,9 @@ import { complaintsRouter } from "./routes/complaints.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { chatsRouter } from "./routes/chats.js";
 import { favoritesRouter } from "./routes/favorites.js";
+import { requireAuth } from "./middleware/auth.js";
+import { agentProfilesRouter } from "./routes/admin-agent-profiles.js";
+import { adminAgentCallLogsRouter } from "./routes/admin-agent-call-logs.js";
 
 export const app = express();
 
@@ -362,6 +365,8 @@ app.use("/v1/admin", adminApiTokenRouter);
 app.use("/v1/admin", adminSalesCommissionSettingsRouter);
 app.use("/v1/admin", adminSecurityRouter);
 app.use("/v1/admin/livekit", adminLiveKitRouter);
+app.use("/v1/admin/agent-profiles", requireAuth("admin"), agentProfilesRouter);
+app.use("/v1/admin/agent-call-logs", requireAuth("admin"), adminAgentCallLogsRouter);
 app.use("/v1/foods", foodsRouter);
 app.use("/v1/complaints", complaintsRouter);
 app.use("/v1/notifications", notificationsRouter);

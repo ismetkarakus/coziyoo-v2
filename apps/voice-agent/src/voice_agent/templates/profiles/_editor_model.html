@@ -1,0 +1,282 @@
+<section class="card" style="margin-bottom:10px;">
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Model</summary>
+
+  <!-- Provider preset picker -->
+  <div style="margin-bottom:12px;">
+    <label>Provider Preset</label>
+    {% set llm_provider = (profile.llm_config or {}).get('provider', 'custom') %}
+    <select id="llm-provider-select" class="input" name="llm_config.provider" onchange="llmProviderPreset.apply(this.value)">
+      <option value="custom" {% if llm_provider == "custom" %}selected{% endif %}>— Custom —</option>
+      <option value="openai" {% if llm_provider == "openai" %}selected{% endif %}>OpenAI</option>
+      <option value="gemini" {% if llm_provider == "gemini" %}selected{% endif %}>Google Gemini</option>
+      <option value="ollama" {% if llm_provider == "ollama" %}selected{% endif %}>Ollama</option>
+      <option value="kimi" {% if llm_provider == "kimi" %}selected{% endif %}>Kimi K2 (Moonshot AI)</option>
+      <option value="claude" {% if llm_provider == "claude" %}selected{% endif %}>Anthropic Claude</option>
+      {% for opt in (custom_provider_options.llm or []) %}
+        {% if opt.id and opt.id not in ["custom", "openai", "gemini", "ollama", "kimi", "claude"] %}
+      <option value="{{ opt.id }}" {% if llm_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+  <input type="hidden" id="llm-base-url" name="llm_config.base_url" value="{{ (profile.llm_config or {}).get('base_url','') }}" />
+  <input type="hidden" id="llm-endpoint-path" name="llm_config.endpoint_path" value="{{ (profile.llm_config or {}).get('endpoint_path','/v1/chat/completions') }}" />
+  <input type="hidden" id="llm-api-key-id" name="llm_config.api_key_id" value="{{ (profile.llm_config or {}).get('api_key_id','') }}" />
+  <input type="hidden" id="llm-api-key" name="llm_config.api_key" value="{{ (profile.llm_config or {}).get('api_key','') }}" />
+  <textarea style="display:none;" name="llm_config.custom_headers" id="llm-custom-headers">{{ (profile.llm_config or {}).get('custom_headers', {}) | tojson }}</textarea>
+  <textarea style="display:none;" name="llm_config.custom_body_params">{{ (profile.llm_config or {}).get('custom_body_params', {}) | tojson }}</textarea>
+
+  <div style="display:grid; grid-template-columns:1fr; gap:10px;">
+    <div>
+      <label>LLM Model</label>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select class="input" name="llm_config.model" id="llm-model" style="flex:1;" onchange="window.dashboardProfileEditor && window.dashboardProfileEditor.autoSaveOnModelChange(this)">
+          {% set existing_model = (profile.llm_config or {}).get('model','') %}
+          <option value="{{ existing_model }}">{{ existing_model or 'Select model…' }}</option>
+        </select>
+        <button type="button" id="llm-fetch-models-btn" class="btn" title="Fetch available models from provider" onclick="llmProviderPreset.fetchModels()">↻</button>
+      </div>
+      <div id="llm-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
+    </div>
+  </div>
+  <div style="margin-top:10px;">
+    <label>System Prompt</label>
+    <textarea class="input" name="system_prompt" rows="4">{{ profile.system_prompt or "" }}</textarea>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+    <label><input type="checkbox" name="speaks_first" {% if profile.speaks_first %}checked{% endif %} /> speaks_first</label>
+    <label><input type="checkbox" name="greeting_enabled" {% if profile.greeting_enabled %}checked{% endif %} /> greeting_enabled</label>
+    <div><label>Greeting Instruction</label><input class="input" name="greeting_instruction" value="{{ profile.greeting_instruction or '' }}" /></div>
+    <div><label>Voice Language</label><input class="input" name="voice_language" value="{{ profile.voice_language or 'tr' }}" /></div>
+  </div>
+  <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
+    <div style="flex:1;">
+      <label>LLM Test Prompt</label>
+      <input class="input" name="llm_test_prompt" value="Say hello in one short sentence." />
+    </div>
+    <button
+      class="btn"
+      type="button"
+      hx-post="/dashboard/test/llm"
+      hx-include="closest form"
+      hx-target="#profile-status"
+      hx-swap="innerHTML">Test LLM</button>
+  </div>
+  </details>
+</section>
+
+<script>
+(function () {
+  const CUSTOM_LLM_PROVIDERS = {{ custom_provider_options.llm | default([], true) | tojson }};
+  const OLLAMA_FALLBACK_BASE_URL = "https://ollama.drascom.uk";
+  const PROVIDERS = {
+    openai: {
+      base_url: "https://api.openai.com",
+      endpoint: "/v1/chat/completions",
+      models_path: "/v1/models",
+      default_model: "gpt-4o",
+      models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+      headers: {}
+    },
+    gemini: {
+      base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
+      endpoint: "/v1/chat/completions",
+      models_path: "/models",
+      default_model: "gemini-2.0-flash",
+      models: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
+      headers: {}
+    },
+    ollama: {
+      base_url: OLLAMA_FALLBACK_BASE_URL,
+      endpoint: "/v1/chat/completions",
+      models_path: "/api/tags",
+      default_model: "llama3.1:8b",
+      models: ["llama3.1:8b", "qwen2.5:7b", "mistral:7b"],
+      headers: {}
+    },
+    kimi: {
+      base_url: "https://api.moonshot.cn",
+      endpoint: "/v1/chat/completions",
+      models_path: "/v1/models",
+      default_model: "kimi-k2",
+      models: ["kimi-k2", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+      headers: {}
+    },
+    claude: {
+      base_url: "https://api.anthropic.com",
+      endpoint: "/v1/messages",
+      models_path: "/v1/models",
+      default_model: "claude-sonnet-4-6",
+      models: ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"],
+      headers: { "anthropic-version": "2023-06-01", "x-api-key": "" }
+    }
+  };
+  for (const provider of CUSTOM_LLM_PROVIDERS) {
+    const id = String(provider?.id || "").trim();
+    if (!id) continue;
+    PROVIDERS[id] = {
+      base_url: String(provider?.base_url || ""),
+      endpoint: String(provider?.endpoint_path || "/v1/chat/completions"),
+      models_path: String(provider?.models_path || "/v1/models"),
+      default_model: String(provider?.model || ""),
+      models: String(provider?.model || "").trim() ? [String(provider.model).trim()] : [],
+      headers: (provider?.custom_headers && typeof provider.custom_headers === "object") ? provider.custom_headers : {},
+    };
+  }
+
+  function setModelStatus(msg, isError) {
+    const el = document.getElementById("llm-model-status");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? "#f87171" : "#9ca3af";
+  }
+
+  function populateModelList(models) {
+    const select = document.getElementById("llm-model");
+    if (!select) return;
+    const current = (select.value || "").trim();
+    const unique = new Set(models);
+    if (current) unique.add(current);
+    const options = ['<option value="">Select model…</option>']
+      .concat(Array.from(unique).sort().map((m) => `<option value="${m}">${m}</option>`));
+    select.innerHTML = options.join("");
+    if (current) {
+      select.value = current;
+    }
+  }
+
+  window.llmProviderPreset = {
+    apply(providerKey) {
+      const p = PROVIDERS[providerKey];
+      if (!p) return; // custom — leave fields as-is
+
+      const providerSelect = document.getElementById("llm-provider-select");
+      if (providerSelect) providerSelect.value = providerKey;
+
+      document.getElementById("llm-base-url").value = p.base_url;
+      document.getElementById("llm-endpoint-path").value = p.endpoint;
+
+      const modelInput = document.getElementById("llm-model");
+      const currentModel = modelInput.value.trim();
+      const knownModels = Object.values(PROVIDERS).flatMap(x => x.models);
+      if (!currentModel || knownModels.includes(currentModel)) {
+        modelInput.value = p.default_model;
+      }
+
+      populateModelList(p.models);
+      setModelStatus("Static defaults — click ↻ to fetch live models.");
+
+      if (Object.keys(p.headers).length > 0) {
+        document.getElementById("llm-custom-headers").value = JSON.stringify(p.headers, null, 2);
+      }
+    },
+
+    async fetchModels() {
+      const btn = document.getElementById("llm-fetch-models-btn");
+      let baseUrl = document.getElementById("llm-base-url").value.trim();
+      const apiKey = (document.getElementById("llm-api-key").value || "").trim();
+      const headersRaw = document.getElementById("llm-custom-headers").value.trim();
+      const providerKey = document.getElementById("llm-provider-select").value;
+      const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
+
+      if (!baseUrl) {
+        if (providerKey === "ollama") {
+          baseUrl = OLLAMA_FALLBACK_BASE_URL;
+          document.getElementById("llm-base-url").value = baseUrl;
+        } else {
+          setModelStatus("Set a Base URL first.", true);
+          return;
+        }
+      }
+
+      let customHeaders = {};
+      try {
+        customHeaders = headersRaw ? JSON.parse(headersRaw) : {};
+      } catch {
+        setModelStatus("custom_headers JSON is invalid.", true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "…";
+      setModelStatus("Fetching models…");
+
+      try {
+        const requestModels = async (targetBaseUrl) => {
+          const resp = await fetch("/dashboard/models", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ baseUrl: targetBaseUrl, modelsPath, apiKey, customHeaders }),
+          });
+          return await resp.json();
+        };
+
+        let data = await requestModels(baseUrl);
+
+        // Ollama-specific safety net: retry against fallback host once.
+        if (
+          providerKey === "ollama" &&
+          (data.error || !Array.isArray(data.models) || data.models.length === 0) &&
+          baseUrl !== OLLAMA_FALLBACK_BASE_URL
+        ) {
+          data = await requestModels(OLLAMA_FALLBACK_BASE_URL);
+          if (!data.error && Array.isArray(data.models) && data.models.length > 0) {
+            document.getElementById("llm-base-url").value = OLLAMA_FALLBACK_BASE_URL;
+            setModelStatus("Primary host failed, loaded from Ollama fallback.");
+          }
+        }
+
+        if (data.error) {
+          setModelStatus("Error: " + data.error, true);
+          return;
+        }
+
+        const models = (data.models || []).sort();
+        if (!models.length) {
+          setModelStatus("No models returned.", true);
+          return;
+        }
+
+        populateModelList(models);
+        if (!document.getElementById("llm-model-status").textContent.includes("fallback")) {
+          setModelStatus(`${models.length} models loaded. Click the field to see suggestions.`);
+        }
+
+        // If current model value not in list, suggest first result
+        const modelInput = document.getElementById("llm-model");
+        if (!models.includes(modelInput.value.trim())) {
+          modelInput.value = models[0];
+        }
+      } catch (err) {
+        setModelStatus("Request failed: " + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻";
+      }
+    }
+  };
+
+  // Detect current provider from existing base_url on page load
+  (function detectProvider() {
+    const currentUrl = (document.getElementById("llm-base-url")?.value || "").trim();
+    const sel = document.getElementById("llm-provider-select");
+    let matchedProvider = false;
+    if (currentUrl) {
+      for (const [key, p] of Object.entries(PROVIDERS)) {
+        if (currentUrl.startsWith(p.base_url)) {
+          sel.value = key;
+          populateModelList(p.models);
+          setModelStatus("Static defaults — fetching live models...");
+          matchedProvider = true;
+          break;
+        }
+      }
+    }
+    // Always try live fetch on load when a base URL exists (or when provider fallback can fill it).
+    if (currentUrl || matchedProvider || sel.value === "ollama") {
+      setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
+    }
+  })();
+})();
+</script>

@@ -1,0 +1,250 @@
+<section class="card" style="margin-bottom:10px;">
+  <details open>
+    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Voice</summary>
+
+  <div style="margin-bottom:12px;">
+    <label>TTS Provider Preset</label>
+    {% set tts_provider = (profile.tts_config or {}).get('provider', 'custom') %}
+    <select id="tts-provider-select" class="input" name="tts_config.provider" onchange="dashboardTtsModels.applyProvider(this.value)">
+      <option value="custom" {% if tts_provider == "custom" %}selected{% endif %}>— Custom —</option>
+      <option value="elevenlabs" {% if tts_provider == "elevenlabs" %}selected{% endif %}>ElevenLabs</option>
+      <option value="openai" {% if tts_provider == "openai" %}selected{% endif %}>OpenAI</option>
+      <option value="cartesia" {% if tts_provider == "cartesia" %}selected{% endif %}>Cartesia</option>
+      <option value="azure" {% if tts_provider == "azure" %}selected{% endif %}>Azure</option>
+      <option value="google" {% if tts_provider == "google" %}selected{% endif %}>Google</option>
+      <option value="playht" {% if tts_provider == "playht" %}selected{% endif %}>PlayHT</option>
+      {% for opt in (custom_provider_options.tts or []) %}
+        {% if opt.id and opt.id not in ["custom", "elevenlabs", "openai", "cartesia", "azure", "google", "playht"] %}
+      <option value="{{ opt.id }}" {% if tts_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+  <input type="hidden" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" />
+  <input type="hidden" id="tts-endpoint-path" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" />
+  <input type="hidden" id="tts-models-path" name="tts_config.models_path" value="{{ (profile.tts_config or {}).get('models_path','/v1/models') }}" />
+  <input type="hidden" id="tts-text-field-name" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" />
+  <input type="hidden" id="tts-api-key-id" name="tts_config.api_key_id" value="{{ (profile.tts_config or {}).get('api_key_id','') }}" />
+  <input type="hidden" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" />
+  <textarea style="display:none;" id="tts-custom-headers" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea>
+  <textarea style="display:none;" name="tts_config.custom_body_params">{{ (profile.tts_config or {}).get('custom_body_params', {}) | tojson }}</textarea>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div>
+      <label>Language</label>
+      {% set tts_language = (profile.tts_config or {}).get('language', 'multilingual') %}
+      <select class="input" id="tts-language" name="tts_config.language">
+        <option value="multilingual" {% if tts_language == "multilingual" %}selected{% endif %}>Multilingual</option>
+        <option value="tr" {% if tts_language == "tr" %}selected{% endif %}>Turkish (tr)</option>
+        <option value="en" {% if tts_language == "en" %}selected{% endif %}>English (en)</option>
+      </select>
+    </div>
+    <div>
+      <label>TTS Model</label>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select class="input" id="tts-model" name="tts_config.model" style="flex:1;" onchange="window.dashboardProfileEditor && window.dashboardProfileEditor.autoSaveOnModelChange(this)">
+          {% set tts_existing_model = (profile.tts_config or {}).get('model','') %}
+          <option value="{{ tts_existing_model }}">{{ tts_existing_model or 'Select model…' }}</option>
+        </select>
+        <button type="button" id="tts-fetch-models-btn" class="btn" title="Fetch TTS models" onclick="dashboardTtsModels.fetch()">↻</button>
+      </div>
+      <div id="tts-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
+    </div>
+    <div><label>Voice ID</label><input class="input" name="tts_config.voice_id" value="{{ (profile.tts_config or {}).get('voice_id','') }}" /></div>
+  </div>
+  <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
+    <div style="flex:1;">
+      <label>TTS Test Text</label>
+      <input class="input" name="tts_test_text" value="Merhaba, bu bir test mesajidir." />
+    </div>
+    <button
+      class="btn"
+      type="button"
+      hx-post="/dashboard/test/tts"
+      hx-include="closest form"
+      hx-target="#profile-status"
+      hx-swap="innerHTML">Test TTS</button>
+  </div>
+  </details>
+</section>
+<script>
+  const CUSTOM_TTS_PROVIDERS = {{ custom_provider_options.tts | default([], true) | tojson }};
+  window.dashboardTtsModels = window.dashboardTtsModels || {
+    providers: {
+      elevenlabs: {
+        base_url: "https://api.elevenlabs.io",
+        endpoint_path: "/v1/text-to-speech",
+        models_path: "/v1/models",
+        default_model: "eleven_multilingual_v2",
+        text_field_name: "text",
+        language: "multilingual",
+      },
+      openai: {
+        base_url: "https://api.openai.com",
+        endpoint_path: "/v1/audio/speech",
+        models_path: "/v1/models",
+        default_model: "gpt-4o-mini-tts",
+        text_field_name: "input",
+        language: "multilingual",
+      },
+      cartesia: {
+        base_url: "https://api.cartesia.ai",
+        endpoint_path: "/tts/bytes",
+        models_path: "/models",
+        default_model: "sonic-2",
+        text_field_name: "transcript",
+        language: "multilingual",
+      },
+      azure: {
+        base_url: "https://YOUR_RESOURCE_NAME.openai.azure.com",
+        endpoint_path: "/openai/deployments/YOUR_DEPLOYMENT/audio/speech?api-version=2024-02-15-preview",
+        models_path: "/openai/models?api-version=2024-02-15-preview",
+        default_model: "gpt-4o-mini-tts",
+        text_field_name: "input",
+        language: "multilingual",
+      },
+      google: {
+        base_url: "https://texttospeech.googleapis.com",
+        endpoint_path: "/v1/text:synthesize",
+        models_path: "/v1/models",
+        default_model: "gemini-2.5-flash-preview-tts",
+        text_field_name: "input",
+        language: "multilingual",
+      },
+      playht: {
+        base_url: "https://api.play.ht",
+        endpoint_path: "/api/v2/tts/stream",
+        models_path: "/api/v2/models",
+        default_model: "Play3.0-mini",
+        text_field_name: "text",
+        language: "multilingual",
+      },
+    },
+    setStatus(msg, isError) {
+      const el = document.getElementById("tts-model-status");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    applyProvider(providerKey) {
+      const p = this.providers[providerKey];
+      if (!p) return;
+      const providerSelect = document.getElementById("tts-provider-select");
+      if (providerSelect) providerSelect.value = providerKey;
+      document.getElementById("tts-base-url").value = p.base_url;
+      document.getElementById("tts-endpoint-path").value = p.endpoint_path;
+      document.getElementById("tts-models-path").value = p.models_path;
+      document.getElementById("tts-text-field-name").value = p.text_field_name;
+      document.getElementById("tts-language").value = p.language;
+      if (typeof p.api_key_id === "string") document.getElementById("tts-api-key-id").value = p.api_key_id;
+      if (p.custom_headers !== undefined) document.getElementById("tts-custom-headers").value = JSON.stringify(p.custom_headers || {}, null, 2);
+      if (p.custom_body_params !== undefined) {
+        const bodyField = document.querySelector("textarea[name='tts_config.custom_body_params']");
+        if (bodyField) bodyField.value = JSON.stringify(p.custom_body_params || {}, null, 2);
+      }
+      const modelSelect = document.getElementById("tts-model");
+      if (modelSelect) {
+        const current = (modelSelect.value || "").trim();
+        if (!current || current === "Select model…") {
+          this.populate([p.default_model]);
+          modelSelect.value = p.default_model;
+        }
+      }
+      this.setStatus("Preset applied. Fetching live models...");
+      setTimeout(() => this.fetch(), 0);
+    },
+    populate(models) {
+      const select = document.getElementById("tts-model");
+      if (!select) return;
+      const current = (select.value || "").trim();
+      const unique = new Set(models);
+      if (current) unique.add(current);
+      select.innerHTML = ['<option value="">Select model…</option>']
+        .concat(Array.from(unique).sort().map((m) => `<option value="${m}">${m}</option>`))
+        .join("");
+      if (current) select.value = current;
+    },
+    async fetch() {
+      const btn = document.getElementById("tts-fetch-models-btn");
+      const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
+      const apiKey = (document.getElementById("tts-api-key")?.value || "").trim();
+      const modelsPath = (document.getElementById("tts-models-path")?.value || "/v1/models").trim() || "/v1/models";
+      const headersRaw = (document.getElementById("tts-custom-headers")?.value || "").trim();
+      if (!baseUrl) {
+        this.setStatus("Set TTS Base URL first.", true);
+        return;
+      }
+      let customHeaders = {};
+      try {
+        customHeaders = headersRaw ? JSON.parse(headersRaw) : {};
+      } catch {
+        this.setStatus("custom_headers JSON is invalid.", true);
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "…";
+      this.setStatus("Fetching models...");
+      try {
+        const resp = await fetch("/dashboard/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          this.setStatus("Error: " + data.error, true);
+          return;
+        }
+        const models = (data.models || []).sort();
+        if (!models.length) {
+          this.setStatus("No models returned.", true);
+          return;
+        }
+        this.populate(models);
+        const modelSelect = document.getElementById("tts-model");
+        if (modelSelect && !models.includes((modelSelect.value || "").trim())) modelSelect.value = models[0];
+        this.setStatus(`${models.length} models loaded.`);
+      } catch (err) {
+        this.setStatus("Request failed: " + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻";
+      }
+    },
+    init() {
+      const select = document.getElementById("tts-model");
+      const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
+      if (!select) return;
+      const current = (select.value || "").trim();
+      if (current) this.populate([current]);
+      const sel = document.getElementById("tts-provider-select");
+      if (baseUrl && sel) {
+        for (const [key, p] of Object.entries(this.providers)) {
+          if (baseUrl.startsWith(p.base_url)) {
+            sel.value = key;
+            break;
+          }
+        }
+      }
+      if (baseUrl) {
+        setTimeout(() => this.fetch(), 0);
+      }
+    },
+  };
+  for (const provider of CUSTOM_TTS_PROVIDERS) {
+    const id = String(provider?.id || "").trim();
+    if (!id) continue;
+    window.dashboardTtsModels.providers[id] = {
+      base_url: String(provider?.base_url || ""),
+      endpoint_path: String(provider?.endpoint_path || "/v1/audio/speech"),
+      models_path: String(provider?.models_path || "/v1/models"),
+      default_model: String(provider?.model || ""),
+      text_field_name: String(provider?.text_field_name || "input"),
+      language: String(provider?.language || "multilingual"),
+      api_key_id: String(provider?.api_key_id || ""),
+      custom_headers: (provider?.custom_headers && typeof provider.custom_headers === "object") ? provider.custom_headers : {},
+      custom_body_params: (provider?.custom_body_params && typeof provider.custom_body_params === "object") ? provider.custom_body_params : {},
+    };
+  }
+  window.dashboardTtsModels.init();
+</script>

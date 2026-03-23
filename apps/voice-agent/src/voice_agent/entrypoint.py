@@ -35,6 +35,14 @@ from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS, APIConnectOptions
 from livekit.plugins import silero, turn_detector
 
 from .config.settings import get_settings
+from .providers import (
+    build_llm as _adapter_build_llm,
+    build_stt as _adapter_build_stt,
+    build_tts as _adapter_build_tts,
+    parse_llm_config,
+    parse_stt_config,
+    parse_tts_config,
+)
 
 logger = logging.getLogger("coziyoo-voice-agent")
 llm_request_logger = logging.getLogger("coziyoo-voice-agent.requests.llm")
@@ -877,22 +885,13 @@ def _normalize_base_url(value: str) -> str:
 
 def _build_stt(providers: dict, language: str):
     """Build an STT instance from provider config."""
-    stt_cfg = providers.get("stt", {})
-    base_url = _normalize_base_url(str(stt_cfg.get("baseUrl") or ""))
+    stt_config = parse_stt_config(providers)
+    stt_config.language = language
+    stt_config.base_url = _normalize_base_url(stt_config.base_url)
 
-    if base_url:
-        from .providers.http_stt import HttpSTT
-
-        logger.info("Using HTTP STT: %s", base_url)
-        return HttpSTT(
-            base_url=base_url,
-            transcribe_path=stt_cfg.get("transcribePath", "/v1/audio/transcriptions"),
-            model=stt_cfg.get("model", "whisper-1"),
-            language=language,
-            response_format=stt_cfg.get("responseFormat", "verbose_json"),
-            auth_header=stt_cfg.get("authHeader"),
-            query_params=stt_cfg.get("queryParams") or None,
-        )
+    if stt_config.base_url:
+        logger.info("Using STT adapter: %s", stt_config.base_url)
+        return _adapter_build_stt(stt_config)
 
     # Fallback: try livekit-plugins-openai with env-configured Whisper
     try:
@@ -919,7 +918,6 @@ def _build_stt(providers: dict, language: str):
 def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
     """Build an LLM instance from provider config."""
     runtime_ctx = runtime_ctx or {}
-    llm_cfg = providers.get("llm", {})
     n8n_cfg_raw = providers.get("n8n", {})
     n8n_cfg = n8n_cfg_raw if isinstance(n8n_cfg_raw, dict) else {}
     workflow_id = str(
@@ -956,73 +954,47 @@ def _build_llm(providers: dict, runtime_ctx: dict[str, str] | None = None):
         return n8n_llm
 
     logger.warning("N8N LLM not configured; falling back to OpenAI-compatible LLM provider")
-    model = llm_cfg.get("model", os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b"))
-    base_url = _normalize_base_url(str(llm_cfg.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")))
-    auth_header = llm_cfg.get("authHeader") or None
+    llm_config = parse_llm_config(providers)
 
-    # Extract API key from auth header (strip "Bearer " prefix if present)
-    api_key = "ollama"
-    if auth_header:
-        api_key = auth_header.removeprefix("Bearer ").strip() or "ollama"
+    if not llm_config.base_url:
+        env_base = _normalize_base_url(os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+        llm_config.base_url = f"{env_base.rstrip('/')}/v1" if env_base else ""
+    elif not llm_config.base_url.rstrip("/").endswith("/v1"):
+        llm_config.base_url = f"{llm_config.base_url.rstrip('/')}/v1"
 
-    if not base_url:
+    if not llm_config.model:
+        llm_config.model = os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b")
+
+    if not llm_config.api_key:
+        llm_config.api_key = "ollama"
+
+    if not llm_config.base_url:
         raise RuntimeError(
             "No LLM base URL configured. Set llm.baseUrl in admin agent settings "
             "or set OLLAMA_BASE_URL."
         )
 
-    # Ollama exposes an OpenAI-compatible API at /v1
-    openai_base = f"{base_url.rstrip('/')}/v1"
-
-    try:
-        from livekit.plugins.openai import LLM
-
-        logger.info("Using OpenAI-compatible LLM (Ollama): %s model=%s", openai_base, model)
-        llm = LLM(
-            model=model,
-            base_url=openai_base,
-            api_key=api_key,
-        )
-        return LoggingLLM(inner=llm, model=str(model), base_url=openai_base)
-    except ImportError:
-        raise RuntimeError(
-            "livekit-plugins-openai is required for LLM support. "
-            "Install it: pip install livekit-plugins-openai"
-        )
+    llm = _adapter_build_llm(llm_config)
+    logger.info("Using OpenAI-compatible LLM: %s model=%s", llm_config.base_url, llm_config.model)
+    return LoggingLLM(inner=llm, model=str(llm_config.model), base_url=llm_config.base_url)
 
 
 def _build_tts(providers: dict, language: str):
     """Build a TTS instance from provider config."""
-    tts_cfg = providers.get("tts", {})
-    base_url = _normalize_base_url(str(tts_cfg.get("baseUrl") or ""))
-    engine = tts_cfg.get("engine", "f5-tts")
+    tts_config = parse_tts_config(providers)
+    tts_config.language = language
+    tts_config.base_url = _normalize_base_url(tts_config.base_url)
 
-    if base_url:
-        from .providers.http_tts import HttpTTS
-
-        logger.info("Using HTTP TTS (%s): %s", engine, base_url)
-        return HttpTTS(
-            base_url=base_url,
-            synth_path=tts_cfg.get("synthPath", "/tts"),
-            auth_header=tts_cfg.get("authHeader"),
-            engine=engine,
-            language=language,
-            text_field_name=tts_cfg.get("textFieldName", "text"),
-            body_params=tts_cfg.get("bodyParams") or None,
-            query_params=tts_cfg.get("queryParams") or None,
-        )
+    if tts_config.base_url:
+        logger.info("Using TTS adapter (%s): %s", tts_config.engine, tts_config.base_url)
+        return _adapter_build_tts(tts_config)
 
     # Fallback: try OpenAI TTS plugin with env TTS_BASE_URL
     tts_env_url = _normalize_base_url(os.getenv("TTS_BASE_URL", ""))
     if tts_env_url:
-        from .providers.http_tts import HttpTTS
-
+        tts_config.base_url = tts_env_url
         logger.info("Using HTTP TTS from env TTS_BASE_URL: %s", tts_env_url)
-        return HttpTTS(
-            base_url=tts_env_url,
-            engine=engine,
-            language=language,
-        )
+        return _adapter_build_tts(tts_config)
 
     raise RuntimeError(
         "No TTS provider configured. Set tts.baseUrl in admin agent settings "
