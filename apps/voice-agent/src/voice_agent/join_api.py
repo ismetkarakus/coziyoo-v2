@@ -449,22 +449,29 @@ def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
         if key in index:
             section, label = index[key]
         else:
-            # Heuristic mapping for unknown/custom ids.
-            if key.startswith("llm."):
-                section = "LLM"
-            elif key.startswith("tts."):
-                section = "TTS"
-            elif key.startswith("stt."):
-                section = "STT"
+            # Named key id pattern: <base_provider_id>.<name-slug>
+            matched_base = None
+            for base_key in index.keys():
+                if key.startswith(f"{base_key}."):
+                    matched_base = base_key
+                    break
+            if matched_base:
+                section, base_label = index[matched_base]
+                custom_name = key[len(matched_base) + 1 :].replace("-", " ").strip()
+                if matched_base.endswith(".custom"):
+                    label = custom_name.title() if custom_name else "Custom Provider"
+                else:
+                    label = f"{base_label} ({custom_name.title()})" if custom_name else base_label
             else:
-                section = "Custom"
-            # Pretty label for custom provider ids like llm.custom.my-provider
-            custom_prefixes = ("llm.custom.", "tts.custom.", "stt.custom.")
-            matched = next((p for p in custom_prefixes if key.startswith(p)), None)
-            if matched:
-                custom_name = key[len(matched) :].replace("-", " ").strip()
-                label = custom_name.title() if custom_name else "Custom Provider"
-            else:
+                # Heuristic mapping for unknown ids.
+                if key.startswith("llm."):
+                    section = "LLM"
+                elif key.startswith("tts."):
+                    section = "TTS"
+                elif key.startswith("stt."):
+                    section = "STT"
+                else:
+                    section = "Custom"
                 label = key
         entries.append(
             {
@@ -777,7 +784,7 @@ async def dashboard_api_keys_save(request: Request):
     action = str(form.get("action") or "").strip().lower()
     provider_id = str(form.get("provider_id") or "").strip()
     provider_key = str(form.get("provider_key") or "").strip()
-    custom_provider_name = str(form.get("custom_provider_name") or "").strip()
+    api_key_name = str(form.get("api_key_name") or "").strip()
     show_add_form = False
 
     # Backward compatibility: full-map save via provider_keys.* form fields.
@@ -794,31 +801,39 @@ async def dashboard_api_keys_save(request: Request):
     else:
         if action not in {"add", "update", "delete"}:
             action = "add"
-        # Custom provider variants: llm.custom.<name>, tts.custom.<name>, stt.custom.<name>
-        if action in {"add", "update"} and provider_id in {"llm.custom", "tts.custom", "stt.custom"}:
-            slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", custom_provider_name).strip("-").lower()
-            if not slug:
-                message = "Custom provider name is required"
+        known_base_ids = set(_default_provider_api_keys().keys())
+        if action == "add":
+            if provider_id not in known_base_ids:
+                message = "Please select a valid provider"
                 show_add_form = True
-                provider_id = ""
+            elif not provider_key:
+                message = "API key cannot be empty"
+                show_add_form = True
             else:
-                provider_id = f"{provider_id}.{slug}"
-
-        allowed_dynamic_prefixes = ("llm.custom.", "tts.custom.", "stt.custom.")
-        is_allowed_dynamic = any(provider_id.startswith(prefix) for prefix in allowed_dynamic_prefixes)
-
-        if not provider_id or (provider_id not in keys and not is_allowed_dynamic):
-            message = "Please select a valid provider"
-            show_add_form = True
-        elif action in {"add", "update"} and not provider_key:
-            message = "API key cannot be empty"
-            show_add_form = True
+                storage_id = provider_id
+                if api_key_name:
+                    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", api_key_name).strip("-").lower()
+                    if slug:
+                        storage_id = f"{provider_id}.{slug}"
+                keys[storage_id] = provider_key
+                message = "API key saved"
+        elif action == "update":
+            if provider_id not in keys:
+                message = "Provider key entry not found"
+                show_add_form = True
+            elif not provider_key:
+                message = "API key cannot be empty"
+                show_add_form = True
+            else:
+                keys[provider_id] = provider_key
+                message = "API key saved"
         elif action == "delete":
-            keys[provider_id] = ""
+            if provider_id in keys:
+                keys[provider_id] = ""
             message = "API key removed"
         else:
-            keys[provider_id] = provider_key
-            message = "API key saved"
+            message = "Unsupported action"
+            show_add_form = True
 
     tts_cfg = _dict(existing_data.get("ttsConfig"))
     tts_cfg["providerApiKeys"] = keys
