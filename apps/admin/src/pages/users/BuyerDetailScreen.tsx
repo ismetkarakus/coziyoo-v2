@@ -266,10 +266,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   }, [activeTab]);
 
   const fullName = row?.fullName ?? row?.displayName ?? "-";
-  const buyerProfileImageUrl =
-    !profileImageFailed
-      ? normalizeImageUrl(contactInfo?.identity.profileImageUrl) ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profileImageUrl) ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profile_image_url)
-      : null;
+  const rawBuyerProfileImageUrl =
+    normalizeImageUrl(contactInfo?.identity.profileImageUrl)
+    ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profileImageUrl)
+    ?? normalizeImageUrl((row as { profileImageUrl?: string | null; profile_image_url?: string | null })?.profile_image_url);
+  const buyerProfileImageUrl = profileImageFailed ? null : rawBuyerProfileImageUrl;
   const buyerFallbackAvatar = "/avatar-buyer-default.svg";
   const email = contactInfo?.identity.email ?? row?.email ?? "-";
   const phone = contactInfo?.contact.phone ?? "Bilinmiyor";
@@ -320,6 +321,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
     return { level, reasons };
   }, [openComplaints, cancellations30d, failedPayments]);
+
+  useEffect(() => {
+    // If profile image value changes for same buyer, retry loading instead of staying on fallback forever.
+    setProfileImageFailed(false);
+  }, [rawBuyerProfileImageUrl]);
 
   useEffect(() => {
     let revokedUrl: string | null = null;
