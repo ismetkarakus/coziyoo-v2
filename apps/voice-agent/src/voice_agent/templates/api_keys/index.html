@@ -70,12 +70,6 @@
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
-              <form method="post" action="/dashboard/org/api-keys" style="display:flex; gap:6px; align-items:center;">
-                <input type="hidden" name="action" value="update" />
-                <input type="hidden" name="provider_id" value="{{ entry.id }}" />
-                <input class="input" type="password" name="provider_key" placeholder="New key" style="width:220px;" required />
-                <button class="btn" type="submit">Update</button>
-              </form>
               <form method="post" action="/dashboard/org/api-keys" style="margin:0;">
                 <input type="hidden" name="action" value="delete" />
                 <input type="hidden" name="provider_id" value="{{ entry.id }}" />
