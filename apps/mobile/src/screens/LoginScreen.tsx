@@ -13,6 +13,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
 import { theme } from '../theme/colors';
@@ -36,6 +37,7 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Forgot password state
   const [forgotModal, setForgotModal] = useState<'none' | 'email' | 'code' | 'newPassword'>('none');
@@ -227,20 +229,25 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
           />
 
           <Text style={styles.label}>{t('helper.login.passwordLabel')}</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={(v) => {
-              setPassword(v);
-              setError(null);
-            }}
-            placeholder={t('helper.login.passwordPlaceholder')}
-            placeholderTextColor={theme.textSecondary}
-            secureTextEntry
-            returnKeyType="go"
-            onSubmitEditing={handleLogin}
-            editable={!loading}
-          />
+          <View style={styles.passwordWrap}>
+            <TextInput
+              style={styles.passwordInput}
+              value={password}
+              onChangeText={(v) => {
+                setPassword(v);
+                setError(null);
+              }}
+              placeholder={t('helper.login.passwordPlaceholder')}
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry={!showPassword}
+              returnKeyType="go"
+              onSubmitEditing={handleLogin}
+              editable={!loading}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -445,6 +452,21 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
     borderRadius: 12,
     paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: theme.text,
+    fontSize: 16,
+  },
+  passwordWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+  },
+  passwordInput: {
+    flex: 1,
     paddingVertical: 12,
     color: theme.text,
     fontSize: 16,
