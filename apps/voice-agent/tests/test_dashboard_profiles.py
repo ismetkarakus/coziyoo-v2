@@ -133,14 +133,41 @@ def test_dashboard_test_llm_handles_string_error_payload(monkeypatch) -> None:
             return 404, "Cannot POST /v1/admin/livekit/test/llm"
         return 200, {"data": {"ok": True, "status": 200}}
 
+    async def fake_direct_llm_test(*, llm_cfg, prompt):
+        return False, "LLM request failed", "Cannot POST /v1/admin/livekit/test/llm"
+
     monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
     monkeypatch.setattr(join_api, "api_request", fake_api_request)
+    monkeypatch.setattr(join_api, "_direct_llm_test", fake_direct_llm_test)
 
     client = TestClient(join_api.app)
     response = client.post("/dashboard/test/llm", data={"llm_config.base_url": "https://llm.example.com"})
     assert response.status_code == 200
     assert "LLM test failed" in response.text
     assert "Cannot POST /v1/admin/livekit/test/llm" in response.text
+
+
+def test_dashboard_test_llm_falls_back_to_direct_provider(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if path.endswith("/test/llm"):
+            return 404, "Cannot POST /v1/admin/livekit/test/llm"
+        return 200, {"data": {"ok": True, "status": 200}}
+
+    async def fake_direct_llm_test(*, llm_cfg, prompt):
+        return True, "Provider responded with status 200.", None
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+    monkeypatch.setattr(join_api, "_direct_llm_test", fake_direct_llm_test)
+
+    client = TestClient(join_api.app)
+    response = client.post("/dashboard/test/llm", data={"llm_config.base_url": "https://llm.example.com"})
+    assert response.status_code == 200
+    assert "LLM test successful" in response.text
+    assert "Provider responded with status 200" in response.text
 
 
 def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:

@@ -379,6 +379,52 @@ def _status_response(
     )
 
 
+async def _direct_llm_test(
+    *,
+    llm_cfg: dict[str, Any],
+    prompt: str,
+) -> tuple[bool, str, str | None]:
+    base_url = str(llm_cfg.get("base_url") or "").strip()
+    endpoint_path = str(llm_cfg.get("endpoint_path") or "/v1/chat/completions").strip() or "/v1/chat/completions"
+    if not base_url:
+        return False, "LLM Base URL is required", None
+
+    url = f"{base_url.rstrip('/')}{endpoint_path}"
+    api_key = str(llm_cfg.get("api_key") or "").strip()
+    custom_headers = _string_map(llm_cfg.get("custom_headers"))
+    custom_body_params = _dict(llm_cfg.get("custom_body_params"))
+    model = str(llm_cfg.get("model") or "").strip()
+
+    headers: dict[str, str] = dict(custom_headers)
+    if api_key and "Authorization" not in headers and "authorization" not in headers and "x-api-key" not in headers:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    body: dict[str, Any] = dict(custom_body_params)
+    if model and "model" not in body:
+        body["model"] = model
+
+    # Anthropic-style endpoint compatibility.
+    if endpoint_path.rstrip("/").endswith("/messages"):
+        if "messages" not in body:
+            body["messages"] = [{"role": "user", "content": prompt}]
+        body.setdefault("max_tokens", 128)
+    else:
+        if "messages" not in body:
+            body["messages"] = [{"role": "user", "content": prompt}]
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=body, headers=headers) as upstream:
+                text = await upstream.text()
+                if upstream.status >= 400:
+                    compact = re.sub(r"\s+", " ", text).strip()[:240]
+                    return False, f"Provider returned {upstream.status}", compact or None
+                return True, f"Provider responded with status {upstream.status}.", None
+    except Exception as err:
+        return False, "LLM request failed", str(err)
+
+
 def _profile_update_payload(profile: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": str(profile.get("name") or ""),
@@ -999,6 +1045,30 @@ async def dashboard_test_llm(request: Request):
             "prompt": str(form.get("llm_test_prompt") or "Say hello in one short sentence."),
         },
     )
+    fallback_candidate = (
+        status in {404, 405}
+        or (isinstance(payload, str) and "Cannot POST /v1/admin/livekit/test/llm" in payload)
+    )
+    if fallback_candidate:
+        ok, message, details = await _direct_llm_test(
+            llm_cfg=llm_cfg,
+            prompt=str(form.get("llm_test_prompt") or "Say hello in one short sentence."),
+        )
+        if ok:
+            return _status_response(
+                request,
+                state="success",
+                title="LLM test successful",
+                message=message,
+            )
+        return _status_response(
+            request,
+            state="error",
+            title="LLM test failed",
+            message=message,
+            details=details,
+        )
+
     data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
     ok = status == 200 and bool(data.get("ok"))
     if ok:
