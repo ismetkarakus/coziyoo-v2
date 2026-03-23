@@ -458,7 +458,14 @@ def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
                 section = "STT"
             else:
                 section = "Custom"
-            label = key
+            # Pretty label for custom provider ids like llm.custom.my-provider
+            custom_prefixes = ("llm.custom.", "tts.custom.", "stt.custom.")
+            matched = next((p for p in custom_prefixes if key.startswith(p)), None)
+            if matched:
+                custom_name = key[len(matched) :].replace("-", " ").strip()
+                label = custom_name.title() if custom_name else "Custom Provider"
+            else:
+                label = key
         entries.append(
             {
                 "id": key,
@@ -770,6 +777,7 @@ async def dashboard_api_keys_save(request: Request):
     action = str(form.get("action") or "").strip().lower()
     provider_id = str(form.get("provider_id") or "").strip()
     provider_key = str(form.get("provider_key") or "").strip()
+    custom_provider_name = str(form.get("custom_provider_name") or "").strip()
     show_add_form = False
 
     # Backward compatibility: full-map save via provider_keys.* form fields.
@@ -786,7 +794,20 @@ async def dashboard_api_keys_save(request: Request):
     else:
         if action not in {"add", "update", "delete"}:
             action = "add"
-        if provider_id not in keys:
+        # Custom provider variants: llm.custom.<name>, tts.custom.<name>, stt.custom.<name>
+        if action in {"add", "update"} and provider_id in {"llm.custom", "tts.custom", "stt.custom"}:
+            slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", custom_provider_name).strip("-").lower()
+            if not slug:
+                message = "Custom provider name is required"
+                show_add_form = True
+                provider_id = ""
+            else:
+                provider_id = f"{provider_id}.{slug}"
+
+        allowed_dynamic_prefixes = ("llm.custom.", "tts.custom.", "stt.custom.")
+        is_allowed_dynamic = any(provider_id.startswith(prefix) for prefix in allowed_dynamic_prefixes)
+
+        if not provider_id or (provider_id not in keys and not is_allowed_dynamic):
             message = "Please select a valid provider"
             show_add_form = True
         elif action in {"add", "update"} and not provider_key:

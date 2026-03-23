@@ -25,16 +25,20 @@
       </div>
 
       <div id="add-api-key-form" style="display:{% if show_add_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
-        <form method="post" action="/dashboard/org/api-keys" style="display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end;">
+        <form method="post" action="/dashboard/org/api-keys" style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; align-items:end;">
           <input type="hidden" name="action" value="add" />
           <div>
             <label>Provider</label>
-            <select class="input" name="provider_id" required>
+            <select class="input" id="provider-id-select" name="provider_id" required onchange="toggleCustomProviderNameField(this.value)">
               <option value="">Select provider…</option>
               {% for opt in provider_options %}
-              <option value="{{ opt.id }}">{{ opt.section }} — {{ opt.label }}</option>
+              <option value="{{ opt.id }}">{{ opt.label }}</option>
               {% endfor %}
             </select>
+          </div>
+          <div id="custom-provider-name-wrap" style="display:none;">
+            <label>Custom Provider Name</label>
+            <input class="input" id="custom-provider-name" type="text" name="custom_provider_name" placeholder="e.g. OpenRouter" />
           </div>
           <div>
             <label>API Key</label>
@@ -91,6 +95,16 @@
     el.style.display = el.style.display === "none" ? "block" : "none";
   }
 
+  function toggleCustomProviderNameField(providerId) {
+    const wrap = document.getElementById("custom-provider-name-wrap");
+    const input = document.getElementById("custom-provider-name");
+    if (!wrap || !input) return;
+    const needsName = providerId === "llm.custom" || providerId === "tts.custom" || providerId === "stt.custom";
+    wrap.style.display = needsName ? "block" : "none";
+    input.required = needsName;
+    if (!needsName) input.value = "";
+  }
+
   async function copyApiKey(button) {
     const value = button?.dataset?.key || "";
     if (!value) return;
@@ -108,5 +122,11 @@
       button.title = "Copy API key";
     }, 900);
   }
+
+  (function initCustomProviderField() {
+    const sel = document.getElementById("provider-id-select");
+    if (!sel) return;
+    toggleCustomProviderNameField(sel.value);
+  })();
 </script>
 {% endblock %}

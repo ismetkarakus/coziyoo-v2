@@ -423,3 +423,33 @@ def test_api_keys_add_action_saves_single_provider_key(monkeypatch) -> None:
     keys = (((payload.get("ttsConfig") or {}).get("providerApiKeys")) or {})
     assert keys.get("llm.openai") == "old-key"
     assert keys.get("stt.deepgram") == "dg-new"
+
+
+def test_api_keys_add_custom_provider_uses_named_key_id(monkeypatch) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path, json_body))
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"agentName": "coziyoo-agent", "ttsConfig": {"providerApiKeys": {}}}}
+        if method == "PUT" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ok": True}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/org/api-keys",
+        data={"action": "add", "provider_id": "llm.custom", "custom_provider_name": "Open Router", "provider_key": "or-key"},
+    )
+    assert response.status_code == 200
+    put_call = next((c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/default"), None)
+    assert put_call is not None
+    payload = put_call[2] or {}
+    keys = (((payload.get("ttsConfig") or {}).get("providerApiKeys")) or {})
+    assert keys.get("llm.custom.open-router") == "or-key"
