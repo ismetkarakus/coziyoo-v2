@@ -73,7 +73,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
   }
 
   function handlePasswordNext() {
-    if (password.length < 6) { setError('Şifre en az 6 karakter olmalı'); return; }
+    if (password.length < 8) { setError('Şifre en az 8 karakter olmalı'); return; }
     if (password !== passwordConfirm) { setError('Şifreler eşleşmiyor'); return; }
     handleRegister();
   }
@@ -99,6 +99,14 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         const code = json.error?.code;
         if (code === 'EMAIL_TAKEN') setError('Bu e-posta zaten kayıtlı');
         else if (code === 'DISPLAY_NAME_TAKEN') setError('Bu kullanıcı adı zaten alınmış');
+        else if (code === 'VALIDATION_ERROR') {
+          const details = (json.error as Record<string, unknown>)?.details as { fieldErrors?: Record<string, string[]> } | undefined;
+          const fields = details?.fieldErrors;
+          if (fields?.password?.length) setError('Şifre en az 8 karakter olmalı');
+          else if (fields?.email?.length) setError('Geçerli bir e-posta gir');
+          else if (fields?.displayName?.length) setError('Kullanıcı adı 3-40 karakter olmalı');
+          else setError('Lütfen bilgileri kontrol et');
+        }
         else setError(json.error?.message ?? `Kayıt başarısız (${response.status})`);
         return;
       }
@@ -254,7 +262,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     return (
       <View style={styles.stepContent}>
         <Text style={styles.stepTitle}>Şifreni belirle</Text>
-        <Text style={styles.stepSubtitle}>En az 6 karakter olmalı</Text>
+        <Text style={styles.stepSubtitle}>En az 8 karakter olmalı</Text>
 
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Şifre</Text>
