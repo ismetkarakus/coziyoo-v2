@@ -15,6 +15,12 @@
       <option value="playht" {% if tts_provider == "playht" %}selected{% endif %}>PlayHT</option>
     </select>
   </div>
+  <div style="margin-bottom:12px;">
+    <label>API Key</label>
+    {% set tts_selected_api_key_id = (profile.tts_config or {}).get('api_key_id', '') %}
+    <select class="input" id="tts-api-key-id" name="tts_config.api_key_id"></select>
+    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
+  </div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div>
@@ -64,6 +70,32 @@
   </details>
 </section>
 <script>
+  window.dashboardProviderApiKeys = window.dashboardProviderApiKeys || {
+    options: {{ provider_api_key_options | default([], true) | tojson }},
+    providerAliases: { llm: { claude: "anthropic", ollama: "custom" }, tts: {}, stt: {} },
+    providersFor(section, provider) {
+      const aliases = this.providerAliases[section] || {};
+      const mapped = aliases[provider] || provider || "custom";
+      const set = new Set([mapped, "custom"]);
+      return Array.from(set);
+    },
+    fillSelect(selectId, section, provider, selectedId) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const providers = this.providersFor(section, provider);
+      const matching = this.options.filter((o) => o.section === section && providers.includes(o.provider));
+      const options = ['<option value="">Manual API key kullan</option>'].concat(
+        matching.map((o) => `<option value="${o.id}">${o.label}</option>`)
+      );
+      select.innerHTML = options.join("");
+      const normalizedSelected = (selectedId || "").trim();
+      if (normalizedSelected && !matching.some((o) => o.id === normalizedSelected)) {
+        select.innerHTML += `<option value="${normalizedSelected}">${normalizedSelected}</option>`;
+      }
+      select.value = normalizedSelected;
+    },
+  };
+
   window.dashboardTtsModels = window.dashboardTtsModels || {
     providers: {
       elevenlabs: {
@@ -124,6 +156,12 @@
     applyProvider(providerKey) {
       const p = this.providers[providerKey];
       if (!p) return;
+      window.dashboardProviderApiKeys.fillSelect(
+        "tts-api-key-id",
+        "tts",
+        providerKey,
+        document.getElementById("tts-api-key-id")?.value || "",
+      );
       document.getElementById("tts-base-url").value = p.base_url;
       document.getElementById("tts-endpoint-path").value = p.endpoint_path;
       document.getElementById("tts-models-path").value = p.models_path;
@@ -155,6 +193,7 @@
       const btn = document.getElementById("tts-fetch-models-btn");
       const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
       const apiKey = (document.getElementById("tts-api-key")?.value || "").trim();
+      const apiKeyId = (document.getElementById("tts-api-key-id")?.value || "").trim();
       const modelsPath = (document.getElementById("tts-models-path")?.value || "/v1/models").trim() || "/v1/models";
       const headersRaw = (document.getElementById("tts-custom-headers")?.value || "").trim();
       if (!baseUrl) {
@@ -175,7 +214,7 @@
         const resp = await fetch("/dashboard/models", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, apiKeyId, customHeaders }),
         });
         const data = await resp.json();
         if (data.error) {
@@ -201,6 +240,7 @@
     init() {
       const select = document.getElementById("tts-model");
       const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
+      const selectedApiKeyId = document.getElementById("tts-api-key-id")?.value || "{{ tts_selected_api_key_id }}";
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
@@ -213,6 +253,7 @@
           }
         }
       }
+      window.dashboardProviderApiKeys.fillSelect("tts-api-key-id", "tts", (sel?.value || "custom"), selectedApiKeyId);
       if (baseUrl) {
         setTimeout(() => this.fetch(), 0);
       }

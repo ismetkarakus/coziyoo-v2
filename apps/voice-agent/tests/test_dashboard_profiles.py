@@ -19,15 +19,13 @@ def test_unauthorized_dashboard_access_redirects_to_login() -> None:
 
 
 def test_profile_list_route_calls_bff_helper(monkeypatch) -> None:
-    captured: dict[str, str] = {}
+    calls: list[tuple[str, str, str]] = []
 
     async def fake_ensure_access_token(*, request, api_base_url):
         return "token-1", None
 
     async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
-        captured["path"] = path
-        captured["method"] = method
-        captured["api_base_url"] = api_base_url
+        calls.append((method, path, api_base_url))
         return 200, {"data": []}
 
     monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
@@ -36,9 +34,7 @@ def test_profile_list_route_calls_bff_helper(monkeypatch) -> None:
     client = TestClient(join_api.app)
     response = client.get("/dashboard/assistants")
     assert response.status_code == 200
-    assert captured["path"] == "/v1/admin/agent-profiles"
-    assert captured["method"] == "GET"
-    assert captured["api_base_url"] == "https://api.coziyoo.com"
+    assert ("GET", "/v1/admin/agent-profiles", "https://api.coziyoo.com") in calls
 
 
 def test_assistants_load_selects_default_profile_and_renders_editor(monkeypatch) -> None:
@@ -230,13 +226,16 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
             "name": "Aktif Profil 9",
             "voice_language": "tr",
             "system_prompt": "test",
+            "llm_config.api_key_id": "llm.openai.prod",
             "llm_config.model": "gpt-4o-mini",
             "tts_config.provider": "openai",
             "tts_config.language": "multilingual",
+            "tts_config.api_key_id": "tts.openai.prod",
             "tts_config.model": "alloy",
             "tts_config.models_path": "/v1/models",
             "stt_config.provider": "deepgram",
             "stt_config.language": "multilingual",
+            "stt_config.api_key_id": "stt.deepgram.prod",
             "stt_config.model": "nova-2",
             "stt_config.models_path": "/v1/models",
         },
@@ -257,6 +256,9 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
     assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("provider") == "deepgram"
     assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("language") == "multilingual"
     assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("modelsPath") == "/v1/models"
+    assert ((save_call[2].get("ttsConfig") or {}).get("llm") or {}).get("apiKeyId") == "llm.openai.prod"
+    assert (save_call[2].get("ttsConfig") or {}).get("apiKeyId") == "tts.openai.prod"
+    assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("apiKeyId") == "stt.deepgram.prod"
 
 
 def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
@@ -274,15 +276,17 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
                     "ttsConfig": {
                         "provider": "openai",
                         "language": "multilingual",
+                        "apiKeyId": "tts.openai.prod",
                         "modelsPath": "/v1/models",
                         "model": "new-tts-model",
                         "stt": {
                             "provider": "deepgram",
                             "language": "multilingual",
+                            "apiKeyId": "stt.deepgram.prod",
                             "modelsPath": "/v1/models",
                             "model": "new-stt-model",
                         },
-                        "llm": {"model": "new-nested-model"},
+                        "llm": {"model": "new-nested-model", "apiKeyId": "llm.openai.prod"},
                     },
                 }
             }
@@ -299,6 +303,51 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
     assert '<option value="new-tts-model">new-tts-model</option>' in response.text
     assert 'name="tts_config.models_path" value="/v1/models"' in response.text
     assert 'name="stt_config.models_path" value="/v1/models"' in response.text
+    assert 'name="llm_config.api_key_id"' in response.text
+    assert 'name="tts_config.api_key_id"' in response.text
+    assert 'name="stt_config.api_key_id"' in response.text
+
+
+def test_dashboard_models_uses_api_key_id_when_direct_key_missing(monkeypatch) -> None:
+    captured: dict[str, dict | None] = {}
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "ttsConfig": {
+                        "providerApiKeys": {
+                            "llm.openai.prod": "sk-from-provider-map",
+                        }
+                    }
+                }
+            }
+        if method == "POST" and path == "/v1/admin/livekit/llm/models":
+            captured["json_body"] = json_body
+            return 200, {"data": {"models": ["gpt-4o-mini"]}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/models",
+        json={
+            "baseUrl": "https://api.openai.com",
+            "modelsPath": "/v1/models",
+            "apiKey": "",
+            "apiKeyId": "llm.openai.prod",
+            "customHeaders": {},
+        },
+    )
+    assert response.status_code == 200
+    assert response.json().get("models") == ["gpt-4o-mini"]
+    posted = captured.get("json_body") or {}
+    assert posted.get("apiKey") == "sk-from-provider-map"
 
 
 def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:

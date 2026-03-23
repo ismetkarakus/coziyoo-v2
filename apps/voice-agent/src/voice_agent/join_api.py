@@ -250,6 +250,7 @@ def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) 
         "llm_config": {
             "base_url": llm_base_url,
             "api_key": str(llm_legacy.get("apiKey") or ""),
+            "api_key_id": str(llm_legacy.get("apiKeyId") or ""),
             # Prefer nested llm.model over legacy top-level ollamaModel to avoid stale values.
             "model": str(llm_legacy.get("model") or settings_data.get("ollamaModel") or ""),
             "endpoint_path": str(llm_legacy.get("endpointPath") or "/v1/chat/completions"),
@@ -260,6 +261,7 @@ def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) 
             "provider": str(stt_legacy.get("provider") or settings_data.get("sttProvider") or "custom"),
             "base_url": stt_base_url,
             "api_key": str(stt_legacy.get("apiKey") or ""),
+            "api_key_id": str(stt_legacy.get("apiKeyId") or ""),
             "model": str(stt_legacy.get("model") or settings_data.get("sttModel") or ""),
             "models_path": str(stt_legacy.get("modelsPath") or "/v1/models"),
             "endpoint_path": str(stt_legacy.get("transcribePath") or settings_data.get("sttTranscribePath") or "/v1/audio/transcriptions"),
@@ -273,6 +275,7 @@ def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) 
             "language": str(tts_config.get("language") or "multilingual"),
             "base_url": tts_base_url,
             "api_key": str(tts_config.get("apiKey") or ""),
+            "api_key_id": str(tts_config.get("apiKeyId") or ""),
             "model": str(tts_config.get("model") or ""),
             "models_path": str(tts_config.get("modelsPath") or "/v1/models"),
             "endpoint_path": str(tts_config.get("path") or "/v1/audio/speech"),
@@ -330,6 +333,7 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "stt": {
                 "provider": str(stt_config.get("provider") or "custom"),
                 "baseUrl": str(stt_config.get("base_url") or ""),
+                "apiKeyId": str(stt_config.get("api_key_id") or ""),
                 "transcribePath": str(stt_config.get("endpoint_path") or "/v1/audio/transcriptions"),
                 "model": str(stt_config.get("model") or ""),
                 "modelsPath": str(stt_config.get("models_path") or "/v1/models"),
@@ -341,6 +345,7 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "llm": {
                 "baseUrl": str(llm_config.get("base_url") or ""),
                 "apiKey": str(llm_config.get("api_key") or ""),
+                "apiKeyId": str(llm_config.get("api_key_id") or ""),
                 "model": str(llm_config.get("model") or ""),
                 "endpointPath": str(llm_config.get("endpoint_path") or "/v1/chat/completions"),
                 "customHeaders": _dict(llm_config.get("custom_headers")),
@@ -351,6 +356,7 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "webhookPath": str(n8n_config.get("webhook_path") or ""),
                 "mcpWebhookPath": str(n8n_config.get("mcp_webhook_path") or ""),
             },
+            "apiKeyId": str(tts_config.get("api_key_id") or ""),
         },
     }
 
@@ -499,6 +505,74 @@ def _extract_provider_api_keys_from_tts_config(tts_cfg: dict[str, Any]) -> dict[
         if any(v for v in alias_keys.values()):
             return alias_keys
     return keys
+
+
+def _provider_key_scope_and_provider(key_id: str) -> tuple[str, str]:
+    parts = str(key_id or "").split(".")
+    if len(parts) >= 2:
+        return parts[0].lower(), parts[1].lower()
+    return "", "custom"
+
+
+def _provider_api_key_select_options(keys: dict[str, str]) -> list[dict[str, str]]:
+    options: list[dict[str, str]] = []
+    for entry in _provider_api_key_entries(keys):
+        scope, provider = _provider_key_scope_and_provider(entry.get("id", ""))
+        if scope not in {"llm", "tts", "stt"}:
+            continue
+        options.append(
+            {
+                "id": str(entry.get("id") or ""),
+                "section": scope,
+                "provider": provider,
+                "label": f"{entry.get('label', '')} ({entry.get('masked', '********')})",
+            }
+        )
+    return options
+
+
+async def _load_provider_api_keys(access_token: str) -> dict[str, str]:
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    keys = _default_provider_api_keys()
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        settings_data = _dict(payload.get("data"))
+        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        return _extract_provider_api_keys_from_tts_config(tts_cfg)
+    return keys
+
+
+async def _resolve_api_key_from_id(
+    *,
+    access_token: str,
+    explicit_api_key: str,
+    api_key_id: str,
+) -> str:
+    key_id = str(api_key_id or "").strip()
+    if key_id:
+        provider_keys = await _load_provider_api_keys(access_token)
+        resolved = str(provider_keys.get(key_id) or "").strip()
+        if resolved:
+            return resolved
+    return str(explicit_api_key or "").strip()
+
+
+async def _editor_panel_context(
+    *,
+    access_token: str,
+    profile: dict[str, Any] | None,
+    message: str | None,
+) -> dict[str, Any]:
+    provider_keys = await _load_provider_api_keys(access_token)
+    return {
+        "profile": profile,
+        "message": message,
+        "provider_api_key_options": _provider_api_key_select_options(provider_keys),
+    }
 
 
 async def _direct_llm_test(
@@ -671,6 +745,7 @@ async def dashboard_assistants(request: Request):
             elif legacy_status != 404 and initial_message is None:
                 initial_message = extract_error_message(legacy_payload, "Failed to load profile")
 
+    provider_keys = await _load_provider_api_keys(access_token)
     return templates.TemplateResponse(
         request=request,
         name="profiles/index.html",
@@ -679,6 +754,7 @@ async def dashboard_assistants(request: Request):
             "message": initial_message or error_message,
             "selected_profile_id": selected_profile_id,
             "profile": initial_profile,
+            "provider_api_key_options": _provider_api_key_select_options(provider_keys),
         },
     )
 
@@ -1148,17 +1224,19 @@ async def dashboard_profile_editor(request: Request, profile_id: str):
         )
         if status == 200 and isinstance(payload, dict):
             profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
+            context = await _editor_panel_context(access_token=access_token, profile=profile, message=None)
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
-                context={"profile": profile, "message": None},
+                context=context,
             )
         if status != 404:
             message = extract_error_message(payload, "Failed to load profile")
+            context = await _editor_panel_context(access_token=access_token, profile=None, message=message)
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
-                context={"profile": None, "message": message},
+                context=context,
                 status_code=200,
             )
         # 404 — fall through to legacy
@@ -1171,16 +1249,18 @@ async def dashboard_profile_editor(request: Request, profile_id: str):
     )
     if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
         profile = _legacy_settings_to_profile(profile_id, legacy_payload["data"])
+        context = await _editor_panel_context(access_token=access_token, profile=profile, message=None)
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
-            context={"profile": profile, "message": None},
+            context=context,
         )
     message = extract_error_message(legacy_payload, "Failed to load profile")
+    context = await _editor_panel_context(access_token=access_token, profile=None, message=message)
     return templates.TemplateResponse(
         request=request,
         name="profiles/_editor_panel.html",
-        context={"profile": None, "message": message},
+        context=context,
         status_code=200,
     )
 
@@ -1216,20 +1296,22 @@ async def dashboard_profile_save(request: Request, profile_id: str):
             profile = current_payload.get("data") if current_status == 200 and isinstance(current_payload, dict) else None
             if not is_htmx:
                 return RedirectResponse(url="/dashboard/assistants", status_code=303)
+            context = await _editor_panel_context(access_token=access_token, profile=profile, message="Saved")
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
-                context={"profile": profile, "message": "Saved"},
+                context=context,
                 status_code=200,
             )
         else:
             message = extract_error_message(update_payload, "Profile save failed")
             if not is_htmx:
                 return RedirectResponse(url="/dashboard/assistants", status_code=303)
+            context = await _editor_panel_context(access_token=access_token, profile=None, message=message)
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
-                context={"profile": None, "message": message},
+                context=context,
                 status_code=200,
             )
 
@@ -1253,18 +1335,20 @@ async def dashboard_profile_save(request: Request, profile_id: str):
         profile = _legacy_settings_to_profile(profile_id, current_payload["data"])
         if not is_htmx:
             return RedirectResponse(url="/dashboard/assistants", status_code=303)
+        context = await _editor_panel_context(access_token=access_token, profile=profile, message=message or "Saved")
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
-            context={"profile": profile, "message": message or "Saved"},
+            context=context,
             status_code=200,
         )
     if not is_htmx:
         return RedirectResponse(url="/dashboard/assistants", status_code=303)
+    context = await _editor_panel_context(access_token=access_token, profile=None, message=message or "Profile save failed")
     return templates.TemplateResponse(
         request=request,
         name="profiles/_editor_panel.html",
-        context={"profile": None, "message": message or "Profile save failed"},
+        context=context,
         status_code=200,
     )
 
@@ -1278,6 +1362,12 @@ async def dashboard_test_llm(request: Request):
     form = await request.form()
     normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
     llm_cfg = _dict(normalized.get("llm_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(llm_cfg.get("api_key") or ""),
+        api_key_id=str(llm_cfg.get("api_key_id") or ""),
+    )
+    llm_cfg["api_key"] = resolved_api_key
 
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
@@ -1287,7 +1377,7 @@ async def dashboard_test_llm(request: Request):
         json_body={
             "baseUrl": str(llm_cfg.get("base_url") or ""),
             "endpointPath": str(llm_cfg.get("endpoint_path") or "/v1/chat/completions"),
-            "apiKey": str(llm_cfg.get("api_key") or ""),
+            "apiKey": resolved_api_key,
             "model": str(llm_cfg.get("model") or ""),
             "customHeaders": _string_map(llm_cfg.get("custom_headers")),
             "customBodyParams": _string_map(llm_cfg.get("custom_body_params")),
@@ -1354,7 +1444,14 @@ async def dashboard_llm_models(request: Request):
     body = await request.json()
     base_url = str(body.get("baseUrl") or "").strip()
     models_path = str(body.get("modelsPath") or "/v1/models").strip() or "/v1/models"
-    api_key = str(body.get("apiKey") or "")
+    api_key = str(body.get("apiKey") or "").strip()
+    api_key_id = str(body.get("apiKeyId") or "").strip()
+    if not api_key and api_key_id:
+        api_key = await _resolve_api_key_from_id(
+            access_token=access_token,
+            explicit_api_key="",
+            api_key_id=api_key_id,
+        )
     custom_headers = body.get("customHeaders") or {}
 
     status, payload = await api_request(
@@ -1440,10 +1537,15 @@ async def dashboard_test_tts(request: Request):
     form = await request.form()
     normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
     tts_cfg = _dict(normalized.get("tts_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(tts_cfg.get("api_key") or ""),
+        api_key_id=str(tts_cfg.get("api_key_id") or ""),
+    )
     custom_headers = _string_map(tts_cfg.get("custom_headers"))
     auth_header = custom_headers.get("authorization", "").strip()
-    if not auth_header and str(tts_cfg.get("api_key") or "").strip():
-        auth_header = f"Bearer {str(tts_cfg.get('api_key')).strip()}"
+    if not auth_header and resolved_api_key:
+        auth_header = f"Bearer {resolved_api_key}"
 
     status, data, content_type = await api_binary_request(
         api_base_url=settings.api_base_url,
@@ -1490,6 +1592,15 @@ async def dashboard_test_stt(request: Request):
     form = await request.form()
     normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
     stt_cfg = _dict(normalized.get("stt_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(stt_cfg.get("api_key") or ""),
+        api_key_id=str(stt_cfg.get("api_key_id") or ""),
+    )
+    custom_headers = _string_map(stt_cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and resolved_api_key:
+        auth_header = resolved_api_key
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="POST",
@@ -1498,6 +1609,7 @@ async def dashboard_test_stt(request: Request):
         json_body={
             "baseUrl": str(stt_cfg.get("base_url") or ""),
             "transcribePath": str(stt_cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+            "authHeader": auth_header,
         },
     )
     data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
@@ -1526,10 +1638,15 @@ async def dashboard_test_stt_transcribe(request: Request):
     form = await request.form()
     normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
     stt_cfg = _dict(normalized.get("stt_config"))
+    resolved_api_key = await _resolve_api_key_from_id(
+        access_token=access_token,
+        explicit_api_key=str(stt_cfg.get("api_key") or ""),
+        api_key_id=str(stt_cfg.get("api_key_id") or ""),
+    )
     custom_headers = _string_map(stt_cfg.get("custom_headers"))
     auth_header = custom_headers.get("authorization", "").strip()
-    if not auth_header and str(stt_cfg.get("api_key") or "").strip():
-        auth_header = str(stt_cfg.get("api_key")).strip()
+    if not auth_header and resolved_api_key:
+        auth_header = resolved_api_key
 
     audio_base64 = str(form.get("stt_audio_base64") or "").strip()
     if not audio_base64:
@@ -1626,10 +1743,15 @@ async def dashboard_import_curl(request: Request, profile_id: str):
             access_token=access_token,
         )
         profile = payload.get("data") if status == 200 and isinstance(payload, dict) else None
+        context = await _editor_panel_context(
+            access_token=access_token,
+            profile=profile if isinstance(profile, dict) else None,
+            message="Could not parse cURL command",
+        )
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
-            context={"profile": profile, "message": "Could not parse cURL command"},
+            context=context,
             status_code=400,
         )
 
@@ -1640,18 +1762,28 @@ async def dashboard_import_curl(request: Request, profile_id: str):
         access_token=access_token,
     )
     if get_status != 200 or not isinstance(get_payload, dict):
+        context = await _editor_panel_context(
+            access_token=access_token,
+            profile=None,
+            message=extract_error_message(get_payload, "Failed to load profile"),
+        )
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
-            context={"profile": None, "message": extract_error_message(get_payload, "Failed to load profile")},
+            context=context,
             status_code=502,
         )
     profile = get_payload.get("data") if isinstance(get_payload.get("data"), dict) else None
     if not isinstance(profile, dict):
+        context = await _editor_panel_context(
+            access_token=access_token,
+            profile=None,
+            message="Profile response format invalid",
+        )
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
-            context={"profile": None, "message": "Profile response format invalid"},
+            context=context,
             status_code=502,
         )
 
@@ -1731,10 +1863,15 @@ async def dashboard_import_curl(request: Request, profile_id: str):
         access_token=access_token,
     )
     final_profile = final_payload.get("data") if final_status == 200 and isinstance(final_payload, dict) else profile
+    context = await _editor_panel_context(
+        access_token=access_token,
+        profile=final_profile if isinstance(final_profile, dict) else None,
+        message=message,
+    )
     return templates.TemplateResponse(
         request=request,
         name="profiles/_editor_panel.html",
-        context={"profile": final_profile, "message": message},
+        context=context,
         status_code=200 if isinstance(final_profile, dict) else 502,
     )
 

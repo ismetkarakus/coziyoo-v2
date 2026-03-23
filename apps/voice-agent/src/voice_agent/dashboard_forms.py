@@ -44,6 +44,7 @@ def normalize_profile_payload(form_data: Mapping[str, str]) -> dict:
         "llm_config": {
             "base_url": _as_text(form_data.get("llm_config.base_url")),
             "api_key": _as_text(form_data.get("llm_config.api_key")),
+            "api_key_id": _as_text(form_data.get("llm_config.api_key_id")),
             "model": _as_text(form_data.get("llm_config.model")),
             "endpoint_path": _as_text(form_data.get("llm_config.endpoint_path"), "/v1/chat/completions")
             or "/v1/chat/completions",
@@ -55,6 +56,7 @@ def normalize_profile_payload(form_data: Mapping[str, str]) -> dict:
             "language": _as_text(form_data.get("tts_config.language"), "multilingual") or "multilingual",
             "base_url": _as_text(form_data.get("tts_config.base_url")),
             "api_key": _as_text(form_data.get("tts_config.api_key")),
+            "api_key_id": _as_text(form_data.get("tts_config.api_key_id")),
             "model": _as_text(form_data.get("tts_config.model")),
             "models_path": _as_text(form_data.get("tts_config.models_path"), "/v1/models") or "/v1/models",
             "endpoint_path": _as_text(form_data.get("tts_config.endpoint_path"), "/v1/audio/speech")
@@ -68,6 +70,7 @@ def normalize_profile_payload(form_data: Mapping[str, str]) -> dict:
             "provider": _as_text(form_data.get("stt_config.provider"), "custom") or "custom",
             "base_url": _as_text(form_data.get("stt_config.base_url")),
             "api_key": _as_text(form_data.get("stt_config.api_key")),
+            "api_key_id": _as_text(form_data.get("stt_config.api_key_id")),
             "model": _as_text(form_data.get("stt_config.model")),
             "models_path": _as_text(form_data.get("stt_config.models_path"), "/v1/models") or "/v1/models",
             "endpoint_path": _as_text(form_data.get("stt_config.endpoint_path"), "/v1/audio/transcriptions")

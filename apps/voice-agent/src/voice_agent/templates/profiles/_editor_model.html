@@ -14,6 +14,12 @@
       <option value="claude">Anthropic Claude</option>
     </select>
   </div>
+  <div style="margin-bottom:12px;">
+    <label>API Key</label>
+    {% set llm_selected_api_key_id = (profile.llm_config or {}).get('api_key_id', '') %}
+    <select class="input" id="llm-api-key-id" name="llm_config.api_key_id"></select>
+    <div class="muted" style="font-size:11px; margin-top:4px;">Provider’a uygun kayıtlı key’ler listelenir.</div>
+  </div>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
     <div><label>LLM Base URL</label><input class="input" name="llm_config.base_url" id="llm-base-url" value="{{ (profile.llm_config or {}).get('base_url','') }}" /></div>
@@ -63,6 +69,36 @@
 
 <script>
 (function () {
+  window.dashboardProviderApiKeys = window.dashboardProviderApiKeys || {
+    options: {{ provider_api_key_options | default([], true) | tojson }},
+    providerAliases: {
+      llm: { claude: "anthropic", ollama: "custom" },
+      tts: {},
+      stt: {},
+    },
+    providersFor(section, provider) {
+      const aliases = this.providerAliases[section] || {};
+      const mapped = aliases[provider] || provider || "custom";
+      const set = new Set([mapped, "custom"]);
+      return Array.from(set);
+    },
+    fillSelect(selectId, section, provider, selectedId) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const providers = this.providersFor(section, provider);
+      const matching = this.options.filter((o) => o.section === section && providers.includes(o.provider));
+      const options = ['<option value="">Manual API key kullan</option>'].concat(
+        matching.map((o) => `<option value="${o.id}">${o.label}</option>`)
+      );
+      select.innerHTML = options.join("");
+      const normalizedSelected = (selectedId || "").trim();
+      if (normalizedSelected && !matching.some((o) => o.id === normalizedSelected)) {
+        select.innerHTML += `<option value="${normalizedSelected}">${normalizedSelected}</option>`;
+      }
+      select.value = normalizedSelected;
+    },
+  };
+
   const OLLAMA_FALLBACK_BASE_URL = "https://ollama.drascom.uk";
   const PROVIDERS = {
     openai: {
@@ -132,6 +168,12 @@
     apply(providerKey) {
       const p = PROVIDERS[providerKey];
       if (!p) return; // custom — leave fields as-is
+      window.dashboardProviderApiKeys.fillSelect(
+        "llm-api-key-id",
+        "llm",
+        providerKey,
+        document.getElementById("llm-api-key-id")?.value || "",
+      );
 
       document.getElementById("llm-base-url").value = p.base_url;
       document.getElementById("llm-endpoint-path").value = p.endpoint;
@@ -156,6 +198,7 @@
       let baseUrl = document.getElementById("llm-base-url").value.trim();
       const apiKey = document.getElementById("llm-api-key").value.trim();
       const headersRaw = document.getElementById("llm-custom-headers").value.trim();
+      const apiKeyId = document.getElementById("llm-api-key-id")?.value || "";
       const providerKey = document.getElementById("llm-provider-select").value;
       const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
 
@@ -186,7 +229,7 @@
           const resp = await fetch("/dashboard/models", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ baseUrl: targetBaseUrl, modelsPath, apiKey, customHeaders }),
+            body: JSON.stringify({ baseUrl: targetBaseUrl, modelsPath, apiKey, apiKeyId, customHeaders }),
           });
           return await resp.json();
         };
@@ -240,6 +283,7 @@
   (function detectProvider() {
     const currentUrl = (document.getElementById("llm-base-url")?.value || "").trim();
     const sel = document.getElementById("llm-provider-select");
+    const selectedApiKeyId = document.getElementById("llm-api-key-id")?.value || "{{ llm_selected_api_key_id }}";
     let matchedProvider = false;
     if (currentUrl) {
       for (const [key, p] of Object.entries(PROVIDERS)) {
@@ -252,6 +296,7 @@
         }
       }
     }
+    window.dashboardProviderApiKeys.fillSelect("llm-api-key-id", "llm", sel.value || "custom", selectedApiKeyId);
     // Always try live fetch on load when a base URL exists (or when provider fallback can fill it).
     if (currentUrl || matchedProvider || sel.value === "ollama") {
       setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
