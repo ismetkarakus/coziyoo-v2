@@ -1113,15 +1113,36 @@ authRouter.put("/me/profile-image", requireAuth("app"), async (req, res) => {
 
 /* ── Buyer Address Management ── */
 
+function isValidAddressLine(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length < 10) return false;
+  const words = trimmed.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length < 2) return false;
+  // Must contain at least some real letters (not just random chars)
+  const letterCount = (trimmed.match(/[\p{L}]/gu) ?? []).length;
+  if (letterCount < 5) return false;
+  // Must contain at least one space (real addresses have multiple parts)
+  if (!trimmed.includes(" ")) return false;
+  return true;
+}
+
+const addressLineSchema = z
+  .string()
+  .min(10, "Adres en az 10 karakter olmalı")
+  .max(500)
+  .refine(isValidAddressLine, {
+    message: "Geçerli bir adres girin (mahalle, sokak, bina no gibi)",
+  });
+
 const CreateAddressSchema = z.object({
   title: z.string().min(1).max(80),
-  addressLine: z.string().min(3).max(500),
+  addressLine: addressLineSchema,
   isDefault: z.boolean().optional(),
 });
 
 const UpdateAddressSchema = z.object({
   title: z.string().min(1).max(80).optional(),
-  addressLine: z.string().min(3).max(500).optional(),
+  addressLine: addressLineSchema.optional(),
   isDefault: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: "At least one field required" });
 

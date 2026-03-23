@@ -128,8 +128,14 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
       setFormError(t('error.address.titleRequired'));
       return;
     }
-    if (!formAddress.trim() || formAddress.trim().length < 3) {
-      setFormError(t('error.address.addressTooShort'));
+    const trimmedAddress = formAddress.trim();
+    if (!trimmedAddress || trimmedAddress.length < 10) {
+      setFormError('Adres en az 10 karakter olmalı');
+      return;
+    }
+    const words = trimmedAddress.split(/\s+/).filter((w: string) => w.length > 0);
+    if (words.length < 2) {
+      setFormError('Geçerli bir adres girin (mahalle, sokak, bina no gibi)');
       return;
     }
 
