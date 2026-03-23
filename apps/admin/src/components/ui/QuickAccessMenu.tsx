@@ -53,17 +53,17 @@ export const QuickAccessMenu = forwardRef<HTMLDetailsElement, QuickAccessMenuPro
       </summary>
       <div className="seller-quick-access-menu">
         {hasEmail ? (
-          <a href={`mailto:${contactEmail}`}>{language === "tr" ? "E-mail" : "E-mail"}</a>
+          <button type="button" onClick={() => { window.location.href = `mailto:${contactEmail}`; }}>{language === "tr" ? "E-mail" : "E-mail"}</button>
         ) : (
           <span className="is-disabled">{language === "tr" ? "E-mail yok" : "No e-mail"}</span>
         )}
         {hasPhone ? (
-          <a href={`sms:${safePhoneHref}?body=${smsBody}`}>SMS</a>
+          <button type="button" onClick={() => { window.location.href = `sms:${safePhoneHref}?body=${smsBody}`; }}>SMS</button>
         ) : (
           <span className="is-disabled">{language === "tr" ? "SMS yok" : "No SMS"}</span>
         )}
         {hasPhone ? (
-          <a href={`tel:${safePhoneHref}`}>{language === "tr" ? "Telefon" : "Phone"}</a>
+          <button type="button" onClick={() => { window.location.href = `tel:${safePhoneHref}`; }}>{language === "tr" ? "Telefon" : "Phone"}</button>
         ) : (
           <span className="is-disabled">{language === "tr" ? "Telefon yok" : "No phone"}</span>
         )}
