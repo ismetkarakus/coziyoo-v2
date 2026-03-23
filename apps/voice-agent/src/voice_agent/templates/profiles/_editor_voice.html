@@ -5,16 +5,11 @@
   <div style="margin-bottom:12px;">
     <label>TTS Provider Preset</label>
     {% set tts_provider = (profile.tts_config or {}).get('provider', 'custom') %}
+    {% set tts_catalog = provider_catalog.tts | default([], true) %}
     <select id="tts-provider-select" class="input" name="tts_config.provider" onchange="dashboardTtsModels.applyProvider(this.value)">
       <option value="custom" {% if tts_provider == "custom" %}selected{% endif %}>— Custom —</option>
-      <option value="elevenlabs" {% if tts_provider == "elevenlabs" %}selected{% endif %}>ElevenLabs</option>
-      <option value="openai" {% if tts_provider == "openai" %}selected{% endif %}>OpenAI</option>
-      <option value="cartesia" {% if tts_provider == "cartesia" %}selected{% endif %}>Cartesia</option>
-      <option value="azure" {% if tts_provider == "azure" %}selected{% endif %}>Azure</option>
-      <option value="google" {% if tts_provider == "google" %}selected{% endif %}>Google</option>
-      <option value="playht" {% if tts_provider == "playht" %}selected{% endif %}>PlayHT</option>
-      {% for opt in (custom_provider_options.tts or []) %}
-        {% if opt.id and opt.id not in ["custom", "elevenlabs", "openai", "cartesia", "azure", "google", "playht"] %}
+      {% for opt in tts_catalog %}
+        {% if opt.id and opt.id != "custom" %}
       <option value="{{ opt.id }}" {% if tts_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
         {% endif %}
       {% endfor %}
@@ -68,58 +63,9 @@
   </details>
 </section>
 <script>
-  const CUSTOM_TTS_PROVIDERS = {{ custom_provider_options.tts | default([], true) | tojson }};
+  const TTS_PROVIDER_CATALOG = {{ provider_catalog.tts | default([], true) | tojson }};
   window.dashboardTtsModels = window.dashboardTtsModels || {
-    providers: {
-      elevenlabs: {
-        base_url: "https://api.elevenlabs.io",
-        endpoint_path: "/v1/text-to-speech",
-        models_path: "/v1/models",
-        default_model: "eleven_multilingual_v2",
-        text_field_name: "text",
-        language: "multilingual",
-      },
-      openai: {
-        base_url: "https://api.openai.com",
-        endpoint_path: "/v1/audio/speech",
-        models_path: "/v1/models",
-        default_model: "gpt-4o-mini-tts",
-        text_field_name: "input",
-        language: "multilingual",
-      },
-      cartesia: {
-        base_url: "https://api.cartesia.ai",
-        endpoint_path: "/tts/bytes",
-        models_path: "/models",
-        default_model: "sonic-2",
-        text_field_name: "transcript",
-        language: "multilingual",
-      },
-      azure: {
-        base_url: "https://YOUR_RESOURCE_NAME.openai.azure.com",
-        endpoint_path: "/openai/deployments/YOUR_DEPLOYMENT/audio/speech?api-version=2024-02-15-preview",
-        models_path: "/openai/models?api-version=2024-02-15-preview",
-        default_model: "gpt-4o-mini-tts",
-        text_field_name: "input",
-        language: "multilingual",
-      },
-      google: {
-        base_url: "https://texttospeech.googleapis.com",
-        endpoint_path: "/v1/text:synthesize",
-        models_path: "/v1/models",
-        default_model: "gemini-2.5-flash-preview-tts",
-        text_field_name: "input",
-        language: "multilingual",
-      },
-      playht: {
-        base_url: "https://api.play.ht",
-        endpoint_path: "/api/v2/tts/stream",
-        models_path: "/api/v2/models",
-        default_model: "Play3.0-mini",
-        text_field_name: "text",
-        language: "multilingual",
-      },
-    },
+    providers: {},
     setStatus(msg, isError) {
       const el = document.getElementById("tts-model-status");
       if (!el) return;
@@ -231,7 +177,7 @@
       }
     },
   };
-  for (const provider of CUSTOM_TTS_PROVIDERS) {
+  for (const provider of TTS_PROVIDER_CATALOG) {
     const id = String(provider?.id || "").trim();
     if (!id) continue;
     window.dashboardTtsModels.providers[id] = {

@@ -5,16 +5,11 @@
   <div style="margin-bottom:12px;">
     <label>STT Provider Preset</label>
     {% set stt_provider = (profile.stt_config or {}).get('provider', 'custom') %}
+    {% set stt_catalog = provider_catalog.stt | default([], true) %}
     <select id="stt-provider-select" class="input" name="stt_config.provider" onchange="dashboardSttModels.applyProvider(this.value)">
       <option value="custom" {% if stt_provider == "custom" %}selected{% endif %}>— Custom —</option>
-      <option value="deepgram" {% if stt_provider == "deepgram" %}selected{% endif %}>Deepgram</option>
-      <option value="google" {% if stt_provider == "google" %}selected{% endif %}>Google</option>
-      <option value="assemblyai" {% if stt_provider == "assemblyai" %}selected{% endif %}>AssemblyAI</option>
-      <option value="azure" {% if stt_provider == "azure" %}selected{% endif %}>Azure</option>
-      <option value="openai" {% if stt_provider == "openai" %}selected{% endif %}>OpenAI</option>
-      <option value="speechmatics" {% if stt_provider == "speechmatics" %}selected{% endif %}>Speechmatics</option>
-      {% for opt in (custom_provider_options.stt or []) %}
-        {% if opt.id and opt.id not in ["custom", "deepgram", "google", "assemblyai", "azure", "openai", "speechmatics"] %}
+      {% for opt in stt_catalog %}
+        {% if opt.id and opt.id != "custom" %}
       <option value="{{ opt.id }}" {% if stt_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
         {% endif %}
       {% endfor %}
@@ -72,52 +67,9 @@
   </details>
 </section>
 <script>
-  const CUSTOM_STT_PROVIDERS = {{ custom_provider_options.stt | default([], true) | tojson }};
+  const STT_PROVIDER_CATALOG = {{ provider_catalog.stt | default([], true) | tojson }};
   window.dashboardSttModels = window.dashboardSttModels || {
-    providers: {
-      deepgram: {
-        base_url: "https://api.deepgram.com",
-        endpoint_path: "/v1/listen",
-        models_path: "/v1/models",
-        default_model: "nova-2",
-        language: "multilingual",
-      },
-      google: {
-        base_url: "https://speech.googleapis.com",
-        endpoint_path: "/v1/speech:recognize",
-        models_path: "/v1/models",
-        default_model: "latest_long",
-        language: "multilingual",
-      },
-      assemblyai: {
-        base_url: "https://api.assemblyai.com",
-        endpoint_path: "/v2/transcript",
-        models_path: "/v2/models",
-        default_model: "best",
-        language: "multilingual",
-      },
-      azure: {
-        base_url: "https://YOUR_RESOURCE_NAME.cognitiveservices.azure.com",
-        endpoint_path: "/speechtotext/transcriptions:transcribe?api-version=2024-11-15",
-        models_path: "/speechtotext/models?api-version=2024-11-15",
-        default_model: "latest",
-        language: "multilingual",
-      },
-      openai: {
-        base_url: "https://api.openai.com",
-        endpoint_path: "/v1/audio/transcriptions",
-        models_path: "/v1/models",
-        default_model: "gpt-4o-transcribe",
-        language: "multilingual",
-      },
-      speechmatics: {
-        base_url: "https://asr.api.speechmatics.com",
-        endpoint_path: "/v2/jobs",
-        models_path: "/v1/models",
-        default_model: "latest",
-        language: "multilingual",
-      },
-    },
+    providers: {},
     setStatus(msg, isError) {
       const el = document.getElementById("stt-model-status");
       if (!el) return;
@@ -232,7 +184,7 @@
       }
     },
   };
-  for (const provider of CUSTOM_STT_PROVIDERS) {
+  for (const provider of STT_PROVIDER_CATALOG) {
     const id = String(provider?.id || "").trim();
     if (!id) continue;
     window.dashboardSttModels.providers[id] = {

@@ -669,8 +669,234 @@ def _extract_custom_providers(tts_cfg: dict[str, Any]) -> list[dict[str, str]]:
     return result
 
 
-def _custom_provider_option_groups(tts_cfg: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+KNOWN_PROVIDER_CATALOG: list[dict[str, Any]] = [
+    {
+        "type": "llm",
+        "id": "openai",
+        "name": "OpenAI",
+        "api_key_slot": "llm.openai",
+        "base_url": "https://api.openai.com",
+        "endpoint_path": "/v1/chat/completions",
+        "models_path": "/v1/models",
+        "model": "gpt-4o",
+        "custom_headers": {},
+    },
+    {
+        "type": "llm",
+        "id": "gemini",
+        "name": "Google Gemini",
+        "api_key_slot": "llm.gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "endpoint_path": "/v1/chat/completions",
+        "models_path": "/models",
+        "model": "gemini-2.0-flash",
+        "custom_headers": {},
+    },
+    {
+        "type": "llm",
+        "id": "ollama",
+        "name": "Ollama",
+        "api_key_slot": "",
+        "base_url": "https://ollama.drascom.uk",
+        "endpoint_path": "/v1/chat/completions",
+        "models_path": "/api/tags",
+        "model": "llama3.1:8b",
+        "custom_headers": {},
+    },
+    {
+        "type": "llm",
+        "id": "kimi",
+        "name": "Kimi (Moonshot)",
+        "api_key_slot": "llm.kimi",
+        "base_url": "https://api.moonshot.cn",
+        "endpoint_path": "/v1/chat/completions",
+        "models_path": "/v1/models",
+        "model": "kimi-k2",
+        "custom_headers": {},
+    },
+    {
+        "type": "llm",
+        "id": "claude",
+        "name": "Anthropic Claude",
+        "api_key_slot": "llm.anthropic",
+        "base_url": "https://api.anthropic.com",
+        "endpoint_path": "/v1/messages",
+        "models_path": "/v1/models",
+        "model": "claude-sonnet-4-6",
+        "custom_headers": {"anthropic-version": "2023-06-01", "x-api-key": ""},
+    },
+    {
+        "type": "tts",
+        "id": "elevenlabs",
+        "name": "ElevenLabs",
+        "api_key_slot": "tts.elevenlabs",
+        "base_url": "https://api.elevenlabs.io",
+        "endpoint_path": "/v1/text-to-speech",
+        "models_path": "/v1/models",
+        "model": "eleven_multilingual_v2",
+        "language": "multilingual",
+        "text_field_name": "text",
+    },
+    {
+        "type": "tts",
+        "id": "openai",
+        "name": "OpenAI",
+        "api_key_slot": "tts.openai",
+        "base_url": "https://api.openai.com",
+        "endpoint_path": "/v1/audio/speech",
+        "models_path": "/v1/models",
+        "model": "gpt-4o-mini-tts",
+        "language": "multilingual",
+        "text_field_name": "input",
+    },
+    {
+        "type": "tts",
+        "id": "cartesia",
+        "name": "Cartesia",
+        "api_key_slot": "tts.cartesia",
+        "base_url": "https://api.cartesia.ai",
+        "endpoint_path": "/tts/bytes",
+        "models_path": "/models",
+        "model": "sonic-2",
+        "language": "multilingual",
+        "text_field_name": "transcript",
+    },
+    {
+        "type": "tts",
+        "id": "azure",
+        "name": "Azure",
+        "api_key_slot": "tts.azure",
+        "base_url": "https://YOUR_RESOURCE_NAME.openai.azure.com",
+        "endpoint_path": "/openai/deployments/YOUR_DEPLOYMENT/audio/speech?api-version=2024-02-15-preview",
+        "models_path": "/openai/models?api-version=2024-02-15-preview",
+        "model": "gpt-4o-mini-tts",
+        "language": "multilingual",
+        "text_field_name": "input",
+    },
+    {
+        "type": "tts",
+        "id": "google",
+        "name": "Google",
+        "api_key_slot": "tts.google",
+        "base_url": "https://texttospeech.googleapis.com",
+        "endpoint_path": "/v1/text:synthesize",
+        "models_path": "/v1/models",
+        "model": "gemini-2.5-flash-preview-tts",
+        "language": "multilingual",
+        "text_field_name": "input",
+    },
+    {
+        "type": "tts",
+        "id": "playht",
+        "name": "PlayHT",
+        "api_key_slot": "tts.playht",
+        "base_url": "https://api.play.ht",
+        "endpoint_path": "/api/v2/tts/stream",
+        "models_path": "/api/v2/models",
+        "model": "Play3.0-mini",
+        "language": "multilingual",
+        "text_field_name": "text",
+    },
+    {
+        "type": "stt",
+        "id": "deepgram",
+        "name": "Deepgram",
+        "api_key_slot": "stt.deepgram",
+        "base_url": "https://api.deepgram.com",
+        "endpoint_path": "/v1/listen",
+        "models_path": "/v1/models",
+        "model": "nova-2",
+        "language": "multilingual",
+    },
+    {
+        "type": "stt",
+        "id": "google",
+        "name": "Google",
+        "api_key_slot": "stt.google",
+        "base_url": "https://speech.googleapis.com",
+        "endpoint_path": "/v1/speech:recognize",
+        "models_path": "/v1/models",
+        "model": "latest_long",
+        "language": "multilingual",
+    },
+    {
+        "type": "stt",
+        "id": "assemblyai",
+        "name": "AssemblyAI",
+        "api_key_slot": "stt.assemblyai",
+        "base_url": "https://api.assemblyai.com",
+        "endpoint_path": "/v2/transcript",
+        "models_path": "/v2/models",
+        "model": "best",
+        "language": "multilingual",
+    },
+    {
+        "type": "stt",
+        "id": "azure",
+        "name": "Azure",
+        "api_key_slot": "stt.azure",
+        "base_url": "https://YOUR_RESOURCE_NAME.cognitiveservices.azure.com",
+        "endpoint_path": "/speechtotext/transcriptions:transcribe?api-version=2024-11-15",
+        "models_path": "/speechtotext/models?api-version=2024-11-15",
+        "model": "latest",
+        "language": "multilingual",
+    },
+    {
+        "type": "stt",
+        "id": "openai",
+        "name": "OpenAI",
+        "api_key_slot": "stt.openai",
+        "base_url": "https://api.openai.com",
+        "endpoint_path": "/v1/audio/transcriptions",
+        "models_path": "/v1/models",
+        "model": "gpt-4o-transcribe",
+        "language": "multilingual",
+    },
+    {
+        "type": "stt",
+        "id": "speechmatics",
+        "name": "Speechmatics",
+        "api_key_slot": "stt.speechmatics",
+        "base_url": "https://asr.api.speechmatics.com",
+        "endpoint_path": "/v2/jobs",
+        "models_path": "/v1/models",
+        "model": "latest",
+        "language": "multilingual",
+    },
+]
+
+
+def _provider_catalog_from_tts_config(tts_cfg: dict[str, Any], keys: dict[str, str]) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    for known in KNOWN_PROVIDER_CATALOG:
+        provider_type = str(known.get("type") or "").strip().lower()
+        if provider_type not in grouped:
+            continue
+        item = {
+            "id": str(known.get("id") or "").strip(),
+            "type": provider_type,
+            "name": str(known.get("name") or "").strip(),
+            "source": "known",
+            "api_key_slot": str(known.get("api_key_slot") or "").strip(),
+            "api_key_id": str(known.get("api_key_slot") or "").strip(),
+            "api_key_masked": "",
+            "base_url": str(known.get("base_url") or "").strip(),
+            "endpoint_path": str(known.get("endpoint_path") or "").strip(),
+            "models_path": str(known.get("models_path") or "").strip(),
+            "model": str(known.get("model") or "").strip(),
+            "language": str(known.get("language") or "").strip(),
+            "voice_id": str(known.get("voice_id") or "").strip(),
+            "text_field_name": str(known.get("text_field_name") or "").strip(),
+            "custom_headers": _dict(known.get("custom_headers")),
+            "custom_body_params": _dict(known.get("custom_body_params")),
+            "custom_query_params": _dict(known.get("custom_query_params")),
+        }
+        slot = item["api_key_slot"]
+        value = str(keys.get(slot) or "").strip()
+        if value:
+            item["api_key_masked"] = f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "********"
+        grouped[provider_type].append(item)
+
     for item in _extract_custom_providers(tts_cfg):
         provider_type = str(item.get("type") or "").strip().lower()
         if provider_type not in grouped:
@@ -678,11 +904,15 @@ def _custom_provider_option_groups(tts_cfg: dict[str, Any]) -> dict[str, list[di
         grouped[provider_type].append(
             {
                 "id": str(item.get("id") or "").strip(),
+                "type": provider_type,
                 "name": str(item.get("name") or "").strip() or str(item.get("id") or "").strip(),
+                "source": "custom",
+                "api_key_slot": "",
+                "api_key_id": str(item.get("api_key_id") or "").strip(),
+                "api_key_masked": "",
                 "base_url": str(item.get("base_url") or "").strip(),
                 "endpoint_path": str(item.get("endpoint_path") or "").strip(),
                 "models_path": str(item.get("models_path") or "").strip(),
-                "api_key_id": str(item.get("api_key_id") or "").strip(),
                 "model": str(item.get("model") or "").strip(),
                 "language": str(item.get("language") or "").strip(),
                 "voice_id": str(item.get("voice_id") or "").strip(),
@@ -692,7 +922,23 @@ def _custom_provider_option_groups(tts_cfg: dict[str, Any]) -> dict[str, list[di
                 "custom_query_params": _dict(item.get("custom_query_params")),
             }
         )
+
+    for provider_type in grouped:
+        grouped[provider_type].sort(
+            key=lambda x: (0 if str(x.get("source")) == "known" else 1, str(x.get("name") or "").lower())
+        )
     return grouped
+
+
+def _known_provider_slot_map() -> dict[tuple[str, str], str]:
+    slot_map: dict[tuple[str, str], str] = {}
+    for item in KNOWN_PROVIDER_CATALOG:
+        provider_type = str(item.get("type") or "").strip().lower()
+        provider_id = str(item.get("id") or "").strip()
+        slot = str(item.get("api_key_slot") or "").strip()
+        if provider_type and provider_id:
+            slot_map[(provider_type, provider_id)] = slot
+    return slot_map
 
 
 def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -892,7 +1138,7 @@ async def _editor_panel_context(
     message: str | None,
 ) -> dict[str, Any]:
     provider_keys = _default_provider_api_keys()
-    custom_provider_options: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    provider_catalog: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="GET",
@@ -903,12 +1149,12 @@ async def _editor_panel_context(
         settings_data = _dict(payload.get("data"))
         tts_cfg = _dict(settings_data.get("ttsConfig"))
         provider_keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
-        custom_provider_options = _custom_provider_option_groups(tts_cfg)
+        provider_catalog = _provider_catalog_from_tts_config(tts_cfg, provider_keys)
     return {
         "profile": profile,
         "message": message,
         "provider_api_key_options": _provider_api_key_select_options(provider_keys),
-        "custom_provider_options": custom_provider_options,
+        "provider_catalog": provider_catalog,
     }
 
 
@@ -1096,7 +1342,7 @@ async def dashboard_assistants(request: Request):
             "selected_profile_id": selected_profile_id,
             "profile": panel_context.get("profile"),
             "provider_api_key_options": panel_context.get("provider_api_key_options"),
-            "custom_provider_options": panel_context.get("custom_provider_options"),
+            "provider_catalog": panel_context.get("provider_catalog"),
         },
     )
 
@@ -1170,9 +1416,7 @@ async def dashboard_api_keys_page(request: Request):
         name="api_keys/index.html",
         context={
             "entries": _provider_api_key_entries(keys),
-            "provider_options": _provider_api_key_options(),
             "message": message,
-            "show_add_form": False,
         },
     )
 
@@ -1310,7 +1554,9 @@ async def dashboard_custom_providers_page(request: Request):
         path="/v1/admin/livekit/agent-settings/default",
         access_token=access_token,
     )
-    providers: list[dict[str, str]] = []
+    providers: list[dict[str, Any]] = []
+    known_providers: list[dict[str, Any]] = []
+    provider_catalog: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
     provider_api_key_options: list[dict[str, str]] = []
     message: str | None = None
     if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
@@ -1318,6 +1564,10 @@ async def dashboard_custom_providers_page(request: Request):
         tts_cfg = _dict(settings_data.get("ttsConfig"))
         providers = _extract_custom_providers(tts_cfg)
         keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+        provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
+        known_providers = [
+            item for section in ("llm", "tts", "stt") for item in provider_catalog.get(section, []) if item.get("source") == "known"
+        ]
         provider_api_key_options = _provider_api_key_select_options(keys)
     elif status != 404:
         message = extract_error_message(payload, "Failed to load providers")
@@ -1327,7 +1577,8 @@ async def dashboard_custom_providers_page(request: Request):
         name="providers/index.html",
         context={
             "providers": providers,
-            "provider_options": _provider_api_key_options(),
+            "known_providers": known_providers,
+            "provider_catalog": provider_catalog,
             "provider_api_key_options": provider_api_key_options,
             "message": message,
             "show_add_form": False,
@@ -1355,12 +1606,30 @@ async def dashboard_custom_providers_save(request: Request):
     tts_cfg = _dict(existing_data.get("ttsConfig"))
     providers = _extract_custom_providers(tts_cfg)
     keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+    known_slot_map = _known_provider_slot_map()
     by_id = {p["id"]: p for p in providers}
     action = str(form.get("action") or "add").strip().lower()
     message = "Saved"
     show_add_form = False
 
-    if action == "delete":
+    if action == "bind_known_key":
+        provider_type = str(form.get("provider_type") or "").strip().lower()
+        provider_id = str(form.get("provider_id") or "").strip().lower()
+        selected_key_id = str(form.get("selected_key_id") or "").strip()
+        slot = known_slot_map.get((provider_type, provider_id), "")
+        if not slot:
+            message = "Known provider does not support API key binding"
+        elif not selected_key_id:
+            keys[slot] = ""
+            message = "Known provider key cleared"
+        else:
+            resolved_value = str(keys.get(selected_key_id) or "").strip()
+            if not resolved_value:
+                message = "Selected API key entry is empty"
+            else:
+                keys[slot] = resolved_value
+                message = "Known provider key updated"
+    elif action == "delete":
         provider_id = str(form.get("provider_id") or "").strip()
         providers = [p for p in providers if p.get("id") != provider_id]
         message = "Provider removed"
@@ -1410,6 +1679,7 @@ async def dashboard_custom_providers_save(request: Request):
             message = "Provider added"
 
     providers.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
+    tts_cfg["providerApiKeys"] = keys
     tts_cfg["customProviders"] = [
         {
             "id": p["id"],
@@ -1441,12 +1711,18 @@ async def dashboard_custom_providers_save(request: Request):
         message = extract_error_message(put_payload, "Failed to save providers")
         show_add_form = True
 
+    provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
+    known_providers = [
+        item for section in ("llm", "tts", "stt") for item in provider_catalog.get(section, []) if item.get("source") == "known"
+    ]
+
     return templates.TemplateResponse(
         request=request,
         name="providers/index.html",
         context={
             "providers": providers,
-            "provider_options": _provider_api_key_options(),
+            "known_providers": known_providers,
+            "provider_catalog": provider_catalog,
             "provider_api_key_options": _provider_api_key_select_options(keys),
             "message": message,
             "show_add_form": show_add_form,

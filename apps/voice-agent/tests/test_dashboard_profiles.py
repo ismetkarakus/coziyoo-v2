@@ -432,9 +432,9 @@ def test_api_keys_page_requires_auth_and_renders(monkeypatch) -> None:
     assert response.status_code == 200
     assert "API Keys" in response.text
     assert "Added Keys" in response.text
+    assert "Manage in Providers" in response.text
     assert "OpenAI" in response.text
     assert "sk-o...enai" in response.text
-    assert response.text.count('value="openai"') == 1
 
 
 def test_api_keys_save_posts_provider_map(monkeypatch) -> None:
@@ -640,6 +640,7 @@ def test_custom_providers_page_and_crud(monkeypatch) -> None:
     client = TestClient(join_api.app)
     page = client.get("/dashboard/providers")
     assert page.status_code == 200
+    assert "Known Providers (Key Binding)" in page.text
     assert "Custom Providers" in page.text
     assert "Groq EU" in page.text
 
@@ -663,6 +664,69 @@ def test_custom_providers_page_and_crud(monkeypatch) -> None:
     ids = {str(item.get("id")) for item in custom if isinstance(item, dict)}
     assert "llm-groq-eu" in ids
     assert any(str(item.get("id")) == "stt-whisperx" for item in custom if isinstance(item, dict))
+
+
+def test_known_provider_binding_updates_canonical_key_slot(monkeypatch) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path, json_body))
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "agentName": "coziyoo-agent",
+                    "ttsConfig": {
+                        "providerApiKeys": {
+                            "llm.openai": "old-openai-key",
+                            "llm.openai.prod": "sk-prod",
+                        },
+                        "customProviders": [
+                            {
+                                "id": "llm-groq-eu",
+                                "type": "llm",
+                                "name": "Groq EU",
+                                "baseUrl": "https://groq.example.com",
+                                "endpointPath": "/v1/chat/completions",
+                                "modelsPath": "/v1/models",
+                            }
+                        ],
+                    },
+                }
+            }
+        if method == "PUT" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ok": True}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/providers",
+        data={
+            "action": "bind_known_key",
+            "provider_type": "llm",
+            "provider_id": "openai",
+            "selected_key_id": "llm.openai.prod",
+        },
+    )
+    assert response.status_code == 200
+
+    put_call = next((c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/default"), None)
+    assert put_call is not None
+    payload = put_call[2] or {}
+    tts_cfg = payload.get("ttsConfig") if isinstance(payload, dict) else {}
+    assert isinstance(tts_cfg, dict)
+    keys = tts_cfg.get("providerApiKeys") if isinstance(tts_cfg, dict) else {}
+    custom = tts_cfg.get("customProviders") if isinstance(tts_cfg, dict) else []
+    assert isinstance(keys, dict)
+    assert keys.get("llm.openai") == "sk-prod"
+    assert keys.get("llm.openai.prod") == "sk-prod"
+    assert isinstance(custom, list)
+    assert any(str(item.get("id")) == "llm-groq-eu" for item in custom if isinstance(item, dict))
 
 
 def test_profile_editor_includes_custom_provider_options(monkeypatch) -> None:
