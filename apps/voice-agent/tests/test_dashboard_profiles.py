@@ -231,7 +231,10 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
             "voice_language": "tr",
             "system_prompt": "test",
             "llm_config.model": "gpt-4o-mini",
+            "tts_config.provider": "openai",
+            "tts_config.language": "multilingual",
             "tts_config.model": "alloy",
+            "tts_config.models_path": "/v1/models",
             "stt_config.model": "nova-2",
         },
         follow_redirects=False,
@@ -243,6 +246,9 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
     assert isinstance(save_call[2], dict)
     assert save_call[2].get("ollamaModel") == "gpt-4o-mini"
     assert save_call[2].get("sttModel") == "nova-2"
+    assert (save_call[2].get("ttsConfig") or {}).get("provider") == "openai"
+    assert (save_call[2].get("ttsConfig") or {}).get("language") == "multilingual"
+    assert (save_call[2].get("ttsConfig") or {}).get("modelsPath") == "/v1/models"
     assert (save_call[2].get("ttsConfig") or {}).get("model") == "alloy"
 
 
@@ -259,6 +265,9 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
                     "ollamaModel": "old-top-level-model",
                     "sttModel": "old-stt-model",
                     "ttsConfig": {
+                        "provider": "openai",
+                        "language": "multilingual",
+                        "modelsPath": "/v1/models",
                         "model": "new-tts-model",
                         "stt": {"model": "new-stt-model"},
                         "llm": {"model": "new-nested-model"},
@@ -276,6 +285,7 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
     assert '<option value="new-nested-model">new-nested-model</option>' in response.text
     assert '<option value="new-stt-model">new-stt-model</option>' in response.text
     assert '<option value="new-tts-model">new-tts-model</option>' in response.text
+    assert 'name="tts_config.models_path" value="/v1/models"' in response.text
 
 
 def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:

@@ -267,9 +267,12 @@ def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) 
             "custom_query_params": _dict(stt_legacy.get("queryParams")),
         },
         "tts_config": {
+            "provider": str(tts_config.get("provider") or "custom"),
+            "language": str(tts_config.get("language") or "multilingual"),
             "base_url": tts_base_url,
             "api_key": str(tts_config.get("apiKey") or ""),
             "model": str(tts_config.get("model") or ""),
+            "models_path": str(tts_config.get("modelsPath") or "/v1/models"),
             "endpoint_path": str(tts_config.get("path") or "/v1/audio/speech"),
             "voice_id": str(tts_config.get("voiceId") or ""),
             "text_field_name": str(tts_config.get("textFieldName") or "input"),
@@ -316,8 +319,11 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "ollamaBaseUrl": str(llm_config.get("base_url") or ""),
         "ollamaModel": str(llm_config.get("model") or ""),
         "ttsConfig": {
+            "provider": str(tts_config.get("provider") or "custom"),
+            "language": str(tts_config.get("language") or "multilingual"),
             "baseUrl": str(tts_config.get("base_url") or ""),
             "model": str(tts_config.get("model") or ""),
+            "modelsPath": str(tts_config.get("models_path") or "/v1/models"),
             "path": str(tts_config.get("endpoint_path") or "/v1/audio/speech"),
             "stt": {
                 "provider": "remote-speech-server",

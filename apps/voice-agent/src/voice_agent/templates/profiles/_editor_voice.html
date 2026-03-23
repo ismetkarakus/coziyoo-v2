@@ -1,7 +1,31 @@
 <section class="card" style="margin-bottom:10px;">
   <details open>
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Voice</summary>
+
+  <div style="margin-bottom:12px;">
+    <label>TTS Provider Preset</label>
+    {% set tts_provider = (profile.tts_config or {}).get('provider', 'custom') %}
+    <select id="tts-provider-select" class="input" name="tts_config.provider" onchange="dashboardTtsModels.applyProvider(this.value)">
+      <option value="custom" {% if tts_provider == "custom" %}selected{% endif %}>— Custom —</option>
+      <option value="elevenlabs" {% if tts_provider == "elevenlabs" %}selected{% endif %}>ElevenLabs</option>
+      <option value="openai" {% if tts_provider == "openai" %}selected{% endif %}>OpenAI</option>
+      <option value="cartesia" {% if tts_provider == "cartesia" %}selected{% endif %}>Cartesia</option>
+      <option value="azure" {% if tts_provider == "azure" %}selected{% endif %}>Azure</option>
+      <option value="google" {% if tts_provider == "google" %}selected{% endif %}>Google</option>
+      <option value="playht" {% if tts_provider == "playht" %}selected{% endif %}>PlayHT</option>
+    </select>
+  </div>
+
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div>
+      <label>Language</label>
+      {% set tts_language = (profile.tts_config or {}).get('language', 'multilingual') %}
+      <select class="input" id="tts-language" name="tts_config.language">
+        <option value="multilingual" {% if tts_language == "multilingual" %}selected{% endif %}>Multilingual</option>
+        <option value="tr" {% if tts_language == "tr" %}selected{% endif %}>Turkish (tr)</option>
+        <option value="en" {% if tts_language == "en" %}selected{% endif %}>English (en)</option>
+      </select>
+    </div>
     <div><label>TTS Base URL</label><input class="input" id="tts-base-url" name="tts_config.base_url" value="{{ (profile.tts_config or {}).get('base_url','') }}" /></div>
     <div><label>TTS API Key</label><input class="input" id="tts-api-key" name="tts_config.api_key" value="{{ (profile.tts_config or {}).get('api_key','') }}" /></div>
     <div>
@@ -15,10 +39,10 @@
       </div>
       <div id="tts-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
     </div>
-    <div><label>TTS Endpoint Path</label><input class="input" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" /></div>
+    <div><label>TTS Endpoint Path</label><input class="input" id="tts-endpoint-path" name="tts_config.endpoint_path" value="{{ (profile.tts_config or {}).get('endpoint_path','/v1/audio/speech') }}" /></div>
     <div><label>Voice ID</label><input class="input" name="tts_config.voice_id" value="{{ (profile.tts_config or {}).get('voice_id','') }}" /></div>
-    <div><label>Text Field Name</label><input class="input" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" /></div>
-    <div><label>TTS Models Path</label><input class="input" id="tts-models-path" value="/v1/models" /></div>
+    <div><label>Text Field Name</label><input class="input" id="tts-text-field-name" name="tts_config.text_field_name" value="{{ (profile.tts_config or {}).get('text_field_name','input') }}" /></div>
+    <div><label>TTS Models Path</label><input class="input" id="tts-models-path" name="tts_config.models_path" value="{{ (profile.tts_config or {}).get('models_path','/v1/models') }}" /></div>
   </div>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
     <div><label>tts_config.custom_headers (JSON)</label><textarea class="input" rows="3" id="tts-custom-headers" name="tts_config.custom_headers">{{ (profile.tts_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
@@ -41,11 +65,80 @@
 </section>
 <script>
   window.dashboardTtsModels = window.dashboardTtsModels || {
+    providers: {
+      elevenlabs: {
+        base_url: "https://api.elevenlabs.io",
+        endpoint_path: "/v1/text-to-speech",
+        models_path: "/v1/models",
+        default_model: "eleven_multilingual_v2",
+        text_field_name: "text",
+        language: "multilingual",
+      },
+      openai: {
+        base_url: "https://api.openai.com",
+        endpoint_path: "/v1/audio/speech",
+        models_path: "/v1/models",
+        default_model: "gpt-4o-mini-tts",
+        text_field_name: "input",
+        language: "multilingual",
+      },
+      cartesia: {
+        base_url: "https://api.cartesia.ai",
+        endpoint_path: "/tts/bytes",
+        models_path: "/models",
+        default_model: "sonic-2",
+        text_field_name: "transcript",
+        language: "multilingual",
+      },
+      azure: {
+        base_url: "https://YOUR_RESOURCE_NAME.openai.azure.com",
+        endpoint_path: "/openai/deployments/YOUR_DEPLOYMENT/audio/speech?api-version=2024-02-15-preview",
+        models_path: "/openai/models?api-version=2024-02-15-preview",
+        default_model: "gpt-4o-mini-tts",
+        text_field_name: "input",
+        language: "multilingual",
+      },
+      google: {
+        base_url: "https://texttospeech.googleapis.com",
+        endpoint_path: "/v1/text:synthesize",
+        models_path: "/v1/models",
+        default_model: "gemini-2.5-flash-preview-tts",
+        text_field_name: "input",
+        language: "multilingual",
+      },
+      playht: {
+        base_url: "https://api.play.ht",
+        endpoint_path: "/api/v2/tts/stream",
+        models_path: "/api/v2/models",
+        default_model: "Play3.0-mini",
+        text_field_name: "text",
+        language: "multilingual",
+      },
+    },
     setStatus(msg, isError) {
       const el = document.getElementById("tts-model-status");
       if (!el) return;
       el.textContent = msg;
       el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    applyProvider(providerKey) {
+      const p = this.providers[providerKey];
+      if (!p) return;
+      document.getElementById("tts-base-url").value = p.base_url;
+      document.getElementById("tts-endpoint-path").value = p.endpoint_path;
+      document.getElementById("tts-models-path").value = p.models_path;
+      document.getElementById("tts-text-field-name").value = p.text_field_name;
+      document.getElementById("tts-language").value = p.language;
+      const modelSelect = document.getElementById("tts-model");
+      if (modelSelect) {
+        const current = (modelSelect.value || "").trim();
+        if (!current || current === "Select model…") {
+          this.populate([p.default_model]);
+          modelSelect.value = p.default_model;
+        }
+      }
+      this.setStatus("Preset applied. Fetching live models...");
+      setTimeout(() => this.fetch(), 0);
     },
     populate(models) {
       const select = document.getElementById("tts-model");
@@ -111,6 +204,15 @@
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
+      const sel = document.getElementById("tts-provider-select");
+      if (baseUrl && sel) {
+        for (const [key, p] of Object.entries(this.providers)) {
+          if (baseUrl.startsWith(p.base_url)) {
+            sel.value = key;
+            break;
+          }
+        }
+      }
       if (baseUrl) {
         setTimeout(() => this.fetch(), 0);
       }

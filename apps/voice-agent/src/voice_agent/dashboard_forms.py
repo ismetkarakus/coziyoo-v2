@@ -51,9 +51,12 @@ def normalize_profile_payload(form_data: Mapping[str, str]) -> dict:
             "custom_body_params": _as_json_map(form_data.get("llm_config.custom_body_params")),
         },
         "tts_config": {
+            "provider": _as_text(form_data.get("tts_config.provider"), "custom") or "custom",
+            "language": _as_text(form_data.get("tts_config.language"), "multilingual") or "multilingual",
             "base_url": _as_text(form_data.get("tts_config.base_url")),
             "api_key": _as_text(form_data.get("tts_config.api_key")),
             "model": _as_text(form_data.get("tts_config.model")),
+            "models_path": _as_text(form_data.get("tts_config.models_path"), "/v1/models") or "/v1/models",
             "endpoint_path": _as_text(form_data.get("tts_config.endpoint_path"), "/v1/audio/speech")
             or "/v1/audio/speech",
             "voice_id": _as_text(form_data.get("tts_config.voice_id")),
