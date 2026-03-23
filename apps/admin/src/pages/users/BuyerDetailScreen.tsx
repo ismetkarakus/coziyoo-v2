@@ -38,6 +38,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [message, setMessage] = useState<string | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
+  const [profileImageResolvedSrc, setProfileImageResolvedSrc] = useState<string | null>(null);
   const [smsOpen, setSmsOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
@@ -319,6 +320,37 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     }
     return { level, reasons };
   }, [openComplaints, cancellations30d, failedPayments]);
+
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+    let cancelled = false;
+
+    if (!buyerProfileImageUrl) {
+      setProfileImageResolvedSrc(null);
+      return () => undefined;
+    }
+
+    if (buyerProfileImageUrl.startsWith("data:image/")) {
+      fetch(buyerProfileImageUrl)
+        .then((response) => response.blob())
+        .then((blob) => {
+          if (cancelled) return;
+          const objectUrl = URL.createObjectURL(blob);
+          revokedUrl = objectUrl;
+          setProfileImageResolvedSrc(objectUrl);
+        })
+        .catch(() => {
+          if (!cancelled) setProfileImageResolvedSrc(buyerProfileImageUrl);
+        });
+    } else {
+      setProfileImageResolvedSrc(buyerProfileImageUrl);
+    }
+
+    return () => {
+      cancelled = true;
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [buyerProfileImageUrl]);
 
   useEffect(() => {
     if (dateFilter !== "custom") return;
@@ -653,7 +685,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
           <button type="button" className="buyer-ref-avatar-button" onClick={() => setProfileModalOpen(true)} aria-label="Profil bilgilerini aç">
             <div className="buyer-ref-avatar">
               <img
-                src={buyerProfileImageUrl ?? buyerFallbackAvatar}
+                src={profileImageResolvedSrc ?? buyerFallbackAvatar}
                 alt={fullName}
                 onError={() => setProfileImageFailed(true)}
               />
