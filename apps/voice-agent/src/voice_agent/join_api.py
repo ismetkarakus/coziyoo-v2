@@ -998,6 +998,8 @@ async def dashboard_api_keys_save(request: Request):
     provider_id = str(form.get("provider_id") or "").strip()
     provider_key = str(form.get("provider_key") or "").strip()
     api_key_name = str(form.get("api_key_name") or "").strip()
+    provider_scope = str(form.get("provider_scope") or "").strip().lower()
+    provider_name = str(form.get("provider_name") or "").strip()
     show_add_form = False
 
     # Backward compatibility: full-map save via provider_keys.* form fields.
@@ -1017,7 +1019,22 @@ async def dashboard_api_keys_save(request: Request):
         known_base_ids = set(_default_provider_api_keys().keys())
         canonical_provider_id = _canonical_provider_id(provider_id)
         if action == "add":
-            if canonical_provider_id not in known_base_ids:
+            if provider_id == "__new_custom_provider__":
+                if provider_scope not in {"llm", "tts", "stt"}:
+                    message = "Please select provider type"
+                    show_add_form = True
+                    canonical_provider_id = ""
+                elif not provider_name:
+                    message = "Provider name is required"
+                    show_add_form = True
+                    canonical_provider_id = ""
+                else:
+                    canonical_provider_id = f"{provider_scope}.custom"
+                    if not api_key_name:
+                        api_key_name = provider_name
+            if show_add_form:
+                pass
+            elif canonical_provider_id not in known_base_ids:
                 message = "Please select a valid provider"
                 show_add_form = True
             elif not provider_key:
