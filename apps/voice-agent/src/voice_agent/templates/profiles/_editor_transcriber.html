@@ -1,7 +1,31 @@
 <section class="card" style="margin-bottom:10px;">
   <details open>
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Transcriber</summary>
+
+  <div style="margin-bottom:12px;">
+    <label>STT Provider Preset</label>
+    {% set stt_provider = (profile.stt_config or {}).get('provider', 'custom') %}
+    <select id="stt-provider-select" class="input" name="stt_config.provider" onchange="dashboardSttModels.applyProvider(this.value)">
+      <option value="custom" {% if stt_provider == "custom" %}selected{% endif %}>— Custom —</option>
+      <option value="deepgram" {% if stt_provider == "deepgram" %}selected{% endif %}>Deepgram</option>
+      <option value="google" {% if stt_provider == "google" %}selected{% endif %}>Google</option>
+      <option value="assemblyai" {% if stt_provider == "assemblyai" %}selected{% endif %}>AssemblyAI</option>
+      <option value="azure" {% if stt_provider == "azure" %}selected{% endif %}>Azure</option>
+      <option value="openai" {% if stt_provider == "openai" %}selected{% endif %}>OpenAI</option>
+      <option value="speechmatics" {% if stt_provider == "speechmatics" %}selected{% endif %}>Speechmatics</option>
+    </select>
+  </div>
+
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div>
+      <label>Language</label>
+      {% set stt_language = (profile.stt_config or {}).get('language', 'multilingual') %}
+      <select class="input" id="stt-language" name="stt_config.language">
+        <option value="multilingual" {% if stt_language == "multilingual" %}selected{% endif %}>Multilingual</option>
+        <option value="tr" {% if stt_language == "tr" %}selected{% endif %}>Turkish (tr)</option>
+        <option value="en" {% if stt_language == "en" %}selected{% endif %}>English (en)</option>
+      </select>
+    </div>
     <div><label>STT Base URL</label><input class="input" id="stt-base-url" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" /></div>
     <div><label>STT API Key</label><input class="input" id="stt-api-key" name="stt_config.api_key" value="{{ (profile.stt_config or {}).get('api_key','') }}" /></div>
     <div>
@@ -15,9 +39,8 @@
       </div>
       <div id="stt-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
     </div>
-    <div><label>STT Endpoint Path</label><input class="input" name="stt_config.endpoint_path" value="{{ (profile.stt_config or {}).get('endpoint_path','/v1/audio/transcriptions') }}" /></div>
-    <div><label>Language</label><input class="input" name="stt_config.language" value="{{ (profile.stt_config or {}).get('language','') }}" /></div>
-    <div><label>STT Models Path</label><input class="input" id="stt-models-path" value="/v1/models" /></div>
+    <div><label>STT Endpoint Path</label><input class="input" id="stt-endpoint-path" name="stt_config.endpoint_path" value="{{ (profile.stt_config or {}).get('endpoint_path','/v1/audio/transcriptions') }}" /></div>
+    <div><label>STT Models Path</label><input class="input" id="stt-models-path" name="stt_config.models_path" value="{{ (profile.stt_config or {}).get('models_path','/v1/models') }}" /></div>
   </div>
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
     <div><label>stt_config.custom_headers (JSON)</label><textarea class="input" rows="3" id="stt-custom-headers" name="stt_config.custom_headers">{{ (profile.stt_config or {}).get('custom_headers', {}) | tojson }}</textarea></div>
@@ -49,11 +72,73 @@
 </section>
 <script>
   window.dashboardSttModels = window.dashboardSttModels || {
+    providers: {
+      deepgram: {
+        base_url: "https://api.deepgram.com",
+        endpoint_path: "/v1/listen",
+        models_path: "/v1/models",
+        default_model: "nova-2",
+        language: "multilingual",
+      },
+      google: {
+        base_url: "https://speech.googleapis.com",
+        endpoint_path: "/v1/speech:recognize",
+        models_path: "/v1/models",
+        default_model: "latest_long",
+        language: "multilingual",
+      },
+      assemblyai: {
+        base_url: "https://api.assemblyai.com",
+        endpoint_path: "/v2/transcript",
+        models_path: "/v2/models",
+        default_model: "best",
+        language: "multilingual",
+      },
+      azure: {
+        base_url: "https://YOUR_RESOURCE_NAME.cognitiveservices.azure.com",
+        endpoint_path: "/speechtotext/transcriptions:transcribe?api-version=2024-11-15",
+        models_path: "/speechtotext/models?api-version=2024-11-15",
+        default_model: "latest",
+        language: "multilingual",
+      },
+      openai: {
+        base_url: "https://api.openai.com",
+        endpoint_path: "/v1/audio/transcriptions",
+        models_path: "/v1/models",
+        default_model: "gpt-4o-transcribe",
+        language: "multilingual",
+      },
+      speechmatics: {
+        base_url: "https://asr.api.speechmatics.com",
+        endpoint_path: "/v2/jobs",
+        models_path: "/v1/models",
+        default_model: "latest",
+        language: "multilingual",
+      },
+    },
     setStatus(msg, isError) {
       const el = document.getElementById("stt-model-status");
       if (!el) return;
       el.textContent = msg;
       el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    applyProvider(providerKey) {
+      const p = this.providers[providerKey];
+      if (!p) return;
+      document.getElementById("stt-base-url").value = p.base_url;
+      document.getElementById("stt-endpoint-path").value = p.endpoint_path;
+      document.getElementById("stt-models-path").value = p.models_path;
+      document.getElementById("stt-language").value = p.language;
+      const modelSelect = document.getElementById("stt-model");
+      if (modelSelect) {
+        const current = (modelSelect.value || "").trim();
+        if (!current || current === "Select model…") {
+          this.populate([p.default_model]);
+          modelSelect.value = p.default_model;
+        }
+      }
+      this.setStatus("Preset applied. Fetching live models...");
+      setTimeout(() => this.fetch(), 0);
     },
     populate(models) {
       const select = document.getElementById("stt-model");
@@ -119,6 +204,15 @@
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
+      const sel = document.getElementById("stt-provider-select");
+      if (baseUrl && sel) {
+        for (const [key, p] of Object.entries(this.providers)) {
+          if (baseUrl.startsWith(p.base_url)) {
+            sel.value = key;
+            break;
+          }
+        }
+      }
       if (baseUrl) {
         setTimeout(() => this.fetch(), 0);
       }

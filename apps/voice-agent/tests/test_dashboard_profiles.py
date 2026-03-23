@@ -235,7 +235,10 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
             "tts_config.language": "multilingual",
             "tts_config.model": "alloy",
             "tts_config.models_path": "/v1/models",
+            "stt_config.provider": "deepgram",
+            "stt_config.language": "multilingual",
             "stt_config.model": "nova-2",
+            "stt_config.models_path": "/v1/models",
         },
         follow_redirects=False,
     )
@@ -246,10 +249,14 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
     assert isinstance(save_call[2], dict)
     assert save_call[2].get("ollamaModel") == "gpt-4o-mini"
     assert save_call[2].get("sttModel") == "nova-2"
+    assert save_call[2].get("sttProvider") == "deepgram"
     assert (save_call[2].get("ttsConfig") or {}).get("provider") == "openai"
     assert (save_call[2].get("ttsConfig") or {}).get("language") == "multilingual"
     assert (save_call[2].get("ttsConfig") or {}).get("modelsPath") == "/v1/models"
     assert (save_call[2].get("ttsConfig") or {}).get("model") == "alloy"
+    assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("provider") == "deepgram"
+    assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("language") == "multilingual"
+    assert ((save_call[2].get("ttsConfig") or {}).get("stt") or {}).get("modelsPath") == "/v1/models"
 
 
 def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
@@ -269,7 +276,12 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
                         "language": "multilingual",
                         "modelsPath": "/v1/models",
                         "model": "new-tts-model",
-                        "stt": {"model": "new-stt-model"},
+                        "stt": {
+                            "provider": "deepgram",
+                            "language": "multilingual",
+                            "modelsPath": "/v1/models",
+                            "model": "new-stt-model",
+                        },
                         "llm": {"model": "new-nested-model"},
                     },
                 }
@@ -286,6 +298,7 @@ def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
     assert '<option value="new-stt-model">new-stt-model</option>' in response.text
     assert '<option value="new-tts-model">new-tts-model</option>' in response.text
     assert 'name="tts_config.models_path" value="/v1/models"' in response.text
+    assert 'name="stt_config.models_path" value="/v1/models"' in response.text
 
 
 def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:
