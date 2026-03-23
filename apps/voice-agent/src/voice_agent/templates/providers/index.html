@@ -6,10 +6,6 @@
 </div>
 <div class="page-body">
   <div class="card" style="max-width:1100px;">
-    <p class="muted" style="margin-bottom:14px;">
-      Manage known and custom providers. Known providers are key-only editable. Custom providers support full endpoint/model configuration.
-    </p>
-
     {% if message %}
     <div style="margin-bottom:12px; font-size:12px; color:{% if 'fail' in (message|lower) or 'error' in (message|lower) %}#fca5a5{% else %}var(--primary){% endif %};">
       {{ message }}
@@ -18,70 +14,8 @@
 
     <section class="card" style="padding:12px; margin-bottom:12px;">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-        <h3 style="margin:0;">Known Providers (Key Binding)</h3>
-      </div>
-
-      {% if known_providers|length == 0 %}
-      <div class="muted" style="font-size:12px;">No known providers available.</div>
-      {% else %}
-      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
-        {% for provider in known_providers %}
-        <details class="card provider-card" style="padding:0; border-radius:8px;" data-provider-card>
-          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none;">
-            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-              <span class="badge" style="background:var(--p10); color:var(--primary); border:1px solid rgba(55,170,157,.2); text-transform:uppercase;">{{ provider.types | join(', ') }}</span>
-              <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.name }}</span>
-              <span class="muted" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.api_key_slots | join(', ') or 'No key slot' }}</span>
-              {% if provider.bound_key_masked %}
-              <span class="muted" style="font-size:12px;">{{ provider.bound_key_masked }}</span>
-              {% endif %}
-            </div>
-            <span class="muted provider-expand-label" style="font-size:12px;">Expand</span>
-          </summary>
-          <div style="padding:0 12px 12px; border-top:1px solid var(--border);">
-            <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;" data-known-provider-form>
-              <input type="hidden" name="action" value="bind_known_key" />
-              <input type="hidden" name="provider_id" value="{{ provider.id }}" />
-
-              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-                <div><label>Base URL</label><input class="input" type="text" value="{{ provider.base_url }}" disabled /></div>
-                <div><label>Endpoint Path</label><input class="input" type="text" value="{{ provider.endpoint_path }}" disabled /></div>
-                <div><label>Models Path</label><input class="input" type="text" value="{{ provider.models_path }}" disabled /></div>
-              </div>
-
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <div><label>Default Model</label><input class="input" type="text" value="{{ provider.model or '' }}" disabled /></div>
-                <div>
-                  <label>Bound API Key</label>
-                  <select class="input" name="selected_key_id" data-known-provider-key-select {% if not provider.api_key_slots %}disabled{% endif %}>
-                    <option value="">None (clear)</option>
-                    {% for opt in provider_api_key_options %}
-                    <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.bound_key_slot and provider.bound_key_slot == opt.id %}selected{% endif %}>{{ opt.label }}</option>
-                    {% endfor %}
-                  </select>
-                  {% if not provider.api_key_slots %}
-                  <div class="muted" style="font-size:12px; margin-top:4px;">This provider does not use API key binding.</div>
-                  {% endif %}
-                </div>
-              </div>
-
-              <div style="display:flex; gap:6px;">
-                <button class="btn btn-primary btn-save" type="submit" {% if not provider.api_key_slots %}disabled{% endif %}>Save Binding</button>
-              </div>
-            </form>
-          </div>
-        </details>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </section>
-
-    <section class="card" style="padding:12px; margin-bottom:12px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
         <h3 style="margin:0;">Custom Providers</h3>
-        <button class="btn btn-primary" type="button" onclick="toggleAddProviderForm()">
-          + Add Provider
-        </button>
+        <button class="btn btn-primary" type="button" onclick="toggleAddProviderForm()">+ Add Provider</button>
       </div>
 
       <div id="add-provider-form" style="display:{% if show_add_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
@@ -221,6 +155,62 @@
               <div style="display:flex; gap:6px;">
                 <button class="btn btn-primary btn-save" type="submit" onclick="this.form.querySelector('input[name=action]').value='update'">Update</button>
                 <button class="btn btn-danger" type="submit" onclick="this.form.querySelector('input[name=action]').value='delete'">Delete</button>
+              </div>
+            </form>
+          </div>
+        </details>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card" style="padding:12px; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <h3 style="margin:0;">Known Providers (Key Binding)</h3>
+      </div>
+
+      {% if known_providers|length == 0 %}
+      <div class="muted" style="font-size:12px;">No known providers available.</div>
+      {% else %}
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+        {% for provider in known_providers %}
+        <details class="card provider-card" style="padding:0; border-radius:8px;" data-provider-card>
+          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+              <span class="badge" style="background:var(--p10); color:var(--primary); border:1px solid rgba(55,170,157,.2); text-transform:uppercase;">{{ provider.types | join(', ') }}</span>
+              <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.name }}</span>
+              <span class="muted" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.api_key_slots | join(', ') or 'No key slot' }}</span>
+              {% if provider.bound_key_masked %}
+              <span class="muted" style="font-size:12px;">{{ provider.bound_key_masked }}</span>
+              {% endif %}
+            </div>
+            <span class="muted provider-expand-label" style="font-size:12px;">Expand</span>
+          </summary>
+          <div style="padding:0 12px 12px; border-top:1px solid var(--border);">
+            <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;" data-known-provider-form>
+              <input type="hidden" name="action" value="bind_known_key" />
+              <input type="hidden" name="provider_id" value="{{ provider.id }}" />
+
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div><label>Base URL</label><input class="input" type="text" value="{{ provider.base_url }}" disabled /></div>
+                <div><label>Endpoint Path</label><input class="input" type="text" value="{{ provider.endpoint_path }}" disabled /></div>
+                <div><label>Models Path</label><input class="input" type="text" value="{{ provider.models_path }}" disabled /></div>
+              </div>
+
+              <div style="display:flex; gap:6px; align-items:flex-end;">
+                <div style="flex:1;">
+                  <label>Bound API Key</label>
+                  <select class="input" name="selected_key_id" data-known-provider-key-select {% if not provider.api_key_slots %}disabled{% endif %}>
+                    <option value="">None (clear)</option>
+                    {% for opt in provider_api_key_options %}
+                    <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.bound_key_slot and provider.bound_key_slot == opt.id %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                  </select>
+                  {% if not provider.api_key_slots %}
+                  <div class="muted" style="font-size:12px; margin-top:4px;">This provider does not use API key binding.</div>
+                  {% endif %}
+                </div>
+                <button class="btn btn-primary btn-save" type="submit" {% if not provider.api_key_slots %}disabled{% endif %}>Save Binding</button>
               </div>
             </form>
           </div>
