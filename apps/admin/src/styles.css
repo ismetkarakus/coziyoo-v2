@@ -7056,16 +7056,23 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 .seller-quick-access-menu a,
+.seller-quick-access-menu button,
 .seller-quick-access-menu span {
   display: block;
+  width: 100%;
   padding: 8px 11px;
   color: var(--color-text);
   font-size: var(--text-sm);
   text-decoration: none;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 66%, transparent);
 }
 
-.seller-quick-access-menu a:hover {
+.seller-quick-access-menu a:hover,
+.seller-quick-access-menu button:hover {
   background: color-mix(in srgb, #7ba2ff 14%, transparent);
 }
 
@@ -10300,8 +10307,10 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
 }
 
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu a,
+:root:not(.dark) .seller-detail-page .seller-quick-access-menu button,
 :root:not(.dark) .seller-detail-page .seller-quick-access-menu span,
 :root:not(.dark) .buyer-ops-page .seller-quick-access-menu a,
+:root:not(.dark) .buyer-ops-page .seller-quick-access-menu button,
 :root:not(.dark) .buyer-ops-page .seller-quick-access-menu span {
   color: var(--color-text);
   border-bottom-color: color-mix(in srgb, #90a9da 30%, var(--color-border));
