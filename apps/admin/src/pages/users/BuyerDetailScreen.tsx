@@ -1139,58 +1139,57 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               </div>
               <button type="button" className="ghost buyer-ops-mini-btn" onClick={() => setProfileModalOpen(false)}>Kapat</button>
             </div>
-            <div className="buyer-ref-contact-block">
-              <div className="buyer-ref-info-row">
+
+            <div className="buyer-ref-profile-modal-list">
+              <section className="buyer-ref-profile-line-card">
                 <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✉</span> E-posta</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{email}</p>
-              </div>
-            </div>
-            {allAddresses.length === 0 ? (
-              <div className="buyer-ref-contact-block">
-                <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-value">{email}</p>
+              </section>
+
+              {allAddresses.length === 0 ? (
+                <section className="buyer-ref-profile-line-card">
                   <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌂</span> Adres</p>
-                  <p className="buyer-ref-contact-value buyer-ref-info-value">Adres yok</p>
-                </div>
-              </div>
-            ) : (
-              allAddresses.map((address) => (
-                <button key={address.id} type="button" className="buyer-ref-link-block buyer-ref-contact-block" onClick={() => openAddressInMaps(address.addressLine)}>
-                  <div className="buyer-ref-info-row">
+                  <p className="buyer-ref-contact-value">Adres yok</p>
+                </section>
+              ) : (
+                allAddresses.map((address) => (
+                  <button
+                    key={address.id}
+                    type="button"
+                    className="buyer-ref-profile-line-card buyer-ref-profile-line-card-btn"
+                    onClick={() => openAddressInMaps(address.addressLine)}
+                  >
                     <p className="buyer-ref-contact-label">
                       <span className="buyer-ref-side-icon" aria-hidden="true">⌂</span>
-                      {address.title || "Adres"} {address.isDefault ? "(Varsayilan)" : ""}
+                      {address.title || "Adres"} {address.isDefault ? "(Varsayılan)" : ""}
                     </p>
-                    <p className="buyer-ref-contact-value buyer-ref-info-value">{address.addressLine}</p>
-                  </div>
-                </button>
-              ))
-            )}
-            <button type="button" className="buyer-ref-link-block buyer-ref-contact-block" onClick={() => openDialer(phone)}>
-              <div className="buyer-ref-info-row">
+                    <p className="buyer-ref-contact-value">{address.addressLine}</p>
+                  </button>
+                ))
+              )}
+
+              <button type="button" className="buyer-ref-profile-line-card buyer-ref-profile-line-card-btn" onClick={() => openDialer(phone)}>
                 <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">✆</span> Cep</p>
-                <p className="buyer-ref-contact-value buyer-ref-phone-row buyer-ref-info-value">
+                <p className="buyer-ref-contact-value buyer-ref-phone-row">
                   <strong>{phone}</strong>
                   <span className="buyer-ref-online-dot" aria-hidden="true" />
                 </p>
-              </div>
-            </button>
-            <button type="button" className="buyer-ref-link-block buyer-ref-contact-block" onClick={() => switchBuyerTab("activity")}>
-              <div className="buyer-ref-info-row">
+              </button>
+
+              <button type="button" className="buyer-ref-profile-line-card buyer-ref-profile-line-card-btn is-highlight" onClick={() => switchBuyerTab("activity")}>
                 <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">⌖</span> Giris Lokasyonlari</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{`${locations.length} lokasyon`}</p>
-              </div>
-            </button>
-            <div className="buyer-ref-contact-block">
-              <div className="buyer-ref-info-row">
+                <p className="buyer-ref-contact-value">{`${locations.length} lokasyon`}</p>
+              </button>
+
+              <section className="buyer-ref-profile-line-card">
                 <p className="buyer-ref-contact-label"><span className="buyer-ref-side-icon" aria-hidden="true">◷</span> Son Giris</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{detailLastLoginAt}</p>
-              </div>
+                <p className="buyer-ref-contact-value">{detailLastLoginAt}</p>
+              </section>
             </div>
-            <div className="buyer-ref-contact-block">
-              <div className="buyer-ref-info-row">
-                <p className="buyer-ref-contact-label">Dogum Tarihi</p>
-                <p className="buyer-ref-contact-value buyer-ref-info-value">{birthDateText}</p>
-              </div>
+
+            <div className="buyer-ref-profile-modal-footer">
+              <p>Dogum Tarihi</p>
+              <strong>{birthDateText}</strong>
             </div>
           </div>
         </div>
