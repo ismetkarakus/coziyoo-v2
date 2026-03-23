@@ -1122,14 +1122,15 @@ authRouter.post("/me/profile-image/upload", requireAuth("app"), async (req, res)
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
 
-  if (!env.S3_ENDPOINT || !env.S3_BUCKET_SELLER_DOCS) {
-    return res.status(503).json({ error: { code: "STORAGE_NOT_CONFIGURED", message: "S3 storage is not configured" } });
-  }
-
   const ext = parsed.data.contentType === "image/png" ? "png" : parsed.data.contentType === "image/webp" ? "webp" : "jpg";
   const key = `user/${req.auth!.userId}/profile/${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
-  const bucket = env.S3_BUCKET_SELLER_DOCS!;
-  const imageUrl = `${env.S3_ENDPOINT}/${bucket}/${key}`;
+  const bucket = env.S3_BUCKET_SELLER_DOCS;
+  const canUseS3 = Boolean(
+    env.S3_ENDPOINT &&
+    env.S3_BUCKET_SELLER_DOCS &&
+    env.S3_ACCESS_KEY_ID &&
+    env.S3_SECRET_ACCESS_KEY
+  );
 
   try {
     const binary = Buffer.from(parsed.data.dataBase64, "base64");
@@ -1141,15 +1142,26 @@ authRouter.post("/me/profile-image/upload", requireAuth("app"), async (req, res)
       return res.status(413).json({ error: { code: "IMAGE_TOO_LARGE", message: "Image is too large" } });
     }
 
-    const client = getProfileS3Client();
-    await client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        ContentType: parsed.data.contentType,
-        Body: binary,
-      })
-    );
+    let imageUrl = `data:${parsed.data.contentType};base64,${parsed.data.dataBase64}`;
+    let storage: "s3" | "inline" = "inline";
+
+    if (canUseS3 && env.S3_ENDPOINT && bucket) {
+      try {
+        const client = getProfileS3Client();
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            ContentType: parsed.data.contentType,
+            Body: binary,
+          })
+        );
+        imageUrl = `${env.S3_ENDPOINT}/${bucket}/${key}`;
+        storage = "s3";
+      } catch {
+        // Keep inline fallback when S3 upload fails at runtime.
+      }
+    }
 
     await pool.query(
       `UPDATE users SET profile_image_url = $1, updated_at = NOW() WHERE id = $2 AND is_active = TRUE`,
@@ -1157,7 +1169,7 @@ authRouter.post("/me/profile-image/upload", requireAuth("app"), async (req, res)
     );
 
     return res.status(201).json({
-      data: { profileImageUrl: imageUrl },
+      data: { profileImageUrl: imageUrl, storage },
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
