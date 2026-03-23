@@ -1058,6 +1058,11 @@ const ProfileImageUploadSchema = z.object({
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
 });
 
+const ProfileImageDirectUploadSchema = z.object({
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  dataBase64: z.string().min(20),
+});
+
 authRouter.post("/me/profile-image/upload-url", requireAuth("app"), async (req, res) => {
   const parsed = ProfileImageUploadSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -1109,6 +1114,55 @@ authRouter.put("/me/profile-image", requireAuth("app"), async (req, res) => {
   );
 
   return res.json({ data: { profileImageUrl: parsed.data.imageUrl } });
+});
+
+authRouter.post("/me/profile-image/upload", requireAuth("app"), async (req, res) => {
+  const parsed = ProfileImageDirectUploadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  if (!env.S3_ENDPOINT || !env.S3_BUCKET_SELLER_DOCS) {
+    return res.status(503).json({ error: { code: "STORAGE_NOT_CONFIGURED", message: "S3 storage is not configured" } });
+  }
+
+  const ext = parsed.data.contentType === "image/png" ? "png" : parsed.data.contentType === "image/webp" ? "webp" : "jpg";
+  const key = `user/${req.auth!.userId}/profile/${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
+  const bucket = env.S3_BUCKET_SELLER_DOCS!;
+  const imageUrl = `${env.S3_ENDPOINT}/${bucket}/${key}`;
+
+  try {
+    const binary = Buffer.from(parsed.data.dataBase64, "base64");
+    if (binary.byteLength === 0) {
+      return res.status(400).json({ error: { code: "INVALID_IMAGE_DATA", message: "Image payload is empty" } });
+    }
+    // Keep payload bounded to avoid oversized uploads through JSON.
+    if (binary.byteLength > 7 * 1024 * 1024) {
+      return res.status(413).json({ error: { code: "IMAGE_TOO_LARGE", message: "Image is too large" } });
+    }
+
+    const client = getProfileS3Client();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: parsed.data.contentType,
+        Body: binary,
+      })
+    );
+
+    await pool.query(
+      `UPDATE users SET profile_image_url = $1, updated_at = NOW() WHERE id = $2 AND is_active = TRUE`,
+      [imageUrl, req.auth!.userId]
+    );
+
+    return res.status(201).json({
+      data: { profileImageUrl: imageUrl },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ error: { code: "UPLOAD_FAILED", message: "Profile image upload failed", detail } });
+  }
 });
 
 /* ── Buyer Address Management ── */

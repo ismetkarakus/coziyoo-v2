@@ -1540,6 +1540,7 @@ export default function HomeScreen({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
 
       if (result.canceled || !result.assets?.[0]) return;
@@ -1547,6 +1548,7 @@ export default function HomeScreen({
       const asset = result.assets[0];
       const uri = asset.uri;
       const mimeType = asset.mimeType ?? 'image/jpeg';
+      const base64Image = asset.base64 ?? null;
 
       setProfileImageUrl(uri);
       setCachedLocalImageUrl(uri);
@@ -1573,26 +1575,46 @@ export default function HomeScreen({
 
       const imageResponse = await fetch(uri);
       const imageBlob = await imageResponse.blob();
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': mimeType },
-        body: imageBlob,
-      });
-      if (!uploadRes.ok) {
-        throw new Error('Resim yüklenemedi');
+      let uploadedImageUrl = imageUrl;
+
+      try {
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': mimeType },
+          body: imageBlob,
+        });
+        if (!uploadRes.ok) {
+          throw new Error('Presigned upload başarısız');
+        }
+
+        const saveRes = await authedJsonFetch(`${baseUrl}/v1/auth/me/profile-image`, {
+          method: 'PUT',
+          body: JSON.stringify({ imageUrl }),
+        });
+        const saveJson = await saveRes.json();
+        if (!saveRes.ok || saveJson.error) {
+          throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
+        }
+      } catch (uploadError) {
+        if (!base64Image) {
+          throw uploadError instanceof Error ? uploadError : new Error('Resim yüklenemedi');
+        }
+        const directRes = await authedJsonFetch(`${baseUrl}/v1/auth/me/profile-image/upload`, {
+          method: 'POST',
+          body: JSON.stringify({
+            contentType: mimeType,
+            dataBase64: base64Image,
+          }),
+        });
+        const directJson = await directRes.json();
+        if (!directRes.ok || directJson.error) {
+          throw new Error(directJson.error?.message ?? 'Profil resmi şu an yüklenemedi');
+        }
+        uploadedImageUrl = String(directJson?.data?.profileImageUrl ?? imageUrl);
       }
 
-      const saveRes = await authedJsonFetch(`${baseUrl}/v1/auth/me/profile-image`, {
-        method: 'PUT',
-        body: JSON.stringify({ imageUrl }),
-      });
-      const saveJson = await saveRes.json();
-      if (!saveRes.ok || saveJson.error) {
-        throw new Error(saveJson.error?.message ?? 'Profil resmi kaydedilemedi');
-      }
-
-      setProfileImageUrl(imageUrl);
-      await saveCachedProfileImageUrl(imageUrl);
+      setProfileImageUrl(uploadedImageUrl);
+      await saveCachedProfileImageUrl(uploadedImageUrl);
     } catch (e) {
       Alert.alert('Hata', e instanceof Error ? e.message : t('error.profileEdit.imageUpload'));
     } finally {
