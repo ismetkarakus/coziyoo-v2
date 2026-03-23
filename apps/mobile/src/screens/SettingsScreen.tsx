@@ -16,6 +16,7 @@ import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { t } from '../copy/brandCopy';
 import ProfileEditScreen from './ProfileEditScreen';
+import AddressScreen from './AddressScreen';
 
 type UserProfile = {
   email: string;
@@ -31,6 +32,7 @@ type Props = {
 export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -261,6 +263,35 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
             <ProfileEditScreen
               auth={currentAuth}
               onBack={() => setProfileEditModalVisible(false)}
+              onAuthRefresh={(session) => {
+                setCurrentAuth(session);
+                onAuthRefresh?.(session);
+              }}
+              onOpenAddressEditor={() => {
+                setProfileEditModalVisible(false);
+                setAddressModalVisible(true);
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={addressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddressModalVisible(false)}
+      >
+        <View style={styles.profileEditOverlay}>
+          <TouchableOpacity
+            style={styles.profileEditBackdrop}
+            activeOpacity={1}
+            onPress={() => setAddressModalVisible(false)}
+          />
+          <View style={styles.profileEditSheet}>
+            <AddressScreen
+              auth={currentAuth}
+              onBack={() => setAddressModalVisible(false)}
               onAuthRefresh={(session) => {
                 setCurrentAuth(session);
                 onAuthRefresh?.(session);

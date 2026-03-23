@@ -34,9 +34,11 @@ type Props = {
   auth: AuthSession;
   onBack: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
+  onOpenAddressEditor?: () => void;
+  isNewRegistration?: boolean;
 };
 
-export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props) {
+export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenAddressEditor, isNewRegistration }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,6 +70,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
   }, [auth]);
 
   useEffect(() => {
+    if (isNewRegistration && auth.email) {
+      setEmail(auth.email);
+    }
     fetchProfile();
   }, []);
 
@@ -125,10 +130,24 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
     }
   }
 
+  function isProfileComplete(): boolean {
+    return !!(
+      displayName.trim() && displayName.trim().length >= 3 &&
+      fullName.trim() &&
+      phone.trim() &&
+      dob.trim()
+    );
+  }
+
   async function handleSave() {
     if (!displayName.trim() || displayName.trim().length < 3) {
       Alert.alert('Hata', t('error.profileEdit.displayNameMin'));
       return;
+    }
+    if (isNewRegistration) {
+      if (!fullName.trim()) { Alert.alert('Hata', 'Ad soyad zorunludur'); return; }
+      if (!phone.trim()) { Alert.alert('Hata', 'Telefon numarası zorunludur'); return; }
+      if (!dob.trim()) { Alert.alert('Hata', 'Doğum tarihi zorunludur'); return; }
     }
 
     setSaving(true);
@@ -208,10 +227,16 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('headline.profileEdit.title')}</Text>
+        {isNewRegistration ? (
+          <View style={{ width: 40 }} />
+        ) : (
+          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.headerTitle}>
+          {isNewRegistration ? 'Profilini Tamamla' : t('headline.profileEdit.title')}
+        </Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -311,6 +336,32 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh }: Props
                       <Ionicons name="checkmark-circle" size={18} color="#3E845B" />
                     </View>
                   </View>
+                </View>
+
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#E9D9C4' }]}>
+                      <Ionicons name="location-outline" size={18} color="#7A6247" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('cta.home.deliveryAddressChange')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.home.deliveryAddressHint')}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.editChip}
+                      onPress={() => {
+                        if (onOpenAddressEditor) {
+                          onOpenAddressEditor();
+                          return;
+                        }
+                        Alert.alert('Bilgi', t('cta.home.addresses'));
+                      }}
+                    >
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{t('cta.home.addresses')}</Text>
                 </View>
               </View>
 
