@@ -250,7 +250,8 @@ def _legacy_settings_to_profile(profile_id: str, settings_data: dict[str, Any]) 
         "llm_config": {
             "base_url": llm_base_url,
             "api_key": str(llm_legacy.get("apiKey") or ""),
-            "model": str(settings_data.get("ollamaModel") or llm_legacy.get("model") or ""),
+            # Prefer nested llm.model over legacy top-level ollamaModel to avoid stale values.
+            "model": str(llm_legacy.get("model") or settings_data.get("ollamaModel") or ""),
             "endpoint_path": str(llm_legacy.get("endpointPath") or "/v1/chat/completions"),
             "custom_headers": _dict(llm_legacy.get("customHeaders")),
             "custom_body_params": _dict(llm_legacy.get("customBodyParams")),
@@ -313,6 +314,7 @@ def _to_legacy_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "ttsAuthHeader": tts_auth,
         "n8nBaseUrl": str(n8n_config.get("base_url") or ""),
         "ollamaBaseUrl": str(llm_config.get("base_url") or ""),
+        "ollamaModel": str(llm_config.get("model") or ""),
         "ttsConfig": {
             "baseUrl": str(tts_config.get("base_url") or ""),
             "model": str(tts_config.get("model") or ""),

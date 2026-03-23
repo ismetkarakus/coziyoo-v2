@@ -203,7 +203,9 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
             "name": "Aktif Profil 9",
             "voice_language": "tr",
             "system_prompt": "test",
+            "llm_config.model": "gpt-4o-mini",
             "tts_config.model": "alloy",
+            "stt_config.model": "nova-2",
         },
         follow_redirects=False,
     )
@@ -212,7 +214,41 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
     save_call = next((c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/aktif-profil-9"), None)
     assert save_call is not None
     assert isinstance(save_call[2], dict)
+    assert save_call[2].get("ollamaModel") == "gpt-4o-mini"
+    assert save_call[2].get("sttModel") == "nova-2"
     assert (save_call[2].get("ttsConfig") or {}).get("model") == "alloy"
+
+
+def test_legacy_profile_editor_prefers_nested_llm_model(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "deviceId": "default",
+                    "agentName": "Default",
+                    "ollamaModel": "old-top-level-model",
+                    "sttModel": "old-stt-model",
+                    "ttsConfig": {
+                        "model": "new-tts-model",
+                        "stt": {"model": "new-stt-model"},
+                        "llm": {"model": "new-nested-model"},
+                    },
+                }
+            }
+        return 404, {"error": {"code": "NOT_FOUND"}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get("/dashboard/profiles/default")
+    assert response.status_code == 200
+    assert '<option value="new-nested-model">new-nested-model</option>' in response.text
+    assert '<option value="new-stt-model">new-stt-model</option>' in response.text
+    assert '<option value="new-tts-model">new-tts-model</option>' in response.text
 
 
 def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:
