@@ -337,8 +337,6 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
     [user.id, refreshTokenHash, expiresAt, req.headers["user-agent"] ?? null, req.ip]
   );
 
-  await pool.query("UPDATE users SET last_sign_in_at = now() WHERE id = $1", [user.id]);
-
   await pool.query("INSERT INTO auth_audit (user_id, event_type, ip, user_agent) VALUES ($1, $2, $3, $4)", [
     user.id,
     "login_success",
