@@ -25,42 +25,64 @@
       </div>
 
       <div id="add-provider-form" style="display:{% if show_add_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
-        <form method="post" action="/dashboard/providers" style="display:grid; grid-template-columns:120px 1fr 1fr 1fr 1fr; gap:8px; align-items:end;">
+        <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px;" data-provider-form>
           <input type="hidden" name="action" value="add" />
-          <div>
-            <label>Type</label>
-            <select class="input" name="provider_type" onchange="filterProviderApiKeyOptions(this, '#add-provider-api-key-id')" required>
-              <option value="llm">LLM</option>
-              <option value="tts">TTS</option>
-              <option value="stt">STT</option>
-            </select>
+          <div style="display:grid; grid-template-columns:120px 1fr; gap:8px;">
+            <div>
+              <label>Type</label>
+              <select class="input" name="provider_type" data-provider-type onchange="syncProviderForm(this)" required>
+                <option value="llm">LLM</option>
+                <option value="tts">TTS</option>
+                <option value="stt">STT</option>
+              </select>
+            </div>
+            <div>
+              <label>Name</label>
+              <input class="input" type="text" name="provider_name" placeholder="e.g. Groq EU" required />
+            </div>
           </div>
-          <div>
-            <label>Name</label>
-            <input class="input" type="text" name="provider_name" placeholder="e.g. Groq EU" required />
+
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div><label>Base URL</label><input class="input" type="text" name="base_url" placeholder="https://..." /></div>
+            <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" placeholder="/v1/..." /></div>
+            <div><label>Models Path</label><input class="input" type="text" name="models_path" placeholder="/v1/models" /></div>
           </div>
-          <div>
-            <label>Base URL</label>
-            <input class="input" type="text" name="base_url" placeholder="https://..." />
+
+          <div class="provider-fields-llm" data-provider-section="llm" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div><label>Model</label><input class="input" type="text" name="model" placeholder="gpt-4o-mini" /></div>
+            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{}</textarea></div>
+            <div style="grid-column:1 / span 3;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{}</textarea></div>
           </div>
-          <div>
-            <label>Endpoint Path</label>
-            <input class="input" type="text" name="endpoint_path" placeholder="/v1/..." />
+
+          <div class="provider-fields-tts" data-provider-section="tts" style="display:none; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
+            <div><label>Model</label><input class="input" type="text" name="model" placeholder="gpt-4o-mini-tts" /></div>
+            <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" /></div>
+            <div><label>Voice ID</label><input class="input" type="text" name="voice_id" placeholder="alloy" /></div>
+            <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" placeholder="input" /></div>
+            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{}</textarea></div>
+            <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{}</textarea></div>
           </div>
-          <div>
-            <label>Models Path</label>
-            <input class="input" type="text" name="models_path" placeholder="/v1/models" />
+
+          <div class="provider-fields-stt" data-provider-section="stt" style="display:none; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div><label>Model</label><input class="input" type="text" name="model" placeholder="nova-2" /></div>
+            <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" /></div>
+            <div></div>
+            <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{}</textarea></div>
+            <div><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{}</textarea></div>
+            <div><label>custom_query_params (JSON)</label><textarea class="input" rows="2" name="custom_query_params">{}</textarea></div>
           </div>
-          <div style="grid-column: 1 / span 4;">
+
+          <div>
             <label>API Key (optional)</label>
-            <select class="input" id="add-provider-api-key-id" name="api_key_id">
+            <select class="input" id="add-provider-api-key-id" name="api_key_id" data-provider-key-select>
               <option value="">None</option>
               {% for opt in provider_api_key_options %}
               <option value="{{ opt.id }}" data-section="{{ opt.section }}">{{ opt.label }}</option>
               {% endfor %}
             </select>
           </div>
-          <button class="btn btn-primary btn-save" type="submit">Save</button>
+
+          <div><button class="btn btn-primary btn-save" type="submit">Save</button></div>
         </form>
       </div>
 
@@ -70,36 +92,57 @@
       <div style="display:flex; flex-direction:column; gap:8px;">
         {% for provider in providers %}
         <div class="card" style="padding:10px; border-radius:8px;">
-        <form method="post" action="/dashboard/providers" class="" style="display:grid; grid-template-columns:120px 1fr 1fr 1fr 1fr auto; gap:8px; align-items:end;">
+        <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px;" data-provider-form>
           <input type="hidden" name="action" value="update" />
           <input type="hidden" name="provider_id" value="{{ provider.id }}" />
-          <div>
-            <label>Type</label>
-            <select class="input" name="provider_type" onchange="filterProviderApiKeyOptions(this, '#provider-api-key-{{ provider.id }}')">
-              <option value="llm" {% if provider.type == "llm" %}selected{% endif %}>LLM</option>
-              <option value="tts" {% if provider.type == "tts" %}selected{% endif %}>TTS</option>
-              <option value="stt" {% if provider.type == "stt" %}selected{% endif %}>STT</option>
-            </select>
+          <div style="display:grid; grid-template-columns:120px 1fr; gap:8px;">
+            <div>
+              <label>Type</label>
+              <select class="input" name="provider_type" data-provider-type onchange="syncProviderForm(this)">
+                <option value="llm" {% if provider.type == "llm" %}selected{% endif %}>LLM</option>
+                <option value="tts" {% if provider.type == "tts" %}selected{% endif %}>TTS</option>
+                <option value="stt" {% if provider.type == "stt" %}selected{% endif %}>STT</option>
+              </select>
+            </div>
+            <div>
+              <label>Name</label>
+              <input class="input" type="text" name="provider_name" value="{{ provider.name }}" required />
+            </div>
           </div>
-          <div>
-            <label>Name</label>
-            <input class="input" type="text" name="provider_name" value="{{ provider.name }}" required />
+
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div><label>Base URL</label><input class="input" type="text" name="base_url" value="{{ provider.base_url }}" /></div>
+            <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" value="{{ provider.endpoint_path }}" /></div>
+            <div><label>Models Path</label><input class="input" type="text" name="models_path" value="{{ provider.models_path }}" /></div>
           </div>
-          <div>
-            <label>Base URL</label>
-            <input class="input" type="text" name="base_url" value="{{ provider.base_url }}" />
+
+          <div data-provider-section="llm" style="display:{% if provider.type == 'llm' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
+            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
+            <div style="grid-column:1 / span 3;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
           </div>
-          <div>
-            <label>Endpoint Path</label>
-            <input class="input" type="text" name="endpoint_path" value="{{ provider.endpoint_path }}" />
+
+          <div data-provider-section="tts" style="display:{% if provider.type == 'tts' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
+            <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
+            <div><label>Language</label><input class="input" type="text" name="language" value="{{ provider.language or '' }}" /></div>
+            <div><label>Voice ID</label><input class="input" type="text" name="voice_id" value="{{ provider.voice_id or '' }}" /></div>
+            <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" value="{{ provider.text_field_name or '' }}" /></div>
+            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
+            <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
           </div>
-          <div>
-            <label>Models Path</label>
-            <input class="input" type="text" name="models_path" value="{{ provider.models_path }}" />
+
+          <div data-provider-section="stt" style="display:{% if provider.type == 'stt' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
+            <div><label>Language</label><input class="input" type="text" name="language" value="{{ provider.language or '' }}" /></div>
+            <div></div>
+            <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
+            <div><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
+            <div><label>custom_query_params (JSON)</label><textarea class="input" rows="2" name="custom_query_params">{{ (provider.custom_query_params or {}) | tojson }}</textarea></div>
           </div>
-          <div style="grid-column: 1 / span 5;">
+
+          <div>
             <label>API Key (optional)</label>
-            <select class="input" id="provider-api-key-{{ provider.id }}" name="api_key_id">
+            <select class="input" id="provider-api-key-{{ provider.id }}" name="api_key_id" data-provider-key-select>
               <option value="">None</option>
               {% for opt in provider_api_key_options %}
               <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.api_key_id == opt.id %}selected{% endif %}>{{ opt.label }}</option>
@@ -125,8 +168,7 @@
     el.style.display = el.style.display === "none" ? "block" : "none";
   }
 
-  function filterProviderApiKeyOptions(typeSelect, targetSelector) {
-    const select = document.querySelector(targetSelector);
+  function filterProviderApiKeyOptions(typeSelect, select) {
     if (!select) return;
     const section = (typeSelect?.value || "").toLowerCase();
     Array.from(select.options).forEach((opt) => {
@@ -138,15 +180,21 @@
     }
   }
 
+  function syncProviderForm(typeSelect) {
+    const form = typeSelect?.closest("[data-provider-form]");
+    if (!form) return;
+    const section = (typeSelect.value || "").toLowerCase();
+    form.querySelectorAll("[data-provider-section]").forEach((el) => {
+      el.style.display = el.getAttribute("data-provider-section") === section ? "grid" : "none";
+    });
+    const keySelect = form.querySelector("[data-provider-key-select]");
+    filterProviderApiKeyOptions(typeSelect, keySelect);
+  }
+
   (function initProviderKeyFilters() {
-    const addType = document.querySelector('#add-provider-form select[name="provider_type"]');
-    if (addType) filterProviderApiKeyOptions(addType, '#add-provider-api-key-id');
-    document.querySelectorAll('form[action="/dashboard/providers"]').forEach((form) => {
-      const typeSelect = form.querySelector('select[name="provider_type"]');
-      const keySelect = form.querySelector('select[name="api_key_id"]');
-      if (typeSelect && keySelect && keySelect.id) {
-        filterProviderApiKeyOptions(typeSelect, '#' + keySelect.id);
-      }
+    document.querySelectorAll("[data-provider-form]").forEach((form) => {
+      const typeSelect = form.querySelector("[data-provider-type]");
+      if (typeSelect) syncProviderForm(typeSelect);
     });
   })();
 </script>

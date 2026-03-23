@@ -649,6 +649,13 @@ def _extract_custom_providers(tts_cfg: dict[str, Any]) -> list[dict[str, str]]:
             "endpoint_path": str(row.get("endpointPath") or "").strip(),
             "models_path": str(row.get("modelsPath") or "").strip(),
             "api_key_id": str(row.get("apiKeyId") or "").strip(),
+            "model": str(row.get("model") or "").strip(),
+            "language": str(row.get("language") or "").strip(),
+            "voice_id": str(row.get("voiceId") or "").strip(),
+            "text_field_name": str(row.get("textFieldName") or "").strip(),
+            "custom_headers": _dict(row.get("customHeaders")),
+            "custom_body_params": _dict(row.get("customBodyParams")),
+            "custom_query_params": _dict(row.get("customQueryParams")),
         }
         if not item["id"]:
             candidate = _slugify(f"{provider_type}-{item['name']}")
@@ -658,6 +665,62 @@ def _extract_custom_providers(tts_cfg: dict[str, Any]) -> list[dict[str, str]]:
         result.append(item)
     result.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
     return result
+
+
+def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _json_map(value: Any) -> dict[str, Any]:
+        raw = str(value or "").strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return {}
+        return _dict(parsed)
+
+    base: dict[str, Any] = {
+        "base_url": str((form.get("base_url") if form else None) or (current or {}).get("base_url") or "").strip(),
+        "endpoint_path": str((form.get("endpoint_path") if form else None) or (current or {}).get("endpoint_path") or "").strip(),
+        "models_path": str((form.get("models_path") if form else None) or (current or {}).get("models_path") or "").strip(),
+        "api_key_id": str((form.get("api_key_id") if form else None) or (current or {}).get("api_key_id") or "").strip(),
+    }
+    if provider_type == "llm":
+        base.update(
+            {
+                "model": str((form.get("model") if form else None) or (current or {}).get("model") or "").strip(),
+                "custom_headers": _dict((current or {}).get("custom_headers")),
+                "custom_body_params": _dict((current or {}).get("custom_body_params")),
+            }
+        )
+        base["custom_headers"] = _json_map(form.get("custom_headers")) if form else base["custom_headers"]
+        base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
+    elif provider_type == "tts":
+        base.update(
+            {
+                "model": str((form.get("model") if form else None) or (current or {}).get("model") or "").strip(),
+                "language": str((form.get("language") if form else None) or (current or {}).get("language") or "").strip(),
+                "voice_id": str((form.get("voice_id") if form else None) or (current or {}).get("voice_id") or "").strip(),
+                "text_field_name": str((form.get("text_field_name") if form else None) or (current or {}).get("text_field_name") or "").strip(),
+                "custom_headers": _dict((current or {}).get("custom_headers")),
+                "custom_body_params": _dict((current or {}).get("custom_body_params")),
+            }
+        )
+        base["custom_headers"] = _json_map(form.get("custom_headers")) if form else base["custom_headers"]
+        base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
+    elif provider_type == "stt":
+        base.update(
+            {
+                "model": str((form.get("model") if form else None) or (current or {}).get("model") or "").strip(),
+                "language": str((form.get("language") if form else None) or (current or {}).get("language") or "").strip(),
+                "custom_headers": _dict((current or {}).get("custom_headers")),
+                "custom_body_params": _dict((current or {}).get("custom_body_params")),
+                "custom_query_params": _dict((current or {}).get("custom_query_params")),
+            }
+        )
+        base["custom_headers"] = _json_map(form.get("custom_headers")) if form else base["custom_headers"]
+        base["custom_body_params"] = _json_map(form.get("custom_body_params")) if form else base["custom_body_params"]
+        base["custom_query_params"] = _json_map(form.get("custom_query_params")) if form else base["custom_query_params"]
+    return base
 
 
 def _provider_key_scope_and_provider(key_id: str) -> tuple[str, str]:
@@ -1204,14 +1267,12 @@ async def dashboard_custom_providers_save(request: Request):
             if provider_type not in {"llm", "tts", "stt"} or not provider_name:
                 message = "Provider type and name are required"
             else:
+                cfg = _provider_form_config(provider_type, form, current=current)
                 current.update(
                     {
                         "type": provider_type,
                         "name": provider_name,
-                        "base_url": str(form.get("base_url") or "").strip(),
-                        "endpoint_path": str(form.get("endpoint_path") or "").strip(),
-                        "models_path": str(form.get("models_path") or "").strip(),
-                        "api_key_id": str(form.get("api_key_id") or "").strip(),
+                        **cfg,
                     }
                 )
                 message = "Provider updated"
@@ -1229,15 +1290,13 @@ async def dashboard_custom_providers_save(request: Request):
             while provider_id in existing_ids:
                 provider_id = f"{base_id}-{counter}"
                 counter += 1
+            cfg = _provider_form_config(provider_type, form)
             providers.append(
                 {
                     "id": provider_id,
                     "type": provider_type,
                     "name": provider_name,
-                    "base_url": str(form.get("base_url") or "").strip(),
-                    "endpoint_path": str(form.get("endpoint_path") or "").strip(),
-                    "models_path": str(form.get("models_path") or "").strip(),
-                    "api_key_id": str(form.get("api_key_id") or "").strip(),
+                    **cfg,
                 }
             )
             message = "Provider added"
@@ -1252,6 +1311,13 @@ async def dashboard_custom_providers_save(request: Request):
             "endpointPath": p["endpoint_path"],
             "modelsPath": p["models_path"],
             "apiKeyId": p["api_key_id"],
+            "model": p.get("model", ""),
+            "language": p.get("language", ""),
+            "voiceId": p.get("voice_id", ""),
+            "textFieldName": p.get("text_field_name", ""),
+            "customHeaders": _dict(p.get("custom_headers")),
+            "customBodyParams": _dict(p.get("custom_body_params")),
+            "customQueryParams": _dict(p.get("custom_query_params")),
         }
         for p in providers
     ]
