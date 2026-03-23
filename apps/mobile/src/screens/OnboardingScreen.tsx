@@ -13,7 +13,6 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
 import { theme } from '../theme/colors';
@@ -32,6 +31,22 @@ type RegisterResponse = {
   };
   error?: { code?: string; message?: string };
 };
+
+type ExpoLocationModule = {
+  requestForegroundPermissionsAsync: () => Promise<{ status: string }>;
+  getCurrentPositionAsync: (options: { accuracy?: number }) => Promise<{
+    coords: { latitude: number; longitude: number; accuracy?: number | null };
+  }>;
+  Accuracy?: { Balanced?: number };
+};
+
+function loadExpoLocationModule(): ExpoLocationModule | null {
+  try {
+    return require('expo-location') as ExpoLocationModule;
+  } catch {
+    return null;
+  }
+}
 
 export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
   const [step, setStep] = useState<Step>('welcome');
@@ -69,15 +84,20 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
       // Try to get location (non-blocking)
       let locationPayload: { latitude: number; longitude: number; accuracyM?: number; source: string } | undefined;
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          locationPayload = {
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
-            source: 'app',
-          };
+        const locationModule = loadExpoLocationModule();
+        if (locationModule) {
+          const { status } = await locationModule.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const loc = await locationModule.getCurrentPositionAsync({
+              accuracy: locationModule.Accuracy?.Balanced,
+            });
+            locationPayload = {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
+              source: 'app',
+            };
+          }
         }
       } catch {
         // Location is optional
