@@ -3,49 +3,56 @@
   hx-post="/dashboard/profiles/{{ profile.id }}/save"
   hx-target="#profile-editor"
   hx-swap="innerHTML"
-  style="display:flex; flex-direction:column; gap:10px;">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h3 style="margin:0;">Editing: {{ profile.name }}</h3>
-    <button class="btn btn-primary" type="submit">Save</button>
+  style="display:flex;flex-direction:column;height:100%;min-height:0;">
+
+  <div class="editor-action-bar">
+    <input class="editor-name-input" name="name" value="{{ profile.name }}" placeholder="Assistant name…" />
+    <div style="display:flex;align-items:center;gap:8px;">
+      {% if profile.is_active %}<span class="badge badge-active">● Active</span>{% endif %}
+      <button class="btn btn-primary" type="submit">Save</button>
+    </div>
   </div>
 
-  <div><label>Profile Name</label><input class="input" name="name" value="{{ profile.name }}" /></div>
-
-  <div style="display:flex; gap:8px; flex-wrap:wrap; border-bottom:1px solid #1f2937; padding-bottom:10px;">
-    <button class="btn btn-primary" data-tab-btn="model" type="button" onclick="dashboardProfileTabs.show(this, 'model')">Model</button>
-    <button class="btn" data-tab-btn="voice" type="button" onclick="dashboardProfileTabs.show(this, 'voice')">Voice</button>
-    <button class="btn" data-tab-btn="transcriber" type="button" onclick="dashboardProfileTabs.show(this, 'transcriber')">Transcriber</button>
-    <button class="btn" data-tab-btn="tools" type="button" onclick="dashboardProfileTabs.show(this, 'tools')">Tools</button>
+  <div class="editor-tabs">
+    <button class="editor-tab active" data-tab-btn="model"       type="button" onclick="dashboardProfileTabs.show(this,'model')">Model</button>
+    <button class="editor-tab"        data-tab-btn="voice"       type="button" onclick="dashboardProfileTabs.show(this,'voice')">Voice</button>
+    <button class="editor-tab"        data-tab-btn="transcriber" type="button" onclick="dashboardProfileTabs.show(this,'transcriber')">Transcriber</button>
+    <button class="editor-tab"        data-tab-btn="tools"       type="button" onclick="dashboardProfileTabs.show(this,'tools')">Tools</button>
   </div>
 
-  <div data-tab-pane="model">{% include "profiles/_editor_model.html" %}</div>
-  <div data-tab-pane="voice" style="display:none;">{% include "profiles/_editor_voice.html" %}</div>
-  <div data-tab-pane="transcriber" style="display:none;">{% include "profiles/_editor_transcriber.html" %}</div>
-  <div data-tab-pane="tools" style="display:none;">{% include "profiles/_editor_tools.html" %}</div>
+  <div style="flex:1;overflow-y:auto;min-height:0;">
+    <div class="editor-tab-content" data-tab-pane="model">{% include "profiles/_editor_model.html" %}</div>
+    <div class="editor-tab-content" data-tab-pane="voice"       style="display:none;">{% include "profiles/_editor_voice.html" %}</div>
+    <div class="editor-tab-content" data-tab-pane="transcriber" style="display:none;">{% include "profiles/_editor_transcriber.html" %}</div>
+    <div class="editor-tab-content" data-tab-pane="tools"       style="display:none;">{% include "profiles/_editor_tools.html" %}</div>
+  </div>
 
-  <div id="profile-status">
+  <div id="profile-status" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;">
     {% include "profiles/_status.html" %}
   </div>
 
   {% if message %}
-    <div class="muted">{{ message }}</div>
+  <div style="padding:6px 16px 10px;font-size:12px;color:{% if 'failed' in (message|lower) or 'error' in (message|lower) %}#fca5a5{% else %}var(--primary){% endif %};">
+    {{ message }}
+  </div>
   {% endif %}
+
 </form>
 <script>
   window.dashboardProfileTabs = window.dashboardProfileTabs || {
     show(button, tabName) {
       const form = button.closest("form");
       if (!form) return;
-      form.querySelectorAll("[data-tab-pane]").forEach((pane) => {
-        pane.style.display = pane.getAttribute("data-tab-pane") === tabName ? "" : "none";
+      form.querySelectorAll("[data-tab-pane]").forEach(p => {
+        p.style.display = p.getAttribute("data-tab-pane") === tabName ? "" : "none";
       });
-      form.querySelectorAll("[data-tab-btn]").forEach((btn) => {
-        if (btn.getAttribute("data-tab-btn") === tabName) btn.classList.add("btn-primary");
-        else btn.classList.remove("btn-primary");
+      form.querySelectorAll("[data-tab-btn]").forEach(b => {
+        if (b.getAttribute("data-tab-btn") === tabName) b.classList.add("active");
+        else b.classList.remove("active");
       });
-    },
+    }
   };
 </script>
 {% else %}
-<div class="muted">Select a profile to edit.</div>
+<div class="editor-placeholder"><p class="muted">Select an assistant to edit.</p></div>
 {% endif %}

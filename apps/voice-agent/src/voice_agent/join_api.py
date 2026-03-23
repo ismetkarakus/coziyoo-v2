@@ -201,6 +201,13 @@ async def _fetch_call_logs(
     return _normalize_call_log_rows(payload.get("data")), None
 
 
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def _is_uuid(s: str) -> bool:
+    return bool(_UUID_RE.match(s))
+
+
 def _dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -433,7 +440,7 @@ async def dashboard_login(request: Request):
             status_code=502,
         )
 
-    response = RedirectResponse(url="/dashboard/profiles", status_code=303)
+    response = RedirectResponse(url="/dashboard/assistants", status_code=303)
     set_auth_cookies(response, access, refresh)
     return response
 
@@ -455,8 +462,8 @@ async def dashboard_logout(request: Request):
     return response
 
 
-@app.get("/dashboard/profiles", response_class=HTMLResponse)
-async def dashboard_profiles(request: Request):
+@app.get("/dashboard/assistants", response_class=HTMLResponse)
+async def dashboard_assistants(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
         return refresh_response
@@ -465,6 +472,103 @@ async def dashboard_profiles(request: Request):
         request=request,
         name="profiles/index.html",
         context={"profiles": profiles, "message": error_message},
+    )
+
+
+@app.get("/dashboard/profiles", include_in_schema=False)
+async def dashboard_profiles_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/assistants", status_code=303)
+
+
+async def _render_placeholder_page(
+    request: Request,
+    *,
+    page_title: str,
+    page_description: str,
+) -> HTMLResponse:
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+    return templates.TemplateResponse(
+        request=request,
+        name="_placeholder.html",
+        context={
+            "page_title": page_title,
+            "page_description": page_description,
+            "access_token": access_token,
+        },
+    )
+
+
+@app.get("/dashboard/tools", response_class=HTMLResponse)
+async def dashboard_tools_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Tools",
+        page_description="Manage reusable tools, webhooks, and integrations for assistants.",
+    )
+
+
+@app.get("/dashboard/phone-numbers", response_class=HTMLResponse)
+async def dashboard_phone_numbers_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Phone Numbers",
+        page_description="Manage call entry numbers and routing targets for your assistants.",
+    )
+
+
+@app.get("/dashboard/org/api-keys", response_class=HTMLResponse)
+async def dashboard_api_keys_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="API Keys",
+        page_description="View and rotate organization API keys used by clients and services.",
+    )
+
+
+@app.get("/dashboard/org", response_class=HTMLResponse)
+async def dashboard_org_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Organization",
+        page_description="Organization profile, billing, members, and workspace-wide settings.",
+    )
+
+
+@app.get("/dashboard/squads", response_class=HTMLResponse)
+async def dashboard_squads_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Squads",
+        page_description="Create multi-assistant squads and define handoff strategies.",
+    )
+
+
+@app.get("/dashboard/test-suites", response_class=HTMLResponse)
+async def dashboard_test_suites_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Test Suites",
+        page_description="Run scripted tests to validate assistant behavior before production rollout.",
+    )
+
+
+@app.get("/dashboard/evals", response_class=HTMLResponse)
+async def dashboard_evals_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Evals",
+        page_description="Define call success criteria and evaluate assistant quality over time.",
+    )
+
+
+@app.get("/dashboard/library/voice", response_class=HTMLResponse)
+async def dashboard_voice_library_page(request: Request):
+    return await _render_placeholder_page(
+        request,
+        page_title="Voice Library",
+        page_description="Browse and configure available TTS voices for assistant profiles.",
     )
 
 
@@ -517,6 +621,7 @@ async def dashboard_call_logs_table(request: Request):
 
 
 @app.post("/dashboard/profiles", response_class=HTMLResponse)
+@app.post("/dashboard/assistants", response_class=HTMLResponse)
 async def dashboard_create_profile(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
@@ -697,47 +802,51 @@ async def dashboard_profile_editor(request: Request, profile_id: str):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
         return refresh_response
-    status, payload = await api_request(
-        api_base_url=settings.api_base_url,
-        method="GET",
-        path=f"/v1/admin/agent-profiles/{profile_id}",
-        access_token=access_token,
-    )
-    if status == 404:
-        legacy_status, legacy_payload = await api_request(
+
+    # Non-UUID IDs are legacy device_id values — skip the modern API entirely.
+    if _is_uuid(profile_id):
+        status, payload = await api_request(
             api_base_url=settings.api_base_url,
             method="GET",
-            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            path=f"/v1/admin/agent-profiles/{profile_id}",
             access_token=access_token,
         )
-        if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
-            profile = _legacy_settings_to_profile(profile_id, legacy_payload["data"])
+        if status == 200 and isinstance(payload, dict):
+            profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
                 context={"profile": profile, "message": None},
             )
-        message = extract_error_message(legacy_payload, "Failed to load profile")
-        return templates.TemplateResponse(
-            request=request,
-            name="profiles/_editor_panel.html",
-            context={"profile": None, "message": message},
-            status_code=200,
-        )
+        if status != 404:
+            message = extract_error_message(payload, "Failed to load profile")
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context={"profile": None, "message": message},
+                status_code=200,
+            )
+        # 404 — fall through to legacy
 
-    if status != 200 or not isinstance(payload, dict):
-        message = extract_error_message(payload, "Failed to load profile")
+    legacy_status, legacy_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+        access_token=access_token,
+    )
+    if legacy_status == 200 and isinstance(legacy_payload, dict) and isinstance(legacy_payload.get("data"), dict):
+        profile = _legacy_settings_to_profile(profile_id, legacy_payload["data"])
         return templates.TemplateResponse(
             request=request,
             name="profiles/_editor_panel.html",
-            context={"profile": None, "message": message},
-            status_code=404 if status == 404 else 502,
+            context={"profile": profile, "message": None},
         )
-    profile = payload.get("data") if isinstance(payload.get("data"), dict) else None
+    message = extract_error_message(legacy_payload, "Failed to load profile")
     return templates.TemplateResponse(
         request=request,
         name="profiles/_editor_panel.html",
-        context={"profile": profile, "message": None},
+        context={"profile": None, "message": message},
+        status_code=200,
     )
 
 
@@ -748,58 +857,71 @@ async def dashboard_profile_save(request: Request, profile_id: str):
         return refresh_response
     form = await request.form()
     payload = normalize_profile_payload({k: str(v) for k, v in form.items()})
-    status, update_payload = await api_request(
-        api_base_url=settings.api_base_url,
-        method="PUT",
-        path=f"/v1/admin/agent-profiles/{profile_id}",
-        access_token=access_token,
-        json_body=payload,
-    )
-    if status == 404:
-        legacy_body = _to_legacy_profile_payload(payload)
-        legacy_status, legacy_payload = await api_request(
+
+    use_legacy = not _is_uuid(profile_id)
+
+    if not use_legacy:
+        status, update_payload = await api_request(
             api_base_url=settings.api_base_url,
             method="PUT",
-            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+            path=f"/v1/admin/agent-profiles/{profile_id}",
             access_token=access_token,
-            json_body=legacy_body,
+            json_body=payload,
         )
-        message = None if legacy_status in {200, 201} else extract_error_message(legacy_payload, "Profile save failed")
-        current_status, current_payload = await api_request(
-            api_base_url=settings.api_base_url,
-            method="GET",
-            path=f"/v1/admin/livekit/agent-settings/{profile_id}",
-            access_token=access_token,
-        )
-        if current_status == 200 and isinstance(current_payload, dict) and isinstance(current_payload.get("data"), dict):
-            profile = _legacy_settings_to_profile(profile_id, current_payload["data"])
+        if status == 404:
+            use_legacy = True
+        elif status == 200:
+            current_status, current_payload = await api_request(
+                api_base_url=settings.api_base_url,
+                method="GET",
+                path=f"/v1/admin/agent-profiles/{profile_id}",
+                access_token=access_token,
+            )
+            profile = current_payload.get("data") if current_status == 200 and isinstance(current_payload, dict) else None
             return templates.TemplateResponse(
                 request=request,
                 name="profiles/_editor_panel.html",
-                context={"profile": profile, "message": message or "Saved"},
+                context={"profile": profile, "message": "Saved"},
                 status_code=200,
             )
-        return templates.TemplateResponse(
-            request=request,
-            name="profiles/_editor_panel.html",
-            context={"profile": None, "message": message or "Profile save failed"},
-            status_code=200,
-        )
+        else:
+            message = extract_error_message(update_payload, "Profile save failed")
+            return templates.TemplateResponse(
+                request=request,
+                name="profiles/_editor_panel.html",
+                context={"profile": None, "message": message},
+                status_code=200,
+            )
 
-    message = None if status == 200 else extract_error_message(update_payload, "Profile save failed")
-
+    # Legacy path (non-UUID device_id or modern 404)
+    legacy_body = _to_legacy_profile_payload(payload)
+    legacy_status, legacy_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path=f"/v1/admin/livekit/agent-settings/{profile_id}",
+        access_token=access_token,
+        json_body=legacy_body,
+    )
+    message = None if legacy_status in {200, 201} else extract_error_message(legacy_payload, "Profile save failed")
     current_status, current_payload = await api_request(
         api_base_url=settings.api_base_url,
         method="GET",
-        path=f"/v1/admin/agent-profiles/{profile_id}",
+        path=f"/v1/admin/livekit/agent-settings/{profile_id}",
         access_token=access_token,
     )
-    profile = current_payload.get("data") if current_status == 200 and isinstance(current_payload, dict) else None
+    if current_status == 200 and isinstance(current_payload, dict) and isinstance(current_payload.get("data"), dict):
+        profile = _legacy_settings_to_profile(profile_id, current_payload["data"])
+        return templates.TemplateResponse(
+            request=request,
+            name="profiles/_editor_panel.html",
+            context={"profile": profile, "message": message or "Saved"},
+            status_code=200,
+        )
     return templates.TemplateResponse(
         request=request,
         name="profiles/_editor_panel.html",
-        context={"profile": profile, "message": message or "Saved"},
-        status_code=200 if profile else 502,
+        context={"profile": None, "message": message or "Profile save failed"},
+        status_code=200,
     )
 
 

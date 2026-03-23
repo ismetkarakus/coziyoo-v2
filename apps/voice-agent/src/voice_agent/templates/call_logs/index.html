@@ -1,43 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Call Logs{% endblock %}
+{% block title %}Call Logs — Coziyoo{% endblock %}
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-  <div style="display:flex; align-items:center; gap:10px;">
-    <h2 style="margin:0;">Call Logs</h2>
-    <a class="btn" href="/dashboard/profiles">Profiles</a>
-    <a class="btn btn-primary" href="/dashboard/call-logs">Call Logs</a>
-  </div>
-  <form method="post" action="/dashboard/logout">
-    <button class="btn" type="submit">Logout</button>
-  </form>
+<div class="page-header">
+  <span class="page-title">Call Logs</span>
 </div>
-
-<div class="card">
-  <h3 style="margin-top:0;">Past Sessions</h3>
-  <p class="muted">Most recent calls are shown first.</p>
-  <form
-    method="get"
-    action="/dashboard/call-logs"
-    hx-get="/dashboard/call-logs/table"
-    hx-target="#call-logs-table"
-    hx-swap="innerHTML"
-    hx-push-url="true"
-    style="display:grid; grid-template-columns:1fr 160px 160px auto; gap:10px; margin-bottom:12px;"
-  >
-    <select class="input" name="profileId">
-      <option value="">All profiles</option>
-      {% for profile in profiles %}
-      <option value="{{ profile.id }}" {% if filters.profileId == profile.id %}selected{% endif %}>
-        {{ profile.name }}
-      </option>
-      {% endfor %}
-    </select>
-    <input class="input" type="date" name="from" value="{{ filters.from }}" />
-    <input class="input" type="date" name="to" value="{{ filters.to }}" />
-    <button class="btn btn-primary" type="submit">Apply</button>
-  </form>
-  <div id="call-logs-table">
-    {% include "call_logs/_table.html" %}
+<div class="page-body">
+  <div class="card">
+    <p class="muted" style="margin-bottom:14px;">Most recent calls are shown first.</p>
+    <form
+      method="get" action="/dashboard/call-logs"
+      hx-get="/dashboard/call-logs/table"
+      hx-target="#call-logs-table"
+      hx-swap="innerHTML"
+      hx-push-url="true"
+      style="display:grid;grid-template-columns:1fr 160px 160px auto;gap:8px;margin-bottom:14px;"
+    >
+      <select class="input" name="profileId">
+        <option value="">All assistants</option>
+        {% for profile in profiles %}
+        <option value="{{ profile.id }}" {% if filters.profileId == profile.id %}selected{% endif %}>{{ profile.name }}</option>
+        {% endfor %}
+      </select>
+      <input class="input" type="date" name="from" value="{{ filters.from }}" />
+      <input class="input" type="date" name="to" value="{{ filters.to }}" />
+      <button class="btn btn-primary" type="submit">Apply</button>
+    </form>
+    <div id="call-logs-table">
+      {% include "call_logs/_table.html" %}
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -13,7 +13,7 @@ join_api = importlib.import_module("voice_agent.join_api")
 
 def test_unauthorized_dashboard_access_redirects_to_login() -> None:
     client = TestClient(join_api.app)
-    response = client.get("/dashboard/profiles", follow_redirects=False)
+    response = client.get("/dashboard/assistants", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers.get("location") == "/dashboard/login"
 
@@ -34,11 +34,18 @@ def test_profile_list_route_calls_bff_helper(monkeypatch) -> None:
     monkeypatch.setattr(join_api, "api_request", fake_api_request)
 
     client = TestClient(join_api.app)
-    response = client.get("/dashboard/profiles")
+    response = client.get("/dashboard/assistants")
     assert response.status_code == 200
     assert captured["path"] == "/v1/admin/agent-profiles"
     assert captured["method"] == "GET"
     assert captured["api_base_url"] == "https://api.coziyoo.com"
+
+
+def test_profiles_route_redirects_to_assistants() -> None:
+    client = TestClient(join_api.app)
+    response = client.get("/dashboard/profiles", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/dashboard/assistants"
 
 
 def test_import_curl_handler_route_exists() -> None:
@@ -120,7 +127,7 @@ def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:
     client = TestClient(join_api.app)
     response = client.get("/dashboard/profiles/aktif-profil-9")
     assert response.status_code == 200
-    assert "Editing: Aktif Profil 9" in response.text
+    assert 'value="Aktif Profil 9"' in response.text
     assert "https://llm.example.com/v1" in response.text
 
 
@@ -155,3 +162,34 @@ def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
     assert response.status_code == 200
     assert "Saved" in response.text
     assert ("PUT", "/v1/admin/livekit/agent-settings/aktif-profil-9") in calls
+
+
+def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:
+    client = TestClient(join_api.app)
+    protected_paths = [
+        "/dashboard/tools",
+        "/dashboard/phone-numbers",
+        "/dashboard/org/api-keys",
+        "/dashboard/org",
+        "/dashboard/squads",
+        "/dashboard/test-suites",
+        "/dashboard/evals",
+        "/dashboard/library/voice",
+    ]
+
+    # Unauthenticated users are redirected to login.
+    for path in protected_paths:
+        redirect_response = client.get(path, follow_redirects=False)
+        assert redirect_response.status_code == 303
+        assert redirect_response.headers.get("location") == "/dashboard/login"
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    authed_client = TestClient(join_api.app)
+
+    for path in protected_paths:
+        response = authed_client.get(path, follow_redirects=False)
+        assert response.status_code == 200
+        assert "Coming soon" in response.text
