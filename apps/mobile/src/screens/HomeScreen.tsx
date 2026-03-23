@@ -3910,9 +3910,14 @@ const styles = StyleSheet.create({
   /* --- Sticky Search + Chips wrapper --- */
   stickySearchChips: {
     backgroundColor: theme.background,
-    paddingTop: 6,
-    paddingBottom: 2,
+    paddingTop: 10,
+    paddingBottom: 4,
     zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   /* --- Floating Search Bar (premium shadow) --- */
@@ -3960,7 +3965,7 @@ const styles = StyleSheet.create({
 
   /* --- Category Chips --- */
   chipScroller: {
-    marginBottom: 20,
+    marginBottom: 8,
     marginHorizontal: 0,
   },
   chipRow: {
