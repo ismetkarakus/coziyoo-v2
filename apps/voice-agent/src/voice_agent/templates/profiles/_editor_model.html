@@ -21,7 +21,7 @@
     <div>
       <label>LLM Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
-        <select class="input" name="llm_config.model" id="llm-model" style="flex:1;">
+        <select class="input" name="llm_config.model" id="llm-model" style="flex:1;" onchange="window.dashboardProfileEditor && window.dashboardProfileEditor.autoSaveOnModelChange(this)">
           {% set existing_model = (profile.llm_config or {}).get('model','') %}
           <option value="{{ existing_model }}">{{ existing_model or 'Select model…' }}</option>
         </select>

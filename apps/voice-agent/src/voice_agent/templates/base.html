@@ -201,9 +201,24 @@
     }
     .btn:hover { border-color: rgba(148,163,184,.35); background: rgba(30,41,59,.9); }
     .btn:disabled { opacity: .4; pointer-events: none; }
-    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .btn-primary:hover { background: #2e9990; border-color: #2e9990; }
-    .btn-danger { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.25); color: #fca5a5; }
+      .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+      .btn-primary:hover { background: #2e9990; border-color: #2e9990; }
+      .btn-save {
+        transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+      }
+      .btn-save:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(46,153,144,.28);
+      }
+      .btn-save:active,
+      .btn-save.is-saving {
+        transform: translateY(0) scale(.97);
+        box-shadow: 0 2px 8px rgba(46,153,144,.35);
+      }
+      .btn-save.is-saving {
+        filter: saturate(.85);
+      }
+      .btn-danger { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.25); color: #fca5a5; }
     .btn-danger:hover { background: rgba(239,68,68,.18); border-color: #ef4444; }
     .btn-sm { padding: 3px 8px; font-size: 12px; }
     .btn-icon { padding: 5px; width: 28px; height: 28px; justify-content: center; }

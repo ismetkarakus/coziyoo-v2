@@ -7,7 +7,7 @@
     <div>
       <label>STT Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
-        <select class="input" id="stt-model" name="stt_config.model" style="flex:1;">
+        <select class="input" id="stt-model" name="stt_config.model" style="flex:1;" onchange="window.dashboardProfileEditor && window.dashboardProfileEditor.autoSaveOnModelChange(this)">
           {% set stt_existing_model = (profile.stt_config or {}).get('model','') %}
           <option value="{{ stt_existing_model }}">{{ stt_existing_model or 'Select model…' }}</option>
         </select>

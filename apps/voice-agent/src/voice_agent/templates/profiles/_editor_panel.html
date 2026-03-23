@@ -11,7 +11,7 @@
     <input class="editor-name-input" name="name" value="{{ profile.name }}" placeholder="Assistant name…" />
     <div style="display:flex;align-items:center;gap:8px;">
       {% if profile.is_active %}<span class="badge badge-active">● Active</span>{% endif %}
-      <button class="btn btn-primary" type="submit">Save</button>
+      <button class="btn btn-primary btn-save" type="submit" data-save-btn data-default-text="Save">Save</button>
     </div>
   </div>
 
@@ -41,6 +41,49 @@
 
 </form>
 <script>
+  window.dashboardProfileEditor = window.dashboardProfileEditor || {
+    autoSaveTimer: null,
+
+    setSavingState(form, isSaving) {
+      const btn = form.querySelector("[data-save-btn]");
+      if (!btn) return;
+      const defaultText = btn.getAttribute("data-default-text") || "Save";
+      if (isSaving) {
+        btn.classList.add("is-saving");
+        btn.textContent = "Saving...";
+      } else {
+        btn.classList.remove("is-saving");
+        btn.textContent = defaultText;
+      }
+    },
+
+    autoSaveOnModelChange(el) {
+      const form = el.closest("form");
+      if (!form) return;
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = window.setTimeout(() => {
+        this.setSavingState(form, true);
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+        } else {
+          form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+        }
+      }, 250);
+    },
+
+    bindSaveFeedback(form) {
+      if (!form || form.dataset.saveFeedbackBound === "1") return;
+      form.dataset.saveFeedbackBound = "1";
+      form.addEventListener("submit", () => this.setSavingState(form, true));
+      document.body.addEventListener("htmx:afterRequest", (evt) => {
+        const trigger = evt.detail?.requestConfig?.elt;
+        if (trigger && form.contains(trigger)) {
+          this.setSavingState(form, false);
+        }
+      });
+    },
+  };
+
   window.dashboardProfileTabs = window.dashboardProfileTabs || {
     show(button, tabName) {
       const form = button.closest("form");
@@ -54,6 +97,12 @@
       });
     }
   };
+
+  (function initEditor() {
+    const form = document.querySelector("#profile-editor form");
+    if (!form) return;
+    window.dashboardProfileEditor.bindSaveFeedback(form);
+  })();
 </script>
 {% else %}
 <div class="editor-placeholder"><p class="muted">Select an assistant to edit.</p></div>

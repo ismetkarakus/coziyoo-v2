@@ -7,7 +7,7 @@
     <div>
       <label>TTS Model</label>
       <div style="display:flex; gap:6px; align-items:center;">
-        <select class="input" id="tts-model" name="tts_config.model" style="flex:1;">
+        <select class="input" id="tts-model" name="tts_config.model" style="flex:1;" onchange="window.dashboardProfileEditor && window.dashboardProfileEditor.autoSaveOnModelChange(this)">
           {% set tts_existing_model = (profile.tts_config or {}).get('model','') %}
           <option value="{{ tts_existing_model }}">{{ tts_existing_model or 'Select model…' }}</option>
         </select>
