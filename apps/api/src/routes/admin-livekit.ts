@@ -428,7 +428,7 @@ const AdminAgentSettingsSchema = z.object({
   ttsBaseUrl: z.string().optional(),
   ttsSynthPath: z.string().max(256).optional(),
   sttEnabled: z.boolean().optional(),
-  sttProvider: z.string().max(64).optional(),
+  sttProvider: z.string().max(128).optional(),
   sttBaseUrl: z.string().optional(),
   sttTranscribePath: z.string().max(256).optional(),
   sttModel: z.string().max(128).optional(),
@@ -733,6 +733,16 @@ const TestN8nSchema = z.object({
   baseUrl: z.string().optional(),
 });
 
+const TestLlmSchema = z.object({
+  baseUrl: z.string().min(1),
+  endpointPath: z.string().optional(),
+  apiKey: z.string().optional(),
+  model: z.string().min(1),
+  customHeaders: z.record(z.string(), z.string()).optional(),
+  customBodyParams: z.record(z.string(), z.string()).optional(),
+  prompt: z.string().min(1).max(1_000).optional(),
+});
+
 adminLiveKitRouter.post("/test/n8n", async (req, res) => {
   const parsed = TestN8nSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -748,6 +758,145 @@ adminLiveKitRouter.post("/test/n8n", async (req, res) => {
     return res.json({ data: { ok: status.reachable && workflowsOk, status } });
   } catch (err) {
     return res.json({ data: { ok: false, reason: err instanceof Error ? err.message : "Unreachable" } });
+  }
+});
+
+adminLiveKitRouter.post("/test/llm", async (req, res) => {
+  const parsed = TestLlmSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { baseUrl, endpointPath, apiKey, model, customHeaders, customBodyParams, prompt } = parsed.data;
+  const path = endpointPath?.trim() || "/v1/chat/completions";
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+  const normalizedHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(customHeaders ?? {}),
+  };
+  if (apiKey?.trim() && !normalizedHeaders.Authorization) {
+    normalizedHeaders.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+
+  const requestBody: Record<string, unknown> = {
+    model: model.trim(),
+    messages: [{ role: "user", content: prompt?.trim() || "Say hello in one short sentence." }],
+    ...(customBodyParams ? coerceBodyParamValues(customBodyParams) : {}),
+  };
+
+  try {
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers: normalizedHeaders,
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!upstream.ok) {
+      const rawText = await upstream.text().catch(() => "");
+      return res.status(502).json({
+        error: {
+          code: "LLM_TEST_FAILED",
+          message: `Upstream responded ${upstream.status}`,
+          details: {
+            status: upstream.status,
+            url,
+            body: rawText.slice(0, 400),
+          },
+        },
+      });
+    }
+
+    return res.json({
+      data: {
+        ok: true,
+        status: upstream.status,
+        url,
+      },
+    });
+  } catch (err) {
+    return res.status(502).json({
+      error: {
+        code: "LLM_TEST_FAILED",
+        message: err instanceof Error ? err.message : "LLM request failed",
+        details: { status: 0, url },
+      },
+    });
+  }
+});
+
+const LlmModelsSchema = z.object({
+  baseUrl: z.string().min(1),
+  modelsPath: z.string().optional(),
+  apiKey: z.string().optional(),
+  customHeaders: z.record(z.string(), z.string()).optional(),
+});
+
+adminLiveKitRouter.post("/llm/models", async (req, res) => {
+  const parsed = LlmModelsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { baseUrl, modelsPath, apiKey, customHeaders } = parsed.data;
+  const path = modelsPath?.trim() || "/v1/models";
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+
+  const headers: Record<string, string> = { ...(customHeaders ?? {}) };
+  if (apiKey?.trim()) {
+    if (!headers["Authorization"] && !headers["x-api-key"]) {
+      headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+    } else if (headers["x-api-key"] === "") {
+      headers["x-api-key"] = apiKey.trim();
+    }
+  }
+
+  try {
+    const upstream = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!upstream.ok) {
+      const rawText = await upstream.text().catch(() => "");
+      return res.status(502).json({
+        error: {
+          code: "LLM_MODELS_FAILED",
+          message: `Upstream responded ${upstream.status}`,
+          details: rawText.slice(0, 400),
+        },
+      });
+    }
+
+    const json = await upstream.json() as Record<string, unknown>;
+    const dataArr = Array.isArray(json["data"]) ? (json["data"] as Array<{ id?: string }>) : [];
+    let models = dataArr.map((m) => m.id).filter(Boolean) as string[];
+
+    // Ollama /api/tags shape: { models: [{ name, model, ... }] }
+    if (models.length === 0 && Array.isArray(json["models"])) {
+      const ollamaArr = json["models"] as Array<Record<string, unknown> | string>;
+      models = ollamaArr
+        .map((m) => {
+          if (typeof m === "string") return m;
+          const name = m?.name;
+          if (typeof name === "string" && name.trim()) return name;
+          const model = m?.model;
+          if (typeof model === "string" && model.trim()) return model;
+          const id = m?.id;
+          if (typeof id === "string" && id.trim()) return id;
+          return "";
+        })
+        .filter(Boolean);
+    }
+    return res.json({ data: { models } });
+  } catch (err) {
+    return res.status(502).json({
+      error: {
+        code: "LLM_MODELS_FAILED",
+        message: err instanceof Error ? err.message : "Failed to fetch models",
+      },
+    });
   }
 });
 

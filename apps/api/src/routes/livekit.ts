@@ -6,6 +6,7 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent, type N8nStatus } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
+import { resolveRuntimeProfileConfig } from "../services/agent-profile-runtime.js";
 import { resolveProviders } from "../services/resolve-providers.js";
 import {
   createDefaultStarterAgentSettings,
@@ -68,6 +69,7 @@ const EndSessionSchema = z.object({
   jobId: z.string().max(256).optional(),
   userIdentity: z.string().max(256).optional(),
   agentIdentity: z.string().max(256).optional(),
+  profileId: z.string().max(128).optional(),
   summary: z.string().min(1).max(32_000),
   startedAt: z.string().datetime().optional(),
   endedAt: z.string().datetime().optional(),
@@ -81,6 +83,22 @@ const EndSessionSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/)
     .optional(),
 });
+
+function asUuidOrNull(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(normalized) ? normalized : null;
+}
+
+function computeDurationSeconds(startedAt?: string, endedAt?: string): number {
+  if (!startedAt || !endedAt) return 0;
+  const started = Date.parse(startedAt);
+  const ended = Date.parse(endedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(ended)) return 0;
+  return Math.max(0, Math.floor((ended - started) / 1000));
+}
 
 const AgentChatSchema = z.object({
   roomName: z.string().min(1).max(128),
@@ -180,7 +198,7 @@ const StarterAgentSettingsSchema = z.object({
     })
     .passthrough()
     .optional(),
-  sttProvider: z.string().max(64).optional(),
+  sttProvider: z.string().max(128).optional(),
   sttBaseUrl: z.string().url().optional(),
   sttTranscribePath: z.string().max(256).optional(),
   sttModel: z.string().max(128).optional(),
@@ -484,6 +502,40 @@ liveKitRouter.post("/session/end", async (req, res) => {
   }
 
   const input = parsed.data;
+  const metadataProfileId =
+    input.metadata && typeof input.metadata.settingsProfileId === "string"
+      ? input.metadata.settingsProfileId
+      : null;
+  const resolvedProfileId = asUuidOrNull(input.profileId) ?? asUuidOrNull(metadataProfileId);
+  const startedAt = input.startedAt ?? input.endedAt ?? new Date().toISOString();
+  const endedAt = input.endedAt ?? startedAt;
+  const durationSeconds = computeDurationSeconds(startedAt, endedAt);
+
+  try {
+    await pool.query(
+      `INSERT INTO agent_call_logs
+        (room_name, profile_id, started_at, ended_at, duration_seconds, outcome, summary, device_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        input.roomName,
+        resolvedProfileId,
+        startedAt,
+        endedAt,
+        durationSeconds,
+        input.outcome ?? "completed",
+        input.summary,
+        input.deviceId ?? null,
+      ],
+    );
+  } catch (error) {
+    return res.status(500).json({
+      error: {
+        code: "CALL_LOG_PERSIST_FAILED",
+        message: error instanceof Error ? error.message : "Failed to persist call log",
+      },
+    });
+  }
+
   let n8nBaseUrlOverride: string | null = null;
   if (input.deviceId) {
     const settings = await getStarterAgentSettingsWithDefault(input.deviceId);
@@ -505,8 +557,8 @@ liveKitRouter.post("/session/end", async (req, res) => {
       userIdentity: input.userIdentity,
       agentIdentity: input.agentIdentity,
       summary: input.summary,
-      startedAt: input.startedAt,
-      endedAt: input.endedAt,
+      startedAt: input.startedAt ?? startedAt,
+      endedAt: input.endedAt ?? endedAt,
       outcome: input.outcome,
       sentiment: input.sentiment,
       metadata: input.metadata,
@@ -568,10 +620,21 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     }
   }
 
-  const sessionSettings = await getStarterAgentSettingsWithDefault(input.deviceId);
-  const sessionResolved = resolveProviders(sessionSettings);
+  const runtimeProfile = await resolveRuntimeProfileConfig(input.settingsProfileId);
+  if (!runtimeProfile) {
+    return res.status(422).json({
+      error: {
+        code: "ACTIVE_PROFILE_NOT_FOUND",
+        message: input.settingsProfileId
+          ? "Requested profile not found."
+          : "No active profile found. Activate a profile in dashboard first.",
+      },
+    });
+  }
 
-  if (sessionSettings?.sttEnabled !== false && sessionResolved.stt.baseUrl) {
+  const sessionResolved = runtimeProfile.providers;
+
+  if (sessionResolved.stt.baseUrl) {
     const sttHealth = await probeServiceHealth(sessionResolved.stt.baseUrl);
     if (!sttHealth.reachable) {
       return res.status(503).json({
@@ -580,7 +643,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     }
   }
 
-  if (sessionSettings?.ttsEnabled !== false && sessionResolved.tts.baseUrl) {
+  if (sessionResolved.tts.baseUrl) {
     const ttsHealth = await probeServiceHealth(sessionResolved.tts.baseUrl);
     if (!ttsHealth.reachable) {
       return res.status(503).json({
@@ -613,7 +676,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
       leadId: input.leadId ?? null,
       channel: input.channel ?? "mobile",
       deviceId: input.deviceId ?? null,
-      settingsProfileId: input.settingsProfileId ?? null,
+      settingsProfileId: runtimeProfile.profileId,
     });
 
   try {
@@ -653,12 +716,12 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     leadId: input.leadId ?? null,
     channel: input.channel ?? "mobile",
     deviceId: input.deviceId ?? null,
-    settingsProfileId: input.settingsProfileId ?? null,
+    settingsProfileId: runtimeProfile.profileId,
     providers: sessionResolved,
-    systemPrompt: sessionSettings?.systemPrompt ?? null,
-    greetingEnabled: sessionSettings?.greetingEnabled ?? true,
-    greetingInstruction: sessionSettings?.greetingInstruction ?? null,
-    voiceLanguage: sessionSettings?.voiceLanguage ?? "en",
+    systemPrompt: runtimeProfile.systemPrompt ?? null,
+    greetingEnabled: runtimeProfile.greetingEnabled ?? true,
+    greetingInstruction: runtimeProfile.greetingInstruction ?? null,
+    voiceLanguage: runtimeProfile.voiceLanguage ?? "en",
   });
   const agentToken = await mintLiveKitToken({
     identity: agentIdentity,
@@ -692,7 +755,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
             leadId: input.leadId ?? null,
             channel: input.channel ?? "mobile",
             deviceId: input.deviceId ?? null,
-            settingsProfileId: input.settingsProfileId ?? null,
+            settingsProfileId: runtimeProfile.profileId,
             providers: sessionResolved,
           },
         });
