@@ -118,6 +118,15 @@ type MeProfile = {
   name?: string | null;
 };
 
+type UserAddress = {
+  id: string;
+  title: string;
+  addressLine: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 
 type VoiceState = 'idle' | 'starting' | 'active' | 'error';
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -1045,6 +1054,11 @@ export default function HomeScreen({
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [checkoutAddressModalVisible, setCheckoutAddressModalVisible] = useState(false);
+  const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [selectedCheckoutAddressId, setSelectedCheckoutAddressId] = useState<string | null>(null);
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
   const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() => (
@@ -1078,6 +1092,16 @@ export default function HomeScreen({
     () => DAILY_FLASH_MEALS.join(' • '),
     [],
   );
+  const defaultAddress = useMemo(
+    () => userAddresses.find((item) => item.isDefault) ?? null,
+    [userAddresses],
+  );
+  const selectedCheckoutAddress = useMemo(() => {
+    if (selectedCheckoutAddressId) {
+      return userAddresses.find((item) => item.id === selectedCheckoutAddressId) ?? defaultAddress;
+    }
+    return defaultAddress;
+  }, [defaultAddress, selectedCheckoutAddressId, userAddresses]);
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -1114,6 +1138,17 @@ export default function HomeScreen({
     if (!apiUrl) return;
     void fetchMeProfile(apiUrl, currentAuth.accessToken);
   }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (!apiUrl) return;
+    void fetchUserAddresses();
+  }, [apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (!selectedCheckoutAddressId) return;
+    const exists = userAddresses.some((item) => item.id === selectedCheckoutAddressId);
+    if (!exists) setSelectedCheckoutAddressId(null);
+  }, [selectedCheckoutAddressId, userAddresses]);
 
   useEffect(() => {
     const heroCandidate = meals.find((meal) => {
@@ -1438,6 +1473,29 @@ export default function HomeScreen({
     handleAuthRefresh(refreshed);
     response = await requestWithToken(refreshed.accessToken);
     return response;
+  }
+
+  function formatAddressLine(address: UserAddress | null): string {
+    if (!address) return t('helper.home.noDefaultAddress');
+    const line = address.addressLine.trim();
+    const shortLine = line.length > 52 ? `${line.slice(0, 52).trimEnd()}...` : line;
+    return `${address.title} • ${shortLine}`;
+  }
+
+  async function fetchUserAddresses() {
+    setAddressesLoading(true);
+    try {
+      const response = await authedJsonFetch(`${apiUrl}/v1/auth/me/addresses`);
+      const json = await readJsonSafe<{ data?: UserAddress[]; error?: { message?: string } }>(response);
+      if (!response.ok || json.error) {
+        throw new Error(json.error?.message ?? `Adresler alınamadı (${response.status})`);
+      }
+      setUserAddresses(Array.isArray(json.data) ? json.data : []);
+    } catch {
+      setUserAddresses([]);
+    } finally {
+      setAddressesLoading(false);
+    }
   }
 
   async function handleProfileAvatarPress() {
@@ -1790,6 +1848,14 @@ export default function HomeScreen({
       return;
     }
 
+    const activeAddress = selectedCheckoutAddress;
+    if (deliveryType === 'delivery' && !activeAddress) {
+      setCheckoutAddressModalVisible(true);
+      void fetchUserAddresses();
+      setPaymentError(t('helper.home.addressRequiredCheckout'));
+      return;
+    }
+
     const groupedBySeller = new Map<string, CartItem[]>();
     for (const item of payableItems) {
       const sellerId = item.meal.sellerId;
@@ -1819,7 +1885,16 @@ export default function HomeScreen({
           },
           body: JSON.stringify({
             sellerId,
-            deliveryType: 'pickup',
+            deliveryType,
+            ...(deliveryType === 'delivery' && activeAddress
+              ? {
+                  deliveryAddress: {
+                    addressId: activeAddress.id,
+                    title: activeAddress.title,
+                    line: activeAddress.addressLine,
+                  },
+                }
+              : {}),
             items: sellerItems.map((item) => ({
               lotId: item.meal.lotId,
               quantity: item.quantity,
@@ -2624,6 +2699,72 @@ export default function HomeScreen({
                 <Text style={styles.cartTotalLabel}>Toplam</Text>
                 <Text style={styles.cartTotalValue}>₺{total.toFixed(0)}</Text>
               </View>
+              <View style={styles.checkoutAddressCard}>
+                <Text style={styles.checkoutAddressTitle}>{t('helper.home.checkoutDeliveryType')}</Text>
+                <View style={styles.deliveryTypeRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.deliveryTypeChip,
+                      deliveryType === 'delivery' && styles.deliveryTypeChipActive,
+                    ]}
+                    onPress={() => setDeliveryType('delivery')}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.deliveryTypeChipText,
+                        deliveryType === 'delivery' && styles.deliveryTypeChipTextActive,
+                      ]}
+                    >
+                      {t('cta.home.delivery')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.deliveryTypeChip,
+                      deliveryType === 'pickup' && styles.deliveryTypeChipActive,
+                    ]}
+                    onPress={() => setDeliveryType('pickup')}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.deliveryTypeChipText,
+                        deliveryType === 'pickup' && styles.deliveryTypeChipTextActive,
+                      ]}
+                    >
+                      {t('cta.home.pickup')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {deliveryType === 'delivery' ? (
+                  <View style={styles.checkoutAddressBox}>
+                    <Text style={styles.checkoutAddressLabel}>{t('helper.home.checkoutAddress')}</Text>
+                    <Text style={styles.checkoutAddressValue} numberOfLines={2}>
+                      {formatAddressLine(selectedCheckoutAddress)}
+                    </Text>
+                    <View style={styles.checkoutAddressActions}>
+                      <TouchableOpacity
+                        style={styles.checkoutAddressActionBtn}
+                        onPress={() => {
+                          setCheckoutAddressModalVisible(true);
+                          void fetchUserAddresses();
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.checkoutAddressActionText}>{t('cta.home.changeAddress')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.checkoutAddressManageBtn}
+                        onPress={() => setAddressModalVisible(true)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.checkoutAddressManageText}>{t('cta.home.manageAddresses')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
               {paymentStatus ? (
                 <View style={styles.paymentStatusCard}>
                   <Text style={styles.paymentStatusTitle}>{t('status.home.paymentTitle')}</Text>
@@ -2791,7 +2932,9 @@ export default function HomeScreen({
                 </View>
                 <View style={styles.profileActionTextBlock}>
                   <Text style={styles.profileActionTitle}>{t('cta.home.deliveryAddressChange')}</Text>
-                  <Text style={styles.profileActionSubtitle}>{t('helper.home.deliveryAddressHint')}</Text>
+                  <Text style={styles.profileActionSubtitle}>
+                    {defaultAddress ? formatAddressLine(defaultAddress) : t('helper.home.deliveryAddressHint')}
+                  </Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
@@ -3011,20 +3154,109 @@ export default function HomeScreen({
         visible={addressModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setAddressModalVisible(false)}
+        onRequestClose={() => {
+          setAddressModalVisible(false);
+          void fetchUserAddresses();
+        }}
       >
         <View style={styles.profileEditOverlay}>
           <TouchableOpacity
             style={styles.profileEditBackdrop}
             activeOpacity={1}
-            onPress={() => setAddressModalVisible(false)}
+            onPress={() => {
+              setAddressModalVisible(false);
+              void fetchUserAddresses();
+            }}
           />
           <View style={styles.profileEditSheet}>
             <AddressScreen
               auth={currentAuth}
-              onBack={() => setAddressModalVisible(false)}
+              onBack={() => {
+                setAddressModalVisible(false);
+                void fetchUserAddresses();
+              }}
               onAuthRefresh={handleAuthRefresh}
             />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={checkoutAddressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCheckoutAddressModalVisible(false)}
+      >
+        <View style={styles.profileEditOverlay}>
+          <TouchableOpacity
+            style={styles.profileEditBackdrop}
+            activeOpacity={1}
+            onPress={() => setCheckoutAddressModalVisible(false)}
+          />
+          <View style={styles.checkoutAddressSheet}>
+            <Text style={styles.checkoutAddressSheetTitle}>{t('headline.home.selectAddress')}</Text>
+            <Text style={styles.checkoutAddressSheetSubtitle}>{t('helper.home.selectAddressSubtitle')}</Text>
+
+            {addressesLoading ? (
+              <View style={styles.checkoutAddressLoading}>
+                <ActivityIndicator size="small" color="#3E845B" />
+              </View>
+            ) : userAddresses.length === 0 ? (
+              <>
+                <Text style={styles.checkoutAddressEmptyText}>{t('helper.home.addressListEmpty')}</Text>
+                <TouchableOpacity
+                  style={styles.checkoutAddressManageBtn}
+                  onPress={() => {
+                    setCheckoutAddressModalVisible(false);
+                    setAddressModalVisible(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.checkoutAddressManageText}>{t('cta.address.add')}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <ScrollView style={styles.checkoutAddressList} showsVerticalScrollIndicator={false}>
+                  {userAddresses.map((address) => {
+                    const isSelected = selectedCheckoutAddress?.id === address.id;
+                    return (
+                      <TouchableOpacity
+                        key={address.id}
+                        style={[styles.checkoutAddressItem, isSelected && styles.checkoutAddressItemSelected]}
+                        onPress={() => {
+                          setSelectedCheckoutAddressId(address.id);
+                          setCheckoutAddressModalVisible(false);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.checkoutAddressItemHead}>
+                          <Text style={styles.checkoutAddressItemTitle}>{address.title}</Text>
+                          {address.isDefault ? (
+                            <View style={styles.checkoutAddressDefaultBadge}>
+                              <Text style={styles.checkoutAddressDefaultText}>{t('status.address.default')}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.checkoutAddressItemLine} numberOfLines={2}>
+                          {address.addressLine}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                <TouchableOpacity
+                  style={styles.checkoutAddressManageBtn}
+                  onPress={() => {
+                    setCheckoutAddressModalVisible(false);
+                    setAddressModalVisible(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.checkoutAddressManageText}>{t('cta.home.manageAddresses')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -3976,6 +4208,62 @@ const styles = StyleSheet.create({
   },
   cartTotalLabel: { color: '#8D8072', fontSize: 13, fontWeight: '600' },
   cartTotalValue: { color: '#3D3229', fontSize: 20, fontWeight: '700' },
+  checkoutAddressCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E6DDCF',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#FFFBF5',
+    gap: 10,
+  },
+  checkoutAddressTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
+  deliveryTypeRow: { flexDirection: 'row', gap: 8 },
+  deliveryTypeChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#DDD2C3',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: '#FFFDF9',
+  },
+  deliveryTypeChipActive: {
+    backgroundColor: '#4A7C59',
+    borderColor: '#4A7C59',
+  },
+  deliveryTypeChipText: { color: '#5F5246', fontSize: 13, fontWeight: '700' },
+  deliveryTypeChipTextActive: { color: '#FFFFFF' },
+  checkoutAddressBox: {
+    borderWidth: 1,
+    borderColor: '#E8DED0',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    gap: 6,
+  },
+  checkoutAddressLabel: { color: '#8D8072', fontSize: 12, fontWeight: '600' },
+  checkoutAddressValue: { color: '#3D3229', fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  checkoutAddressActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  checkoutAddressActionBtn: {
+    borderWidth: 1,
+    borderColor: '#DDD2C3',
+    borderRadius: 9,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFFDF9',
+  },
+  checkoutAddressActionText: { color: '#5F5246', fontSize: 12, fontWeight: '700' },
+  checkoutAddressManageBtn: {
+    borderWidth: 1,
+    borderColor: '#4A7C59',
+    borderRadius: 9,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#EFF7F1',
+  },
+  checkoutAddressManageText: { color: '#2F6F4A', fontSize: 12, fontWeight: '700' },
   paymentStatusCard: {
     marginTop: 10,
     borderWidth: 1,
@@ -4685,6 +4973,43 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#FFFDF9',
   },
+  checkoutAddressSheet: {
+    maxHeight: '70%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#FFFDF9',
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 20,
+  },
+  checkoutAddressSheetTitle: { color: '#38261D', fontSize: 20, fontWeight: '800' },
+  checkoutAddressSheetSubtitle: { color: '#7D6B5B', fontSize: 13, marginTop: 4, marginBottom: 12 },
+  checkoutAddressLoading: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+  checkoutAddressEmptyText: { color: '#7D6B5B', fontSize: 14, marginBottom: 10 },
+  checkoutAddressList: { maxHeight: 320, marginBottom: 10 },
+  checkoutAddressItem: {
+    borderWidth: 1,
+    borderColor: '#E6DDCF',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  checkoutAddressItemSelected: {
+    borderColor: '#4A7C59',
+    backgroundColor: '#F3FAF5',
+  },
+  checkoutAddressItemHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  checkoutAddressItemTitle: { color: '#3D3229', fontSize: 14, fontWeight: '700', flex: 1 },
+  checkoutAddressItemLine: { color: '#7A6C5D', fontSize: 12, lineHeight: 18, marginTop: 3 },
+  checkoutAddressDefaultBadge: {
+    backgroundColor: '#E5F2E8',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  checkoutAddressDefaultText: { color: '#2F6F4A', fontSize: 11, fontWeight: '700' },
   locationSheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,

@@ -30,6 +30,13 @@ type UserProfile = {
   profileImageUrl: string | null;
 };
 
+type UserAddress = {
+  id: string;
+  title: string;
+  addressLine: string;
+  isDefault: boolean;
+};
+
 type Props = {
   auth: AuthSession;
   onBack: () => void;
@@ -51,6 +58,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
+  const [defaultAddressSummary, setDefaultAddressSummary] = useState(t('helper.profileEdit.defaultAddressLoading'));
   const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -123,8 +131,25 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
       setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email ?? '');
+
+      const addrRes = await authedFetch(`${apiUrl}/v1/auth/me/addresses`);
+      const addrJson = await addrRes.json();
+      if (addrRes.ok && !addrJson.error) {
+        const addresses = Array.isArray(addrJson.data) ? (addrJson.data as UserAddress[]) : [];
+        const defaultAddress = addresses.find((item) => item.isDefault) ?? null;
+        if (defaultAddress) {
+          const line = defaultAddress.addressLine.trim();
+          const shortLine = line.length > 56 ? `${line.slice(0, 56).trimEnd()}...` : line;
+          setDefaultAddressSummary(`${defaultAddress.title} • ${shortLine}`);
+        } else {
+          setDefaultAddressSummary(t('helper.profileEdit.noDefaultAddress'));
+        }
+      } else {
+        setDefaultAddressSummary(t('helper.profileEdit.noDefaultAddress'));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
+      setDefaultAddressSummary(t('helper.profileEdit.noDefaultAddress'));
     } finally {
       setLoading(false);
     }
@@ -376,7 +401,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
                     </TouchableOpacity>
                   </View>
                   <View style={styles.infoDivider} />
-                  <Text style={styles.infoValue}>{t('cta.home.addresses')}</Text>
+                  <Text style={styles.infoValueAddress} numberOfLines={2}>
+                    {defaultAddressSummary}
+                  </Text>
                 </View>
               </View>
 
@@ -513,6 +540,7 @@ const styles = StyleSheet.create({
   editChipText: { color: '#4A423A', fontSize: 15, fontWeight: '700' },
   infoDivider: { height: 1, backgroundColor: '#E9E2D9', marginTop: 14, marginBottom: 12 },
   infoValue: { color: '#2F2924', fontSize: 38 / 2, fontWeight: '700' },
+  infoValueAddress: { color: '#2F2924', fontSize: 16, fontWeight: '700', lineHeight: 22 },
   emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   verifiedBadge: {
     alignItems: 'center',
