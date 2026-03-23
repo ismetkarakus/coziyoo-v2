@@ -91,70 +91,82 @@
       {% else %}
       <div style="display:flex; flex-direction:column; gap:8px;">
         {% for provider in providers %}
-        <div class="card" style="padding:10px; border-radius:8px;">
-        <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px;" data-provider-form>
-          <input type="hidden" name="action" value="update" />
-          <input type="hidden" name="provider_id" value="{{ provider.id }}" />
-          <div style="display:grid; grid-template-columns:120px 1fr; gap:8px;">
-            <div>
-              <label>Type</label>
-              <select class="input" name="provider_type" data-provider-type onchange="syncProviderForm(this)">
-                <option value="llm" {% if provider.type == "llm" %}selected{% endif %}>LLM</option>
-                <option value="tts" {% if provider.type == "tts" %}selected{% endif %}>TTS</option>
-                <option value="stt" {% if provider.type == "stt" %}selected{% endif %}>STT</option>
-              </select>
+        <details class="card provider-card" style="padding:0; border-radius:8px;" data-provider-card>
+          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+              <span class="badge" style="background:var(--p10); color:var(--primary); border:1px solid rgba(55,170,157,.2); text-transform:uppercase;">{{ provider.type }}</span>
+              <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.name }}</span>
+              <span class="muted" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ provider.base_url or "-" }}
+              </span>
             </div>
-            <div>
-              <label>Name</label>
-              <input class="input" type="text" name="provider_name" value="{{ provider.name }}" required />
-            </div>
-          </div>
+            <span class="muted provider-expand-label" style="font-size:12px;">Expand</span>
+          </summary>
+          <div style="padding:0 12px 12px; border-top:1px solid var(--border);">
+            <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;" data-provider-form>
+              <input type="hidden" name="action" value="update" />
+              <input type="hidden" name="provider_id" value="{{ provider.id }}" />
+              <div style="display:grid; grid-template-columns:120px 1fr; gap:8px;">
+                <div>
+                  <label>Type</label>
+                  <select class="input" name="provider_type" data-provider-type onchange="syncProviderForm(this)">
+                    <option value="llm" {% if provider.type == "llm" %}selected{% endif %}>LLM</option>
+                    <option value="tts" {% if provider.type == "tts" %}selected{% endif %}>TTS</option>
+                    <option value="stt" {% if provider.type == "stt" %}selected{% endif %}>STT</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Name</label>
+                  <input class="input" type="text" name="provider_name" value="{{ provider.name }}" required />
+                </div>
+              </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div><label>Base URL</label><input class="input" type="text" name="base_url" value="{{ provider.base_url }}" /></div>
-            <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" value="{{ provider.endpoint_path }}" /></div>
-            <div><label>Models Path</label><input class="input" type="text" name="models_path" value="{{ provider.models_path }}" /></div>
-          </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div><label>Base URL</label><input class="input" type="text" name="base_url" value="{{ provider.base_url }}" /></div>
+                <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" value="{{ provider.endpoint_path }}" /></div>
+                <div><label>Models Path</label><input class="input" type="text" name="models_path" value="{{ provider.models_path }}" /></div>
+              </div>
 
-          <div data-provider-section="llm" style="display:{% if provider.type == 'llm' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
-            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
-            <div style="grid-column:1 / span 3;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
-          </div>
+              <div data-provider-section="llm" style="display:{% if provider.type == 'llm' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
+                <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
+                <div style="grid-column:1 / span 3;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
+              </div>
 
-          <div data-provider-section="tts" style="display:{% if provider.type == 'tts' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
-            <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
-            <div><label>Language</label><input class="input" type="text" name="language" value="{{ provider.language or '' }}" /></div>
-            <div><label>Voice ID</label><input class="input" type="text" name="voice_id" value="{{ provider.voice_id or '' }}" /></div>
-            <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" value="{{ provider.text_field_name or '' }}" /></div>
-            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
-            <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
-          </div>
+              <div data-provider-section="tts" style="display:{% if provider.type == 'tts' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
+                <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
+                <div><label>Language</label><input class="input" type="text" name="language" value="{{ provider.language or '' }}" /></div>
+                <div><label>Voice ID</label><input class="input" type="text" name="voice_id" value="{{ provider.voice_id or '' }}" /></div>
+                <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" value="{{ provider.text_field_name or '' }}" /></div>
+                <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
+                <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
+              </div>
 
-          <div data-provider-section="stt" style="display:{% if provider.type == 'stt' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
-            <div><label>Language</label><input class="input" type="text" name="language" value="{{ provider.language or '' }}" /></div>
-            <div></div>
-            <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
-            <div><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
-            <div><label>custom_query_params (JSON)</label><textarea class="input" rows="2" name="custom_query_params">{{ (provider.custom_query_params or {}) | tojson }}</textarea></div>
-          </div>
+              <div data-provider-section="stt" style="display:{% if provider.type == 'stt' %}grid{% else %}none{% endif %}; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div><label>Model</label><input class="input" type="text" name="model" value="{{ provider.model or '' }}" /></div>
+                <div><label>Language</label><input class="input" type="text" name="language" value="{{ provider.language or '' }}" /></div>
+                <div></div>
+                <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (provider.custom_headers or {}) | tojson }}</textarea></div>
+                <div><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ (provider.custom_body_params or {}) | tojson }}</textarea></div>
+                <div><label>custom_query_params (JSON)</label><textarea class="input" rows="2" name="custom_query_params">{{ (provider.custom_query_params or {}) | tojson }}</textarea></div>
+              </div>
 
-          <div>
-            <label>API Key (optional)</label>
-            <select class="input" id="provider-api-key-{{ provider.id }}" name="api_key_id" data-provider-key-select>
-              <option value="">None</option>
-              {% for opt in provider_api_key_options %}
-              <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.api_key_id == opt.id %}selected{% endif %}>{{ opt.label }}</option>
-              {% endfor %}
-            </select>
+              <div>
+                <label>API Key (optional)</label>
+                <select class="input" id="provider-api-key-{{ provider.id }}" name="api_key_id" data-provider-key-select>
+                  <option value="">None</option>
+                  {% for opt in provider_api_key_options %}
+                  <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.api_key_id == opt.id %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-primary btn-save" type="submit" onclick="this.form.querySelector('input[name=action]').value='update'">Update</button>
+                <button class="btn btn-danger" type="submit" onclick="this.form.querySelector('input[name=action]').value='delete'">Delete</button>
+              </div>
+            </form>
           </div>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-primary btn-save" type="submit" onclick="this.form.querySelector('input[name=action]').value='update'">Update</button>
-            <button class="btn btn-danger" type="submit" onclick="this.form.querySelector('input[name=action]').value='delete'">Delete</button>
-          </div>
-        </form>
-        </div>
+        </details>
         {% endfor %}
       </div>
       {% endif %}
@@ -195,6 +207,18 @@
     document.querySelectorAll("[data-provider-form]").forEach((form) => {
       const typeSelect = form.querySelector("[data-provider-type]");
       if (typeSelect) syncProviderForm(typeSelect);
+    });
+  })();
+
+  (function initProviderCards() {
+    document.querySelectorAll("[data-provider-card]").forEach((card) => {
+      const label = card.querySelector(".provider-expand-label");
+      const sync = () => {
+        if (!label) return;
+        label.textContent = card.open ? "Collapse" : "Expand";
+      };
+      card.addEventListener("toggle", sync);
+      sync();
     });
   })();
 </script>
