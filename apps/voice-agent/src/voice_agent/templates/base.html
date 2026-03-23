@@ -104,6 +104,11 @@
       font-size: 11px; font-weight: 700; color: var(--primary); flex-shrink: 0;
     }
     .sidebar-org-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+    .sidebar-theme-logo { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+    .sidebar-theme-logo svg { width: 92px; height: 18px; }
+    .sidebar-theme-logo .logo-light { display: none; }
+    :root[data-theme="light"] .sidebar-theme-logo .logo-dark { display: none; }
+    :root[data-theme="light"] .sidebar-theme-logo .logo-light { display: inline-block; }
     .sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; }
     .sidebar-nav::-webkit-scrollbar { width: 4px; }
     .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -128,6 +133,7 @@
     /* collapsed state */
     .sidebar.collapsed .sidebar-logo-text,
     .sidebar.collapsed .sidebar-org-name,
+    .sidebar.collapsed .sidebar-theme-logo,
     .sidebar.collapsed .sidebar-item-label { display: none; }
     .sidebar.collapsed .sidebar-section { visibility: hidden; height: 4px; padding: 0; margin: 2px 0; }
     .sidebar.collapsed .sidebar-item { justify-content: center; gap: 0; }
@@ -360,7 +366,18 @@
 
       <div class="sidebar-org">
         <div class="sidebar-org-avatar">C</div>
-        <span class="sidebar-org-name">Voice Agent</span>
+        <div class="sidebar-theme-logo" aria-label="Coziyoo logo">
+          <svg class="logo-dark" viewBox="0 0 220 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
+            <circle cx="22" cy="22" r="18" fill="#37aa9d"/>
+            <path d="M22 11a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm0 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" fill="#020817"/>
+            <text x="50" y="29" fill="#f8fafc" font-size="20" font-family="Inter, Segoe UI, sans-serif" font-weight="700">Coziyoo</text>
+          </svg>
+          <svg class="logo-light" viewBox="0 0 220 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
+            <circle cx="22" cy="22" r="18" fill="#0f766e"/>
+            <path d="M22 11a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm0 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" fill="#f8fafc"/>
+            <text x="50" y="29" fill="#0f172a" font-size="20" font-family="Inter, Segoe UI, sans-serif" font-weight="700">Coziyoo</text>
+          </svg>
+        </div>
       </div>
 
       <nav class="sidebar-nav">
