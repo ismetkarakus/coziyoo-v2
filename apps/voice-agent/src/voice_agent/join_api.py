@@ -420,10 +420,12 @@ def _normalize_provider_api_keys(value: Any) -> dict[str, str]:
     defaults = _default_provider_api_keys()
     if not isinstance(value, dict):
         return defaults
-    for key in defaults.keys():
-        if key in value:
-            defaults[key] = str(value.get(key) or "").strip()
-    return defaults
+    merged = dict(defaults)
+    # Preserve known keys and any previously saved custom/unknown provider ids.
+    for key, raw in value.items():
+        if isinstance(key, str):
+            merged[key] = str(raw or "").strip()
+    return merged
 
 
 def _provider_api_key_groups(keys: dict[str, str]) -> dict[str, list[dict[str, str]]]:
@@ -444,7 +446,19 @@ def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
         clean = str(value or "").strip()
         if not clean:
             continue
-        section, label = index.get(key, ("Custom", key))
+        if key in index:
+            section, label = index[key]
+        else:
+            # Heuristic mapping for unknown/custom ids.
+            if key.startswith("llm."):
+                section = "LLM"
+            elif key.startswith("tts."):
+                section = "TTS"
+            elif key.startswith("stt."):
+                section = "STT"
+            else:
+                section = "Custom"
+            label = key
         entries.append(
             {
                 "id": key,
@@ -456,6 +470,21 @@ def _provider_api_key_entries(keys: dict[str, str]) -> list[dict[str, str]]:
         )
     entries.sort(key=lambda item: f"{item['section']}::{item['label']}")
     return entries
+
+
+def _extract_provider_api_keys_from_tts_config(tts_cfg: dict[str, Any]) -> dict[str, str]:
+    # Primary field
+    keys = _normalize_provider_api_keys(tts_cfg.get("providerApiKeys"))
+    if any(v for v in keys.values()):
+        return keys
+    # Backward/legacy aliases
+    aliases = ("provider_keys", "providerKeys", "apiKeys")
+    for alias in aliases:
+        alias_value = tts_cfg.get(alias)
+        alias_keys = _normalize_provider_api_keys(alias_value)
+        if any(v for v in alias_keys.values()):
+            return alias_keys
+    return keys
 
 
 async def _direct_llm_test(
@@ -700,7 +729,7 @@ async def dashboard_api_keys_page(request: Request):
     if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
         settings_data = payload.get("data") or {}
         tts_cfg = _dict(_dict(settings_data).get("ttsConfig"))
-        keys = _normalize_provider_api_keys(tts_cfg.get("providerApiKeys"))
+        keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
     elif status != 404:
         message = extract_error_message(payload, "Failed to load API keys")
 
@@ -737,7 +766,7 @@ async def dashboard_api_keys_save(request: Request):
         existing_data = _dict(payload.get("data"))
 
     tts_cfg = _dict(existing_data.get("ttsConfig"))
-    keys = _normalize_provider_api_keys(tts_cfg.get("providerApiKeys"))
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
     action = str(form.get("action") or "").strip().lower()
     provider_id = str(form.get("provider_id") or "").strip()
     provider_key = str(form.get("provider_key") or "").strip()
