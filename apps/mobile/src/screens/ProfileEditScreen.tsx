@@ -30,22 +30,14 @@ type UserProfile = {
   profileImageUrl: string | null;
 };
 
-type UserAddress = {
-  id: string;
-  title: string;
-  addressLine: string;
-  isDefault: boolean;
-};
-
 type Props = {
   auth: AuthSession;
   onBack: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
-  onOpenAddressEditor?: () => void;
   isNewRegistration?: boolean;
 };
 
-export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenAddressEditor, isNewRegistration }: Props) {
+export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRegistration }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +50,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
-  const [defaultAddressSummary, setDefaultAddressSummary] = useState(t('helper.profileEdit.defaultAddressLoading'));
   const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -131,25 +122,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
       setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email ?? '');
-
-      const addrRes = await authedFetch(`${apiUrl}/v1/auth/me/addresses`);
-      const addrJson = await addrRes.json();
-      if (addrRes.ok && !addrJson.error) {
-        const addresses = Array.isArray(addrJson.data) ? (addrJson.data as UserAddress[]) : [];
-        const defaultAddress = addresses.find((item) => item.isDefault) ?? null;
-        if (defaultAddress) {
-          const line = defaultAddress.addressLine.trim();
-          const shortLine = line.length > 56 ? `${line.slice(0, 56).trimEnd()}...` : line;
-          setDefaultAddressSummary(`${defaultAddress.title} • ${shortLine}`);
-        } else {
-          setDefaultAddressSummary(t('helper.profileEdit.noDefaultAddress'));
-        }
-      } else {
-        setDefaultAddressSummary(t('helper.profileEdit.noDefaultAddress'));
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
-      setDefaultAddressSummary(t('helper.profileEdit.noDefaultAddress'));
     } finally {
       setLoading(false);
     }
@@ -377,34 +351,6 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, onOpenA
                     </View>
                   </View>
                 </View>
-
-                <View style={styles.infoCard}>
-                  <View style={styles.infoHead}>
-                    <View style={[styles.infoIconWrap, { backgroundColor: '#E9D9C4' }]}>
-                      <Ionicons name="location-outline" size={18} color="#7A6247" />
-                    </View>
-                    <View style={styles.infoHeadText}>
-                      <Text style={styles.infoTitle}>{t('cta.home.deliveryAddressChange')}</Text>
-                      <Text style={styles.infoSubtitle}>{t('helper.home.deliveryAddressHint')}</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.editChip}
-                      onPress={() => {
-                        if (onOpenAddressEditor) {
-                          onOpenAddressEditor();
-                          return;
-                        }
-                        Alert.alert('Bilgi', t('cta.home.addresses'));
-                      }}
-                    >
-                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.infoDivider} />
-                  <Text style={styles.infoValueAddress} numberOfLines={2}>
-                    {defaultAddressSummary}
-                  </Text>
-                </View>
               </View>
 
               {error ? (
@@ -540,7 +486,6 @@ const styles = StyleSheet.create({
   editChipText: { color: '#4A423A', fontSize: 15, fontWeight: '700' },
   infoDivider: { height: 1, backgroundColor: '#E9E2D9', marginTop: 14, marginBottom: 12 },
   infoValue: { color: '#2F2924', fontSize: 38 / 2, fontWeight: '700' },
-  infoValueAddress: { color: '#2F2924', fontSize: 16, fontWeight: '700', lineHeight: 22 },
   emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   verifiedBadge: {
     alignItems: 'center',

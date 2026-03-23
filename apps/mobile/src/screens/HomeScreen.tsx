@@ -3141,10 +3141,6 @@ export default function HomeScreen({
               auth={currentAuth}
               onBack={() => setProfileEditModalVisible(false)}
               onAuthRefresh={handleAuthRefresh}
-              onOpenAddressEditor={() => {
-                setProfileEditModalVisible(false);
-                setAddressModalVisible(true);
-              }}
             />
           </View>
         </View>

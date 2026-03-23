@@ -267,10 +267,6 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
                 setCurrentAuth(session);
                 onAuthRefresh?.(session);
               }}
-              onOpenAddressEditor={() => {
-                setProfileEditModalVisible(false);
-                setAddressModalVisible(true);
-              }}
             />
           </View>
         </View>
