@@ -930,15 +930,65 @@ def _provider_catalog_from_tts_config(tts_cfg: dict[str, Any], keys: dict[str, s
     return grouped
 
 
-def _known_provider_slot_map() -> dict[tuple[str, str], str]:
-    slot_map: dict[tuple[str, str], str] = {}
+def _known_provider_slot_map() -> dict[str, list[str]]:
+    slot_map: dict[str, list[str]] = {}
     for item in KNOWN_PROVIDER_CATALOG:
-        provider_type = str(item.get("type") or "").strip().lower()
         provider_id = str(item.get("id") or "").strip()
         slot = str(item.get("api_key_slot") or "").strip()
-        if provider_type and provider_id:
-            slot_map[(provider_type, provider_id)] = slot
+        if provider_id:
+            bucket = slot_map.setdefault(provider_id, [])
+            if slot and slot not in bucket:
+                bucket.append(slot)
     return slot_map
+
+
+def _group_known_providers(
+    *,
+    provider_catalog: dict[str, list[dict[str, Any]]],
+    keys: dict[str, str],
+) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for scope in ("llm", "tts", "stt"):
+        for item in provider_catalog.get(scope, []):
+            if str(item.get("source")) != "known":
+                continue
+            provider_id = str(item.get("id") or "").strip().lower()
+            if not provider_id:
+                continue
+            current = grouped.get(provider_id)
+            slot = str(item.get("api_key_slot") or "").strip()
+            masked = ""
+            value = str(keys.get(slot) or "").strip()
+            if value:
+                masked = f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "********"
+            if current is None:
+                current = {
+                    "id": provider_id,
+                    "name": str(item.get("name") or provider_id),
+                    "types": [],
+                    "api_key_slots": [],
+                    "bound_key_slot": "",
+                    "bound_key_masked": "",
+                    "base_url": str(item.get("base_url") or ""),
+                    "endpoint_path": str(item.get("endpoint_path") or ""),
+                    "models_path": str(item.get("models_path") or ""),
+                    "model": str(item.get("model") or ""),
+                }
+                grouped[provider_id] = current
+            if scope not in current["types"]:
+                current["types"].append(scope)
+            if slot and slot not in current["api_key_slots"]:
+                current["api_key_slots"].append(slot)
+            if masked and not current["bound_key_masked"]:
+                current["bound_key_masked"] = masked
+                current["bound_key_slot"] = slot
+
+    rows = list(grouped.values())
+    for row in rows:
+        row["types"].sort()
+        row["api_key_slots"].sort()
+    rows.sort(key=lambda r: str(r.get("name") or "").lower())
+    return rows
 
 
 def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1565,9 +1615,7 @@ async def dashboard_custom_providers_page(request: Request):
         providers = _extract_custom_providers(tts_cfg)
         keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
         provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
-        known_providers = [
-            item for section in ("llm", "tts", "stt") for item in provider_catalog.get(section, []) if item.get("source") == "known"
-        ]
+        known_providers = _group_known_providers(provider_catalog=provider_catalog, keys=keys)
         provider_api_key_options = _provider_api_key_select_options(keys)
     elif status != 404:
         message = extract_error_message(payload, "Failed to load providers")
@@ -1613,21 +1661,22 @@ async def dashboard_custom_providers_save(request: Request):
     show_add_form = False
 
     if action == "bind_known_key":
-        provider_type = str(form.get("provider_type") or "").strip().lower()
         provider_id = str(form.get("provider_id") or "").strip().lower()
         selected_key_id = str(form.get("selected_key_id") or "").strip()
-        slot = known_slot_map.get((provider_type, provider_id), "")
-        if not slot:
+        slots = known_slot_map.get(provider_id, [])
+        if not slots:
             message = "Known provider does not support API key binding"
         elif not selected_key_id:
-            keys[slot] = ""
+            for slot in slots:
+                keys[slot] = ""
             message = "Known provider key cleared"
         else:
             resolved_value = str(keys.get(selected_key_id) or "").strip()
             if not resolved_value:
                 message = "Selected API key entry is empty"
             else:
-                keys[slot] = resolved_value
+                for slot in slots:
+                    keys[slot] = resolved_value
                 message = "Known provider key updated"
     elif action == "delete":
         provider_id = str(form.get("provider_id") or "").strip()
@@ -1712,9 +1761,7 @@ async def dashboard_custom_providers_save(request: Request):
         show_add_form = True
 
     provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
-    known_providers = [
-        item for section in ("llm", "tts", "stt") for item in provider_catalog.get(section, []) if item.get("source") == "known"
-    ]
+    known_providers = _group_known_providers(provider_catalog=provider_catalog, keys=keys)
 
     return templates.TemplateResponse(
         request=request,

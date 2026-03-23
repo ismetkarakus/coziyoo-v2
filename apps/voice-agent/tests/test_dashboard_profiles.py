@@ -681,6 +681,8 @@ def test_known_provider_binding_updates_canonical_key_slot(monkeypatch) -> None:
                     "ttsConfig": {
                         "providerApiKeys": {
                             "llm.openai": "old-openai-key",
+                            "tts.openai": "",
+                            "stt.openai": "",
                             "llm.openai.prod": "sk-prod",
                         },
                         "customProviders": [
@@ -708,7 +710,6 @@ def test_known_provider_binding_updates_canonical_key_slot(monkeypatch) -> None:
         "/dashboard/providers",
         data={
             "action": "bind_known_key",
-            "provider_type": "llm",
             "provider_id": "openai",
             "selected_key_id": "llm.openai.prod",
         },
@@ -724,6 +725,8 @@ def test_known_provider_binding_updates_canonical_key_slot(monkeypatch) -> None:
     custom = tts_cfg.get("customProviders") if isinstance(tts_cfg, dict) else []
     assert isinstance(keys, dict)
     assert keys.get("llm.openai") == "sk-prod"
+    assert keys.get("tts.openai") == "sk-prod"
+    assert keys.get("stt.openai") == "sk-prod"
     assert keys.get("llm.openai.prod") == "sk-prod"
     assert isinstance(custom, list)
     assert any(str(item.get("id")) == "llm-groq-eu" for item in custom if isinstance(item, dict))

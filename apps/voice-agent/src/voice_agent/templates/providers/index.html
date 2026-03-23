@@ -29,11 +29,11 @@
         <details class="card provider-card" style="padding:0; border-radius:8px;" data-provider-card>
           <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none;">
             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-              <span class="badge" style="background:var(--p10); color:var(--primary); border:1px solid rgba(55,170,157,.2); text-transform:uppercase;">{{ provider.type }}</span>
+              <span class="badge" style="background:var(--p10); color:var(--primary); border:1px solid rgba(55,170,157,.2); text-transform:uppercase;">{{ provider.types | join(', ') }}</span>
               <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.name }}</span>
-              <span class="muted" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.api_key_slot or 'No key slot' }}</span>
-              {% if provider.api_key_masked %}
-              <span class="muted" style="font-size:12px;">{{ provider.api_key_masked }}</span>
+              <span class="muted" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ provider.api_key_slots | join(', ') or 'No key slot' }}</span>
+              {% if provider.bound_key_masked %}
+              <span class="muted" style="font-size:12px;">{{ provider.bound_key_masked }}</span>
               {% endif %}
             </div>
             <span class="muted provider-expand-label" style="font-size:12px;">Expand</span>
@@ -41,7 +41,6 @@
           <div style="padding:0 12px 12px; border-top:1px solid var(--border);">
             <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;" data-known-provider-form>
               <input type="hidden" name="action" value="bind_known_key" />
-              <input type="hidden" name="provider_type" value="{{ provider.type }}" />
               <input type="hidden" name="provider_id" value="{{ provider.id }}" />
 
               <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
@@ -54,20 +53,20 @@
                 <div><label>Default Model</label><input class="input" type="text" value="{{ provider.model or '' }}" disabled /></div>
                 <div>
                   <label>Bound API Key</label>
-                  <select class="input" name="selected_key_id" data-known-provider-key-select data-scope="{{ provider.type }}" {% if not provider.api_key_slot %}disabled{% endif %}>
+                  <select class="input" name="selected_key_id" data-known-provider-key-select {% if not provider.api_key_slots %}disabled{% endif %}>
                     <option value="">None (clear)</option>
                     {% for opt in provider_api_key_options %}
-                    <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.api_key_slot and provider.api_key_slot == opt.id %}selected{% endif %}>{{ opt.label }}</option>
+                    <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if provider.bound_key_slot and provider.bound_key_slot == opt.id %}selected{% endif %}>{{ opt.label }}</option>
                     {% endfor %}
                   </select>
-                  {% if not provider.api_key_slot %}
+                  {% if not provider.api_key_slots %}
                   <div class="muted" style="font-size:12px; margin-top:4px;">This provider does not use API key binding.</div>
                   {% endif %}
                 </div>
               </div>
 
               <div style="display:flex; gap:6px;">
-                <button class="btn btn-primary btn-save" type="submit" {% if not provider.api_key_slot %}disabled{% endif %}>Save Binding</button>
+                <button class="btn btn-primary btn-save" type="submit" {% if not provider.api_key_slots %}disabled{% endif %}>Save Binding</button>
               </div>
             </form>
           </div>
@@ -266,17 +265,6 @@
     document.querySelectorAll("[data-provider-form]").forEach((form) => {
       const typeSelect = form.querySelector("[data-provider-type]");
       if (typeSelect) syncProviderForm(typeSelect);
-    });
-
-    document.querySelectorAll("[data-known-provider-key-select]").forEach((select) => {
-      const scope = String(select.getAttribute("data-scope") || "").toLowerCase();
-      Array.from(select.options).forEach((opt) => {
-        if (!opt.dataset.section) return;
-        opt.hidden = opt.dataset.section !== scope;
-      });
-      if (select.selectedOptions.length && select.selectedOptions[0].hidden) {
-        select.value = "";
-      }
     });
   })();
 
