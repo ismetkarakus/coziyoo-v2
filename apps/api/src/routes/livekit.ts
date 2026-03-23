@@ -6,6 +6,7 @@ import { env } from "../config/env.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getN8nStatus, runN8nToolWebhook, sendSessionEndEvent, type N8nStatus } from "../services/n8n.js";
 import { askOllamaChat, listOllamaModels } from "../services/ollama.js";
+import { resolveRuntimeProfileConfig } from "../services/agent-profile-runtime.js";
 import { resolveProviders } from "../services/resolve-providers.js";
 import {
   createDefaultStarterAgentSettings,
@@ -619,10 +620,21 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     }
   }
 
-  const sessionSettings = await getStarterAgentSettingsWithDefault(input.deviceId);
-  const sessionResolved = resolveProviders(sessionSettings);
+  const runtimeProfile = await resolveRuntimeProfileConfig(input.settingsProfileId);
+  if (!runtimeProfile) {
+    return res.status(422).json({
+      error: {
+        code: "ACTIVE_PROFILE_NOT_FOUND",
+        message: input.settingsProfileId
+          ? "Requested profile not found."
+          : "No active profile found. Activate a profile in dashboard first.",
+      },
+    });
+  }
 
-  if (sessionSettings?.sttEnabled !== false && sessionResolved.stt.baseUrl) {
+  const sessionResolved = runtimeProfile.providers;
+
+  if (sessionResolved.stt.baseUrl) {
     const sttHealth = await probeServiceHealth(sessionResolved.stt.baseUrl);
     if (!sttHealth.reachable) {
       return res.status(503).json({
@@ -631,7 +643,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     }
   }
 
-  if (sessionSettings?.ttsEnabled !== false && sessionResolved.tts.baseUrl) {
+  if (sessionResolved.tts.baseUrl) {
     const ttsHealth = await probeServiceHealth(sessionResolved.tts.baseUrl);
     if (!ttsHealth.reachable) {
       return res.status(503).json({
@@ -664,7 +676,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
       leadId: input.leadId ?? null,
       channel: input.channel ?? "mobile",
       deviceId: input.deviceId ?? null,
-      settingsProfileId: input.settingsProfileId ?? null,
+      settingsProfileId: runtimeProfile.profileId,
     });
 
   try {
@@ -704,12 +716,12 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
     leadId: input.leadId ?? null,
     channel: input.channel ?? "mobile",
     deviceId: input.deviceId ?? null,
-    settingsProfileId: input.settingsProfileId ?? null,
+    settingsProfileId: runtimeProfile.profileId,
     providers: sessionResolved,
-    systemPrompt: sessionSettings?.systemPrompt ?? null,
-    greetingEnabled: sessionSettings?.greetingEnabled ?? true,
-    greetingInstruction: sessionSettings?.greetingInstruction ?? null,
-    voiceLanguage: sessionSettings?.voiceLanguage ?? "en",
+    systemPrompt: runtimeProfile.systemPrompt ?? null,
+    greetingEnabled: runtimeProfile.greetingEnabled ?? true,
+    greetingInstruction: runtimeProfile.greetingInstruction ?? null,
+    voiceLanguage: runtimeProfile.voiceLanguage ?? "en",
   });
   const agentToken = await mintLiveKitToken({
     identity: agentIdentity,
@@ -743,7 +755,7 @@ liveKitRouter.post("/session/start", requireAuth("app"), async (req, res) => {
             leadId: input.leadId ?? null,
             channel: input.channel ?? "mobile",
             deviceId: input.deviceId ?? null,
-            settingsProfileId: input.settingsProfileId ?? null,
+            settingsProfileId: runtimeProfile.profileId,
             providers: sessionResolved,
           },
         });
