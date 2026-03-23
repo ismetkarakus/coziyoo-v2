@@ -13,6 +13,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
 import { theme } from '../theme/colors';
@@ -65,6 +66,23 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     setError(null);
     setLoading(true);
     try {
+      // Try to get location (non-blocking)
+      let locationPayload: { latitude: number; longitude: number; accuracyM?: number; source: string } | undefined;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          locationPayload = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
+            source: 'app',
+          };
+        }
+      } catch {
+        // Location is optional
+      }
+
       const { apiUrl } = await loadSettings();
       const response = await fetch(`${apiUrl}/v1/auth/register`, {
         method: 'POST',
@@ -72,6 +90,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
+          ...(locationPayload ? { location: locationPayload } : {}),
         }),
       });
       const json = (await response.json()) as RegisterResponse;

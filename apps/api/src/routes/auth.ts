@@ -21,6 +21,13 @@ import {
   fireSecurityAlert,
 } from "../services/login-security.js";
 
+const LocationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  accuracyM: z.number().int().min(0).max(100_000).optional(),
+  source: z.string().trim().min(1).max(50).optional(),
+});
+
 const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
@@ -29,6 +36,7 @@ const RegisterSchema = z.object({
   userType: z.enum(["buyer", "seller", "both"]).optional(),
   countryCode: z.string().min(2).max(3).optional(),
   language: z.string().min(2).max(10).optional(),
+  location: LocationSchema.optional(),
 });
 
 const LoginSchema = z.object({
@@ -36,12 +44,7 @@ const LoginSchema = z.object({
   password: z.string().min(1),
   deviceId: z.string().min(1).max(128).optional(),
   deviceName: z.string().min(1).max(128).optional(),
-  location: z.object({
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
-    accuracyM: z.number().int().min(0).max(100_000).optional(),
-    source: z.string().trim().min(1).max(50).optional(),
-  }).optional(),
+  location: LocationSchema.optional(),
 });
 
 const RefreshSchema = z.object({
@@ -188,6 +191,23 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
       ip: req.ip ?? null,
       userAgent: req.headers["user-agent"] ?? null,
     });
+
+    if (input.location) {
+      await pool.query(
+        `INSERT INTO user_login_locations (user_id, session_id, latitude, longitude, accuracy_m, source, ip, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          user.id,
+          sessionInsert.rows[0].id,
+          input.location.latitude,
+          input.location.longitude,
+          input.location.accuracyM ?? null,
+          input.location.source ?? "app",
+          req.ip ?? null,
+          req.headers["user-agent"] ?? null,
+        ]
+      );
+    }
 
     const accessToken = signAccessToken({
       sub: user.id,

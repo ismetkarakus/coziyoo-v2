@@ -13,6 +13,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
 import { theme } from '../theme/colors';
@@ -72,11 +73,32 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
     setError(null);
     setLoading(true);
     try {
+      // Try to get location for login tracking (non-blocking)
+      let locationPayload: { latitude: number; longitude: number; accuracyM?: number; source: string } | undefined;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          locationPayload = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
+            source: 'app',
+          };
+        }
+      } catch {
+        // Location is optional, continue without it
+      }
+
       const { apiUrl } = await loadSettings();
       const response = await fetch(`${apiUrl}/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password: trimmedPassword,
+          ...(locationPayload ? { location: locationPayload } : {}),
+        }),
       });
       const json = (await response.json()) as LoginResponse;
       if (!response.ok || json.error) {
