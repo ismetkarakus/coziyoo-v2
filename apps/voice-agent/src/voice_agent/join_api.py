@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
+import aiohttp
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -984,22 +985,83 @@ async def dashboard_llm_models(request: Request):
         return refresh_response
 
     body = await request.json()
+    base_url = str(body.get("baseUrl") or "").strip()
+    models_path = str(body.get("modelsPath") or "/v1/models").strip() or "/v1/models"
+    api_key = str(body.get("apiKey") or "")
+    custom_headers = body.get("customHeaders") or {}
+
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="POST",
         path="/v1/admin/livekit/llm/models",
         access_token=access_token,
         json_body={
-            "baseUrl": str(body.get("baseUrl") or ""),
-            "modelsPath": str(body.get("modelsPath") or "/v1/models"),
-            "apiKey": str(body.get("apiKey") or ""),
-            "customHeaders": body.get("customHeaders") or {},
+            "baseUrl": base_url,
+            "modelsPath": models_path,
+            "apiKey": api_key,
+            "customHeaders": custom_headers,
         },
     )
     if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
         return {"models": payload["data"].get("models", [])}
-    error = payload.get("error") if isinstance(payload, dict) else {}
-    return {"models": [], "error": (error or {}).get("message", "Failed to fetch models")}
+
+    # Backward-compat fallback:
+    # If real API has not deployed /v1/admin/livekit/llm/models yet, fetch provider directly.
+    fallback_candidate = (
+        status in {404, 405}
+        or (isinstance(payload, str) and "Cannot POST /v1/admin/livekit/llm/models" in payload)
+    )
+    if fallback_candidate and base_url:
+        url = f"{base_url.rstrip('/')}{models_path}"
+        headers: dict[str, str] = {}
+        if isinstance(custom_headers, dict):
+            headers = {str(k): str(v) for k, v in custom_headers.items()}
+        if api_key and "Authorization" not in headers and "x-api-key" not in headers:
+            headers["Authorization"] = f"Bearer {api_key}"
+        try:
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url, headers=headers) as upstream:
+                    raw = await upstream.text()
+                    if upstream.status >= 400:
+                        return {"models": [], "error": f"Provider returned {upstream.status}"}
+                    parsed = json.loads(raw)
+                    models: list[str] = []
+                    if isinstance(parsed, dict):
+                        data_items = parsed.get("data")
+                        if isinstance(data_items, list):
+                            models.extend(
+                                str(item.get("id"))
+                                for item in data_items
+                                if isinstance(item, dict) and item.get("id")
+                            )
+                        ollama_items = parsed.get("models")
+                        if isinstance(ollama_items, list):
+                            for item in ollama_items:
+                                if isinstance(item, str) and item.strip():
+                                    models.append(item.strip())
+                                elif isinstance(item, dict):
+                                    name = item.get("name") or item.get("model") or item.get("id")
+                                    if isinstance(name, str) and name.strip():
+                                        models.append(name.strip())
+                    models = sorted(set(models))
+                    return {"models": models}
+        except Exception as err:
+            return {"models": [], "error": f"Fallback fetch failed: {err}"}
+
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            code = error.get("code")
+            if isinstance(message, str) and message.strip():
+                return {"models": [], "error": message}
+            if isinstance(code, str) and code.strip():
+                return {"models": [], "error": f"{code} (status {status})"}
+    if isinstance(payload, str) and payload.strip():
+        compact = re.sub(r"\s+", " ", payload).strip()
+        return {"models": [], "error": compact[:160]}
+    return {"models": [], "error": f"Failed to fetch models (status {status})"}
 
 
 @app.post("/dashboard/test/tts", response_class=HTMLResponse)
