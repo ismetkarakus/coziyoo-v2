@@ -846,6 +846,31 @@ async def dashboard_test_llm(request: Request):
     )
 
 
+@app.post("/dashboard/models")
+async def dashboard_llm_models(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    body = await request.json()
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/llm/models",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(body.get("baseUrl") or ""),
+            "modelsPath": str(body.get("modelsPath") or "/v1/models"),
+            "apiKey": str(body.get("apiKey") or ""),
+            "customHeaders": body.get("customHeaders") or {},
+        },
+    )
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        return {"models": payload["data"].get("models", [])}
+    error = payload.get("error") if isinstance(payload, dict) else {}
+    return {"models": [], "error": (error or {}).get("message", "Failed to fetch models")}
+
+
 @app.post("/dashboard/test/tts", response_class=HTMLResponse)
 async def dashboard_test_tts(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)

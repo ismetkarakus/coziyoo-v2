@@ -822,6 +822,64 @@ adminLiveKitRouter.post("/test/llm", async (req, res) => {
   }
 });
 
+const LlmModelsSchema = z.object({
+  baseUrl: z.string().min(1),
+  modelsPath: z.string().optional(),
+  apiKey: z.string().optional(),
+  customHeaders: z.record(z.string(), z.string()).optional(),
+});
+
+adminLiveKitRouter.post("/llm/models", async (req, res) => {
+  const parsed = LlmModelsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { baseUrl, modelsPath, apiKey, customHeaders } = parsed.data;
+  const path = modelsPath?.trim() || "/v1/models";
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+
+  const headers: Record<string, string> = { ...(customHeaders ?? {}) };
+  if (apiKey?.trim()) {
+    if (!headers["Authorization"] && !headers["x-api-key"]) {
+      headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+    } else if (headers["x-api-key"] === "") {
+      headers["x-api-key"] = apiKey.trim();
+    }
+  }
+
+  try {
+    const upstream = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!upstream.ok) {
+      const rawText = await upstream.text().catch(() => "");
+      return res.status(502).json({
+        error: {
+          code: "LLM_MODELS_FAILED",
+          message: `Upstream responded ${upstream.status}`,
+          details: rawText.slice(0, 400),
+        },
+      });
+    }
+
+    const json = await upstream.json() as Record<string, unknown>;
+    const dataArr = Array.isArray(json["data"]) ? (json["data"] as Array<{ id?: string }>) : [];
+    const models = dataArr.map((m) => m.id).filter(Boolean) as string[];
+    return res.json({ data: { models } });
+  } catch (err) {
+    return res.status(502).json({
+      error: {
+        code: "LLM_MODELS_FAILED",
+        message: err instanceof Error ? err.message : "Failed to fetch models",
+      },
+    });
+  }
+});
+
 const TestTtsSchema = z.object({
   text: z.string().min(1).max(500),
   baseUrl: z.string().min(1),

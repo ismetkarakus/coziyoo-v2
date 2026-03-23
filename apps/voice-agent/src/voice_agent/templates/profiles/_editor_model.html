@@ -19,8 +19,12 @@
     <div><label>LLM API Key</label><input class="input" name="llm_config.api_key" id="llm-api-key" value="{{ (profile.llm_config or {}).get('api_key','') }}" /></div>
     <div>
       <label>LLM Model</label>
-      <input class="input" name="llm_config.model" id="llm-model" value="{{ (profile.llm_config or {}).get('model','') }}" list="llm-model-list" autocomplete="off" />
-      <datalist id="llm-model-list"></datalist>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input class="input" name="llm_config.model" id="llm-model" value="{{ (profile.llm_config or {}).get('model','') }}" list="llm-model-list" autocomplete="off" style="flex:1;" />
+        <datalist id="llm-model-list"></datalist>
+        <button type="button" id="llm-fetch-models-btn" class="btn" title="Fetch available models from provider" onclick="llmProviderPreset.fetchModels()">↻</button>
+      </div>
+      <div id="llm-model-status" style="font-size:11px; color:#9ca3af; margin-top:3px; min-height:14px;"></div>
     </div>
     <div><label>LLM Endpoint Path</label><input class="input" name="llm_config.endpoint_path" id="llm-endpoint-path" value="{{ (profile.llm_config or {}).get('endpoint_path','/v1/chat/completions') }}" /></div>
   </div>
@@ -60,6 +64,7 @@
     openai: {
       base_url: "https://api.openai.com",
       endpoint: "/v1/chat/completions",
+      models_path: "/v1/models",
       default_model: "gpt-4o",
       models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
       headers: {}
@@ -67,6 +72,7 @@
     gemini: {
       base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
       endpoint: "/v1/chat/completions",
+      models_path: "/models",
       default_model: "gemini-2.0-flash",
       models: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"],
       headers: {}
@@ -74,6 +80,7 @@
     kimi: {
       base_url: "https://api.moonshot.cn",
       endpoint: "/v1/chat/completions",
+      models_path: "/v1/models",
       default_model: "kimi-k2",
       models: ["kimi-k2", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
       headers: {}
@@ -81,11 +88,25 @@
     claude: {
       base_url: "https://api.anthropic.com",
       endpoint: "/v1/messages",
+      models_path: "/v1/models",
       default_model: "claude-sonnet-4-6",
       models: ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"],
       headers: { "anthropic-version": "2023-06-01", "x-api-key": "" }
     }
   };
+
+  function setModelStatus(msg, isError) {
+    const el = document.getElementById("llm-model-status");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? "#f87171" : "#9ca3af";
+  }
+
+  function populateModelList(models) {
+    const list = document.getElementById("llm-model-list");
+    if (!list) return;
+    list.innerHTML = models.map(m => `<option value="${m}">`).join("");
+  }
 
   window.llmProviderPreset = {
     apply(providerKey) {
@@ -95,7 +116,6 @@
       document.getElementById("llm-base-url").value = p.base_url;
       document.getElementById("llm-endpoint-path").value = p.endpoint;
 
-      // Only overwrite model if currently empty or switching away from another known provider
       const modelInput = document.getElementById("llm-model");
       const currentModel = modelInput.value.trim();
       const knownModels = Object.values(PROVIDERS).flatMap(x => x.models);
@@ -103,13 +123,71 @@
         modelInput.value = p.default_model;
       }
 
-      // Populate datalist suggestions
-      const list = document.getElementById("llm-model-list");
-      list.innerHTML = p.models.map(m => `<option value="${m}">`).join("");
+      populateModelList(p.models);
+      setModelStatus("Static defaults — click ↻ to fetch live models.");
 
-      // Set custom_headers only when non-empty defaults exist
       if (Object.keys(p.headers).length > 0) {
         document.getElementById("llm-custom-headers").value = JSON.stringify(p.headers, null, 2);
+      }
+    },
+
+    async fetchModels() {
+      const btn = document.getElementById("llm-fetch-models-btn");
+      const baseUrl = document.getElementById("llm-base-url").value.trim();
+      const apiKey = document.getElementById("llm-api-key").value.trim();
+      const headersRaw = document.getElementById("llm-custom-headers").value.trim();
+      const providerKey = document.getElementById("llm-provider-select").value;
+      const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
+
+      if (!baseUrl) {
+        setModelStatus("Set a Base URL first.", true);
+        return;
+      }
+
+      let customHeaders = {};
+      try {
+        customHeaders = headersRaw ? JSON.parse(headersRaw) : {};
+      } catch {
+        setModelStatus("custom_headers JSON is invalid.", true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "…";
+      setModelStatus("Fetching models…");
+
+      try {
+        const resp = await fetch("/dashboard/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+          setModelStatus("Error: " + data.error, true);
+          return;
+        }
+
+        const models = (data.models || []).sort();
+        if (!models.length) {
+          setModelStatus("No models returned.", true);
+          return;
+        }
+
+        populateModelList(models);
+        setModelStatus(`${models.length} models loaded. Click the field to see suggestions.`);
+
+        // If current model value not in list, suggest first result
+        const modelInput = document.getElementById("llm-model");
+        if (!models.includes(modelInput.value.trim())) {
+          modelInput.value = models[0];
+        }
+      } catch (err) {
+        setModelStatus("Request failed: " + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻";
       }
     }
   };
@@ -122,9 +200,8 @@
     for (const [key, p] of Object.entries(PROVIDERS)) {
       if (currentUrl.startsWith(p.base_url)) {
         sel.value = key;
-        // Populate model datalist without overwriting existing values
-        const list = document.getElementById("llm-model-list");
-        list.innerHTML = p.models.map(m => `<option value="${m}">`).join("");
+        populateModelList(p.models);
+        setModelStatus("Static defaults — click ↻ to fetch live models.");
         break;
       }
     }
