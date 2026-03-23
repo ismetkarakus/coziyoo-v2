@@ -254,6 +254,35 @@ type PaymentStatusSnapshot = {
   latestAttemptStatus?: string;
 };
 
+function formatOrderStatusLabel(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  if (!normalized) return '-';
+  if (normalized === 'pending_seller_approval') return t('status.home.orderStatus.pending_seller_approval');
+  if (normalized === 'seller_approved') return t('status.home.orderStatus.seller_approved');
+  if (normalized === 'awaiting_payment') return t('status.home.orderStatus.awaiting_payment');
+  if (normalized === 'preparing') return t('status.home.orderStatus.preparing');
+  if (normalized === 'ready') return t('status.home.orderStatus.ready');
+  if (normalized === 'in_delivery') return t('status.home.orderStatus.in_delivery');
+  if (normalized === 'delivered') return t('status.home.orderStatus.delivered');
+  if (normalized === 'completed') return t('status.home.orderStatus.completed');
+  if (normalized === 'cancelled') return t('status.home.orderStatus.cancelled');
+  if (normalized === 'rejected') return t('status.home.orderStatus.rejected');
+  return status;
+}
+
+function formatPaymentAttemptLabel(status?: string): string {
+  const normalized = (status ?? '').trim().toLowerCase();
+  if (!normalized) return t('status.home.paymentWaiting');
+  if (normalized === 'initiated') return t('status.home.paymentAttempt.initiated');
+  if (normalized === 'pending') return t('status.home.paymentAttempt.pending');
+  if (normalized === 'processing') return t('status.home.paymentAttempt.processing');
+  if (normalized === 'succeeded') return t('status.home.paymentAttempt.succeeded');
+  if (normalized === 'failed') return t('status.home.paymentAttempt.failed');
+  if (normalized === 'canceled') return t('status.home.paymentAttempt.canceled');
+  if (normalized === 'requires_action') return t('status.home.paymentAttempt.requires_action');
+  return status ?? t('status.home.paymentWaiting');
+}
+
 function parseDistanceKm(distanceText: string): number | null {
   const normalized = (distanceText || '').replace(',', '.');
   const match = normalized.match(/(\d+(?:\.\d+)?)/);
@@ -2769,9 +2798,9 @@ export default function HomeScreen({
                 <View style={styles.paymentStatusCard}>
                   <Text style={styles.paymentStatusTitle}>{t('status.home.paymentTitle')}</Text>
                   <Text style={styles.paymentStatusText}>{t('status.home.orderLabel')} {paymentStatus.orderId.slice(0, 8)}...</Text>
-                  <Text style={styles.paymentStatusText}>{t('status.home.orderStatusLabel')} {paymentStatus.orderStatus}</Text>
+                  <Text style={styles.paymentStatusText}>{t('status.home.orderStatusLabel')} {formatOrderStatusLabel(paymentStatus.orderStatus)}</Text>
                   <Text style={styles.paymentStatusText}>
-                    {paymentStatus.paymentCompleted ? t('status.home.paymentDone') : (paymentStatus.latestAttemptStatus ?? t('status.home.paymentWaiting'))}
+                    {paymentStatus.paymentCompleted ? t('status.home.paymentDone') : formatPaymentAttemptLabel(paymentStatus.latestAttemptStatus)}
                   </Text>
                 </View>
               ) : null}
