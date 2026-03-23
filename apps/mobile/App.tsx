@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
@@ -21,7 +22,7 @@ import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils
 import { theme } from './src/theme/colors';
 
 type Screen =
-  | 'loading' | 'login' | 'home'
+  | 'loading' | 'onboarding' | 'login' | 'home'
   | 'settings' | 'profileEdit' | 'addresses'
   | 'orders' | 'orderDetail'
   | 'foodDetail' | 'payment'
@@ -43,13 +44,15 @@ export default function App() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedChatName, setSelectedChatName] = useState('');
 
+  const [isNewRegistration, setIsNewRegistration] = useState(false);
+
   useEffect(() => {
     loadAuthSession().then((stored) => {
       if (stored) {
         setAuth(stored);
         setScreen('home');
       } else {
-        setScreen('login');
+        setScreen('onboarding');
       }
     });
   }, []);
@@ -57,6 +60,12 @@ export default function App() {
   function handleLogin(session: AuthSession) {
     setAuth(session);
     setScreen('home');
+  }
+
+  function handleOnboardingComplete(session: AuthSession) {
+    setAuth(session);
+    setIsNewRegistration(true);
+    setScreen('profileEdit');
   }
 
   async function handleLogout() {
@@ -78,8 +87,17 @@ export default function App() {
     );
   }
 
+  if (screen === 'onboarding' && !auth) {
+    return (
+      <OnboardingScreen
+        onComplete={handleOnboardingComplete}
+        onGoToLogin={() => setScreen('login')}
+      />
+    );
+  }
+
   if (screen === 'login' || !auth) {
-    return <LoginScreen onLogin={handleLogin} />;
+    return <LoginScreen onLogin={handleLogin} onGoToRegister={() => setScreen('onboarding')} />;
   }
 
   if (screen === 'settings') {
@@ -96,7 +114,14 @@ export default function App() {
     return (
       <ProfileEditScreen
         auth={auth}
-        onBack={() => goHome('profile')}
+        onBack={() => {
+          if (isNewRegistration) {
+            setIsNewRegistration(false);
+            goHome('home');
+          } else {
+            goHome('profile');
+          }
+        }}
         onAuthRefresh={setAuth}
       />
     );

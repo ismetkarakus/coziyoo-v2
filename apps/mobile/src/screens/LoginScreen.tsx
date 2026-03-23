@@ -18,6 +18,7 @@ import { t } from '../copy/brandCopy';
 
 type Props = {
   onLogin: (session: AuthSession) => void;
+  onGoToRegister?: () => void;
 };
 
 type LoginResponse = {
@@ -28,7 +29,7 @@ type LoginResponse = {
   error?: { code?: string; message?: string };
 };
 
-export default function LoginScreen({ onLogin }: Props) {
+export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
   const [email, setEmail] = useState('test@deneme.com');
   const [password, setPassword] = useState('test');
   const [loading, setLoading] = useState(false);
@@ -151,6 +152,12 @@ export default function LoginScreen({ onLogin }: Props) {
               <Text style={styles.buttonText}>{error ? t('cta.login.tryAgain') : t('cta.login.signIn')}</Text>
             )}
           </TouchableOpacity>
+
+          {onGoToRegister && (
+            <TouchableOpacity onPress={onGoToRegister} style={styles.registerLink} activeOpacity={0.7}>
+              <Text style={styles.registerLinkText}>Hesabın yok mu? <Text style={styles.registerLinkBold}>Kayıt ol</Text></Text>
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -240,5 +247,18 @@ const styles = StyleSheet.create({
     color: theme.onPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  registerLink: {
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  registerLinkText: {
+    color: theme.textSecondary,
+    fontSize: 14,
+  },
+  registerLinkBold: {
+    color: theme.primary,
+    fontWeight: '700',
   },
 });
