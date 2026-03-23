@@ -32,23 +32,6 @@ type RegisterResponse = {
   error?: { code?: string; message?: string };
 };
 
-async function getLocationPayload(): Promise<{ latitude: number; longitude: number; accuracyM?: number; source: string } | undefined> {
-  try {
-    const Location = require('expo-location');
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return undefined;
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy?.Balanced });
-    return {
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-      accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
-      source: 'app',
-    };
-  } catch {
-    return undefined;
-  }
-}
-
 export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
   const [step, setStep] = useState<Step>('welcome');
   const [email, setEmail] = useState('');
@@ -82,8 +65,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const locationPayload = await getLocationPayload();
-
       const { apiUrl } = await loadSettings();
       const response = await fetch(`${apiUrl}/v1/auth/register`, {
         method: 'POST',
@@ -91,7 +72,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
-          ...(locationPayload ? { location: locationPayload } : {}),
         }),
       });
       const json = (await response.json()) as RegisterResponse;
