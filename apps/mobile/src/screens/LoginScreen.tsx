@@ -31,19 +31,20 @@ type LoginResponse = {
   error?: { code?: string; message?: string };
 };
 
-type ExpoLocationModule = {
-  requestForegroundPermissionsAsync: () => Promise<{ status: string }>;
-  getCurrentPositionAsync: (options: { accuracy?: number }) => Promise<{
-    coords: { latitude: number; longitude: number; accuracy?: number | null };
-  }>;
-  Accuracy?: { Balanced?: number };
-};
-
-function loadExpoLocationModule(): ExpoLocationModule | null {
+async function getLocationPayload(): Promise<{ latitude: number; longitude: number; accuracyM?: number; source: string } | undefined> {
   try {
-    return require('expo-location') as ExpoLocationModule;
+    const Location = require('expo-location');
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return undefined;
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy?.Balanced });
+    return {
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
+      source: 'app',
+    };
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -88,27 +89,7 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
     setError(null);
     setLoading(true);
     try {
-      // Try to get location for login tracking (non-blocking)
-      let locationPayload: { latitude: number; longitude: number; accuracyM?: number; source: string } | undefined;
-      try {
-        const locationModule = loadExpoLocationModule();
-        if (locationModule) {
-          const { status } = await locationModule.requestForegroundPermissionsAsync();
-          if (status === 'granted') {
-            const loc = await locationModule.getCurrentPositionAsync({
-              accuracy: locationModule.Accuracy?.Balanced,
-            });
-            locationPayload = {
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-              accuracyM: loc.coords.accuracy ? Math.round(loc.coords.accuracy) : undefined,
-              source: 'app',
-            };
-          }
-        }
-      } catch {
-        // Location is optional, continue without it
-      }
+      const locationPayload = await getLocationPayload();
 
       const { apiUrl } = await loadSettings();
       const response = await fetch(`${apiUrl}/v1/auth/login`, {
