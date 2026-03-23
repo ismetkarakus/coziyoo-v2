@@ -21,6 +21,9 @@
     :root {
       --bg:        #020817;
       --card-bg:   #020817;
+      --sidebar-bg: #020617;
+      --panel-list-bg: #071025;
+      --panel-editor-bg: #0b1733;
       --border:    #1e293b;
       --muted-fg:  #94a3b8;
       --text:      #f8fafc;
@@ -38,6 +41,9 @@
     :root[data-theme="light"] {
       --bg:        #f8fafc;
       --card-bg:   #ffffff;
+      --sidebar-bg: #e2e8f0;
+      --panel-list-bg: #edf2f7;
+      --panel-editor-bg: #ffffff;
       --border:    #cbd5e1;
       --muted-fg:  #475569;
       --text:      #0f172a;
@@ -65,7 +71,8 @@
     /* ── Sidebar ── */
     .sidebar {
       width: var(--sw); min-width: var(--sw); height: 100vh;
-      background: var(--bg); border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--sidebar-bg) 0%, color-mix(in oklab, var(--sidebar-bg) 80%, var(--bg)) 100%);
+      border-right: 1px solid var(--border);
       display: flex; flex-direction: column; overflow: hidden;
       transition: width .2s ease, min-width .2s ease; flex-shrink: 0;
     }
@@ -162,8 +169,12 @@
     .panel-list {
       width: 280px; min-width: 280px; border-right: 1px solid var(--border);
       display: flex; flex-direction: column; overflow: hidden;
+      background: linear-gradient(180deg, var(--panel-list-bg) 0%, color-mix(in oklab, var(--panel-list-bg) 70%, var(--bg)) 100%);
     }
-    .panel-editor { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+    .panel-editor {
+      flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
+      background: linear-gradient(180deg, var(--panel-editor-bg) 0%, color-mix(in oklab, var(--panel-editor-bg) 82%, var(--bg)) 100%);
+    }
 
     /* assistant list */
     .asst-list-header { padding: 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
