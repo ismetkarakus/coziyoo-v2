@@ -443,6 +443,15 @@ def _string_map(value: Any) -> dict[str, str]:
     return mapped
 
 
+def _merge_tts_body_params_with_model(body_params: dict[str, str], model: str) -> dict[str, str]:
+    merged = dict(body_params or {})
+    resolved_model = str(model or "").strip()
+    has_model = any(str(k or "").strip().lower() == "model" for k in merged.keys())
+    if resolved_model and not has_model:
+        merged["model"] = resolved_model
+    return merged
+
+
 def _status_response(
     request: Request,
     *,
@@ -2518,6 +2527,10 @@ async def dashboard_provider_instance_test(request: Request):
     if provider_type == "tts":
         resolved_api_key = str(cfg.get("api_key") or "").strip()
         custom_headers = _string_map(cfg.get("custom_headers"))
+        body_params = _merge_tts_body_params_with_model(
+            _string_map(cfg.get("custom_body_params")),
+            str(cfg.get("model") or ""),
+        )
         auth_header = custom_headers.get("authorization", "").strip()
         if not auth_header and resolved_api_key:
             auth_header = f"Bearer {resolved_api_key}"
@@ -2532,7 +2545,7 @@ async def dashboard_provider_instance_test(request: Request):
                 "baseUrl": str(cfg.get("base_url") or ""),
                 "synthPath": str(cfg.get("endpoint_path") or "/v1/audio/speech"),
                 "textFieldName": str(cfg.get("text_field_name") or "input"),
-                "bodyParams": _string_map(cfg.get("custom_body_params")),
+                "bodyParams": body_params,
                 "authHeader": auth_header,
             },
         )
@@ -3380,6 +3393,10 @@ async def dashboard_test_tts(request: Request):
         api_key_id=str(tts_cfg.get("api_key_id") or ""),
     )
     custom_headers = _string_map(tts_cfg.get("custom_headers"))
+    body_params = _merge_tts_body_params_with_model(
+        _string_map(tts_cfg.get("custom_body_params")),
+        str(tts_cfg.get("model") or ""),
+    )
     auth_header = custom_headers.get("authorization", "").strip()
     if not auth_header and resolved_api_key:
         auth_header = f"Bearer {resolved_api_key}"
@@ -3394,7 +3411,7 @@ async def dashboard_test_tts(request: Request):
             "baseUrl": str(tts_cfg.get("base_url") or ""),
             "synthPath": str(tts_cfg.get("endpoint_path") or "/v1/audio/speech"),
             "textFieldName": str(tts_cfg.get("text_field_name") or "input"),
-            "bodyParams": _string_map(tts_cfg.get("custom_body_params")),
+            "bodyParams": body_params,
             "authHeader": auth_header,
         },
     )
