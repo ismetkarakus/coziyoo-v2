@@ -151,6 +151,16 @@
                   <input class="input" type="text" name="llm_test_prompt" value="Say hello in one short sentence." />
                   {% elif t == 'tts' %}
                   <input class="input" type="text" name="tts_test_text" value="Merhaba, bu bir test mesajidir." />
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <select class="input" name="tts_test_voice_id" id="provider-test-voice-{{ inst.id }}" style="flex:1;">
+                      <option value="">Voice (default)</option>
+                      {% if inst.voice_id %}
+                      <option value="{{ inst.voice_id }}" selected>{{ inst.voice_id }}</option>
+                      {% endif %}
+                    </select>
+                    <button class="btn" type="button" onclick="fetchProviderTestVoices('{{ inst.id }}', this)">Fetch Voices</button>
+                  </div>
+                  <div id="provider-test-voice-status-{{ inst.id }}" class="muted" style="font-size:11px;"></div>
                   {% else %}
                   <div class="muted" style="font-size:12px;">Uses built-in sample audio from the backend.</div>
                   {% endif %}
@@ -218,7 +228,6 @@
           <div class="provider-fields-tts" data-provider-section="tts" style="display:none; grid-template-columns:1fr; gap:8px;">
             <div><label>Default Model</label><input class="input" type="text" name="model" value="{{ acf.model or '' }}" /></div>
             <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" value="{{ acf.language or '' }}" /></div>
-            <div><label>Voice ID</label><input class="input" type="text" name="voice_id" value="{{ acf.voice_id or '' }}" /></div>
             <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" placeholder="input" value="{{ acf.text_field_name or '' }}" /></div>
             <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ acf.custom_headers_json or '{}' }}</textarea></div>
             <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ acf.custom_body_params_json or '{}' }}</textarea></div>
@@ -301,7 +310,6 @@
                   <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" value="{{ tc.get('endpoint_path', '') }}" /></div>
                   <div><label>Default Model</label><input class="input" type="text" name="model" value="{{ tc.get('model', '') }}" /></div>
                   <div><label>Language</label><input class="input" type="text" name="language" value="{{ tc.get('language', '') }}" /></div>
-                  <div><label>Voice ID</label><input class="input" type="text" name="voice_id" value="{{ tc.get('voice_id', '') }}" /></div>
                   <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" value="{{ tc.get('text_field_name', '') }}" /></div>
                   <div style="grid-column:2 / span 3;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (tc.get('custom_headers') or {}) | tojson }}</textarea></div>
                 </div>
@@ -407,6 +415,54 @@
     form.querySelectorAll('[data-provider-section]').forEach(el => {
       el.style.display = el.getAttribute('data-provider-section') === section ? 'grid' : 'none';
     });
+  }
+
+  async function fetchProviderTestVoices(instanceId, button) {
+    const select = document.getElementById(`provider-test-voice-${instanceId}`);
+    const status = document.getElementById(`provider-test-voice-status-${instanceId}`);
+    if (!select) return;
+    const originalText = button ? button.textContent : "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "…";
+    }
+    if (status) {
+      status.style.color = "var(--muted)";
+      status.textContent = "Fetching voices...";
+    }
+    try {
+      const resp = await fetch("/dashboard/providers/instances/voices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instance_id: instanceId }),
+      });
+      const data = await resp.json();
+      const voices = Array.isArray(data?.voices) ? data.voices : [];
+      const current = (select.value || "").trim();
+      const options = ['<option value="">Voice (default)</option>']
+        .concat(voices.map((v) => `<option value="${v}">${v}</option>`));
+      select.innerHTML = options.join("");
+      if (current && voices.includes(current)) select.value = current;
+      if (status) {
+        if (data?.error) {
+          status.style.color = "#f87171";
+          status.textContent = data.error;
+        } else {
+          status.style.color = "var(--muted)";
+          status.textContent = voices.length ? `${voices.length} voice(s) loaded.` : "No voices returned.";
+        }
+      }
+    } catch (err) {
+      if (status) {
+        status.style.color = "#f87171";
+        status.textContent = `Failed to fetch voices: ${err.message}`;
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalText || "Fetch Voices";
+      }
+    }
   }
 
   (function initProviderCards() {

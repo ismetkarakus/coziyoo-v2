@@ -452,6 +452,15 @@ def _merge_tts_body_params_with_model(body_params: dict[str, str], model: str) -
     return merged
 
 
+def _merge_tts_body_params_with_voice(body_params: dict[str, str], voice_id: str) -> dict[str, str]:
+    merged = dict(body_params or {})
+    resolved_voice = str(voice_id or "").strip()
+    has_voice = any(str(k or "").strip().lower() == "voice" for k in merged.keys())
+    if resolved_voice and not has_voice:
+        merged["voice"] = resolved_voice
+    return merged
+
+
 def _normalized_auth_header(
     *,
     explicit_auth_header: str,
@@ -1966,6 +1975,59 @@ async def _direct_tts_test_binary(
         return False, None, "", str(err)
 
 
+KNOWN_TTS_VOICE_OPTIONS: dict[str, list[str]] = {
+    "openai": ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"],
+}
+
+
+async def _fetch_tts_voice_options(
+    *,
+    tts_cfg: dict[str, Any],
+    auth_header: str,
+) -> tuple[list[str], str | None]:
+    provider_id = str(tts_cfg.get("provider") or "").strip().lower()
+    if provider_id in KNOWN_TTS_VOICE_OPTIONS:
+        return KNOWN_TTS_VOICE_OPTIONS[provider_id], None
+
+    if provider_id != "elevenlabs":
+        return [], "Voice list is not available for this provider."
+
+    base_url = str(tts_cfg.get("base_url") or "").strip()
+    if not base_url:
+        return [], "Missing TTS base URL"
+    url = f"{base_url.rstrip('/')}/v1/voices"
+    headers: dict[str, str] = {}
+    if auth_header:
+        headers["Authorization"] = auth_header
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=headers) as upstream:
+                raw = await upstream.text()
+                if upstream.status >= 400:
+                    return [], f"Provider returned {upstream.status}"
+                parsed = json.loads(raw)
+                voices: list[str] = []
+                if isinstance(parsed, dict):
+                    items = parsed.get("voices")
+                    if isinstance(items, list):
+                        for item in items:
+                            if not isinstance(item, dict):
+                                continue
+                            voice_id = item.get("voice_id") or item.get("voiceId")
+                            name = item.get("name")
+                            val = str(voice_id or name or "").strip()
+                            if val:
+                                voices.append(val)
+                voices = sorted(set(voices))
+                if not voices:
+                    return [], "No voices returned."
+                return voices, None
+    except Exception as err:
+        return [], str(err)
+
+
 def _profile_update_payload(profile: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": str(profile.get("name") or ""),
@@ -2609,11 +2671,16 @@ async def dashboard_provider_instance_test(request: Request):
 
     if provider_type == "tts":
         test_text = str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir.")
+        selected_voice_id = str(form.get("tts_test_voice_id") or "").strip()
         resolved_api_key = str(cfg.get("api_key") or "").strip()
         custom_headers = _string_map(cfg.get("custom_headers"))
         body_params = _merge_tts_body_params_with_model(
             _string_map(cfg.get("custom_body_params")),
             str(cfg.get("model") or ""),
+        )
+        body_params = _merge_tts_body_params_with_voice(
+            body_params,
+            selected_voice_id or str(cfg.get("voice_id") or ""),
         )
         auth_header = _normalized_auth_header(
             explicit_auth_header=custom_headers.get("authorization", ""),
@@ -2703,6 +2770,57 @@ async def dashboard_provider_instance_test(request: Request):
         message=extract_error_message(payload, "STT endpoint unreachable"),
         details=str(data.get("reason") or ""),
     )
+
+
+@app.post("/dashboard/providers/instances/voices")
+async def dashboard_provider_instance_voices(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return {"voices": [], "error": "Not authenticated"}
+
+    body = await request.json()
+    instance_id = str((body or {}).get("instance_id") or "").strip()
+    if not instance_id:
+        return {"voices": [], "error": "Missing provider instance id"}
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
+        return {"voices": [], "error": extract_error_message(payload, "Failed to load provider settings")}
+
+    settings_data = _dict(payload.get("data"))
+    tts_cfg = _auto_migrate_to_instances(_dict(settings_data.get("ttsConfig")))
+    instances = _extract_provider_instances(tts_cfg)
+    catalog = _extract_catalog_providers(tts_cfg)
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+
+    instance = next((i for i in instances if str(i.get("id") or "") == instance_id), None)
+    if not instance or not _instance_supports_type(instance, "tts"):
+        return {"voices": [], "error": "Selected provider instance does not support TTS."}
+
+    cfg = _resolve_provider_instance(
+        instance_id=instance_id,
+        requested_type="tts",
+        instances=instances,
+        catalog=catalog,
+        keys=keys,
+    )
+    if not cfg:
+        return {"voices": [], "error": "Could not resolve provider configuration."}
+
+    resolved_api_key = str(cfg.get("api_key") or "").strip()
+    custom_headers = _string_map(cfg.get("custom_headers"))
+    auth_header = _normalized_auth_header(
+        explicit_auth_header=custom_headers.get("authorization", ""),
+        api_key=resolved_api_key,
+        default_scheme="Bearer",
+    )
+    voices, error = await _fetch_tts_voice_options(tts_cfg=cfg, auth_header=auth_header)
+    return {"voices": voices, "error": error}
 
 
 @app.post("/dashboard/providers/catalog", response_class=HTMLResponse)
@@ -3501,6 +3619,10 @@ async def dashboard_test_tts(request: Request):
     body_params = _merge_tts_body_params_with_model(
         _string_map(tts_cfg.get("custom_body_params")),
         str(tts_cfg.get("model") or ""),
+    )
+    body_params = _merge_tts_body_params_with_voice(
+        body_params,
+        str(tts_cfg.get("voice_id") or ""),
     )
     auth_header = _normalized_auth_header(
         explicit_auth_header=custom_headers.get("authorization", ""),
