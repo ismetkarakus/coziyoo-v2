@@ -1579,19 +1579,23 @@ export default function HomeScreen({
     let basis = 'live_location';
     let fallbackAddressTitle: string | undefined;
 
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status === 'granted') {
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        latitude = position.coords.latitude;
-        longitude = position.coords.longitude;
-      } else {
+    // iOS tarafında bazı cihaz/build kombinasyonlarında izin çağrısı native fatal verebildiği için
+    // burada güvenli fallback olarak adres bazlı akışı tercih ediyoruz.
+    if (Platform.OS !== 'ios') {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status === 'granted') {
+          const position = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        } else {
+          Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
+        }
+      } catch {
         Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
       }
-    } catch {
-      Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
     }
 
     if (latitude == null || longitude == null) {
