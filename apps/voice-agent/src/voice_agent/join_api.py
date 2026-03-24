@@ -452,6 +452,24 @@ def _merge_tts_body_params_with_model(body_params: dict[str, str], model: str) -
     return merged
 
 
+def _normalized_auth_header(
+    *,
+    explicit_auth_header: str,
+    api_key: str,
+    default_scheme: str = "Bearer",
+) -> str:
+    key = str(api_key or "").strip()
+    if key:
+        lower = key.lower()
+        if lower.startswith("authorization:"):
+            key = key.split(":", 1)[1].strip()
+            lower = key.lower()
+        if lower.startswith("bearer ") or lower.startswith("basic "):
+            return key
+        return f"{default_scheme} {key}".strip()
+    return str(explicit_auth_header or "").strip()
+
+
 def _status_response(
     request: Request,
     *,
@@ -2531,9 +2549,11 @@ async def dashboard_provider_instance_test(request: Request):
             _string_map(cfg.get("custom_body_params")),
             str(cfg.get("model") or ""),
         )
-        auth_header = custom_headers.get("authorization", "").strip()
-        if not auth_header and resolved_api_key:
-            auth_header = f"Bearer {resolved_api_key}"
+        auth_header = _normalized_auth_header(
+            explicit_auth_header=custom_headers.get("authorization", ""),
+            api_key=resolved_api_key,
+            default_scheme="Bearer",
+        )
 
         status, data, content_type = await api_binary_request(
             api_base_url=settings.api_base_url,
@@ -3397,9 +3417,11 @@ async def dashboard_test_tts(request: Request):
         _string_map(tts_cfg.get("custom_body_params")),
         str(tts_cfg.get("model") or ""),
     )
-    auth_header = custom_headers.get("authorization", "").strip()
-    if not auth_header and resolved_api_key:
-        auth_header = f"Bearer {resolved_api_key}"
+    auth_header = _normalized_auth_header(
+        explicit_auth_header=custom_headers.get("authorization", ""),
+        api_key=resolved_api_key,
+        default_scheme="Bearer",
+    )
 
     status, data, content_type = await api_binary_request(
         api_base_url=settings.api_base_url,
