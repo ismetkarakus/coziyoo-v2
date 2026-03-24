@@ -470,13 +470,30 @@ def _normalized_auth_header(
     return str(explicit_auth_header or "").strip()
 
 
+def _known_provider_endpoint_path(provider_id: str, provider_type: str) -> str:
+    pid = str(provider_id or "").strip().lower()
+    ptype = str(provider_type or "").strip().lower()
+    if not pid or ptype not in {"llm", "tts", "stt"}:
+        return ""
+    for item in KNOWN_PROVIDER_CATALOG:
+        if str(item.get("id") or "").strip().lower() != pid:
+            continue
+        if str(item.get("type") or "").strip().lower() != ptype:
+            continue
+        return str(item.get("endpoint_path") or "").strip()
+    return ""
+
+
 def _resolved_tts_synth_path(tts_cfg: dict[str, Any]) -> str:
-    raw = str(tts_cfg.get("endpoint_path") or "").strip() or "/v1/audio/speech"
+    raw = str(tts_cfg.get("endpoint_path") or "").strip()
+    provider_id = str(tts_cfg.get("provider") or "").strip().lower()
+    known_tts_path = _known_provider_endpoint_path(provider_id, "tts")
+    if not raw:
+        return known_tts_path or "/v1/audio/speech"
     low = raw.lower()
-    # Guardrail: if a transcription endpoint is accidentally wired for TTS tests,
-    # force the OpenAI-style speech endpoint.
-    if "/audio/transcriptions" in low:
-        return "/v1/audio/speech"
+    # Guardrail only for known providers: if STT path is wired into TTS, restore provider's TTS endpoint.
+    if "/audio/transcriptions" in low and known_tts_path:
+        return known_tts_path
     return raw
 
 
