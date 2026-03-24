@@ -2425,7 +2425,7 @@ export default function HomeScreen({
                 </View>
                 <View style={styles.sellerChipTextWrap}>
                   <Text style={styles.sellerChipName} numberOfLines={1}>{meal.title}</Text>
-                  <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.reason}</Text>
+                  <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.seller}</Text>
                 </View>
               </TouchableOpacity>
             ))}
