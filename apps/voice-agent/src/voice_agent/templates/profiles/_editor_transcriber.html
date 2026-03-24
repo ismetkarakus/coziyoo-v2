@@ -3,18 +3,27 @@
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Transcriber</summary>
 
   <div style="margin-bottom:12px;">
-    <label>STT Provider Preset</label>
+    <label>STT Provider Instance</label>
+    {% set stt_instance_id = (profile.stt_config or {}).get('provider_instance_id', '') %}
     {% set stt_provider = (profile.stt_config or {}).get('provider', 'custom') %}
+    {% set stt_instances = stt_provider_instances | default([], true) %}
     {% set stt_catalog = provider_catalog.stt | default([], true) %}
-    <select id="stt-provider-select" class="input" name="stt_config.provider" onchange="dashboardSttModels.applyProvider(this.value)">
-      <option value="custom" {% if stt_provider == "custom" %}selected{% endif %}>— Custom —</option>
-      {% for opt in stt_catalog %}
-        {% if opt.id and opt.id != "custom" %}
-      <option value="{{ opt.id }}" {% if stt_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
-        {% endif %}
+    <select id="stt-provider-select" class="input" onchange="dashboardSttModels.applyInstance(this.value)">
+      <option value="">— Custom / No Instance —</option>
+      {% for inst in stt_instances %}
+      <option value="{{ inst.id }}"
+        data-catalog-id="{{ inst.catalog_id }}"
+        data-model="{{ inst.model or '' }}"
+        data-api-key-id="{{ inst.api_key_id or '' }}"
+        data-language="{{ inst.language or '' }}"
+        {% if stt_instance_id == inst.id %}selected{% endif %}>
+        {{ inst.name }}
+      </option>
       {% endfor %}
     </select>
   </div>
+  <input type="hidden" id="stt-provider-instance-id" name="stt_config.provider_instance_id" value="{{ stt_instance_id }}" />
+  <input type="hidden" name="stt_config.provider" value="{{ stt_provider }}" />
   <input type="hidden" id="stt-base-url" name="stt_config.base_url" value="{{ (profile.stt_config or {}).get('base_url','') }}" />
   <input type="hidden" id="stt-endpoint-path" name="stt_config.endpoint_path" value="{{ (profile.stt_config or {}).get('endpoint_path','/v1/audio/transcriptions') }}" />
   <input type="hidden" id="stt-models-path" name="stt_config.models_path" value="{{ (profile.stt_config or {}).get('models_path','/v1/models') }}" />
@@ -68,13 +77,53 @@
 </section>
 <script>
   const STT_PROVIDER_CATALOG = {{ provider_catalog.stt | default([], true) | tojson }};
+  const STT_PROVIDER_INSTANCES = {{ (stt_provider_instances | default([], true)) | tojson }};
   window.dashboardSttModels = window.dashboardSttModels || {
     providers: {},
+    instances: {},
     setStatus(msg, isError) {
       const el = document.getElementById("stt-model-status");
       if (!el) return;
       el.textContent = msg;
       el.style.color = isError ? "#f87171" : "#9ca3af";
+    },
+    applyInstance(instanceId) {
+      const instField = document.getElementById("stt-provider-instance-id");
+      if (instField) instField.value = instanceId || "";
+
+      if (!instanceId) return;
+      const inst = this.instances[instanceId];
+      if (!inst) return;
+
+      const catalogId = String(inst.catalog_id || "");
+      const p = this.providers[catalogId];
+      if (p) {
+        document.getElementById("stt-base-url").value = p.base_url;
+        document.getElementById("stt-endpoint-path").value = p.endpoint_path;
+        document.getElementById("stt-models-path").value = p.models_path;
+        const language = String(inst.language || p.language || "multilingual");
+        const langEl = document.getElementById("stt-language");
+        if (langEl) langEl.value = language;
+        const keyId = String(inst.api_key_id || p.api_key_id || "");
+        if (keyId) document.getElementById("stt-api-key-id").value = keyId;
+        if (p.custom_headers !== undefined) document.getElementById("stt-custom-headers").value = JSON.stringify(p.custom_headers || {}, null, 2);
+        if (p.custom_body_params !== undefined) {
+          const bodyField = document.querySelector("textarea[name='stt_config.custom_body_params']");
+          if (bodyField) bodyField.value = JSON.stringify(p.custom_body_params || {}, null, 2);
+        }
+        if (p.custom_query_params !== undefined) {
+          const queryField = document.querySelector("textarea[name='stt_config.custom_query_params']");
+          if (queryField) queryField.value = JSON.stringify(p.custom_query_params || {}, null, 2);
+        }
+        const model = String(inst.model || p.default_model || "").trim();
+        const modelSelect = document.getElementById("stt-model");
+        if (model && modelSelect) {
+          this.populate([model]);
+          modelSelect.value = model;
+        }
+        this.setStatus("Instance applied. Fetching live models...");
+        setTimeout(() => this.fetch(), 0);
+      }
     },
     applyProvider(providerKey) {
       const p = this.providers[providerKey];
@@ -167,9 +216,23 @@
     init() {
       const select = document.getElementById("stt-model");
       const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
+      const instanceId = (document.getElementById("stt-provider-instance-id")?.value || "").trim();
       if (!select) return;
       const current = (select.value || "").trim();
       if (current) this.populate([current]);
+
+      // If an instance is already selected, apply it on load
+      if (instanceId && this.instances[instanceId]) {
+        const inst = this.instances[instanceId];
+        const p = this.providers[String(inst.catalog_id || "")];
+        if (p) {
+          this.populate([String(inst.model || p.default_model || "")]);
+          this.setStatus("Instance loaded — fetching live models...");
+          setTimeout(() => this.fetch(), 0);
+          return;
+        }
+      }
+
       const sel = document.getElementById("stt-provider-select");
       if (baseUrl && sel) {
         for (const [key, p] of Object.entries(this.providers)) {
@@ -198,6 +261,11 @@
       custom_body_params: (provider?.custom_body_params && typeof provider.custom_body_params === "object") ? provider.custom_body_params : {},
       custom_query_params: (provider?.custom_query_params && typeof provider.custom_query_params === "object") ? provider.custom_query_params : {},
     };
+  }
+  for (const inst of STT_PROVIDER_INSTANCES) {
+    const id = String(inst?.id || "").trim();
+    if (!id) continue;
+    window.dashboardSttModels.instances[id] = inst;
   }
   window.dashboardSttModels.init();
 

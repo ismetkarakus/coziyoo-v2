@@ -2,24 +2,32 @@
   <details open>
     <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;">Model</summary>
 
-  <!-- Provider preset picker -->
+  <!-- Provider instance picker -->
   <div style="margin-bottom:12px;">
-    <label>Provider Preset</label>
+    <label>Provider Instance</label>
+    {% set llm_instance_id = (profile.llm_config or {}).get('provider_instance_id', '') %}
     {% set llm_provider = (profile.llm_config or {}).get('provider', 'custom') %}
+    {% set llm_instances = llm_provider_instances | default([], true) %}
     {% set llm_catalog = provider_catalog.llm | default([], true) %}
-    <select id="llm-provider-select" class="input" name="llm_config.provider" onchange="llmProviderPreset.apply(this.value)">
-      <option value="custom" {% if llm_provider == "custom" %}selected{% endif %}>— Custom —</option>
-      {% for opt in llm_catalog %}
-      {% if opt.id and opt.id != "custom" %}
-      <option value="{{ opt.id }}" {% if llm_provider == opt.id %}selected{% endif %}>{{ opt.name }}</option>
-      {% endif %}
+    <select id="llm-provider-select" class="input" onchange="llmProviderPreset.applyInstance(this.value)">
+      <option value="">— Custom / No Instance —</option>
+      {% for inst in llm_instances %}
+      <option value="{{ inst.id }}"
+        data-catalog-id="{{ inst.catalog_id }}"
+        data-model="{{ inst.model or '' }}"
+        data-api-key-id="{{ inst.api_key_id or '' }}"
+        {% if llm_instance_id == inst.id %}selected{% endif %}>
+        {{ inst.name }}
+      </option>
       {% endfor %}
     </select>
   </div>
+  <input type="hidden" id="llm-provider-instance-id" name="llm_config.provider_instance_id" value="{{ llm_instance_id }}" />
   <input type="hidden" id="llm-base-url" name="llm_config.base_url" value="{{ (profile.llm_config or {}).get('base_url','') }}" />
   <input type="hidden" id="llm-endpoint-path" name="llm_config.endpoint_path" value="{{ (profile.llm_config or {}).get('endpoint_path','/v1/chat/completions') }}" />
   <input type="hidden" id="llm-api-key-id" name="llm_config.api_key_id" value="{{ (profile.llm_config or {}).get('api_key_id','') }}" />
   <input type="hidden" id="llm-api-key" name="llm_config.api_key" value="{{ (profile.llm_config or {}).get('api_key','') }}" />
+  <input type="hidden" name="llm_config.provider" value="{{ llm_provider }}" />
   <textarea style="display:none;" name="llm_config.custom_headers" id="llm-custom-headers">{{ (profile.llm_config or {}).get('custom_headers', {}) | tojson }}</textarea>
   <textarea style="display:none;" name="llm_config.custom_body_params">{{ (profile.llm_config or {}).get('custom_body_params', {}) | tojson }}</textarea>
 
@@ -65,6 +73,7 @@
 <script>
 (function () {
   const LLM_PROVIDER_CATALOG = {{ provider_catalog.llm | default([], true) | tojson }};
+  const LLM_PROVIDER_INSTANCES = {{ (llm_provider_instances | default([], true)) | tojson }};
   const OLLAMA_FALLBACK_BASE_URL = "https://ollama.drascom.uk";
   const PROVIDERS = {};
   for (const provider of LLM_PROVIDER_CATALOG) {
@@ -79,6 +88,12 @@
       api_key_id: String(provider?.api_key_id || ""),
       headers: (provider?.custom_headers && typeof provider.custom_headers === "object") ? provider.custom_headers : {},
     };
+  }
+  const INSTANCES = {};
+  for (const inst of LLM_PROVIDER_INSTANCES) {
+    const id = String(inst?.id || "").trim();
+    if (!id) continue;
+    INSTANCES[id] = inst;
   }
 
   function setModelStatus(msg, isError) {
@@ -103,6 +118,41 @@
   }
 
   window.llmProviderPreset = {
+    applyInstance(instanceId) {
+      // Update the hidden provider_instance_id field
+      const instField = document.getElementById("llm-provider-instance-id");
+      if (instField) instField.value = instanceId || "";
+
+      if (!instanceId) return; // custom — leave fields as-is
+
+      const inst = INSTANCES[instanceId];
+      if (!inst) return;
+
+      // Apply catalog entry config
+      const catalogId = String(inst.catalog_id || "");
+      const p = PROVIDERS[catalogId];
+      if (p) {
+        document.getElementById("llm-base-url").value = p.base_url;
+        document.getElementById("llm-endpoint-path").value = p.endpoint;
+        if (Object.keys(p.headers).length > 0) {
+          document.getElementById("llm-custom-headers").value = JSON.stringify(p.headers, null, 2);
+        }
+        // Apply api_key_id from instance
+        const keyId = String(inst.api_key_id || p.api_key_id || "");
+        if (keyId) document.getElementById("llm-api-key-id").value = keyId;
+
+        // Set model from instance override or catalog default
+        const model = String(inst.model || p.default_model || "").trim();
+        const modelInput = document.getElementById("llm-model");
+        if (model && modelInput) {
+          populateModelList([model]);
+          modelInput.value = model;
+        }
+        setModelStatus("Instance applied — click ↻ to fetch live models.");
+        setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
+      }
+    },
+
     apply(providerKey) {
       const p = PROVIDERS[providerKey];
       if (!p) return; // custom — leave fields as-is
@@ -216,15 +266,30 @@
     }
   };
 
-  // Detect current provider from existing base_url on page load
+  // Detect current instance or provider from existing config on page load
   (function detectProvider() {
+    const instanceId = (document.getElementById("llm-provider-instance-id")?.value || "").trim();
     const currentUrl = (document.getElementById("llm-base-url")?.value || "").trim();
     const sel = document.getElementById("llm-provider-select");
+
+    if (instanceId && INSTANCES[instanceId]) {
+      // Instance already selected — apply it silently (don't re-select, just fetch models)
+      const inst = INSTANCES[instanceId];
+      const catalogId = String(inst.catalog_id || "");
+      const p = PROVIDERS[catalogId];
+      if (p) {
+        populateModelList(p.models);
+        setModelStatus("Instance loaded — fetching live models...");
+        setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
+      }
+      return;
+    }
+
     let matchedProvider = false;
     if (currentUrl) {
       for (const [key, p] of Object.entries(PROVIDERS)) {
         if (currentUrl.startsWith(p.base_url)) {
-          sel.value = key;
+          if (sel) sel.value = key;
           populateModelList(p.models);
           setModelStatus("Static defaults — fetching live models...");
           matchedProvider = true;
@@ -233,7 +298,7 @@
       }
     }
     // Always try live fetch on load when a base URL exists (or when provider fallback can fill it).
-    if (currentUrl || matchedProvider || sel.value === "ollama") {
+    if (currentUrl || matchedProvider || (sel && sel.value === "ollama")) {
       setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
     }
   })();

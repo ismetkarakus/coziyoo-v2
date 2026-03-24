@@ -133,14 +133,9 @@ def test_auto_migrate_backfills_typed_known_instances() -> None:
 
     migrated = join_api._auto_migrate_to_instances(tts_cfg)
     instances = join_api._extract_provider_instances(migrated)
-    openai_types = sorted(
-        {
-            str(item.get("type") or "")
-            for item in instances
-            if str(item.get("catalog_id") or "") == "openai"
-        }
-    )
-    assert openai_types == ["llm", "stt", "tts"]
+    openai_instances = [item for item in instances if str(item.get("catalog_id") or "") == "openai"]
+    assert len(openai_instances) == 1
+    assert sorted(openai_instances[0].get("types") or []) == ["llm", "stt", "tts"]
 
 
 def test_auto_migrate_creates_typed_known_instances_without_bound_keys() -> None:
@@ -153,14 +148,9 @@ def test_auto_migrate_creates_typed_known_instances_without_bound_keys() -> None
     }
     migrated = join_api._auto_migrate_to_instances(tts_cfg)
     instances = join_api._extract_provider_instances(migrated)
-    openai_types = sorted(
-        {
-            str(item.get("type") or "")
-            for item in instances
-            if str(item.get("catalog_id") or "") == "openai"
-        }
-    )
-    assert openai_types == ["llm", "stt", "tts"]
+    openai_instances = [item for item in instances if str(item.get("catalog_id") or "") == "openai"]
+    assert len(openai_instances) == 1
+    assert sorted(openai_instances[0].get("types") or []) == ["llm", "stt", "tts"]
 
 
 def test_profile_editor_backfills_openai_tts_and_stt_instances(monkeypatch) -> None:
@@ -201,8 +191,7 @@ def test_profile_editor_backfills_openai_tts_and_stt_instances(monkeypatch) -> N
     client = TestClient(join_api.app)
     response = client.get(f"/dashboard/profiles/{profile_id}")
     assert response.status_code == 200
-    assert 'value="tts-openai-default"' in response.text
-    assert 'value="stt-openai-default"' in response.text
+    assert response.text.count('value="openai-default"') >= 3
 
 
 def test_assistants_initial_render_includes_provider_instances(monkeypatch) -> None:
@@ -238,8 +227,7 @@ def test_assistants_initial_render_includes_provider_instances(monkeypatch) -> N
     client = TestClient(join_api.app)
     response = client.get("/dashboard/assistants")
     assert response.status_code == 200
-    assert 'value="tts-openai-default"' in response.text
-    assert 'value="stt-openai-default"' in response.text
+    assert response.text.count('value="openai-default"') >= 3
 
 
 def test_dashboard_test_routes_render_status_partial(monkeypatch) -> None:

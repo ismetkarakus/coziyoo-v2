@@ -1076,11 +1076,19 @@ def _extract_provider_instances(tts_cfg: dict[str, Any]) -> list[dict[str, Any]]
     for row in raw:
         if not isinstance(row, dict):
             continue
+        raw_types = row.get("types")
+        types: list[str] = []
+        if isinstance(raw_types, list):
+            for item in raw_types:
+                t = str(item or "").strip().lower()
+                if t in {"llm", "tts", "stt"} and t not in types:
+                    types.append(t)
         entry = {
             "id": str(row.get("id") or "").strip(),
             "name": str(row.get("name") or "").strip(),
             "catalog_id": str(row.get("catalogId") or row.get("catalog_id") or "").strip(),
             "type": str(row.get("type") or "").strip().lower(),
+            "types": types,
             "api_key_id": str(row.get("apiKeyId") or row.get("api_key_id") or "").strip(),
             "model": str(row.get("model") or "").strip(),
             "language": str(row.get("language") or "").strip(),
@@ -1090,7 +1098,11 @@ def _extract_provider_instances(tts_cfg: dict[str, Any]) -> list[dict[str, Any]]
             "custom_body_params": _dict(row.get("customBodyParams") or row.get("custom_body_params")),
             "custom_query_params": _dict(row.get("customQueryParams") or row.get("custom_query_params")),
         }
-        if entry["id"] and entry["type"] in {"llm", "tts", "stt"}:
+        if not entry["types"] and entry["type"] in {"llm", "tts", "stt"}:
+            entry["types"] = [entry["type"]]
+        if entry["id"] and entry["types"]:
+            if entry["type"] not in {"llm", "tts", "stt"}:
+                entry["type"] = entry["types"][0]
             result.append(entry)
     return result
 
@@ -1135,6 +1147,7 @@ def _instances_to_camel(instances: list[dict[str, Any]]) -> list[dict[str, Any]]
             "name": i["name"],
             "catalogId": i.get("catalog_id", ""),
             "type": i["type"],
+            "types": i.get("types", [i.get("type", "")]),
             "apiKeyId": i.get("api_key_id", ""),
             "model": i.get("model", ""),
             "language": i.get("language", ""),
@@ -1146,6 +1159,18 @@ def _instances_to_camel(instances: list[dict[str, Any]]) -> list[dict[str, Any]]
         }
         for i in instances
     ]
+
+
+def _instance_supports_type(instance: dict[str, Any], provider_type: str) -> bool:
+    target = str(provider_type or "").strip().lower()
+    if target not in {"llm", "tts", "stt"}:
+        return False
+    types_raw = instance.get("types")
+    if isinstance(types_raw, list):
+        for item in types_raw:
+            if str(item or "").strip().lower() == target:
+                return True
+    return str(instance.get("type") or "").strip().lower() == target
 
 
 def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -1193,7 +1218,7 @@ def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
         catalog.extend(missing_known)
         existing_catalog_ids.update(known_catalog_ids)
 
-    # Start with existing instances, then backfill missing typed known/custom instances.
+    # Start with existing instances, then backfill missing known/custom defaults.
     instances: list[dict[str, Any]] = _extract_provider_instances(tts_cfg)
     used_instance_ids = {str(i.get("id") or "") for i in instances if isinstance(i, dict)}
 
@@ -1206,34 +1231,72 @@ def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
         used_instance_ids.add(candidate)
         return candidate
 
-    def _has_instance(catalog_id: str, provider_type: str) -> bool:
+    def _has_instance(catalog_id: str) -> bool:
         for item in instances:
             if not isinstance(item, dict):
                 continue
-            if str(item.get("catalog_id") or "") == catalog_id and str(item.get("type") or "") == provider_type:
+            if str(item.get("catalog_id") or "") == catalog_id:
                 return True
         return False
 
-    # Backfill known-provider instances by type so selectors always show known options.
-    for known in KNOWN_PROVIDER_CATALOG:
-        provider_type = str(known.get("type") or "").strip().lower()
-        provider_id = str(known.get("id") or "").strip()
-        slot = str(known.get("api_key_slot") or "").strip()
-        if not provider_id or provider_type not in {"llm", "tts", "stt"}:
+    # Collapse old per-type default known instances into a single shared instance per provider.
+    known_catalog = {str(c.get("id") or ""): c for c in catalog if str(c.get("source") or "") == "known"}
+    rebuilt_instances: list[dict[str, Any]] = []
+    processed_known_ids: set[str] = set()
+    for item in instances:
+        if not isinstance(item, dict):
             continue
-        if _has_instance(provider_id, provider_type):
+        catalog_id = str(item.get("catalog_id") or "")
+        if catalog_id in known_catalog:
+            if catalog_id in processed_known_ids:
+                continue
+            same = [x for x in instances if str((x or {}).get("catalog_id") or "") == catalog_id]
+            cat_types = [str(t) for t in (known_catalog[catalog_id].get("types") or []) if str(t) in {"llm", "tts", "stt"}]
+            primary = same[0]
+            merged = dict(primary)
+            merged["id"] = f"{catalog_id}-default" if str(primary.get("id") or "").endswith("-default") else str(primary.get("id") or "")
+            merged["type"] = (cat_types[0] if cat_types else str(primary.get("type") or "llm"))
+            merged["types"] = cat_types or ([str(primary.get("type") or "")] if str(primary.get("type") or "") else [])
+            if not merged["types"]:
+                merged["types"] = [merged["type"]]
+            for extra in same[1:]:
+                for f in ("api_key_id", "model", "language", "voice_id", "text_field_name"):
+                    if not str(merged.get(f) or "").strip():
+                        merged[f] = str(extra.get(f) or "").strip()
+                for f in ("custom_headers", "custom_body_params", "custom_query_params"):
+                    if not _dict(merged.get(f)):
+                        merged[f] = _dict(extra.get(f))
+            rebuilt_instances.append(merged)
+            processed_known_ids.add(catalog_id)
             continue
-        instance_id = _next_instance_id(f"{provider_type}-{provider_id}-default")
+        rebuilt_instances.append(item)
+    instances = rebuilt_instances
+    used_instance_ids = {str(i.get("id") or "") for i in instances if isinstance(i, dict)}
+
+    # Backfill one known-provider instance per catalog provider so one instance can serve all supported types.
+    for catalog_id, catalog_entry in known_catalog.items():
+        if _has_instance(catalog_id):
+            continue
+        type_list = [str(t) for t in (catalog_entry.get("types") or []) if str(t) in {"llm", "tts", "stt"}]
+        if not type_list:
+            continue
+        instance_id = _next_instance_id(f"{catalog_id}-default")
+        seed_type = type_list[0]
+        type_defaults = _dict(catalog_entry.get(f"{seed_type}_config"))
+        api_key_slot = str(type_defaults.get("api_key_slot") or "").strip()
         instances.append({
             "id": instance_id,
-            "name": str(known.get("name") or provider_id),
-            "catalog_id": provider_id,
-            "type": provider_type,
-            "api_key_id": slot, "model": str(known.get("model") or ""),
-            "language": str(known.get("language") or ""), "voice_id": str(known.get("voice_id") or ""),
-            "text_field_name": str(known.get("text_field_name") or ""),
-            "custom_headers": _dict(known.get("custom_headers")),
-            "custom_body_params": _dict(known.get("custom_body_params")),
+            "name": str(catalog_entry.get("name") or catalog_id),
+            "catalog_id": catalog_id,
+            "type": seed_type,
+            "types": type_list,
+            "api_key_id": api_key_slot,
+            "model": str(type_defaults.get("model") or ""),
+            "language": str(type_defaults.get("language") or ""),
+            "voice_id": str(type_defaults.get("voice_id") or ""),
+            "text_field_name": str(type_defaults.get("text_field_name") or ""),
+            "custom_headers": _dict(type_defaults.get("custom_headers")),
+            "custom_body_params": _dict(type_defaults.get("custom_body_params")),
             "custom_query_params": {},
         })
 
@@ -1243,12 +1306,12 @@ def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
         cp_type = str(cp.get("type") or "").strip().lower()
         if not cp_id or cp_type not in {"llm", "tts", "stt"}:
             continue
-        if _has_instance(cp_id, cp_type):
+        if _has_instance(cp_id):
             continue
         instance_id = _next_instance_id(cp_id)
         instances.append({
             "id": instance_id, "name": cp["name"], "catalog_id": cp_id,
-            "type": cp_type, "api_key_id": cp.get("api_key_id", ""),
+            "type": cp_type, "types": [cp_type], "api_key_id": cp.get("api_key_id", ""),
             "model": cp.get("model", ""), "language": cp.get("language", ""),
             "voice_id": cp.get("voice_id", ""), "text_field_name": cp.get("text_field_name", ""),
             "custom_headers": _dict(cp.get("custom_headers")),
@@ -1264,6 +1327,7 @@ def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
 def _resolve_provider_instance(
     *,
     instance_id: str,
+    requested_type: str,
     instances: list[dict[str, Any]],
     catalog: list[dict[str, Any]],
     keys: dict[str, str],
@@ -1273,13 +1337,17 @@ def _resolve_provider_instance(
     if not instance:
         return None
     catalog_id = str(instance.get("catalog_id") or "")
-    instance_type = str(instance.get("type") or "")
+    instance_type = str(instance.get("type") or "").strip().lower()
+    wanted_type = str(requested_type or "").strip().lower()
+    effective_type = wanted_type if _instance_supports_type(instance, wanted_type) else instance_type
+    if effective_type not in {"llm", "tts", "stt"}:
+        effective_type = "llm"
     catalog_entry = next((c for c in catalog if c.get("id") == catalog_id), None)
 
     # Get type-specific config from catalog
     type_cfg: dict[str, Any] = {}
     if catalog_entry:
-        tc = catalog_entry.get(f"{instance_type}_config")
+        tc = catalog_entry.get(f"{effective_type}_config")
         if isinstance(tc, dict):
             type_cfg = tc
         elif catalog_entry.get("endpoint_path"):
@@ -1687,9 +1755,11 @@ async def _apply_selected_api_keys(
     for section in ("llm_config", "tts_config", "stt_config"):
         cfg = _dict(payload.get(section))
         instance_id = str(cfg.get("provider_instance_id") or "").strip()
+        requested_type = section.split("_", 1)[0]
         if instance_id:
             resolved = _resolve_provider_instance(
                 instance_id=instance_id,
+                requested_type=requested_type,
                 instances=instances,
                 catalog=catalog,
                 keys=provider_keys,
@@ -1730,12 +1800,18 @@ async def _editor_panel_context(
         provider_keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
         provider_catalog = _provider_catalog_from_tts_config(tts_cfg, provider_keys)
         provider_instances = _extract_provider_instances(tts_cfg)
+    llm_provider_instances = [i for i in provider_instances if _instance_supports_type(i, "llm")]
+    tts_provider_instances = [i for i in provider_instances if _instance_supports_type(i, "tts")]
+    stt_provider_instances = [i for i in provider_instances if _instance_supports_type(i, "stt")]
     return {
         "profile": profile,
         "message": message,
         "provider_api_key_options": _provider_api_key_select_options(provider_keys),
         "provider_catalog": provider_catalog,
         "provider_instances": provider_instances,
+        "llm_provider_instances": llm_provider_instances,
+        "tts_provider_instances": tts_provider_instances,
+        "stt_provider_instances": stt_provider_instances,
     }
 
 
@@ -1925,6 +2001,9 @@ async def dashboard_assistants(request: Request):
             "provider_api_key_options": panel_context.get("provider_api_key_options"),
             "provider_catalog": panel_context.get("provider_catalog"),
             "provider_instances": panel_context.get("provider_instances"),
+            "llm_provider_instances": panel_context.get("llm_provider_instances"),
+            "tts_provider_instances": panel_context.get("tts_provider_instances"),
+            "stt_provider_instances": panel_context.get("stt_provider_instances"),
         },
     )
 
@@ -2130,7 +2209,7 @@ def _default_instance_form() -> dict[str, str]:
     return {
         "instance_name": "",
         "catalog_id": "",
-        "instance_type": "llm",
+        "instance_types": "",
         "api_key_id": "",
         "model": "",
         "language": "",
@@ -2250,7 +2329,13 @@ async def dashboard_provider_instances_save(request: Request):
                 message = "Instance name is required"
             else:
                 cfg = _parse_instance_form(form, current)
-                current.update({"name": instance_name, **cfg})
+                catalog_id = str(current.get("catalog_id") or "")
+                catalog_entry = next((c for c in catalog if c.get("id") == catalog_id), None)
+                catalog_types = [str(t) for t in ((catalog_entry or {}).get("types") or current.get("types") or []) if str(t) in {"llm", "tts", "stt"}]
+                if not catalog_types:
+                    fallback_type = str(current.get("type") or "llm")
+                    catalog_types = [fallback_type]
+                current.update({"name": instance_name, "type": catalog_types[0], "types": catalog_types, **cfg})
                 message = "Provider instance updated"
     else:
         # add
@@ -2264,17 +2349,12 @@ async def dashboard_provider_instances_save(request: Request):
             message = "Instance name is required"
             show_add_instance_form = True
         else:
-            # For multi-type entries, the form must supply instance_type
             catalog_types = catalog_entry.get("types") or []
             if not catalog_types and catalog_entry.get("type"):
                 catalog_types = [str(catalog_entry["type"]).strip().lower()]
-            form_type = str(form.get("instance_type") or "").strip().lower()
-            if form_type and form_type in catalog_types:
-                instance_type = form_type
-            elif len(catalog_types) == 1:
-                instance_type = catalog_types[0]
-            else:
-                instance_type = form_type or (catalog_types[0] if catalog_types else "llm")
+            catalog_types = [str(t) for t in catalog_types if str(t) in {"llm", "tts", "stt"}]
+            if not catalog_types:
+                catalog_types = ["llm"]
             base_id = _slugify(instance_name) or f"{catalog_id}-instance"
             instance_id = base_id
             counter = 2
@@ -2283,13 +2363,14 @@ async def dashboard_provider_instances_save(request: Request):
                 instance_id = f"{base_id}-{counter}"
                 counter += 1
             cfg = _parse_instance_form(form)
-            # Inherit defaults from catalog type-specific config if not overridden
+            # Inherit defaults from first available catalog type-specific config if not overridden.
             type_defaults: dict[str, Any] = {}
-            tc = catalog_entry.get(f"{instance_type}_config")
-            if isinstance(tc, dict):
-                type_defaults = tc
-            elif catalog_entry.get("endpoint_path"):
-                # Old flat format fallback
+            for t in catalog_types:
+                tc = catalog_entry.get(f"{t}_config")
+                if isinstance(tc, dict):
+                    type_defaults = tc
+                    break
+            if not type_defaults and catalog_entry.get("endpoint_path"):
                 type_defaults = catalog_entry
             if not cfg["model"]:
                 cfg["model"] = str(type_defaults.get("model") or "")
@@ -2303,7 +2384,8 @@ async def dashboard_provider_instances_save(request: Request):
                 "id": instance_id,
                 "name": instance_name,
                 "catalog_id": catalog_id,
-                "type": instance_type,
+                "type": catalog_types[0],
+                "types": catalog_types,
                 **cfg,
             })
             message = "Provider instance added"
