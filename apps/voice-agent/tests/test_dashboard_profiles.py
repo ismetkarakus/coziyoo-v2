@@ -542,6 +542,48 @@ def test_dashboard_models_uses_api_key_id_when_direct_key_missing(monkeypatch) -
     assert posted.get("apiKey") == "sk-from-provider-map"
 
 
+def test_dashboard_models_prefers_api_key_id_over_stale_direct_key(monkeypatch) -> None:
+    captured: dict[str, dict | None] = {}
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "ttsConfig": {
+                        "providerApiKeys": {
+                            "llm.openai.prod": "sk-from-provider-map",
+                        }
+                    }
+                }
+            }
+        if method == "POST" and path == "/v1/admin/livekit/llm/models":
+            captured["json_body"] = json_body
+            return 200, {"data": {"models": ["gpt-4o-mini"]}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/models",
+        json={
+            "baseUrl": "https://api.openai.com",
+            "modelsPath": "/v1/models",
+            "apiKey": "213121",
+            "apiKeyId": "llm.openai.prod",
+            "customHeaders": {},
+        },
+    )
+    assert response.status_code == 200
+    assert response.json().get("models") == ["gpt-4o-mini"]
+    posted = captured.get("json_body") or {}
+    assert posted.get("apiKey") == "sk-from-provider-map"
+
+
 def test_placeholder_routes_require_auth_and_render(monkeypatch) -> None:
     client = TestClient(join_api.app)
     protected_paths = [

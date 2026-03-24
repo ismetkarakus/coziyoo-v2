@@ -185,6 +185,7 @@
       const btn = document.getElementById("llm-fetch-models-btn");
       let baseUrl = document.getElementById("llm-base-url").value.trim();
       const apiKey = (document.getElementById("llm-api-key").value || "").trim();
+      const apiKeyId = (document.getElementById("llm-api-key-id").value || "").trim();
       const headersRaw = document.getElementById("llm-custom-headers").value.trim();
       const providerKey = document.getElementById("llm-provider-select").value;
       const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
@@ -216,7 +217,7 @@
           const resp = await fetch("/dashboard/models", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ baseUrl: targetBaseUrl, modelsPath, apiKey, customHeaders }),
+            body: JSON.stringify({ baseUrl: targetBaseUrl, modelsPath, apiKey, apiKeyId, customHeaders }),
           });
           return await resp.json();
         };

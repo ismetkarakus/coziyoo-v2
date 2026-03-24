@@ -170,6 +170,7 @@
       const btn = document.getElementById("stt-fetch-models-btn");
       const baseUrl = (document.getElementById("stt-base-url")?.value || "").trim();
       const apiKey = (document.getElementById("stt-api-key")?.value || "").trim();
+      const apiKeyId = (document.getElementById("stt-api-key-id")?.value || "").trim();
       const modelsPath = (document.getElementById("stt-models-path")?.value || "/v1/models").trim() || "/v1/models";
       const headersRaw = (document.getElementById("stt-custom-headers")?.value || "").trim();
       if (!baseUrl) {
@@ -190,7 +191,7 @@
         const resp = await fetch("/dashboard/models", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, apiKeyId, customHeaders }),
         });
         const data = await resp.json();
         if (data.error) {

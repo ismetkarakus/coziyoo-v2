@@ -163,6 +163,7 @@
       const btn = document.getElementById("tts-fetch-models-btn");
       const baseUrl = (document.getElementById("tts-base-url")?.value || "").trim();
       const apiKey = (document.getElementById("tts-api-key")?.value || "").trim();
+      const apiKeyId = (document.getElementById("tts-api-key-id")?.value || "").trim();
       const modelsPath = (document.getElementById("tts-models-path")?.value || "/v1/models").trim() || "/v1/models";
       const headersRaw = (document.getElementById("tts-custom-headers")?.value || "").trim();
       if (!baseUrl) {
@@ -183,7 +184,7 @@
         const resp = await fetch("/dashboard/models", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseUrl, modelsPath, apiKey, customHeaders }),
+          body: JSON.stringify({ baseUrl, modelsPath, apiKey, apiKeyId, customHeaders }),
         });
         const data = await resp.json();
         if (data.error) {

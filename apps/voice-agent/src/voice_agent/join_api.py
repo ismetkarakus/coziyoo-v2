@@ -3129,10 +3129,10 @@ async def dashboard_llm_models(request: Request):
     models_path = str(body.get("modelsPath") or "/v1/models").strip() or "/v1/models"
     api_key = str(body.get("apiKey") or "").strip()
     api_key_id = str(body.get("apiKeyId") or "").strip()
-    if not api_key and api_key_id:
+    if api_key_id:
         api_key = await _resolve_api_key_from_id(
             access_token=access_token,
-            explicit_api_key="",
+            explicit_api_key=api_key,
             api_key_id=api_key_id,
         )
     custom_headers = body.get("customHeaders") or {}
