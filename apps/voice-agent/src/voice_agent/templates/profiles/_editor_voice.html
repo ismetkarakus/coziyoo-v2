@@ -58,19 +58,6 @@
     </div>
     <div><label>Voice ID</label><input class="input" name="tts_config.voice_id" value="{{ (profile.tts_config or {}).get('voice_id','') }}" /></div>
   </div>
-  <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
-    <div style="flex:1;">
-      <label>TTS Test Text</label>
-      <input class="input" name="tts_test_text" value="Merhaba, bu bir test mesajidir." />
-    </div>
-    <button
-      class="btn"
-      type="button"
-      hx-post="/dashboard/test/tts"
-      hx-include="closest form"
-      hx-target="#profile-status"
-      hx-swap="innerHTML">Test TTS</button>
-  </div>
   </details>
 </section>
 <script>

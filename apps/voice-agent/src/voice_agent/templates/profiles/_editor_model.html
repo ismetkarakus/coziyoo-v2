@@ -54,19 +54,6 @@
     <div><label>Greeting Instruction</label><input class="input" name="greeting_instruction" value="{{ profile.greeting_instruction or '' }}" /></div>
     <div><label>Voice Language</label><input class="input" name="voice_language" value="{{ profile.voice_language or 'tr' }}" /></div>
   </div>
-  <div style="margin-top:10px; display:flex; gap:8px; align-items:end;">
-    <div style="flex:1;">
-      <label>LLM Test Prompt</label>
-      <input class="input" name="llm_test_prompt" value="Say hello in one short sentence." />
-    </div>
-    <button
-      class="btn"
-      type="button"
-      hx-post="/dashboard/test/llm"
-      hx-include="closest form"
-      hx-target="#profile-status"
-      hx-swap="innerHTML">Test LLM</button>
-  </div>
   </details>
 </section>
 

@@ -129,6 +129,31 @@
                 <button class="btn btn-danger" type="submit" onclick="this.form.querySelector('input[name=action]').value='delete'">Delete</button>
               </div>
             </form>
+            {% set test_types = inst.types or [inst.type] %}
+            <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); display:grid; gap:8px;">
+              <div class="muted" style="font-size:12px;">Provider Tests</div>
+              {% for t in test_types %}
+              <form
+                method="post"
+                action="/dashboard/providers/instances/test"
+                hx-post="/dashboard/providers/instances/test"
+                hx-target="#provider-test-status-{{ inst.id }}-{{ t }}"
+                hx-swap="innerHTML"
+                style="display:flex; flex-direction:column; gap:6px;">
+                <input type="hidden" name="instance_id" value="{{ inst.id }}" />
+                <input type="hidden" name="provider_type" value="{{ t }}" />
+                {% if t == 'llm' %}
+                <input class="input" type="text" name="llm_test_prompt" value="Say hello in one short sentence." />
+                {% elif t == 'tts' %}
+                <input class="input" type="text" name="tts_test_text" value="Merhaba, bu bir test mesajidir." />
+                {% endif %}
+                <div style="display:flex; justify-content:flex-end;">
+                  <button class="btn" type="submit">Test {{ t | upper }}</button>
+                </div>
+              </form>
+              <div id="provider-test-status-{{ inst.id }}-{{ t }}"></div>
+              {% endfor %}
+            </div>
           </div>
         </details>
         {% endfor %}

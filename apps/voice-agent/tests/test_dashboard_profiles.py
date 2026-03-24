@@ -392,6 +392,39 @@ def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:
     assert "https://llm.example.com/v1" in response.text
 
 
+def test_profile_editor_hides_inline_test_actions(monkeypatch) -> None:
+    profile_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == f"/v1/admin/agent-profiles/{profile_id}":
+            return 200, {
+                "data": {
+                    "id": profile_id,
+                    "name": "No Inline Tests",
+                    "llm_config": {"model": "gpt-4o-mini"},
+                    "tts_config": {"model": "gpt-4o-mini-tts"},
+                    "stt_config": {"model": "gpt-4o-transcribe"},
+                }
+            }
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ttsConfig": {"providerApiKeys": {}}}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get(f"/dashboard/profiles/{profile_id}")
+    assert response.status_code == 200
+    assert "Test LLM" not in response.text
+    assert "Test TTS" not in response.text
+    assert "Test STT Connectivity" not in response.text
+    assert "Start Recording" not in response.text
+
+
 def test_profile_save_legacy_id_fallback(monkeypatch) -> None:
     calls: list[tuple[str, str, dict | None]] = []
 
@@ -867,6 +900,54 @@ def test_custom_providers_page_and_crud(monkeypatch) -> None:
     ids = {str(item.get("id")) for item in custom if isinstance(item, dict)}
     assert "llm-groq-eu" in ids
     assert any(str(item.get("id")) == "stt-whisperx" for item in custom if isinstance(item, dict))
+
+
+def test_provider_instance_test_runs_from_providers_page(monkeypatch) -> None:
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "ttsConfig": {
+                        "providerApiKeys": {"llm.openai": "sk-prod"},
+                        "providerInstances": [
+                            {
+                                "id": "openai-default",
+                                "name": "OpenAI",
+                                "catalogId": "openai",
+                                "type": "llm",
+                                "types": ["llm"],
+                                "apiKeyId": "llm.openai",
+                            }
+                        ],
+                    }
+                }
+            }
+        return 200, {"data": {}}
+
+    async def fake_direct_llm_test(*, llm_cfg, prompt):
+        assert llm_cfg.get("api_key") == "sk-prod"
+        assert "hello" in prompt.lower()
+        return True, "Provider responded with status 200.", None
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+    monkeypatch.setattr(join_api, "_direct_llm_test", fake_direct_llm_test)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/providers/instances/test",
+        data={
+            "instance_id": "openai-default",
+            "provider_type": "llm",
+            "llm_test_prompt": "Say hello in one short sentence.",
+        },
+    )
+    assert response.status_code == 200
+    assert "LLM test successful" in response.text
+    assert "Provider responded with status 200" in response.text
 
 
 def test_custom_provider_import_from_curl_prefills_form(monkeypatch) -> None:

@@ -2434,6 +2434,160 @@ async def dashboard_provider_instances_save(request: Request):
     )
 
 
+@app.post("/dashboard/providers/instances/test", response_class=HTMLResponse)
+async def dashboard_provider_instance_test(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    instance_id = str(form.get("instance_id") or "").strip()
+    provider_type = str(form.get("provider_type") or "").strip().lower()
+    if not instance_id or provider_type not in {"llm", "tts", "stt"}:
+        return _status_response(
+            request,
+            state="error",
+            title="Provider test failed",
+            message="Invalid provider test request.",
+        )
+
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    if status != 200 or not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
+        return _status_response(
+            request,
+            state="error",
+            title="Provider test failed",
+            message=extract_error_message(payload, "Failed to load provider settings"),
+        )
+
+    settings_data = _dict(payload.get("data"))
+    tts_cfg = _auto_migrate_to_instances(_dict(settings_data.get("ttsConfig")))
+    instances = _extract_provider_instances(tts_cfg)
+    catalog = _extract_catalog_providers(tts_cfg)
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+
+    instance = next((i for i in instances if str(i.get("id") or "") == instance_id), None)
+    if not instance or not _instance_supports_type(instance, provider_type):
+        return _status_response(
+            request,
+            state="error",
+            title="Provider test failed",
+            message="Selected provider instance does not support this capability.",
+        )
+
+    cfg = _resolve_provider_instance(
+        instance_id=instance_id,
+        requested_type=provider_type,
+        instances=instances,
+        catalog=catalog,
+        keys=keys,
+    )
+    if not cfg:
+        return _status_response(
+            request,
+            state="error",
+            title="Provider test failed",
+            message="Could not resolve provider configuration.",
+        )
+
+    if provider_type == "llm":
+        ok, message, details = await _direct_llm_test(
+            llm_cfg=cfg,
+            prompt=str(form.get("llm_test_prompt") or "Say hello in one short sentence."),
+        )
+        if ok:
+            return _status_response(
+                request,
+                state="success",
+                title="LLM test successful",
+                message=message,
+            )
+        return _status_response(
+            request,
+            state="error",
+            title="LLM test failed",
+            message=message,
+            details=details,
+        )
+
+    if provider_type == "tts":
+        resolved_api_key = str(cfg.get("api_key") or "").strip()
+        custom_headers = _string_map(cfg.get("custom_headers"))
+        auth_header = custom_headers.get("authorization", "").strip()
+        if not auth_header and resolved_api_key:
+            auth_header = f"Bearer {resolved_api_key}"
+
+        status, data, content_type = await api_binary_request(
+            api_base_url=settings.api_base_url,
+            method="POST",
+            path="/v1/admin/livekit/test/tts",
+            access_token=access_token,
+            json_body={
+                "text": str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir."),
+                "baseUrl": str(cfg.get("base_url") or ""),
+                "synthPath": str(cfg.get("endpoint_path") or "/v1/audio/speech"),
+                "textFieldName": str(cfg.get("text_field_name") or "input"),
+                "bodyParams": _string_map(cfg.get("custom_body_params")),
+                "authHeader": auth_header,
+            },
+        )
+        if status == 200 and data:
+            ctype = content_type if content_type.startswith("audio/") else "audio/mpeg"
+            encoded = base64.b64encode(data).decode("ascii")
+            return _status_response(
+                request,
+                state="success",
+                title="TTS test successful",
+                message="Audio generated successfully.",
+                audio_data_uri=f"data:{ctype};base64,{encoded}",
+            )
+        details = data.decode("utf-8", errors="replace")[:240] if data else ""
+        return _status_response(
+            request,
+            state="error",
+            title="TTS test failed",
+            message=f"Upstream responded with status {status}.",
+            details=details,
+        )
+
+    resolved_api_key = str(cfg.get("api_key") or "").strip()
+    custom_headers = _string_map(cfg.get("custom_headers"))
+    auth_header = custom_headers.get("authorization", "").strip()
+    if not auth_header and resolved_api_key:
+        auth_header = resolved_api_key
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="POST",
+        path="/v1/admin/livekit/test/stt",
+        access_token=access_token,
+        json_body={
+            "baseUrl": str(cfg.get("base_url") or ""),
+            "transcribePath": str(cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+            "authHeader": auth_header,
+        },
+    )
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+    if status == 200 and bool(data.get("ok")):
+        return _status_response(
+            request,
+            state="success",
+            title="STT connectivity successful",
+            message=f"Provider reachable at status {data.get('status', 200)}.",
+        )
+    return _status_response(
+        request,
+        state="error",
+        title="STT connectivity failed",
+        message=extract_error_message(payload, "STT endpoint unreachable"),
+        details=str(data.get("reason") or ""),
+    )
+
+
 @app.post("/dashboard/providers/catalog", response_class=HTMLResponse)
 async def dashboard_catalog_providers_save(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
