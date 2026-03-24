@@ -62,24 +62,8 @@
                 {% endfor %}
               </select>
             </div>
-            <div id="add-instance-model-wrap">
-              <label>Model Override</label>
-              <input class="input" type="text" name="model" placeholder="Leave blank to use catalog default" value="{{ aif.model or '' }}" id="add-instance-model" />
-            </div>
-          </div>
-
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div>
-              <label>Language (optional)</label>
-              <input class="input" type="text" name="language" placeholder="multilingual" value="{{ aif.language or '' }}" />
-            </div>
-            <div>
-              <label>Voice ID (optional)</label>
-              <input class="input" type="text" name="voice_id" placeholder="alloy" value="{{ aif.voice_id or '' }}" />
-            </div>
-            <div>
-              <label>Text Field Name (optional)</label>
-              <input class="input" type="text" name="text_field_name" placeholder="input" value="{{ aif.text_field_name or '' }}" />
+            <div class="muted" style="display:flex; align-items:flex-end; font-size:12px;">
+              Model and capability defaults come from the selected catalog provider.
             </div>
           </div>
 
@@ -366,9 +350,6 @@
     if (typeHint) {
       typeHint.textContent = typesRaw.length ? `Capabilities: ${typesRaw.join(' / ')}` : 'Capabilities not set';
     }
-    // Pre-fill model hint
-    const modelInput = document.getElementById('add-instance-model');
-    if (modelInput && opt.dataset.model) modelInput.placeholder = opt.dataset.model || 'Leave blank to use catalog default';
   }
 
   function showCatalogTypeTab(btn, catalogId, type) {
