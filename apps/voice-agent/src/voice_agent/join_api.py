@@ -470,6 +470,16 @@ def _normalized_auth_header(
     return str(explicit_auth_header or "").strip()
 
 
+def _resolved_tts_synth_path(tts_cfg: dict[str, Any]) -> str:
+    raw = str(tts_cfg.get("endpoint_path") or "").strip() or "/v1/audio/speech"
+    low = raw.lower()
+    # Guardrail: if a transcription endpoint is accidentally wired for TTS tests,
+    # force the OpenAI-style speech endpoint.
+    if "/audio/transcriptions" in low:
+        return "/v1/audio/speech"
+    return raw
+
+
 def _status_response(
     request: Request,
     *,
@@ -1911,7 +1921,7 @@ async def _direct_tts_test_binary(
     base_url = str(tts_cfg.get("base_url") or "").strip()
     if not base_url:
         return False, None, "", "Missing TTS base URL"
-    synth_path = str(tts_cfg.get("endpoint_path") or "/v1/audio/speech").strip() or "/v1/audio/speech"
+    synth_path = _resolved_tts_synth_path(tts_cfg)
     text_field_name = str(tts_cfg.get("text_field_name") or "input").strip() or "input"
     query_params = _string_map(tts_cfg.get("custom_query_params"))
     url = f"{base_url.rstrip('/')}{synth_path}"
@@ -2602,7 +2612,7 @@ async def dashboard_provider_instance_test(request: Request):
             json_body={
                 "text": test_text,
                 "baseUrl": str(cfg.get("base_url") or ""),
-                "synthPath": str(cfg.get("endpoint_path") or "/v1/audio/speech"),
+                "synthPath": _resolved_tts_synth_path(cfg),
                 "textFieldName": str(cfg.get("text_field_name") or "input"),
                 "bodyParams": body_params,
                 "authHeader": auth_header,
@@ -3489,7 +3499,7 @@ async def dashboard_test_tts(request: Request):
         json_body={
             "text": test_text,
             "baseUrl": str(tts_cfg.get("base_url") or ""),
-            "synthPath": str(tts_cfg.get("endpoint_path") or "/v1/audio/speech"),
+            "synthPath": _resolved_tts_synth_path(tts_cfg),
             "textFieldName": str(tts_cfg.get("text_field_name") or "input"),
             "bodyParams": body_params,
             "authHeader": auth_header,
