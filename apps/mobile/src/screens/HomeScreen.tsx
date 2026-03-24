@@ -178,49 +178,6 @@ type FavoriteFoodItem = {
   id: string;
 };
 
-type TopSoldFoodItem = {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  totalSold: number;
-  price: string | null;
-  description: string | null;
-  prepTime: string | null;
-  maxDistance: string | null;
-  category: string | null;
-  allergens: string[];
-  ingredients: string[];
-  cuisine: string | null;
-  stock: number;
-  sellerId: string | null;
-  sellerName: string | null;
-  rating: string | null;
-};
-
-type TopSoldNearestResponse =
-  | {
-      found: true;
-      basis: string;
-      distanceKm: number;
-      food: ApiFoodItem;
-    }
-  | {
-      found: false;
-      basis: string;
-      message?: string;
-    };
-
-type MarketplaceSellerItem = {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  userType: 'seller' | 'both';
-  activeFoodCount: number;
-  openLotCount: number;
-  reviewCount: number;
-  avgRating: number;
-};
-
 type ApiRecommendationItem = ApiFoodItem & {
   reason?: string | null;
   totalSold?: number;
@@ -719,33 +676,6 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
   };
 }
 
-function formatDistanceKm(km: number): string {
-  if (!Number.isFinite(km) || km < 0) return '';
-  const fixed = km < 10 ? km.toFixed(1) : km.toFixed(0);
-  return `${fixed} km`;
-}
-
-async function geocodeAddressLine(addressLine: string): Promise<{ lat: number; lng: number } | null> {
-  const query = encodeURIComponent(`${addressLine}, Türkiye`);
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`;
-  try {
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    if (!res.ok) return null;
-    const json = await res.json() as Array<{ lat?: string; lon?: string }>;
-    const first = Array.isArray(json) ? json[0] : null;
-    const lat = Number.parseFloat(String(first?.lat ?? ''));
-    const lng = Number.parseFloat(String(first?.lon ?? ''));
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng };
-  } catch {
-    return null;
-  }
-}
-
 function resolveHomeHeaderImageUrl(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null;
   const root = payload as Record<string, unknown>;
@@ -1175,10 +1105,6 @@ export default function HomeScreen({
   const [foodSectionOffsetY, setFoodSectionOffsetY] = useState(0);
   const [recommendedMeals, setRecommendedMeals] = useState<RecommendationMeal[]>([]);
   const [recommendedMealsLoading, setRecommendedMealsLoading] = useState(false);
-  const [topSoldFoods, setTopSoldFoods] = useState<TopSoldFoodItem[]>([]);
-  const [topSoldFoodsLoading, setTopSoldFoodsLoading] = useState(false);
-  const [marketplaceSellers, setMarketplaceSellers] = useState<MarketplaceSellerItem[]>([]);
-  const [marketplaceSellersLoading, setMarketplaceSellersLoading] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
   const [favoritePendingIds, setFavoritePendingIds] = useState<Record<string, true>>({});
   const showSloganCard = false;
@@ -1334,58 +1260,6 @@ export default function HomeScreen({
       .finally(() => {
         if (cancelled) return;
         setRecommendedMealsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentAuth, handleAuthRefresh]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setTopSoldFoodsLoading(true);
-    apiRequest<TopSoldFoodItem[]>(
-      '/v1/foods/top-sold?limit=12',
-      currentAuth,
-      { actorRole: 'buyer' },
-      handleAuthRefresh,
-    )
-      .then((result) => {
-        if (cancelled) return;
-        if (!result.ok) {
-          setTopSoldFoods([]);
-          return;
-        }
-        setTopSoldFoods(Array.isArray(result.data) ? result.data : []);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setTopSoldFoodsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentAuth, handleAuthRefresh]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setMarketplaceSellersLoading(true);
-    apiRequest<MarketplaceSellerItem[]>(
-      '/v1/foods/sellers?limit=200',
-      currentAuth,
-      { actorRole: 'buyer' },
-      handleAuthRefresh,
-    )
-      .then((result) => {
-        if (cancelled) return;
-        if (!result.ok) {
-          setMarketplaceSellers([]);
-          return;
-        }
-        setMarketplaceSellers(Array.isArray(result.data) ? result.data : []);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setMarketplaceSellersLoading(false);
       });
     return () => {
       cancelled = true;
@@ -1590,67 +1464,6 @@ export default function HomeScreen({
     } finally {
       setAddressesLoading(false);
     }
-  }
-
-  function resolveBasisLabel(basis: string, fallbackAddressTitle?: string): string {
-    if (basis === 'live_location') {
-      return t('status.home.locationBasisLive');
-    }
-    if (basis.startsWith('address:')) {
-      const addressId = basis.slice('address:'.length);
-      const address = userAddresses.find((item) => item.id === addressId);
-      const title = address?.title ?? fallbackAddressTitle ?? 'Adres';
-      return `${t('status.home.locationBasisAddressPrefix')} ${title}`;
-    }
-    return t('status.home.locationBasisLive');
-  }
-
-  async function handleTopSoldPress(food: TopSoldFoodItem) {
-    let latitude: number | null = null;
-    let longitude: number | null = null;
-    let basis = 'address_fallback';
-    let fallbackAddressTitle: string | undefined;
-
-    const activeAddress = selectedCheckoutAddress ?? defaultAddress;
-    if (!activeAddress) {
-      Alert.alert('Uyarı', t('helper.home.addressRequiredTopSold'));
-      return;
-    }
-    const geocoded = await geocodeAddressLine(activeAddress.addressLine);
-    if (!geocoded) {
-      Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
-      return;
-    }
-    latitude = geocoded.lat;
-    longitude = geocoded.lng;
-    basis = `address:${activeAddress.id}`;
-    fallbackAddressTitle = activeAddress.title;
-
-    const path =
-      `/v1/foods/top-sold/${encodeURIComponent(food.id)}/nearest`
-      + `?lat=${latitude.toFixed(6)}&lng=${longitude.toFixed(6)}&basis=${encodeURIComponent(basis)}`;
-    const result = await apiRequest<TopSoldNearestResponse>(
-      path,
-      currentAuth,
-      { actorRole: 'buyer' },
-      handleAuthRefresh,
-    );
-    if (!result.ok) {
-      Alert.alert('Hata', result.message ?? t('error.home.requestFailed'));
-      return;
-    }
-
-    if (!result.data.found) {
-      Alert.alert('Bilgi', result.data.message ?? t('helper.home.noNearbyTopSold'));
-      return;
-    }
-
-    const nearestMeal = apiToMealCard(result.data.food);
-    setSelectedMeal({
-      ...nearestMeal,
-      distance: formatDistanceKm(result.data.distanceKm),
-      locationBasisLabel: resolveBasisLabel(result.data.basis, fallbackAddressTitle),
-    });
   }
 
   async function handleProfileAvatarPress() {
@@ -2576,54 +2389,6 @@ export default function HomeScreen({
           </View>
           <Ionicons name="chevron-forward" size={22} color="#8B6A52" />
         </TouchableOpacity>
-        <View style={styles.sellersSection}>
-          <Text style={styles.sellersSectionTitle}>Tüm Satıcılar</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sellersRow}
-          >
-            {marketplaceSellersLoading ? (
-              <View style={styles.topSoldLoadingChip}>
-                <ActivityIndicator size="small" color="#4A7C59" />
-                <Text style={styles.topSoldLoadingText}>Satıcılar yükleniyor...</Text>
-              </View>
-            ) : null}
-            {!marketplaceSellersLoading && marketplaceSellers.length === 0 ? (
-              <View style={styles.topSoldLoadingChip}>
-                <Text style={styles.topSoldLoadingText}>Aktif satıcı bulunamadı.</Text>
-              </View>
-            ) : null}
-            {marketplaceSellers.map((seller) => (
-              <TouchableOpacity
-                key={`seller-${seller.id}`}
-                style={styles.sellerChip}
-                activeOpacity={0.86}
-                onPress={() =>
-                  setSelectedSeller({
-                    id: seller.id,
-                    name: seller.name,
-                    image: seller.imageUrl,
-                  })
-                }
-              >
-                <View style={styles.sellerChipAvatar}>
-                  {seller.imageUrl ? (
-                    <Image source={{ uri: seller.imageUrl }} style={styles.sellerChipAvatarImage} />
-                  ) : (
-                    <Text style={styles.sellerChipAvatarEmoji}>👩‍🍳</Text>
-                  )}
-                </View>
-                <View style={styles.sellerChipTextWrap}>
-                  <Text style={styles.sellerChipName} numberOfLines={1}>{seller.name}</Text>
-                  <Text style={styles.sellerChipMeta} numberOfLines={1}>
-                    {seller.activeFoodCount} yemek • ★ {seller.avgRating.toFixed(1)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
         <View style={styles.sellersSection}>
           <Text style={styles.sellersSectionTitle}>Sana öneriler</Text>
@@ -2660,48 +2425,6 @@ export default function HomeScreen({
                 <View style={styles.sellerChipTextWrap}>
                   <Text style={styles.sellerChipName} numberOfLines={1}>{meal.title}</Text>
                   <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.reason}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-        <View style={styles.sellersSection}>
-          <Text style={styles.sellersSectionTitle}>En çok satılan yemekler</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sellersRow}
-          >
-            {topSoldFoodsLoading ? (
-              <View style={styles.topSoldLoadingChip}>
-                <ActivityIndicator size="small" color="#4A7C59" />
-                <Text style={styles.topSoldLoadingText}>Yükleniyor...</Text>
-              </View>
-            ) : null}
-            {!topSoldFoodsLoading && topSoldFoods.length === 0 ? (
-              <View style={styles.topSoldLoadingChip}>
-                <Text style={styles.topSoldLoadingText}>Henüz satış verisi yok.</Text>
-              </View>
-            ) : null}
-            {topSoldFoods.map((food) => (
-              <TouchableOpacity
-                key={food.id}
-                style={styles.sellerChip}
-                activeOpacity={0.86}
-                onPress={() => {
-                  void handleTopSoldPress(food);
-                }}
-              >
-                <View style={styles.sellerChipAvatar}>
-                  {food.imageUrl ? (
-                    <Image source={{ uri: food.imageUrl }} style={styles.sellerChipAvatarImage} />
-                  ) : (
-                    <Text style={styles.sellerChipAvatarEmoji}>🍽️</Text>
-                  )}
-                </View>
-                <View style={styles.sellerChipTextWrap}>
-                  <Text style={styles.sellerChipName} numberOfLines={1}>{food.name}</Text>
-                  <Text style={styles.sellerChipMeta}>{food.totalSold} satış</Text>
                 </View>
               </TouchableOpacity>
             ))}
