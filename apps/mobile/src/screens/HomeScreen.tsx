@@ -1133,6 +1133,18 @@ export default function HomeScreen({
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
+  const cartToastOpacity = useRef(new Animated.Value(0)).current;
+  const cartToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showCartToast() {
+    if (cartToastTimeout.current) clearTimeout(cartToastTimeout.current);
+    Animated.sequence([
+      Animated.timing(cartToastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(1400),
+      Animated.timing(cartToastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+    cartToastTimeout.current = setTimeout(() => { cartToastOpacity.setValue(0); }, 2000);
+  }
   const [profileImageUploading, setProfileImageUploading] = useState(false);
   const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
@@ -1918,8 +1930,10 @@ export default function HomeScreen({
         return prev;
       }
       if (!existing) {
+        showCartToast();
         return [...prev, { meal: latestMeal, quantity: 1 }];
       }
+      showCartToast();
       return prev.map((item) =>
         item.meal.id === meal.id
           ? { ...item, meal: latestMeal, quantity: item.quantity + 1 }
@@ -3751,6 +3765,11 @@ export default function HomeScreen({
         </SafeAreaView>
       </Modal>
 
+      {/* Cart toast */}
+      <Animated.View style={[styles.cartToast, { opacity: cartToastOpacity }]} pointerEvents="none">
+        <Text style={styles.cartToastText}>✓ Sepete eklendi</Text>
+      </Animated.View>
+
       {/* Main screen */}
       <View style={styles.container}>
           <View style={styles.content}>{renderContent()}</View>
@@ -4009,7 +4028,7 @@ const styles = StyleSheet.create({
   },
   heroAvatarCircle: {
     position: 'absolute',
-    top: 14,
+    top: 34,
     right: 14,
     width: 62,
     height: 62,
@@ -5276,4 +5295,12 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, backgroundColor: '#4A7C59',
     alignItems: 'center', justifyContent: 'center',
   },
+  cartToast: {
+    position: 'absolute', bottom: 100, alignSelf: 'center',
+    backgroundColor: '#3D3229', borderRadius: 24,
+    paddingHorizontal: 20, paddingVertical: 12,
+    zIndex: 9999, elevation: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  cartToastText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 });
