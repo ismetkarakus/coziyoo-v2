@@ -123,22 +123,7 @@
                     {% endfor %}
                   </select>
                 </div>
-                <div>
-                  <label>Model Override</label>
-                  <input class="input" type="text" name="model" value="{{ inst.model or '' }}" placeholder="{{ catalog_entry.model if catalog_entry else '' }}" />
-                </div>
               </div>
-              {% if 'tts' in (inst.types or [inst.type]) %}
-              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-                <div><label>Language</label><input class="input" type="text" name="language" value="{{ inst.language or '' }}" /></div>
-                <div><label>Voice ID</label><input class="input" type="text" name="voice_id" value="{{ inst.voice_id or '' }}" /></div>
-                <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" value="{{ inst.text_field_name or '' }}" /></div>
-              </div>
-              {% elif 'stt' in (inst.types or [inst.type]) %}
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <div><label>Language</label><input class="input" type="text" name="language" value="{{ inst.language or '' }}" /></div>
-              </div>
-              {% endif %}
               <div style="display:flex; gap:6px;">
                 <button class="btn btn-primary" type="submit" onclick="this.form.querySelector('input[name=action]').value='update'">Update</button>
                 <button class="btn btn-danger" type="submit" onclick="this.form.querySelector('input[name=action]').value='delete'">Delete</button>
