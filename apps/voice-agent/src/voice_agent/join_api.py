@@ -467,16 +467,28 @@ def _normalized_auth_header(
     api_key: str,
     default_scheme: str = "Bearer",
 ) -> str:
-    key = str(api_key or "").strip()
+    def _clean(value: str) -> str:
+        # Remove control chars and collapse all whitespace/newlines.
+        return re.sub(r"\s+", "", re.sub(r"[\r\n\t]", "", str(value or "")))
+
+    def _normalize_with_scheme(raw_value: str, fallback_scheme: str) -> str:
+        clean = str(raw_value or "").strip()
+        if not clean:
+            return ""
+        if clean.lower().startswith("authorization:"):
+            clean = clean.split(":", 1)[1].strip()
+        m = re.match(r"^(Bearer|Basic)\s+(.+)$", clean, flags=re.IGNORECASE)
+        if m:
+            scheme = m.group(1).title()
+            token = _clean(m.group(2))
+            return f"{scheme} {token}".strip() if token else ""
+        token = _clean(clean)
+        return f"{fallback_scheme} {token}".strip() if token else ""
+
+    key = _clean(str(api_key or ""))
     if key:
-        lower = key.lower()
-        if lower.startswith("authorization:"):
-            key = key.split(":", 1)[1].strip()
-            lower = key.lower()
-        if lower.startswith("bearer ") or lower.startswith("basic "):
-            return key
-        return f"{default_scheme} {key}".strip()
-    return str(explicit_auth_header or "").strip()
+        return _normalize_with_scheme(key, default_scheme)
+    return _normalize_with_scheme(str(explicit_auth_header or ""), default_scheme)
 
 
 def _known_provider_endpoint_path(provider_id: str, provider_type: str) -> str:
