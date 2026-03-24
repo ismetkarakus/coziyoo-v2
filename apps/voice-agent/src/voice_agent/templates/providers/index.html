@@ -134,7 +134,6 @@
               <div class="muted" style="font-size:12px;">Provider Tests</div>
               {% for t in test_types %}
               <div class="card" style="padding:10px; border-radius:8px;">
-                <div style="font-size:12px; font-weight:600; margin-bottom:8px;">{{ t | upper }} Test</div>
                 <form
                   method="post"
                   action="/dashboard/providers/instances/test"
@@ -142,6 +141,10 @@
                   hx-target="#provider-test-status-{{ inst.id }}-{{ t }}"
                   hx-swap="innerHTML"
                   style="display:flex; flex-direction:column; gap:6px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:2px;">
+                    <div style="font-size:12px; font-weight:600;">{{ t | upper }} Test</div>
+                    <button class="btn" type="submit">Test {{ t | upper }}</button>
+                  </div>
                   <input type="hidden" name="instance_id" value="{{ inst.id }}" />
                   <input type="hidden" name="provider_type" value="{{ t }}" />
                   {% if t == 'llm' %}
@@ -152,9 +155,6 @@
                   <div class="muted" style="font-size:12px;">Uses built-in sample audio from the backend.</div>
                   {% endif %}
                   <div id="provider-test-status-{{ inst.id }}-{{ t }}" style="font-size:12px;"></div>
-                  <div style="display:flex; justify-content:flex-end;">
-                    <button class="btn" type="submit">Test {{ t | upper }}</button>
-                  </div>
                 </form>
               </div>
               {% endfor %}
