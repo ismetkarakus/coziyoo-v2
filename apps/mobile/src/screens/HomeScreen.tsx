@@ -1123,6 +1123,18 @@ export default function HomeScreen({
     }
     return defaultAddress;
   }, [defaultAddress, selectedCheckoutAddressId, userAddresses]);
+  const fallbackRecommendedMeals = useMemo<RecommendationMeal[]>(
+    () =>
+      meals.slice(0, 8).map((meal) => ({
+        ...meal,
+        reason: 'Öneri',
+      })),
+    [meals],
+  );
+  const visibleRecommendedMeals = useMemo<RecommendationMeal[]>(
+    () => (recommendedMeals.length > 0 ? recommendedMeals : fallbackRecommendedMeals),
+    [recommendedMeals, fallbackRecommendedMeals],
+  );
 
   // FAB animations
   const breatheScale = useRef(new Animated.Value(1)).current;
@@ -2405,12 +2417,12 @@ export default function HomeScreen({
                 <Text style={styles.topSoldLoadingText}>Öneriler hazırlanıyor...</Text>
               </View>
             ) : null}
-            {!recommendedMealsLoading && recommendedMeals.length === 0 ? (
+            {!recommendedMealsLoading && visibleRecommendedMeals.length === 0 ? (
               <View style={styles.topSoldLoadingChip}>
                 <Text style={styles.topSoldLoadingText}>Şu an öneri bulunamadı.</Text>
               </View>
             ) : null}
-            {recommendedMeals.map((meal) => (
+            {visibleRecommendedMeals.map((meal) => (
               <TouchableOpacity
                 key={`rec-${meal.id}`}
                 style={styles.sellerChip}
