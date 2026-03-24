@@ -1214,13 +1214,11 @@ def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
                 return True
         return False
 
-    # Backfill known-provider instances by type when key is bound.
+    # Backfill known-provider instances by type so selectors always show known options.
     for known in KNOWN_PROVIDER_CATALOG:
         provider_type = str(known.get("type") or "").strip().lower()
         provider_id = str(known.get("id") or "").strip()
         slot = str(known.get("api_key_slot") or "").strip()
-        if not slot or not str(keys.get(slot) or "").strip():
-            continue
         if not provider_id or provider_type not in {"llm", "tts", "stt"}:
             continue
         if _has_instance(provider_id, provider_type):
@@ -1926,6 +1924,7 @@ async def dashboard_assistants(request: Request):
             "profile": panel_context.get("profile"),
             "provider_api_key_options": panel_context.get("provider_api_key_options"),
             "provider_catalog": panel_context.get("provider_catalog"),
+            "provider_instances": panel_context.get("provider_instances"),
         },
     )
 

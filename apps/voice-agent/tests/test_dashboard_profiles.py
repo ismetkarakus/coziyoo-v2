@@ -143,6 +143,26 @@ def test_auto_migrate_backfills_typed_known_instances() -> None:
     assert openai_types == ["llm", "stt", "tts"]
 
 
+def test_auto_migrate_creates_typed_known_instances_without_bound_keys() -> None:
+    tts_cfg = {
+        "providerApiKeys": {
+            "llm.openai": "sk-openai",
+            "tts.openai": "",
+            "stt.openai": "",
+        }
+    }
+    migrated = join_api._auto_migrate_to_instances(tts_cfg)
+    instances = join_api._extract_provider_instances(migrated)
+    openai_types = sorted(
+        {
+            str(item.get("type") or "")
+            for item in instances
+            if str(item.get("catalog_id") or "") == "openai"
+        }
+    )
+    assert openai_types == ["llm", "stt", "tts"]
+
+
 def test_profile_editor_backfills_openai_tts_and_stt_instances(monkeypatch) -> None:
     profile_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 
@@ -180,6 +200,43 @@ def test_profile_editor_backfills_openai_tts_and_stt_instances(monkeypatch) -> N
 
     client = TestClient(join_api.app)
     response = client.get(f"/dashboard/profiles/{profile_id}")
+    assert response.status_code == 200
+    assert 'value="tts-openai-default"' in response.text
+    assert 'value="stt-openai-default"' in response.text
+
+
+def test_assistants_initial_render_includes_provider_instances(monkeypatch) -> None:
+    profile_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_fetch_profiles(access_token: str):
+        return [{"id": profile_id, "name": "A1", "is_active": True}], None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        if method == "GET" and path == f"/v1/admin/agent-profiles/{profile_id}":
+            return 200, {"data": {"id": profile_id, "name": "A1"}}
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "ttsConfig": {
+                        "providerApiKeys": {
+                            "llm.openai": "sk-openai",
+                            "tts.openai": "",
+                            "stt.openai": "",
+                        }
+                    }
+                }
+            }
+        return 404, {"error": {"code": "NOT_FOUND"}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "_fetch_profiles", fake_fetch_profiles)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.get("/dashboard/assistants")
     assert response.status_code == 200
     assert 'value="tts-openai-default"' in response.text
     assert 'value="stt-openai-default"' in response.text
