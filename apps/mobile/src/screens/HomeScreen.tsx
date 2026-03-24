@@ -2395,7 +2395,7 @@ export default function HomeScreen({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.chipScroller}
+            style={styles.recommendationsScroller}
             contentContainerStyle={styles.recommendationsRow}
           >
             {recommendedMealsLoading ? (
@@ -3940,6 +3940,10 @@ const styles = StyleSheet.create({
     color: '#3D2B22',
     fontSize: 16,
     fontWeight: '700',
+    marginBottom: 8,
+  },
+  recommendationsScroller: {
+    marginHorizontal: -12,
     marginBottom: 8,
   },
   recommendationsRow: {
