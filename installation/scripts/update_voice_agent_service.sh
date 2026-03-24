@@ -42,7 +42,8 @@ WorkingDirectory=${VOICE_AGENT_DIR_ABS}
 EnvironmentFile=${ROOT_ENV}
 Environment=VOICE_AGENT_REQUEST_LOG_FILE=${VOICE_AGENT_RUN_DIR}/voice-agent-requests.log
 Environment=VOICE_AGENT_WORKER_HEARTBEAT_FILE=${VOICE_AGENT_RUN_DIR}/voice-agent-worker-heartbeat.json
-ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/uvicorn voice_agent.join_api:app --host ${VOICE_AGENT_HOST} --port ${VOICE_AGENT_PORT} --no-access-log'
+Environment=PYTHONPATH=${VOICE_AGENT_DIR_ABS}/src
+ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/python -m uvicorn voice_agent.join_api:app --host ${VOICE_AGENT_HOST} --port ${VOICE_AGENT_PORT} --no-access-log'
 Restart=always
 RestartSec=3
 
@@ -64,6 +65,7 @@ WorkingDirectory=${VOICE_AGENT_DIR_ABS}
 EnvironmentFile=${ROOT_ENV}
 Environment=VOICE_AGENT_REQUEST_LOG_FILE=${VOICE_AGENT_RUN_DIR}/voice-agent-requests.log
 Environment=VOICE_AGENT_WORKER_HEARTBEAT_FILE=${VOICE_AGENT_RUN_DIR}/voice-agent-worker-heartbeat.json
+Environment=PYTHONPATH=${VOICE_AGENT_DIR_ABS}/src
 ExecStart=/bin/bash -lc 'cd "${VOICE_AGENT_DIR_ABS}" && exec .venv/bin/python -m voice_agent.entrypoint start'
 Restart=always
 RestartSec=3
