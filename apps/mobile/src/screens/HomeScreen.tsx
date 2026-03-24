@@ -3872,6 +3872,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F0DEC9',
