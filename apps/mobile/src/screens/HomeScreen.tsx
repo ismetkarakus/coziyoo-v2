@@ -4029,7 +4029,7 @@ const styles = StyleSheet.create({
   heroAvatarCircle: {
     position: 'absolute',
     top: 34,
-    right: 8,
+    right: 30,
     width: 62,
     height: 62,
     borderRadius: 31,
