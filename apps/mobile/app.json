@@ -11,6 +11,7 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Coziyoo needs microphone access for voice conversations with the AI agent.",
+        "NSLocationWhenInUseUsageDescription": "Coziyoo needs your location to show the nearest available cook for selected dishes.",
         "NSPhotoLibraryUsageDescription": "Coziyoo needs photo library access so you can select a profile picture.",
         "NSPhotoLibraryAddUsageDescription": "Coziyoo may save edited profile photos to your library when needed.",
         "UIBackgroundModes": ["audio", "voip"]

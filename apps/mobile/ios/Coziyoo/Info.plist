@@ -52,6 +52,8 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Coziyoo needs microphone access for voice conversations with the AI agent.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Coziyoo needs your location to show the nearest available cook for selected dishes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Coziyoo needs photo library access so you can select a profile picture.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
