@@ -138,7 +138,7 @@ def test_auto_migrate_backfills_typed_known_instances() -> None:
     assert sorted(openai_instances[0].get("types") or []) == ["llm", "stt", "tts"]
 
 
-def test_auto_migrate_creates_typed_known_instances_without_bound_keys() -> None:
+def test_auto_migrate_does_not_create_known_instances_without_user_add() -> None:
     tts_cfg = {
         "providerApiKeys": {
             "llm.openai": "sk-openai",
@@ -149,8 +149,7 @@ def test_auto_migrate_creates_typed_known_instances_without_bound_keys() -> None
     migrated = join_api._auto_migrate_to_instances(tts_cfg)
     instances = join_api._extract_provider_instances(migrated)
     openai_instances = [item for item in instances if str(item.get("catalog_id") or "") == "openai"]
-    assert len(openai_instances) == 1
-    assert sorted(openai_instances[0].get("types") or []) == ["llm", "stt", "tts"]
+    assert len(openai_instances) == 0
 
 
 def test_profile_editor_backfills_openai_tts_and_stt_instances(monkeypatch) -> None:
@@ -227,7 +226,7 @@ def test_assistants_initial_render_includes_provider_instances(monkeypatch) -> N
     client = TestClient(join_api.app)
     response = client.get("/dashboard/assistants")
     assert response.status_code == 200
-    assert response.text.count('value="openai-default"') >= 3
+    assert response.text.count('value="openai-default"') == 0
 
 
 def test_dashboard_test_routes_render_status_partial(monkeypatch) -> None:
@@ -804,7 +803,7 @@ def test_custom_provider_import_from_curl_prefills_form(monkeypatch) -> None:
 
     client = TestClient(join_api.app)
     response = client.post(
-        "/dashboard/providers",
+        "/dashboard/providers/catalog",
         data={
             "action": "import_curl",
             "import_curl_raw": "curl https://api.groq.com/openai/v1/chat/completions -H 'Authorization: Bearer sk-test' -H 'Content-Type: application/json' -d '{\"model\":\"llama-3.3-70b-versatile\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}'",
@@ -818,6 +817,79 @@ def test_custom_provider_import_from_curl_prefills_form(monkeypatch) -> None:
     assert 'value="/openai/v1/chat/completions"' in response.text
     put_calls = [c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/default"]
     assert not put_calls
+
+
+def test_catalog_provider_update_persists_capabilities(monkeypatch) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path, json_body))
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "agentName": "coziyoo-agent",
+                    "ttsConfig": {
+                        "catalogProviders": [
+                            {
+                                "id": "custom-openai-proxy",
+                                "name": "Custom OpenAI Proxy",
+                                "source": "custom",
+                                "baseUrl": "https://proxy.example.com",
+                                "modelsPath": "/v1/models",
+                                "types": ["llm"],
+                                "llmConfig": {
+                                    "endpointPath": "/v1/chat/completions",
+                                    "model": "gpt-4o-mini",
+                                    "apiKeySlot": "",
+                                    "customHeaders": {},
+                                    "customBodyParams": {},
+                                    "customQueryParams": {},
+                                },
+                            }
+                        ],
+                        "providerInstances": [],
+                    },
+                }
+            }
+        if method == "PUT" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ok": True}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/providers/catalog",
+        data={
+            "action": "update",
+            "catalog_id": "custom-openai-proxy",
+            "provider_name": "Custom OpenAI Proxy",
+            "provider_type": "llm",
+            "provider_types": ["llm", "tts"],
+            "base_url": "https://proxy.example.com",
+            "models_path": "/v1/models",
+            "endpoint_path": "/v1/chat/completions",
+            "model": "gpt-4o-mini",
+        },
+    )
+    assert response.status_code == 200
+    put_call = next((c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/default"), None)
+    assert put_call is not None
+    payload = put_call[2] or {}
+    tts_cfg = payload.get("ttsConfig") if isinstance(payload, dict) else {}
+    assert isinstance(tts_cfg, dict)
+    catalog = tts_cfg.get("catalogProviders") if isinstance(tts_cfg, dict) else []
+    assert isinstance(catalog, list) and catalog
+    row = next((x for x in catalog if isinstance(x, dict) and x.get("id") == "custom-openai-proxy"), None)
+    assert isinstance(row, dict)
+    types = row.get("types")
+    assert isinstance(types, list)
+    assert "llm" in types
+    assert "tts" in types
 
 
 def test_known_provider_binding_updates_canonical_key_slot(monkeypatch) -> None:

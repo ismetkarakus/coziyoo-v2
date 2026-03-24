@@ -177,6 +177,7 @@
       <!-- Add Custom Provider Form -->
       <div id="add-catalog-form" style="display:{% if show_add_catalog_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:12px;">
         {% set acf = add_catalog_form or {} %}
+        {% set acf_types = (acf.provider_types_csv or acf.provider_type or 'llm').split(',') %}
         <form method="post" action="/dashboard/providers/catalog" style="display:flex; flex-direction:column; gap:10px;" data-provider-form>
           <input type="hidden" name="action" value="add" />
           <div>
@@ -199,6 +200,11 @@
               <label>Name</label>
               <input class="input" type="text" name="provider_name" placeholder="e.g. My Local LLM" value="{{ acf.provider_name or '' }}" required />
             </div>
+          </div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; margin:0;"><input type="checkbox" name="provider_types" value="llm" {% if 'llm' in acf_types %}checked{% endif %} /> LLM</label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;"><input type="checkbox" name="provider_types" value="tts" {% if 'tts' in acf_types %}checked{% endif %} /> TTS</label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0;"><input type="checkbox" name="provider_types" value="stt" {% if 'stt' in acf_types %}checked{% endif %} /> STT</label>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
             <div><label>Base URL</label><input class="input" type="text" name="base_url" placeholder="https://..." value="{{ acf.base_url or '' }}" /></div>
@@ -254,6 +260,7 @@
             <form method="post" action="/dashboard/providers/catalog" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
               <input type="hidden" name="action" value="update" />
               <input type="hidden" name="catalog_id" value="{{ cp.id }}" />
+              {% set cp_types = cp.types or [] %}
               <!-- Shared top-level fields -->
               <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
                 <div>
@@ -263,8 +270,13 @@
                 <div><label>Base URL</label><input class="input" type="text" name="base_url" value="{{ cp.base_url or '' }}" /></div>
                 <div><label>Models Path</label><input class="input" type="text" name="models_path" value="{{ cp.models_path or '' }}" /></div>
               </div>
+              <div style="display:flex; gap:14px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; margin:0;"><input type="checkbox" name="provider_types" value="llm" {% if 'llm' in cp_types %}checked{% endif %} /> LLM</label>
+                <label style="display:flex; align-items:center; gap:6px; margin:0;"><input type="checkbox" name="provider_types" value="tts" {% if 'tts' in cp_types %}checked{% endif %} /> TTS</label>
+                <label style="display:flex; align-items:center; gap:6px; margin:0;"><input type="checkbox" name="provider_types" value="stt" {% if 'stt' in cp_types %}checked{% endif %} /> STT</label>
+              </div>
               <!-- Per-type config sections -->
-              {% set type_tabs = cp.types or [] %}
+              {% set type_tabs = cp_types %}
               {% if type_tabs | length > 1 %}
               <!-- Multi-type: show tabbed sections -->
               <div style="display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;">

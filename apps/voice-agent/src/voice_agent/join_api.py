@@ -1273,32 +1273,7 @@ def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
     instances = rebuilt_instances
     used_instance_ids = {str(i.get("id") or "") for i in instances if isinstance(i, dict)}
 
-    # Backfill one known-provider instance per catalog provider so one instance can serve all supported types.
-    for catalog_id, catalog_entry in known_catalog.items():
-        if _has_instance(catalog_id):
-            continue
-        type_list = [str(t) for t in (catalog_entry.get("types") or []) if str(t) in {"llm", "tts", "stt"}]
-        if not type_list:
-            continue
-        instance_id = _next_instance_id(f"{catalog_id}-default")
-        seed_type = type_list[0]
-        type_defaults = _dict(catalog_entry.get(f"{seed_type}_config"))
-        api_key_slot = str(type_defaults.get("api_key_slot") or "").strip()
-        instances.append({
-            "id": instance_id,
-            "name": str(catalog_entry.get("name") or catalog_id),
-            "catalog_id": catalog_id,
-            "type": seed_type,
-            "types": type_list,
-            "api_key_id": api_key_slot,
-            "model": str(type_defaults.get("model") or ""),
-            "language": str(type_defaults.get("language") or ""),
-            "voice_id": str(type_defaults.get("voice_id") or ""),
-            "text_field_name": str(type_defaults.get("text_field_name") or ""),
-            "custom_headers": _dict(type_defaults.get("custom_headers")),
-            "custom_body_params": _dict(type_defaults.get("custom_body_params")),
-            "custom_query_params": {},
-        })
+    # Do not auto-create known instances. Keep Active Providers empty unless user explicitly adds one.
 
     # Build instances from custom providers if missing.
     for cp in _extract_custom_providers(tts_cfg):
@@ -1516,6 +1491,7 @@ def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any]
 def _default_custom_provider_form() -> dict[str, str]:
     return {
         "provider_type": "llm",
+        "provider_types_csv": "llm",
         "provider_name": "",
         "base_url": "",
         "endpoint_path": "",
@@ -1597,6 +1573,7 @@ def _build_custom_provider_form_from_curl(raw_curl: str, existing: dict[str, str
     form_values.update(
         {
             "provider_type": provider_type,
+            "provider_types_csv": provider_type,
             "provider_name": _provider_name_from_curl(parsed, provider_type),
             "base_url": str(parsed.get("base_url") or "").strip(),
             "endpoint_path": endpoint_path,
@@ -1612,6 +1589,42 @@ def _build_custom_provider_form_from_curl(raw_curl: str, existing: dict[str, str
         }
     )
     return form_values, "cURL parsed. Review fields, choose API key binding, then save."
+
+
+def _normalize_provider_types(values: list[str]) -> list[str]:
+    ordered: list[str] = []
+    for candidate in values:
+        t = str(candidate or "").strip().lower()
+        if t in {"llm", "tts", "stt"} and t not in ordered:
+            ordered.append(t)
+    return ordered
+
+
+def _default_type_config_for_catalog_entry(catalog_id: str, provider_type: str) -> dict[str, Any]:
+    for row in KNOWN_PROVIDER_CATALOG:
+        if str(row.get("id") or "").strip() == catalog_id and str(row.get("type") or "").strip().lower() == provider_type:
+            return {
+                "endpoint_path": str(row.get("endpoint_path") or ""),
+                "model": str(row.get("model") or ""),
+                "api_key_slot": str(row.get("api_key_slot") or ""),
+                "language": str(row.get("language") or ""),
+                "voice_id": str(row.get("voice_id") or ""),
+                "text_field_name": str(row.get("text_field_name") or ""),
+                "custom_headers": _dict(row.get("custom_headers")),
+                "custom_body_params": _dict(row.get("custom_body_params")),
+                "custom_query_params": _dict(row.get("custom_query_params")),
+            }
+    return {
+        "endpoint_path": "",
+        "model": "",
+        "api_key_slot": "",
+        "language": "",
+        "voice_id": "",
+        "text_field_name": "",
+        "custom_headers": {},
+        "custom_body_params": {},
+        "custom_query_params": {},
+    }
 
 
 async def _strip_custom_provider_snapshot_fields(
@@ -2467,15 +2480,19 @@ async def dashboard_catalog_providers_save(request: Request):
         if not current:
             message = "Provider not found"
         else:
+            posted_types = _normalize_provider_types(form.getlist("provider_types")) if hasattr(form, "getlist") else []
+            existing_types = _normalize_provider_types([str(t) for t in (current.get("types") or [])])
+            selected_types = posted_types or existing_types
             # Determine which type's config is being edited
             # For multi-type entries, provider_type comes from the form's hidden field
-            existing_types = current.get("types") or []
-            if not existing_types and current.get("type"):
-                existing_types = [str(current["type"]).strip().lower()]
-            provider_type = str(form.get("provider_type") or (existing_types[0] if existing_types else "")).strip().lower()
+            if not selected_types and current.get("type"):
+                selected_types = _normalize_provider_types([str(current["type"])])
+            provider_type = str(form.get("provider_type") or (selected_types[0] if selected_types else "")).strip().lower()
+            if provider_type not in {"llm", "tts", "stt"}:
+                provider_type = selected_types[0] if selected_types else "llm"
             provider_name = str(form.get("provider_name") or current.get("name") or "").strip()
-            if not provider_name:
-                message = "Provider name is required"
+            if not provider_name or not selected_types:
+                message = "Provider name and at least one capability are required"
             else:
                 cfg = _provider_form_config(provider_type, form, current=current)
                 # Update top-level fields (shared across types)
@@ -2484,6 +2501,7 @@ async def dashboard_catalog_providers_save(request: Request):
                     current["base_url"] = cfg["base_url"]
                 if cfg.get("models_path"):
                     current["models_path"] = cfg.get("models_path", "")
+                current["types"] = selected_types
                 # Update per-type config block
                 if provider_type in {"llm", "tts", "stt"}:
                     existing_type_cfg = current.get(f"{provider_type}_config") or {}
@@ -2501,15 +2519,28 @@ async def dashboard_catalog_providers_save(request: Request):
                         updated_type_cfg["voice_id"] = cfg.get("voice_id", existing_type_cfg.get("voice_id", ""))
                         updated_type_cfg["text_field_name"] = cfg.get("text_field_name", existing_type_cfg.get("text_field_name", ""))
                     current[f"{provider_type}_config"] = updated_type_cfg
-                    if provider_type not in current.get("types", []):
-                        current.setdefault("types", []).append(provider_type)
+                # Ensure selected types have config objects
+                for t in selected_types:
+                    key = f"{t}_config"
+                    if not isinstance(current.get(key), dict):
+                        current[key] = _default_type_config_for_catalog_entry(catalog_id, t)
+                # Remove deselected type configs
+                for t in ("llm", "tts", "stt"):
+                    if t not in selected_types:
+                        current.pop(f"{t}_config", None)
                 message = "Provider updated"
     else:
         # add custom provider
         provider_type = str(form.get("provider_type") or "").strip().lower()
+        selected_types = _normalize_provider_types(form.getlist("provider_types")) if hasattr(form, "getlist") else []
+        if provider_type in {"llm", "tts", "stt"} and provider_type not in selected_types:
+            selected_types = [provider_type] + selected_types
+        selected_types = _normalize_provider_types(selected_types)
         provider_name = str(form.get("provider_name") or "").strip()
-        if provider_type not in {"llm", "tts", "stt"} or not provider_name:
-            message = "Provider type and name are required"
+        if provider_type not in {"llm", "tts", "stt"}:
+            provider_type = selected_types[0] if selected_types else ""
+        if not provider_name or not selected_types:
+            message = "Provider name and at least one capability are required"
             show_add_catalog_form = True
         else:
             base_id = _slugify(f"{provider_type}-{provider_name}") or f"{provider_type}-provider"
@@ -2520,24 +2551,31 @@ async def dashboard_catalog_providers_save(request: Request):
                 catalog_id = f"{base_id}-{counter}"
                 counter += 1
             cfg = _provider_form_config(provider_type, form)
-            catalog.append({
+            entry: dict[str, Any] = {
                 "id": catalog_id,
                 "name": provider_name,
                 "source": "custom",
                 "base_url": cfg.get("base_url", ""),
                 "models_path": cfg.get("models_path", ""),
-                "types": [provider_type],
-                f"{provider_type}_config": {
-                    "endpoint_path": cfg.get("endpoint_path", ""),
-                    "model": cfg.get("model", ""),
-                    "api_key_slot": "",
-                    "language": cfg.get("language", ""),
-                    "voice_id": cfg.get("voice_id", ""),
-                    "text_field_name": cfg.get("text_field_name", ""),
-                    "custom_headers": _dict(cfg.get("custom_headers")),
-                    "custom_body_params": _dict(cfg.get("custom_body_params")),
-                    "custom_query_params": _dict(cfg.get("custom_query_params")),
-                },
+                "types": selected_types,
+            }
+            for t in selected_types:
+                if t == provider_type:
+                    entry[f"{t}_config"] = {
+                        "endpoint_path": cfg.get("endpoint_path", ""),
+                        "model": cfg.get("model", ""),
+                        "api_key_slot": "",
+                        "language": cfg.get("language", ""),
+                        "voice_id": cfg.get("voice_id", ""),
+                        "text_field_name": cfg.get("text_field_name", ""),
+                        "custom_headers": _dict(cfg.get("custom_headers")),
+                        "custom_body_params": _dict(cfg.get("custom_body_params")),
+                        "custom_query_params": _dict(cfg.get("custom_query_params")),
+                    }
+                else:
+                    entry[f"{t}_config"] = _default_type_config_for_catalog_entry(catalog_id, t)
+            catalog.append({
+                **entry,
             })
             message = "Provider added to catalog"
 
