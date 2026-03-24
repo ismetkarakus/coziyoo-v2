@@ -57,7 +57,6 @@ try {
   // Optional at runtime; fallback views are used when unavailable.
 }
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
   getColors = require('react-native-image-colors').getColors;
@@ -724,6 +723,27 @@ function formatDistanceKm(km: number): string {
   if (!Number.isFinite(km) || km < 0) return '';
   const fixed = km < 10 ? km.toFixed(1) : km.toFixed(0);
   return `${fixed} km`;
+}
+
+async function geocodeAddressLine(addressLine: string): Promise<{ lat: number; lng: number } | null> {
+  const query = encodeURIComponent(`${addressLine}, Türkiye`);
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as Array<{ lat?: string; lon?: string }>;
+    const first = Array.isArray(json) ? json[0] : null;
+    const lat = Number.parseFloat(String(first?.lat ?? ''));
+    const lng = Number.parseFloat(String(first?.lon ?? ''));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  } catch {
+    return null;
+  }
 }
 
 function resolveHomeHeaderImageUrl(payload: unknown): string | null {
@@ -1576,7 +1596,7 @@ export default function HomeScreen({
   async function handleTopSoldPress(food: TopSoldFoodItem) {
     let latitude: number | null = null;
     let longitude: number | null = null;
-    let basis = 'address';
+    let basis = 'address_fallback';
     let fallbackAddressTitle: string | undefined;
 
     const activeAddress = selectedCheckoutAddress ?? defaultAddress;
@@ -1584,21 +1604,15 @@ export default function HomeScreen({
       Alert.alert('Uyarı', t('helper.home.addressRequiredTopSold'));
       return;
     }
-    try {
-      const geocoded = await Location.geocodeAsync(activeAddress.addressLine);
-      const first = geocoded[0];
-      if (!first) {
-        Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
-        return;
-      }
-      latitude = first.latitude;
-      longitude = first.longitude;
-      basis = `address:${activeAddress.id}`;
-      fallbackAddressTitle = activeAddress.title;
-    } catch {
+    const geocoded = await geocodeAddressLine(activeAddress.addressLine);
+    if (!geocoded) {
       Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
       return;
     }
+    latitude = geocoded.lat;
+    longitude = geocoded.lng;
+    basis = `address:${activeAddress.id}`;
+    fallbackAddressTitle = activeAddress.title;
 
     const path =
       `/v1/foods/top-sold/${encodeURIComponent(food.id)}/nearest`
