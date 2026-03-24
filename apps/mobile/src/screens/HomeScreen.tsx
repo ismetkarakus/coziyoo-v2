@@ -1576,49 +1576,28 @@ export default function HomeScreen({
   async function handleTopSoldPress(food: TopSoldFoodItem) {
     let latitude: number | null = null;
     let longitude: number | null = null;
-    let basis = 'live_location';
+    let basis = 'address';
     let fallbackAddressTitle: string | undefined;
 
-    // iOS tarafında bazı cihaz/build kombinasyonlarında izin çağrısı native fatal verebildiği için
-    // burada güvenli fallback olarak adres bazlı akışı tercih ediyoruz.
-    if (Platform.OS !== 'ios') {
-      try {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status === 'granted') {
-          const position = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
-        } else {
-          Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
-        }
-      } catch {
-        Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
-      }
+    const activeAddress = selectedCheckoutAddress ?? defaultAddress;
+    if (!activeAddress) {
+      Alert.alert('Uyarı', t('helper.home.addressRequiredTopSold'));
+      return;
     }
-
-    if (latitude == null || longitude == null) {
-      const activeAddress = selectedCheckoutAddress ?? defaultAddress;
-      if (!activeAddress) {
-        Alert.alert('Uyarı', t('helper.home.addressRequiredTopSold'));
-        return;
-      }
-      try {
-        const geocoded = await Location.geocodeAsync(activeAddress.addressLine);
-        const first = geocoded[0];
-        if (!first) {
-          Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
-          return;
-        }
-        latitude = first.latitude;
-        longitude = first.longitude;
-        basis = `address:${activeAddress.id}`;
-        fallbackAddressTitle = activeAddress.title;
-      } catch {
+    try {
+      const geocoded = await Location.geocodeAsync(activeAddress.addressLine);
+      const first = geocoded[0];
+      if (!first) {
         Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
         return;
       }
+      latitude = first.latitude;
+      longitude = first.longitude;
+      basis = `address:${activeAddress.id}`;
+      fallbackAddressTitle = activeAddress.title;
+    } catch {
+      Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
+      return;
     }
 
     const path =
