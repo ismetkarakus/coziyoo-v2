@@ -2390,8 +2390,8 @@ export default function HomeScreen({
           <Ionicons name="chevron-forward" size={22} color="#8B6A52" />
         </TouchableOpacity>
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
-        <View style={styles.sellersSection}>
-          <Text style={styles.sellersSectionTitle}>Öneriler</Text>
+        <View style={styles.recommendationsSection}>
+          <Text style={styles.recommendationsSectionTitle}>Öneriler</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -3941,6 +3941,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  recommendationsSection: {
+    marginBottom: 12,
+    marginHorizontal: 12,
+    marginTop: 12,
+  },
+  recommendationsSectionTitle: {
+    color: '#3D2B22',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   recommendationsScroller: {
     marginHorizontal: -12,
