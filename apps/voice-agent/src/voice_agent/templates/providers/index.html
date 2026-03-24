@@ -469,12 +469,18 @@
   }
 
   const providerSttRecorderState = {
-    mediaRecorder: null,
     mediaStream: null,
-    chunks: [],
+    audioContext: null,
+    sourceNode: null,
+    processorNode: null,
+    floatChunks: [],
+    sampleRate: 16000,
     activeForm: null,
     activeButton: null,
-    supported: typeof window !== "undefined" && !!window.MediaRecorder && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    recording: false,
+    supported: typeof window !== "undefined"
+      && !!(window.AudioContext || window.webkitAudioContext)
+      && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
   };
 
   function setProviderSttStatus(form, text, color) {
@@ -486,27 +492,77 @@
   }
 
   function resetProviderSttState() {
-    if (providerSttRecorderState.mediaRecorder) {
-      providerSttRecorderState.mediaRecorder.ondataavailable = null;
-      providerSttRecorderState.mediaRecorder.onstop = null;
-      providerSttRecorderState.mediaRecorder = null;
+    if (providerSttRecorderState.processorNode) {
+      providerSttRecorderState.processorNode.onaudioprocess = null;
+      try { providerSttRecorderState.processorNode.disconnect(); } catch (_) {}
+      providerSttRecorderState.processorNode = null;
+    }
+    if (providerSttRecorderState.sourceNode) {
+      try { providerSttRecorderState.sourceNode.disconnect(); } catch (_) {}
+      providerSttRecorderState.sourceNode = null;
+    }
+    if (providerSttRecorderState.audioContext) {
+      try { providerSttRecorderState.audioContext.close(); } catch (_) {}
+      providerSttRecorderState.audioContext = null;
     }
     if (providerSttRecorderState.mediaStream) {
       providerSttRecorderState.mediaStream.getTracks().forEach((track) => track.stop());
       providerSttRecorderState.mediaStream = null;
     }
-    providerSttRecorderState.chunks = [];
+    providerSttRecorderState.floatChunks = [];
+    providerSttRecorderState.sampleRate = 16000;
     providerSttRecorderState.activeForm = null;
     providerSttRecorderState.activeButton = null;
+    providerSttRecorderState.recording = false;
   }
 
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result || "");
-      reader.onerror = () => reject(reader.error || new Error("Failed to read recording"));
-      reader.readAsDataURL(blob);
-    });
+  function mergeFloat32Chunks(chunks) {
+    const total = chunks.reduce((sum, arr) => sum + arr.length, 0);
+    const merged = new Float32Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return merged;
+  }
+
+  function encodeWavPCM16(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    const writeString = (offset, str) => {
+      for (let i = 0; i < str.length; i += 1) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, samples.length * 2, true);
+    let offset = 44;
+    for (let i = 0; i < samples.length; i += 1) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      offset += 2;
+    }
+    return new Uint8Array(buffer);
+  }
+
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const sub = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...sub);
+    }
+    return btoa(binary);
   }
 
   async function toggleProviderSttRecording(button) {
@@ -522,88 +578,99 @@
       return;
     }
 
-    const sameRecorderActive = providerSttRecorderState.mediaRecorder
-      && providerSttRecorderState.activeForm === form
-      && providerSttRecorderState.mediaRecorder.state === "recording";
+    const sameRecorderActive = providerSttRecorderState.recording
+      && providerSttRecorderState.activeForm === form;
 
     if (sameRecorderActive) {
       button.disabled = true;
       button.textContent = "Stopping...";
       setProviderSttStatus(form, "Stopping recording...", "var(--muted)");
-      providerSttRecorderState.mediaRecorder.stop();
+      try {
+        if (providerSttRecorderState.processorNode) providerSttRecorderState.processorNode.disconnect();
+        if (providerSttRecorderState.sourceNode) providerSttRecorderState.sourceNode.disconnect();
+      } catch (_) {}
+      providerSttRecorderState.recording = false;
+
+      const activeForm = providerSttRecorderState.activeForm;
+      const activeButton = providerSttRecorderState.activeButton;
+      const chunks = providerSttRecorderState.floatChunks.slice();
+      const sampleRate = providerSttRecorderState.sampleRate || 16000;
+
+      try {
+        if (!activeForm || chunks.length === 0) {
+          if (activeForm) setProviderSttStatus(activeForm, "Recording was empty. Try again.", "#f87171");
+          return;
+        }
+        const merged = mergeFloat32Chunks(chunks);
+        const wavBytes = encodeWavPCM16(merged, sampleRate);
+        const base64 = bytesToBase64(wavBytes);
+        const formAudio = activeForm.querySelector('input[name="stt_audio_base64"]');
+        const formMime = activeForm.querySelector('input[name="stt_audio_mime"]');
+        const formFilename = activeForm.querySelector('input[name="stt_audio_filename"]');
+        if (!formAudio || !formMime || !formFilename || !base64) {
+          setProviderSttStatus(activeForm, "Failed to capture recording.", "#f87171");
+          return;
+        }
+        formAudio.value = base64;
+        formMime.value = "audio/wav";
+        formFilename.value = "provider-stt-test.wav";
+        setProviderSttStatus(activeForm, "Uploading recording for transcription...", "var(--muted)");
+        if (activeButton) {
+          activeButton.disabled = true;
+          activeButton.textContent = "Testing...";
+        }
+        if (window.htmx) {
+          window.htmx.trigger(activeForm, "submit");
+        } else {
+          activeForm.requestSubmit();
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (activeForm) setProviderSttStatus(activeForm, `Recording failed: ${message}`, "#f87171");
+      } finally {
+        if (activeButton) {
+          activeButton.disabled = false;
+          activeButton.textContent = "Test STT";
+        }
+        resetProviderSttState();
+      }
       return;
     }
 
-    if (providerSttRecorderState.mediaRecorder && providerSttRecorderState.mediaRecorder.state === "recording") {
+    if (providerSttRecorderState.recording) {
       setProviderSttStatus(form, "Another STT recording is in progress.", "#f87171");
       return;
     }
 
     hiddenAudio.value = "";
-    hiddenMime.value = "audio/webm";
-    hiddenFilename.value = "provider-stt-test.webm";
+    hiddenMime.value = "audio/wav";
+    hiddenFilename.value = "provider-stt-test.wav";
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
-      providerSttRecorderState.mediaRecorder = recorder;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioCtx({ sampleRate: 16000 });
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
       providerSttRecorderState.mediaStream = stream;
-      providerSttRecorderState.chunks = [];
+      providerSttRecorderState.audioContext = audioContext;
+      providerSttRecorderState.sourceNode = source;
+      providerSttRecorderState.processorNode = processor;
+      providerSttRecorderState.floatChunks = [];
+      providerSttRecorderState.sampleRate = audioContext.sampleRate || 16000;
       providerSttRecorderState.activeForm = form;
       providerSttRecorderState.activeButton = button;
+      providerSttRecorderState.recording = true;
 
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) providerSttRecorderState.chunks.push(event.data);
+      processor.onaudioprocess = (event) => {
+        if (!providerSttRecorderState.recording) return;
+        const input = event.inputBuffer.getChannelData(0);
+        providerSttRecorderState.floatChunks.push(new Float32Array(input));
       };
 
-      recorder.onstop = async () => {
-        const activeForm = providerSttRecorderState.activeForm;
-        const activeButton = providerSttRecorderState.activeButton;
-        const chunks = providerSttRecorderState.chunks.slice();
-        const finalMime = (recorder.mimeType || "audio/webm").split(";")[0] || "audio/webm";
-        try {
-          if (!activeForm || chunks.length === 0) {
-            if (activeForm) setProviderSttStatus(activeForm, "Recording was empty. Try again.", "#f87171");
-            return;
-          }
-          const blob = new Blob(chunks, { type: finalMime });
-          const dataUrl = String(await blobToDataUrl(blob));
-          const commaIndex = dataUrl.indexOf(",");
-          const base64 = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : "";
-          const formAudio = activeForm.querySelector('input[name="stt_audio_base64"]');
-          const formMime = activeForm.querySelector('input[name="stt_audio_mime"]');
-          const formFilename = activeForm.querySelector('input[name="stt_audio_filename"]');
-          if (!formAudio || !formMime || !formFilename || !base64) {
-            setProviderSttStatus(activeForm, "Failed to capture recording.", "#f87171");
-            return;
-          }
-          formAudio.value = base64;
-          formMime.value = finalMime;
-          formFilename.value = finalMime.includes("ogg") ? "provider-stt-test.ogg" : "provider-stt-test.webm";
-          setProviderSttStatus(activeForm, "Uploading recording for transcription...", "var(--muted)");
-          if (activeButton) {
-            activeButton.disabled = true;
-            activeButton.textContent = "Testing...";
-          }
-          if (window.htmx) {
-            window.htmx.trigger(activeForm, "submit");
-          } else {
-            activeForm.requestSubmit();
-          }
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          if (activeForm) setProviderSttStatus(activeForm, `Recording failed: ${message}`, "#f87171");
-        } finally {
-          if (activeButton) {
-            activeButton.disabled = false;
-            activeButton.textContent = "Test STT";
-          }
-          resetProviderSttState();
-        }
-      };
-
-      recorder.start();
+      source.connect(processor);
+      processor.connect(audioContext.destination);
       button.textContent = "Stop & Test STT";
       setProviderSttStatus(form, "Recording... click again to stop.", "var(--muted)");
     } catch (err) {
