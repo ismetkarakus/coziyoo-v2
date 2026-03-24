@@ -1901,6 +1901,44 @@ async def _direct_llm_test(
         return False, "LLM request failed", str(err)
 
 
+async def _direct_tts_test_binary(
+    *,
+    tts_cfg: dict[str, Any],
+    text: str,
+    auth_header: str,
+    body_params: dict[str, str],
+) -> tuple[bool, bytes | None, str, str]:
+    base_url = str(tts_cfg.get("base_url") or "").strip()
+    if not base_url:
+        return False, None, "", "Missing TTS base URL"
+    synth_path = str(tts_cfg.get("endpoint_path") or "/v1/audio/speech").strip() or "/v1/audio/speech"
+    text_field_name = str(tts_cfg.get("text_field_name") or "input").strip() or "input"
+    query_params = _string_map(tts_cfg.get("custom_query_params"))
+    url = f"{base_url.rstrip('/')}{synth_path}"
+    if query_params:
+        qs = urlencode({k: v for k, v in query_params.items() if k})
+        if qs:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}{qs}"
+    headers = {"Content-Type": "application/json"}
+    if auth_header:
+        headers["Authorization"] = auth_header
+    request_body: dict[str, Any] = {**body_params, text_field_name: text}
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=request_body, headers=headers) as upstream:
+                data = await upstream.read()
+                if upstream.status >= 400:
+                    details = data.decode("utf-8", errors="replace")[:240] if data else ""
+                    return False, None, "", f"Direct provider returned {upstream.status}. {details}".strip()
+                content_type = upstream.headers.get("content-type") or "audio/mpeg"
+                return True, data, content_type, ""
+    except Exception as err:
+        return False, None, "", str(err)
+
+
 def _profile_update_payload(profile: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": str(profile.get("name") or ""),
@@ -2543,6 +2581,7 @@ async def dashboard_provider_instance_test(request: Request):
         )
 
     if provider_type == "tts":
+        test_text = str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir.")
         resolved_api_key = str(cfg.get("api_key") or "").strip()
         custom_headers = _string_map(cfg.get("custom_headers"))
         body_params = _merge_tts_body_params_with_model(
@@ -2561,7 +2600,7 @@ async def dashboard_provider_instance_test(request: Request):
             path="/v1/admin/livekit/test/tts",
             access_token=access_token,
             json_body={
-                "text": str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir."),
+                "text": test_text,
                 "baseUrl": str(cfg.get("base_url") or ""),
                 "synthPath": str(cfg.get("endpoint_path") or "/v1/audio/speech"),
                 "textFieldName": str(cfg.get("text_field_name") or "input"),
@@ -2579,7 +2618,25 @@ async def dashboard_provider_instance_test(request: Request):
                 message="Audio generated successfully.",
                 audio_data_uri=f"data:{ctype};base64,{encoded}",
             )
+        fallback_ok, fallback_data, fallback_content_type, fallback_error = await _direct_tts_test_binary(
+            tts_cfg=cfg,
+            text=test_text,
+            auth_header=auth_header,
+            body_params=body_params,
+        )
+        if fallback_ok and fallback_data:
+            ctype = fallback_content_type if fallback_content_type.startswith("audio/") else "audio/mpeg"
+            encoded = base64.b64encode(fallback_data).decode("ascii")
+            return _status_response(
+                request,
+                state="success",
+                title="TTS test successful",
+                message="Audio generated successfully.",
+                audio_data_uri=f"data:{ctype};base64,{encoded}",
+            )
         details = data.decode("utf-8", errors="replace")[:240] if data else ""
+        if fallback_error:
+            details = f"{details} {fallback_error}".strip()
         return _status_response(
             request,
             state="error",
@@ -3405,6 +3462,7 @@ async def dashboard_test_tts(request: Request):
         return refresh_response
 
     form = await request.form()
+    test_text = str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir.")
     normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
     tts_cfg = _dict(normalized.get("tts_config"))
     resolved_api_key = await _resolve_api_key_from_id(
@@ -3429,7 +3487,7 @@ async def dashboard_test_tts(request: Request):
         path="/v1/admin/livekit/test/tts",
         access_token=access_token,
         json_body={
-            "text": str(form.get("tts_test_text") or "Merhaba, bu bir test mesajidir."),
+            "text": test_text,
             "baseUrl": str(tts_cfg.get("base_url") or ""),
             "synthPath": str(tts_cfg.get("endpoint_path") or "/v1/audio/speech"),
             "textFieldName": str(tts_cfg.get("text_field_name") or "input"),
@@ -3450,6 +3508,24 @@ async def dashboard_test_tts(request: Request):
         )
 
     details = data.decode("utf-8", errors="replace")[:240] if data else ""
+    fallback_ok, fallback_data, fallback_content_type, fallback_error = await _direct_tts_test_binary(
+        tts_cfg=tts_cfg,
+        text=test_text,
+        auth_header=auth_header,
+        body_params=body_params,
+    )
+    if fallback_ok and fallback_data:
+        ctype = fallback_content_type if fallback_content_type.startswith("audio/") else "audio/mpeg"
+        encoded = base64.b64encode(fallback_data).decode("ascii")
+        return _status_response(
+            request,
+            state="success",
+            title="TTS test successful",
+            message="Audio generated successfully.",
+            audio_data_uri=f"data:{ctype};base64,{encoded}",
+        )
+    if fallback_error:
+        details = f"{details} {fallback_error}".strip()
     return _status_response(
         request,
         state="error",
