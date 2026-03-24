@@ -81,8 +81,8 @@
       <div style="display:flex; flex-direction:column; gap:8px;">
         {% for inst in provider_instances %}
         {% set catalog_entry = catalog_providers | selectattr('id', 'equalto', inst.catalog_id) | first | default(None) %}
-        <details class="card provider-card" style="padding:0; border-radius:8px;" data-provider-card>
-          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none; cursor:pointer;">
+        <details class="card provider-card" style="padding:0; border-radius:8px; overflow:hidden;" data-provider-card>
+          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none; cursor:pointer; background:var(--p10);">
             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
               {% set inst_types = inst.types or [inst.type] %}
               {% for t in inst_types %}
@@ -99,7 +99,7 @@
             </div>
             <span class="muted provider-expand-label" style="font-size:12px; flex-shrink:0;">Expand</span>
           </summary>
-          <div style="padding:0 12px 12px; border-top:1px solid var(--border);">
+          <div style="padding:0 12px 12px; border-top:1px solid var(--border); background:var(--card-bg);">
             <form method="post" action="/dashboard/providers/instances" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
               <input type="hidden" name="action" value="update" />
               <input type="hidden" name="instance_id" value="{{ inst.id }}" />
@@ -211,8 +211,8 @@
       <!-- Catalog List -->
       <div style="display:flex; flex-direction:column; gap:8px;">
         {% for cp in catalog_providers %}
-        <details class="card provider-card" style="padding:0; border-radius:8px;" data-provider-card>
-          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none; cursor:pointer;">
+        <details class="card provider-card" style="padding:0; border-radius:8px; overflow:hidden;" data-provider-card>
+          <summary style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; user-select:none; cursor:pointer; background:var(--p10);">
             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap;">
               {% for t in (cp.types or []) %}
               <span class="badge" style="background:var(--p10); color:var(--primary); border:1px solid rgba(55,170,157,.2); text-transform:uppercase; flex-shrink:0;">{{ t }}</span>
@@ -225,7 +225,7 @@
             </div>
             <span class="muted provider-expand-label" style="font-size:12px; flex-shrink:0;">Expand</span>
           </summary>
-          <div style="padding:0 12px 12px; border-top:1px solid var(--border);">
+          <div style="padding:0 12px 12px; border-top:1px solid var(--border); background:var(--card-bg);">
             <form method="post" action="/dashboard/providers/catalog" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
               <input type="hidden" name="action" value="update" />
               <input type="hidden" name="catalog_id" value="{{ cp.id }}" />
