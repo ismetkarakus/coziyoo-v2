@@ -352,11 +352,11 @@ function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?
 
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 30) return { fontSize: 20, lineHeight: 25 };
-  if (text.length >= 26) return { fontSize: 22, lineHeight: 27 };
-  if (text.length >= 21) return { fontSize: 24, lineHeight: 30 };
-  if (text.length >= 16) return { fontSize: 26, lineHeight: 32 };
-  return { fontSize: 29, lineHeight: 35 };
+  if (text.length >= 30) return { fontSize: 22, lineHeight: 26 };
+  if (text.length >= 26) return { fontSize: 24, lineHeight: 28 };
+  if (text.length >= 21) return { fontSize: 27, lineHeight: 31 };
+  if (text.length >= 16) return { fontSize: 30, lineHeight: 34 };
+  return { fontSize: 33, lineHeight: 37 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -3738,7 +3738,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 32,
     fontWeight: '900',
-    letterSpacing: -0.35,
+    letterSpacing: -0.8,
     textShadowColor: 'rgba(255,255,255,0.34)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1.5,
