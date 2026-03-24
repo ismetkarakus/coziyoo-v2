@@ -666,6 +666,41 @@ def test_custom_providers_page_and_crud(monkeypatch) -> None:
     assert any(str(item.get("id")) == "stt-whisperx" for item in custom if isinstance(item, dict))
 
 
+def test_custom_provider_import_from_curl_prefills_form(monkeypatch) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path, json_body))
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"agentName": "coziyoo-agent", "ttsConfig": {"providerApiKeys": {}}}}
+        if method == "PUT" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {"data": {"ok": True}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/providers",
+        data={
+            "action": "import_curl",
+            "import_curl_raw": "curl https://api.groq.com/openai/v1/chat/completions -H 'Authorization: Bearer sk-test' -H 'Content-Type: application/json' -d '{\"model\":\"llama-3.3-70b-versatile\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}'",
+        },
+    )
+    assert response.status_code == 200
+    assert "cURL parsed. Review fields, choose API key binding, then save." in response.text
+    assert 'value="llm"' in response.text
+    assert 'value="Groq"' in response.text
+    assert 'value="https://api.groq.com"' in response.text
+    assert 'value="/openai/v1/chat/completions"' in response.text
+    put_calls = [c for c in calls if c[0] == "PUT" and c[1] == "/v1/admin/livekit/agent-settings/default"]
+    assert not put_calls
+
+
 def test_known_provider_binding_updates_canonical_key_slot(monkeypatch) -> None:
     calls: list[tuple[str, str, dict | None]] = []
 

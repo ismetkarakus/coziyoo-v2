@@ -9,7 +9,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import aiohttp
 from fastapi import FastAPI, Header, HTTPException, Query, Request
@@ -1047,6 +1047,107 @@ def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any]
     return base
 
 
+def _default_custom_provider_form() -> dict[str, str]:
+    return {
+        "provider_type": "llm",
+        "provider_name": "",
+        "base_url": "",
+        "endpoint_path": "",
+        "models_path": "",
+        "model": "",
+        "language": "",
+        "voice_id": "",
+        "text_field_name": "",
+        "api_key_id": "",
+        "custom_headers_json": "{}",
+        "custom_body_params_json": "{}",
+        "custom_query_params_json": "{}",
+        "import_curl_raw": "",
+    }
+
+
+def _provider_type_from_curl(parsed: dict[str, Any]) -> str:
+    endpoint_path = str(parsed.get("endpoint_path") or "").strip().lower()
+    fingerprint = f"{str(parsed.get('base_url') or '')} {endpoint_path}".lower()
+    if "transcri" in fingerprint or "listen" in endpoint_path or "speech:recognize" in endpoint_path:
+        return "stt"
+    if "speech" in fingerprint or "/audio/" in endpoint_path or "text-to-speech" in endpoint_path:
+        return "tts"
+    return "llm"
+
+
+def _provider_name_from_curl(parsed: dict[str, Any], provider_type: str) -> str:
+    host = str(urlparse(str(parsed.get("base_url") or "")).netloc or "").strip().lower()
+    host = host.split(":", 1)[0]
+    if host.startswith("api."):
+        host = host[4:]
+    stem = host.split(".", 1)[0] if host else ""
+    name_seed = stem.replace("-", " ").replace("_", " ").strip()
+    if name_seed:
+        return " ".join(part.capitalize() for part in name_seed.split())
+    return f"Imported {provider_type.upper()} Provider"
+
+
+def _build_custom_provider_form_from_curl(raw_curl: str, existing: dict[str, str] | None = None) -> tuple[dict[str, str], str]:
+    form_values = _default_custom_provider_form()
+    if existing:
+        form_values.update({k: str(v) for k, v in existing.items() if isinstance(k, str)})
+    raw = str(raw_curl or "").strip()
+    form_values["import_curl_raw"] = raw
+    parsed = parse_curl_command(raw)
+    if not parsed:
+        return form_values, "Could not parse cURL command"
+
+    provider_type = _provider_type_from_curl(parsed)
+    custom_headers = _string_map(parsed.get("custom_headers"))
+    custom_body_params = _string_map(parsed.get("custom_body_params"))
+    custom_query_params: dict[str, str] = {}
+    model = str(parsed.get("model") or "").strip()
+    language = ""
+    voice_id = str(parsed.get("voice_id") or "").strip()
+    text_field_name = str(parsed.get("text_field_name") or "").strip()
+
+    if provider_type == "tts":
+        if not voice_id:
+            voice_id = str(custom_body_params.get("voice") or "").strip()
+        if voice_id:
+            custom_body_params.pop("voice", None)
+        language = str(custom_body_params.get("language") or "").strip()
+        if language:
+            custom_body_params.pop("language", None)
+        if not text_field_name:
+            text_field_name = "input"
+    elif provider_type == "stt":
+        language = str(custom_body_params.get("language") or "").strip()
+
+    endpoint_path = str(parsed.get("endpoint_path") or "").strip()
+    if not endpoint_path:
+        endpoint_path = {
+            "llm": "/v1/chat/completions",
+            "tts": "/v1/audio/speech",
+            "stt": "/v1/audio/transcriptions",
+        }.get(provider_type, "/v1/chat/completions")
+
+    form_values.update(
+        {
+            "provider_type": provider_type,
+            "provider_name": _provider_name_from_curl(parsed, provider_type),
+            "base_url": str(parsed.get("base_url") or "").strip(),
+            "endpoint_path": endpoint_path,
+            "models_path": "/v1/models",
+            "model": model,
+            "language": language,
+            "voice_id": voice_id,
+            "text_field_name": text_field_name if provider_type == "tts" else "",
+            "api_key_id": "",
+            "custom_headers_json": json.dumps(custom_headers, ensure_ascii=True),
+            "custom_body_params_json": json.dumps(custom_body_params, ensure_ascii=True),
+            "custom_query_params_json": json.dumps(custom_query_params, ensure_ascii=True),
+        }
+    )
+    return form_values, "cURL parsed. Review fields, choose API key binding, then save."
+
+
 async def _strip_custom_provider_snapshot_fields(
     *,
     access_token: str,
@@ -1632,6 +1733,7 @@ async def dashboard_custom_providers_page(request: Request):
             "provider_api_key_options": provider_api_key_options,
             "message": message,
             "show_add_form": False,
+            "add_provider_form": _default_custom_provider_form(),
         },
     )
 
@@ -1661,8 +1763,14 @@ async def dashboard_custom_providers_save(request: Request):
     action = str(form.get("action") or "add").strip().lower()
     message = "Saved"
     show_add_form = False
+    add_provider_form = _default_custom_provider_form()
 
-    if action == "bind_known_key":
+    if action == "import_curl":
+        imported_form, import_message = _build_custom_provider_form_from_curl(str(form.get("import_curl_raw") or ""))
+        add_provider_form.update(imported_form)
+        message = import_message
+        show_add_form = True
+    elif action == "bind_known_key":
         provider_id = str(form.get("provider_id") or "").strip().lower()
         selected_key_id = str(form.get("selected_key_id") or "").strip()
         slots = known_slot_map.get(provider_id, [])
@@ -1730,37 +1838,38 @@ async def dashboard_custom_providers_save(request: Request):
             message = "Provider added"
 
     providers.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
-    tts_cfg["providerApiKeys"] = keys
-    tts_cfg["customProviders"] = [
-        {
-            "id": p["id"],
-            "type": p["type"],
-            "name": p["name"],
-            "baseUrl": p["base_url"],
-            "endpointPath": p["endpoint_path"],
-            "modelsPath": p["models_path"],
-            "apiKeyId": p["api_key_id"],
-            "model": p.get("model", ""),
-            "language": p.get("language", ""),
-            "voiceId": p.get("voice_id", ""),
-            "textFieldName": p.get("text_field_name", ""),
-            "customHeaders": _dict(p.get("custom_headers")),
-            "customBodyParams": _dict(p.get("custom_body_params")),
-            "customQueryParams": _dict(p.get("custom_query_params")),
-        }
-        for p in providers
-    ]
+    if action != "import_curl":
+        tts_cfg["providerApiKeys"] = keys
+        tts_cfg["customProviders"] = [
+            {
+                "id": p["id"],
+                "type": p["type"],
+                "name": p["name"],
+                "baseUrl": p["base_url"],
+                "endpointPath": p["endpoint_path"],
+                "modelsPath": p["models_path"],
+                "apiKeyId": p["api_key_id"],
+                "model": p.get("model", ""),
+                "language": p.get("language", ""),
+                "voiceId": p.get("voice_id", ""),
+                "textFieldName": p.get("text_field_name", ""),
+                "customHeaders": _dict(p.get("custom_headers")),
+                "customBodyParams": _dict(p.get("custom_body_params")),
+                "customQueryParams": _dict(p.get("custom_query_params")),
+            }
+            for p in providers
+        ]
 
-    put_status, put_payload = await api_request(
-        api_base_url=settings.api_base_url,
-        method="PUT",
-        path="/v1/admin/livekit/agent-settings/default",
-        access_token=access_token,
-        json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
-    )
-    if put_status not in {200, 201}:
-        message = extract_error_message(put_payload, "Failed to save providers")
-        show_add_form = True
+        put_status, put_payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="PUT",
+            path="/v1/admin/livekit/agent-settings/default",
+            access_token=access_token,
+            json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
+        )
+        if put_status not in {200, 201}:
+            message = extract_error_message(put_payload, "Failed to save providers")
+            show_add_form = True
 
     provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
     known_providers = _group_known_providers(provider_catalog=provider_catalog, keys=keys)
@@ -1775,6 +1884,7 @@ async def dashboard_custom_providers_save(request: Request):
             "provider_api_key_options": _provider_api_key_select_options(keys),
             "message": message,
             "show_add_form": show_add_form,
+            "add_provider_form": add_provider_form,
         },
         status_code=200,
     )

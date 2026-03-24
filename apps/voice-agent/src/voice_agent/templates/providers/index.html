@@ -19,51 +19,59 @@
       </div>
 
       <div id="add-provider-form" style="display:{% if show_add_form %}block{% else %}none{% endif %}; border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
+        {% set add_form = add_provider_form or {} %}
         <form method="post" action="/dashboard/providers" style="display:flex; flex-direction:column; gap:10px;" data-provider-form>
           <input type="hidden" name="action" value="add" />
+          <div>
+            <label>Import from cURL</label>
+            <textarea class="input" rows="3" name="import_curl_raw" placeholder="Paste full cURL command here">{{ add_form.import_curl_raw or '' }}</textarea>
+          </div>
+          <div style="display:flex; justify-content:flex-end;">
+            <button class="btn" type="submit" onclick="this.form.querySelector('input[name=action]').value='import_curl'">Import cURL</button>
+          </div>
           <div style="display:grid; grid-template-columns:120px 1fr; gap:8px;">
             <div>
               <label>Type</label>
               <select class="input" name="provider_type" data-provider-type onchange="syncProviderForm(this)" required>
-                <option value="llm">LLM</option>
-                <option value="tts">TTS</option>
-                <option value="stt">STT</option>
+                <option value="llm" {% if (add_form.provider_type or 'llm') == 'llm' %}selected{% endif %}>LLM</option>
+                <option value="tts" {% if add_form.provider_type == 'tts' %}selected{% endif %}>TTS</option>
+                <option value="stt" {% if add_form.provider_type == 'stt' %}selected{% endif %}>STT</option>
               </select>
             </div>
             <div>
               <label>Name</label>
-              <input class="input" type="text" name="provider_name" placeholder="e.g. Groq EU" required />
+              <input class="input" type="text" name="provider_name" placeholder="e.g. Groq EU" value="{{ add_form.provider_name or '' }}" required />
             </div>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div><label>Base URL</label><input class="input" type="text" name="base_url" placeholder="https://..." /></div>
-            <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" placeholder="/v1/..." /></div>
-            <div><label>Models Path</label><input class="input" type="text" name="models_path" placeholder="/v1/models" /></div>
+            <div><label>Base URL</label><input class="input" type="text" name="base_url" placeholder="https://..." value="{{ add_form.base_url or '' }}" /></div>
+            <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" placeholder="/v1/..." value="{{ add_form.endpoint_path or '' }}" /></div>
+            <div><label>Models Path</label><input class="input" type="text" name="models_path" placeholder="/v1/models" value="{{ add_form.models_path or '' }}" /></div>
           </div>
 
           <div class="provider-fields-llm" data-provider-section="llm" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div><label>Model</label><input class="input" type="text" name="model" placeholder="gpt-4o-mini" /></div>
-            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{}</textarea></div>
-            <div style="grid-column:1 / span 3;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{}</textarea></div>
+            <div><label>Model</label><input class="input" type="text" name="model" placeholder="gpt-4o-mini" value="{{ add_form.model or '' }}" /></div>
+            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ add_form.custom_headers_json or '{}' }}</textarea></div>
+            <div style="grid-column:1 / span 3;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ add_form.custom_body_params_json or '{}' }}</textarea></div>
           </div>
 
           <div class="provider-fields-tts" data-provider-section="tts" style="display:none; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
-            <div><label>Model</label><input class="input" type="text" name="model" placeholder="gpt-4o-mini-tts" /></div>
-            <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" /></div>
-            <div><label>Voice ID</label><input class="input" type="text" name="voice_id" placeholder="alloy" /></div>
-            <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" placeholder="input" /></div>
-            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{}</textarea></div>
-            <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{}</textarea></div>
+            <div><label>Model</label><input class="input" type="text" name="model" placeholder="gpt-4o-mini-tts" value="{{ add_form.model or '' }}" /></div>
+            <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" value="{{ add_form.language or '' }}" /></div>
+            <div><label>Voice ID</label><input class="input" type="text" name="voice_id" placeholder="alloy" value="{{ add_form.voice_id or '' }}" /></div>
+            <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" placeholder="input" value="{{ add_form.text_field_name or '' }}" /></div>
+            <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ add_form.custom_headers_json or '{}' }}</textarea></div>
+            <div style="grid-column:3 / span 2;"><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ add_form.custom_body_params_json or '{}' }}</textarea></div>
           </div>
 
           <div class="provider-fields-stt" data-provider-section="stt" style="display:none; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-            <div><label>Model</label><input class="input" type="text" name="model" placeholder="nova-2" /></div>
-            <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" /></div>
+            <div><label>Model</label><input class="input" type="text" name="model" placeholder="nova-2" value="{{ add_form.model or '' }}" /></div>
+            <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" value="{{ add_form.language or '' }}" /></div>
             <div></div>
-            <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{}</textarea></div>
-            <div><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{}</textarea></div>
-            <div><label>custom_query_params (JSON)</label><textarea class="input" rows="2" name="custom_query_params">{}</textarea></div>
+            <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ add_form.custom_headers_json or '{}' }}</textarea></div>
+            <div><label>custom_body_params (JSON)</label><textarea class="input" rows="2" name="custom_body_params">{{ add_form.custom_body_params_json or '{}' }}</textarea></div>
+            <div><label>custom_query_params (JSON)</label><textarea class="input" rows="2" name="custom_query_params">{{ add_form.custom_query_params_json or '{}' }}</textarea></div>
           </div>
 
           <div>
@@ -71,7 +79,7 @@
             <select class="input" id="add-provider-api-key-id" name="api_key_id" data-provider-key-select>
               <option value="">None</option>
               {% for opt in provider_api_key_options %}
-              <option value="{{ opt.id }}" data-section="{{ opt.section }}">{{ opt.label }}</option>
+              <option value="{{ opt.id }}" data-section="{{ opt.section }}" {% if add_form.api_key_id == opt.id %}selected{% endif %}>{{ opt.label }}</option>
               {% endfor %}
             </select>
           </div>
