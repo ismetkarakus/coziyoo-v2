@@ -1,19 +1,11 @@
 {% set status_state = state or 'idle' %}
-{% set status_title = title or 'Ready' %}
 {% set status_message = message or 'Run a provider test from Model, Voice, Transcriber, or Tools.' %}
-<div
-  class="card"
-  data-status-state="{{ status_state }}"
-  style="padding:10px; border-color:
-  {% if status_state == 'success' %}#14532d{% elif status_state == 'error' %}#7f1d1d{% else %}#334155{% endif %};">
-  <div style="font-weight:600; margin-bottom:4px;">{{ status_title }}</div>
-  <div class="muted" style="margin-bottom:6px;">{{ status_message }}</div>
-  {% if details %}
-    <pre style="white-space:pre-wrap; margin:0; font-size:12px; color:#94a3b8;">{{ details }}</pre>
-  {% endif %}
+<div data-status-state="{{ status_state }}" style="font-size:12px; color:
+  {% if status_state == 'success' %}#4ade80{% elif status_state == 'error' %}#f87171{% else %}#94a3b8{% endif %};">
+  <span>{{ status_message }}</span>{% if details %}<span style="color:#94a3b8;"> {{ details | replace('\n', ' ') }}</span>{% endif %}
+</div>
   {% if transcript %}
     <div style="margin-top:8px;">
-      <div style="font-size:12px; color:#94a3b8; margin-bottom:4px;">Transcript</div>
       <pre style="white-space:pre-wrap; margin:0; font-size:13px;">{{ transcript }}</pre>
     </div>
   {% endif %}
@@ -22,4 +14,3 @@
       <audio controls src="{{ audio_data_uri }}" style="width:100%;"></audio>
     </div>
   {% endif %}
-</div>
