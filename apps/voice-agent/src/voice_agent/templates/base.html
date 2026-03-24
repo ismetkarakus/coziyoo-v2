@@ -93,22 +93,6 @@
       cursor: pointer; transition: background .15s, border-color .15s;
     }
     .sidebar-toggle:hover { background: rgba(248,250,252,.05); border-color: var(--border); }
-    .sidebar-org {
-      display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px;
-      border: 2px solid var(--border); background: none; cursor: default;
-      width: 100%; margin-bottom: 8px; min-height: 32px; overflow: hidden;
-    }
-    .sidebar-org-avatar {
-      width: 20px; height: 20px; background: var(--p10); border-radius: 4px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; color: var(--primary); flex-shrink: 0;
-    }
-    .sidebar-org-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-    .sidebar-theme-logo { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-    .sidebar-theme-logo svg { width: 92px; height: 18px; }
-    .sidebar-theme-logo .logo-light { display: none; }
-    :root[data-theme="light"] .sidebar-theme-logo .logo-dark { display: none; }
-    :root[data-theme="light"] .sidebar-theme-logo .logo-light { display: inline-block; }
     .sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; }
     .sidebar-nav::-webkit-scrollbar { width: 4px; }
     .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -129,15 +113,15 @@
     .sidebar-item.active .sidebar-item-icon svg, .sidebar-item:hover .sidebar-item-icon svg { fill: var(--primary); }
     .sidebar-item-label { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; flex: 1; }
     .sidebar-footer { padding-top: 8px; border-top: 1px solid var(--border); margin-top: 8px; }
+    .sidebar-footer-actions { display: flex; align-items: center; gap: 6px; }
+    .sidebar-footer-actions form { flex: 1; margin: 0; }
+    .sidebar-footer .theme-btn { flex-shrink: 0; }
 
     /* collapsed state */
     .sidebar.collapsed .sidebar-logo-text,
-    .sidebar.collapsed .sidebar-org-name,
-    .sidebar.collapsed .sidebar-theme-logo,
     .sidebar.collapsed .sidebar-item-label { display: none; }
     .sidebar.collapsed .sidebar-section { visibility: hidden; height: 4px; padding: 0; margin: 2px 0; }
     .sidebar.collapsed .sidebar-item { justify-content: center; gap: 0; }
-    .sidebar.collapsed .sidebar-org { justify-content: center; }
     .sidebar.collapsed .sidebar-header { justify-content: center; padding-top: 10px; }
     .sidebar.collapsed .sidebar-logo-wrap { flex: 0; }
 
@@ -355,28 +339,9 @@
           <span class="sidebar-logo-text">Coziyoo</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
-            <span data-theme-icon>☀</span>
-          </button>
           <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
             <svg width="17" height="17" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H88V56H216V200ZM40,200V56H72V200Z"/></svg>
           </button>
-        </div>
-      </div>
-
-      <div class="sidebar-org">
-        <div class="sidebar-org-avatar">C</div>
-        <div class="sidebar-theme-logo" aria-label="Coziyoo logo">
-          <svg class="logo-dark" viewBox="0 0 220 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
-            <circle cx="22" cy="22" r="18" fill="#37aa9d"/>
-            <path d="M22 11a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm0 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" fill="#020817"/>
-            <text x="50" y="29" fill="#f8fafc" font-size="20" font-family="Inter, Segoe UI, sans-serif" font-weight="700">Coziyoo</text>
-          </svg>
-          <svg class="logo-light" viewBox="0 0 220 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
-            <circle cx="22" cy="22" r="18" fill="#0f766e"/>
-            <path d="M22 11a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm0 6a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" fill="#f8fafc"/>
-            <text x="50" y="29" fill="#0f172a" font-size="20" font-family="Inter, Segoe UI, sans-serif" font-weight="700">Coziyoo</text>
-          </svg>
         </div>
       </div>
 
@@ -426,12 +391,17 @@
       </nav>
 
       <div class="sidebar-footer">
-        <form method="post" action="/dashboard/logout" style="margin:0;">
-          <button type="submit" class="sidebar-item" style="width:100%;">
-            <div class="sidebar-item-icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M120,216a8,8,0,0,1-8,8H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h64a8,8,0,0,1,0,16H48V208h64A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></svg></div>
-            <span class="sidebar-item-label" style="color:var(--muted-fg);">Sign out</span>
+        <div class="sidebar-footer-actions">
+          <form method="post" action="/dashboard/logout">
+            <button type="submit" class="sidebar-item" style="width:100%;">
+              <div class="sidebar-item-icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M120,216a8,8,0,0,1-8,8H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h64a8,8,0,0,1,0,16H48V208h64A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></svg></div>
+              <span class="sidebar-item-label" style="color:var(--muted-fg);">Sign out</span>
+            </button>
+          </form>
+          <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Toggle theme">
+            <span data-theme-icon>☀</span>
           </button>
-        </form>
+        </div>
       </div>
 
     </div>
