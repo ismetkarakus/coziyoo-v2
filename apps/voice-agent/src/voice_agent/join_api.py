@@ -2756,6 +2756,43 @@ async def dashboard_provider_instance_test(request: Request):
     auth_header = custom_headers.get("authorization", "").strip()
     if not auth_header and resolved_api_key:
         auth_header = resolved_api_key
+
+    audio_base64 = str(form.get("stt_audio_base64") or "").strip()
+    if audio_base64:
+        status, payload = await api_request(
+            api_base_url=settings.api_base_url,
+            method="POST",
+            path="/v1/admin/livekit/test/stt/transcribe",
+            access_token=access_token,
+            json_body={
+                "baseUrl": str(cfg.get("base_url") or ""),
+                "transcribePath": str(cfg.get("endpoint_path") or "/v1/audio/transcriptions"),
+                "model": str(cfg.get("model") or ""),
+                "queryParams": _string_map(cfg.get("custom_query_params")),
+                "authHeader": auth_header,
+                "audioBase64": audio_base64,
+                "mimeType": str(form.get("stt_audio_mime") or "audio/webm"),
+                "filename": str(form.get("stt_audio_filename") or "provider-stt-test.webm"),
+            },
+        )
+        data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else {}
+        if status == 200 and bool(data.get("ok")):
+            transcript = str(data.get("transcript") or "").strip() or "(no text returned)"
+            return _status_response(
+                request,
+                state="success",
+                title="STT transcription successful",
+                message="Audio transcribed successfully.",
+                transcript=transcript,
+            )
+        return _status_response(
+            request,
+            state="error",
+            title="STT transcription failed",
+            message=extract_error_message(payload, "STT transcription failed"),
+            details=str(data.get("reason") or data.get("rawText") or ""),
+        )
+
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="POST",
