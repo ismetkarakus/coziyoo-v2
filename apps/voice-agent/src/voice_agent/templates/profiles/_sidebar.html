@@ -4,7 +4,7 @@
     <input class="input" style="flex:1;" type="search" placeholder="Search…" oninput="filterAssistants(this.value)" />
     <form hx-post="/dashboard/assistants" hx-target="#profiles-sidebar" hx-swap="outerHTML" style="display:contents;" id="create-asst-form">
       <input type="hidden" name="name" value="New Assistant" />
-      <button class="btn btn-primary btn-sm" type="submit" title="Create new assistant">+ New</button>
+      <button class="btn btn-sm btn-add" type="submit" title="Create new assistant">+ New</button>
     </form>
   </div>
 
