@@ -2391,7 +2391,7 @@ export default function HomeScreen({
         </TouchableOpacity>
         <View onLayout={(e) => setFoodSectionOffsetY(e.nativeEvent.layout.y)} />
         <View style={styles.sellersSection}>
-          <Text style={styles.sellersSectionTitle}>Sana öneriler</Text>
+          <Text style={styles.sellersSectionTitle}>Önerilenler</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
