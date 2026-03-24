@@ -3042,6 +3042,8 @@ async def dashboard_test_llm(request: Request):
 
     form = await request.form()
     normalized = normalize_profile_payload({k: str(v) for k, v in form.items()})
+    # Keep test behavior aligned with profile save flow: resolve selected provider instance/key slots.
+    normalized = await _apply_selected_api_keys(access_token=access_token, payload=normalized)
     llm_cfg = _dict(normalized.get("llm_config"))
     resolved_api_key = await _resolve_api_key_from_id(
         access_token=access_token,

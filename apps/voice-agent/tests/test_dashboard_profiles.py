@@ -315,6 +315,49 @@ def test_dashboard_test_llm_falls_back_to_direct_provider(monkeypatch) -> None:
     assert "Provider responded with status 200" in response.text
 
 
+def test_dashboard_test_llm_resolves_instance_key_before_upstream(monkeypatch) -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def fake_ensure_access_token(*, request, api_base_url):
+        return "token-1", None
+
+    async def fake_api_request(*, api_base_url, method, path, access_token, json_body=None):
+        calls.append((method, path, json_body))
+        if method == "GET" and path == "/v1/admin/livekit/agent-settings/default":
+            return 200, {
+                "data": {
+                    "ttsConfig": {
+                        "providerApiKeys": {"llm.openai": "sk-real-openai-key"},
+                        "providerInstances": [
+                            {"id": "openai-default", "name": "OpenAI", "catalogId": "openai", "type": "llm", "types": ["llm"]}
+                        ],
+                    }
+                }
+            }
+        if method == "POST" and path == "/v1/admin/livekit/test/llm":
+            return 200, {"data": {"ok": True, "status": 200}}
+        return 200, {"data": {}}
+
+    monkeypatch.setattr(join_api, "ensure_access_token", fake_ensure_access_token)
+    monkeypatch.setattr(join_api, "api_request", fake_api_request)
+
+    client = TestClient(join_api.app)
+    response = client.post(
+        "/dashboard/test/llm",
+        data={
+            "llm_config.provider_instance_id": "openai-default",
+            "llm_config.base_url": "https://api.openai.com",
+            "llm_config.endpoint_path": "/v1/chat/completions",
+            "llm_config.model": "gpt-4o-mini",
+            "llm_config.api_key": "213121",
+        },
+    )
+    assert response.status_code == 200
+    post_call = next((c for c in calls if c[0] == "POST" and c[1] == "/v1/admin/livekit/test/llm"), None)
+    assert post_call is not None
+    assert (post_call[2] or {}).get("apiKey") == "sk-real-openai-key"
+
+
 def test_profile_editor_legacy_id_fallback(monkeypatch) -> None:
     async def fake_ensure_access_token(*, request, api_base_url):
         return "token-1", None
