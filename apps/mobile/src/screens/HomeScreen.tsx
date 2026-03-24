@@ -4210,6 +4210,7 @@ const styles = StyleSheet.create({
   /* --- Categories (legacy - kept for compat) --- */
   sellersSection: {
     marginBottom: 12,
+    marginHorizontal: 12,
   },
   sellersSectionTitle: {
     color: '#3D2B22',
