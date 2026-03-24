@@ -352,10 +352,11 @@ function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?
 
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 26) return { fontSize: 19, lineHeight: 25 };
-  if (text.length >= 21) return { fontSize: 21, lineHeight: 27 };
-  if (text.length >= 16) return { fontSize: 23, lineHeight: 29 };
-  return { fontSize: 26, lineHeight: 32 };
+  if (text.length >= 30) return { fontSize: 20, lineHeight: 25 };
+  if (text.length >= 26) return { fontSize: 22, lineHeight: 27 };
+  if (text.length >= 21) return { fontSize: 24, lineHeight: 30 };
+  if (text.length >= 16) return { fontSize: 26, lineHeight: 32 };
+  return { fontSize: 29, lineHeight: 35 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -3732,7 +3733,16 @@ const styles = StyleSheet.create({
   },
   greetingTitleWrap: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center' },
   greetingEmoji: { fontSize: 24, opacity: 0.9, marginLeft: 6 },
-  greetingTitle: { color: '#38261D', fontSize: 26, lineHeight: 32, fontWeight: '900' },
+  greetingTitle: {
+    color: '#2F1F17',
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '900',
+    letterSpacing: -0.35,
+    textShadowColor: 'rgba(255,255,255,0.34)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1.5,
+  },
   heroSubtitle: {
     color: '#38261D',
     fontSize: 16,
