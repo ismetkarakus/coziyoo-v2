@@ -464,6 +464,17 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     navigate({ pathname: location.pathname, search: params.toString() });
   }
 
+  function openOrderRecordsPage(orderId: string) {
+    const normalizedOrderId = String(orderId ?? "").trim();
+    if (!normalizedOrderId) return;
+    const returnToPath = `${location.pathname}${location.search || ""}`;
+    const params = new URLSearchParams({
+      search: normalizedOrderId,
+      returnTo: returnToPath,
+    });
+    navigate(`/app/orders?${params.toString()}`);
+  }
+
   async function sendSms() {
     if (!smsMessage.trim()) {
       setMessage("SMS icerigi bos olamaz.");
@@ -903,7 +914,15 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                           <tr key={order.orderId}>
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
                             <td>{formatTableDateTime(order.createdAt)}</td>
-                            <td className="buyer-order-no">{order.orderNo}</td>
+                            <td className="buyer-order-no">
+                              <button
+                                type="button"
+                                className="ghost buyer-ops-mini-btn"
+                                onClick={() => openOrderRecordsPage(order.orderId)}
+                              >
+                                {order.orderNo}
+                              </button>
+                            </td>
                             <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId}</td>
                             <td>{deliveryText}</td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
