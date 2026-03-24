@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import socket
 import sys
 import time
 import urllib.error
@@ -84,6 +85,18 @@ def parse_args() -> argparse.Namespace:
         help="Delay in seconds between messages (default: 0.4)",
     )
     parser.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="HTTP read timeout in seconds (default: 120)",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=2,
+        help="Retry count on timeout/network errors (default: 2)",
+    )
+    parser.add_argument(
         "--out-dir",
         default="tmp/n8n-evals",
         help="Output directory (default: tmp/n8n-evals)",
@@ -111,7 +124,14 @@ def load_questions(args: argparse.Namespace) -> list[str]:
     return DEFAULT_QUESTIONS
 
 
-def send_message(url: str, instance_id: str, session_id: str, question: str) -> str:
+def send_message(
+    url: str,
+    instance_id: str,
+    session_id: str,
+    question: str,
+    timeout: float,
+    retries: int,
+) -> str:
     payload = {
         "action": "sendMessage",
         "chatInput": question,
@@ -124,14 +144,31 @@ def send_message(url: str, instance_id: str, session_id: str, question: str) -> 
         headers["X-Instance-Id"] = instance_id
 
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {details}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"request failed: {exc.reason}") from exc
+
+    attempt = 0
+    last_error: Exception | None = None
+    while attempt <= retries:
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+                break
+        except urllib.error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"HTTP {exc.code}: {details}") from exc
+        except (TimeoutError, socket.timeout) as exc:
+            last_error = exc
+        except urllib.error.URLError as exc:
+            last_error = exc
+
+        if attempt >= retries:
+            assert last_error is not None
+            raise RuntimeError(f"request failed after {retries + 1} attempts: {last_error}") from last_error
+
+        # Exponential backoff between retries.
+        sleep_s = 1.5 * (2**attempt)
+        print(f"  retry {attempt + 1}/{retries} after error: {last_error}", file=sys.stderr)
+        time.sleep(sleep_s)
+        attempt += 1
 
     try:
         data = json.loads(raw)
@@ -214,7 +251,17 @@ def main() -> int:
 
     for idx, q in enumerate(questions, start=1):
         print(f"\nQ{idx:02d}: {q}")
-        answer = send_message(args.url, args.instance_id, args.session_id, q)
+        try:
+            answer = send_message(
+                args.url,
+                args.instance_id,
+                args.session_id,
+                q,
+                timeout=args.timeout,
+                retries=args.retries,
+            )
+        except Exception as exc:
+            answer = f"[ERROR] {exc}"
         print(f"A{idx:02d}: {answer}")
         results.append(Result(idx=idx, question=q, answer=answer))
         time.sleep(args.delay)
