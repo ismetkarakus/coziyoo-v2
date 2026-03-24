@@ -3943,7 +3943,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   recommendationsSection: {
-    marginBottom: 12,
+    marginBottom: 22,
     marginHorizontal: 12,
     marginTop: 12,
   },
