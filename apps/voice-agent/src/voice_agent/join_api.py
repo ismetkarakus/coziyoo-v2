@@ -930,6 +930,406 @@ def _provider_catalog_from_tts_config(tts_cfg: dict[str, Any], keys: dict[str, s
     return grouped
 
 
+def _catalog_entry_from_known(known: dict[str, Any]) -> dict[str, Any]:
+    """Convert KNOWN_PROVIDER_CATALOG entry to internal catalog format (flat, legacy)."""
+    return {
+        "id": str(known.get("id") or "").strip(),
+        "type": str(known.get("type") or "").strip().lower(),
+        "name": str(known.get("name") or "").strip(),
+        "source": "known",
+        "base_url": str(known.get("base_url") or "").strip(),
+        "endpoint_path": str(known.get("endpoint_path") or "").strip(),
+        "models_path": str(known.get("models_path") or "").strip(),
+        "model": str(known.get("model") or "").strip(),
+        "language": str(known.get("language") or "").strip(),
+        "voice_id": str(known.get("voice_id") or "").strip(),
+        "text_field_name": str(known.get("text_field_name") or "").strip(),
+        "custom_headers": _dict(known.get("custom_headers")),
+        "custom_body_params": _dict(known.get("custom_body_params")),
+        "custom_query_params": _dict(known.get("custom_query_params")),
+    }
+
+
+def _build_known_catalog_entries() -> list[dict[str, Any]]:
+    """Group KNOWN_PROVIDER_CATALOG entries by provider id into multi-type catalog entries."""
+    grouped: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for item in KNOWN_PROVIDER_CATALOG:
+        pid = str(item.get("id") or "").strip()
+        ptype = str(item.get("type") or "").strip().lower()
+        if not pid or ptype not in {"llm", "tts", "stt"}:
+            continue
+        if pid not in grouped:
+            grouped[pid] = {
+                "id": pid,
+                "name": str(item.get("name") or "").strip(),
+                "source": "known",
+                "base_url": str(item.get("base_url") or "").strip(),
+                "models_path": str(item.get("models_path") or "").strip(),
+                "types": [],
+            }
+            order.append(pid)
+        entry = grouped[pid]
+        if ptype not in entry["types"]:
+            entry["types"].append(ptype)
+        type_cfg: dict[str, Any] = {
+            "endpoint_path": str(item.get("endpoint_path") or "").strip(),
+            "model": str(item.get("model") or "").strip(),
+            "api_key_slot": str(item.get("api_key_slot") or "").strip(),
+            "custom_headers": _dict(item.get("custom_headers")),
+            "custom_body_params": _dict(item.get("custom_body_params")),
+            "custom_query_params": _dict(item.get("custom_query_params")),
+        }
+        if ptype in {"tts", "stt"}:
+            type_cfg["language"] = str(item.get("language") or "").strip()
+        if ptype == "tts":
+            type_cfg["voice_id"] = str(item.get("voice_id") or "").strip()
+            type_cfg["text_field_name"] = str(item.get("text_field_name") or "").strip()
+        entry[f"{ptype}_config"] = type_cfg
+    result = [grouped[pid] for pid in order]
+    result.sort(key=lambda x: str(x.get("name") or "").lower())
+    return result
+
+
+def _extract_catalog_providers(tts_cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read multi-type catalogProviders from ttsConfig, seeding from KNOWN_PROVIDER_CATALOG if absent.
+
+    Handles both the new multi-type format (types[], llmConfig, ttsConfig, sttConfig) and the
+    old flat format (type: "llm", endpointPath, model at top level). Multiple flat rows with the
+    same id are merged into a single multi-type entry instead of being dropped.
+    """
+    raw = tts_cfg.get("catalogProviders")
+    if isinstance(raw, list) and raw:
+        merged: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+
+        def _parse_type_cfg(src: dict[str, Any], ptype: str) -> dict[str, Any]:
+            tc: dict[str, Any] = {
+                "endpoint_path": str(src.get("endpointPath") or src.get("endpoint_path") or "").strip(),
+                "model": str(src.get("model") or "").strip(),
+                "api_key_slot": str(src.get("apiKeySlot") or src.get("api_key_slot") or "").strip(),
+                "custom_headers": _dict(src.get("customHeaders") or src.get("custom_headers")),
+                "custom_body_params": _dict(src.get("customBodyParams") or src.get("custom_body_params")),
+                "custom_query_params": _dict(src.get("customQueryParams") or src.get("custom_query_params")),
+            }
+            if ptype in {"tts", "stt"}:
+                tc["language"] = str(src.get("language") or "").strip()
+            if ptype == "tts":
+                tc["voice_id"] = str(src.get("voiceId") or src.get("voice_id") or "").strip()
+                tc["text_field_name"] = str(src.get("textFieldName") or src.get("text_field_name") or "").strip()
+            return tc
+
+        for row in raw:
+            if not isinstance(row, dict):
+                continue
+            pid = str(row.get("id") or "").strip()
+            if not pid:
+                continue
+
+            if pid not in merged:
+                merged[pid] = {
+                    "id": pid,
+                    "name": str(row.get("name") or "").strip(),
+                    "source": str(row.get("source") or "custom").strip(),
+                    "base_url": str(row.get("baseUrl") or row.get("base_url") or "").strip(),
+                    "models_path": str(row.get("modelsPath") or row.get("models_path") or "").strip(),
+                    "types": [],
+                }
+                order.append(pid)
+
+            entry = merged[pid]
+
+            # New multi-type format: types[] + {type}Config blocks
+            raw_types = row.get("types")
+            if isinstance(raw_types, list):
+                for t in raw_types:
+                    if t in {"llm", "tts", "stt"} and t not in entry["types"]:
+                        entry["types"].append(t)
+
+            for ptype in ("llm", "tts", "stt"):
+                nested = row.get(f"{ptype}Config") or row.get(f"{ptype}_config")
+                if isinstance(nested, dict):
+                    entry[f"{ptype}_config"] = _parse_type_cfg(nested, ptype)
+                    if ptype not in entry["types"]:
+                        entry["types"].append(ptype)
+
+            # Old flat format: single type stored at row level
+            flat_type = str(row.get("type") or "").strip().lower()
+            if flat_type in {"llm", "tts", "stt"} and f"{flat_type}_config" not in entry:
+                entry[f"{flat_type}_config"] = _parse_type_cfg(row, flat_type)
+                if flat_type not in entry["types"]:
+                    entry["types"].append(flat_type)
+
+        result = [merged[pid] for pid in order if merged[pid].get("types")]
+        result.sort(key=lambda x: str(x.get("name") or "").lower())
+        return result
+    # Seed from hardcoded catalog
+    return _build_known_catalog_entries()
+
+
+def _extract_provider_instances(tts_cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read providerInstances from ttsConfig."""
+    raw = tts_cfg.get("providerInstances")
+    if not isinstance(raw, list):
+        return []
+    result: list[dict[str, Any]] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        entry = {
+            "id": str(row.get("id") or "").strip(),
+            "name": str(row.get("name") or "").strip(),
+            "catalog_id": str(row.get("catalogId") or row.get("catalog_id") or "").strip(),
+            "type": str(row.get("type") or "").strip().lower(),
+            "api_key_id": str(row.get("apiKeyId") or row.get("api_key_id") or "").strip(),
+            "model": str(row.get("model") or "").strip(),
+            "language": str(row.get("language") or "").strip(),
+            "voice_id": str(row.get("voiceId") or row.get("voice_id") or "").strip(),
+            "text_field_name": str(row.get("textFieldName") or row.get("text_field_name") or "").strip(),
+            "custom_headers": _dict(row.get("customHeaders") or row.get("custom_headers")),
+            "custom_body_params": _dict(row.get("customBodyParams") or row.get("custom_body_params")),
+            "custom_query_params": _dict(row.get("customQueryParams") or row.get("custom_query_params")),
+        }
+        if entry["id"] and entry["type"] in {"llm", "tts", "stt"}:
+            result.append(entry)
+    return result
+
+
+def _catalog_to_camel(catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    for c in catalog:
+        entry: dict[str, Any] = {
+            "id": c["id"],
+            "name": c["name"],
+            "source": c.get("source", "custom"),
+            "baseUrl": c.get("base_url", ""),
+            "modelsPath": c.get("models_path", ""),
+            "types": c.get("types", []),
+        }
+        for ptype in ("llm", "tts", "stt"):
+            tc = c.get(f"{ptype}_config")
+            if not isinstance(tc, dict):
+                continue
+            tc_camel: dict[str, Any] = {
+                "endpointPath": tc.get("endpoint_path", ""),
+                "model": tc.get("model", ""),
+                "apiKeySlot": tc.get("api_key_slot", ""),
+                "customHeaders": _dict(tc.get("custom_headers")),
+                "customBodyParams": _dict(tc.get("custom_body_params")),
+                "customQueryParams": _dict(tc.get("custom_query_params")),
+            }
+            if ptype in {"tts", "stt"}:
+                tc_camel["language"] = tc.get("language", "")
+            if ptype == "tts":
+                tc_camel["voiceId"] = tc.get("voice_id", "")
+                tc_camel["textFieldName"] = tc.get("text_field_name", "")
+            entry[f"{ptype}Config"] = tc_camel
+        result.append(entry)
+    return result
+
+
+def _instances_to_camel(instances: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": i["id"],
+            "name": i["name"],
+            "catalogId": i.get("catalog_id", ""),
+            "type": i["type"],
+            "apiKeyId": i.get("api_key_id", ""),
+            "model": i.get("model", ""),
+            "language": i.get("language", ""),
+            "voiceId": i.get("voice_id", ""),
+            "textFieldName": i.get("text_field_name", ""),
+            "customHeaders": _dict(i.get("custom_headers")),
+            "customBodyParams": _dict(i.get("custom_body_params")),
+            "customQueryParams": _dict(i.get("custom_query_params")),
+        }
+        for i in instances
+    ]
+
+
+def _auto_migrate_to_instances(tts_cfg: dict[str, Any]) -> dict[str, Any]:
+    """
+    Transparent migration: build/repair providerInstances from:
+    - Known providers that have a key bound in providerApiKeys → one instance each
+    - customProviders → catalog entries + instances
+    Returns a (possibly modified) copy of tts_cfg.
+    """
+    tts_cfg = dict(tts_cfg)
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+
+    # Build catalog: existing (if present) + custom providers + known providers.
+    catalog: list[dict[str, Any]] = _extract_catalog_providers(tts_cfg)
+    existing_catalog_ids = {str(c.get("id") or "") for c in catalog if isinstance(c, dict)}
+    for cp in _extract_custom_providers(tts_cfg):
+        if cp["id"] not in existing_catalog_ids:
+            ptype = str(cp.get("type") or "llm")
+            catalog.append({
+                "id": cp["id"],
+                "name": cp["name"],
+                "source": "custom",
+                "base_url": cp.get("base_url", ""),
+                "models_path": cp.get("models_path", ""),
+                "types": [ptype],
+                f"{ptype}_config": {
+                    "endpoint_path": cp.get("endpoint_path", ""),
+                    "model": cp.get("model", ""),
+                    "api_key_slot": "",
+                    "language": cp.get("language", ""),
+                    "voice_id": cp.get("voice_id", ""),
+                    "text_field_name": cp.get("text_field_name", ""),
+                    "custom_headers": _dict(cp.get("custom_headers")),
+                    "custom_body_params": _dict(cp.get("custom_body_params")),
+                    "custom_query_params": _dict(cp.get("custom_query_params")),
+                },
+            })
+            existing_catalog_ids.add(cp["id"])
+
+    # Ensure known catalog ids are always present.
+    known_catalog = _build_known_catalog_entries()
+    known_catalog_ids = {str(c.get("id") or "") for c in known_catalog}
+    missing_known = [c for c in known_catalog if str(c.get("id") or "") not in existing_catalog_ids]
+    if missing_known:
+        catalog.extend(missing_known)
+        existing_catalog_ids.update(known_catalog_ids)
+
+    # Start with existing instances, then backfill missing typed known/custom instances.
+    instances: list[dict[str, Any]] = _extract_provider_instances(tts_cfg)
+    used_instance_ids = {str(i.get("id") or "") for i in instances if isinstance(i, dict)}
+
+    def _next_instance_id(base: str) -> str:
+        candidate = base
+        idx = 2
+        while candidate in used_instance_ids:
+            candidate = f"{base}-{idx}"
+            idx += 1
+        used_instance_ids.add(candidate)
+        return candidate
+
+    def _has_instance(catalog_id: str, provider_type: str) -> bool:
+        for item in instances:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("catalog_id") or "") == catalog_id and str(item.get("type") or "") == provider_type:
+                return True
+        return False
+
+    # Backfill known-provider instances by type when key is bound.
+    for known in KNOWN_PROVIDER_CATALOG:
+        provider_type = str(known.get("type") or "").strip().lower()
+        provider_id = str(known.get("id") or "").strip()
+        slot = str(known.get("api_key_slot") or "").strip()
+        if not slot or not str(keys.get(slot) or "").strip():
+            continue
+        if not provider_id or provider_type not in {"llm", "tts", "stt"}:
+            continue
+        if _has_instance(provider_id, provider_type):
+            continue
+        instance_id = _next_instance_id(f"{provider_type}-{provider_id}-default")
+        instances.append({
+            "id": instance_id,
+            "name": str(known.get("name") or provider_id),
+            "catalog_id": provider_id,
+            "type": provider_type,
+            "api_key_id": slot, "model": str(known.get("model") or ""),
+            "language": str(known.get("language") or ""), "voice_id": str(known.get("voice_id") or ""),
+            "text_field_name": str(known.get("text_field_name") or ""),
+            "custom_headers": _dict(known.get("custom_headers")),
+            "custom_body_params": _dict(known.get("custom_body_params")),
+            "custom_query_params": {},
+        })
+
+    # Build instances from custom providers if missing.
+    for cp in _extract_custom_providers(tts_cfg):
+        cp_id = str(cp.get("id") or "").strip()
+        cp_type = str(cp.get("type") or "").strip().lower()
+        if not cp_id or cp_type not in {"llm", "tts", "stt"}:
+            continue
+        if _has_instance(cp_id, cp_type):
+            continue
+        instance_id = _next_instance_id(cp_id)
+        instances.append({
+            "id": instance_id, "name": cp["name"], "catalog_id": cp_id,
+            "type": cp_type, "api_key_id": cp.get("api_key_id", ""),
+            "model": cp.get("model", ""), "language": cp.get("language", ""),
+            "voice_id": cp.get("voice_id", ""), "text_field_name": cp.get("text_field_name", ""),
+            "custom_headers": _dict(cp.get("custom_headers")),
+            "custom_body_params": _dict(cp.get("custom_body_params")),
+            "custom_query_params": _dict(cp.get("custom_query_params")),
+        })
+
+    tts_cfg["catalogProviders"] = _catalog_to_camel(catalog)
+    tts_cfg["providerInstances"] = _instances_to_camel(instances)
+    return tts_cfg
+
+
+def _resolve_provider_instance(
+    *,
+    instance_id: str,
+    instances: list[dict[str, Any]],
+    catalog: list[dict[str, Any]],
+    keys: dict[str, str],
+) -> dict[str, Any] | None:
+    """Resolve an instance_id to a full config dict ready for profile storage."""
+    instance = next((i for i in instances if i.get("id") == instance_id), None)
+    if not instance:
+        return None
+    catalog_id = str(instance.get("catalog_id") or "")
+    instance_type = str(instance.get("type") or "")
+    catalog_entry = next((c for c in catalog if c.get("id") == catalog_id), None)
+
+    # Get type-specific config from catalog
+    type_cfg: dict[str, Any] = {}
+    if catalog_entry:
+        tc = catalog_entry.get(f"{instance_type}_config")
+        if isinstance(tc, dict):
+            type_cfg = tc
+        elif catalog_entry.get("endpoint_path"):
+            # Backward compat: old flat catalog format
+            type_cfg = {
+                "endpoint_path": catalog_entry.get("endpoint_path", ""),
+                "model": catalog_entry.get("model", ""),
+                "api_key_slot": catalog_entry.get("api_key_slot", ""),
+                "language": catalog_entry.get("language", ""),
+                "voice_id": catalog_entry.get("voice_id", ""),
+                "text_field_name": catalog_entry.get("text_field_name", ""),
+                "custom_headers": _dict(catalog_entry.get("custom_headers")),
+                "custom_body_params": _dict(catalog_entry.get("custom_body_params")),
+                "custom_query_params": _dict(catalog_entry.get("custom_query_params")),
+            }
+
+    config: dict[str, Any] = {
+        "provider": catalog_id,
+        "provider_instance_id": instance_id,
+        "base_url": str((catalog_entry or {}).get("base_url") or ""),
+        "endpoint_path": str(type_cfg.get("endpoint_path") or ""),
+        "models_path": str((catalog_entry or {}).get("models_path") or ""),
+        "model": str(type_cfg.get("model") or ""),
+        "language": str(type_cfg.get("language") or ""),
+        "voice_id": str(type_cfg.get("voice_id") or ""),
+        "text_field_name": str(type_cfg.get("text_field_name") or ""),
+        "custom_headers": _dict(type_cfg.get("custom_headers")),
+        "custom_body_params": _dict(type_cfg.get("custom_body_params")),
+        "custom_query_params": _dict(type_cfg.get("custom_query_params")),
+    }
+    # Instance overrides
+    for f in ("model", "language", "voice_id", "text_field_name"):
+        v = str(instance.get(f) or "").strip()
+        if v:
+            config[f] = v
+    for f in ("custom_headers", "custom_body_params", "custom_query_params"):
+        v = _dict(instance.get(f))
+        if v:
+            config[f] = v
+    # Resolve API key: prefer instance api_key_id, fallback to catalog type slot
+    api_key_id = str(instance.get("api_key_id") or "").strip()
+    if not api_key_id:
+        api_key_id = str(type_cfg.get("api_key_slot") or "").strip()
+    config["api_key_id"] = api_key_id
+    config["api_key"] = str(keys.get(api_key_id) or "").strip() if api_key_id else ""
+    return config
+
+
 def _known_provider_slot_map() -> dict[str, list[str]]:
     slot_map: dict[str, list[str]] = {}
     for item in KNOWN_PROVIDER_CATALOG:
@@ -1270,15 +1670,44 @@ async def _apply_selected_api_keys(
     access_token: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    provider_keys = await _load_provider_api_keys(access_token)
+    status, settings_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    instances: list[dict[str, Any]] = []
+    catalog: list[dict[str, Any]] = []
+    provider_keys = _default_provider_api_keys()
+    if status == 200 and isinstance(settings_payload, dict) and isinstance(settings_payload.get("data"), dict):
+        settings_data = _dict(settings_payload["data"])
+        tts_cfg = _auto_migrate_to_instances(_dict(settings_data.get("ttsConfig")))
+        instances = _extract_provider_instances(tts_cfg)
+        catalog = _extract_catalog_providers(tts_cfg)
+        provider_keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+
     for section in ("llm_config", "tts_config", "stt_config"):
         cfg = _dict(payload.get(section))
-        key_id = str(cfg.get("api_key_id") or "").strip()
-        if key_id:
-            resolved = str(provider_keys.get(key_id) or "").strip()
+        instance_id = str(cfg.get("provider_instance_id") or "").strip()
+        if instance_id:
+            resolved = _resolve_provider_instance(
+                instance_id=instance_id,
+                instances=instances,
+                catalog=catalog,
+                keys=provider_keys,
+            )
             if resolved:
-                cfg["api_key"] = resolved
-        payload[section] = cfg
+                merged = dict(cfg)
+                merged.update(resolved)
+                payload[section] = merged
+        else:
+            # Backward compat: resolve by api_key_id
+            key_id = str(cfg.get("api_key_id") or "").strip()
+            if key_id:
+                resolved_key = str(provider_keys.get(key_id) or "").strip()
+                if resolved_key:
+                    cfg["api_key"] = resolved_key
+            payload[section] = cfg
     return payload
 
 
@@ -1290,6 +1719,7 @@ async def _editor_panel_context(
 ) -> dict[str, Any]:
     provider_keys = _default_provider_api_keys()
     provider_catalog: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    provider_instances: list[dict[str, Any]] = []
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="GET",
@@ -1298,14 +1728,16 @@ async def _editor_panel_context(
     )
     if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
         settings_data = _dict(payload.get("data"))
-        tts_cfg = _dict(settings_data.get("ttsConfig"))
+        tts_cfg = _auto_migrate_to_instances(_dict(settings_data.get("ttsConfig")))
         provider_keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
         provider_catalog = _provider_catalog_from_tts_config(tts_cfg, provider_keys)
+        provider_instances = _extract_provider_instances(tts_cfg)
     return {
         "profile": profile,
         "message": message,
         "provider_api_key_options": _provider_api_key_select_options(provider_keys),
         "provider_catalog": provider_catalog,
+        "provider_instances": provider_instances,
     }
 
 
@@ -1695,6 +2127,22 @@ async def dashboard_api_keys_save(request: Request):
     )
 
 
+def _default_instance_form() -> dict[str, str]:
+    return {
+        "instance_name": "",
+        "catalog_id": "",
+        "instance_type": "llm",
+        "api_key_id": "",
+        "model": "",
+        "language": "",
+        "voice_id": "",
+        "text_field_name": "",
+        "custom_headers_json": "{}",
+        "custom_body_params_json": "{}",
+        "custom_query_params_json": "{}",
+    }
+
+
 @app.get("/dashboard/providers", response_class=HTMLResponse)
 async def dashboard_custom_providers_page(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
@@ -1707,39 +2155,40 @@ async def dashboard_custom_providers_page(request: Request):
         path="/v1/admin/livekit/agent-settings/default",
         access_token=access_token,
     )
-    providers: list[dict[str, Any]] = []
-    known_providers: list[dict[str, Any]] = []
-    provider_catalog: dict[str, list[dict[str, Any]]] = {"llm": [], "tts": [], "stt": []}
+    catalog_providers: list[dict[str, Any]] = []
+    provider_instances: list[dict[str, Any]] = []
     provider_api_key_options: list[dict[str, str]] = []
     message: str | None = None
     if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
         settings_data = _dict(payload.get("data"))
-        tts_cfg = _dict(settings_data.get("ttsConfig"))
-        providers = _extract_custom_providers(tts_cfg)
+        tts_cfg = _auto_migrate_to_instances(_dict(settings_data.get("ttsConfig")))
         keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
-        provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
-        known_providers = _group_known_providers(provider_catalog=provider_catalog, keys=keys)
+        catalog_providers = _extract_catalog_providers(tts_cfg)
+        provider_instances = _extract_provider_instances(tts_cfg)
         provider_api_key_options = _provider_api_key_select_options(keys)
     elif status != 404:
         message = extract_error_message(payload, "Failed to load providers")
 
+    active_tab = str(request.query_params.get("tab") or "instances").strip()
     return templates.TemplateResponse(
         request=request,
         name="providers/index.html",
         context={
-            "providers": providers,
-            "known_providers": known_providers,
-            "provider_catalog": provider_catalog,
+            "catalog_providers": catalog_providers,
+            "provider_instances": provider_instances,
             "provider_api_key_options": provider_api_key_options,
             "message": message,
-            "show_add_form": False,
-            "add_provider_form": _default_custom_provider_form(),
+            "active_tab": active_tab,
+            "add_instance_form": _default_instance_form(),
+            "add_catalog_form": _default_custom_provider_form(),
+            "show_add_instance_form": False,
+            "show_add_catalog_form": False,
         },
     )
 
 
-@app.post("/dashboard/providers", response_class=HTMLResponse)
-async def dashboard_custom_providers_save(request: Request):
+@app.post("/dashboard/providers/instances", response_class=HTMLResponse)
+async def dashboard_provider_instances_save(request: Request):
     access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
     if refresh_response is not None:
         return refresh_response
@@ -1755,111 +2204,264 @@ async def dashboard_custom_providers_save(request: Request):
     if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
         existing_data = _dict(payload.get("data"))
 
-    tts_cfg = _dict(existing_data.get("ttsConfig"))
-    providers = _extract_custom_providers(tts_cfg)
+    tts_cfg = _auto_migrate_to_instances(_dict(existing_data.get("ttsConfig")))
+    instances = _extract_provider_instances(tts_cfg)
+    catalog = _extract_catalog_providers(tts_cfg)
     keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
-    known_slot_map = _known_provider_slot_map()
-    by_id = {p["id"]: p for p in providers}
+    by_id = {i["id"]: i for i in instances}
+
     action = str(form.get("action") or "add").strip().lower()
     message = "Saved"
-    show_add_form = False
-    add_provider_form = _default_custom_provider_form()
+    show_add_instance_form = False
+    add_instance_form = _default_instance_form()
+
+    def _parse_instance_form(form: Any, current: dict[str, Any] | None = None) -> dict[str, Any]:
+        def _json_map(value: Any) -> dict[str, Any]:
+            raw = str(value or "").strip()
+            if not raw:
+                return {}
+            try:
+                return _dict(json.loads(raw))
+            except Exception:
+                return {}
+        cur = current or {}
+        return {
+            "model": str(form.get("model") or cur.get("model") or "").strip(),
+            "language": str(form.get("language") or cur.get("language") or "").strip(),
+            "voice_id": str(form.get("voice_id") or cur.get("voice_id") or "").strip(),
+            "text_field_name": str(form.get("text_field_name") or cur.get("text_field_name") or "").strip(),
+            "api_key_id": str(form.get("api_key_id") or cur.get("api_key_id") or "").strip(),
+            "custom_headers": _json_map(form.get("custom_headers")) or _dict(cur.get("custom_headers")),
+            "custom_body_params": _json_map(form.get("custom_body_params")) or _dict(cur.get("custom_body_params")),
+            "custom_query_params": _json_map(form.get("custom_query_params")) or _dict(cur.get("custom_query_params")),
+        }
+
+    if action == "delete":
+        instance_id = str(form.get("instance_id") or "").strip()
+        instances = [i for i in instances if i.get("id") != instance_id]
+        message = "Provider instance removed"
+    elif action == "update":
+        instance_id = str(form.get("instance_id") or "").strip()
+        current = by_id.get(instance_id)
+        if not current:
+            message = "Instance not found"
+        else:
+            instance_name = str(form.get("instance_name") or current.get("name") or "").strip()
+            if not instance_name:
+                message = "Instance name is required"
+            else:
+                cfg = _parse_instance_form(form, current)
+                current.update({"name": instance_name, **cfg})
+                message = "Provider instance updated"
+    else:
+        # add
+        catalog_id = str(form.get("catalog_id") or "").strip()
+        instance_name = str(form.get("instance_name") or "").strip()
+        catalog_entry = next((c for c in catalog if c.get("id") == catalog_id), None)
+        if not catalog_entry:
+            message = "Please select a provider from the catalog"
+            show_add_instance_form = True
+        elif not instance_name:
+            message = "Instance name is required"
+            show_add_instance_form = True
+        else:
+            # For multi-type entries, the form must supply instance_type
+            catalog_types = catalog_entry.get("types") or []
+            if not catalog_types and catalog_entry.get("type"):
+                catalog_types = [str(catalog_entry["type"]).strip().lower()]
+            form_type = str(form.get("instance_type") or "").strip().lower()
+            if form_type and form_type in catalog_types:
+                instance_type = form_type
+            elif len(catalog_types) == 1:
+                instance_type = catalog_types[0]
+            else:
+                instance_type = form_type or (catalog_types[0] if catalog_types else "llm")
+            base_id = _slugify(instance_name) or f"{catalog_id}-instance"
+            instance_id = base_id
+            counter = 2
+            existing_ids = {i["id"] for i in instances}
+            while instance_id in existing_ids:
+                instance_id = f"{base_id}-{counter}"
+                counter += 1
+            cfg = _parse_instance_form(form)
+            # Inherit defaults from catalog type-specific config if not overridden
+            type_defaults: dict[str, Any] = {}
+            tc = catalog_entry.get(f"{instance_type}_config")
+            if isinstance(tc, dict):
+                type_defaults = tc
+            elif catalog_entry.get("endpoint_path"):
+                # Old flat format fallback
+                type_defaults = catalog_entry
+            if not cfg["model"]:
+                cfg["model"] = str(type_defaults.get("model") or "")
+            if not cfg["language"]:
+                cfg["language"] = str(type_defaults.get("language") or "")
+            if not cfg["voice_id"]:
+                cfg["voice_id"] = str(type_defaults.get("voice_id") or "")
+            if not cfg["text_field_name"]:
+                cfg["text_field_name"] = str(type_defaults.get("text_field_name") or "")
+            instances.append({
+                "id": instance_id,
+                "name": instance_name,
+                "catalog_id": catalog_id,
+                "type": instance_type,
+                **cfg,
+            })
+            message = "Provider instance added"
+
+    tts_cfg["providerInstances"] = _instances_to_camel(instances)
+    put_status, put_payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="PUT",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+        json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
+    )
+    if put_status not in {200, 201}:
+        message = extract_error_message(put_payload, "Failed to save instance")
+        show_add_instance_form = True
+
+    provider_api_key_options = _provider_api_key_select_options(keys)
+    return templates.TemplateResponse(
+        request=request,
+        name="providers/index.html",
+        context={
+            "catalog_providers": catalog,
+            "provider_instances": instances,
+            "provider_api_key_options": provider_api_key_options,
+            "message": message,
+            "active_tab": "instances",
+            "add_instance_form": add_instance_form,
+            "add_catalog_form": _default_custom_provider_form(),
+            "show_add_instance_form": show_add_instance_form,
+            "show_add_catalog_form": False,
+        },
+        status_code=200,
+    )
+
+
+@app.post("/dashboard/providers/catalog", response_class=HTMLResponse)
+async def dashboard_catalog_providers_save(request: Request):
+    access_token, refresh_response = await ensure_access_token(request=request, api_base_url=settings.api_base_url)
+    if refresh_response is not None:
+        return refresh_response
+
+    form = await request.form()
+    status, payload = await api_request(
+        api_base_url=settings.api_base_url,
+        method="GET",
+        path="/v1/admin/livekit/agent-settings/default",
+        access_token=access_token,
+    )
+    existing_data: dict[str, Any] = {}
+    if status == 200 and isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        existing_data = _dict(payload.get("data"))
+
+    tts_cfg = _auto_migrate_to_instances(_dict(existing_data.get("ttsConfig")))
+    catalog = _extract_catalog_providers(tts_cfg)
+    instances = _extract_provider_instances(tts_cfg)
+    keys = _extract_provider_api_keys_from_tts_config(tts_cfg)
+    by_id = {c["id"]: c for c in catalog}
+    action = str(form.get("action") or "add").strip().lower()
+    message = "Saved"
+    show_add_catalog_form = False
+    add_catalog_form = _default_custom_provider_form()
 
     if action == "import_curl":
         imported_form, import_message = _build_custom_provider_form_from_curl(str(form.get("import_curl_raw") or ""))
-        add_provider_form.update(imported_form)
+        add_catalog_form.update(imported_form)
         message = import_message
-        show_add_form = True
-    elif action == "bind_known_key":
-        provider_id = str(form.get("provider_id") or "").strip().lower()
-        selected_key_id = str(form.get("selected_key_id") or "").strip()
-        slots = known_slot_map.get(provider_id, [])
-        if not slots:
-            message = "Known provider does not support API key binding"
-        elif not selected_key_id:
-            for slot in slots:
-                keys[slot] = ""
-            message = "Known provider key cleared"
-        else:
-            resolved_value = str(keys.get(selected_key_id) or "").strip()
-            if not resolved_value:
-                message = "Selected API key entry is empty"
-            else:
-                for slot in slots:
-                    keys[slot] = resolved_value
-                message = "Known provider key updated"
+        show_add_catalog_form = True
     elif action == "delete":
-        provider_id = str(form.get("provider_id") or "").strip()
-        providers = [p for p in providers if p.get("id") != provider_id]
-        message = "Provider removed"
+        catalog_id = str(form.get("catalog_id") or "").strip()
+        entry = by_id.get(catalog_id)
+        if entry and entry.get("source") == "known":
+            message = "Cannot delete built-in providers"
+        else:
+            catalog = [c for c in catalog if c.get("id") != catalog_id]
+            message = "Provider removed from catalog"
     elif action == "update":
-        provider_id = str(form.get("provider_id") or "").strip()
-        current = by_id.get(provider_id)
+        catalog_id = str(form.get("catalog_id") or "").strip()
+        current = by_id.get(catalog_id)
         if not current:
             message = "Provider not found"
         else:
-            provider_type = str(form.get("provider_type") or current.get("type") or "").strip().lower()
+            # Determine which type's config is being edited
+            # For multi-type entries, provider_type comes from the form's hidden field
+            existing_types = current.get("types") or []
+            if not existing_types and current.get("type"):
+                existing_types = [str(current["type"]).strip().lower()]
+            provider_type = str(form.get("provider_type") or (existing_types[0] if existing_types else "")).strip().lower()
             provider_name = str(form.get("provider_name") or current.get("name") or "").strip()
-            if provider_type not in {"llm", "tts", "stt"} or not provider_name:
-                message = "Provider type and name are required"
+            if not provider_name:
+                message = "Provider name is required"
             else:
                 cfg = _provider_form_config(provider_type, form, current=current)
-                current.update(
-                    {
-                        "type": provider_type,
-                        "name": provider_name,
-                        **cfg,
+                # Update top-level fields (shared across types)
+                current["name"] = provider_name
+                if cfg.get("base_url"):
+                    current["base_url"] = cfg["base_url"]
+                if cfg.get("models_path"):
+                    current["models_path"] = cfg.get("models_path", "")
+                # Update per-type config block
+                if provider_type in {"llm", "tts", "stt"}:
+                    existing_type_cfg = current.get(f"{provider_type}_config") or {}
+                    updated_type_cfg: dict[str, Any] = {
+                        "endpoint_path": cfg.get("endpoint_path", existing_type_cfg.get("endpoint_path", "")),
+                        "model": cfg.get("model", existing_type_cfg.get("model", "")),
+                        "api_key_slot": existing_type_cfg.get("api_key_slot", ""),
+                        "custom_headers": _dict(cfg.get("custom_headers")) or _dict(existing_type_cfg.get("custom_headers")),
+                        "custom_body_params": _dict(cfg.get("custom_body_params")) or _dict(existing_type_cfg.get("custom_body_params")),
+                        "custom_query_params": _dict(cfg.get("custom_query_params")) or _dict(existing_type_cfg.get("custom_query_params")),
                     }
-                )
+                    if provider_type in {"tts", "stt"}:
+                        updated_type_cfg["language"] = cfg.get("language", existing_type_cfg.get("language", ""))
+                    if provider_type == "tts":
+                        updated_type_cfg["voice_id"] = cfg.get("voice_id", existing_type_cfg.get("voice_id", ""))
+                        updated_type_cfg["text_field_name"] = cfg.get("text_field_name", existing_type_cfg.get("text_field_name", ""))
+                    current[f"{provider_type}_config"] = updated_type_cfg
+                    if provider_type not in current.get("types", []):
+                        current.setdefault("types", []).append(provider_type)
                 message = "Provider updated"
     else:
+        # add custom provider
         provider_type = str(form.get("provider_type") or "").strip().lower()
         provider_name = str(form.get("provider_name") or "").strip()
         if provider_type not in {"llm", "tts", "stt"} or not provider_name:
             message = "Provider type and name are required"
-            show_add_form = True
+            show_add_catalog_form = True
         else:
             base_id = _slugify(f"{provider_type}-{provider_name}") or f"{provider_type}-provider"
-            provider_id = base_id
+            catalog_id = base_id
             counter = 2
-            existing_ids = {p["id"] for p in providers}
-            while provider_id in existing_ids:
-                provider_id = f"{base_id}-{counter}"
+            existing_ids = {c["id"] for c in catalog}
+            while catalog_id in existing_ids:
+                catalog_id = f"{base_id}-{counter}"
                 counter += 1
             cfg = _provider_form_config(provider_type, form)
-            providers.append(
-                {
-                    "id": provider_id,
-                    "type": provider_type,
-                    "name": provider_name,
-                    **cfg,
-                }
-            )
-            message = "Provider added"
+            catalog.append({
+                "id": catalog_id,
+                "name": provider_name,
+                "source": "custom",
+                "base_url": cfg.get("base_url", ""),
+                "models_path": cfg.get("models_path", ""),
+                "types": [provider_type],
+                f"{provider_type}_config": {
+                    "endpoint_path": cfg.get("endpoint_path", ""),
+                    "model": cfg.get("model", ""),
+                    "api_key_slot": "",
+                    "language": cfg.get("language", ""),
+                    "voice_id": cfg.get("voice_id", ""),
+                    "text_field_name": cfg.get("text_field_name", ""),
+                    "custom_headers": _dict(cfg.get("custom_headers")),
+                    "custom_body_params": _dict(cfg.get("custom_body_params")),
+                    "custom_query_params": _dict(cfg.get("custom_query_params")),
+                },
+            })
+            message = "Provider added to catalog"
 
-    providers.sort(key=lambda x: f"{x['type']}::{x['name']}".lower())
     if action != "import_curl":
-        tts_cfg["providerApiKeys"] = keys
-        tts_cfg["customProviders"] = [
-            {
-                "id": p["id"],
-                "type": p["type"],
-                "name": p["name"],
-                "baseUrl": p["base_url"],
-                "endpointPath": p["endpoint_path"],
-                "modelsPath": p["models_path"],
-                "apiKeyId": p["api_key_id"],
-                "model": p.get("model", ""),
-                "language": p.get("language", ""),
-                "voiceId": p.get("voice_id", ""),
-                "textFieldName": p.get("text_field_name", ""),
-                "customHeaders": _dict(p.get("custom_headers")),
-                "customBodyParams": _dict(p.get("custom_body_params")),
-                "customQueryParams": _dict(p.get("custom_query_params")),
-            }
-            for p in providers
-        ]
-
+        tts_cfg["catalogProviders"] = _catalog_to_camel(catalog)
         put_status, put_payload = await api_request(
             api_base_url=settings.api_base_url,
             method="PUT",
@@ -1868,26 +2470,32 @@ async def dashboard_custom_providers_save(request: Request):
             json_body={"agentName": str(existing_data.get("agentName") or "coziyoo-agent"), "ttsConfig": tts_cfg},
         )
         if put_status not in {200, 201}:
-            message = extract_error_message(put_payload, "Failed to save providers")
-            show_add_form = True
+            message = extract_error_message(put_payload, "Failed to save catalog")
+            show_add_catalog_form = True
 
-    provider_catalog = _provider_catalog_from_tts_config(tts_cfg, keys)
-    known_providers = _group_known_providers(provider_catalog=provider_catalog, keys=keys)
-
+    provider_api_key_options = _provider_api_key_select_options(keys)
     return templates.TemplateResponse(
         request=request,
         name="providers/index.html",
         context={
-            "providers": providers,
-            "known_providers": known_providers,
-            "provider_catalog": provider_catalog,
-            "provider_api_key_options": _provider_api_key_select_options(keys),
+            "catalog_providers": catalog,
+            "provider_instances": instances,
+            "provider_api_key_options": provider_api_key_options,
             "message": message,
-            "show_add_form": show_add_form,
-            "add_provider_form": add_provider_form,
+            "active_tab": "catalog",
+            "add_instance_form": _default_instance_form(),
+            "add_catalog_form": add_catalog_form,
+            "show_add_instance_form": False,
+            "show_add_catalog_form": show_add_catalog_form,
         },
         status_code=200,
     )
+
+
+@app.post("/dashboard/providers", response_class=HTMLResponse)
+async def dashboard_custom_providers_save(request: Request):
+    """Backward compat: route old POST /dashboard/providers to instances handler."""
+    return await dashboard_provider_instances_save(request)
 
 
 @app.get("/dashboard/org", response_class=HTMLResponse)
