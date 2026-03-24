@@ -2395,7 +2395,8 @@ export default function HomeScreen({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sellersRow}
+            style={styles.chipScroller}
+            contentContainerStyle={styles.recommendationsRow}
           >
             {recommendedMealsLoading ? (
               <View style={styles.topSoldLoadingChip}>
@@ -3940,6 +3941,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  recommendationsRow: {
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingRight: 18,
   },
   sellersRow: {
     gap: 8,
