@@ -2762,7 +2762,7 @@ async def dashboard_provider_instance_test(request: Request):
         status, payload = await api_request(
             api_base_url=settings.api_base_url,
             method="POST",
-            path="/v1/admin/livekit/test/stt/transcribe",
+            path="/v1/voice-agent/test/stt/transcribe",
             access_token=access_token,
             json_body={
                 "baseUrl": str(cfg.get("base_url") or ""),
@@ -2796,7 +2796,7 @@ async def dashboard_provider_instance_test(request: Request):
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="POST",
-        path="/v1/admin/livekit/test/stt",
+        path="/v1/voice-agent/test/stt",
         access_token=access_token,
         json_body={
             "baseUrl": str(cfg.get("base_url") or ""),
@@ -3754,7 +3754,7 @@ async def dashboard_test_stt(request: Request):
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="POST",
-        path="/v1/admin/livekit/test/stt",
+        path="/v1/voice-agent/test/stt",
         access_token=access_token,
         json_body={
             "baseUrl": str(stt_cfg.get("base_url") or ""),
@@ -3810,7 +3810,7 @@ async def dashboard_test_stt_transcribe(request: Request):
     status, payload = await api_request(
         api_base_url=settings.api_base_url,
         method="POST",
-        path="/v1/admin/livekit/test/stt/transcribe",
+        path="/v1/voice-agent/test/stt/transcribe",
         access_token=access_token,
         json_body={
             "baseUrl": str(stt_cfg.get("base_url") or ""),
