@@ -3789,7 +3789,7 @@ const styles = StyleSheet.create({
   /* --- Floating Search Bar (premium shadow) --- */
   floatingSearchWrap: {
     marginBottom: 14,
-    marginHorizontal: 14,
+    marginHorizontal: 8,
     zIndex: 5,
   },
   floatingSearchBar: {
@@ -3798,7 +3798,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingVertical: 8,
     shadowColor: '#5A3E2B',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
