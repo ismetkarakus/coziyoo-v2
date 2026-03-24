@@ -57,6 +57,7 @@ try {
   // Optional at runtime; fallback views are used when unavailable.
 }
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 let getColors: typeof import('react-native-image-colors').getColors | null = null;
 try {
   getColors = require('react-native-image-colors').getColors;
@@ -171,6 +172,7 @@ type MealCard = {
   backgroundColor: string;
   category: string;
   imageUrl?: string;
+  locationBasisLabel?: string;
 };
 
 type FavoriteFoodItem = {
@@ -182,7 +184,32 @@ type TopSoldFoodItem = {
   name: string;
   imageUrl: string | null;
   totalSold: number;
+  price: string | null;
+  description: string | null;
+  prepTime: string | null;
+  maxDistance: string | null;
+  category: string | null;
+  allergens: string[];
+  ingredients: string[];
+  cuisine: string | null;
+  stock: number;
+  sellerId: string | null;
+  sellerName: string | null;
+  rating: string | null;
 };
+
+type TopSoldNearestResponse =
+  | {
+      found: true;
+      basis: string;
+      distanceKm: number;
+      food: ApiFoodItem;
+    }
+  | {
+      found: false;
+      basis: string;
+      message?: string;
+    };
 
 type MarketplaceSellerItem = {
   id: string;
@@ -691,6 +718,12 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     category: uiCategory,
     imageUrl: item.imageUrl ?? resolveDishImage(item.name, uiCategory),
   };
+}
+
+function formatDistanceKm(km: number): string {
+  if (!Number.isFinite(km) || km < 0) return '';
+  const fixed = km < 10 ? km.toFixed(1) : km.toFixed(0);
+  return `${fixed} km`;
 }
 
 function resolveHomeHeaderImageUrl(payload: unknown): string | null {
@@ -1525,6 +1558,90 @@ export default function HomeScreen({
     } finally {
       setAddressesLoading(false);
     }
+  }
+
+  function resolveBasisLabel(basis: string, fallbackAddressTitle?: string): string {
+    if (basis === 'live_location') {
+      return t('status.home.locationBasisLive');
+    }
+    if (basis.startsWith('address:')) {
+      const addressId = basis.slice('address:'.length);
+      const address = userAddresses.find((item) => item.id === addressId);
+      const title = address?.title ?? fallbackAddressTitle ?? 'Adres';
+      return `${t('status.home.locationBasisAddressPrefix')} ${title}`;
+    }
+    return t('status.home.locationBasisLive');
+  }
+
+  async function handleTopSoldPress(food: TopSoldFoodItem) {
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+    let basis = 'live_location';
+    let fallbackAddressTitle: string | undefined;
+
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status === 'granted') {
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+      } else {
+        Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
+      }
+    } catch {
+      Alert.alert('Bilgi', t('helper.home.locationDisabledUsingAddress'));
+    }
+
+    if (latitude == null || longitude == null) {
+      const activeAddress = selectedCheckoutAddress ?? defaultAddress;
+      if (!activeAddress) {
+        Alert.alert('Uyarı', t('helper.home.addressRequiredTopSold'));
+        return;
+      }
+      try {
+        const geocoded = await Location.geocodeAsync(activeAddress.addressLine);
+        const first = geocoded[0];
+        if (!first) {
+          Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
+          return;
+        }
+        latitude = first.latitude;
+        longitude = first.longitude;
+        basis = `address:${activeAddress.id}`;
+        fallbackAddressTitle = activeAddress.title;
+      } catch {
+        Alert.alert('Hata', t('helper.home.addressGeocodeFailed'));
+        return;
+      }
+    }
+
+    const path =
+      `/v1/foods/top-sold/${encodeURIComponent(food.id)}/nearest`
+      + `?lat=${latitude.toFixed(6)}&lng=${longitude.toFixed(6)}&basis=${encodeURIComponent(basis)}`;
+    const result = await apiRequest<TopSoldNearestResponse>(
+      path,
+      currentAuth,
+      { actorRole: 'buyer' },
+      handleAuthRefresh,
+    );
+    if (!result.ok) {
+      Alert.alert('Hata', result.message ?? t('error.home.requestFailed'));
+      return;
+    }
+
+    if (!result.data.found) {
+      Alert.alert('Bilgi', result.data.message ?? t('helper.home.noNearbyTopSold'));
+      return;
+    }
+
+    const nearestMeal = apiToMealCard(result.data.food);
+    setSelectedMeal({
+      ...nearestMeal,
+      distance: formatDistanceKm(result.data.distanceKm),
+      locationBasisLabel: resolveBasisLabel(result.data.basis, fallbackAddressTitle),
+    });
   }
 
   async function handleProfileAvatarPress() {
@@ -2556,7 +2673,14 @@ export default function HomeScreen({
               </View>
             ) : null}
             {topSoldFoods.map((food) => (
-              <View key={food.id} style={styles.sellerChip}>
+              <TouchableOpacity
+                key={food.id}
+                style={styles.sellerChip}
+                activeOpacity={0.86}
+                onPress={() => {
+                  void handleTopSoldPress(food);
+                }}
+              >
                 <View style={styles.sellerChipAvatar}>
                   {food.imageUrl ? (
                     <Image source={{ uri: food.imageUrl }} style={styles.sellerChipAvatarImage} />
@@ -2568,7 +2692,7 @@ export default function HomeScreen({
                   <Text style={styles.sellerChipName} numberOfLines={1}>{food.name}</Text>
                   <Text style={styles.sellerChipMeta}>{food.totalSold} satış</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -3285,6 +3409,11 @@ export default function HomeScreen({
       >
         {selectedMeal && (
           <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={() => setSelectedMeal(null)}
+            />
             <ScrollView
               style={styles.modalContent}
               contentContainerStyle={styles.modalScrollContent}
@@ -3316,6 +3445,9 @@ export default function HomeScreen({
               <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
               {selectedMeal.cuisine ? (
                 <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfağı</Text>
+              ) : null}
+              {selectedMeal.locationBasisLabel ? (
+                <Text style={styles.modalBasis}>{selectedMeal.locationBasisLabel}</Text>
               ) : null}
               <View style={styles.modalInfoRow}>
                 <Text style={styles.modalRating}>★ {selectedMeal.rating}</Text>
@@ -3375,6 +3507,11 @@ export default function HomeScreen({
       >
         {selectedSeller ? (
           <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={() => setSelectedSeller(null)}
+            />
             <View style={styles.sellerModalContent}>
               <TouchableOpacity
                 style={styles.modalClose}
@@ -4884,6 +5021,7 @@ const styles = StyleSheet.create({
   modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
   modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 4 },
   modalCuisine: { color: '#A89B8C', fontSize: 13, fontStyle: 'italic', marginBottom: 8 },
+  modalBasis: { color: '#5E7C69', fontSize: 12, fontWeight: '600', marginBottom: 8 },
   modalInfoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 8 },
   modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700' },
   modalMeta: { color: '#A89B8C', fontSize: 13 },

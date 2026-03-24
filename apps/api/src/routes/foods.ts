@@ -241,11 +241,35 @@ foodsRouter.get("/top-sold", async (req, res) => {
           b.name,
           b.total_sold,
           tv.food_id,
-          tv.image_url
+          tv.image_url,
+          f.price,
+          f.description,
+          f.preparation_time_minutes AS prep_time,
+          f.max_delivery_distance_km AS max_distance,
+          c.name_tr AS category,
+          f.allergens_json AS allergens,
+          f.ingredients_json AS ingredients,
+          f.cuisine,
+          COALESCE(
+            (SELECT SUM(pl.quantity_available)
+             FROM production_lots pl
+             WHERE pl.food_id = f.id
+               AND pl.status IN ('open', 'active')
+               AND pl.quantity_available > 0
+               AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+               AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+            ), 0
+          )::int AS stock,
+          f.rating,
+          f.seller_id,
+          u.display_name AS seller_name
         FROM by_name b
         LEFT JOIN top_visual tv
           ON tv.name_key = b.name_key
          AND tv.rn = 1
+        LEFT JOIN foods f ON f.id = tv.food_id
+        LEFT JOIN categories c ON c.id = f.category_id
+        LEFT JOIN users u ON u.id = f.seller_id
         ORDER BY b.total_sold DESC, b.name ASC
         LIMIT $1
       `,
@@ -257,6 +281,18 @@ foodsRouter.get("/top-sold", async (req, res) => {
       name: r.name as string,
       imageUrl: (r.image_url as string | null) ?? null,
       totalSold: Number(r.total_sold ?? 0),
+      price: r.price != null ? `₺${Number(r.price).toFixed(2)}` : null,
+      description: (r.description as string | null) ?? null,
+      prepTime: r.prep_time != null ? `${r.prep_time} dk` : null,
+      maxDistance: r.max_distance != null ? `${r.max_distance} km` : null,
+      category: (r.category as string | null) ?? null,
+      allergens: parseAllergens(r.allergens),
+      ingredients: parseAllergens(r.ingredients),
+      cuisine: (r.cuisine as string | null) ?? null,
+      stock: Number(r.stock ?? 0),
+      rating: (r.rating as string | null) ?? null,
+      sellerId: (r.seller_id as string | null) ?? null,
+      sellerName: (r.seller_name as string | null) ?? null,
     }));
 
     res.json({ data });
@@ -264,6 +300,197 @@ foodsRouter.get("/top-sold", async (req, res) => {
     console.error("[foods] top sold error:", err);
     res.status(500).json({
       error: { code: "INTERNAL_ERROR", message: "Failed to load top sold foods" },
+    });
+  }
+});
+
+/**
+ * GET /v1/foods/top-sold/:foodId/nearest
+ * Resolve nearest deliverable seller for selected top-sold dish.
+ * Query params: lat, lng, basis (optional)
+ */
+foodsRouter.get("/top-sold/:foodId/nearest", async (req, res) => {
+  try {
+    const foodId = String(req.params.foodId ?? "").trim();
+    const lat = Number.parseFloat(String(req.query.lat ?? ""));
+    const lng = Number.parseFloat(String(req.query.lng ?? ""));
+    const basisRaw = String(req.query.basis ?? "live_location").trim();
+    const basis = basisRaw.length > 0 ? basisRaw : "live_location";
+
+    if (!foodId) {
+      return res.status(400).json({
+        error: { code: "VALIDATION_ERROR", message: "foodId is required" },
+      });
+    }
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      return res.status(400).json({
+        error: { code: "VALIDATION_ERROR", message: "lat must be between -90 and 90" },
+      });
+    }
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+      return res.status(400).json({
+        error: { code: "VALIDATION_ERROR", message: "lng must be between -180 and 180" },
+      });
+    }
+
+    const { rows } = await pool.query(
+      `
+        WITH target_name AS (
+          SELECT lower(trim(name)) AS name_key
+          FROM foods
+          WHERE id = $1
+          LIMIT 1
+        ),
+        available_foods AS (
+          SELECT
+            f.id,
+            f.name,
+            f.card_summary,
+            f.description,
+            f.price,
+            f.image_url,
+            f.rating,
+            f.review_count,
+            f.preparation_time_minutes,
+            f.max_delivery_distance_km,
+            f.allergens_json,
+            f.ingredients_json,
+            f.cuisine,
+            (
+              SELECT pl.id
+              FROM production_lots pl
+              WHERE pl.food_id = f.id
+                AND pl.status IN ('open', 'active')
+                AND pl.quantity_available > 0
+                AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+                AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+              ORDER BY pl.quantity_available DESC, pl.created_at DESC
+              LIMIT 1
+            ) AS lot_id,
+            c.name_tr AS category,
+            u.id AS seller_id,
+            u.display_name AS seller_name,
+            u.profile_image_url AS seller_image,
+            u.latitude::float8 AS seller_latitude,
+            u.longitude::float8 AS seller_longitude,
+            COALESCE(
+              (SELECT SUM(pl.quantity_available)
+               FROM production_lots pl
+               WHERE pl.food_id = f.id
+                 AND pl.status IN ('open', 'active')
+                 AND pl.quantity_available > 0
+                 AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= NOW())
+                 AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > NOW())
+              ), 0
+            )::int AS stock
+          FROM foods f
+          JOIN users u ON u.id = f.seller_id
+          LEFT JOIN categories c ON c.id = f.category_id
+          WHERE f.is_active = TRUE
+            AND EXISTS (
+              SELECT 1
+              FROM production_lots plx
+              WHERE plx.food_id = f.id
+                AND plx.status IN ('open', 'active')
+                AND plx.quantity_available > 0
+                AND (plx.sale_starts_at IS NULL OR plx.sale_starts_at <= NOW())
+                AND (plx.sale_ends_at IS NULL OR plx.sale_ends_at > NOW())
+            )
+        ),
+        candidates AS (
+          SELECT
+            af.*,
+            (
+              6371 * acos(
+                LEAST(
+                  1,
+                  GREATEST(
+                    -1,
+                    cos(radians($2::float8))
+                    * cos(radians(af.seller_latitude))
+                    * cos(radians(af.seller_longitude) - radians($3::float8))
+                    + sin(radians($2::float8))
+                    * sin(radians(af.seller_latitude))
+                  )
+                )
+              )
+            ) AS distance_km
+          FROM available_foods af
+          JOIN target_name tn ON lower(trim(af.name)) = tn.name_key
+          WHERE af.seller_latitude IS NOT NULL
+            AND af.seller_longitude IS NOT NULL
+            AND af.max_delivery_distance_km IS NOT NULL
+        )
+        SELECT
+          c.*
+        FROM candidates c
+        WHERE c.distance_km <= c.max_delivery_distance_km::float8
+        ORDER BY
+          c.distance_km ASC,
+          c.rating DESC NULLS LAST,
+          c.review_count DESC,
+          c.id ASC
+        LIMIT 1
+      `,
+      [foodId, lat, lng],
+    );
+
+    if (rows.length === 0) {
+      const exists = await pool.query<{ id: string }>(
+        "SELECT id FROM foods WHERE id = $1 LIMIT 1",
+        [foodId],
+      );
+      if (exists.rows.length === 0) {
+        return res.status(404).json({
+          error: { code: "NOT_FOUND", message: "Food not found" },
+        });
+      }
+      return res.json({
+        data: {
+          found: false,
+          basis,
+          message: "Üzgünüm, bu yemek senin yakınında değil.",
+        },
+      });
+    }
+
+    const r = rows[0];
+    return res.json({
+      data: {
+        found: true,
+        basis,
+        distanceKm: Number(r.distance_km ?? 0),
+        food: {
+          id: r.id,
+          name: r.name,
+          cardSummary: r.card_summary,
+          description: r.description,
+          price: parseFloat(r.price),
+          imageUrl: r.image_url,
+          rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
+          reviewCount: Number(r.review_count ?? 0),
+          prepTime: r.preparation_time_minutes,
+          maxDistance: r.max_delivery_distance_km
+            ? parseFloat(r.max_delivery_distance_km)
+            : null,
+          allergens: parseAllergens(r.allergens_json),
+          ingredients: parseAllergens(r.ingredients_json),
+          cuisine: r.cuisine ?? null,
+          lotId: r.lot_id ?? null,
+          category: r.category ?? null,
+          stock: Number(r.stock ?? 0),
+          seller: {
+            id: r.seller_id,
+            name: r.seller_name,
+            image: r.seller_image,
+          },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("[foods] nearest top sold error:", err);
+    return res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to resolve nearest top sold food" },
     });
   }
 });
