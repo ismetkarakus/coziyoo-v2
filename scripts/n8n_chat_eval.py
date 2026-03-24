@@ -22,12 +22,18 @@ from typing import Iterable
 
 
 DEFAULT_QUESTIONS = [
-    "Merhaba, uygulamadan nasıl sipariş verebilirim?",
-    "Bugün akşam 19:00 için ön sipariş verebilir miyim?",
-    "Siparişim 45 dakikadır gelmedi, ne yapmalıyım?",
-    "Ödemeyi kartla yaptım ama sipariş oluşmadı, para çekilmiş görünüyor.",
-    "Yemek soğuk geldi, iade veya telafi nasıl oluyor?",
-    "Canlı destekle insan temsilciye bağlar mısın?",
+    "Merhaba, ben Ayse. Istanbul Kadikoy'dayim.",
+    "Bu bilgiyi hatirla: Fistik alerjim var ve kartla odemek istiyorum.",
+    "Bu aksam 19:00 icin corba + manti siparisi vermek istiyorum, nasil ilerlerim?",
+    "Adresimi yanlis girdim, sonradan degistirebilir miyim?",
+    "Siparisim 45 dakikadir gelmedi, ne yapmaliyim?",
+    "Odeme karttan cekildi ama siparis olusmadi gibi gorunuyor.",
+    "Soguk geldi, iade veya telafi sureci nasil?",
+    "Ben 17 yasindayim, satici olabilir miyim?",
+    "Komisyon ve odeme gunleri nedir?",
+    "Canli destekte insan temsilciye baglar misin?",
+    "Az once hangi alerjim oldugunu soyledim?",
+    "Az once hangi odeme yontemini tercih ettigimi soyledim?",
 ]
 
 
