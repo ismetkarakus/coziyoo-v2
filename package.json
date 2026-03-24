@@ -27,5 +27,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "expo-blur": "~12.9.2"
   }
 }

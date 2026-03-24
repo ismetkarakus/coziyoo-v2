@@ -570,6 +570,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: '#322B24',
+    backgroundColor: '#FFFFFF',
     fontSize: 16,
   },
   editModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
