@@ -29,10 +29,12 @@
         {% endif %}
       </div>
       <div class="asst-actions">
+        {% if not profile.is_active %}
         <button class="btn btn-sm" type="button"
           hx-post="/dashboard/profiles/{{ profile.id }}/activate"
           hx-target="#profiles-sidebar" hx-swap="outerHTML"
           title="Set as active">Activate</button>
+        {% endif %}
         <button class="btn btn-sm" type="button"
           hx-post="/dashboard/profiles/{{ profile.id }}/duplicate"
           hx-target="#profiles-sidebar" hx-swap="outerHTML"
