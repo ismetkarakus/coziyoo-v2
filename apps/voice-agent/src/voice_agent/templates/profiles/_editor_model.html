@@ -174,7 +174,9 @@
       const apiKey = (document.getElementById("llm-api-key").value || "").trim();
       const apiKeyId = (document.getElementById("llm-api-key-id").value || "").trim();
       const headersRaw = document.getElementById("llm-custom-headers").value.trim();
-      const providerKey = document.getElementById("llm-provider-select").value;
+      const selectedInstanceId = (document.getElementById("llm-provider-select")?.value || "").trim();
+      const selectedInstance = INSTANCES[selectedInstanceId];
+      const providerKey = String(selectedInstance?.catalog_id || selectedInstanceId || "").trim();
       const modelsPath = PROVIDERS[providerKey]?.models_path || "/v1/models";
 
       if (!baseUrl) {
@@ -261,15 +263,8 @@
     const sel = document.getElementById("llm-provider-select");
 
     if (instanceId && INSTANCES[instanceId]) {
-      // Instance already selected — apply it silently (don't re-select, just fetch models)
-      const inst = INSTANCES[instanceId];
-      const catalogId = String(inst.catalog_id || "");
-      const p = PROVIDERS[catalogId];
-      if (p) {
-        populateModelList(p.models);
-        setModelStatus("Instance loaded — fetching live models...");
-        setTimeout(() => window.llmProviderPreset.fetchModels(), 0);
-      }
+      // Re-apply selected instance so hidden key id/base URL fields are fully hydrated.
+      window.llmProviderPreset.applyInstance(instanceId);
       return;
     }
 

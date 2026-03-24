@@ -206,14 +206,8 @@
 
       // If an instance is already selected, apply it on load
       if (instanceId && this.instances[instanceId]) {
-        const inst = this.instances[instanceId];
-        const p = this.providers[String(inst.catalog_id || "")];
-        if (p) {
-          this.populate([String(inst.model || p.default_model || "")]);
-          this.setStatus("Instance loaded — fetching live models...");
-          setTimeout(() => this.fetch(), 0);
-          return;
-        }
+        this.applyInstance(instanceId);
+        return;
       }
 
       const sel = document.getElementById("stt-provider-select");
