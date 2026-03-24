@@ -352,11 +352,11 @@ function resolveProfileDisplayName(profile: MeProfile | null | undefined, email?
 
 
 function resolveGreetingTitleMetrics(text: string): { fontSize: number; lineHeight: number } {
-  if (text.length >= 30) return { fontSize: 22, lineHeight: 26 };
-  if (text.length >= 26) return { fontSize: 24, lineHeight: 28 };
-  if (text.length >= 21) return { fontSize: 27, lineHeight: 31 };
-  if (text.length >= 16) return { fontSize: 30, lineHeight: 34 };
-  return { fontSize: 33, lineHeight: 37 };
+  if (text.length >= 30) return { fontSize: 22, lineHeight: 31 };
+  if (text.length >= 26) return { fontSize: 24, lineHeight: 34 };
+  if (text.length >= 21) return { fontSize: 27, lineHeight: 38 };
+  if (text.length >= 16) return { fontSize: 30, lineHeight: 42 };
+  return { fontSize: 33, lineHeight: 46 };
 }
 
 /* ------------------------------------------------------------------ */
