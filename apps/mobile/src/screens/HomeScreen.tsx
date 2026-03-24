@@ -3812,14 +3812,14 @@ const styles = StyleSheet.create({
   floatingSearchInput: {
     flex: 1,
     color: '#3A281F',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '400',
     paddingVertical: 4,
   },
   floatingSearchPlaceholder: {
     flex: 1,
     color: '#AFA79C',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '400',
   },
   floatingSearchFilterBtn: {
