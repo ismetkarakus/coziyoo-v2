@@ -24,7 +24,7 @@ import { theme } from './src/theme/colors';
 type Screen =
   | 'loading' | 'onboarding' | 'login' | 'home'
   | 'settings' | 'profileEdit' | 'addresses'
-  | 'orders' | 'orderDetail'
+  | 'orders' | 'orderDetail' | 'complaintOrders'
   | 'foodDetail' | 'payment'
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
@@ -43,6 +43,7 @@ export default function App() {
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedChatName, setSelectedChatName] = useState('');
+  const [complaintBackTarget, setComplaintBackTarget] = useState<'orderDetail' | 'complaintOrders'>('orderDetail');
 
   const [isNewRegistration, setIsNewRegistration] = useState(false);
 
@@ -105,6 +106,7 @@ export default function App() {
       <SettingsScreen
         auth={auth}
         onBack={() => goHome('profile')}
+        onOpenComplaintOrders={() => setScreen('complaintOrders')}
         onAuthRefresh={setAuth}
       />
     );
@@ -149,6 +151,24 @@ export default function App() {
     );
   }
 
+  if (screen === 'complaintOrders') {
+    return (
+      <OrdersScreen
+        auth={auth}
+        title="Şikayet Oluştur"
+        emptyTitle="Şikayet için sipariş bulunamadı"
+        emptySubtitle="Siparişlerin tamamlandığında buradan şikayet oluşturabilirsin."
+        onBack={() => setScreen('settings')}
+        onOpenOrderDetail={(id) => {
+          setSelectedOrderId(id);
+          setComplaintBackTarget('complaintOrders');
+          setScreen('complaint');
+        }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
   if (screen === 'orderDetail' && selectedOrderId) {
     return (
       <OrderDetailScreen
@@ -157,7 +177,11 @@ export default function App() {
         onBack={() => setScreen('orders')}
         onOpenPayment={(id) => { setSelectedOrderId(id); setScreen('payment'); }}
         onOpenReview={(id) => { setSelectedOrderId(id); setScreen('review'); }}
-        onOpenComplaint={(id) => { setSelectedOrderId(id); setScreen('complaint'); }}
+        onOpenComplaint={(id) => {
+          setSelectedOrderId(id);
+          setComplaintBackTarget('orderDetail');
+          setScreen('complaint');
+        }}
         onAuthRefresh={setAuth}
       />
     );
@@ -223,7 +247,7 @@ export default function App() {
       <ComplaintScreen
         auth={auth}
         orderId={selectedOrderId}
-        onBack={() => setScreen('orderDetail')}
+        onBack={() => setScreen(complaintBackTarget)}
         onAuthRefresh={setAuth}
       />
     );

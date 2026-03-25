@@ -26,10 +26,11 @@ type UserProfile = {
 type Props = {
   auth: AuthSession;
   onBack: () => void;
+  onOpenComplaintOrders: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
+export default function SettingsScreen({ auth, onBack, onOpenComplaintOrders, onAuthRefresh }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [profileEditModalVisible, setProfileEditModalVisible] = useState(false);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
@@ -227,6 +228,25 @@ export default function SettingsScreen({ auth, onBack, onAuthRefresh }: Props) {
                 activeOpacity={0.85}
               >
                 <Text style={styles.buttonSoftText}>{t('cta.security.enable')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.iconWrap, { backgroundColor: '#C4513D' }]}>
+                  <Ionicons name="flag" size={18} color="#fff" />
+                </View>
+                <View style={styles.headTextWrap}>
+                  <Text style={styles.cardTitle}>Şikayetler</Text>
+                  <Text style={styles.cardMetaInline}>Siparişini seçip hızlıca şikayet oluştur.</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.buttonSoft}
+                onPress={onOpenComplaintOrders}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.buttonSoftText}>Şikayet Oluştur</Text>
               </TouchableOpacity>
             </View>
 

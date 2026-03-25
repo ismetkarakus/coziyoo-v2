@@ -26,12 +26,23 @@ type ApiOrder = {
 
 type Props = {
   auth: AuthSession;
+  title?: string;
+  emptyTitle?: string;
+  emptySubtitle?: string;
   onBack: () => void;
   onOpenOrderDetail: (orderId: string) => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-export default function OrdersScreen({ auth, onBack, onOpenOrderDetail, onAuthRefresh }: Props) {
+export default function OrdersScreen({
+  auth,
+  title = 'Siparişlerim',
+  emptyTitle = 'Henüz siparişin yok',
+  emptySubtitle = 'Sipariş verdiğinde burada görünecek.',
+  onBack,
+  onOpenOrderDetail,
+  onAuthRefresh,
+}: Props) {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +89,7 @@ export default function OrdersScreen({ auth, onBack, onOpenOrderDetail, onAuthRe
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
-      <ScreenHeader title="Siparişlerim" onBack={onBack} />
+      <ScreenHeader title={title} onBack={onBack} />
 
       {loading ? (
         <LoadingState message="Siparişler yükleniyor..." />
@@ -87,8 +98,8 @@ export default function OrdersScreen({ auth, onBack, onOpenOrderDetail, onAuthRe
       ) : orders.length === 0 ? (
         <EmptyState
           icon="receipt-outline"
-          title="Henüz siparişin yok"
-          subtitle="Sipariş verdiğinde burada görünecek."
+          title={emptyTitle}
+          subtitle={emptySubtitle}
         />
       ) : (
         <FlatList

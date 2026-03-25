@@ -9,12 +9,10 @@ import TextInputField from '../components/TextInputField';
 import ActionButton from '../components/ActionButton';
 
 const CATEGORIES = [
-  { id: 'food_quality', label: 'Yemek kalitesi', icon: 'fast-food-outline' as const },
-  { id: 'delivery', label: 'Teslimat sorunu', icon: 'car-outline' as const },
-  { id: 'hygiene', label: 'Hijyen', icon: 'medkit-outline' as const },
-  { id: 'wrong_order', label: 'Yanlış sipariş', icon: 'swap-horizontal-outline' as const },
-  { id: 'seller_behavior', label: 'Satıcı davranışı', icon: 'person-outline' as const },
-  { id: 'other', label: 'Diğer', icon: 'ellipsis-horizontal-outline' as const },
+  { id: 'urun_kalitesi', label: 'Yemek kalitesi', icon: 'fast-food-outline' as const },
+  { id: 'teslimat_gecikmesi', label: 'Teslimat sorunu', icon: 'car-outline' as const },
+  { id: 'yanlis_urun', label: 'Yanlış sipariş', icon: 'swap-horizontal-outline' as const },
+  { id: 'ucret_iadesi', label: 'Ücret iadesi', icon: 'cash-outline' as const },
 ];
 
 type Props = {
