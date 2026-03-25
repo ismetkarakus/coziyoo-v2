@@ -24,13 +24,16 @@ function formatPrice(price: number): string {
 }
 
 function formatDate(iso: string): string {
-  const d = new Date(iso);
+  if (!iso) return '-';
+  // Normalize PostgreSQL timestamp: "2024-01-15 22:26:00.123+00" → valid ISO 8601
+  const normalized = iso
+    .trim()
+    .replace(' ', 'T')                   // space → T
+    .replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');  // +00 → +00:00
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return '-';
   const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-function orderNo(id: string): string {
-  return '#' + id.slice(0, 8).toUpperCase();
 }
 
 export default function OrderCard({ order, onPress }: Props) {
@@ -45,7 +48,6 @@ export default function OrderCard({ order, onPress }: Props) {
       <View style={styles.body}>
         <View style={styles.shopRow}>
           <Text style={styles.shop} numberOfLines={1}>{order.sellerName}</Text>
-          <Text style={styles.orderNo}>{orderNo(order.id)}</Text>
         </View>
         <Text style={styles.items} numberOfLines={1}>{itemNames || 'Sipariş kalemleri'}</Text>
       </View>
@@ -58,6 +60,10 @@ export default function OrderCard({ order, onPress }: Props) {
       </View>
     </TouchableOpacity>
   );
+}
+
+function orderNo(id: string): string {
+  return '#' + id.slice(0, 8).toUpperCase();
 }
 
 export { formatPrice, formatDate, orderNo };

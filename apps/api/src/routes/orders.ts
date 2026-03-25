@@ -182,6 +182,10 @@ ordersRouter.post(
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [orderInsert.rows[0].id, item.lotId, lot.food_id, item.quantity, price, lineTotal]
       );
+      await client.query(
+        `UPDATE production_lots SET quantity_available = quantity_available - $1 WHERE id = $2`,
+        [item.quantity, item.lotId]
+      );
     }
 
     await client.query(
@@ -898,6 +902,10 @@ voiceOrderRouter.post(
           `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [orderInsert.rows[0].id, item.lotId, lot.food_id, item.quantity, price, lineTotal]
+        );
+        await client.query(
+          `UPDATE production_lots SET quantity_available = quantity_available - $1 WHERE id = $2`,
+          [item.quantity, item.lotId]
         );
       }
 

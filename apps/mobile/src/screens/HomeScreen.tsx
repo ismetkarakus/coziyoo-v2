@@ -1055,6 +1055,8 @@ export default function HomeScreen({
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentAnimating, setPaymentAnimating] = useState(false);
+  const [allergenWarnMeal, setAllergenWarnMeal] = useState<MealCard | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatusSnapshot | null>(null);
@@ -1739,7 +1741,7 @@ export default function HomeScreen({
     setLocationModalVisible(false);
   }
 
-  function addMealToCart(meal: MealCard) {
+  function doAddMealToCart(meal: MealCard) {
     setActiveOrderId(null);
     setActiveOrderIds([]);
     setPaymentError(null);
@@ -1766,6 +1768,22 @@ export default function HomeScreen({
           : item,
       );
     });
+  }
+
+  function addMealToCart(meal: MealCard) {
+    const allergens = Array.isArray(meal.allergens) ? meal.allergens.filter(Boolean) : [];
+    if (allergens.length > 0) {
+      Alert.alert(
+        '⚠️ Alerjen Uyarısı',
+        `Bu yemek şu alerjenler içermektedir:\n\n🔴 ${allergens.join('\n🔴 ')}\n\nYine de sepete eklemek istiyor musunuz?`,
+        [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Yine de Ekle', style: 'destructive', onPress: () => doAddMealToCart(meal) },
+        ],
+      );
+      return;
+    }
+    doAddMealToCart(meal);
   }
 
   function decreaseCartItem(mealId: string) {
@@ -1926,10 +1944,8 @@ export default function HomeScreen({
       if (createdCheckoutUrls.length > 0) {
         setCheckoutUrl(createdCheckoutUrls[0]);
         setPendingCheckoutUrls(createdCheckoutUrls.slice(1));
-        setPaymentWebVisible(true);
-      } else {
-        setPaymentInfo('Checkout bağlantısı oluşturulamadı. Durum yenile ile kontrol et.');
       }
+      setPaymentAnimating(true);
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Ödeme başlatma hatası');
     } finally {
@@ -2905,6 +2921,7 @@ export default function HomeScreen({
   /* ---------- Main render ---------- */
 
   return (
+    <>
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F3EFE6" />
 
@@ -3620,12 +3637,264 @@ export default function HomeScreen({
           </View>
       </View>
     </SafeAreaView>
+
+      <Modal visible={paymentAnimating} transparent animationType="fade" onRequestClose={() => {}}>
+        <CartPaymentAnimation
+          onDone={() => {
+            setPaymentAnimating(false);
+            setCartItems([]);
+            setActiveOrderId(null);
+            setActiveOrderIds([]);
+            setPaymentStatus({
+              orderId: activeOrderIds[0] ?? activeOrderId ?? '',
+              orderStatus: 'confirmed',
+              paymentCompleted: true,
+              latestAttemptStatus: 'succeeded',
+            });
+            setPaymentInfo('Ödeme tamamlandı! Siparişin onaylandı.');
+            loadSettings().then((s) => fetchFoods(s.apiUrl));
+          }}
+        />
+      </Modal>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Cart Payment Animation                                             */
+/* ------------------------------------------------------------------ */
+
+const CART_PAY_STEPS = [
+  'Sipariş oluşturuluyor...',
+  'Ödeme alınıyor...',
+  'Satıcıya iletiliyor...',
+  'Tamamlandı!',
+];
+
+function CartPaymentAnimation({ onDone }: { onDone: () => void }) {
+  const cardScale = useRef(new Animated.Value(0.7)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
+  const ripple1 = useRef(new Animated.Value(0)).current;
+  const ripple2 = useRef(new Animated.Value(0)).current;
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
+  const stepOpacities = useRef(CART_PAY_STEPS.map(() => new Animated.Value(0))).current;
+  const checkOpacities = useRef(CART_PAY_STEPS.map(() => new Animated.Value(0))).current;
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const STEP_MS = 650;
+
+    Animated.timing(bgOpacity, { toValue: 1, duration: 280, useNativeDriver: true }).start();
+
+    Animated.parallel([
+      Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 55, useNativeDriver: true }),
+      Animated.timing(cardOpacity, { toValue: 1, duration: 320, useNativeDriver: true }),
+    ]).start();
+
+    // Ripple loops
+    const makeRipple = (val: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(val, { toValue: 1, duration: 1000, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          ]),
+          Animated.timing(val, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ])
+      );
+
+    const r1 = makeRipple(ripple1, 0);
+    const r2 = makeRipple(ripple2, 500);
+    r1.start();
+    r2.start();
+
+    // Dots
+    const dotLoop = Animated.loop(
+      Animated.stagger(180, [
+        Animated.sequence([
+          Animated.timing(dot1, { toValue: 1, duration: 260, useNativeDriver: true }),
+          Animated.timing(dot1, { toValue: 0.3, duration: 260, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(dot2, { toValue: 1, duration: 260, useNativeDriver: true }),
+          Animated.timing(dot2, { toValue: 0.3, duration: 260, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(dot3, { toValue: 1, duration: 260, useNativeDriver: true }),
+          Animated.timing(dot3, { toValue: 0.3, duration: 260, useNativeDriver: true }),
+        ]),
+      ])
+    );
+    dotLoop.start();
+
+    // Steps appear one by one
+    const stepAnims = CART_PAY_STEPS.map((_, i) =>
+      Animated.sequence([
+        Animated.delay(i * STEP_MS),
+        Animated.timing(stepOpacities[i], { toValue: 1, duration: 220, useNativeDriver: true }),
+      ])
+    );
+
+    Animated.parallel(stepAnims).start(() => {
+      // Check marks
+      const checkAnims = CART_PAY_STEPS.map((_, i) =>
+        Animated.sequence([
+          Animated.delay(i * 140),
+          Animated.timing(checkOpacities[i], { toValue: 1, duration: 180, useNativeDriver: true }),
+        ])
+      );
+      Animated.parallel(checkAnims).start(() => {
+        r1.stop();
+        r2.stop();
+        dotLoop.stop();
+
+        // Show success icon
+        Animated.parallel([
+          Animated.spring(successScale, { toValue: 1, friction: 5, tension: 60, useNativeDriver: true }),
+          Animated.timing(successOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+        ]).start(() => {
+          setTimeout(onDone, 900);
+        });
+      });
+    });
+  }, []);
+
+  return (
+    <Animated.View style={[cpStyles.overlay, { opacity: bgOpacity }]}>
+      <View style={cpStyles.card}>
+        {/* Ripple rings */}
+        <View style={cpStyles.iconWrap}>
+          {[ripple1, ripple2].map((r, i) => (
+            <Animated.View
+              key={i}
+              style={[
+                cpStyles.ripple,
+                {
+                  transform: [{ scale: Animated.add(new Animated.Value(1), Animated.multiply(r, new Animated.Value(0.7))) }],
+                  opacity: Animated.subtract(new Animated.Value(0.3), Animated.multiply(r, new Animated.Value(0.3))),
+                },
+              ]}
+            />
+          ))}
+          <Animated.View style={[cpStyles.iconCircle, { opacity: cardOpacity, transform: [{ scale: cardScale }] }]}>
+            <Ionicons name="card" size={34} color="#fff" />
+          </Animated.View>
+        </View>
+
+        <Text style={cpStyles.title}>Ödeme İşleniyor</Text>
+
+        {/* Dots */}
+        <View style={cpStyles.dots}>
+          {[dot1, dot2, dot3].map((d, i) => (
+            <Animated.View key={i} style={[cpStyles.dot, { opacity: d }]} />
+          ))}
+        </View>
+
+        {/* Steps */}
+        <View style={cpStyles.steps}>
+          {CART_PAY_STEPS.map((label, i) => (
+            <Animated.View key={i} style={[cpStyles.stepRow, { opacity: stepOpacities[i] }]}>
+              <Animated.View style={{ opacity: checkOpacities[i] }}>
+                <Ionicons name="checkmark-circle" size={17} color="#4A7C59" />
+              </Animated.View>
+              <Animated.View style={[cpStyles.stepDotEmpty, { opacity: Animated.subtract(new Animated.Value(1), checkOpacities[i]) }]} />
+              <Text style={cpStyles.stepText}>{label}</Text>
+            </Animated.View>
+          ))}
+        </View>
+
+        {/* Success */}
+        <Animated.View style={[cpStyles.successWrap, { opacity: successOpacity, transform: [{ scale: successScale }] }]}>
+          <Ionicons name="checkmark-circle" size={52} color="#4A7C59" />
+          <Text style={cpStyles.successText}>Siparişin Alındı!</Text>
+        </Animated.View>
+      </View>
+    </Animated.View>
   );
 }
 
 /* ------------------------------------------------------------------ */
 /*  Styles                                                             */
 /* ------------------------------------------------------------------ */
+
+const cpStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 22, 14, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFDF9',
+    borderRadius: 28,
+    padding: 28,
+    alignItems: 'center',
+    gap: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.22,
+    shadowRadius: 32,
+    elevation: 20,
+  },
+  iconWrap: {
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  ripple: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: '#4A7C59',
+  },
+  iconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    backgroundColor: '#4A7C59',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4A7C59',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  title: {
+    color: '#2F1F17',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  dots: { flexDirection: 'row', gap: 7, marginBottom: 24 },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4A7C59' },
+  steps: { width: '100%', gap: 11 },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepDotEmpty: {
+    position: 'absolute',
+    left: 0,
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#C8BEB2',
+  },
+  stepText: { color: '#5B4D42', fontSize: 14, fontWeight: '500' },
+  successWrap: { alignItems: 'center', gap: 6, marginTop: 20 },
+  successText: { color: '#2F6F4A', fontSize: 16, fontWeight: '800' },
+});
 
 const styles = StyleSheet.create({
   /* --- Layout --- */
@@ -3857,7 +4126,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   chipRow: {
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 14,
     paddingRight: 18,
   },
@@ -3866,8 +4135,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F4F0E9',
     borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: '#E5DDD2',
   },
@@ -4817,6 +5086,18 @@ const styles = StyleSheet.create({
   modalIngredientsPlain: { color: '#5F5246', fontSize: 14, lineHeight: 20 },
   modalAllergenTag: { backgroundColor: '#FDECEA', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#F5C6CB' },
   modalAllergenText: { color: '#DC3545', fontSize: 13, fontWeight: '600' },
+  allergenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  allergenModal: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', gap: 10 },
+  allergenIconRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  allergenModalTitle: { fontSize: 18, fontWeight: '800', color: '#C0392B' },
+  allergenModalBody: { fontSize: 14, color: '#5F5246' },
+  allergenModalList: { fontSize: 15, fontWeight: '700', color: '#C0392B' },
+  allergenModalQuestion: { fontSize: 14, color: '#5F5246', marginTop: 4 },
+  allergenModalActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  allergenCancelBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, backgroundColor: '#F0EBE4', alignItems: 'center' },
+  allergenCancelText: { fontSize: 15, fontWeight: '600', color: '#71685F' },
+  allergenAddBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, backgroundColor: '#C0392B', alignItems: 'center' },
+  allergenAddText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   modalPrice: { color: '#5B7A4A', fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 20 },
   modalCartButton: {
     backgroundColor: '#4A7C59', borderRadius: 16, paddingVertical: 16,

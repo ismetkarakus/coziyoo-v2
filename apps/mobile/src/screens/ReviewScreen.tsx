@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { theme } from '../theme/colors';
 import { type AuthSession } from '../utils/auth';
 import { apiRequest } from '../utils/api';
@@ -64,11 +64,11 @@ export default function ReviewScreen({ auth, orderId, onBack, onAuthRefresh }: P
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={0}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
       <ScreenHeader title="Yorum Yap" onBack={onBack} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
         {/* Rating */}
         <View style={styles.ratingCard}>
           <Text style={styles.ratingLabel}>Bu siparişi nasıl buldun?</Text>
@@ -86,11 +86,13 @@ export default function ReviewScreen({ auth, orderId, onBack, onAuthRefresh }: P
             onChangeText={setComment}
             placeholder="Deneyimini paylaş..."
             multiline
-            numberOfLines={5}
+            numberOfLines={4}
             maxLength={1000}
           />
         </View>
+      </View>
 
+      <View style={styles.footer}>
         <ActionButton
           label="Gönder"
           onPress={handleSubmit}
@@ -99,14 +101,15 @@ export default function ReviewScreen({ auth, orderId, onBack, onAuthRefresh }: P
           variant="primary"
           fullWidth
         />
-      </ScrollView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { flex: 1, padding: 16, gap: 16 },
+  footer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8, backgroundColor: theme.background },
   ratingCard: {
     backgroundColor: '#FCFBF9',
     borderRadius: 16,

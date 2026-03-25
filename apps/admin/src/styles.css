@@ -4869,6 +4869,30 @@ textarea:focus {
   box-shadow: 0 20px 42px rgba(74, 107, 168, 0.16);
 }
 
+.buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card,
+.buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card-btn {
+  background: color-mix(in srgb, #1d2f58 88%, transparent);
+  border-color: color-mix(in srgb, #8aafdf 40%, var(--ops-border-default));
+}
+
+.buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card-btn:hover,
+.buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card-btn:focus-visible {
+  background: color-mix(in srgb, #2a3f6a 88%, transparent);
+  border-color: color-mix(in srgb, #5d89dd 58%, var(--ops-border-default));
+}
+
+:root:not(.dark) .buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card,
+:root:not(.dark) .buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card-btn {
+  background: rgba(255, 255, 255, 0.86);
+  border-color: color-mix(in srgb, #8ea7db 40%, var(--ops-border-default));
+}
+
+:root:not(.dark) .buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card-btn:hover,
+:root:not(.dark) .buyer-ops-page .buyer-ops-modal .buyer-ref-profile-line-card-btn:focus-visible {
+  background: rgba(232, 241, 255, 0.95);
+  border-color: color-mix(in srgb, #5d89dd 58%, var(--ops-border-default));
+}
+
 :root:not(.dark) .buyer-ops-page .buyer-ops-modal label {
   color: #5a6e90;
 }

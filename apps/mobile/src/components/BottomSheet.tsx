@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Modal, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Modal, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
@@ -11,7 +11,7 @@ type Props = {
 export default function BottomSheet({ visible, onClose, children }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
@@ -20,7 +20,7 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
           </TouchableOpacity>
           {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

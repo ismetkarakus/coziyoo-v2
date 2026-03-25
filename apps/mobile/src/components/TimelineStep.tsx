@@ -8,9 +8,10 @@ type Props = {
   date: string;
   isLast?: boolean;
   isActive?: boolean;
+  reason?: string | null;
 };
 
-export default function TimelineStep({ status, date, isLast, isActive }: Props) {
+export default function TimelineStep({ status, date, isLast, isActive, reason }: Props) {
   const info = getStatusInfo(status);
 
   return (
@@ -26,6 +27,7 @@ export default function TimelineStep({ status, date, isLast, isActive }: Props) 
           {info.label}
         </Text>
         <Text style={styles.date}>{date}</Text>
+        {reason ? <Text style={styles.reason}>{reason}</Text> : null}
       </View>
     </View>
   );
@@ -45,4 +47,5 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingLeft: 10, paddingBottom: 16 },
   label: { color: '#71685F', fontSize: 14, fontWeight: '500' },
   date: { color: '#9B8E80', fontSize: 12, marginTop: 2 },
+  reason: { color: '#71685F', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
 });

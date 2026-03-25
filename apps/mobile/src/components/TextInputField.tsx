@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, type KeyboardTypeOptions } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, TextInput, StyleSheet, type KeyboardTypeOptions, type NativeSyntheticEvent, type TextInputSelectionChangeEventData } from 'react-native';
 import { theme } from '../theme/colors';
 
 type Props = {
@@ -20,13 +20,22 @@ export default function TextInputField({
   label, value, onChangeText, placeholder, multiline, numberOfLines,
   maxLength, keyboardType, autoCapitalize, error, editable = true,
 }: Props) {
+  const inputRef = useRef<TextInput>(null);
+
+  function handleSelectionChange(e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) {
+    if (!multiline) return;
+    const { start } = e.nativeEvent.selection;
+    (inputRef.current as any)?.scrollTo?.({ y: start, animated: false });
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        ref={inputRef}
         style={[
           styles.input,
-          multiline && { minHeight: (numberOfLines ?? 3) * 22, textAlignVertical: 'top' },
+          multiline && { minHeight: (numberOfLines ?? 3) * 24, maxHeight: (numberOfLines ?? 3) * 24, textAlignVertical: 'top' },
           error && styles.inputError,
           !editable && styles.inputDisabled,
         ]}
@@ -40,6 +49,8 @@ export default function TextInputField({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         editable={editable}
+        scrollEnabled={multiline}
+        onSelectionChange={multiline ? handleSelectionChange : undefined}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
