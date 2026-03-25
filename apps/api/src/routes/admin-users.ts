@@ -3740,6 +3740,8 @@ adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), 
     food_id: string;
     food_name: string;
     food_image_url: string | null;
+    seller_name: string | null;
+    seller_email: string | null;
     rating: number;
     comment: string | null;
     created_at: string;
@@ -3751,12 +3753,15 @@ adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), 
        r.food_id,
        f.name AS food_name,
        f.image_url AS food_image_url,
+       s.display_name AS seller_name,
+       s.email AS seller_email,
        r.rating,
        r.comment,
        r.created_at::text,
        r.updated_at::text
      FROM reviews r
      JOIN foods f ON f.id = r.food_id
+     LEFT JOIN users s ON s.id = r.seller_id
      WHERE r.buyer_id = $1
      ORDER BY r.created_at ${sortDir}, r.id ${sortDir}
      LIMIT $2 OFFSET $3`,
@@ -3771,6 +3776,8 @@ adminUserManagementRouter.get("/users/:id/buyer-reviews", requireAuth("admin"), 
       foodId: row.food_id,
       foodName: row.food_name,
       foodImageUrl: row.food_image_url,
+      sellerName: row.seller_name,
+      sellerEmail: row.seller_email,
       rating: row.rating,
       comment: row.comment,
       createdAt: row.created_at,

@@ -47,6 +47,8 @@ export type BuyerReviewRow = {
   foodId: string;
   foodName: string;
   foodImageUrl: string | null;
+  sellerName: string | null;
+  sellerEmail: string | null;
   rating: number;
   comment: string | null;
   createdAt: string;
