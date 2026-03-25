@@ -973,6 +973,7 @@ function FoodCard({
                   <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
                     {meal.seller}
                   </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.subtitle} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -4420,8 +4421,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  foodSellerInline: { fontSize: 13, fontWeight: '700' },
+  foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  foodSellerInline: { fontSize: 15, fontWeight: '700' },
   foodCuisineInline: { fontSize: 12, fontWeight: '600' },
   foodStockText: { fontSize: 11, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
