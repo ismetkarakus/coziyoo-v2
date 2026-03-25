@@ -1864,11 +1864,9 @@ export default function HomeScreen({
       const createdCheckoutUrls: string[] = [];
 
       for (const [sellerId, sellerItems] of groupedBySeller.entries()) {
-        const orderRes = await fetch(`${apiUrl}/v1/orders`, {
+        const orderRes = await authedJsonFetch(`${apiUrl}/v1/orders`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${currentAuth.accessToken}`,
             'x-actor-role': 'buyer',
             'Idempotency-Key': `mobile-order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           },
@@ -1903,11 +1901,9 @@ export default function HomeScreen({
         }
         createdOrderIds.push(orderId);
 
-        const paymentRes = await fetch(`${apiUrl}/v1/payments/start`, {
+        const paymentRes = await authedJsonFetch(`${apiUrl}/v1/payments/start`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${currentAuth.accessToken}`,
             'x-actor-role': 'buyer',
             'Idempotency-Key': `mobile-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           },

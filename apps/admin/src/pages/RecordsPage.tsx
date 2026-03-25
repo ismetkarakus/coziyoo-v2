@@ -894,7 +894,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
             <section className="records-order-section">
               <header className="records-order-head">
                 <div className="records-order-title-wrap">
-                  <h3>{`${dict.records.activeOrderDetail}: #${toDisplayId(selectedOrderId)}`}</h3>
+                  <h3>{`${dict.records.activeOrderDetail}: ${toDisplayId(selectedOrderId)}`}</h3>
                   <button
                     className={`ghost records-copy-btn ${copyFeedbackKey === "order-id" ? "is-copied" : ""}`}
                     type="button"

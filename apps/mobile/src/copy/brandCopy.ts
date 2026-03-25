@@ -6,8 +6,8 @@ export const brandCopy = {
   'helper.home.searchPlaceholder': 'Yemek ya da usta ara...',
   'helper.home.stockLimitTitle': 'Stok sınırı',
   'helper.home.stockLimitMessage': 'Bu yemekte kalan kadar sepete ekleyebilirsin.',
-  'helper.home.stockLinePrefix': 'Toplam:',
-  'status.home.stockLineSuffix': 'kaldı',
+  'helper.home.stockLinePrefix': 'kaldı',
+  'status.home.stockLineSuffix': 'porsiyon',
   'helper.home.cartEmptyTitle': 'Sepetin şu an boş.',
   'cta.home.cartCheckout': 'Sofranı hazırla',
   'cta.home.paymentRefresh': 'Durumu yenile',
@@ -302,7 +302,7 @@ export function randomHomeGreetingSubtitle(date = new Date()): string {
 }
 
 export function stockLine(totalStock: number, remainingStock: number): string {
-  return `${t('helper.home.stockLinePrefix')} ${totalStock}/${remainingStock} ${t('status.home.stockLineSuffix')}`;
+  return `${remainingStock} ${t('status.home.stockLineSuffix')} ${t('helper.home.stockLinePrefix')}`;
 }
 
 export function requestErrorLine(status: number): string {

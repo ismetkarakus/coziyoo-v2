@@ -24,7 +24,7 @@ export function formatTableHeader(column: string): string {
 export function toDisplayId(raw: unknown): string {
   const text = String(raw ?? "").trim();
   if (!text) return "-";
-  return text;
+  return "#" + text.slice(0, 8).toUpperCase();
 }
 
 export function adminRoleLabel(dict: Dictionary, value: "admin" | "super_admin"): string {
