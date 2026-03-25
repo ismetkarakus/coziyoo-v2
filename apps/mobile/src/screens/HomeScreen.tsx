@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   Easing,
   FlatList,
   Image,
@@ -1044,6 +1045,7 @@ export default function HomeScreen({
     image?: string | null;
   } | null>(null);
   const [sellerModalTouchGuardUntil, setSellerModalTouchGuardUntil] = useState(0);
+  const sellerModalSlideX = useRef(new Animated.Value(Dimensions.get('window').width)).current;
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
@@ -2197,11 +2199,34 @@ export default function HomeScreen({
     if (!pendingSellerOpen || selectedMeal) return;
     const timer = setTimeout(() => {
       setSelectedSeller(pendingSellerOpen);
-      setSellerModalTouchGuardUntil(Date.now() + 150);
+      setSellerModalTouchGuardUntil(Date.now() + 500);
       setPendingSellerOpen(null);
     }, 120);
     return () => clearTimeout(timer);
   }, [pendingSellerOpen, selectedMeal]);
+
+  useEffect(() => {
+    if (!selectedSeller) return;
+    sellerModalSlideX.setValue(Dimensions.get('window').width);
+    Animated.timing(sellerModalSlideX, {
+      toValue: 0,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [selectedSeller, sellerModalSlideX]);
+
+  const closeSellerModal = useCallback(() => {
+    Animated.timing(sellerModalSlideX, {
+      toValue: Dimensions.get('window').width,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setSelectedSeller(null);
+      setSellerModalTouchGuardUntil(0);
+    });
+  }, [sellerModalSlideX]);
 
 
   /* ---------- Render helpers ---------- */
@@ -3275,9 +3300,9 @@ export default function HomeScreen({
       {/* Agent modal */}
       <Modal
         visible={!!selectedSeller}
-        animationType="slide"
+        animationType="none"
         transparent
-        onRequestClose={() => setSelectedSeller(null)}
+        onRequestClose={closeSellerModal}
       >
         {selectedSeller ? (
           <View style={styles.modalOverlay}>
@@ -3286,13 +3311,18 @@ export default function HomeScreen({
               activeOpacity={1}
               onPress={() => {
                 if (Date.now() < sellerModalTouchGuardUntil) return;
-                setSelectedSeller(null);
+                closeSellerModal();
               }}
             />
-            <View style={styles.sellerModalContent}>
+            <Animated.View
+              style={[
+                styles.sellerModalContent,
+                { transform: [{ translateX: sellerModalSlideX }] },
+              ]}
+            >
               <TouchableOpacity
                 style={styles.modalClose}
-                onPress={() => setSelectedSeller(null)}
+                onPress={closeSellerModal}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
@@ -3404,7 +3434,7 @@ export default function HomeScreen({
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
+            </Animated.View>
           </View>
         ) : null}
       </Modal>
