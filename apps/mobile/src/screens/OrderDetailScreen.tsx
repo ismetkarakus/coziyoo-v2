@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { theme } from '../theme/colors';
 import { type AuthSession } from '../utils/auth';
 import { apiRequest } from '../utils/api';
@@ -97,6 +98,7 @@ export default function OrderDetailScreen({
   const [cancelModal, setCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
+  const locationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true);
@@ -144,6 +146,52 @@ export default function OrderDetailScreen({
     const timer = setInterval(() => { void fetchTracking(); }, 20_000);
     return () => clearInterval(timer);
   }, [fetchTracking, order]);
+
+  // Seller location ping — only when seller + in_delivery + delivery type
+  useEffect(() => {
+    const isSeller = order?.sellerId === auth.userId;
+    if (!order || !isSeller || order.deliveryType !== 'delivery' || order.status !== 'in_delivery') {
+      if (locationTimerRef.current) {
+        clearInterval(locationTimerRef.current);
+        locationTimerRef.current = null;
+      }
+      return;
+    }
+
+    async function pingLocation() {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        await apiRequest(
+          `/v1/orders/${order!.id}/location`,
+          auth,
+          {
+            method: 'POST',
+            body: {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+              accuracyM: loc.coords.accuracy ?? undefined,
+            },
+            actorRole: 'seller',
+          },
+          onAuthRefresh,
+        );
+      } catch {
+        // Best-effort, silently ignore
+      }
+    }
+
+    void pingLocation();
+    locationTimerRef.current = setInterval(() => { void pingLocation(); }, 15_000);
+
+    return () => {
+      if (locationTimerRef.current) {
+        clearInterval(locationTimerRef.current);
+        locationTimerRef.current = null;
+      }
+    };
+  }, [auth, onAuthRefresh, order]);
 
   async function handleCancel() {
     if (!order) return;

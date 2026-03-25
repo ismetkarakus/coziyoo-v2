@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -19,7 +20,43 @@ import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
+import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function registerPushToken(auth: AuthSession, apiUrl: string) {
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    const { status } = existing === 'granted'
+      ? { status: existing }
+      : await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const token = tokenData.data;
+    const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+
+    await fetch(`${apiUrl}/v1/notifications/device-token`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({ token, platform }),
+    });
+  } catch {
+    // Push registration is best-effort; never block the user
+  }
+}
 
 type Screen =
   | 'loading' | 'onboarding' | 'login' | 'home'
@@ -46,6 +83,8 @@ export default function App() {
   const [complaintBackTarget, setComplaintBackTarget] = useState<'orderDetail' | 'complaintOrders'>('orderDetail');
 
   const [isNewRegistration, setIsNewRegistration] = useState(false);
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     loadAuthSession().then((stored) => {
@@ -57,6 +96,30 @@ export default function App() {
       }
     });
   }, []);
+
+  // Register push token and notification listeners when auth is set
+  useEffect(() => {
+    if (!auth) return;
+
+    loadSettings().then((s) => {
+      void registerPushToken(auth, s.apiUrl);
+    });
+
+    // Navigate to order detail when notification is tapped
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const orderId = data?.orderId as string | undefined;
+      if (orderId) {
+        setSelectedOrderId(orderId);
+        setScreen('orderDetail');
+      }
+    });
+
+    return () => {
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+    };
+  }, [auth]);
 
   function handleLogin(session: AuthSession) {
     setAuth(session);
