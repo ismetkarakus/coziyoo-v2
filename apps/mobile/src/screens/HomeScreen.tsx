@@ -3207,8 +3207,9 @@ export default function HomeScreen({
                 style={styles.modalSellerRow}
                 activeOpacity={0.7}
                 onPress={() => {
+                  const seller = { id: selectedMeal.sellerId, name: selectedMeal.seller, image: selectedMeal.sellerImage ?? null };
                   setSelectedMeal(null);
-                  setSelectedSeller({ id: selectedMeal.sellerId, name: selectedMeal.seller, image: selectedMeal.sellerImage ?? null });
+                  setTimeout(() => setSelectedSeller(seller), 350);
                 }}
               >
                 <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
