@@ -362,9 +362,9 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
     ),
     pool.query<{
       event_type: string; from_status: string | null; to_status: string | null;
-      created_at: string;
+      created_at: string; payload_json: { reason?: string } | null;
     }>(
-      `SELECT event_type, from_status, to_status, created_at::text
+      `SELECT event_type, from_status, to_status, created_at::text, payload_json
        FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`,
       [orderId]
     ),
@@ -399,9 +399,67 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
         fromStatus: e.from_status,
         toStatus: e.to_status,
         createdAt: e.created_at,
+        reason: e.payload_json?.reason ?? null,
       })),
     },
   });
+});
+
+ordersRouter.post("/:id/review", requireAuth("app"), async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const buyerId = req.auth!.userId;
+    const parsedRating = Number(req.body?.rating);
+    const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
+
+    if (!Number.isFinite(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ error: { code: "INVALID_RATING", message: "Rating must be between 1 and 5" } });
+    }
+
+    const orderRes = await pool.query<{ seller_id: string; status: string; buyer_id: string }>(
+      `SELECT seller_id, status, buyer_id FROM orders WHERE id = $1`,
+      [orderId]
+    );
+    if (!orderRes.rows[0]) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Order not found" } });
+    const order = orderRes.rows[0];
+
+    if (order.buyer_id !== buyerId) return res.status(403).json({ error: { code: "FORBIDDEN", message: "Not your order" } });
+    if (!["completed", "delivered"].includes(order.status)) {
+      return res.status(400).json({ error: { code: "NOT_COMPLETED", message: "Order must be completed to review" } });
+    }
+
+    const existing = await pool.query(`SELECT id FROM reviews WHERE order_id = $1`, [orderId]);
+    if (existing.rows.length > 0) return res.status(400).json({ error: { code: "ALREADY_REVIEWED", message: "Order already reviewed" } });
+
+    const itemRes = await pool.query<{ food_id: string | null }>(
+      `SELECT food_id FROM order_items WHERE order_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [orderId]
+    );
+    const foodId = itemRes.rows[0]?.food_id;
+    if (!foodId) return res.status(400).json({ error: { code: "NO_ITEMS", message: "No items in order" } });
+
+    await pool.query(
+      `INSERT INTO reviews (food_id, buyer_id, seller_id, order_id, rating, comment, is_verified_purchase)
+       VALUES ($1, $2, $3, $4, $5, $6, true)`,
+      [foodId, buyerId, order.seller_id, orderId, parsedRating, comment || null]
+    );
+
+    await pool.query(
+      `UPDATE foods SET
+         rating = (SELECT AVG(rating) FROM reviews WHERE food_id = $1),
+         review_count = (SELECT COUNT(*) FROM reviews WHERE food_id = $1)
+       WHERE id = $1`,
+      [foodId]
+    );
+
+    return res.json({ data: { success: true } });
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      return res.status(400).json({ error: { code: "ALREADY_REVIEWED", message: "Order already reviewed" } });
+    }
+    console.error("[orders] review error:", err);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to submit review" } });
+  }
 });
 
 ordersRouter.post("/:id/approve", requireAuth("app"), async (req, res) => {
