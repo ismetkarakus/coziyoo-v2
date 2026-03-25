@@ -53,6 +53,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
   const [email, setEmail] = useState('');
   const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
+  const fallbackEmail = currentAuth.email || auth.email || '';
 
   function normalizeDobValue(value: string | null | undefined): string {
     const raw = (value ?? '').trim();
@@ -135,7 +136,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       setPhone(data.phone ?? '');
       setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
-      setEmail(data.email ?? '');
+      setEmail(data.email?.trim() || fallbackEmail);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
     } finally {
@@ -198,6 +199,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       setPhone(data.phone ?? '');
       setDob(normalizeDobValue(data.dob));
       setTcKimlikNo(data.countryCode ?? '');
+      setEmail(data.email?.trim() || fallbackEmail);
       setSuccess(true);
       if (isNewRegistration) {
         setTimeout(() => onBack(), 800);
@@ -374,7 +376,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
                   </View>
                   <View style={styles.infoDivider} />
                   <View style={styles.emailRow}>
-                    <Text style={styles.infoValue}>{email}</Text>
+                    <Text style={styles.infoValue}>{email || fallbackEmail || '-'}</Text>
                     <View style={styles.verifiedBadge}>
                       <Ionicons name="checkmark-circle" size={18} color="#3E845B" />
                     </View>
