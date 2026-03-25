@@ -1037,6 +1037,11 @@ export default function HomeScreen({
     name: string;
     image?: string | null;
   } | null>(null);
+  const [pendingSellerOpen, setPendingSellerOpen] = useState<{
+    id: string;
+    name: string;
+    image?: string | null;
+  } | null>(null);
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
@@ -2186,6 +2191,16 @@ export default function HomeScreen({
     };
   }, [selectedSeller?.id, apiUrl, currentAuth.accessToken]);
 
+  useEffect(() => {
+    if (!pendingSellerOpen) return;
+    if (selectedMeal) return;
+    const timer = setTimeout(() => {
+      setSelectedSeller(pendingSellerOpen);
+      setPendingSellerOpen(null);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [pendingSellerOpen, selectedMeal]);
+
   /* ---------- Render helpers ---------- */
 
   function renderHomeFeed() {
@@ -3190,7 +3205,7 @@ export default function HomeScreen({
                 activeOpacity={0.7}
                 onPress={() => {
                   const seller = { id: selectedMeal.sellerId, name: selectedMeal.seller, image: selectedMeal.sellerImage ?? null };
-                  setSelectedSeller(seller);
+                  setPendingSellerOpen(seller);
                   setSelectedMeal(null);
                 }}
               >
