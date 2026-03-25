@@ -230,6 +230,7 @@
           </div>
           <div class="provider-fields-tts" data-provider-section="tts" style="display:none; grid-template-columns:1fr; gap:8px;">
             <div><label>Default Model</label><input class="input" type="text" name="model" value="{{ acf.model or '' }}" /></div>
+            <div><label>Model Fetch Path</label><input class="input" type="text" name="tts_models_path" placeholder="/v1/models" value="{{ acf.tts_models_path or acf.models_path or '' }}" /></div>
             <div><label>Language</label><input class="input" type="text" name="language" placeholder="multilingual" value="{{ acf.language or '' }}" /></div>
             <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" placeholder="input" value="{{ acf.text_field_name or '' }}" /></div>
             <div style="grid-column:1 / span 2;"><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ acf.custom_headers_json or '{}' }}</textarea></div>
@@ -237,6 +238,7 @@
           </div>
           <div class="provider-fields-stt" data-provider-section="stt" style="display:none; grid-template-columns:1fr; gap:8px;">
             <div><label>Default Model</label><input class="input" type="text" name="model" value="{{ acf.model or '' }}" /></div>
+            <div><label>Model Fetch Path</label><input class="input" type="text" name="stt_models_path" placeholder="/v1/models" value="{{ acf.stt_models_path or acf.models_path or '' }}" /></div>
             <div><label>Language</label><input class="input" type="text" name="language" value="{{ acf.language or '' }}" /></div>
             <div></div>
             <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ acf.custom_headers_json or '{}' }}</textarea></div>
@@ -311,6 +313,7 @@
                 {% elif t == 'tts' %}
                 <div style="display:grid; grid-template-columns:1fr; gap:8px;">
                   <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" value="{{ tc.get('endpoint_path', '') }}" /></div>
+                  <div><label>Model Fetch Path</label><input class="input" type="text" name="tts_models_path" value="{{ tc.get('models_path', cp.models_path or '') }}" /></div>
                   <div><label>Default Model</label><input class="input" type="text" name="model" value="{{ tc.get('model', '') }}" /></div>
                   <div><label>Language</label><input class="input" type="text" name="language" value="{{ tc.get('language', '') }}" /></div>
                   <div><label>Text Field Name</label><input class="input" type="text" name="text_field_name" value="{{ tc.get('text_field_name', '') }}" /></div>
@@ -319,6 +322,7 @@
                 {% elif t == 'stt' %}
                 <div style="display:grid; grid-template-columns:1fr; gap:8px;">
                   <div><label>Endpoint Path</label><input class="input" type="text" name="endpoint_path" value="{{ tc.get('endpoint_path', '') }}" /></div>
+                  <div><label>Model Fetch Path</label><input class="input" type="text" name="stt_models_path" value="{{ tc.get('models_path', cp.models_path or '') }}" /></div>
                   <div><label>Default Model</label><input class="input" type="text" name="model" value="{{ tc.get('model', '') }}" /></div>
                   <div><label>Language</label><input class="input" type="text" name="language" value="{{ tc.get('language', '') }}" /></div>
                   <div><label>custom_headers (JSON)</label><textarea class="input" rows="2" name="custom_headers">{{ (tc.get('custom_headers') or {}) | tojson }}</textarea></div>

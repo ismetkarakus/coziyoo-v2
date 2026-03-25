@@ -1049,6 +1049,7 @@ def _build_known_catalog_entries() -> list[dict[str, Any]]:
             entry["types"].append(ptype)
         type_cfg: dict[str, Any] = {
             "endpoint_path": str(item.get("endpoint_path") or "").strip(),
+            "models_path": str(item.get("models_path") or "").strip(),
             "model": str(item.get("model") or "").strip(),
             "api_key_slot": str(item.get("api_key_slot") or "").strip(),
             "custom_headers": _dict(item.get("custom_headers")),
@@ -1081,6 +1082,7 @@ def _extract_catalog_providers(tts_cfg: dict[str, Any]) -> list[dict[str, Any]]:
         def _parse_type_cfg(src: dict[str, Any], ptype: str) -> dict[str, Any]:
             tc: dict[str, Any] = {
                 "endpoint_path": str(src.get("endpointPath") or src.get("endpoint_path") or "").strip(),
+                "models_path": str(src.get("modelsPath") or src.get("models_path") or row.get("modelsPath") or row.get("models_path") or "").strip(),
                 "model": str(src.get("model") or "").strip(),
                 "api_key_slot": str(src.get("apiKeySlot") or src.get("api_key_slot") or "").strip(),
                 "custom_headers": _dict(src.get("customHeaders") or src.get("custom_headers")),
@@ -1199,6 +1201,7 @@ def _catalog_to_camel(catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             tc_camel: dict[str, Any] = {
                 "endpointPath": tc.get("endpoint_path", ""),
+                "modelsPath": tc.get("models_path", c.get("models_path", "")),
                 "model": tc.get("model", ""),
                 "apiKeySlot": tc.get("api_key_slot", ""),
                 "customHeaders": _dict(tc.get("custom_headers")),
@@ -1419,7 +1422,7 @@ def _resolve_provider_instance(
         "provider_instance_id": instance_id,
         "base_url": str((catalog_entry or {}).get("base_url") or ""),
         "endpoint_path": str(type_cfg.get("endpoint_path") or ""),
-        "models_path": str((catalog_entry or {}).get("models_path") or ""),
+        "models_path": str(type_cfg.get("models_path") or (catalog_entry or {}).get("models_path") or ""),
         "model": str(type_cfg.get("model") or ""),
         "language": str(type_cfg.get("language") or ""),
         "voice_id": str(type_cfg.get("voice_id") or ""),
@@ -1518,10 +1521,24 @@ def _provider_form_config(provider_type: str, form: Any, current: dict[str, Any]
             return {}
         return _dict(parsed)
 
+    current_type_cfg = _dict((current or {}).get(f"{provider_type}_config"))
+    type_models_field = {
+        "llm": "llm_models_path",
+        "tts": "tts_models_path",
+        "stt": "stt_models_path",
+    }.get(provider_type, "models_path")
+    type_models_path = str(
+        (form.get(type_models_field) if form else None)
+        or (form.get("models_path") if form else None)
+        or current_type_cfg.get("models_path")
+        or (current or {}).get("models_path")
+        or ""
+    ).strip()
+
     base: dict[str, Any] = {
         "base_url": str((form.get("base_url") if form else None) or (current or {}).get("base_url") or "").strip(),
         "endpoint_path": str((form.get("endpoint_path") if form else None) or (current or {}).get("endpoint_path") or "").strip(),
-        "models_path": str((form.get("models_path") if form else None) or (current or {}).get("models_path") or "").strip(),
+        "models_path": type_models_path,
         "api_key_id": str((form.get("api_key_id") if form else None) or (current or {}).get("api_key_id") or "").strip(),
     }
     if provider_type == "llm":
@@ -1571,6 +1588,8 @@ def _default_custom_provider_form() -> dict[str, str]:
         "base_url": "",
         "endpoint_path": "",
         "models_path": "",
+        "tts_models_path": "",
+        "stt_models_path": "",
         "model": "",
         "language": "",
         "voice_id": "",
@@ -1653,6 +1672,8 @@ def _build_custom_provider_form_from_curl(raw_curl: str, existing: dict[str, str
             "base_url": str(parsed.get("base_url") or "").strip(),
             "endpoint_path": endpoint_path,
             "models_path": "/v1/models",
+            "tts_models_path": "/v1/models" if provider_type == "tts" else "",
+            "stt_models_path": "/v1/models" if provider_type == "stt" else "",
             "model": model,
             "language": language,
             "voice_id": voice_id,
@@ -1680,6 +1701,7 @@ def _default_type_config_for_catalog_entry(catalog_id: str, provider_type: str) 
         if str(row.get("id") or "").strip() == catalog_id and str(row.get("type") or "").strip().lower() == provider_type:
             return {
                 "endpoint_path": str(row.get("endpoint_path") or ""),
+                "models_path": str(row.get("models_path") or ""),
                 "model": str(row.get("model") or ""),
                 "api_key_slot": str(row.get("api_key_slot") or ""),
                 "language": str(row.get("language") or ""),
@@ -1691,6 +1713,7 @@ def _default_type_config_for_catalog_entry(catalog_id: str, provider_type: str) 
             }
     return {
         "endpoint_path": "",
+        "models_path": "",
         "model": "",
         "api_key_slot": "",
         "language": "",
@@ -2945,6 +2968,7 @@ async def dashboard_catalog_providers_save(request: Request):
                     existing_type_cfg = current.get(f"{provider_type}_config") or {}
                     updated_type_cfg: dict[str, Any] = {
                         "endpoint_path": cfg.get("endpoint_path", existing_type_cfg.get("endpoint_path", "")),
+                        "models_path": cfg.get("models_path", existing_type_cfg.get("models_path", current.get("models_path", ""))),
                         "model": cfg.get("model", existing_type_cfg.get("model", "")),
                         "api_key_slot": existing_type_cfg.get("api_key_slot", ""),
                         "custom_headers": _dict(cfg.get("custom_headers")) or _dict(existing_type_cfg.get("custom_headers")),
@@ -3001,6 +3025,7 @@ async def dashboard_catalog_providers_save(request: Request):
                 if t == provider_type:
                     entry[f"{t}_config"] = {
                         "endpoint_path": cfg.get("endpoint_path", ""),
+                        "models_path": cfg.get("models_path", ""),
                         "model": cfg.get("model", ""),
                         "api_key_slot": "",
                         "language": cfg.get("language", ""),
