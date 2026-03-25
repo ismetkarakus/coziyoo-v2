@@ -282,6 +282,7 @@ export default function App() {
         food={selectedFood}
         onBack={() => goHome('home')}
         onAddToCart={(_food: FoodItem, _quantity: number) => goHome('cart')}
+        onOpenSeller={() => goHome('home')}
       />
     );
   }

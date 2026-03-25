@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Image, StyleSheet, StatusBar, Alert } from 'react-native';
+import { View, Text, ScrollView, Image, StyleSheet, StatusBar, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
@@ -30,9 +30,10 @@ type Props = {
   onBack: () => void;
   onAddToCart: (food: FoodItem, quantity: number) => void;
   onOpenSellerReviews?: (sellerId: string) => void;
+  onOpenSeller?: (sellerId: string) => void;
 };
 
-export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSellerReviews }: Props) {
+export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSellerReviews, onOpenSeller }: Props) {
   const [quantity, setQuantity] = useState(1);
 
   function handleAdd() {
@@ -136,7 +137,19 @@ export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSell
         {/* Allergens */}
         {food.allergens.length > 0 && (
           <View style={[styles.section, styles.allergenSection]}>
-            <SectionDivider icon="warning-outline" label="Alerjenler" />
+            <View style={styles.allergenHeaderRow}>
+              <View style={{ marginBottom: 0 }}>
+                <SectionDivider icon="warning-outline" label="Alerjenler" />
+              </View>
+              <TouchableOpacity
+                style={styles.sellerLink}
+                onPress={() => onOpenSeller ? onOpenSeller(food.seller.id) : onBack()}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sellerLinkText}>{food.seller.name}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#3E845B" />
+              </TouchableOpacity>
+            </View>
             <View style={styles.tagRow}>
               {food.allergens.map((a, i) => (
                 <View key={i} style={styles.allergenTag}>
@@ -227,6 +240,9 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   allergenSection: { borderColor: '#F5D8A0', backgroundColor: '#FFFBF0' },
+  allergenHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 },
+  sellerLink: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  sellerLinkText: { color: '#3E845B', fontSize: 13, fontWeight: '700' },
   sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sellerImg: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.primary },
   sellerImgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
