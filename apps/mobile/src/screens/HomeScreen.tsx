@@ -3203,7 +3203,17 @@ export default function HomeScreen({
                 )}
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
-              <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
+              <TouchableOpacity
+                style={styles.modalSellerRow}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setSelectedMeal(null);
+                  setSelectedSeller({ id: selectedMeal.sellerId, name: selectedMeal.seller, image: selectedMeal.sellerImage ?? null });
+                }}
+              >
+                <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#71685F" />
+              </TouchableOpacity>
               {selectedMeal.cuisine ? (
                 <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfağı</Text>
               ) : null}
@@ -5069,7 +5079,8 @@ const styles = StyleSheet.create({
   modalImage: { width: '100%' as unknown as number, height: '100%' as unknown as number },
   modalEmoji: { fontSize: 56 },
   modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
-  modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  modalSellerRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 },
+  modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600' },
   modalCuisine: { color: '#A89B8C', fontSize: 13, fontStyle: 'italic', marginBottom: 8 },
   modalBasis: { color: '#5E7C69', fontSize: 12, fontWeight: '600', marginBottom: 8 },
   modalInfoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 8 },
