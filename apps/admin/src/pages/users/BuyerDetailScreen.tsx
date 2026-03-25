@@ -1013,6 +1013,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                     <tr>
                       <th>Tarih / Saat</th>
                       <th>Yemek</th>
+                      <th>Yemek ID</th>
                       <th>Usta</th>
                       <th>Puan</th>
                       <th>Yorum</th>
@@ -1020,11 +1021,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                   </thead>
                   <tbody>
                     {reviews.length === 0 ? (
-                      <tr><td colSpan={5}>Yorum kaydi bulunamadi.</td></tr>
+                      <tr><td colSpan={6}>Yorum kaydi bulunamadi.</td></tr>
                     ) : reviews.map((item) => (
                       <tr key={item.id}>
                         <td>{formatTableDateTime(item.createdAt)}</td>
                         <td>{item.foodName}</td>
+                        <td>{item.foodId}</td>
                         <td>{item.sellerName ?? item.sellerEmail ?? "-"}</td>
                         <td>{item.rating}/5</td>
                         <td>{item.comment ?? "-"}</td>
