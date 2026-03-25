@@ -3380,6 +3380,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
     seller_name: string | null;
     seller_email: string | null;
     delivery_type: string | null;
+    delivery_address_json: unknown;
     status: string;
     total_price: string;
     payment_completed: boolean;
@@ -3398,6 +3399,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
        su.display_name AS seller_name,
        su.email AS seller_email,
        o.delivery_type,
+       o.delivery_address_json,
        o.status,
        o.total_price::text,
        o.payment_completed,
@@ -3450,6 +3452,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
       sellerName: row.seller_name,
       sellerEmail: row.seller_email,
       deliveryType: row.delivery_type,
+      deliveryAddress: row.delivery_address_json ?? null,
       status: row.status,
       totalAmount: Number(row.total_price),
       paymentCompleted: row.payment_completed,

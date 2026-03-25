@@ -430,6 +430,17 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     if (filteredOrders.length === 0 && orders.length > 0) return orders;
     return filteredOrders;
   }, [filteredOrders, orders]);
+  const formatDeliveryAddress = (value: unknown): string => {
+    if (!value || typeof value !== "object") return "";
+    const row = value as Record<string, unknown>;
+    const line = String(row.line ?? row.addressLine ?? row.address_line ?? "").trim();
+    const district = String(row.district ?? "").trim();
+    const city = String(row.city ?? "").trim();
+    const postalCode = String(row.postalCode ?? row.postal_code ?? "").trim();
+    const left = [line, district].filter(Boolean).join(", ");
+    const right = [city, postalCode].filter(Boolean).join(", ");
+    return [left, right].filter(Boolean).join(" / ").trim();
+  };
   const buyerRawPayload = {
     user: row,
     contact: contactInfo,
@@ -905,6 +916,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                           : String(order.deliveryType ?? "").toLowerCase() === "pickup"
                             ? "Elden Teslim"
                             : "-";
+                        const deliveryAddressText = formatDeliveryAddress(order.deliveryAddress);
                         const paymentState = paymentBadge(order.paymentStatus);
                         const statusText = paymentState.cls === "is-pending"
                           ? "Bekleyen"
@@ -925,7 +937,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                               </button>
                             </td>
                             <td>{order.sellerName ?? order.sellerEmail ?? order.sellerId}</td>
-                            <td>{deliveryText}</td>
+                            <td>
+                              <div className="buyer-login-cell">
+                                <strong>{deliveryText}</strong>
+                                <small>{deliveryAddressText || "-"}</small>
+                              </div>
+                            </td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
                             <td>{formatCurrency(order.totalAmount, "tr")}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>

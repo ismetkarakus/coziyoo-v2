@@ -29,6 +29,7 @@ export type BuyerOrderRow = {
   sellerName: string | null;
   sellerEmail: string | null;
   deliveryType: string | null;
+  deliveryAddress: unknown | null;
   status: string;
   totalAmount: number;
   paymentCompleted: boolean;
