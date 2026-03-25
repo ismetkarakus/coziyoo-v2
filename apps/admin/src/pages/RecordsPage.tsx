@@ -13,6 +13,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
   const urlSearchQuery = tableKey === "orders" ? (new URLSearchParams(location.search).get("search") ?? "").trim() : "";
+  const autoOpenOrderId = tableKey === "orders" ? (new URLSearchParams(location.search).get("openOrderId") ?? "").trim() : "";
   const returnTo = tableKey === "orders" ? (new URLSearchParams(location.search).get("returnTo") ?? "").trim() : "";
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
@@ -32,6 +33,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
+  const autoOpenedOrderIdRef = useRef<string>("");
   const pageSize = 20;
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
@@ -508,6 +510,22 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     setSearch(urlSearchQuery);
     setPage(1);
   }, [tableKey, urlSearchQuery]);
+
+  useEffect(() => {
+    if (tableKey !== "orders") return;
+    autoOpenedOrderIdRef.current = "";
+  }, [tableKey, autoOpenOrderId]);
+
+  useEffect(() => {
+    if (tableKey !== "orders") return;
+    if (!autoOpenOrderId) return;
+    if (autoOpenedOrderIdRef.current === autoOpenOrderId) return;
+    if (loading) return;
+    const row = rows.find((item) => String(item.id ?? "").trim() === autoOpenOrderId);
+    if (!row) return;
+    autoOpenedOrderIdRef.current = autoOpenOrderId;
+    void openOrderDetails(row);
+  }, [tableKey, autoOpenOrderId, rows, loading]);
 
   useEffect(() => {
     setSortBy(null);

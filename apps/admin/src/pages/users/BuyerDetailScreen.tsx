@@ -470,6 +470,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     const returnToPath = `${location.pathname}${location.search || ""}`;
     const params = new URLSearchParams({
       search: normalizedOrderId,
+      openOrderId: normalizedOrderId,
       returnTo: returnToPath,
     });
     navigate(`/app/orders?${params.toString()}`);
