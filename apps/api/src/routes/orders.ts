@@ -108,6 +108,7 @@ ordersRouter.post(
 
   const client = await pool.connect();
   const pushQueue: PushNotificationPayload[] = [];
+  let committed = false;
   try {
     await client.query("BEGIN");
 
@@ -252,8 +253,13 @@ ordersRouter.post(
     );
 
     await client.query("COMMIT");
+    committed = true;
     if (pushQueue.length > 0) {
-      await flushPushNotifications(pushQueue);
+      try {
+        await flushPushNotifications(pushQueue);
+      } catch (pushErr) {
+        console.error("[orders] push flush failed after create commit", pushErr);
+      }
     }
     return res.status(201).json({
       data: {
@@ -263,7 +269,9 @@ ordersRouter.post(
       },
     });
   } catch {
-    await client.query("ROLLBACK");
+    if (!committed) {
+      await client.query("ROLLBACK");
+    }
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Order create failed" } });
   } finally {
     client.release();
@@ -467,6 +475,7 @@ ordersRouter.post("/:id/location", requireAuth("app"), async (req, res) => {
 
   const client = await pool.connect();
   const pushQueue: PushNotificationPayload[] = [];
+  let committed = false;
   try {
     await client.query("BEGIN");
     const order = await client.query<{
@@ -547,8 +556,13 @@ ordersRouter.post("/:id/location", requireAuth("app"), async (req, res) => {
     }
 
     await client.query("COMMIT");
+    committed = true;
     if (pushQueue.length > 0) {
-      await flushPushNotifications(pushQueue);
+      try {
+        await flushPushNotifications(pushQueue);
+      } catch (pushErr) {
+        console.error("[orders] push flush failed after location commit", pushErr);
+      }
     }
 
     return res.json({
@@ -560,7 +574,9 @@ ordersRouter.post("/:id/location", requireAuth("app"), async (req, res) => {
       },
     });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (!committed) {
+      await client.query("ROLLBACK");
+    }
     const message = err instanceof Error ? err.message : "unknown";
     console.error("[orders] location ping error:", message);
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Location update failed" } });
@@ -724,6 +740,7 @@ async function transitionHandler(
 
   const client = await pool.connect();
   const pushQueue: PushNotificationPayload[] = [];
+  let committed = false;
   try {
     await client.query("BEGIN");
     const orderResult = await client.query<OrderRow>(
@@ -941,12 +958,19 @@ async function transitionHandler(
     }
 
     await client.query("COMMIT");
+    committed = true;
     if (pushQueue.length > 0) {
-      await flushPushNotifications(pushQueue);
+      try {
+        await flushPushNotifications(pushQueue);
+      } catch (pushErr) {
+        console.error("[orders] push flush failed after transition commit", pushErr);
+      }
     }
     return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus } });
   } catch {
-    await client.query("ROLLBACK");
+    if (!committed) {
+      await client.query("ROLLBACK");
+    }
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Order transition failed" } });
   } finally {
     client.release();

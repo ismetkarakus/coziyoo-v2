@@ -13,6 +13,13 @@ type MilestoneType =
   | "at_door"
   | "profile_long";
 
+type PgLikeError = { code?: string; message?: string };
+
+function isIgnorableNotificationInfraError(err: unknown): boolean {
+  const e = err as PgLikeError;
+  return ["42P01", "42703", "42883", "3F000"].includes(String(e?.code ?? ""));
+}
+
 function milestoneMessage(milestone: Exclude<MilestoneType, "profile_long">): { title: string; body: string } {
   switch (milestone) {
     case "order_received":
@@ -41,32 +48,40 @@ export async function emitOrderMilestoneTx(
   },
   pushQueue: PushNotificationPayload[],
 ): Promise<boolean> {
-  const milestoneInsert = await queryable.query<{ id: string }>(
-    `INSERT INTO order_notification_milestones (order_id, milestone_type, sent_at, created_at)
-     VALUES ($1, $2, now(), now())
-     ON CONFLICT (order_id, milestone_type) DO NOTHING
-     RETURNING id::text`,
-    [input.orderId, input.milestone],
-  );
+  try {
+    const milestoneInsert = await queryable.query<{ id: string }>(
+      `INSERT INTO order_notification_milestones (order_id, milestone_type, sent_at, created_at)
+       VALUES ($1, $2, now(), now())
+       ON CONFLICT (order_id, milestone_type) DO NOTHING
+       RETURNING id::text`,
+      [input.orderId, input.milestone],
+    );
 
-  if (milestoneInsert.rowCount === 0) return false;
+    if (milestoneInsert.rowCount === 0) return false;
 
-  const msg = milestoneMessage(input.milestone);
-  await createNotificationEventTx(queryable, {
-    userId: input.buyerId,
-    type: input.milestone,
-    title: msg.title,
-    body: msg.body,
-    dataJson: { orderId: input.orderId, milestone: input.milestone },
-  });
+    const msg = milestoneMessage(input.milestone);
+    await createNotificationEventTx(queryable, {
+      userId: input.buyerId,
+      type: input.milestone,
+      title: msg.title,
+      body: msg.body,
+      dataJson: { orderId: input.orderId, milestone: input.milestone },
+    });
 
-  pushQueue.push({
-    userId: input.buyerId,
-    title: msg.title,
-    body: msg.body,
-    data: { orderId: input.orderId, type: "order_update", milestone: input.milestone },
-  });
-  return true;
+    pushQueue.push({
+      userId: input.buyerId,
+      title: msg.title,
+      body: msg.body,
+      data: { orderId: input.orderId, type: "order_update", milestone: input.milestone },
+    });
+    return true;
+  } catch (err) {
+    if (isIgnorableNotificationInfraError(err)) {
+      console.warn("[order-notifications] milestone skipped due to missing notification infra");
+      return false;
+    }
+    throw err;
+  }
 }
 
 export async function markLongProfileIfNeededTx(
@@ -74,28 +89,42 @@ export async function markLongProfileIfNeededTx(
   input: { orderId: string; routeDurationSec: number | null },
 ): Promise<boolean> {
   if (input.routeDurationSec === null || input.routeDurationSec < 12 * 60) return false;
-
-  const inserted = await queryable.query<{ id: string }>(
-    `INSERT INTO order_notification_milestones (order_id, milestone_type, sent_at, created_at)
-     VALUES ($1, 'profile_long', now(), now())
-     ON CONFLICT (order_id, milestone_type) DO NOTHING
-     RETURNING id::text`,
-    [input.orderId],
-  );
-  return (inserted.rowCount ?? 0) > 0;
+  try {
+    const inserted = await queryable.query<{ id: string }>(
+      `INSERT INTO order_notification_milestones (order_id, milestone_type, sent_at, created_at)
+       VALUES ($1, 'profile_long', now(), now())
+       ON CONFLICT (order_id, milestone_type) DO NOTHING
+       RETURNING id::text`,
+      [input.orderId],
+    );
+    return (inserted.rowCount ?? 0) > 0;
+  } catch (err) {
+    if (isIgnorableNotificationInfraError(err)) {
+      console.warn("[order-notifications] profile_long skipped due to missing notification infra");
+      return false;
+    }
+    throw err;
+  }
 }
 
 async function isLongProfileOrderTx(queryable: Queryable, orderId: string): Promise<boolean> {
-  const row = await queryable.query<{ exists: boolean }>(
-    `SELECT EXISTS(
-       SELECT 1
-       FROM order_notification_milestones
-       WHERE order_id = $1
-         AND milestone_type = 'profile_long'
-     ) AS exists`,
-    [orderId],
-  );
-  return Boolean(row.rows[0]?.exists);
+  try {
+    const row = await queryable.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1
+         FROM order_notification_milestones
+         WHERE order_id = $1
+           AND milestone_type = 'profile_long'
+       ) AS exists`,
+      [orderId],
+    );
+    return Boolean(row.rows[0]?.exists);
+  } catch (err) {
+    if (isIgnorableNotificationInfraError(err)) {
+      return false;
+    }
+    throw err;
+  }
 }
 
 export async function emitEtaMilestonesTx(
