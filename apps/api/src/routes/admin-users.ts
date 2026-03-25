@@ -901,7 +901,7 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
        CASE WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN 'buyer' ELSE 'seller' END AS complained_against_type,
        CASE
          WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN o.buyer_id::text
-         ELSE o.seller_id::text
+         ELSE seller_snapshot.seller_id
        END AS complained_against_user_id,
        CASE
          WHEN ${COMPLAINANT_TYPE_SQL} = 'seller' THEN buyer_target.display_name
@@ -925,7 +925,20 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
      LEFT JOIN users actor ON actor.id = COALESCE(c.complainant_user_id, c.complainant_buyer_id)
-     LEFT JOIN users seller_target ON seller_target.id = o.seller_id
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(
+         NULLIF((
+           SELECT oe.payload_json ->> 'sellerId'
+           FROM order_events oe
+           WHERE oe.order_id = o.id
+             AND oe.event_type = 'order_created'
+           ORDER BY oe.created_at ASC
+           LIMIT 1
+         ), ''),
+         o.seller_id::text
+       ) AS seller_id
+     ) seller_snapshot ON TRUE
+     LEFT JOIN users seller_target ON seller_target.id::text = seller_snapshot.seller_id
      LEFT JOIN users buyer_target ON buyer_target.id = o.buyer_id
      LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
