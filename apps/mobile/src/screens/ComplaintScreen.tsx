@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, StatusBar, Alert, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/colors';
 import { type AuthSession } from '../utils/auth';
@@ -78,11 +78,20 @@ export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
       <ScreenHeader title="Şikayet Oluştur" onBack={onBack} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.contentScroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Category Selection */}
         <Text style={styles.sectionTitle}>Şikayet Kategorisi</Text>
         <View style={styles.categoryGrid}>
@@ -119,6 +128,9 @@ export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }
           />
         </View>
 
+      </ScrollView>
+
+      <View style={styles.footer}>
         <ActionButton
           label="Şikayeti Gönder"
           onPress={handleSubmit}
@@ -127,14 +139,23 @@ export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }
           variant="primary"
           fullWidth
         />
-      </ScrollView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
-  content: { padding: 16, paddingBottom: 40 },
+  contentScroll: { flex: 1 },
+  content: { padding: 16, paddingBottom: 20 },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: theme.background,
+    borderTopWidth: 1,
+    borderTopColor: '#ECE4D9',
+  },
   sectionTitle: { color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   categoryCard: {
