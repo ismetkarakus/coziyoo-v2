@@ -889,6 +889,13 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
     assigned_admin_email: string | null;
     created_at: string;
     status: "open" | "in_review" | "resolved" | "closed";
+    order_delivery_type: "pickup" | "delivery" | null;
+    order_delivery_address_json: unknown;
+    order_buyer_name: string | null;
+    order_buyer_email: string | null;
+    order_seller_name: string | null;
+    order_seller_email: string | null;
+    order_items_json: Array<{ foodId: string; foodName: string | null; quantity: number }> | null;
   }>(
     `SELECT
        c.id::text,
@@ -921,7 +928,14 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
        c.assigned_admin_id::text,
        au.email AS assigned_admin_email,
        c.created_at::text,
-       c.status
+       c.status,
+       o.delivery_type AS order_delivery_type,
+       o.delivery_address_json AS order_delivery_address_json,
+       buyer_target.display_name AS order_buyer_name,
+       buyer_target.email AS order_buyer_email,
+       seller_target.display_name AS order_seller_name,
+       seller_target.email AS order_seller_email,
+       order_items.items AS order_items_json
      FROM complaints c
      JOIN orders o ON o.id = c.order_id
      LEFT JOIN users actor ON actor.id = COALESCE(c.complainant_user_id, c.complainant_buyer_id)
@@ -940,6 +954,21 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
      ) seller_snapshot ON TRUE
      LEFT JOIN users seller_target ON seller_target.id::text = seller_snapshot.seller_id
      LEFT JOIN users buyer_target ON buyer_target.id = o.buyer_id
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(
+         json_agg(
+           json_build_object(
+             'foodId', oi.food_id::text,
+             'foodName', f.name,
+             'quantity', oi.quantity
+           ) ORDER BY oi.created_at ASC
+         ),
+         '[]'::json
+       ) AS items
+       FROM order_items oi
+       LEFT JOIN foods f ON f.id = oi.food_id
+       WHERE oi.order_id = o.id
+     ) order_items ON TRUE
      LEFT JOIN complaint_categories cat ON cat.id = c.category_id
      LEFT JOIN admin_users au ON au.id = c.assigned_admin_id
      WHERE c.id = $1
@@ -977,6 +1006,13 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
       assignedAdminEmail: row.assigned_admin_email,
       createdAt: row.created_at,
       status: row.status,
+      orderSummary: {
+        buyerName: row.order_buyer_name ?? row.order_buyer_email ?? "-",
+        sellerName: row.order_seller_name ?? row.order_seller_email ?? "-",
+        deliveryType: row.order_delivery_type,
+        deliveryAddress: row.order_delivery_address_json ?? null,
+        items: row.order_items_json ?? [],
+      },
     },
   });
 });

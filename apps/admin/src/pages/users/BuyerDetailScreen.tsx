@@ -4,6 +4,7 @@ import { request, parseJson } from "../../lib/api";
 import { getCachedUser, setCachedUser } from "../../lib/prefetch";
 import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
+import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { formatUiDate, formatBirthDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
 import { paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
@@ -65,6 +66,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketSuccess, setTicketSuccess] = useState<{ id: string; ticketNo?: number } | null>(null);
+  const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
 
   async function loadBuyerCritical() {
     const requestId = ++buyerCriticalReqRef.current;
@@ -986,7 +988,15 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       <tr key={item.id}>
                         <td>{formatTableDateTime(item.createdAt)}</td>
                         <td>{item.description?.trim() || "-"}</td>
-                        <td className="buyer-order-no">{item.orderNo}</td>
+                        <td className="buyer-order-no">
+                          <button
+                            type="button"
+                            className="ghost buyer-ops-mini-btn"
+                            onClick={() => setSelectedComplaintId(item.id)}
+                          >
+                            {item.orderNo}
+                          </button>
+                        </td>
                         <td>{item.categoryName ?? item.categoryCode ?? "-"}</td>
                         <td>{item.status}</td>
                       </tr>
@@ -1272,6 +1282,26 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
               <button className="ghost" type="button" onClick={() => setEmailOpen(false)}>Vazgec</button>
               <button className="primary" type="button" onClick={openEmail}>E-posta Ac</button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedComplaintId ? (
+        <div
+          className="buyer-ops-modal-backdrop complaint-detail-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedComplaintId(null)}
+        >
+          <div
+            className="buyer-ops-modal complaint-detail-modal-shell"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <InvestigationComplaintDetailPage
+              language={language}
+              complaintId={selectedComplaintId}
+              onClose={() => setSelectedComplaintId(null)}
+            />
           </div>
         </div>
       ) : null}

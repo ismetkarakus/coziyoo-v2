@@ -31,6 +31,13 @@ type ComplaintDetail = {
   assignedAdminEmail: string | null;
   createdAt: string;
   status: ComplaintStatus;
+  orderSummary?: {
+    buyerName: string;
+    sellerName: string;
+    deliveryType: "pickup" | "delivery" | null;
+    deliveryAddress: { city?: string; district?: string; line?: string } | null;
+    items: Array<{ foodId: string; foodName: string | null; quantity: number }>;
+  };
 };
 
 type ComplaintNote = {
@@ -75,6 +82,20 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
   const categoryLabel = detail?.categoryName ?? dict.investigation.noCategory;
   const descriptionText = detail?.description?.trim() || (language === "tr" ? "Açıklama girilmemiş" : "No description provided");
   const currentAdminLabel = currentAdmin?.email ?? dict.investigation.unassigned;
+  const orderItemsText = (detail?.orderSummary?.items ?? [])
+    .map((item) => `${item.foodName ?? (language === "tr" ? "Yemek" : "Food")} x${item.quantity}`)
+    .join(", ");
+  const orderAddress = detail?.orderSummary?.deliveryAddress as Record<string, unknown> | null | undefined;
+  const orderAddressText = orderAddress
+    ? [
+      String(orderAddress.addressLine ?? "").trim(),
+      String(orderAddress.line ?? "").trim(),
+      String(orderAddress.neighborhood ?? "").trim(),
+      String(orderAddress.district ?? "").trim(),
+      String(orderAddress.city ?? "").trim(),
+      String(orderAddress.title ?? "").trim(),
+    ].filter(Boolean).join(", ")
+    : null;
 
   useEffect(() => {
     const textarea = noteInputRef.current;
@@ -287,6 +308,37 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <strong>{detail.complainedAgainstName}</strong>
                 <span>{detail.complainedAgainstEmail ?? detail.complainedAgainstUserId}</span>
               </button>
+            </div>
+
+            <div className="complaint-summary-divider" />
+
+            <div className="complaint-description-header">
+              <div className="complaint-description-meta">
+                <div className="complaint-description-row">
+                  <span className="complaint-detail-label">{language === "tr" ? "Sipariş No" : "Order No"}</span>
+                  <span className="complaint-description-value">{detail.orderNo}</span>
+                </div>
+                <div className="complaint-description-row">
+                  <span className="complaint-detail-label">{language === "tr" ? "Alıcı" : "Buyer"}</span>
+                  <span className="complaint-description-value">{detail.orderSummary?.buyerName ?? "-"}</span>
+                </div>
+                <div className="complaint-description-row">
+                  <span className="complaint-detail-label">{language === "tr" ? "Satıcı" : "Seller"}</span>
+                  <span className="complaint-description-value">{detail.orderSummary?.sellerName ?? "-"}</span>
+                </div>
+                <div className="complaint-description-row">
+                  <span className="complaint-detail-label">{language === "tr" ? "Yemekler" : "Foods"}</span>
+                  <span className="complaint-description-value">{orderItemsText || "-"}</span>
+                </div>
+                <div className="complaint-description-row">
+                  <span className="complaint-detail-label">{language === "tr" ? "Teslimat" : "Delivery"}</span>
+                  <span className="complaint-description-value">
+                    {detail.orderSummary?.deliveryType === "pickup"
+                      ? (language === "tr" ? "Gel al" : "Pickup")
+                      : orderAddressText || (language === "tr" ? "Adres bilgisi yok" : "No address")}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="complaint-summary-divider" />
