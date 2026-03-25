@@ -1,8 +1,10 @@
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { startPayoutScheduler } from "./services/payout-scheduler.js";
+import { startDeliveryTrackingScheduler } from "./services/delivery-tracking-scheduler.js";
 
 startPayoutScheduler();
+startDeliveryTrackingScheduler();
 
 app.listen(env.PORT, env.HOST, () => {
   console.log(`API listening on http://${env.HOST}:${env.PORT}`);

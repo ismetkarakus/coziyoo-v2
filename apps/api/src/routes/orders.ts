@@ -16,6 +16,9 @@ import {
 import { finalizeOrderFinanceTx } from "../services/finance.js";
 import { enqueueOutboxEvent } from "../services/outbox.js";
 import { allocateLotsFefoTx } from "../services/lots.js";
+import { emitEtaMilestonesTx, emitOrderMilestoneTx } from "../services/order-notifications.js";
+import { flushPushNotifications, type PushNotificationPayload } from "../services/push-notifications.js";
+import { estimateRouteDurationSeconds, extractAddressLine, extractLatLng, geocodeAddress, type LatLng } from "../services/routing.js";
 
 const CreateOrderSchema = z.object({
   sellerId: z.string().uuid(),
@@ -53,7 +56,31 @@ type OrderRow = {
   status: OrderStatus;
   total_price: string;
   delivery_type: string;
+  delivery_address_json: unknown;
+  estimated_delivery_time: string | null;
 };
+
+const OrderLocationPingSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  accuracyM: z.number().int().positive().max(10000).optional(),
+});
+
+function resolveDeliveryDestination(deliveryAddressJson: unknown): { coord: LatLng | null; addressLine: string | null } {
+  const coord = extractLatLng(deliveryAddressJson);
+  const addressLine = extractAddressLine(deliveryAddressJson);
+  return { coord, addressLine };
+}
+
+function trackingStatusLabel(status: string): string {
+  if (status === "in_delivery") return "Yolda";
+  if (status === "ready") return "Hazır";
+  if (status === "preparing") return "Hazırlanıyor";
+  if (status === "delivered") return "Teslim edildi";
+  if (status === "completed") return "Tamamlandı";
+  if (status === "cancelled") return "İptal edildi";
+  return "Sipariş alındı";
+}
 
 export const ordersRouter = Router();
 
@@ -80,6 +107,7 @@ ordersRouter.post(
   const input = parsed.data;
 
   const client = await pool.connect();
+  const pushQueue: PushNotificationPayload[] = [];
   try {
     await client.query("BEGIN");
 
@@ -213,7 +241,20 @@ ordersRouter.post(
       },
     });
 
+    await emitOrderMilestoneTx(
+      client,
+      {
+        orderId: orderInsert.rows[0].id,
+        buyerId: req.auth!.userId,
+        milestone: "order_received",
+      },
+      pushQueue,
+    );
+
     await client.query("COMMIT");
+    if (pushQueue.length > 0) {
+      await flushPushNotifications(pushQueue);
+    }
     return res.status(201).json({
       data: {
         orderId: orderInsert.rows[0].id,
@@ -409,6 +450,178 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
   });
 });
 
+/**
+ * POST /orders/:id/location
+ * Seller location ping during delivery.
+ */
+ordersRouter.post("/:id/location", requireAuth("app"), async (req, res) => {
+  const actorRole = resolveActorRole(req);
+  if (actorRole !== "seller") {
+    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+
+  const parsed = OrderLocationPingSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const client = await pool.connect();
+  const pushQueue: PushNotificationPayload[] = [];
+  try {
+    await client.query("BEGIN");
+    const order = await client.query<{
+      id: string;
+      buyer_id: string;
+      seller_id: string;
+      status: string;
+      delivery_type: string;
+      delivery_address_json: unknown;
+      estimated_delivery_time: string | null;
+    }>(
+      `SELECT id, buyer_id, seller_id, status, delivery_type, delivery_address_json, estimated_delivery_time::text
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [req.params.id],
+    );
+
+    if (order.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
+    }
+
+    const row = order.rows[0];
+    if (row.seller_id !== req.auth!.userId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not seller of this order" } });
+    }
+    if (row.delivery_type !== "delivery") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: { code: "NOT_DELIVERY_ORDER", message: "Tracking only for delivery orders" } });
+    }
+    if (row.status !== "in_delivery") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: { code: "ORDER_NOT_IN_DELIVERY", message: "Location updates require in_delivery state" } });
+    }
+
+    await client.query(
+      `INSERT INTO order_delivery_tracking (order_id, seller_user_id, latitude, longitude, accuracy_m, captured_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, now(), now())`,
+      [row.id, row.seller_id, parsed.data.lat, parsed.data.lng, parsed.data.accuracyM ?? null],
+    );
+
+    let destination = extractLatLng(row.delivery_address_json);
+    if (!destination) {
+      const line = extractAddressLine(row.delivery_address_json);
+      if (line) destination = await geocodeAddress(line);
+    }
+
+    let remainingSec: number | null = null;
+    let routeDurationSec: number | null = null;
+    if (destination) {
+      routeDurationSec = await estimateRouteDurationSeconds(
+        { lat: parsed.data.lat, lng: parsed.data.lng },
+        destination,
+      );
+      if (routeDurationSec !== null) {
+        remainingSec = Math.max(0, routeDurationSec);
+        const eta = new Date(Date.now() + routeDurationSec * 1000);
+        await client.query(
+          "UPDATE orders SET estimated_delivery_time = $1, updated_at = now() WHERE id = $2",
+          [eta, row.id],
+        );
+      }
+    }
+
+    if (remainingSec !== null) {
+      await emitEtaMilestonesTx(
+        client,
+        {
+          orderId: row.id,
+          buyerId: row.buyer_id,
+          remainingSeconds: remainingSec,
+          routeDurationSec,
+        },
+        pushQueue,
+      );
+    }
+
+    await client.query("COMMIT");
+    if (pushQueue.length > 0) {
+      await flushPushNotifications(pushQueue);
+    }
+
+    return res.json({
+      data: {
+        orderId: row.id,
+        remainingMinutes: remainingSec === null ? null : Math.max(0, Math.ceil(remainingSec / 60)),
+        estimatedDeliveryTime:
+          remainingSec === null ? row.estimated_delivery_time : new Date(Date.now() + (remainingSec * 1000)).toISOString(),
+      },
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    const message = err instanceof Error ? err.message : "unknown";
+    console.error("[orders] location ping error:", message);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Location update failed" } });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * GET /orders/:id/tracking
+ * Buyer or seller tracking snapshot for delivery orders.
+ */
+ordersRouter.get("/:id/tracking", requireAuth("app"), async (req, res) => {
+  const order = await pool.query<{
+    id: string;
+    buyer_id: string;
+    seller_id: string;
+    status: string;
+    delivery_type: string;
+    estimated_delivery_time: string | null;
+  }>(
+    `SELECT id, buyer_id, seller_id, status, delivery_type, estimated_delivery_time::text
+     FROM orders
+     WHERE id = $1
+     LIMIT 1`,
+    [req.params.id],
+  );
+
+  if (order.rowCount === 0) {
+    return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
+  }
+  const row = order.rows[0];
+  if (row.buyer_id !== req.auth!.userId && row.seller_id !== req.auth!.userId) {
+    return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "No access to this order" } });
+  }
+
+  const latestLoc = await pool.query<{ captured_at: string }>(
+    `SELECT captured_at::text
+     FROM order_delivery_tracking
+     WHERE order_id = $1
+     ORDER BY captured_at DESC
+     LIMIT 1`,
+    [row.id],
+  );
+
+  const eta = row.estimated_delivery_time ? new Date(row.estimated_delivery_time) : null;
+  const remainingMinutes = eta ? Math.max(0, Math.ceil((eta.getTime() - Date.now()) / 60000)) : null;
+
+  return res.json({
+    data: {
+      orderId: row.id,
+      status: row.status,
+      statusLabel: trackingStatusLabel(row.status),
+      isDelivery: row.delivery_type === "delivery",
+      estimatedDeliveryTime: eta ? eta.toISOString() : null,
+      remainingMinutes,
+      lastSellerLocationAt: latestLoc.rows[0]?.captured_at ?? null,
+    },
+  });
+});
+
 ordersRouter.post("/:id/review", requireAuth("app"), async (req, res) => {
   try {
     const orderId = req.params.id;
@@ -510,10 +723,14 @@ async function transitionHandler(
   }
 
   const client = await pool.connect();
+  const pushQueue: PushNotificationPayload[] = [];
   try {
     await client.query("BEGIN");
     const orderResult = await client.query<OrderRow>(
-      "SELECT id, buyer_id, seller_id, status, total_price::text, delivery_type FROM orders WHERE id = $1 FOR UPDATE",
+      `SELECT id, buyer_id, seller_id, status, total_price::text, delivery_type, delivery_address_json, estimated_delivery_time::text
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
       [req.params.id]
     );
 
@@ -643,6 +860,11 @@ async function transitionHandler(
     if (toStatus === "preparing") {
       try {
         await allocateLotsFefoTx({ client, orderId: order.id, sellerId: order.seller_id });
+        await emitOrderMilestoneTx(
+          client,
+          { orderId: order.id, buyerId: order.buyer_id, milestone: "order_preparing" },
+          pushQueue,
+        );
       } catch (error) {
         const msg = error instanceof Error ? error.message : "LOT_ALLOCATE_FAILED";
         if (msg.startsWith("INSUFFICIENT_LOT_STOCK:")) {
@@ -653,6 +875,48 @@ async function transitionHandler(
         }
         throw error;
       }
+    }
+
+    if (toStatus === "in_delivery" && order.delivery_type === "delivery") {
+      let destination = extractLatLng(order.delivery_address_json);
+      if (!destination) {
+        const addrLine = extractAddressLine(order.delivery_address_json);
+        if (addrLine) {
+          destination = await geocodeAddress(addrLine);
+        }
+      }
+
+      let routeDurationSec: number | null = null;
+      const latestSellerLoc = await client.query<{ latitude: string; longitude: string }>(
+        `SELECT latitude::text, longitude::text
+         FROM order_delivery_tracking
+         WHERE order_id = $1
+         ORDER BY captured_at DESC
+         LIMIT 1`,
+        [order.id],
+      );
+      if (destination && (latestSellerLoc.rowCount ?? 0) > 0) {
+        const origin: LatLng = {
+          lat: Number(latestSellerLoc.rows[0].latitude),
+          lng: Number(latestSellerLoc.rows[0].longitude),
+        };
+        routeDurationSec = await estimateRouteDurationSeconds(origin, destination);
+      }
+      if (routeDurationSec !== null) {
+        const eta = new Date(Date.now() + routeDurationSec * 1000);
+        await client.query("UPDATE orders SET estimated_delivery_time = $1, updated_at = now() WHERE id = $2", [eta, order.id]);
+        await emitEtaMilestonesTx(
+          client,
+          { orderId: order.id, buyerId: order.buyer_id, remainingSeconds: routeDurationSec, routeDurationSec },
+          pushQueue,
+        );
+      }
+
+      await emitOrderMilestoneTx(
+        client,
+        { orderId: order.id, buyerId: order.buyer_id, milestone: "order_in_delivery" },
+        pushQueue,
+      );
     }
 
     if (toStatus === "completed") {
@@ -677,6 +941,9 @@ async function transitionHandler(
     }
 
     await client.query("COMMIT");
+    if (pushQueue.length > 0) {
+      await flushPushNotifications(pushQueue);
+    }
     return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus } });
   } catch {
     await client.query("ROLLBACK");

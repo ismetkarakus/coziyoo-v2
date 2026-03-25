@@ -258,6 +258,7 @@ export default function App() {
       <NotificationsScreen
         auth={auth}
         onBack={() => goHome('notifications')}
+        onOpenOrderDetail={(id) => { setSelectedOrderId(id); setScreen('orderDetail'); }}
         onAuthRefresh={setAuth}
       />
     );

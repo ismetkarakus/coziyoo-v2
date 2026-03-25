@@ -33,6 +33,16 @@ type OrderDetail = {
   events: { eventType: string; fromStatus: string | null; toStatus: string | null; createdAt: string; reason?: string | null }[];
 };
 
+type OrderTracking = {
+  orderId: string;
+  status: string;
+  statusLabel: string;
+  isDelivery: boolean;
+  estimatedDeliveryTime: string | null;
+  remainingMinutes: number | null;
+  lastSellerLocationAt: string | null;
+};
+
 function formatDeliveryAddress(value: unknown): string | null {
   if (!value) return null;
 
@@ -86,6 +96,7 @@ export default function OrderDetailScreen({
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelModal, setCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [tracking, setTracking] = useState<OrderTracking | null>(null);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true);
@@ -107,6 +118,32 @@ export default function OrderDetailScreen({
   useEffect(() => { fetchOrder(); }, [fetchOrder]);
 
   const isBuyer = order?.buyerId === auth.userId;
+  const actorRole = isBuyer ? 'buyer' : 'seller';
+
+  const fetchTracking = useCallback(async () => {
+    if (!order || order.deliveryType !== 'delivery') {
+      setTracking(null);
+      return;
+    }
+    const result = await apiRequest<OrderTracking>(
+      `/v1/orders/${order.id}/tracking`,
+      auth,
+      { actorRole },
+      onAuthRefresh,
+    );
+    if (result.ok) {
+      setTracking(result.data);
+    }
+  }, [actorRole, auth, onAuthRefresh, order]);
+
+  useEffect(() => {
+    if (!order || order.deliveryType !== 'delivery') return;
+    void fetchTracking();
+    const active = ['preparing', 'ready', 'in_delivery'].includes(order.status);
+    if (!active) return;
+    const timer = setInterval(() => { void fetchTracking(); }, 20_000);
+    return () => clearInterval(timer);
+  }, [fetchTracking, order]);
 
   async function handleCancel() {
     if (!order) return;
@@ -199,6 +236,18 @@ export default function OrderDetailScreen({
           <SectionDivider icon="storefront-outline" label="Satıcı" />
           <Text style={styles.sectionValue}>{order.sellerName}</Text>
         </View>
+
+        {order.deliveryType === 'delivery' && (
+          <View style={styles.section}>
+            <SectionDivider icon="navigate-outline" label="Canlı Teslimat Durumu" />
+            <Text style={styles.trackingStatus}>{tracking?.statusLabel ?? 'Durum güncelleniyor'}</Text>
+            <Text style={styles.trackingEta}>
+              {tracking?.remainingMinutes !== null && tracking?.remainingMinutes !== undefined
+                ? `${tracking.remainingMinutes} dk kaldı`
+                : 'Kalan süre hesaplanıyor'}
+            </Text>
+          </View>
+        )}
 
         {/* Items */}
         <View style={styles.section}>
@@ -318,6 +367,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sectionValue: { color: theme.text, fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  trackingStatus: { color: theme.text, fontSize: 16, fontWeight: '800' },
+  trackingEta: { color: '#71685F', fontSize: 14, fontWeight: '600', marginTop: 4 },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

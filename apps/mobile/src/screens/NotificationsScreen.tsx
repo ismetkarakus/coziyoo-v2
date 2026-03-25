@@ -22,6 +22,13 @@ type NotificationItem = {
 const TYPE_ICONS: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
   delivery_pin: { icon: 'key-outline', color: '#6B4FA2', bg: '#EDE8F5' },
   order_update: { icon: 'receipt-outline', color: '#5D7394', bg: '#E8EDF3' },
+  order_received: { icon: 'receipt-outline', color: '#5D7394', bg: '#E8EDF3' },
+  order_preparing: { icon: 'restaurant-outline', color: '#B7791F', bg: '#FEF3C7' },
+  order_in_delivery: { icon: 'bicycle-outline', color: '#2563EB', bg: '#DBEAFE' },
+  eta_10m: { icon: 'time-outline', color: '#2563EB', bg: '#E8EDF3' },
+  eta_5m: { icon: 'timer-outline', color: '#1D4ED8', bg: '#E0EAFF' },
+  eta_2m: { icon: 'flash-outline', color: '#1E40AF', bg: '#DBEAFE' },
+  at_door: { icon: 'home-outline', color: '#15803D', bg: '#DCFCE7' },
   payment: { icon: 'card-outline', color: '#3E845B', bg: '#E4F2E7' },
   complaint: { icon: 'flag-outline', color: '#C0392B', bg: '#FDECEC' },
   review: { icon: 'star-outline', color: '#C4953A', bg: '#FFF4E5' },
@@ -30,10 +37,11 @@ const TYPE_ICONS: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: 
 type Props = {
   auth: AuthSession;
   onBack: () => void;
+  onOpenOrderDetail?: (orderId: string) => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-export default function NotificationsScreen({ auth, onBack, onAuthRefresh }: Props) {
+export default function NotificationsScreen({ auth, onBack, onOpenOrderDetail, onAuthRefresh }: Props) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,6 +84,29 @@ export default function NotificationsScreen({ auth, onBack, onAuthRefresh }: Pro
     return `${d.getDate()} ${months[d.getMonth()]}`;
   }
 
+  function extractOrderId(dataJson: unknown): string | null {
+    if (!dataJson || typeof dataJson !== 'object') return null;
+    const value = (dataJson as Record<string, unknown>).orderId;
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  }
+
+  async function handleNotificationPress(item: NotificationItem) {
+    if (!item.isRead) {
+      await apiRequest(
+        `/v1/notifications/${item.id}/read`,
+        auth,
+        { method: 'PATCH' },
+        onAuthRefresh,
+      );
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
+    }
+
+    const orderId = extractOrderId(item.dataJson);
+    if (orderId && onOpenOrderDetail) {
+      onOpenOrderDetail(orderId);
+    }
+  }
+
   function renderItem({ item }: { item: NotificationItem }) {
     const typeInfo = TYPE_ICONS[item.type] ?? { icon: 'notifications-outline' as const, color: '#71685F', bg: '#F0ECE6' };
 
@@ -83,6 +114,7 @@ export default function NotificationsScreen({ auth, onBack, onAuthRefresh }: Pro
       <TouchableOpacity
         style={[styles.notifCard, !item.isRead && styles.notifUnread]}
         activeOpacity={0.7}
+        onPress={() => { void handleNotificationPress(item); }}
       >
         <View style={[styles.notifIcon, { backgroundColor: typeInfo.bg }]}>
           <Ionicons name={typeInfo.icon} size={20} color={typeInfo.color} />

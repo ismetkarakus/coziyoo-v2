@@ -1,10 +1,21 @@
 import { Router } from "express";
+import { z } from "zod";
 import { pool } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const notificationsRouter = Router();
 
 notificationsRouter.use(requireAuth("app"));
+
+const DeviceTokenSchema = z.object({
+  token: z.string().min(10).max(512),
+  platform: z.enum(["ios", "android"]),
+  appVersion: z.string().max(64).optional(),
+});
+
+const DeviceTokenDeleteSchema = z.object({
+  token: z.string().min(10).max(512).optional(),
+});
 
 /**
  * GET /v1/notifications
@@ -56,5 +67,70 @@ notificationsRouter.patch("/:id/read", async (req, res) => {
   } catch (err) {
     console.error("[notifications] mark read error:", err);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to update notification" } });
+  }
+});
+
+/**
+ * PUT /v1/notifications/device-token
+ * Register or refresh push token for authenticated user.
+ */
+notificationsRouter.put("/device-token", async (req, res) => {
+  const parsed = DeviceTokenSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    const input = parsed.data;
+    await pool.query(
+      `INSERT INTO user_device_tokens (user_id, token, platform, app_version, is_active, last_seen_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, TRUE, now(), now(), now())
+       ON CONFLICT (token)
+       DO UPDATE SET
+         user_id = EXCLUDED.user_id,
+         platform = EXCLUDED.platform,
+         app_version = EXCLUDED.app_version,
+         is_active = TRUE,
+         last_seen_at = now(),
+         updated_at = now()`,
+      [req.auth!.userId, input.token.trim(), input.platform, input.appVersion ?? null],
+    );
+    return res.json({ data: { ok: true } });
+  } catch (err) {
+    console.error("[notifications] device-token put error:", err);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to register device token" } });
+  }
+});
+
+/**
+ * DELETE /v1/notifications/device-token
+ * Unregister push token for authenticated user. If token omitted, deactivate all user tokens.
+ */
+notificationsRouter.delete("/device-token", async (req, res) => {
+  const parsed = DeviceTokenDeleteSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  try {
+    if (parsed.data.token) {
+      await pool.query(
+        `UPDATE user_device_tokens
+         SET is_active = FALSE, updated_at = now()
+         WHERE user_id = $1 AND token = $2`,
+        [req.auth!.userId, parsed.data.token.trim()],
+      );
+    } else {
+      await pool.query(
+        `UPDATE user_device_tokens
+         SET is_active = FALSE, updated_at = now()
+         WHERE user_id = $1`,
+        [req.auth!.userId],
+      );
+    }
+    return res.json({ data: { ok: true } });
+  } catch (err) {
+    console.error("[notifications] device-token delete error:", err);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to unregister device token" } });
   }
 });
