@@ -67,6 +67,23 @@ const PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS = 60;
 
 export const authRouter = Router();
 
+function isValidIsoDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function hashResetCode(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
@@ -758,7 +775,11 @@ const UpdateProfileSchema = z.object({
   ]).optional(),
   language: z.string().min(2).max(10).optional(),
   phone: z.string().min(7).max(20).optional(),
-  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD format required").optional(),
+  dob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD format required")
+    .refine((value) => isValidIsoDate(value), "Invalid calendar date")
+    .optional(),
   email: z.string().email().optional(),
 });
 
@@ -816,22 +837,38 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
   setClauses.push(`updated_at = NOW()`);
   values.push(req.auth!.userId);
 
-  const result2 = await pool.query<{
-    id: string;
-    email: string;
-    display_name: string;
-    full_name: string | null;
-    user_type: string;
-    country_code: string | null;
-    language: string | null;
-    phone: string | null;
-    dob: string | null;
-    profile_image_url: string | null;
-  }>(
-    `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
-     RETURNING id, email, display_name, user_type, full_name, country_code, language, phone, dob, profile_image_url`,
-    values
-  );
+  let result2;
+  try {
+    result2 = await pool.query<{
+      id: string;
+      email: string;
+      display_name: string;
+      full_name: string | null;
+      user_type: string;
+      country_code: string | null;
+      language: string | null;
+      phone: string | null;
+      dob: string | null;
+      profile_image_url: string | null;
+    }>(
+      `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
+       RETURNING id, email, display_name, user_type, full_name, country_code, language, phone, dob, profile_image_url`,
+      values
+    );
+  } catch (error: any) {
+    const code = String(error?.code ?? "");
+    if (code === "22007" || code === "22008") {
+      return res.status(400).json({
+        error: { code: "VALIDATION_ERROR", message: "Geçersiz tarih. Lütfen GG-AA-YYYY kontrol et." },
+      });
+    }
+    if (code === "23505") {
+      return res.status(409).json({
+        error: { code: "EMAIL_TAKEN", message: "This email is already in use" },
+      });
+    }
+    throw error;
+  }
 
   if ((result2.rowCount ?? 0) === 0) {
     return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
