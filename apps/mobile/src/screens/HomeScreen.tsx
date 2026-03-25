@@ -1032,6 +1032,7 @@ export default function HomeScreen({
   const [inboxInput, setInboxInput] = useState('');
   const [messagesWallpaperIndex, setMessagesWallpaperIndex] = useState(0);
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
+  const [mealModalAnimType, setMealModalAnimType] = useState<'slide' | 'none'>('slide');
   const [selectedSeller, setSelectedSeller] = useState<{
     id: string;
     name: string;
@@ -1042,6 +1043,7 @@ export default function HomeScreen({
     name: string;
     image?: string | null;
   } | null>(null);
+  const [sellerModalTouchGuardUntil, setSellerModalTouchGuardUntil] = useState(0);
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
@@ -2192,14 +2194,15 @@ export default function HomeScreen({
   }, [selectedSeller?.id, apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
-    if (!pendingSellerOpen) return;
-    if (selectedMeal) return;
+    if (!pendingSellerOpen || selectedMeal) return;
     const timer = setTimeout(() => {
       setSelectedSeller(pendingSellerOpen);
+      setSellerModalTouchGuardUntil(Date.now() + 150);
       setPendingSellerOpen(null);
     }, 120);
     return () => clearTimeout(timer);
   }, [pendingSellerOpen, selectedMeal]);
+
 
   /* ---------- Render helpers ---------- */
 
@@ -3161,9 +3164,10 @@ export default function HomeScreen({
       {/* Meal detail modal */}
       <Modal
         visible={!!selectedMeal}
-        animationType="slide"
+        animationType={mealModalAnimType}
         transparent
         onRequestClose={() => setSelectedMeal(null)}
+        onDismiss={() => setMealModalAnimType('slide')}
       >
         {selectedMeal && (
           <View style={styles.modalOverlay}>
@@ -3205,6 +3209,7 @@ export default function HomeScreen({
                 activeOpacity={0.7}
                 onPress={() => {
                   const seller = { id: selectedMeal.sellerId, name: selectedMeal.seller, image: selectedMeal.sellerImage ?? null };
+                  setMealModalAnimType('none');
                   setPendingSellerOpen(seller);
                   setSelectedMeal(null);
                 }}
@@ -3279,7 +3284,10 @@ export default function HomeScreen({
             <TouchableOpacity
               style={StyleSheet.absoluteFillObject}
               activeOpacity={1}
-              onPress={() => setSelectedSeller(null)}
+              onPress={() => {
+                if (Date.now() < sellerModalTouchGuardUntil) return;
+                setSelectedSeller(null);
+              }}
             />
             <View style={styles.sellerModalContent}>
               <TouchableOpacity
