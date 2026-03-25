@@ -28,6 +28,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrderItemsColumns, setSelectedOrderItemsColumns] = useState<string[]>([]);
   const [foodNameById, setFoodNameById] = useState<Record<string, string>>({});
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
+  const [selectedOrderCancelReasonFromEvent, setSelectedOrderCancelReasonFromEvent] = useState("");
   const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const [sortBy, setSortBy] = useState<string | null>(null);
@@ -379,6 +380,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     setSelectedOrder(row);
     setSelectedOrderItems([]);
     setSelectedOrderItemsColumns([]);
+    setSelectedOrderCancelReasonFromEvent("");
     setOrderItemsLoading(true);
     try {
       const query = new URLSearchParams({
@@ -394,6 +396,40 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       }>(response);
       setSelectedOrderItems(body.data.rows ?? []);
       setSelectedOrderItemsColumns(body.data.columns ?? []);
+
+      const eventsResponse = await request(
+        `/v1/admin/metadata/tables/orderEvents/records?page=1&pageSize=100&sortBy=created_at&sortDir=desc&search=${encodeURIComponent(orderId)}`
+      );
+      if (eventsResponse.status === 200) {
+        const eventsBody = await parseJson<{
+          data?: { rows?: Array<Record<string, unknown>> };
+        }>(eventsResponse);
+        const rows = eventsBody.data?.rows ?? [];
+        const cancelledEvent = rows.find((event) => {
+          const eventOrderId = String(event.order_id ?? "").trim();
+          if (eventOrderId !== orderId) return false;
+          const toStatus = String(event.to_status ?? "").trim().toLowerCase();
+          const eventType = String(event.event_type ?? "").trim().toLowerCase();
+          return toStatus === "cancelled" || eventType.includes("cancel");
+        });
+        if (cancelledEvent) {
+          const payloadRaw = cancelledEvent.payload_json;
+          const payload = (() => {
+            if (!payloadRaw) return null;
+            if (typeof payloadRaw === "object") return payloadRaw as Record<string, unknown>;
+            if (typeof payloadRaw === "string") {
+              try {
+                return JSON.parse(payloadRaw) as Record<string, unknown>;
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          })();
+          const reason = String(payload?.reason ?? payload?.message ?? "").trim();
+          if (reason) setSelectedOrderCancelReasonFromEvent(reason);
+        }
+      }
     } finally {
       setOrderItemsLoading(false);
     }
@@ -653,6 +689,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const selectedCancelReason = (() => {
     if (selectedStatusRaw !== "cancelled") return "";
     const candidates = [
+      selectedOrderCancelReasonFromEvent,
       selectedOrder?.cancel_reason,
       selectedOrder?.cancellation_reason,
       selectedOrder?.cancelReason,
