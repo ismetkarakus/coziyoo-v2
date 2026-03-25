@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
   ActivityIndicator,
   StatusBar,
   Alert,
@@ -264,7 +265,16 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
           {loading ? (
             <View style={styles.center}>
               <ActivityIndicator size="large" color={theme.primary} />
@@ -387,22 +397,26 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
                   <Text style={styles.successText}>{t('status.profileEdit.saved')}</Text>
                 </View>
               ) : null}
-
-              <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                onPress={() => void handleSave()}
-                disabled={saving}
-                activeOpacity={0.8}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>{t('cta.profileEdit.save')}</Text>
-                )}
-              </TouchableOpacity>
             </>
           )}
         </ScrollView>
+        {!loading ? (
+          <View style={styles.footerAction}>
+            <TouchableOpacity
+              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+              onPress={() => void handleSave()}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>{t('cta.profileEdit.save')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </KeyboardAvoidingView>
 
       <Modal
         visible={!!editField}
@@ -447,6 +461,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -460,7 +475,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: theme.text, fontSize: 18, fontWeight: '700' },
-  content: { padding: 20, paddingBottom: 40 },
+  content: { padding: 20, paddingBottom: 24 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   mandatoryBanner: {
     flexDirection: 'row',
@@ -543,7 +558,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 24,
+  },
+  footerAction: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 22 : 14,
+    backgroundColor: theme.background,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
