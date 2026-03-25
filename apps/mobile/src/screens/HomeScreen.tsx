@@ -901,15 +901,15 @@ function FoodCard({
   const allergens = Array.isArray(meal.allergens) ? meal.allergens : [];
 
   return (
-    <TouchableOpacity
+    <View
       style={[
         styles.foodCard,
         { backgroundColor: colors.bg, borderColor: colors.border },
       ]}
-      activeOpacity={0.85}
-      onPress={onPress}
     >
-      <View
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={onPress}
         style={[styles.foodPhoto, { backgroundColor: meal.backgroundColor }]}
       >
         {imageUrl && !imageFailed ? (
@@ -953,14 +953,16 @@ function FoodCard({
             <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
       <View style={styles.foodInfo}>
         <View style={styles.foodInfoRow}>
           <View style={styles.foodInfoLeft}>
             <View style={styles.foodNameRow}>
-              <Text style={[styles.foodName, { color: colors.title }]}>
-                {meal.title}
-              </Text>
+              <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.foodTitlePressArea}>
+                <Text style={[styles.foodName, { color: colors.title }]}>
+                  {meal.title}
+                </Text>
+              </TouchableOpacity>
               <View style={styles.foodNameMetaRight}>
                 <TouchableOpacity
                   activeOpacity={0.8}
@@ -1000,7 +1002,7 @@ function FoodCard({
           ) : null}
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -4413,6 +4415,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   foodName: { fontSize: 16, fontWeight: '600' },
+  foodTitlePressArea: { alignSelf: 'flex-start' },
   foodNameMetaRight: { alignItems: 'flex-end', gap: 2 },
   foodMetaRow: {
     marginTop: 4,
