@@ -201,11 +201,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       setTcKimlikNo(data.countryCode ?? '');
       setEmail(data.email?.trim() || fallbackEmail);
       setSuccess(true);
-      if (isNewRegistration) {
-        setTimeout(() => onBack(), 800);
-      } else {
-        setTimeout(() => setSuccess(false), 2500);
-      }
+      setTimeout(() => onBack(), isNewRegistration ? 800 : 700);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error.profileEdit.save'));
     } finally {
