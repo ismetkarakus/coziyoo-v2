@@ -22,7 +22,7 @@ type OrderDetail = {
   sellerId: string;
   status: string;
   deliveryType: 'pickup' | 'delivery';
-  deliveryAddress: { city?: string; district?: string; line?: string } | null;
+  deliveryAddress: unknown;
   totalPrice: number;
   paymentCompleted: boolean;
   createdAt: string;
@@ -30,8 +30,39 @@ type OrderDetail = {
   sellerImage: string | null;
   buyerName: string;
   items: { name: string; image: string | null; quantity: number; unitPrice: number; lineTotal: number }[];
-  events: { eventType: string; fromStatus: string | null; toStatus: string | null; createdAt: string }[];
+  events: { eventType: string; fromStatus: string | null; toStatus: string | null; createdAt: string; reason?: string | null }[];
 };
+
+function formatDeliveryAddress(value: unknown): string | null {
+  if (!value) return null;
+
+  let parsed: Record<string, unknown> | null = null;
+  if (typeof value === 'string') {
+    try {
+      const asJson = JSON.parse(value);
+      if (asJson && typeof asJson === 'object') parsed = asJson as Record<string, unknown>;
+    } catch {
+      return value.trim() || null;
+    }
+  } else if (typeof value === 'object') {
+    parsed = value as Record<string, unknown>;
+  }
+
+  if (!parsed) return null;
+
+  const chunks = [
+    String(parsed.addressLine ?? '').trim(),
+    String(parsed.line ?? '').trim(),
+    String(parsed.street ?? '').trim(),
+    String(parsed.neighborhood ?? '').trim(),
+    String(parsed.district ?? '').trim(),
+    String(parsed.city ?? '').trim(),
+    String(parsed.title ?? '').trim(),
+  ].filter(Boolean);
+
+  if (chunks.length === 0) return null;
+  return Array.from(new Set(chunks)).join(', ');
+}
 
 type Props = {
   auth: AuthSession;
@@ -114,7 +145,10 @@ export default function OrderDetailScreen({
   }
 
   function formatEventDate(iso: string): string {
-    const d = new Date(iso);
+    if (!iso) return '-';
+    const normalized = iso.trim().replace(' ', 'T').replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return formatDate(iso);
     const h = d.getHours().toString().padStart(2, '0');
     const m = d.getMinutes().toString().padStart(2, '0');
     return `${formatDate(iso)} ${h}:${m}`;
@@ -140,9 +174,7 @@ export default function OrderDetailScreen({
     );
   }
 
-  const addressText = order.deliveryAddress
-    ? [order.deliveryAddress.line, order.deliveryAddress.district, order.deliveryAddress.city].filter(Boolean).join(', ')
-    : null;
+  const addressText = formatDeliveryAddress(order.deliveryAddress);
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && COMPLETABLE.includes(order.status);
@@ -213,6 +245,7 @@ export default function OrderDetailScreen({
                     date={formatEventDate(event.createdAt)}
                     isLast={idx === arr.length - 1}
                     isActive={true}
+                    reason={event.reason}
                   />
                 ))}
             </View>
