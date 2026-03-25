@@ -368,11 +368,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
                       <Text style={styles.infoTitle}>{t('helper.profileEdit.emailLabel')}</Text>
                       <Text style={styles.infoSubtitle}>{t('helper.profileEdit.emailHint')}</Text>
                     </View>
-                    {!isNewRegistration && (
-                      <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('email')}>
-                        <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('email')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.infoDivider} />
                   <View style={styles.emailRow}>
