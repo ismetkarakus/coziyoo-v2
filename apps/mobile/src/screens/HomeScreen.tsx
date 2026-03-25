@@ -849,6 +849,7 @@ function FoodCard({
   isFavorite,
   favoritePending,
   onPress,
+  onSellerPress,
   onFavoritePress,
 }: {
   meal: MealCard;
@@ -857,6 +858,7 @@ function FoodCard({
   isFavorite: boolean;
   favoritePending: boolean;
   onPress: () => void;
+  onSellerPress: () => void;
   onFavoritePress: () => void;
 }) {
   const [colors, setColors] = useState<CardColors>(
@@ -960,11 +962,18 @@ function FoodCard({
                 {meal.title}
               </Text>
               <View style={styles.foodNameMetaRight}>
-                <View style={styles.foodSellerInlineBtn}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onSellerPress();
+                  }}
+                  style={styles.foodSellerInlineBtn}
+                >
                   <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
                     {meal.seller}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
             <View style={styles.foodMetaRow}>
@@ -2501,6 +2510,13 @@ export default function HomeScreen({
               isFavorite={Boolean(favoriteIds[meal.id])}
               favoritePending={Boolean(favoritePendingIds[meal.id])}
               onPress={() => setSelectedMeal(meal)}
+              onSellerPress={() =>
+                setSelectedSeller({
+                  id: meal.sellerId,
+                  name: meal.seller,
+                  image: meal.sellerImage ?? null,
+                })
+              }
               onFavoritePress={() => {
                 void toggleFavorite(meal.id);
               }}
