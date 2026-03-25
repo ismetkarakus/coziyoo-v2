@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -23,17 +22,47 @@ import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils
 import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+type NotificationSubscription = { remove: () => void };
+
+type NotificationsModule = {
+  setNotificationHandler: (handler: {
+    handleNotification: () => Promise<{
+      shouldShowAlert: boolean;
+      shouldPlaySound: boolean;
+      shouldSetBadge: boolean;
+      shouldShowBanner: boolean;
+      shouldShowList: boolean;
+    }>;
+  }) => void;
+  getPermissionsAsync: () => Promise<{ status: string }>;
+  requestPermissionsAsync: () => Promise<{ status: string }>;
+  getExpoPushTokenAsync: () => Promise<{ data: string }>;
+  addNotificationResponseReceivedListener: (
+    listener: (response: { notification: { request: { content: { data: Record<string, unknown> } } } }) => void,
+  ) => NotificationSubscription;
+};
+
+let Notifications: NotificationsModule | null = null;
+try {
+  Notifications = require('expo-notifications') as NotificationsModule;
+} catch {
+  Notifications = null;
+}
+
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 async function registerPushToken(auth: AuthSession, apiUrl: string) {
+  if (!Notifications) return;
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     const { status } = existing === 'granted'
@@ -83,8 +112,7 @@ export default function App() {
   const [complaintBackTarget, setComplaintBackTarget] = useState<'orderDetail' | 'complaintOrders'>('orderDetail');
 
   const [isNewRegistration, setIsNewRegistration] = useState(false);
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<NotificationSubscription | null>(null);
 
   useEffect(() => {
     loadAuthSession().then((stored) => {
@@ -100,6 +128,7 @@ export default function App() {
   // Register push token and notification listeners when auth is set
   useEffect(() => {
     if (!auth) return;
+    if (!Notifications) return;
 
     loadSettings().then((s) => {
       void registerPushToken(auth, s.apiUrl);
@@ -115,10 +144,7 @@ export default function App() {
       }
     });
 
-    return () => {
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
-    };
+    return () => { responseListener.current?.remove(); };
   }, [auth]);
 
   function handleLogin(session: AuthSession) {
