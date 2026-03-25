@@ -79,6 +79,7 @@ import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import { apiRequest } from '../utils/api';
+import { readJsonSafe } from '../utils/http';
 import VoiceSessionScreen from './VoiceSessionScreen';
 import ProfileEditScreen from './ProfileEditScreen';
 import AddressScreen from './AddressScreen';
@@ -284,16 +285,6 @@ function formatReviewDate(value: string): string {
     month: "2-digit",
     year: "numeric",
   });
-}
-
-async function readJsonSafe<T = unknown>(response: Response): Promise<T> {
-  const text = await response.text();
-  if (!text.trim()) return {} as T;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`${t('error.home.unexpectedResponse')} (${response.status})`);
-  }
 }
 
 function humanizeHttpError(status: number): string {
@@ -1537,7 +1528,10 @@ export default function HomeScreen({
           dataBase64: base64Image,
         }),
       });
-      const directJson = await directRes.json();
+      const directJson = await readJsonSafe<{
+        data?: { profileImageUrl?: string };
+        error?: { message?: string };
+      }>(directRes);
       if (!directRes.ok || directJson.error) {
         throw new Error(directJson.error?.message ?? 'Profil resmi şu an yüklenemedi');
       }
@@ -1626,7 +1620,13 @@ export default function HomeScreen({
       body: JSON.stringify({ autoDispatchAgent: true, channel: 'mobile' }),
     });
 
-    const json = await response.json();
+    const json = await readJsonSafe<ApiErrorPayload & {
+      data?: {
+        roomName: string;
+        wsUrl: string;
+        user: { participantIdentity: string; token: string };
+      };
+    }>(response);
 
     if (response.status === 401) {
       const refreshed = await refreshAuthSession(apiUrl, currentAuth);
@@ -3346,6 +3346,7 @@ export default function HomeScreen({
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
 
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.sellerHeader}>
                 <View style={styles.sellerAvatar}>
                   <Text style={styles.sellerAvatarEmoji}>👩‍🍳</Text>
@@ -3390,10 +3391,7 @@ export default function HomeScreen({
                 <Text style={styles.sellerEmptyReviewsText}>{t('helper.home.sellerReviewsEmpty')}</Text>
               ) : null}
               {!sellerReviewsLoading && !sellerReviewsError ? (
-                <ScrollView
-                  style={styles.sellerReviewList}
-                  showsVerticalScrollIndicator={false}
-                >
+                <View style={styles.sellerReviewList}>
                   {sellerReviews.map((review) => (
                     <View key={review.id} style={styles.sellerReviewItem}>
                       <View style={styles.sellerReviewHead}>
@@ -3418,14 +3416,11 @@ export default function HomeScreen({
                       </Text>
                     </View>
                   ))}
-                </ScrollView>
+                </View>
               ) : null}
 
               <Text style={styles.sellerSectionTitle}>{t('status.home.sellerMeals')}</Text>
-              <ScrollView
-                style={styles.sellerMealList}
-                showsVerticalScrollIndicator={false}
-              >
+              <View style={styles.sellerMealList}>
                 {sellerMeals.map((meal) => (
                   <TouchableOpacity
                     key={meal.id}
@@ -3452,6 +3447,7 @@ export default function HomeScreen({
                     </View>
                   </TouchableOpacity>
                 ))}
+              </View>
               </ScrollView>
             </Animated.View>
           </View>
@@ -5216,7 +5212,7 @@ const styles = StyleSheet.create({
   sellerAboutTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
   sellerAboutMeta: { color: '#7E7163', fontSize: 12, fontWeight: '600', marginTop: 3 },
   sellerAboutText: { color: '#6E6256', fontSize: 12, lineHeight: 18, marginTop: 5 },
-  sellerReviewList: { maxHeight: 200, marginBottom: 12 },
+  sellerReviewList: { marginBottom: 12 },
   sellerReviewsLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   sellerReviewsLoadingText: { color: '#7E7163', fontSize: 12, fontWeight: '600' },
   sellerReviewsErrorText: { color: '#B42318', fontSize: 12, fontWeight: '600', marginBottom: 10 },
@@ -5244,7 +5240,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 2,
   },
-  sellerMealList: { maxHeight: 320 },
+  sellerMealList: {},
   sellerMealItem: {
     borderWidth: 1,
     borderColor: '#EDE8E0',

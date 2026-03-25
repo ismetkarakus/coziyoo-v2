@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
+import { readJsonSafe } from '../utils/http';
 import { theme } from '../theme/colors';
 
 type Step = 'welcome' | 'register';
@@ -74,7 +75,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
           password,
         }),
       });
-      const json = (await response.json()) as RegisterResponse;
+      const json = await readJsonSafe<RegisterResponse>(response);
 
       if (!response.ok || json.error) {
         const code = json.error?.code;

@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
+import { readJsonSafe } from '../utils/http';
 import { t } from '../copy/brandCopy';
 import ProfileEditScreen from './ProfileEditScreen';
 import AddressScreen from './AddressScreen';
@@ -84,13 +85,13 @@ export default function SettingsScreen({ auth, onBack, onOpenComplaintOrders, on
     try {
       const { apiUrl } = await loadSettings();
       const res = await authedFetch(`${apiUrl}/v1/auth/me`);
-      const json = await res.json();
+      const json = await readJsonSafe<{ data?: UserProfile; error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
-      const data = json.data as UserProfile;
-      setEmail(data.email ?? '');
-      setPhone(data.phone?.trim() || t('status.security.phoneFallback'));
+      const data = json.data;
+      setEmail(data?.email ?? '');
+      setPhone(data?.phone?.trim() || t('status.security.phoneFallback'));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error.settings.load'));
     } finally {
@@ -106,7 +107,7 @@ export default function SettingsScreen({ auth, onBack, onOpenComplaintOrders, on
         method: 'POST',
         body: JSON.stringify({}),
       });
-      const json = await res.json();
+      const json = await readJsonSafe<{ error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }

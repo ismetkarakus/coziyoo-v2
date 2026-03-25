@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readJsonSafe } from './http';
 
 const STORAGE_KEY = '@coziyoo:auth';
 
@@ -39,9 +40,9 @@ export async function refreshAuthSession(
       body: JSON.stringify({ refreshToken: session.refreshToken }),
     });
     if (!response.ok) return null;
-    const json = (await response.json()) as {
+    const json = await readJsonSafe<{
       data?: { tokens?: { accessToken?: string; refreshToken?: string } };
-    };
+    }>(response);
     const tokens = json.data?.tokens;
     if (!tokens?.accessToken || !tokens?.refreshToken) return null;
     const next: AuthSession = {

@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { saveAuthSession, type AuthSession } from '../utils/auth';
 import { loadSettings } from '../utils/settings';
+import { readJsonSafe } from '../utils/http';
 import { theme } from '../theme/colors';
 import { t } from '../copy/brandCopy';
 
@@ -80,7 +81,7 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
       });
-      const json = (await response.json()) as LoginResponse;
+      const json = await readJsonSafe<LoginResponse>(response);
       if (!response.ok || json.error) {
         setError(resolveLoginError(json, response.status));
         return;
@@ -135,11 +136,13 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed }),
       });
-      const json = await response.json();
+      const json = await readJsonSafe<{
+        error?: { code?: string; message?: string; retryAfterSeconds?: number };
+      }>(response);
       if (!response.ok) {
         const code = json?.error?.code;
         if (code === 'PASSWORD_RESET_TOO_FREQUENT') {
-          setForgotError(`Lütfen ${json.error.retryAfterSeconds ?? 60} saniye bekleyin`);
+          setForgotError(`Lütfen ${json.error?.retryAfterSeconds ?? 60} saniye bekleyin`);
         } else {
           setForgotError(json?.error?.message ?? 'Bir hata oluştu');
         }
@@ -179,7 +182,7 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
           newPassword: forgotNewPassword,
         }),
       });
-      const json = await response.json();
+      const json = await readJsonSafe<{ error?: { code?: string; message?: string } }>(response);
       if (!response.ok || json.error) {
         const code = json?.error?.code;
         if (code === 'PASSWORD_RESET_CODE_INVALID') setForgotError('Kod geçersiz veya süresi dolmuş');

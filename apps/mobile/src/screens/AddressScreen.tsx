@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/colors';
 import { loadSettings } from '../utils/settings';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
+import { readJsonSafe } from '../utils/http';
 import { t } from '../copy/brandCopy';
 
 type Address = {
@@ -93,11 +94,11 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
     try {
       const { apiUrl } = await loadSettings();
       const res = await authedFetch(`${apiUrl}/v1/auth/me/addresses`);
-      const json = await res.json();
+      const json = await readJsonSafe<{ data?: Address[]; error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
-      setAddresses(json.data as Address[]);
+      setAddresses(Array.isArray(json.data) ? json.data : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error.address.load'));
     } finally {
@@ -162,7 +163,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
         });
       }
 
-      const json = await res.json();
+      const json = await readJsonSafe<{ error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
@@ -192,7 +193,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
                 method: 'DELETE',
               });
               if (!res.ok && res.status !== 204) {
-                const json = await res.json();
+                const json = await readJsonSafe<{ error?: { message?: string } }>(res);
                 throw new Error(json.error?.message ?? t('error.address.delete'));
               }
               await fetchAddresses();
@@ -213,7 +214,7 @@ export default function AddressScreen({ auth, onBack, onAuthRefresh }: Props) {
         method: 'PATCH',
         body: JSON.stringify({ isDefault: true }),
       });
-      const json = await res.json();
+      const json = await readJsonSafe<{ error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? t('error.address.default'));
       }
