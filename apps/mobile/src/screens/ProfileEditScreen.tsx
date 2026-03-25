@@ -38,6 +38,16 @@ type Props = {
   isNewRegistration?: boolean;
 };
 
+async function readJsonSafe<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) return {} as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
 export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRegistration }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [loading, setLoading] = useState(true);
@@ -126,7 +136,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     try {
       const { apiUrl } = await loadSettings();
       const res = await authedFetch(`${apiUrl}/v1/auth/me`);
-      const json = await res.json();
+      const json = await readJsonSafe<{ data?: UserProfile; error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
@@ -189,7 +199,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
         method: 'PUT',
         body: JSON.stringify(body),
       });
-      const json = await res.json();
+      const json = await readJsonSafe<{ data?: UserProfile; error?: { message?: string } }>(res);
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
