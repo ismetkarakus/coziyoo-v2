@@ -51,12 +51,39 @@ complaintsRouter.post("/", async (req, res) => {
     );
     const categoryId = cat.rows.length > 0 ? cat.rows[0].id : null;
 
-    const { rows } = await pool.query(
-      `INSERT INTO complaints (order_id, complainant_buyer_id, complainant_type, complainant_user_id, subject, description, category_id, status)
-       VALUES ($1, $2, 'buyer', $2, $3, $4, $5, 'open')
-       RETURNING id, status, created_at`,
-      [orderId, req.auth!.userId, category, description.trim(), categoryId],
-    );
+    const trimmedDescription = description.trim();
+    let rows: Array<{ id: string; status: string; created_at: Date | string }>;
+    try {
+      const insert = await pool.query(
+        `INSERT INTO complaints (order_id, complainant_buyer_id, complainant_type, complainant_user_id, description, category_id, status)
+         VALUES ($1, $2, 'buyer', $2, $3, $4, 'open')
+         RETURNING id, status, created_at`,
+        [orderId, req.auth!.userId, trimmedDescription, categoryId],
+      );
+      rows = insert.rows;
+    } catch (insertErr) {
+      const pgErr = insertErr as { code?: string; column?: string; message?: string };
+      const errorText = `${pgErr.message ?? ""} ${pgErr.column ?? ""}`.toLowerCase();
+      const shouldTryLegacySchema =
+        pgErr.code === "42703" ||
+        (pgErr.code === "23502" && pgErr.column === "subject") ||
+        errorText.includes("subject") ||
+        errorText.includes("complainant_type") ||
+        errorText.includes("complainant_user_id");
+
+      if (!shouldTryLegacySchema) {
+        throw insertErr;
+      }
+
+      const legacySubject = trimmedDescription.slice(0, 120);
+      const legacyInsert = await pool.query(
+        `INSERT INTO complaints (order_id, complainant_buyer_id, subject, description, category_id, status)
+         VALUES ($1, $2, $3, $4, $5, 'open')
+         RETURNING id, status, created_at`,
+        [orderId, req.auth!.userId, legacySubject, trimmedDescription, categoryId],
+      );
+      rows = legacyInsert.rows;
+    }
 
     res.status(201).json({
       data: {
