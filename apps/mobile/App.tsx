@@ -28,6 +28,8 @@ import SellerComplianceScreen from './src/screens/SellerComplianceScreen';
 import SellerFinanceScreen from './src/screens/SellerFinanceScreen';
 import SellerDirectoryScreen from './src/screens/SellerDirectoryScreen';
 import SellerV1PreviewScreen from './src/screens/SellerV1PreviewScreen';
+import SellerMessagesScreen from './src/screens/SellerMessagesScreen';
+import SellerReviewsScreen from './src/screens/SellerReviewsScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
@@ -105,7 +107,7 @@ type Screen =
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
   | 'notifications' | 'favorites'
-  | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance' | 'sellerDirectory' | 'sellerV1Preview'
+  | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance' | 'sellerDirectory' | 'sellerV1Preview' | 'sellerMessages' | 'sellerReviews'
   | 'chatList' | 'chat';
 
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -500,6 +502,27 @@ export default function App() {
     );
   }
 
+  if (screen === 'sellerMessages') {
+    return (
+      <SellerMessagesScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onOpenChat={(chatId, name) => { setSelectedChatId(chatId); setSelectedChatName(name); setScreen('chat'); }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerReviews') {
+    return (
+      <SellerReviewsScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
   const canSwitchRole = auth.userType === 'both';
   if (actorMode === 'seller' && screen === 'home') {
     return (
@@ -509,6 +532,8 @@ export default function App() {
         onOpenFoods={() => setScreen('sellerFoods')}
         onOpenLots={() => setScreen('sellerLots')}
         onOpenOrders={() => setScreen('sellerOrders')}
+        onOpenMessages={() => setScreen('sellerMessages')}
+        onOpenReviews={() => setScreen('sellerReviews')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
         onOpenDirectory={() => setScreen('sellerDirectory')}

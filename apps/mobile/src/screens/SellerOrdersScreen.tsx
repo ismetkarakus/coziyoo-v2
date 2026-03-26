@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { apiRequest } from "../utils/api";
-import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
@@ -25,6 +24,7 @@ type SellerOrder = {
 export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRefresh }: Props) {
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
@@ -51,49 +51,105 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
     void loadOrders();
   }, []);
 
-  const grouped = useMemo(() => ({
-    waiting: orders.filter((x) => x.status === "pending_seller_approval").length,
-    prep: orders.filter((x) => x.status === "preparing").length,
-    road: orders.filter((x) => x.status === "in_delivery").length,
-  }), [orders]);
+  const pendingOrders = useMemo(
+    () => orders.filter((x) => x.status === "pending_seller_approval"),
+    [orders],
+  );
+  const otherOrders = useMemo(
+    () => orders.filter((x) => x.status !== "pending_seller_approval"),
+    [orders],
+  );
+
+  async function handleOrderAction(orderId: string, endpoint: "approve" | "reject") {
+    setUpdatingId(orderId);
+    try {
+      const result = await apiRequest(
+        `/v1/orders/${orderId}/${endpoint}`,
+        currentAuth,
+        { method: "POST", body: {}, actorRole: "seller" },
+        handleRefresh,
+      );
+      if (!result.ok) throw new Error(result.message ?? "Sipariş güncellenemedi");
+      await loadOrders();
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "Sipariş güncellenemedi");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  function statusLabel(status: string) {
+    if (status === "pending_seller_approval") return "Onay Bekliyor";
+    if (status === "seller_approved") return "Onaylandı";
+    if (status === "preparing") return "Hazırlanıyor";
+    if (status === "ready") return "Hazır";
+    if (status === "in_delivery") return "Yolda";
+    if (status === "delivered") return "Teslim Edildi";
+    if (status === "completed") return "Tamamlandı";
+    if (status === "cancelled") return "İptal";
+    return status;
+  }
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Sipariş Yönetimi"
-        onBack={onBack}
-        rightAction={
-          <TouchableOpacity onPress={() => void loadOrders()} style={styles.refreshBtn}>
-            <Text style={styles.refreshText}>↻</Text>
-          </TouchableOpacity>
-        }
-      />
-      <View style={styles.stats}>
-        <View style={styles.statChip}><Text style={styles.statText}>Onay: {grouped.waiting}</Text></View>
-        <View style={styles.statChip}><Text style={styles.statText}>Hazırlık: {grouped.prep}</Text></View>
-        <View style={styles.statChip}><Text style={styles.statText}>Yolda: {grouped.road}</Text></View>
-      </View>
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Siparişlerin burada akıyor.</Text>
-        <Text style={styles.heroText}>Duruma göre ilerlet, müşteriyi bekletmeden süreci yönet.</Text>
-      </View>
+      <ScreenHeader title="Siparişler" onBack={onBack} />
       {loading ? (
         <Text style={styles.loadingText}>Yükleniyor...</Text>
       ) : orders.length === 0 ? (
         <Text style={styles.emptyText}>Şu an sipariş yok, yeni sipariş geldiğinde burada göreceksin.</Text>
       ) : (
         <FlatList
-          data={orders}
+          data={[...pendingOrders, ...otherOrders]}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)} activeOpacity={0.85}>
-              <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
-              <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
-              <Text style={styles.meta}>Durum: {item.status}</Text>
-              <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-            </TouchableOpacity>
-          )}
+          ListHeaderComponent={
+            <>
+              <Text style={styles.groupTitle}>Bekleyen Siparişler ({pendingOrders.length})</Text>
+              {pendingOrders.map((item) => (
+                <View key={item.id} style={styles.card}>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
+                    <Text style={[styles.statusPill, styles.statusWait]}>{statusLabel(item.status)}</Text>
+                  </View>
+                  <Text style={styles.meta}>Müşteri: {item.buyerName || "-"}</Text>
+                  <Text style={styles.meta}>Toplam: ₺{Number(item.totalPrice ?? 0).toFixed(2)}</Text>
+                  <TouchableOpacity onPress={() => onOpenOrder(item.id)} activeOpacity={0.8}>
+                    <Text style={styles.linkText}>Detayı Gör</Text>
+                  </TouchableOpacity>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={styles.rejectBtn}
+                      onPress={() => void handleOrderAction(item.id, "reject")}
+                      disabled={updatingId === item.id}
+                    >
+                      <Text style={styles.rejectText}>{updatingId === item.id ? "Bekle..." : "Reddet"}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.approveBtn}
+                      onPress={() => void handleOrderAction(item.id, "approve")}
+                      disabled={updatingId === item.id}
+                    >
+                      <Text style={styles.approveText}>{updatingId === item.id ? "Bekle..." : "Onayla"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+              <Text style={[styles.groupTitle, { marginTop: 16 }]}>Diğer Siparişler</Text>
+            </>
+          }
+          renderItem={({ item }) => {
+            if (item.status === "pending_seller_approval") return null;
+            return (
+              <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)} activeOpacity={0.85}>
+                <View style={styles.cardHead}>
+                  <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
+                  <Text style={[styles.statusPill, styles.statusDone]}>{statusLabel(item.status)}</Text>
+                </View>
+                <Text style={styles.meta}>Müşteri: {item.buyerName || "-"}</Text>
+                <Text style={styles.meta}>Toplam: ₺{Number(item.totalPrice ?? 0).toFixed(2)}</Text>
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -101,28 +157,22 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F7F4EF" },
-  stats: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
-  statChip: { backgroundColor: "#EFE9DF", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 },
-  statText: { color: "#5D5145", fontWeight: "700", fontSize: 13 },
-  heroCard: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: "#F1E8D9",
-    borderColor: "#E8D6BB",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-  },
-  heroTitle: { color: "#4B3422", fontWeight: "800", fontSize: 16 },
-  heroText: { marginTop: 4, color: "#6B5545", lineHeight: 18 },
+  container: { flex: 1, backgroundColor: "#ECEBE7" },
+  groupTitle: { marginHorizontal: 14, marginTop: 10, marginBottom: 6, color: "#2F2D2B", fontWeight: "800", fontSize: 26 / 2 },
   list: { padding: 14, gap: 10 },
   loadingText: { textAlign: "center", marginTop: 40, color: "#6C6055" },
   emptyText: { textAlign: "center", marginTop: 40, color: "#9E8E7E" },
-  refreshBtn: { padding: 4, alignItems: "center", justifyContent: "center" },
-  refreshText: { color: theme.primary, fontSize: 22, fontWeight: "700" },
-  card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
+  card: { backgroundColor: "#F8F8F6", borderRadius: 12, borderWidth: 1, borderColor: "#D4D3CD", padding: 12 },
+  cardHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
-  meta: { color: "#6C6055", marginTop: 3 },
-  total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
+  meta: { color: "#3F3B35", marginTop: 3, fontSize: 15 },
+  statusPill: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, overflow: "hidden", fontWeight: "800", fontSize: 11 },
+  statusWait: { backgroundColor: "#FFE9CC", color: "#C77700" },
+  statusDone: { backgroundColor: "#E6F4E8", color: "#2A7A44" },
+  linkText: { marginTop: 7, color: "#3E845B", fontWeight: "700" },
+  actionRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  rejectBtn: { flex: 1, borderWidth: 1, borderColor: "#FF3B30", borderRadius: 8, alignItems: "center", paddingVertical: 10, backgroundColor: "#fff" },
+  rejectText: { color: "#FF3B30", fontWeight: "700" },
+  approveBtn: { flex: 1, borderWidth: 1, borderColor: "#8EA18F", borderRadius: 8, alignItems: "center", paddingVertical: 10, backgroundColor: "#8EA18F" },
+  approveText: { color: "#fff", fontWeight: "800" },
 });
