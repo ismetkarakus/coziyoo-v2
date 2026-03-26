@@ -13,6 +13,8 @@ type Props = {
   onOpenFoods: () => void;
   onOpenLots: () => void;
   onOpenOrders: () => void;
+  onOpenCompliance: () => void;
+  onOpenFinance: () => void;
   onOpenSettings: () => void;
   onLogout: () => void;
   onSwitchToBuyer?: () => void;
@@ -27,7 +29,7 @@ type SellerProfileResponse = {
 };
 
 type OrdersResponse = {
-  data?: Array<{ id: string; sellerId: string; status: string }>;
+  data?: Array<{ id: string; sellerId: string; status: string; createdAt?: string }>;
 };
 
 export default function SellerHomeScreen({
@@ -37,6 +39,8 @@ export default function SellerHomeScreen({
   onOpenFoods,
   onOpenLots,
   onOpenOrders,
+  onOpenCompliance,
+  onOpenFinance,
   onOpenSettings,
   onLogout,
   onSwitchToBuyer,
@@ -102,7 +106,7 @@ export default function SellerHomeScreen({
         const todayKey = new Date().toISOString().slice(0, 10);
         const sellerOrders = (ordersJson.data ?? []).filter((order) => order.sellerId === currentAuth.userId);
         setStats({
-          today: sellerOrders.filter((order: any) => String(order.createdAt ?? "").slice(0, 10) === todayKey).length,
+          today: sellerOrders.filter((order) => String(order.createdAt ?? "").slice(0, 10) === todayKey).length,
           preparing: sellerOrders.filter((order) => order.status === "preparing").length,
           waiting: sellerOrders.filter((order) => order.status === "pending_seller_approval").length,
         });
@@ -146,6 +150,8 @@ export default function SellerHomeScreen({
           <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenFoods}><Text style={styles.actionText}>Yemeklerim</Text></TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenLots}><Text style={styles.actionText}>Lot / Stok</Text></TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenOrders}><Text style={styles.actionText}>Sipariş Yönetimi</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenCompliance}><Text style={styles.actionText}>Compliance</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenFinance}><Text style={styles.actionText}>Finans / Payout</Text></TouchableOpacity>
           <TouchableOpacity style={styles.ghostBtn} onPress={onOpenSettings}><Text style={styles.ghostText}>Ayarlar</Text></TouchableOpacity>
           {onSwitchToBuyer ? (
             <TouchableOpacity style={styles.ghostBtn} onPress={onSwitchToBuyer}><Text style={styles.ghostText}>Alıcı Moduna Geç</Text></TouchableOpacity>

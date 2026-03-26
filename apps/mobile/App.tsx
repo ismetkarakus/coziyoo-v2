@@ -24,6 +24,8 @@ import SellerFoodsScreen from './src/screens/SellerFoodsScreen';
 import SellerLotsScreen from './src/screens/SellerLotsScreen';
 import SellerOrdersScreen from './src/screens/SellerOrdersScreen';
 import SellerOrderDetailScreen from './src/screens/SellerOrderDetailScreen';
+import SellerComplianceScreen from './src/screens/SellerComplianceScreen';
+import SellerFinanceScreen from './src/screens/SellerFinanceScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
@@ -101,7 +103,7 @@ type Screen =
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
   | 'notifications' | 'favorites'
-  | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail'
+  | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance'
   | 'chatList' | 'chat';
 
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -454,6 +456,26 @@ export default function App() {
     );
   }
 
+  if (screen === 'sellerCompliance') {
+    return (
+      <SellerComplianceScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerFinance') {
+    return (
+      <SellerFinanceScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
   const canSwitchRole = auth.userType === 'both';
   if (actorMode === 'seller' && screen === 'home') {
     return (
@@ -463,6 +485,8 @@ export default function App() {
         onOpenFoods={() => setScreen('sellerFoods')}
         onOpenLots={() => setScreen('sellerLots')}
         onOpenOrders={() => setScreen('sellerOrders')}
+        onOpenCompliance={() => setScreen('sellerCompliance')}
+        onOpenFinance={() => setScreen('sellerFinance')}
         onOpenSettings={() => setScreen('settings')}
         onLogout={handleLogout}
         onAuthRefresh={setAuth}
