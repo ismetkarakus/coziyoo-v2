@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
-import { refreshAuthSession } from "../utils/auth";
-import { actorRoleHeader } from "../utils/actorRole";
-import { loadSettings } from "../utils/settings";
+import { apiRequest } from "../utils/api";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
+import ActionButton from "../components/ActionButton";
 
 type Props = {
   auth: AuthSession;
@@ -13,22 +13,18 @@ type Props = {
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-type SellerProfilePayload = {
-  data?: {
-    displayName?: string | null;
-    phone?: string | null;
-    kitchenTitle?: string | null;
-    kitchenDescription?: string | null;
-    deliveryRadiusKm?: number | null;
-    workingHours?: Array<{ day: string; open: string; close: string; enabled?: boolean }>;
-    status?: "incomplete" | "pending_review" | "active";
-    defaultAddress?: { title: string; addressLine: string } | null;
-  };
-  error?: { message?: string };
+type SellerProfileData = {
+  displayName?: string | null;
+  phone?: string | null;
+  kitchenTitle?: string | null;
+  kitchenDescription?: string | null;
+  deliveryRadiusKm?: number | null;
+  workingHours?: Array<{ day: string; open: string; close: string; enabled?: boolean }>;
+  status?: "incomplete" | "pending_review" | "active";
+  defaultAddress?: { title: string; addressLine: string } | null;
 };
 
 export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onAuthRefresh }: Props) {
-  const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,44 +37,27 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
-  async function authedFetch(path: string, init?: RequestInit, baseUrl = apiUrl): Promise<Response> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${currentAuth.accessToken}`,
-      ...actorRoleHeader(currentAuth, "seller"),
-      ...(init?.headers as Record<string, string> | undefined),
-    };
-    let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
-    if (res.status !== 401) return res;
-    const refreshed = await refreshAuthSession(baseUrl, currentAuth);
-    if (!refreshed) return res;
-    setCurrentAuth(refreshed);
-    onAuthRefresh?.(refreshed);
-    return fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: {
-        ...headers,
-        Authorization: `Bearer ${refreshed.accessToken}`,
-        ...actorRoleHeader(refreshed, "seller"),
-      },
-    });
+  function handleRefresh(session: AuthSession) {
+    setCurrentAuth(session);
+    onAuthRefresh?.(session);
   }
 
   async function loadProfile() {
     setLoading(true);
     try {
-      const settings = await loadSettings();
-      const baseUrl = settings.apiUrl;
-      setApiUrl(baseUrl);
-      const res = await authedFetch("/v1/seller/profile", undefined, baseUrl);
-      const json = (await res.json()) as SellerProfilePayload;
-      if (!res.ok) throw new Error(json.error?.message ?? "Satıcı profili yüklenemedi");
-      setKitchenTitle(json.data?.kitchenTitle?.trim() ?? "");
-      setKitchenDescription(json.data?.kitchenDescription?.trim() ?? "");
-      setDeliveryRadiusKm(String(json.data?.deliveryRadiusKm ?? 3));
-      setStatus(json.data?.status ?? "incomplete");
-      setDefaultAddress(json.data?.defaultAddress ? `${json.data.defaultAddress.title} - ${json.data.defaultAddress.addressLine}` : "Varsayılan adres yok");
-      const hours = (json.data?.workingHours ?? []).map((x) => `${x.day} ${x.open}-${x.close}`).join(", ");
+      const res = await apiRequest<SellerProfileData>("/v1/seller/profile", currentAuth, { actorRole: "seller" }, handleRefresh);
+      if (!res.ok) throw new Error(res.message ?? "Satıcı profili yüklenemedi");
+      const data = res.data;
+      setKitchenTitle(data?.kitchenTitle?.trim() ?? "");
+      setKitchenDescription(data?.kitchenDescription?.trim() ?? "");
+      setDeliveryRadiusKm(String(data?.deliveryRadiusKm ?? 3));
+      setStatus(data?.status ?? "incomplete");
+      setDefaultAddress(
+        data?.defaultAddress
+          ? `${data.defaultAddress.title} - ${data.defaultAddress.addressLine}`
+          : "Varsayılan adres yok"
+      );
+      const hours = (data?.workingHours ?? []).map((x) => `${x.day} ${x.open}-${x.close}`).join(", ");
       if (hours.trim()) setWorkingHoursText(hours);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Profil yüklenemedi");
@@ -107,20 +86,19 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
   async function saveProfile(submitForReview = false) {
     setSaving(true);
     try {
-      const res = await authedFetch("/v1/seller/profile", {
+      const res = await apiRequest<SellerProfileData>("/v1/seller/profile", currentAuth, {
         method: "PUT",
-        body: JSON.stringify({
+        body: {
           kitchenTitle: kitchenTitle.trim(),
           kitchenDescription: kitchenDescription.trim(),
           deliveryRadiusKm: Number(deliveryRadiusKm),
           workingHours: parseWorkingHours(workingHoursText),
           submitForReview,
-        }),
-      });
-      const json = (await res.json()) as SellerProfilePayload;
-      if (!res.ok) throw new Error(json.error?.message ?? "Kaydedilemedi");
-      const nextStatus = json.data?.status ?? "incomplete";
-      setStatus(nextStatus);
+        },
+        actorRole: "seller",
+      }, handleRefresh);
+      if (!res.ok) throw new Error(res.message ?? "Kaydedilemedi");
+      setStatus(res.data?.status ?? "incomplete");
       Alert.alert("Tamam", submitForReview ? "Profil incelemeye gönderildi." : "Profil kaydedildi.");
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Kaydedilemedi");
@@ -129,74 +107,86 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
     }
   }
 
+  const statusLabel =
+    status === "active" ? "Aktif ✓" : status === "pending_review" ? "İncelemede" : "Eksik — profili tamamla";
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
-        <Text style={styles.title}>Satıcı Profili</Text>
-        <View style={{ width: 36 }} />
-      </View>
-      {loading ? (
-        <ActivityIndicator size="large" color={theme.primary} />
-      ) : (
-        <>
-          <Text style={styles.status}>Durum: {status}</Text>
-          <Text style={styles.label}>Varsayılan adres</Text>
-          <TouchableOpacity style={styles.addressCard} onPress={onOpenAddresses}>
-            <Text style={styles.addressText}>{defaultAddress}</Text>
-            <Text style={styles.addressAction}>Adresi düzenle</Text>
-          </TouchableOpacity>
+    <View style={styles.container}>
+      <ScreenHeader title="Satıcı Profili" onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content}>
+        {loading ? (
+          <Text style={styles.loadingText}>Yükleniyor...</Text>
+        ) : (
+          <>
+            <View style={styles.heroCard}>
+              <Text style={styles.heroTitle}>Profilin ne kadar net olursa o kadar iyi satış olur.</Text>
+              <Text style={styles.heroText}>Bilgilerini birlikte toparlayalım, müşteri seni daha hızlı keşfetsin.</Text>
+            </View>
 
-          <Text style={styles.label}>Mutfak başlığı</Text>
-          <TextInput style={styles.input} value={kitchenTitle} onChangeText={setKitchenTitle} placeholder="Örn: İsmet'in Ev Mutfağı" />
+            <View style={[styles.statusBadge, status === "active" ? styles.statusActive : styles.statusPending]}>
+              <Text style={[styles.statusText, status === "active" ? styles.statusTextActive : styles.statusTextPending]}>
+                {statusLabel}
+              </Text>
+            </View>
 
-          <Text style={styles.label}>Mutfak açıklaması</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={kitchenDescription}
-            onChangeText={setKitchenDescription}
-            placeholder="Yemek tarzını ve servis yapını anlat."
-            multiline
-          />
+            <Text style={styles.label}>Varsayılan adres</Text>
+            <TouchableOpacity style={styles.addressCard} onPress={onOpenAddresses} activeOpacity={0.85}>
+              <Text style={styles.addressText}>{defaultAddress}</Text>
+              <Text style={styles.addressAction}>Adresi güncelle →</Text>
+            </TouchableOpacity>
 
-          <Text style={styles.label}>Teslimat yarıçapı (km)</Text>
-          <TextInput style={styles.input} value={deliveryRadiusKm} onChangeText={setDeliveryRadiusKm} keyboardType="numeric" />
+            <Text style={styles.label}>Mutfak başlığı</Text>
+            <TextInput style={styles.input} value={kitchenTitle} onChangeText={setKitchenTitle} placeholder="Örn: İsmet'in Ev Mutfağı" />
 
-          <Text style={styles.label}>Çalışma saatleri</Text>
-          <TextInput
-            style={styles.input}
-            value={workingHoursText}
-            onChangeText={setWorkingHoursText}
-            placeholder="Pzt 10:00-19:00, Salı 10:00-19:00"
-          />
+            <Text style={styles.label}>Mutfak açıklaması</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={kitchenDescription}
+              onChangeText={setKitchenDescription}
+              placeholder="Yemek tarzını ve servis yapını anlat."
+              multiline
+            />
 
-          <TouchableOpacity style={styles.saveBtn} disabled={saving} onPress={() => void saveProfile(false)}>
-            <Text style={styles.saveText}>{saving ? "Kaydediliyor..." : "Kaydet"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.submitBtn} disabled={saving} onPress={() => void saveProfile(true)}>
-            <Text style={styles.submitText}>İncelemeye Gönder</Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </ScrollView>
+            <Text style={styles.label}>Teslimat yarıçapı (km)</Text>
+            <TextInput style={styles.input} value={deliveryRadiusKm} onChangeText={setDeliveryRadiusKm} keyboardType="numeric" />
+
+            <Text style={styles.label}>Çalışma saatleri</Text>
+            <TextInput
+              style={styles.input}
+              value={workingHoursText}
+              onChangeText={setWorkingHoursText}
+              placeholder="Pzt 10:00-19:00, Salı 10:00-19:00"
+            />
+
+            <View style={styles.gap} />
+            <ActionButton label={saving ? "Kaydediliyor..." : "Bilgileri Kaydet"} onPress={() => void saveProfile(false)} disabled={saving} loading={saving} fullWidth />
+            <View style={styles.gap} />
+            <ActionButton label="İncelemeye Gönder" onPress={() => void saveProfile(true)} disabled={saving} variant="soft" fullWidth />
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 40 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
-  status: { marginBottom: 12, color: "#6B5C4D", fontWeight: "700" },
-  label: { marginTop: 10, marginBottom: 6, color: "#2E241C", fontWeight: "700" },
+  loadingText: { textAlign: "center", marginTop: 40, color: "#6C6055" },
+  heroCard: { backgroundColor: "#F1E8D9", borderColor: "#E8D6BB", borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 10 },
+  heroTitle: { color: "#4B3422", fontWeight: "800", fontSize: 15, lineHeight: 20 },
+  heroText: { color: "#6B5545", marginTop: 4, lineHeight: 18 },
+  statusBadge: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14, alignSelf: "flex-start" },
+  statusActive: { backgroundColor: "#EAF4ED" },
+  statusPending: { backgroundColor: "#FFF4E5" },
+  statusText: { fontWeight: "700", fontSize: 13 },
+  statusTextActive: { color: "#2E6B44" },
+  statusTextPending: { color: "#7A4D1B" },
+  label: { marginTop: 12, marginBottom: 6, color: "#2E241C", fontWeight: "700" },
   addressCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E4DBCD", padding: 12 },
   addressText: { color: "#4E433A" },
-  addressAction: { marginTop: 6, color: "#3F855C", fontWeight: "700" },
+  addressAction: { marginTop: 6, color: theme.primary, fontWeight: "700" },
   input: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E4DBCD", paddingHorizontal: 12, paddingVertical: 10, color: "#2E241C" },
   textArea: { minHeight: 92, textAlignVertical: "top" },
-  saveBtn: { marginTop: 14, backgroundColor: "#3F855C", borderRadius: 12, paddingVertical: 13, alignItems: "center" },
-  saveText: { color: "#fff", fontWeight: "700" },
-  submitBtn: { marginTop: 10, backgroundColor: "#EFE9DF", borderRadius: 12, paddingVertical: 13, alignItems: "center" },
-  submitText: { color: "#5F5348", fontWeight: "700" },
+  gap: { height: 10 },
 });

@@ -140,12 +140,16 @@ export default function SellerComplianceScreen({ auth, onBack, onAuthRefresh }: 
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Compliance" onBack={onBack} />
+      <ScreenHeader title="Belgeler ve Uyum" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content}>
         {loading || !payload ? (
           <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
         ) : (
           <>
+            <View style={styles.heroCard}>
+              <Text style={styles.heroTitle}>Belge tarafını birlikte tamamlayalım.</Text>
+              <Text style={styles.heroText}>Zorunlu belgelerin tam olunca satıcı panelindeki tüm aksiyonlar rahatça açılır.</Text>
+            </View>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Profil Durumu: {payload.profile?.status ?? "-"}</Text>
               <Text style={styles.meta}>Zorunlu: {payload.profile?.required_count ?? 0}</Text>
@@ -195,7 +199,7 @@ export default function SellerComplianceScreen({ auth, onBack, onAuthRefresh }: 
               ))}
             </View>
             <TouchableOpacity style={styles.refreshBtn} onPress={() => void loadData()}>
-              <Text style={styles.refreshText}>Yenile</Text>
+              <Text style={styles.refreshText}>Durumu Yenile</Text>
             </TouchableOpacity>
           </>
         )}
@@ -208,6 +212,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 40, gap: 10 },
   loader: { marginTop: 40 },
+  heroCard: { backgroundColor: "#F1E8D9", borderColor: "#E8D6BB", borderWidth: 1, borderRadius: 14, padding: 12 },
+  heroTitle: { color: "#4B3422", fontWeight: "800", fontSize: 15, lineHeight: 20 },
+  heroText: { marginTop: 4, color: "#6B5545", lineHeight: 18 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 6 },
   progressText: { color: "#2E6B44", fontWeight: "700", marginBottom: 8 },

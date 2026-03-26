@@ -16,6 +16,8 @@ type Props = {
   onOpenOrders: () => void;
   onOpenCompliance: () => void;
   onOpenFinance: () => void;
+  onOpenDirectory: () => void;
+  onOpenV1Preview: () => void;
   onOpenSettings: () => void;
   onLogout: () => void;
   onSwitchToBuyer?: () => void;
@@ -47,6 +49,8 @@ export default function SellerHomeScreen({
   onOpenOrders,
   onOpenCompliance,
   onOpenFinance,
+  onOpenDirectory,
+  onOpenV1Preview,
   onOpenSettings,
   onLogout,
   onSwitchToBuyer,
@@ -56,7 +60,6 @@ export default function SellerHomeScreen({
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<"incomplete" | "pending_review" | "active">("incomplete");
   const [displayName, setDisplayName] = useState<string>("Usta");
-  const [canOperate, setCanOperate] = useState(false);
   const [complianceRequiredCount, setComplianceRequiredCount] = useState(0);
   const [complianceUploadedRequiredCount, setComplianceUploadedRequiredCount] = useState(0);
   const [stats, setStats] = useState({ today: 0, preparing: 0, waiting: 0 });
@@ -64,7 +67,6 @@ export default function SellerHomeScreen({
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
-  const isLocked = !canOperate;
   const statusText = useMemo(() => {
     if (status === "active") return "Aktif ✓";
     if (status === "pending_review") return "İncelemede";
@@ -108,7 +110,6 @@ export default function SellerHomeScreen({
       const sellerStatus = profileJson.data?.status ?? "incomplete";
       setStatus(sellerStatus);
       setDisplayName(profileJson.data?.displayName?.trim() || "Usta");
-      setCanOperate(Boolean(profileJson.data?.requirements?.canOperate));
       setComplianceRequiredCount(Number(profileJson.data?.requirements?.complianceRequiredCount ?? 0));
       setComplianceUploadedRequiredCount(Number(profileJson.data?.requirements?.complianceUploadedRequiredCount ?? 0));
 
@@ -161,38 +162,27 @@ export default function SellerHomeScreen({
             </View>
           </View>
 
+          <View style={styles.heroCard}>
+            <Text style={styles.heroTitle}>Bugün nasıl gidiyor?</Text>
+            <Text style={styles.heroText}>Siparişlerini, menünü ve stoklarını buradan hızlıca yönetebilirsin.</Text>
+          </View>
+
           <TouchableOpacity style={styles.complianceCard} activeOpacity={0.85} onPress={onOpenCompliance}>
             <Text style={styles.complianceTitle}>Belge Durumu</Text>
             <Text style={styles.complianceText}>
               Tamamlanan: {complianceUploadedRequiredCount}/{complianceRequiredCount}
             </Text>
-            <Text style={styles.complianceAction}>Belgeleri aç →</Text>
+            <Text style={styles.complianceAction}>Eksik varsa birlikte tamamlayalım →</Text>
           </TouchableOpacity>
-
-          {isLocked ? (
-            <View style={styles.lockCard}>
-              <Text style={styles.lockTitle}>Önce profili tamamla</Text>
-              <Text style={styles.lockText}>
-                Lütfen profilini ve zorunlu belgelerini tamamla.
-              </Text>
-              <View style={styles.lockCtas}>
-                <TouchableOpacity style={styles.lockCtaPrimary} onPress={onOpenProfile}>
-                  <Text style={styles.lockCtaPrimaryText}>Profili Düzenle</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.lockCtaSecondary} onPress={onOpenCompliance}>
-                  <Text style={styles.lockCtaSecondaryText}>Belgeleri Tamamla</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : null}
 
           <View style={styles.actions}>
             <ActionButton label="Satıcı Profili" onPress={onOpenProfile} fullWidth />
-            <ActionButton label="Yemeklerim" onPress={onOpenFoods} disabled={isLocked} fullWidth />
-            <ActionButton label="Lot / Stok" onPress={onOpenLots} disabled={isLocked} fullWidth />
-            <ActionButton label="Sipariş Yönetimi" onPress={onOpenOrders} disabled={isLocked} fullWidth />
+            <ActionButton label="Yemeklerim" onPress={onOpenFoods} fullWidth />
+            <ActionButton label="Lot / Stok" onPress={onOpenLots} fullWidth />
+            <ActionButton label="Sipariş Yönetimi" onPress={onOpenOrders} fullWidth />
             <ActionButton label="Compliance" onPress={onOpenCompliance} fullWidth />
-            <ActionButton label="Finans / Payout" onPress={onOpenFinance} disabled={isLocked} fullWidth />
+            <ActionButton label="Finans / Payout" onPress={onOpenFinance} fullWidth />
+            <ActionButton label="Tüm Satıcılar" onPress={onOpenDirectory} variant="soft" fullWidth />
             <ActionButton label="Ayarlar" onPress={onOpenSettings} variant="soft" fullWidth />
             {onSwitchToBuyer ? (
               <ActionButton label="Alıcı Moduna Geç" onPress={onSwitchToBuyer} variant="outline" fullWidth />
@@ -220,6 +210,16 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E6DED1", padding: 12, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
   statLabel: { fontSize: 12, color: "#6F6358", marginTop: 2 },
+  heroCard: {
+    backgroundColor: "#F1E8D9",
+    borderColor: "#E8D6BB",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  heroTitle: { color: "#4B3422", fontWeight: "800", fontSize: 16 },
+  heroText: { marginTop: 4, color: "#6B5545", lineHeight: 18 },
   complianceCard: {
     backgroundColor: "#EFF6F1",
     borderColor: "#CFE2D5",
@@ -231,14 +231,6 @@ const styles = StyleSheet.create({
   complianceTitle: { color: "#2E6B44", fontWeight: "800" },
   complianceText: { marginTop: 4, color: "#2E6B44" },
   complianceAction: { marginTop: 6, color: "#2E6B44", fontWeight: "700" },
-  lockCard: { backgroundColor: "#FFF5E9", borderColor: "#F0C995", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
-  lockTitle: { fontWeight: "700", color: "#7A4D1B" },
-  lockText: { marginTop: 4, color: "#7A4D1B", fontSize: 13 },
-  lockCtas: { flexDirection: "row", gap: 8, marginTop: 10 },
-  lockCtaPrimary: { flex: 1, backgroundColor: "#7A4D1B", borderRadius: 10, paddingVertical: 10, alignItems: "center" },
-  lockCtaPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 12 },
-  lockCtaSecondary: { flex: 1, backgroundColor: "#fff", borderColor: "#E2B782", borderWidth: 1, borderRadius: 10, paddingVertical: 10, alignItems: "center" },
-  lockCtaSecondaryText: { color: "#7A4D1B", fontWeight: "700", fontSize: 12 },
   actions: { gap: 10 },
   error: { marginTop: 12, color: "#B42318", textAlign: "center" },
 });
