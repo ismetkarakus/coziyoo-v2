@@ -38,6 +38,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [userType, setUserType] = useState<'buyer' | 'seller'>('buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -73,6 +74,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
+          userType,
         }),
       });
       const json = await readJsonSafe<RegisterResponse>(response);
@@ -158,6 +160,26 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
               keyboardType="email-address"
               editable={!loading}
             />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Hesap tipi</Text>
+          <View style={styles.roleRow}>
+            <TouchableOpacity
+              style={[styles.roleBtn, userType === 'buyer' && styles.roleBtnActive]}
+              onPress={() => setUserType('buyer')}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.roleBtnText, userType === 'buyer' && styles.roleBtnTextActive]}>Alıcı</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleBtn, userType === 'seller' && styles.roleBtnActive]}
+              onPress={() => setUserType('seller')}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.roleBtnText, userType === 'seller' && styles.roleBtnTextActive]}>Satıcı</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -328,6 +350,22 @@ const styles = StyleSheet.create({
   },
 
   inputGroup: { marginBottom: 16 },
+  roleRow: { flexDirection: 'row', gap: 8 },
+  roleBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.card,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  roleBtnActive: {
+    borderColor: theme.primary,
+    backgroundColor: '#EAF4ED',
+  },
+  roleBtnText: { color: theme.textSecondary, fontWeight: '700' },
+  roleBtnTextActive: { color: theme.primary },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',

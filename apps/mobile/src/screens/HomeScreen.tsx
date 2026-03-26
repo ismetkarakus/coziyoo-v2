@@ -107,6 +107,7 @@ type Props = {
   onOpenFoodDetail?: (food: any) => void;
   onLogout: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
+  onSwitchToSeller?: () => void;
 };
 
 type ApiErrorPayload = {
@@ -1012,6 +1013,7 @@ export default function HomeScreen({
   onOpenFoodDetail,
   onLogout,
   onAuthRefresh,
+  onSwitchToSeller,
 }: Props) {
   const [currentAuth, setCurrentAuth] = useState<AuthSession>(auth);
   const [apiUrl, setApiUrl] = useState('http://localhost:3000');
@@ -2146,7 +2148,7 @@ export default function HomeScreen({
       ? filteredMeals
       : nearbyFilteredMeals;
   const visibleMeals = searchQuery.trim()
-    ? baseVisibleMeals.filter((m) => {
+    ? meals.filter((m) => {
         const q = searchQuery.trim().toLocaleLowerCase('tr-TR');
         return (
           m.title.toLocaleLowerCase('tr-TR').includes(q) ||
@@ -2904,6 +2906,24 @@ export default function HomeScreen({
             </View>
           </TouchableOpacity>
 
+          {onSwitchToSeller ? (
+            <TouchableOpacity
+              style={styles.profileGroupCard}
+              onPress={onSwitchToSeller}
+              activeOpacity={0.85}
+            >
+              <View style={styles.profileActionRow}>
+                <View style={styles.profileActionMain}>
+                  <View style={[styles.profileActionIconWrap, { backgroundColor: '#EAF4ED' }]}>
+                    <Ionicons name="restaurant-outline" size={18} color="#3E845B" />
+                  </View>
+                  <Text style={styles.profileActionTitle}>Satıcı Moduna Geç</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#A79B8E" />
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.profileSellerCard}>
             <View style={styles.profileSellerContent}>
               <View style={styles.profileSellerEmojiWrap}>
@@ -3248,19 +3268,9 @@ export default function HomeScreen({
                 )}
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
-              <TouchableOpacity
-                style={styles.modalSellerRow}
-                activeOpacity={0.7}
-                onPress={() => {
-                  const seller = { id: selectedMeal.sellerId, name: selectedMeal.seller, image: selectedMeal.sellerImage ?? null };
-                  setMealModalAnimType('none');
-                  setPendingSellerOpen(seller);
-                  setSelectedMeal(null);
-                }}
-              >
+              <View style={styles.modalSellerRow}>
                 <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#71685F" />
-              </TouchableOpacity>
+              </View>
               {selectedMeal.cuisine ? (
                 <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfağı</Text>
               ) : null}

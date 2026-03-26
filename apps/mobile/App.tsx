@@ -18,6 +18,12 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
+import SellerHomeScreen from './src/screens/SellerHomeScreen';
+import SellerProfileScreen from './src/screens/SellerProfileScreen';
+import SellerFoodsScreen from './src/screens/SellerFoodsScreen';
+import SellerLotsScreen from './src/screens/SellerLotsScreen';
+import SellerOrdersScreen from './src/screens/SellerOrdersScreen';
+import SellerOrderDetailScreen from './src/screens/SellerOrderDetailScreen';
 import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
 import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
@@ -95,6 +101,7 @@ type Screen =
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
   | 'notifications' | 'favorites'
+  | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail'
   | 'chatList' | 'chat';
 
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -103,6 +110,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
   const [homeTab, setHomeTab] = useState<TabKey>('home');
   const [auth, setAuth] = useState<AuthSession | null>(null);
+  const [actorMode, setActorMode] = useState<'buyer' | 'seller'>('buyer');
 
   // Screen params
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -118,6 +126,7 @@ export default function App() {
     loadAuthSession().then((stored) => {
       if (stored) {
         setAuth(stored);
+        setActorMode(stored.userType === 'seller' ? 'seller' : 'buyer');
         setScreen('home');
       } else {
         setScreen('onboarding');
@@ -149,11 +158,13 @@ export default function App() {
 
   function handleLogin(session: AuthSession) {
     setAuth(session);
+    setActorMode(session.userType === 'seller' ? 'seller' : 'buyer');
     setScreen('home');
   }
 
   function handleOnboardingComplete(session: AuthSession) {
     setAuth(session);
+    setActorMode(session.userType === 'seller' ? 'seller' : 'buyer');
     setIsNewRegistration(true);
     setScreen('profileEdit');
   }
@@ -223,7 +234,10 @@ export default function App() {
     return (
       <AddressScreen
         auth={auth}
-        onBack={() => goHome('profile')}
+        onBack={() => {
+          if (actorMode === 'seller') setScreen('sellerProfile');
+          else goHome('profile');
+        }}
         onAuthRefresh={setAuth}
       />
     );
@@ -387,6 +401,76 @@ export default function App() {
     );
   }
 
+  if (screen === 'sellerProfile') {
+    return (
+      <SellerProfileScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onOpenAddresses={() => setScreen('addresses')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerFoods') {
+    return (
+      <SellerFoodsScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerLots') {
+    return (
+      <SellerLotsScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerOrders') {
+    return (
+      <SellerOrdersScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onOpenOrder={(id) => { setSelectedOrderId(id); setScreen('sellerOrderDetail'); }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerOrderDetail' && selectedOrderId) {
+    return (
+      <SellerOrderDetailScreen
+        auth={auth}
+        orderId={selectedOrderId}
+        onBack={() => setScreen('sellerOrders')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  const canSwitchRole = auth.userType === 'both';
+  if (actorMode === 'seller' && screen === 'home') {
+    return (
+      <SellerHomeScreen
+        auth={auth}
+        onOpenProfile={() => setScreen('sellerProfile')}
+        onOpenFoods={() => setScreen('sellerFoods')}
+        onOpenLots={() => setScreen('sellerLots')}
+        onOpenOrders={() => setScreen('sellerOrders')}
+        onOpenSettings={() => setScreen('settings')}
+        onLogout={handleLogout}
+        onAuthRefresh={setAuth}
+        onSwitchToBuyer={canSwitchRole ? () => setActorMode('buyer') : undefined}
+      />
+    );
+  }
+
   return (
     <HomeScreen
       auth={auth}
@@ -399,6 +483,7 @@ export default function App() {
       onOpenFoodDetail={(food: FoodItem) => { setSelectedFood(food); setScreen('foodDetail'); }}
       onLogout={handleLogout}
       onAuthRefresh={setAuth}
+      onSwitchToSeller={canSwitchRole ? () => { setActorMode('seller'); setScreen('home'); } : undefined}
     />
   );
 }
