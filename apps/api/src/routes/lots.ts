@@ -5,6 +5,7 @@ import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
 import { recalculateFoodStockTx } from "../services/lots.js";
 import { enqueueOutboxEvent } from "../services/outbox.js";
+import { getSellerOperateGate } from "../services/seller-operability.js";
 
 const CreateLotSchema = z.object({
   foodId: z.string().uuid(),
@@ -31,10 +32,29 @@ const RecallLotSchema = z.object({
 export const sellerLotsRouter = Router();
 export const adminLotsRouter = Router();
 
+async function ensureSellerCanOperate(userId: string) {
+  return getSellerOperateGate(pool, userId);
+}
+
 sellerLotsRouter.post("/", requireAuth("app"), async (req, res) => {
   const role = resolveActorRole(req);
   if (role !== "seller") {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+  const gate = await ensureSellerCanOperate(req.auth!.userId);
+  if (!gate?.canOperate) {
+    return res.status(409).json({
+      error: {
+        code: "SELLER_PROFILE_OR_COMPLIANCE_INCOMPLETE",
+        message: "Lütfen profilini ve zorunlu belgelerini tamamla.",
+        details: {
+          profileComplete: gate?.profileComplete ?? false,
+          complianceRequiredCount: gate?.complianceRequiredCount ?? 0,
+          complianceUploadedRequiredCount: gate?.complianceUploadedRequiredCount ?? 0,
+          complianceMissingRequiredCount: gate?.complianceMissingRequiredCount ?? 0,
+        },
+      },
+    });
   }
   const parsed = CreateLotSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -191,6 +211,21 @@ sellerLotsRouter.post("/:lotId/adjust", requireAuth("app"), async (req, res) => 
   if (role !== "seller") {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
   }
+  const gate = await ensureSellerCanOperate(req.auth!.userId);
+  if (!gate?.canOperate) {
+    return res.status(409).json({
+      error: {
+        code: "SELLER_PROFILE_OR_COMPLIANCE_INCOMPLETE",
+        message: "Lütfen profilini ve zorunlu belgelerini tamamla.",
+        details: {
+          profileComplete: gate?.profileComplete ?? false,
+          complianceRequiredCount: gate?.complianceRequiredCount ?? 0,
+          complianceUploadedRequiredCount: gate?.complianceUploadedRequiredCount ?? 0,
+          complianceMissingRequiredCount: gate?.complianceMissingRequiredCount ?? 0,
+        },
+      },
+    });
+  }
   const lotId = String(req.params.lotId ?? "");
   if (!z.string().uuid().safeParse(lotId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid lot id" } });
@@ -280,6 +315,21 @@ sellerLotsRouter.post("/:lotId/recall", requireAuth("app"), async (req, res) => 
   const role = resolveActorRole(req);
   if (role !== "seller") {
     return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+  const gate = await ensureSellerCanOperate(req.auth!.userId);
+  if (!gate?.canOperate) {
+    return res.status(409).json({
+      error: {
+        code: "SELLER_PROFILE_OR_COMPLIANCE_INCOMPLETE",
+        message: "Lütfen profilini ve zorunlu belgelerini tamamla.",
+        details: {
+          profileComplete: gate?.profileComplete ?? false,
+          complianceRequiredCount: gate?.complianceRequiredCount ?? 0,
+          complianceUploadedRequiredCount: gate?.complianceUploadedRequiredCount ?? 0,
+          complianceMissingRequiredCount: gate?.complianceMissingRequiredCount ?? 0,
+        },
+      },
+    });
   }
   const lotId = String(req.params.lotId ?? "");
   if (!z.string().uuid().safeParse(lotId).success) {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { pool } from "../db/client.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
+import { getSellerOperateGate } from "../services/seller-operability.js";
 
 const WorkingHourSchema = z.object({
   day: z.string().min(2).max(20),
@@ -67,6 +68,28 @@ function ensureSellerRole(req: Request, res: Response): boolean {
     return false;
   }
   return true;
+}
+
+async function ensureSellerCanOperate(req: Request, res: Response): Promise<boolean> {
+  const gate = await getSellerOperateGate(pool, req.auth!.userId);
+  if (!gate) {
+    res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+    return false;
+  }
+  if (gate.canOperate) return true;
+  res.status(409).json({
+    error: {
+      code: "SELLER_PROFILE_OR_COMPLIANCE_INCOMPLETE",
+      message: "Lütfen profilini ve zorunlu belgelerini tamamla.",
+      details: {
+        profileComplete: gate.profileComplete,
+        complianceRequiredCount: gate.complianceRequiredCount,
+        complianceUploadedRequiredCount: gate.complianceUploadedRequiredCount,
+        complianceMissingRequiredCount: gate.complianceMissingRequiredCount,
+      },
+    },
+  });
+  return false;
 }
 
 function computeSellerProfileStatus(input: {
@@ -140,6 +163,7 @@ sellerRouter.get("/profile", async (req, res) => {
       hasDefaultAddress,
       submitForReview: false,
     });
+    const operateGate = await getSellerOperateGate(pool, userId);
 
     return res.json({
       data: {
@@ -161,6 +185,10 @@ sellerRouter.get("/profile", async (req, res) => {
           hasKitchenDescription: Boolean(row.kitchen_description?.trim()),
           hasDeliveryRadius: Boolean(row.delivery_radius_km),
           hasWorkingHours: Array.isArray(row.working_hours_json) && row.working_hours_json.length > 0,
+          complianceRequiredCount: operateGate?.complianceRequiredCount ?? 0,
+          complianceUploadedRequiredCount: operateGate?.complianceUploadedRequiredCount ?? 0,
+          complianceMissingRequiredCount: operateGate?.complianceMissingRequiredCount ?? 0,
+          canOperate: operateGate?.canOperate ?? false,
         },
       },
     });
@@ -321,6 +349,7 @@ sellerRouter.get("/foods", async (req, res) => {
 
 sellerRouter.post("/foods", async (req, res) => {
     if (!ensureSellerRole(req, res)) return;
+    if (!(await ensureSellerCanOperate(req, res))) return;
     const parsed = SellerFoodCreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
@@ -356,6 +385,7 @@ sellerRouter.post("/foods", async (req, res) => {
 
 sellerRouter.patch("/foods/:foodId", async (req, res) => {
     if (!ensureSellerRole(req, res)) return;
+    if (!(await ensureSellerCanOperate(req, res))) return;
     const foodId = String(req.params.foodId ?? "");
     if (!z.string().uuid().safeParse(foodId).success) {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid food id" } });
@@ -437,6 +467,7 @@ sellerRouter.patch("/foods/:foodId", async (req, res) => {
 
 sellerRouter.patch("/foods/:foodId/status", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
+  if (!(await ensureSellerCanOperate(req, res))) return;
   const foodId = String(req.params.foodId ?? "");
   if (!z.string().uuid().safeParse(foodId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid food id" } });
@@ -465,6 +496,7 @@ sellerRouter.patch("/foods/:foodId/status", async (req, res) => {
 
 sellerRouter.post("/foods/:foodId/image", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
+  if (!(await ensureSellerCanOperate(req, res))) return;
   const foodId = String(req.params.foodId ?? "");
   if (!z.string().uuid().safeParse(foodId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid food id" } });

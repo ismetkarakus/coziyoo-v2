@@ -15,8 +15,18 @@ const SellerProfileSchema = z.object({
 
 const UploadDocumentSchema = z.object({
   docType: z.string().trim().min(2).max(80),
-  fileUrl: z.string().url(),
+  fileUrl: z.string().url().optional(),
+  dataBase64: z.string().min(16).optional(),
+  contentType: z.string().trim().min(3).max(120).optional(),
   notes: z.string().trim().max(1500).optional(),
+}).superRefine((value, ctx) => {
+  if (!value.fileUrl && !value.dataBase64) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["fileUrl"],
+      message: "fileUrl or dataBase64 is required",
+    });
+  }
 });
 
 const PresignDocumentUploadSchema = z.object({
@@ -699,6 +709,9 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
   const input = parsed.data;
+  const resolvedFileUrl = input.fileUrl
+    ? input.fileUrl
+    : `data:${input.contentType ?? "image/jpeg"};base64,${input.dataBase64 ?? ""}`;
 
   const docType = await pool.query<{ id: string; is_required_default: boolean; validity_years: number | null }>(
     "SELECT id::text, is_required_default, validity_years FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
@@ -759,7 +772,7 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
          )
          VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, 1, TRUE, now(), now())
          RETURNING id::text`,
-        [req.auth!.userId, docType.rows[0].id, docType.rows[0].is_required_default, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
+        [req.auth!.userId, docType.rows[0].id, docType.rows[0].is_required_default, resolvedFileUrl, uploadedAt, input.notes ?? null, expiresAt]
       );
       documentId = inserted.rows[0].id;
     } else {
@@ -787,7 +800,7 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
            WHERE id = $1
              AND seller_id = $2
            RETURNING id::text`,
-          [current.id, req.auth!.userId, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
+          [current.id, req.auth!.userId, resolvedFileUrl, uploadedAt, input.notes ?? null, expiresAt]
         );
         documentId = updated.rows[0].id;
       } else {
@@ -819,7 +832,7 @@ sellerComplianceRouter.post("/documents", requireAuth("app"), async (req, res) =
            )
            VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, $8, TRUE, now(), now())
            RETURNING id::text`,
-          [req.auth!.userId, docType.rows[0].id, current.is_required, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt, current.version + 1]
+          [req.auth!.userId, docType.rows[0].id, current.is_required, resolvedFileUrl, uploadedAt, input.notes ?? null, expiresAt, current.version + 1]
         );
         documentId = inserted.rows[0].id;
       }
@@ -1388,6 +1401,9 @@ adminComplianceRouter.post("/:sellerId/documents/upload", requireAuth("admin"), 
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
   const input = parsed.data;
+  const resolvedFileUrl = input.fileUrl
+    ? input.fileUrl
+    : `data:${input.contentType ?? "image/jpeg"};base64,${input.dataBase64 ?? ""}`;
 
   const docType = await pool.query<{ id: string; is_required_default: boolean; validity_years: number | null }>(
     "SELECT id::text, is_required_default, validity_years FROM compliance_documents_list WHERE code = $1 AND is_active = TRUE",
@@ -1455,7 +1471,7 @@ adminComplianceRouter.post("/:sellerId/documents/upload", requireAuth("admin"), 
          )
          VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, 1, TRUE, now(), now())
          RETURNING id::text`,
-        [sellerId, docType.rows[0].id, docType.rows[0].is_required_default, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
+        [sellerId, docType.rows[0].id, docType.rows[0].is_required_default, resolvedFileUrl, uploadedAt, input.notes ?? null, expiresAt]
       );
       documentId = inserted.rows[0].id;
     } else {
@@ -1483,7 +1499,7 @@ adminComplianceRouter.post("/:sellerId/documents/upload", requireAuth("admin"), 
            WHERE id = $1
              AND seller_id = $2
            RETURNING id::text`,
-          [current.id, sellerId, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt]
+          [current.id, sellerId, resolvedFileUrl, uploadedAt, input.notes ?? null, expiresAt]
         );
         documentId = updated.rows[0].id;
       } else {
@@ -1515,7 +1531,7 @@ adminComplianceRouter.post("/:sellerId/documents/upload", requireAuth("admin"), 
            )
            VALUES ($1, $2, $3, 'uploaded', $4, $5, NULL, NULL, NULL, $6, $7, FALSE, $8, TRUE, now(), now())
            RETURNING id::text`,
-          [sellerId, docType.rows[0].id, current.is_required, input.fileUrl, uploadedAt, input.notes ?? null, expiresAt, current.version + 1]
+          [sellerId, docType.rows[0].id, current.is_required, resolvedFileUrl, uploadedAt, input.notes ?? null, expiresAt, current.version + 1]
         );
         documentId = inserted.rows[0].id;
       }
@@ -1527,7 +1543,7 @@ adminComplianceRouter.post("/:sellerId/documents/upload", requireAuth("admin"), 
       entityType: "seller_compliance_documents",
       entityId: documentId,
       before,
-      after: { sellerId, docType: input.docType, fileUrl: input.fileUrl, status: "uploaded" },
+      after: { sellerId, docType: input.docType, fileUrl: resolvedFileUrl, status: "uploaded" },
     });
 
     await client.query("COMMIT");

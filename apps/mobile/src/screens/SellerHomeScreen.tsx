@@ -5,6 +5,7 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ActionButton from "../components/ActionButton";
 
 type Props = {
   auth: AuthSession;
@@ -24,7 +25,12 @@ type SellerProfileResponse = {
   data?: {
     status?: "incomplete" | "pending_review" | "active";
     displayName?: string | null;
-    requirements?: Record<string, boolean>;
+    requirements?: {
+      canOperate?: boolean;
+      complianceRequiredCount?: number;
+      complianceUploadedRequiredCount?: number;
+      complianceMissingRequiredCount?: number;
+    };
   };
 };
 
@@ -50,16 +56,19 @@ export default function SellerHomeScreen({
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<"incomplete" | "pending_review" | "active">("incomplete");
   const [displayName, setDisplayName] = useState<string>("Usta");
+  const [canOperate, setCanOperate] = useState(false);
+  const [complianceRequiredCount, setComplianceRequiredCount] = useState(0);
+  const [complianceUploadedRequiredCount, setComplianceUploadedRequiredCount] = useState(0);
   const [stats, setStats] = useState({ today: 0, preparing: 0, waiting: 0 });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
-  const isLocked = status === "incomplete";
+  const isLocked = !canOperate;
   const statusText = useMemo(() => {
-    if (status === "active") return "Aktif";
+    if (status === "active") return "Aktif ✓";
     if (status === "pending_review") return "İncelemede";
-    return "Eksik";
+    return "Eksik — profili tamamla";
   }, [status]);
 
   async function fetchWithAuth(path: string, baseUrl = apiUrl): Promise<Response> {
@@ -74,14 +83,13 @@ export default function SellerHomeScreen({
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
     onAuthRefresh?.(refreshed);
-    res = await fetch(`${baseUrl}${path}`, {
+    return fetch(`${baseUrl}${path}`, {
       headers: {
         ...headers,
         Authorization: `Bearer ${refreshed.accessToken}`,
         ...actorRoleHeader(refreshed, "seller"),
       },
     });
-    return res;
   }
 
   async function load() {
@@ -100,6 +108,9 @@ export default function SellerHomeScreen({
       const sellerStatus = profileJson.data?.status ?? "incomplete";
       setStatus(sellerStatus);
       setDisplayName(profileJson.data?.displayName?.trim() || "Usta");
+      setCanOperate(Boolean(profileJson.data?.requirements?.canOperate));
+      setComplianceRequiredCount(Number(profileJson.data?.requirements?.complianceRequiredCount ?? 0));
+      setComplianceUploadedRequiredCount(Number(profileJson.data?.requirements?.complianceUploadedRequiredCount ?? 0));
 
       if (ordersRes.ok) {
         const ordersJson = (await ordersRes.json()) as OrdersResponse;
@@ -125,39 +136,71 @@ export default function SellerHomeScreen({
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>Merhaba {displayName}</Text>
-        <Text style={styles.subtitle}>Satıcı panelin hazır. Durum: {statusText}</Text>
+        <Text style={styles.title}>Merhaba, {displayName} 👋</Text>
+        <Text style={[styles.statusText, status === "active" ? styles.statusActive : styles.statusPending]}>
+          {statusText}
+        </Text>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primary} />
+        <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
       ) : (
         <>
           <View style={styles.statsRow}>
-            <View style={styles.statCard}><Text style={styles.statValue}>{stats.today}</Text><Text style={styles.statLabel}>Bugünkü</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{stats.preparing}</Text><Text style={styles.statLabel}>Hazırlanıyor</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{stats.waiting}</Text><Text style={styles.statLabel}>Onay Bekliyor</Text></View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.today}</Text>
+              <Text style={styles.statLabel}>Bugünkü</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.preparing}</Text>
+              <Text style={styles.statLabel}>Hazırlanıyor</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{stats.waiting}</Text>
+              <Text style={styles.statLabel}>Onay Bekliyor</Text>
+            </View>
           </View>
+
+          <TouchableOpacity style={styles.complianceCard} activeOpacity={0.85} onPress={onOpenCompliance}>
+            <Text style={styles.complianceTitle}>Belge Durumu</Text>
+            <Text style={styles.complianceText}>
+              Tamamlanan: {complianceUploadedRequiredCount}/{complianceRequiredCount}
+            </Text>
+            <Text style={styles.complianceAction}>Belgeleri aç →</Text>
+          </TouchableOpacity>
 
           {isLocked ? (
             <View style={styles.lockCard}>
               <Text style={styles.lockTitle}>Önce profili tamamla</Text>
-              <Text style={styles.lockText}>Yemek ekleme, lot açma ve sipariş aksiyonları profil tamamlanınca açılır.</Text>
+              <Text style={styles.lockText}>
+                Lütfen profilini ve zorunlu belgelerini tamamla.
+              </Text>
+              <View style={styles.lockCtas}>
+                <TouchableOpacity style={styles.lockCtaPrimary} onPress={onOpenProfile}>
+                  <Text style={styles.lockCtaPrimaryText}>Profili Düzenle</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.lockCtaSecondary} onPress={onOpenCompliance}>
+                  <Text style={styles.lockCtaSecondaryText}>Belgeleri Tamamla</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : null}
 
-          <TouchableOpacity style={styles.actionBtn} onPress={onOpenProfile}><Text style={styles.actionText}>Satıcı Profili</Text></TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenFoods}><Text style={styles.actionText}>Yemeklerim</Text></TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenLots}><Text style={styles.actionText}>Lot / Stok</Text></TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenOrders}><Text style={styles.actionText}>Sipariş Yönetimi</Text></TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenCompliance}><Text style={styles.actionText}>Compliance</Text></TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, isLocked && styles.actionBtnDisabled]} disabled={isLocked} onPress={onOpenFinance}><Text style={styles.actionText}>Finans / Payout</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.ghostBtn} onPress={onOpenSettings}><Text style={styles.ghostText}>Ayarlar</Text></TouchableOpacity>
-          {onSwitchToBuyer ? (
-            <TouchableOpacity style={styles.ghostBtn} onPress={onSwitchToBuyer}><Text style={styles.ghostText}>Alıcı Moduna Geç</Text></TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}><Text style={styles.logoutText}>Çıkış yap</Text></TouchableOpacity>
-          {!!error && <Text style={styles.error}>{error}</Text>}
+          <View style={styles.actions}>
+            <ActionButton label="Satıcı Profili" onPress={onOpenProfile} fullWidth />
+            <ActionButton label="Yemeklerim" onPress={onOpenFoods} disabled={isLocked} fullWidth />
+            <ActionButton label="Lot / Stok" onPress={onOpenLots} disabled={isLocked} fullWidth />
+            <ActionButton label="Sipariş Yönetimi" onPress={onOpenOrders} disabled={isLocked} fullWidth />
+            <ActionButton label="Compliance" onPress={onOpenCompliance} fullWidth />
+            <ActionButton label="Finans / Payout" onPress={onOpenFinance} disabled={isLocked} fullWidth />
+            <ActionButton label="Ayarlar" onPress={onOpenSettings} variant="soft" fullWidth />
+            {onSwitchToBuyer ? (
+              <ActionButton label="Alıcı Moduna Geç" onPress={onSwitchToBuyer} variant="outline" fullWidth />
+            ) : null}
+            <ActionButton label="Çıkış Yap" onPress={onLogout} variant="danger" fullWidth />
+          </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
         </>
       )}
     </ScrollView>
@@ -166,23 +209,36 @@ export default function SellerHomeScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  content: { padding: 16, paddingBottom: 36 },
+  content: { padding: 16, paddingTop: 60, paddingBottom: 36 },
   header: { marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: "800", color: "#2E241C" },
-  subtitle: { marginTop: 6, fontSize: 14, color: "#6F6358" },
+  title: { fontSize: 26, fontWeight: "800", color: "#2E241C" },
+  statusText: { marginTop: 6, fontSize: 13, fontWeight: "700" },
+  statusActive: { color: "#2E6B44" },
+  statusPending: { color: "#7A4D1B" },
+  loader: { marginTop: 40 },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
   statCard: { flex: 1, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E6DED1", padding: 12, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
   statLabel: { fontSize: 12, color: "#6F6358", marginTop: 2 },
+  complianceCard: {
+    backgroundColor: "#EFF6F1",
+    borderColor: "#CFE2D5",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  complianceTitle: { color: "#2E6B44", fontWeight: "800" },
+  complianceText: { marginTop: 4, color: "#2E6B44" },
+  complianceAction: { marginTop: 6, color: "#2E6B44", fontWeight: "700" },
   lockCard: { backgroundColor: "#FFF5E9", borderColor: "#F0C995", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
   lockTitle: { fontWeight: "700", color: "#7A4D1B" },
   lockText: { marginTop: 4, color: "#7A4D1B", fontSize: 13 },
-  actionBtn: { backgroundColor: "#3F855C", borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14, marginTop: 10 },
-  actionBtnDisabled: { opacity: 0.45 },
-  actionText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  ghostBtn: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E6DED1", paddingVertical: 12, paddingHorizontal: 14, marginTop: 10 },
-  ghostText: { color: "#2E241C", fontSize: 14, fontWeight: "700" },
-  logoutBtn: { backgroundColor: "#FBE9E8", borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginTop: 10 },
-  logoutText: { color: "#9B2C2C", fontSize: 14, fontWeight: "700" },
-  error: { marginTop: 10, color: "#B42318" },
+  lockCtas: { flexDirection: "row", gap: 8, marginTop: 10 },
+  lockCtaPrimary: { flex: 1, backgroundColor: "#7A4D1B", borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+  lockCtaPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  lockCtaSecondary: { flex: 1, backgroundColor: "#fff", borderColor: "#E2B782", borderWidth: 1, borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+  lockCtaSecondaryText: { color: "#7A4D1B", fontWeight: "700", fontSize: 12 },
+  actions: { gap: 10 },
+  error: { marginTop: 12, color: "#B42318", textAlign: "center" },
 });
