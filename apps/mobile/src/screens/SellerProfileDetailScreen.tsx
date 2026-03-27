@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AuthSession } from "../utils/auth";
-import { refreshAuthSession } from "../utils/auth";
+import { refreshAuthSession, saveAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
@@ -132,7 +132,8 @@ export default function SellerProfileDetailScreen({
       setProfile(loaded);
       // Kayıtlı verileri modalda geri doldur: kullanıcı tekrar düzenleyebilsin.
       setMasterName(String((loaded as { displayName?: string | null } | null)?.displayName ?? "").trim());
-      setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || String((loaded as { email?: string | null } | null)?.email ?? "").trim());
+      const profileEmail = String((loaded as { email?: string | null } | null)?.email ?? "").trim();
+      setContactEmail(profileEmail || currentAuth.email?.trim() || auth.email?.trim() || "");
       setContactPhone(String((loaded as { phone?: string | null } | null)?.phone ?? "").trim());
       setContactDob("");
       setCityDistrict(String((loaded as { defaultAddress?: { title?: string | null } | null } | null)?.defaultAddress?.title ?? "").trim());
@@ -145,6 +146,10 @@ export default function SellerProfileDetailScreen({
       if (meRes.ok && meJson?.data) {
         setFullName(String(meJson.data.fullName ?? "").trim());
         setContactDob(formatDobForDisplay(String(meJson.data.dob ?? "")));
+        const meEmail = String(meJson.data.email ?? "").trim();
+        if (meEmail) {
+          setContactEmail(meEmail);
+        }
       } else {
         setFullName("");
         setContactDob("");
@@ -357,6 +362,16 @@ export default function SellerProfileDetailScreen({
         });
         const meJson = await meRes.json();
         if (!meRes.ok) throw new Error(meJson?.error?.message ?? "Profil bilgileri kaydedilemedi");
+        const updatedEmail = String(meJson?.data?.email ?? "").trim();
+        if (updatedEmail && updatedEmail !== currentAuth.email) {
+          const nextSession: AuthSession = {
+            ...currentAuth,
+            email: updatedEmail,
+          };
+          setCurrentAuth(nextSession);
+          onAuthRefresh?.(nextSession);
+          await saveAuthSession(nextSession);
+        }
       }
 
       setIsEditModalOpen(false);
