@@ -343,19 +343,19 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.subHint}>{`Seçilen fotoğraf: ${imageUrls.filter((x) => x.trim()).length}/5`}</Text>
 
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
-          <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, İtalyan" />
+          <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..." />
 
           <Text style={styles.sectionTitle}>Kategori Seç</Text>
-          <TextInput style={styles.input} value={categoryId} onChangeText={setCategoryId} placeholder="Kategori UUID (opsiyonel)" />
+          <TextInput style={styles.input} value={categoryId} onChangeText={setCategoryId} placeholder="Kategori seçin" />
 
           <Text style={styles.sectionTitle}>Yemek Adı *</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Örn: Ev Yapımı Mantı" />
 
           <Text style={styles.sectionTitle}>Malzemeler / Baharatlar *</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Kullanılan malzemeler ve baharatları açıklayın." multiline />
+          <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Kullanılan malzemeler ve baharatları açıklayın..." multiline />
 
           <Text style={styles.sectionTitle}>Tarif</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={recipe} onChangeText={setRecipe} placeholder="Yemeğin hazırlanışını yazın" multiline />
+          <TextInput style={[styles.input, styles.textArea]} value={recipe} onChangeText={setRecipe} placeholder="Yemeğin hazırlanış tarifini buraya yazın..." multiline />
 
           <Text style={styles.sectionTitle}>Alerjenler</Text>
           <TextInput style={styles.input} value={allergens} onChangeText={setAllergens} placeholder="Örn: Gluten, süt" />
@@ -417,7 +417,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                 style={styles.input}
                 value={deliveryFee}
                 onChangeText={setDeliveryFee}
-                placeholder="Örn: 10"
+                placeholder="Örn: 10 ₺"
                 keyboardType="decimal-pad"
               />
               <Text style={styles.subHint}>Müşterilerden alacağınız teslimat ücreti</Text>
