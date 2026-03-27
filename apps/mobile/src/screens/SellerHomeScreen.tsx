@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -173,36 +173,37 @@ export default function SellerHomeScreen({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.topBar}>
-        <Text style={styles.pageTitle}>Satıcı Paneli</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.topBar}>
+          <Text style={styles.pageTitle}>Satıcı Paneli</Text>
+        </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
-      ) : (
-        <>
-          <View style={styles.profileBand}>
-            <View style={styles.avatarWrap}>
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
+        ) : (
+          <>
+            <View style={styles.profileBand}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+                </View>
               </View>
+              <View style={styles.profileCenter}>
+                <Text style={styles.sellerName}>{displayName}</Text>
+                <Text style={styles.stars}>★ ★ ★ ★ ☆</Text>
+              </View>
+              <TouchableOpacity style={styles.profileBtn} onPress={onOpenProfile}>
+                <Text style={styles.profileBtnText}>Profili Düzenle</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.profileCenter}>
-              <Text style={styles.sellerName}>{displayName}</Text>
-              <Text style={styles.stars}>★ ★ ★ ★ ☆</Text>
-            </View>
-            <TouchableOpacity style={styles.profileBtn} onPress={onOpenProfile}>
-              <Text style={styles.profileBtnText}>Profili Düzenle</Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}><Text style={styles.statValue}>{stats.orders}</Text><Text style={styles.statLabel}>Sipariş</Text></View>
-            <View style={styles.statCard}><Text style={[styles.statValue, styles.money]}>{`₺${Math.round(stats.wallet)}`}</Text><Text style={styles.statLabel}>Cüzdan</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{stats.messages}</Text><Text style={styles.statLabel}>Mesaj</Text></View>
-            <View style={styles.statCard}><Text style={[styles.statValue, styles.rating]}>{stats.rating.toFixed(1)}</Text><Text style={styles.statLabel}>Puan</Text></View>
-          </View>
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}><Text style={styles.statValue}>{stats.orders}</Text><Text style={styles.statLabel}>Sipariş</Text></View>
+              <View style={styles.statCard}><Text style={[styles.statValue, styles.money]}>{`₺${Math.round(stats.wallet)}`}</Text><Text style={styles.statLabel}>Cüzdan</Text></View>
+              <View style={styles.statCard}><Text style={styles.statValue}>{stats.messages}</Text><Text style={styles.statLabel}>Mesaj</Text></View>
+              <View style={styles.statCard}><Text style={[styles.statValue, styles.rating]}>{stats.rating.toFixed(1)}</Text><Text style={styles.statLabel}>Puan</Text></View>
+            </View>
 
           <TouchableOpacity style={styles.addMealBtn} onPress={onOpenFoods} activeOpacity={0.85}>
             <Text style={styles.addMealText}>Yemek Ekle</Text>
@@ -274,16 +275,18 @@ export default function SellerHomeScreen({
             <Text style={styles.complianceHintText}>Belge durumu: {complianceUploadedRequiredCount}/{complianceRequiredCount}</Text>
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-        </>
-      )}
-    </ScrollView>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: "#EDECE8" },
   container: { flex: 1, backgroundColor: "#EDECE8" },
-  content: { padding: 14, paddingTop: 18, paddingBottom: 30 },
+  content: { padding: 14, paddingTop: 8, paddingBottom: 30 },
   topBar: { alignItems: "center", marginBottom: 10 },
   pageTitle: { fontSize: 30, fontWeight: "800", color: "#3A2B20" },
   loader: { marginTop: 40 },
