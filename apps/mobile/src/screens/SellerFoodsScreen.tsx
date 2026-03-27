@@ -39,6 +39,26 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 
+function parseDisplayDateToUtcIso(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  const day = Number(dd);
+  const month = Number(mm);
+  const year = Number(yyyy);
+  const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date.toISOString();
+}
+
 export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props) {
   const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -254,6 +274,10 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         Alert.alert("Hata", "Yemek adı ve fiyat zorunlu.");
         return;
       }
+      if (options?.publishAfterSave && !recipe.trim()) {
+        Alert.alert("Hata", "Yemeği yayınlamak için tarif alanını doldurmalısın.");
+        return;
+      }
 
       setSaving(true);
 
@@ -289,6 +313,52 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         if (!imageRes.ok) {
           const imageJson = await imageRes.json();
           throw new Error(imageJson?.error?.message ?? "Görsel kaydedilemedi");
+        }
+      }
+
+      if (options?.publishAfterSave && foodId) {
+        const startIso = parseDisplayDateToUtcIso(startDate);
+        const endIso = parseDisplayDateToUtcIso(endDate);
+        const saleStartsAt = startIso ?? new Date().toISOString();
+        let saleEndsAt = endIso;
+        if (!saleEndsAt) {
+          const fallback = new Date(saleStartsAt);
+          fallback.setUTCDate(fallback.getUTCDate() + 30);
+          saleEndsAt = fallback.toISOString();
+        }
+        if (new Date(saleEndsAt).getTime() <= new Date(saleStartsAt).getTime()) {
+          const fallback = new Date(saleStartsAt);
+          fallback.setUTCDate(fallback.getUTCDate() + 1);
+          saleEndsAt = fallback.toISOString();
+        }
+
+        const producedAt = saleStartsAt;
+        const quantityProduced = Math.max(1, Number.parseInt(dailyStock.trim() || "0", 10) || 1);
+
+        const lotRes = await authedFetch("/v1/seller/lots", {
+          method: "POST",
+          body: JSON.stringify({
+            foodId,
+            producedAt,
+            saleStartsAt,
+            saleEndsAt,
+            quantityProduced,
+            quantityAvailable: quantityProduced,
+            notes: "mobile_publish",
+          }),
+        });
+        const lotJson = await lotRes.json();
+        if (!lotRes.ok) {
+          throw new Error(lotJson?.error?.message ?? "Lot oluşturulamadı");
+        }
+
+        const statusRes = await authedFetch(`/v1/seller/foods/${foodId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ isActive: true }),
+        });
+        if (!statusRes.ok) {
+          const statusJson = await statusRes.json();
+          throw new Error(statusJson?.error?.message ?? "Yemek durumu güncellenemedi");
         }
       }
 
