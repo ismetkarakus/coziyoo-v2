@@ -575,6 +575,30 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   }, [activeTab, foodRows.length, sellerOrders.length]);
 
   useEffect(() => {
+    const refresh = () => {
+      if (document.hidden) return;
+      void loadSellerCritical({
+        includeFoods: activeTab === "foods",
+        includeOrders: activeTab === "orders" || activeTab === "wallet",
+      });
+      void loadSellerDeferred();
+      if (activeTab === "foods") {
+        void loadSellerLots();
+      }
+    };
+
+    const intervalId = window.setInterval(refresh, 7000);
+    const onVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [activeTab, id]);
+
+  useEffect(() => {
     if (!flashFoodId) return;
     const timer = window.setTimeout(() => setFlashFoodId(null), 2200);
     return () => window.clearTimeout(timer);
