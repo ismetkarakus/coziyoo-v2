@@ -80,6 +80,9 @@ export default function SellerProfileDetailScreen({
   const [lastName, setLastName] = useState("");
   const [contactEmail, setContactEmail] = useState(auth.email ?? "");
   const [contactPhone, setContactPhone] = useState("");
+  const [cityDistrict, setCityDistrict] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -119,6 +122,11 @@ export default function SellerProfileDetailScreen({
       setLastName(nameParts.slice(1).join(" "));
       setContactEmail(currentAuth.email ?? "");
       setContactPhone(loaded?.phone?.trim() ?? "");
+      const addressTitle = loaded?.defaultAddress?.title?.trim() ?? "";
+      const addressText = loaded?.defaultAddress?.addressLine?.trim() ?? "";
+      setCityDistrict(addressTitle);
+      setAddressLine(addressText);
+      setDeliveryDistanceKm(loaded?.deliveryRadiusKm != null ? String(loaded.deliveryRadiusKm) : "");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
@@ -282,6 +290,15 @@ export default function SellerProfileDetailScreen({
             <Text style={styles.modalLabel}>Telefon</Text>
             <TextInput style={styles.modalInput} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
 
+            <Text style={styles.modalLabel}>Şehir/İlçe</Text>
+            <TextInput style={styles.modalInput} value={cityDistrict} onChangeText={setCityDistrict} placeholder="Kadıköy, İstanbul" />
+
+            <Text style={styles.modalLabel}>Adres</Text>
+            <TextInput style={[styles.modalInput, styles.modalAddressInput]} value={addressLine} onChangeText={setAddressLine} placeholder="Rıhtım Cd. No:12, Kadıköy" multiline />
+
+            <Text style={styles.modalLabel}>Teslimat Mesafesi (km)</Text>
+            <TextInput style={styles.modalInput} value={deliveryDistanceKm} onChangeText={setDeliveryDistanceKm} placeholder="Örn: 5" keyboardType="numeric" />
+
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
                 <Text style={styles.modalCancelText}>İptal</Text>
@@ -423,6 +440,12 @@ const styles = StyleSheet.create({
     height: 42,
     paddingHorizontal: 12,
     color: "#242424",
+  },
+  modalAddressInput: {
+    minHeight: 58,
+    textAlignVertical: "top",
+    paddingTop: 10,
+    paddingBottom: 10,
   },
   modalEmailRow: {
     flexDirection: "row",
