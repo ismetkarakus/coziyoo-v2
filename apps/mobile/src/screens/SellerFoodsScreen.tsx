@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -151,6 +152,34 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     });
   }
 
+  async function pickImageFromAlbum(index: number) {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("İzin Gerekli", "Albümden fotoğraf seçmek için galeri izni vermelisin.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.75,
+        base64: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert("Hata", "Fotoğraf verisi alınamadı.");
+        return;
+      }
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const dataUrl = `data:${mimeType};base64,${asset.base64}`;
+      setImageAt(index, dataUrl);
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "Fotoğraf seçilemedi.");
+    }
+  }
+
   function addPhotoField() {
     setImageUrls((prev) => (prev.length >= 5 ? prev : [...prev, ""]));
   }
@@ -261,6 +290,17 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
           {imageUrls.map((url, index) => (
             <View key={`photo-${index}`} style={styles.photoRow}>
+              <TouchableOpacity style={styles.photoPreviewBtn} onPress={() => void pickImageFromAlbum(index)}>
+                {url.trim() ? (
+                  <Image source={{ uri: url }} style={styles.photoPreviewImage} />
+                ) : (
+                  <View style={styles.photoPreviewPlaceholder}>
+                    <Text style={styles.photoPreviewIcon}>📸</Text>
+                    <Text style={styles.photoPreviewText}>Resim Ekle</Text>
+                    <Text style={styles.photoPreviewSub}>(Tak/Çek/Kamera)</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
               <TextInput
                 style={[styles.input, styles.photoInput]}
                 value={url}
@@ -281,7 +321,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           ) : (
             <Text style={styles.subHint}>En fazla 5 fotoğraf ekleyebilirsin.</Text>
           )}
-          <Text style={styles.subHint}>Kaydedilen ana görsel: ilk dolu fotoğraf</Text>
+          <Text style={styles.subHint}>Fotoğraf kutusuna dokunup albümden seçebilirsin.</Text>
 
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
           <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, İtalyan" />
@@ -462,6 +502,22 @@ const styles = StyleSheet.create({
   row2: { flexDirection: "row", gap: 10 },
   rowItem: { flex: 1 },
   photoRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  photoPreviewBtn: {
+    width: 92,
+    height: 92,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "#F4EEE4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoPreviewImage: { width: "100%", height: "100%" },
+  photoPreviewPlaceholder: { alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
+  photoPreviewIcon: { fontSize: 16 },
+  photoPreviewText: { fontSize: 11, color: "#4B4137", fontWeight: "700", marginTop: 2, textAlign: "center" },
+  photoPreviewSub: { fontSize: 9, color: "#8A7A6A", marginTop: 2, textAlign: "center" },
   photoInput: { flex: 1 },
   photoAddBtn: {
     marginTop: 4,
