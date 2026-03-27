@@ -5,6 +5,7 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
   auth: AuthSession;
@@ -16,7 +17,6 @@ type Props = {
 type SellerOrder = {
   id: string;
   orderNo?: string | null;
-  sellerId: string;
   buyerName?: string | null;
   status: string;
   totalPrice: number;
@@ -58,11 +58,10 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
-      const res = await authedFetch("/v1/orders?page=1&pageSize=200", baseUrl);
+      const res = await authedFetch("/v1/orders?role=seller&page=1&pageSize=200", baseUrl);
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Siparişler yüklenemedi");
-      const rows = Array.isArray(json?.data) ? json.data : [];
-      setOrders(rows.filter((row: SellerOrder) => row.sellerId === currentAuth.userId));
+      setOrders(Array.isArray(json?.data) ? json.data : []);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Siparişler yüklenemedi");
     } finally {
@@ -83,11 +82,15 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
-        <Text style={styles.title}>Sipariş Yönetimi</Text>
-        <TouchableOpacity onPress={() => void loadOrders()}><Text style={styles.refresh}>Yenile</Text></TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Sipariş Yönetimi"
+        onBack={onBack}
+        rightAction={
+          <TouchableOpacity onPress={() => void loadOrders()}>
+            <Text style={styles.refresh}>Yenile</Text>
+          </TouchableOpacity>
+        }
+      />
       <View style={styles.stats}>
         <Text style={styles.stat}>Onay: {grouped.waiting}</Text>
         <Text style={styles.stat}>Hazırlık: {grouped.prep}</Text>
@@ -116,10 +119,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  header: { paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
-  refresh: { color: "#3F855C", fontWeight: "700" },
+  refresh: { color: "#3F855C", fontWeight: "700", fontSize: 14 },
   stats: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
   stat: { backgroundColor: "#EFE9DF", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, color: "#5D5145", fontWeight: "700" },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },

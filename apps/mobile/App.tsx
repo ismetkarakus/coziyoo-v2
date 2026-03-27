@@ -19,6 +19,7 @@ import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import SellerHomeScreen from './src/screens/SellerHomeScreen';
+import SellerProfileDetailScreen from './src/screens/SellerProfileDetailScreen';
 import SellerProfileScreen from './src/screens/SellerProfileScreen';
 import SellerFoodsScreen from './src/screens/SellerFoodsScreen';
 import SellerLotsScreen from './src/screens/SellerLotsScreen';
@@ -103,7 +104,7 @@ type Screen =
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
   | 'notifications' | 'favorites'
-  | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance'
+  | 'sellerProfileDetail' | 'sellerProfile' | 'sellerFoods' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance'
   | 'chatList' | 'chat';
 
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -237,7 +238,7 @@ export default function App() {
       <AddressScreen
         auth={auth}
         onBack={() => {
-          if (actorMode === 'seller') setScreen('sellerProfile');
+          if (actorMode === 'seller') setScreen('sellerProfileDetail');
           else goHome('profile');
         }}
         onAuthRefresh={setAuth}
@@ -403,11 +404,28 @@ export default function App() {
     );
   }
 
+  if (screen === 'sellerProfileDetail') {
+    return (
+      <SellerProfileDetailScreen
+        auth={auth}
+        onBack={() => setScreen('home')}
+        onEdit={() => setScreen('sellerProfile')}
+        onOpenFoods={() => setScreen('sellerFoods')}
+        onOpenLots={() => setScreen('sellerLots')}
+        onOpenOrders={() => setScreen('sellerOrders')}
+        onOpenCompliance={() => setScreen('sellerCompliance')}
+        onOpenFinance={() => setScreen('sellerFinance')}
+        onOpenAddresses={() => setScreen('addresses')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
   if (screen === 'sellerProfile') {
     return (
       <SellerProfileScreen
         auth={auth}
-        onBack={() => setScreen('home')}
+        onBack={() => setScreen('sellerProfileDetail')}
         onOpenAddresses={() => setScreen('addresses')}
         onAuthRefresh={setAuth}
       />
@@ -481,12 +499,7 @@ export default function App() {
     return (
       <SellerHomeScreen
         auth={auth}
-        onOpenProfile={() => setScreen('sellerProfile')}
-        onOpenFoods={() => setScreen('sellerFoods')}
-        onOpenLots={() => setScreen('sellerLots')}
-        onOpenOrders={() => setScreen('sellerOrders')}
-        onOpenCompliance={() => setScreen('sellerCompliance')}
-        onOpenFinance={() => setScreen('sellerFinance')}
+        onOpenProfile={() => setScreen('sellerProfileDetail')}
         onOpenSettings={() => setScreen('settings')}
         onLogout={handleLogout}
         onAuthRefresh={setAuth}

@@ -5,6 +5,7 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
   auth: AuthSession;
@@ -130,17 +131,13 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
-        <Text style={styles.title}>Satıcı Profili</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title="Profili Düzenle" onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content}>
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
         <>
-          <Text style={styles.status}>Durum: {status}</Text>
           <Text style={styles.label}>Varsayılan adres</Text>
           <TouchableOpacity style={styles.addressCard} onPress={onOpenAddresses}>
             <Text style={styles.addressText}>{defaultAddress}</Text>
@@ -178,17 +175,14 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
           </TouchableOpacity>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 40 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
-  status: { marginBottom: 12, color: "#6B5C4D", fontWeight: "700" },
   label: { marginTop: 10, marginBottom: 6, color: "#2E241C", fontWeight: "700" },
   addressCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E4DBCD", padding: 12 },
   addressText: { color: "#4E433A" },

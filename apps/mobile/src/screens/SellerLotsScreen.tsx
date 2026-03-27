@@ -5,6 +5,7 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
   auth: AuthSession;
@@ -143,11 +144,15 @@ export default function SellerLotsScreen({ auth, onBack, onAuthRefresh }: Props)
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
-        <Text style={styles.title}>Lot / Stok</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)}><Text style={styles.add}>+ Lot</Text></TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Lot / Stok"
+        onBack={onBack}
+        rightAction={
+          <TouchableOpacity onPress={() => setModalVisible(true)}>
+            <Text style={styles.add}>+ Lot</Text>
+          </TouchableOpacity>
+        }
+      />
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
@@ -194,10 +199,7 @@ export default function SellerLotsScreen({ auth, onBack, onAuthRefresh }: Props)
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  header: { paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
-  add: { color: "#3F855C", fontWeight: "700" },
+  add: { color: "#3F855C", fontWeight: "700", fontSize: 14 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   lotTitle: { fontSize: 16, fontWeight: "800", color: "#2E241C" },
   meta: { color: "#6B5F54", marginTop: 4 },

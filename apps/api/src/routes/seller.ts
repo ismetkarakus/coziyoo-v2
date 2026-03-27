@@ -5,7 +5,6 @@ import { pool } from "../db/client.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getSellerOperateGate } from "../services/seller-operability.js";
-
 const WorkingHourSchema = z.object({
   day: z.string().min(2).max(20),
   open: z.string().min(4).max(10),
@@ -68,28 +67,6 @@ function ensureSellerRole(req: Request, res: Response): boolean {
     return false;
   }
   return true;
-}
-
-async function ensureSellerCanOperate(req: Request, res: Response): Promise<boolean> {
-  const gate = await getSellerOperateGate(pool, req.auth!.userId);
-  if (!gate) {
-    res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
-    return false;
-  }
-  if (gate.canOperate) return true;
-  res.status(409).json({
-    error: {
-      code: "SELLER_PROFILE_OR_COMPLIANCE_INCOMPLETE",
-      message: "Lütfen profilini ve zorunlu belgelerini tamamla.",
-      details: {
-        profileComplete: gate.profileComplete,
-        complianceRequiredCount: gate.complianceRequiredCount,
-        complianceUploadedRequiredCount: gate.complianceUploadedRequiredCount,
-        complianceMissingRequiredCount: gate.complianceMissingRequiredCount,
-      },
-    },
-  });
-  return false;
 }
 
 function computeSellerProfileStatus(input: {
@@ -349,7 +326,6 @@ sellerRouter.get("/foods", async (req, res) => {
 
 sellerRouter.post("/foods", async (req, res) => {
     if (!ensureSellerRole(req, res)) return;
-    if (!(await ensureSellerCanOperate(req, res))) return;
     const parsed = SellerFoodCreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
@@ -385,7 +361,6 @@ sellerRouter.post("/foods", async (req, res) => {
 
 sellerRouter.patch("/foods/:foodId", async (req, res) => {
     if (!ensureSellerRole(req, res)) return;
-    if (!(await ensureSellerCanOperate(req, res))) return;
     const foodId = String(req.params.foodId ?? "");
     if (!z.string().uuid().safeParse(foodId).success) {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid food id" } });
@@ -467,7 +442,6 @@ sellerRouter.patch("/foods/:foodId", async (req, res) => {
 
 sellerRouter.patch("/foods/:foodId/status", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
-  if (!(await ensureSellerCanOperate(req, res))) return;
   const foodId = String(req.params.foodId ?? "");
   if (!z.string().uuid().safeParse(foodId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid food id" } });
@@ -496,7 +470,6 @@ sellerRouter.patch("/foods/:foodId/status", async (req, res) => {
 
 sellerRouter.post("/foods/:foodId/image", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
-  if (!(await ensureSellerCanOperate(req, res))) return;
   const foodId = String(req.params.foodId ?? "");
   if (!z.string().uuid().safeParse(foodId).success) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid food id" } });
@@ -532,3 +505,38 @@ sellerRouter.post("/foods/:foodId/image/presign", async (_req, res) =>
   res.status(501).json({
     error: { code: "NOT_IMPLEMENTED", message: "Presign upload is not enabled yet for seller foods" },
   }));
+
+sellerRouter.get("/directory", async (_req, res) => {
+  try {
+    const result = await pool.query<{
+      id: string;
+      display_name: string | null;
+      kitchen_title: string | null;
+      kitchen_description: string | null;
+      delivery_radius_km: string | null;
+      seller_profile_status: "incomplete" | "pending_review" | "active";
+      created_at: string;
+    }>(
+      `SELECT id::text, display_name, kitchen_title, kitchen_description,
+              delivery_radius_km::text, seller_profile_status, created_at::text
+       FROM users
+       WHERE user_type IN ('seller', 'both')
+         AND is_active = TRUE
+       ORDER BY display_name ASC`,
+    );
+    return res.json({
+      data: result.rows.map((row) => ({
+        id: row.id,
+        displayName: row.display_name,
+        kitchenTitle: row.kitchen_title,
+        kitchenDescription: row.kitchen_description,
+        deliveryRadiusKm: row.delivery_radius_km ? Number(row.delivery_radius_km) : null,
+        status: row.seller_profile_status ?? "incomplete",
+        createdAt: row.created_at,
+      })),
+    });
+  } catch (error) {
+    console.error("[seller] directory error:", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to load seller directory" } });
+  }
+});

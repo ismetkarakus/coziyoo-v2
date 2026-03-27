@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
   auth: AuthSession;
@@ -171,11 +172,15 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
-        <Text style={styles.title}>Yemeklerim</Text>
-        <TouchableOpacity onPress={openCreate}><Text style={styles.add}>+ Ekle</Text></TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Yemeklerim"
+        onBack={onBack}
+        rightAction={
+          <TouchableOpacity onPress={openCreate}>
+            <Text style={styles.add}>+ Ekle</Text>
+          </TouchableOpacity>
+        }
+      />
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
@@ -198,7 +203,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       )}
 
       <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modal}>
+        <ScrollView style={styles.modal} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
           <Text style={styles.modalTitle}>{editingFood ? "Yemeği Düzenle" : "Yeni Yemek"}</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Yemek adı" />
           <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="Fiyat" keyboardType="decimal-pad" />
@@ -211,7 +216,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <TextInput style={styles.input} value={imageUrl} onChangeText={setImageUrl} placeholder="Görsel URL" />
           <TouchableOpacity style={styles.saveBtn} onPress={() => void saveFood()}><Text style={styles.saveText}>Kaydet</Text></TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}><Text>Vazgeç</Text></TouchableOpacity>
-        </View>
+        </ScrollView>
       </Modal>
     </View>
   );
@@ -219,16 +224,14 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  header: { paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
-  add: { color: "#3F855C", fontWeight: "700" },
+  add: { color: "#3F855C", fontWeight: "700", fontSize: 14 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   foodName: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
   meta: { color: "#6F6358", marginTop: 4 },
   row: { marginTop: 10, flexDirection: "row", gap: 8 },
   ghostBtn: { backgroundColor: "#F4EEE4", paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
-  modal: { flex: 1, backgroundColor: "#F7F4EF", padding: 16 },
+  modal: { flex: 1, backgroundColor: "#F7F4EF" },
+  modalContent: { padding: 16, paddingBottom: 40 },
   modalTitle: { fontSize: 22, fontWeight: "800", color: "#2E241C", marginBottom: 10 },
   input: { backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E5DDCF", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, color: "#2E241C" },
   saveBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, paddingVertical: 12, alignItems: "center" },

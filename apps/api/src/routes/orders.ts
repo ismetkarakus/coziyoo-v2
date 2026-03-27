@@ -32,6 +32,7 @@ const ListOrdersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
+  role: z.enum(["buyer", "seller"]).optional(),
 });
 
 const StatusSchema = z.object({
@@ -242,25 +243,27 @@ ordersRouter.post(
       },
     });
 
+    await client.query("COMMIT");
+    committed = true;
+
+    // Notifications are best-effort and must run outside the transaction to avoid
+    // aborting the transaction when notification infra tables are missing.
+    const pushQueue: PushNotificationPayload[] = [];
     await emitOrderMilestoneTx(
-      client,
+      pool,
       {
         orderId: orderInsert.rows[0].id,
         buyerId: req.auth!.userId,
         milestone: "order_received",
       },
       pushQueue,
-    );
-
-    await client.query("COMMIT");
-    committed = true;
+    ).catch((err) => console.error("[orders] post-commit milestone failed (non-fatal)", err));
     if (pushQueue.length > 0) {
-      try {
-        await flushPushNotifications(pushQueue);
-      } catch (pushErr) {
-        console.error("[orders] push flush failed after create commit", pushErr);
-      }
+      flushPushNotifications(pushQueue).catch((pushErr) =>
+        console.error("[orders] push flush failed after create commit", pushErr),
+      );
     }
+
     return res.status(201).json({
       data: {
         orderId: orderInsert.rows[0].id,
@@ -285,11 +288,20 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     return res.status(400).json({ error: { code: "PAGINATION_INVALID", details: parsed.error.flatten() } });
   }
 
-  const { page, pageSize, sortDir } = parsed.data;
+  const { page, pageSize, sortDir, role } = parsed.data;
   const offset = (page - 1) * pageSize;
 
+  const countWhere =
+    role === "seller" ? "seller_id = $1" :
+    role === "buyer"  ? "buyer_id = $1"  :
+    "(buyer_id = $1 OR seller_id = $1)";
+  const listWhere =
+    role === "seller" ? "o.seller_id = $1" :
+    role === "buyer"  ? "o.buyer_id = $1"  :
+    "(o.buyer_id = $1 OR o.seller_id = $1)";
+
   const totalResult = await pool.query<{ count: string }>(
-    "SELECT count(*)::text AS count FROM orders WHERE buyer_id = $1 OR seller_id = $1",
+    `SELECT count(*)::text AS count FROM orders WHERE ${countWhere}`,
     [req.auth!.userId]
   );
 
@@ -313,7 +325,7 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
      FROM orders o
      JOIN users s ON s.id = o.seller_id
      JOIN users b ON b.id = o.buyer_id
-     WHERE o.buyer_id = $1 OR o.seller_id = $1
+     WHERE ${listWhere}
      ORDER BY o.created_at ${sortDir === "asc" ? "ASC" : "DESC"}, o.id ${sortDir === "asc" ? "ASC" : "DESC"}
      LIMIT $2 OFFSET $3`,
     [req.auth!.userId, pageSize, offset]

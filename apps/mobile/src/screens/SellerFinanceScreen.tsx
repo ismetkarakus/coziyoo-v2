@@ -5,6 +5,7 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
   auth: AuthSession;
@@ -98,9 +99,9 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.back} onPress={onBack}>Geri</Text>
-      <Text style={styles.title}>Finans / Payout</Text>
+    <View style={styles.container}>
+      <ScreenHeader title="Finans / Payout" onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content}>
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
@@ -134,15 +135,14 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 40, gap: 10 },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 22, fontWeight: "800", color: "#2E241C", marginTop: 4, marginBottom: 6 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 6 },
   meta: { color: "#6C6055", marginTop: 3 },

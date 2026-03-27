@@ -51,7 +51,15 @@
       "mcp__jcodemunch-mcp__get_repo_outline",
       "mcp__jcodemunch-mcp__get_file_outline",
       "mcp__jcodemunch-mcp__search_symbols",
-      "mcp__jcodemunch-mcp__index_folder"
+      "mcp__jcodemunch-mcp__index_folder",
+      "Bash(node -e \"process.arch\")",
+      "Bash(curl -s -X POST \"https://api.coziyoo.com/v1/auth/register\" -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"etsatici@test.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Test1234!\"\"\"\",\"\"\"\"userType\"\"\"\":\"\"\"\"seller\"\"\"\"}')",
+      "Bash(npx expo:*)",
+      "Bash(open /Users/ismetkarakus/Work/coziyoo-v2/apps/mobile/ios/Coziyoo.xcworkspace)",
+      "Bash(psql \"$DATABASE_URL\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name=''users'' AND column_name IN \\(''kitchen_title'',''kitchen_description'',''delivery_radius_km'',''working_hours_json'',''seller_profile_status''\\);\")"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

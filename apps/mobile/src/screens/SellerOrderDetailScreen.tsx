@@ -5,6 +5,7 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
+import ScreenHeader from "../components/ScreenHeader";
 
 type Props = {
   auth: AuthSession;
@@ -117,12 +118,9 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
-        <Text style={styles.title}>Sipariş Detayı</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader title="Sipariş Detayı" onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content}>
       {loading || !order ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
@@ -165,16 +163,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           ) : null}
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 36, gap: 10 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  back: { color: "#3F855C", fontWeight: "700" },
-  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   orderNo: { fontSize: 17, fontWeight: "800", color: "#2E241C" },
   meta: { marginTop: 4, color: "#6C6055" },
