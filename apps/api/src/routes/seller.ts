@@ -15,6 +15,7 @@ const WorkingHourSchema = z.object({
 const SellerProfileUpdateSchema = z.object({
   kitchenTitle: z.string().min(3).max(120).optional(),
   kitchenDescription: z.string().min(10).max(1000).optional(),
+  kitchenSpecialties: z.array(z.string().min(1).max(80)).max(20).optional(),
   deliveryRadiusKm: z.number().min(0.5).max(50).optional(),
   workingHours: z.array(WorkingHourSchema).max(14).optional(),
   submitForReview: z.boolean().optional(),
@@ -102,14 +103,17 @@ sellerRouter.get("/profile", async (req, res) => {
       pool.query<{
         id: string;
         display_name: string | null;
+        username: string | null;
+        email: string;
         phone: string | null;
         kitchen_title: string | null;
         kitchen_description: string | null;
+        kitchen_specialties: unknown;
         delivery_radius_km: string | null;
         working_hours_json: unknown;
         seller_profile_status: "incomplete" | "pending_review" | "active";
       }>(
-        `SELECT id, display_name, phone, kitchen_title, kitchen_description, delivery_radius_km::text, working_hours_json, seller_profile_status
+        `SELECT id, display_name, username, email, phone, kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, working_hours_json, seller_profile_status
          FROM users
          WHERE id = $1 AND is_active = TRUE`,
         [userId],
@@ -146,9 +150,12 @@ sellerRouter.get("/profile", async (req, res) => {
       data: {
         sellerId: row.id,
         displayName: row.display_name,
+        username: row.username,
+        email: row.email,
         phone: row.phone,
         kitchenTitle: row.kitchen_title,
         kitchenDescription: row.kitchen_description,
+        kitchenSpecialties: Array.isArray(row.kitchen_specialties) ? row.kitchen_specialties : [],
         deliveryRadiusKm: row.delivery_radius_km ? Number(row.delivery_radius_km) : null,
         workingHours: Array.isArray(row.working_hours_json) ? row.working_hours_json : [],
         status: profileStatus,
@@ -229,6 +236,7 @@ sellerRouter.put("/profile", async (req, res) => {
       const updated = await pool.query<{
         kitchen_title: string | null;
         kitchen_description: string | null;
+        kitchen_specialties: unknown;
         delivery_radius_km: string | null;
         working_hours_json: unknown;
         seller_profile_status: "incomplete" | "pending_review" | "active";
@@ -238,10 +246,11 @@ sellerRouter.put("/profile", async (req, res) => {
              kitchen_description = COALESCE($3, kitchen_description),
              delivery_radius_km = COALESCE($4::numeric, delivery_radius_km),
              working_hours_json = COALESCE($5::jsonb, working_hours_json),
+             kitchen_specialties = COALESCE($7::jsonb, kitchen_specialties),
              seller_profile_status = $6,
              updated_at = now()
          WHERE id = $1
-         RETURNING kitchen_title, kitchen_description, delivery_radius_km::text, working_hours_json, seller_profile_status`,
+         RETURNING kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, working_hours_json, seller_profile_status`,
         [
           userId,
           input.kitchenTitle ?? null,
@@ -249,6 +258,7 @@ sellerRouter.put("/profile", async (req, res) => {
           input.deliveryRadiusKm ?? null,
           input.workingHours ? JSON.stringify(input.workingHours) : null,
           nextStatus,
+          input.kitchenSpecialties ? JSON.stringify(input.kitchenSpecialties) : null,
         ],
       );
 
@@ -256,6 +266,7 @@ sellerRouter.put("/profile", async (req, res) => {
         data: {
           kitchenTitle: updated.rows[0].kitchen_title,
           kitchenDescription: updated.rows[0].kitchen_description,
+          kitchenSpecialties: Array.isArray(updated.rows[0].kitchen_specialties) ? updated.rows[0].kitchen_specialties : [],
           deliveryRadiusKm: updated.rows[0].delivery_radius_km ? Number(updated.rows[0].delivery_radius_km) : null,
           workingHours: Array.isArray(updated.rows[0].working_hours_json) ? updated.rows[0].working_hours_json : [],
           status: updated.rows[0].seller_profile_status,

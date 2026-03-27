@@ -152,7 +152,7 @@ type ApiFoodItem = {
   cuisine?: string | null;
   lotId?: string | null;
   stock: number;
-  seller: { id: string; name: string; image: string | null };
+  seller: { id: string; name: string; username?: string | null; image: string | null };
 };
 
 type MealCard = {
@@ -160,6 +160,7 @@ type MealCard = {
   title: string;
   sellerId: string;
   seller: string;
+  sellerUsername?: string | null;
   sellerImage?: string | null;
   allergens: string[];
   ingredients: string[];
@@ -176,6 +177,12 @@ type MealCard = {
   imageUrl?: string;
   locationBasisLabel?: string;
 };
+
+function formatSellerIdentity(name: string, username?: string | null): string {
+  const cleanUsername = (username ?? "").trim().replace(/^@+/, "");
+  if (!cleanUsername) return name;
+  return `${name} · @${cleanUsername}`;
+}
 
 type FavoriteFoodItem = {
   id: string;
@@ -653,6 +660,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     title: item.name,
     sellerId: item.seller.id,
     seller: item.seller.name,
+    sellerUsername: item.seller.username ?? null,
     sellerImage: item.seller.image,
     allergens: item.allergens ?? [],
     ingredients: item.ingredients ?? [],
@@ -965,7 +973,7 @@ function FoodCard({
                   style={styles.foodSellerInlineBtn}
                 >
                   <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
-                    {meal.seller}
+                    {formatSellerIdentity(meal.seller, meal.sellerUsername)}
                   </Text>
                   <Ionicons name="chevron-forward" size={14} color={colors.subtitle} />
                 </TouchableOpacity>
@@ -2496,7 +2504,9 @@ export default function HomeScreen({
                 </View>
                 <View style={styles.sellerChipTextWrap}>
                   <Text style={styles.sellerChipName} numberOfLines={1}>{meal.title}</Text>
-                  <Text style={styles.sellerChipMeta} numberOfLines={1}>{meal.seller}</Text>
+                  <Text style={styles.sellerChipMeta} numberOfLines={1}>
+                    {formatSellerIdentity(meal.seller, meal.sellerUsername)}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -2617,7 +2627,9 @@ export default function HomeScreen({
                   <View key={item.meal.id} style={styles.cartItemCard}>
                     <View style={styles.cartItemTextWrap}>
                       <Text style={styles.cartItemTitle}>{item.meal.title}</Text>
-                      <Text style={styles.cartItemSeller}>{item.meal.seller}</Text>
+                      <Text style={styles.cartItemSeller}>
+                        {formatSellerIdentity(item.meal.seller, item.meal.sellerUsername)}
+                      </Text>
                     </View>
                     <View style={styles.cartItemRight}>
                       <Text style={styles.cartItemPrice}>
@@ -3269,7 +3281,7 @@ export default function HomeScreen({
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
               <View style={styles.modalSellerRow}>
-                <Text style={styles.modalSeller}>{selectedMeal.seller}</Text>
+                <Text style={styles.modalSeller}>{formatSellerIdentity(selectedMeal.seller, selectedMeal.sellerUsername)}</Text>
               </View>
               {selectedMeal.cuisine ? (
                 <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfağı</Text>

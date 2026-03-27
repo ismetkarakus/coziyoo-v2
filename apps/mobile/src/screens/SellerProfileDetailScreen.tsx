@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -25,9 +25,12 @@ type Props = {
 
 type SellerProfile = {
   displayName?: string | null;
+  username?: string | null;
+  email?: string | null;
   phone?: string | null;
   kitchenTitle?: string | null;
   kitchenDescription?: string | null;
+  kitchenSpecialties?: string[] | null;
   deliveryRadiusKm?: number | null;
   workingHours?: Array<{ day: string; open: string; close: string; enabled?: boolean }>;
   status?: "incomplete" | "pending_review" | "active";
@@ -84,21 +87,28 @@ export default function SellerProfileDetailScreen({
   const [cityDistrict, setCityDistrict] = useState("");
   const [addressLine, setAddressLine] = useState("");
 
+  const [isKitchenModalOpen, setIsKitchenModalOpen] = useState(false);
+  const [kitchenDescInput, setKitchenDescInput] = useState("");
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [newSpecialty, setNewSpecialty] = useState("");
+  const [kitchenSaving, setKitchenSaving] = useState(false);
+
   useEffect(() => setCurrentAuth(auth), [auth]);
 
-  async function authedFetch(path: string, baseUrl = apiUrl): Promise<Response> {
+  async function authedFetch(path: string, baseUrl = apiUrl, init?: RequestInit): Promise<Response> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${currentAuth.accessToken}`,
       ...actorRoleHeader(currentAuth, "seller"),
     };
-    let res = await fetch(`${baseUrl}${path}`, { headers });
+    let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
     if (res.status !== 401) return res;
     const refreshed = await refreshAuthSession(baseUrl, currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
     onAuthRefresh?.(refreshed);
     return fetch(`${baseUrl}${path}`, {
+      ...init,
       headers: { ...headers, Authorization: `Bearer ${refreshed.accessToken}`, ...actorRoleHeader(refreshed, "seller") },
     });
   }
@@ -110,19 +120,20 @@ export default function SellerProfileDetailScreen({
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
-      const profileRes = await authedFetch("/v1/seller/profile", baseUrl);
+      const profileRes = await authedFetch("/v1/seller/profile", baseUrl, undefined);
       const profileJson = await profileRes.json();
       if (!profileRes.ok) throw new Error(profileJson?.error?.message ?? "Profil yüklenemedi");
       const loaded = profileJson.data ?? null;
       setProfile(loaded);
-      const emailFromApi = String((loaded as { email?: string | null } | null)?.email ?? "").trim();
       // İlk kayıt akışında sadece e-posta kesin geldiği için modalda sadece e-posta otomatik dolu kalır.
-      setMasterName("");
+      setMasterName(String((loaded as { username?: string | null } | null)?.username ?? "").replace(/^@+/, ""));
       setFullName("");
-      setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || emailFromApi);
+      setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || String((loaded as { email?: string | null } | null)?.email ?? "").trim());
       setContactPhone("");
       setCityDistrict("");
       setAddressLine("");
+      setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
+      setSpecialties(Array.isArray(loaded?.kitchenSpecialties) ? loaded.kitchenSpecialties : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
@@ -131,6 +142,53 @@ export default function SellerProfileDetailScreen({
   }
 
   useEffect(() => { void load(); }, []);
+
+  function parseWorkingHours(value: string): Array<{ day: string; open: string; close: string; enabled: boolean }> {
+    const parts = value.split(",").map((x) => x.trim()).filter(Boolean);
+    const parsed = parts
+      .map((part) => {
+        const [day, range] = part.split(" ");
+        if (!day || !range || !range.includes("-")) return null;
+        const [open, close] = range.split("-");
+        return { day, open, close, enabled: true };
+      })
+      .filter((x): x is { day: string; open: string; close: string; enabled: boolean } => Boolean(x));
+    return parsed.length > 0 ? parsed : [{ day: "Her gün", open: "09:00", close: "20:00", enabled: true }];
+  }
+
+  function addSpecialty() {
+    const val = newSpecialty.trim();
+    if (!val || specialties.includes(val)) return;
+    setSpecialties((prev) => [...prev, val]);
+    setNewSpecialty("");
+  }
+
+  function removeSpecialty(item: string) {
+    setSpecialties((prev) => prev.filter((s) => s !== item));
+  }
+
+  async function saveKitchen() {
+    setKitchenSaving(true);
+    try {
+      const settings = await loadSettings();
+      const baseUrl = settings.apiUrl;
+      const res = await authedFetch("/v1/seller/profile", baseUrl, {
+        method: "PUT",
+        body: JSON.stringify({
+          kitchenDescription: kitchenDescInput.trim(),
+          kitchenSpecialties: specialties,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error?.message ?? "Kaydedilemedi");
+      setIsKitchenModalOpen(false);
+      void load();
+    } catch (e) {
+      console.error("[kitchen save]", e);
+    } finally {
+      setKitchenSaving(false);
+    }
+  }
 
   const statusCfg = STATUS_CONFIG[profile?.status ?? "incomplete"];
   const initials = (profile?.displayName ?? "?")
@@ -162,6 +220,7 @@ export default function SellerProfileDetailScreen({
             </View>
             <View style={styles.heroInfo}>
               <Text style={styles.displayName}>{profile?.displayName ?? "—"}</Text>
+              {profile?.username ? <Text style={styles.kitchenTitle}>@{profile.username}</Text> : null}
               {profile?.kitchenTitle ? <Text style={styles.kitchenTitle}>{profile.kitchenTitle}</Text> : null}
             </View>
             <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg, borderColor: statusCfg.border }]}>
@@ -192,7 +251,16 @@ export default function SellerProfileDetailScreen({
 
           {/* Mutfak Bilgileri */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Mutfak Bilgileri</Text>
+            <View style={styles.profileEditCardHeader}>
+              <Text style={styles.cardTitle}>Hakkımda</Text>
+              <TouchableOpacity
+                style={styles.profileEditIconBtn}
+                onPress={() => setIsKitchenModalOpen(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="pencil" size={18} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
             <InfoRow label="Başlık" value={profile?.kitchenTitle} />
             <InfoRow label="Açıklama" value={profile?.kitchenDescription} />
             <InfoRow label="Teslimat" value={profile?.deliveryRadiusKm ? `${profile.deliveryRadiusKm} km` : null} />
@@ -265,18 +333,20 @@ export default function SellerProfileDetailScreen({
         >
           <View style={styles.modalCard}>
             <ScrollView
+              style={{ maxHeight: Dimensions.get("window").height * 0.72 }}
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
             >
               <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
 
-              <Text style={styles.modalLabel}>Satıcı Adı</Text>
+              <Text style={styles.modalLabel}>Kullanıcı Adı (@username)</Text>
               <TextInput
                 style={styles.modalInput}
                 value={masterName}
                 onChangeText={setMasterName}
-                placeholder="Örn: Lezzet Durağı"
+                autoCapitalize="none"
+                placeholder="Örn: lezzetduragi"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
@@ -341,6 +411,73 @@ export default function SellerProfileDetailScreen({
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal visible={isKitchenModalOpen} transparent animationType="fade" onRequestClose={() => setIsKitchenModalOpen(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 18 : 0}
+        >
+          <View style={styles.modalCard}>
+            <ScrollView
+              style={{ maxHeight: Dimensions.get("window").height * 0.72 }}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              <Text style={styles.modalTitle}>Hakkımda</Text>
+
+              <Text style={styles.modalLabel}>Açıklama</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalDescInput]}
+                value={kitchenDescInput}
+                onChangeText={setKitchenDescInput}
+                placeholder="Kendinizi ve mutfak deneyiminizi tanıtın"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+                multiline
+              />
+
+              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Uzmanlık Alanları</Text>
+              {specialties.length > 0 && (
+                <View style={styles.tagsRow}>
+                  {specialties.map((item) => (
+                    <View key={item} style={styles.tag}>
+                      <Text style={styles.tagText}>{item}</Text>
+                      <TouchableOpacity onPress={() => removeSpecialty(item)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Ionicons name="close-circle" size={18} color="#E53935" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <Text style={styles.modalLabel}>Yeni Kategori Ekle</Text>
+              <View style={styles.addSpecialtyRow}>
+                <TextInput
+                  style={[styles.modalInput, styles.addSpecialtyInput]}
+                  value={newSpecialty}
+                  onChangeText={setNewSpecialty}
+                  placeholder="Örn: İtalyan Mutfağı, Vegan Yemekler, Glutensiz Tarifler"
+                  placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+                  onSubmitEditing={addSpecialty}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity style={styles.addSpecialtyBtn} onPress={addSpecialty}>
+                  <Ionicons name="add" size={22} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsKitchenModalOpen(false)} disabled={kitchenSaving}>
+                <Text style={styles.modalCancelText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => void saveKitchen()} disabled={kitchenSaving}>
+                <Text style={styles.modalSaveText}>{kitchenSaving ? "Kaydediliyor..." : "Kaydet"}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -452,10 +589,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D8D8D8",
     padding: 14,
-    maxHeight: "86%",
   },
   modalScrollContent: {
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   modalTitle: {
     fontSize: 22,
@@ -485,6 +621,42 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
   },
+  modalDescInput: {
+    minHeight: 90,
+    textAlignVertical: "top",
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 4,
+  },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#E7E6E4",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  tagText: { fontSize: 13, color: "#2E2E2E", fontWeight: "500" },
+  addSpecialtyRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  addSpecialtyInput: { flex: 1 },
+  addSpecialtyBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: "#3F855C",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalEmailRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -496,7 +668,10 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 16,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
   },
   modalCancelBtn: {
     flex: 1,

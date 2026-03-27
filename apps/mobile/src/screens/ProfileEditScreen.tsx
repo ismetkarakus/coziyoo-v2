@@ -23,6 +23,7 @@ type UserProfile = {
   id: string;
   email: string;
   displayName: string;
+  username?: string | null;
   fullName: string | null;
   userType: string;
   countryCode: string | null;
@@ -56,12 +57,13 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
   const [success, setSuccess] = useState(false);
 
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
-  const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
+  const [editField, setEditField] = useState<'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
   const fallbackEmail = currentAuth.email || auth.email || '';
 
@@ -142,6 +144,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       }
       const data = json.data as UserProfile;
       setDisplayName(data.displayName ?? '');
+      setUsername(data.username ?? '');
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
       setDob(normalizeDobValue(data.dob));
@@ -181,6 +184,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       const { apiUrl } = await loadSettings();
       const body: Record<string, string> = {};
       if (displayName.trim()) body.displayName = displayName.trim();
+      if (username.trim()) body.username = username.trim().replace(/^@+/, "");
       if (fullName.trim()) body.fullName = fullName.trim();
       if (phone.trim()) body.phone = phone.trim();
       if (dob.trim()) {
@@ -205,6 +209,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       }
       const data = json.data as UserProfile;
       setDisplayName(data.displayName ?? '');
+      setUsername(data.username ?? '');
       setFullName(data.fullName ?? '');
       setPhone(data.phone ?? '');
       setDob(normalizeDobValue(data.dob));
@@ -219,8 +224,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     }
   }
 
-  function openFieldEditor(field: 'displayName' | 'fullName' | 'phone' | 'dob' | 'email') {
+  function openFieldEditor(field: 'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email') {
     if (field === 'displayName') setEditValue(displayName);
+    if (field === 'username') setEditValue(username);
     if (field === 'fullName') setEditValue(fullName);
     if (field === 'phone') setEditValue(phone);
     if (field === 'dob') setEditValue(dob);
@@ -232,6 +238,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     if (!editField) return;
     const next = editValue.trim();
     if (editField === 'displayName') setDisplayName(next);
+    if (editField === 'username') setUsername(next.replace(/^@+/, ""));
     if (editField === 'fullName') setFullName(next);
     if (editField === 'phone') setPhone(next);
     if (editField === 'dob') setDob(next);
@@ -240,6 +247,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
   }
 
   function getEditPlaceholder() {
+    if (editField === 'username') return t('helper.profileEdit.usernamePlaceholder');
     if (editField === 'fullName') return t('helper.profileEdit.fullNamePlaceholder');
     if (editField === 'phone') return t('helper.profileEdit.phonePlaceholder');
     if (editField === 'dob') return t('helper.profileEdit.dobPlaceholder');
@@ -299,6 +307,23 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
               )}
 
               <View style={styles.cardsWrap}>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#435B8A' }]}>
+                      <Ionicons name="at" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.usernameLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>{t('helper.profileEdit.usernameHint')}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('username')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{username ? `@${username.replace(/^@+/, "")}` : '-'}</Text>
+                </View>
+
                 <View style={styles.infoCard}>
                   <View style={styles.infoHead}>
                     <View style={[styles.infoIconWrap, { backgroundColor: '#3F855C' }]}>
@@ -445,9 +470,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
               }}
               placeholder={getEditPlaceholder()}
               placeholderTextColor={theme.textSecondary}
-              autoCapitalize={editField === 'phone' || editField === 'email' || editField === 'dob' ? 'none' : 'words'}
+              autoCapitalize={editField === 'phone' || editField === 'email' || editField === 'dob' || editField === 'username' ? 'none' : 'words'}
               keyboardType={editField === 'phone' ? 'phone-pad' : editField === 'email' ? 'email-address' : editField === 'dob' ? 'numbers-and-punctuation' : 'default'}
-              maxLength={editField === 'phone' ? 20 : editField === 'dob' ? 10 : 120}
+              maxLength={editField === 'phone' ? 20 : editField === 'dob' ? 10 : editField === 'username' ? 30 : 120}
               autoFocus
             />
             <View style={styles.editModalActions}>

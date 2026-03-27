@@ -10,6 +10,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { recordPresenceEvent } from "../services/user-presence.js";
 import { refreshTokenExpiresAt, signAccessToken } from "../services/token-service.js";
 import { normalizeDisplayName } from "../utils/normalize.js";
+import { checkUsernameAvailability, ensureUniqueUsername, normalizeRequestedUsername } from "../utils/username.js";
 import { generateRefreshToken, hashPassword, hashRefreshToken, verifyPassword } from "../utils/security.js";
 import {
   normalizeIdentifier,
@@ -32,6 +33,7 @@ const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
   displayName: z.string().min(3).max(40).optional(),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9._]+$/).optional(),
   fullName: z.string().min(1).max(120).optional(),
   userType: z.enum(["buyer", "seller", "both"]).optional(),
   countryCode: z.string().min(2).max(3).optional(),
@@ -124,27 +126,31 @@ authRouter.get("/display-name/check", abuseProtection({ flow: "display_name_chec
     });
   }
 
-  const exists = await pool.query<{ exists: boolean }>(
-    "SELECT EXISTS(SELECT 1 FROM users WHERE display_name_normalized = $1) AS exists",
-    [normalized]
-  );
-
-  const suggestionRows = await pool.query<{ display_name: string }>(
-    "SELECT display_name FROM users WHERE display_name_normalized LIKE $1 ORDER BY display_name ASC LIMIT 5",
-    [`${normalized.slice(0, Math.max(1, normalized.length - 1))}%`]
-  );
-
-  const suggestions = suggestionRows.rows.map((row) => row.display_name);
-  if (!exists.rows[0].exists && suggestions.length === 0) {
-    suggestions.push(`${value}${Math.floor(Math.random() * 900 + 100)}`);
-  }
-
   return res.json({
     data: {
       value,
       normalized,
-      available: !exists.rows[0].exists,
-      suggestions,
+      available: true,
+      suggestions: [value.trim() || "Kullanıcı"],
+    },
+  });
+});
+
+authRouter.get("/username/check", abuseProtection({ flow: "display_name_check", ipLimit: 200, userLimit: 120, windowMs: 60_000 }), async (req, res) => {
+  const value = String(req.query.value ?? "");
+  const result = await checkUsernameAvailability(pool, value);
+  if (!result.normalized) {
+    return res.status(400).json({
+      error: { code: "USERNAME_INVALID", message: "Username must be at least 3 chars and contain only letters, numbers, dot, underscore" },
+    });
+  }
+
+  return res.json({
+    data: {
+      value: result.requested,
+      normalized: result.normalized,
+      available: result.available,
+      suggestions: result.suggestions,
     },
   });
 });
@@ -162,26 +168,51 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
   const displayNameNormalized = normalizeDisplayName(displayName);
 
   try {
-    const userInsert = await pool.query<{
-      id: string;
-      email: string;
-      display_name: string;
-      user_type: "buyer" | "seller" | "both";
-    }>(
-      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, user_type, country_code, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, email, display_name, user_type`,
-      [
-        input.email.toLowerCase(),
-        passwordHash,
+    let userInsert:
+      | { rows: Array<{ id: string; email: string; display_name: string; username: string; user_type: "buyer" | "seller" | "both" }> }
+      | null = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const uniqueUsername = await ensureUniqueUsername(pool, {
+        email: input.email.toLowerCase(),
         displayName,
-        displayNameNormalized,
-        input.fullName ?? null,
-        userType,
-        input.countryCode ?? null,
-        input.language ?? null,
-      ]
-    );
+        requestedUsername: input.username ?? null,
+      });
+      try {
+        userInsert = await pool.query<{
+          id: string;
+          email: string;
+          display_name: string;
+          username: string;
+          user_type: "buyer" | "seller" | "both";
+        }>(
+          `INSERT INTO users (email, password_hash, display_name, display_name_normalized, username, username_normalized, full_name, user_type, country_code, language)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           RETURNING id, email, display_name, username, user_type`,
+          [
+            input.email.toLowerCase(),
+            passwordHash,
+            displayName,
+            displayNameNormalized,
+            uniqueUsername.username,
+            uniqueUsername.usernameNormalized,
+            input.fullName ?? null,
+            userType,
+            input.countryCode ?? null,
+            input.language ?? null,
+          ]
+        );
+        break;
+      } catch (insertError) {
+        const insertErr = insertError as { code?: string; constraint?: string };
+        if (insertErr.code === "23505" && insertErr.constraint?.includes("users_username")) {
+          continue;
+        }
+        throw insertError;
+      }
+    }
+    if (!userInsert) {
+      return res.status(409).json({ error: { code: "USERNAME_TAKEN", message: "Username already used" } });
+    }
 
     const user = userInsert.rows[0];
     const refreshToken = generateRefreshToken();
@@ -239,6 +270,7 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
           id: user.id,
           email: user.email,
           displayName: user.display_name,
+          username: user.username,
           userType: user.user_type,
         },
         tokens: {
@@ -250,6 +282,9 @@ authRouter.post("/register", abuseProtection({ flow: "signup", ipLimit: 120, use
     });
   } catch (error) {
     const err = error as { code?: string; constraint?: string };
+    if (err.code === "23505" && err.constraint?.includes("users_username")) {
+      return res.status(409).json({ error: { code: "USERNAME_TAKEN", message: "Username already used" } });
+    }
     if (err.code === "23505" && err.constraint?.includes("display_name")) {
       return res.status(409).json({ error: { code: "DISPLAY_NAME_TAKEN", message: "Display name already used" } });
     }
@@ -285,10 +320,12 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
   const userResult = await pool.query<{
     id: string;
     email: string;
+    display_name: string;
+    username: string;
     password_hash: string;
     user_type: "buyer" | "seller" | "both";
     is_active: boolean;
-  }>("SELECT id, email, password_hash, user_type, is_active FROM users WHERE email = $1", [normalizedEmail]);
+  }>("SELECT id, email, display_name, username, password_hash, user_type, is_active FROM users WHERE email = $1", [normalizedEmail]);
 
   const user = userResult.rows[0];
   if (!user || !user.is_active) {
@@ -407,6 +444,8 @@ authRouter.post("/login", abuseProtection({ flow: "login", ipLimit: 120, userLim
       user: {
         id: user.id,
         email: user.email,
+        displayName: user.display_name,
+        username: user.username,
         userType: user.user_type,
       },
       tokens: {
@@ -731,6 +770,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
     id: string;
     email: string;
     display_name: string;
+    username: string;
     user_type: string;
     full_name: string | null;
     country_code: string | null;
@@ -739,7 +779,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
     dob: string | null;
     profile_image_url: string | null;
   }>(
-    `SELECT id, email, display_name, user_type, full_name, country_code, language, phone, dob, profile_image_url
+    `SELECT id, email, display_name, username, user_type, full_name, country_code, language, phone, dob, profile_image_url
      FROM users
      WHERE id = $1 AND is_active = TRUE`,
     [req.auth!.userId]
@@ -755,6 +795,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
       id: user.id,
       email: user.email,
       displayName: user.display_name,
+      username: user.username,
       fullName: user.full_name,
       userType: user.user_type,
       countryCode: user.country_code,
@@ -768,6 +809,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
 
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(3).max(40).optional(),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9._]+$/).optional(),
   fullName: z.string().min(1).max(120).optional(),
   countryCode: z.union([
     z.string().regex(/^\d{11}$/, "TC identity number must be 11 digits"),
@@ -800,7 +842,19 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
 
   if (fields.displayName !== undefined) {
     setClauses.push(`display_name = $${idx++}`);
+    values.push(fields.displayName.trim());
+    setClauses.push(`display_name_normalized = $${idx++}`);
     values.push(normalizeDisplayName(fields.displayName));
+  }
+  if (fields.username !== undefined) {
+    const normalizedUsername = normalizeRequestedUsername(fields.username);
+    if (!normalizedUsername) {
+      return res.status(400).json({ error: { code: "USERNAME_INVALID", message: "Username must be at least 3 chars and contain only letters, numbers, dot, underscore" } });
+    }
+    setClauses.push(`username = $${idx++}`);
+    values.push(normalizedUsername);
+    setClauses.push(`username_normalized = $${idx++}`);
+    values.push(normalizedUsername);
   }
   if (fields.fullName !== undefined) {
     setClauses.push(`full_name = $${idx++}`);
@@ -843,6 +897,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       id: string;
       email: string;
       display_name: string;
+      username: string;
       full_name: string | null;
       user_type: string;
       country_code: string | null;
@@ -852,7 +907,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       profile_image_url: string | null;
     }>(
       `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
-       RETURNING id, email, display_name, user_type, full_name, country_code, language, phone, dob, profile_image_url`,
+       RETURNING id, email, display_name, username, user_type, full_name, country_code, language, phone, dob, profile_image_url`,
       values
     );
   } catch (error: any) {
@@ -860,6 +915,11 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
     if (code === "22007" || code === "22008") {
       return res.status(400).json({
         error: { code: "VALIDATION_ERROR", message: "Geçersiz tarih. Lütfen GG-AA-YYYY kontrol et." },
+      });
+    }
+    if (code === "23505" && String(error?.constraint ?? "").includes("users_username")) {
+      return res.status(409).json({
+        error: { code: "USERNAME_TAKEN", message: "This username is already in use" },
       });
     }
     if (code === "23505") {
@@ -880,6 +940,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       id: updated.id,
       email: updated.email,
       displayName: updated.display_name,
+      username: updated.username,
       fullName: updated.full_name,
       userType: updated.user_type,
       countryCode: updated.country_code,

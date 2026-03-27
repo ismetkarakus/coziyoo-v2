@@ -965,6 +965,8 @@ CREATE TABLE public.users (
     password_hash text NOT NULL,
     display_name text NOT NULL,
     display_name_normalized text NOT NULL,
+    username text NOT NULL,
+    username_normalized text NOT NULL,
     full_name text,
     user_type text NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
@@ -1480,20 +1482,19 @@ ALTER TABLE ONLY public.user_presence_events
     ADD CONSTRAINT user_presence_events_pkey PRIMARY KEY (id);
 
 
---
--- Name: users users_display_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_display_name_key UNIQUE (display_name);
-
-
---
--- Name: users users_display_name_normalized_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: users users_username_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_display_name_normalized_key UNIQUE (display_name_normalized);
+    ADD CONSTRAINT users_username_key UNIQUE (username);
+
+
+--
+-- Name: users users_username_normalized_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_username_normalized_key UNIQUE (username_normalized);
 
 
 --

@@ -119,6 +119,7 @@ foodsRouter.get("/", async (req, res) => {
         c.name_tr AS category,
         u.id AS seller_id,
         u.display_name AS seller_name,
+        u.username AS seller_username,
         u.profile_image_url AS seller_image,
         COALESCE(
           (SELECT SUM(pl.quantity_available)
@@ -178,6 +179,7 @@ foodsRouter.get("/", async (req, res) => {
       seller: {
         id: r.seller_id,
         name: r.seller_name,
+        username: r.seller_username,
         image: r.seller_image,
       },
     }));
@@ -262,7 +264,8 @@ foodsRouter.get("/top-sold", async (req, res) => {
           )::int AS stock,
           f.rating,
           f.seller_id,
-          u.display_name AS seller_name
+          u.display_name AS seller_name,
+          u.username AS seller_username
         FROM by_name b
         LEFT JOIN top_visual tv
           ON tv.name_key = b.name_key
@@ -293,6 +296,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
       rating: (r.rating as string | null) ?? null,
       sellerId: (r.seller_id as string | null) ?? null,
       sellerName: (r.seller_name as string | null) ?? null,
+      sellerUsername: (r.seller_username as string | null) ?? null,
     }));
 
     res.json({ data });
@@ -370,6 +374,7 @@ foodsRouter.get("/top-sold/:foodId/nearest", async (req, res) => {
             c.name_tr AS category,
             u.id AS seller_id,
             u.display_name AS seller_name,
+            u.username AS seller_username,
             u.profile_image_url AS seller_image,
             u.latitude::float8 AS seller_latitude,
             u.longitude::float8 AS seller_longitude,
@@ -482,6 +487,7 @@ foodsRouter.get("/top-sold/:foodId/nearest", async (req, res) => {
           seller: {
             id: r.seller_id,
             name: r.seller_name,
+            username: r.seller_username,
             image: r.seller_image,
           },
         },
@@ -539,6 +545,7 @@ foodsRouter.get("/recommendations", async (req, res) => {
             c.name_tr AS category,
             u.id AS seller_id,
             u.display_name AS seller_name,
+            u.username AS seller_username,
             u.profile_image_url AS seller_image,
             COALESCE(
               (SELECT SUM(pl.quantity_available)
@@ -648,6 +655,7 @@ foodsRouter.get("/recommendations", async (req, res) => {
           seller: {
             id: r.seller_id,
             name: r.seller_name,
+            username: r.seller_username,
             image: r.seller_image,
           },
         },
@@ -679,6 +687,7 @@ foodsRouter.get("/sellers", async (req, res) => {
         SELECT
           u.id,
           COALESCE(NULLIF(u.display_name, ''), NULLIF(u.full_name, ''), u.email) AS seller_name,
+          u.username AS seller_username,
           u.profile_image_url AS seller_image,
           u.user_type,
           COALESCE(stats.active_food_count, 0)::int AS active_food_count,
@@ -724,6 +733,7 @@ foodsRouter.get("/sellers", async (req, res) => {
     const data = rows.map((r) => ({
       id: r.id as string,
       name: r.seller_name as string,
+      username: (r.seller_username as string | null) ?? null,
       imageUrl: (r.seller_image as string | null) ?? null,
       userType: r.user_type as "seller" | "both",
       activeFoodCount: Number(r.active_food_count ?? 0),
@@ -778,6 +788,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
           c.name_tr AS category,
           u.id AS seller_id,
           u.display_name AS seller_name,
+          u.username AS seller_username,
           u.profile_image_url AS seller_image,
           COALESCE(
             (SELECT SUM(pl.quantity_available)
@@ -830,6 +841,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
       seller: {
         id: r.seller_id,
         name: r.seller_name,
+        username: r.seller_username,
         image: r.seller_image,
       },
     }));

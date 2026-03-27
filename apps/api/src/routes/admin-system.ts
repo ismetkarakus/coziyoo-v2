@@ -8,6 +8,7 @@ import { requireSuperAdmin } from "../middleware/admin-rbac.js";
 import { requireAuth } from "../middleware/auth.js";
 import { normalizeDisplayName } from "../utils/normalize.js";
 import { hashPassword } from "../utils/security.js";
+import { ensureUniqueUsername } from "../utils/username.js";
 
 const ResetDatabaseSchema = z.object({
   confirmText: z.literal("RESET DATABASE"),
@@ -115,11 +116,24 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
       if (existing.rowCount && existing.rows[0]) return existing.rows[0].id;
 
       const passwordHash = await hashPassword(defaultPassword);
+      const uniqueUsername = await ensureUniqueUsername(client, {
+        email: args.email,
+        displayName: args.displayName,
+      });
       const inserted = await client.query<{ id: string }>(
-        `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, user_type, country_code, language, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, 'TR', 'tr', TRUE)
+        `INSERT INTO users (email, password_hash, display_name, display_name_normalized, username, username_normalized, full_name, user_type, country_code, language, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'TR', 'tr', TRUE)
          RETURNING id::text`,
-        [args.email, passwordHash, args.displayName, normalizeDisplayName(args.displayName), args.fullName, args.userType]
+        [
+          args.email,
+          passwordHash,
+          args.displayName,
+          normalizeDisplayName(args.displayName),
+          uniqueUsername.username,
+          uniqueUsername.usernameNormalized,
+          args.fullName,
+          args.userType,
+        ]
       );
       return inserted.rows[0].id;
     }

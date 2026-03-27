@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { writeAdminAudit } from "../services/admin-audit.js";
 import { normalizeDisplayName } from "../utils/normalize.js";
 import { hashPassword } from "../utils/security.js";
+import { ensureUniqueUsername } from "../utils/username.js";
 
 const AppUserListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -4353,10 +4354,14 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const uniqueUsername = await ensureUniqueUsername(client, {
+      email: input.email.toLowerCase(),
+      displayName: input.displayName,
+    });
     const created = await client.query(
-      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, full_name, phone, dob, profile_image_url, user_type, is_active, country_code, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12)
-       RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
+      `INSERT INTO users (email, password_hash, display_name, display_name_normalized, username, username_normalized, full_name, phone, dob, profile_image_url, user_type, is_active, country_code, language)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12, $13, $14)
+       RETURNING id, email, display_name, username, full_name, phone, dob::text, profile_image_url, user_type, is_active,
          COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [
@@ -4364,6 +4369,8 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         passwordHash,
         input.displayName,
         displayNameNormalized,
+        uniqueUsername.username,
+        uniqueUsername.usernameNormalized,
         input.fullName ?? null,
         input.phone ?? null,
         input.dob ?? null,
@@ -4397,6 +4404,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
         id: row.id,
         email: row.email,
         displayName: row.display_name,
+        username: row.username,
         fullName: row.full_name,
         phone: row.phone,
         dob: row.dob,
@@ -5045,6 +5053,9 @@ function handleMutationError(res: Response, error: unknown) {
   }
   if (err.code === "23505" && err.constraint?.includes("users_display_name")) {
     return res.status(409).json({ error: { code: "DISPLAY_NAME_TAKEN", message: "Display name already used" } });
+  }
+  if (err.code === "23505" && err.constraint?.includes("users_username")) {
+    return res.status(409).json({ error: { code: "USERNAME_TAKEN", message: "Username already used" } });
   }
   if (err.code === "23505" && err.constraint?.includes("admin_users_email")) {
     return res.status(409).json({ error: { code: "EMAIL_TAKEN", message: "Email already used" } });

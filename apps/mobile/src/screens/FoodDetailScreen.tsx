@@ -22,7 +22,7 @@ export type FoodItem = {
   cuisine: string | null;
   stock: number;
   lotId: string | null;
-  seller: { id: string; name: string; image: string | null };
+  seller: { id: string; name: string; username?: string | null; image: string | null };
 };
 
 type Props = {
@@ -35,6 +35,12 @@ type Props = {
 
 export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSellerReviews, onOpenSeller }: Props) {
   const [quantity, setQuantity] = useState(1);
+
+  function sellerIdentity(): string {
+    const username = String(food.seller.username ?? "").trim().replace(/^@+/, "");
+    if (!username) return food.seller.name;
+    return `${food.seller.name} · @${username}`;
+  }
 
   function handleAdd() {
     if (food.stock < quantity) {
@@ -114,7 +120,7 @@ export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSell
                 <Ionicons name="person" size={18} color="#FFFFFF" />
               </View>
             )}
-            <Text style={styles.sellerName}>{food.seller.name}</Text>
+            <Text style={styles.sellerName}>{sellerIdentity()}</Text>
             {onOpenSellerReviews && (
               <ActionButton
                 label="Yorumlar"
@@ -146,7 +152,7 @@ export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSell
                 onPress={() => onOpenSeller ? onOpenSeller(food.seller.id) : onBack()}
                 activeOpacity={0.7}
               >
-                <Text style={styles.sellerLinkText}>{food.seller.name}</Text>
+                <Text style={styles.sellerLinkText}>{sellerIdentity()}</Text>
                 <Ionicons name="chevron-forward" size={14} color="#3E845B" />
               </TouchableOpacity>
             </View>
