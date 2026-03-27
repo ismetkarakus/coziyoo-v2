@@ -341,7 +341,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             ))}
           </ScrollView>
           <Text style={styles.subHint}>{`Seçilen fotoğraf: ${imageUrls.filter((x) => x.trim()).length}/5`}</Text>
-          <Text style={styles.subHint}>Fotoğraf kutusuna dokunup albümden seçebilirsin.</Text>
 
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
           <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, İtalyan" />
