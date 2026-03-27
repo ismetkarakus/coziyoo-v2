@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -58,6 +59,11 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [dailyStock, setDailyStock] = useState("10");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [datePickerVisible, setDatePickerVisible] = useState<null | "start" | "end">(null);
+  const [pickerMonth, setPickerMonth] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [pickupEnabled, setPickupEnabled] = useState(true);
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState("");
@@ -277,6 +283,49 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     return "";
   }, [pickupEnabled, deliveryEnabled]);
 
+  function toDisplayDate(date: Date): string {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(date.getFullYear());
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  const pickerMonthLabel = useMemo(() => {
+    const months = [
+      "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+      "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+    ];
+    return `${months[pickerMonth.getMonth()]} ${pickerMonth.getFullYear()}`;
+  }, [pickerMonth]);
+
+  const pickerDays = useMemo(() => {
+    const year = pickerMonth.getFullYear();
+    const month = pickerMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const mondayBasedOffset = (firstDay.getDay() + 6) % 7;
+    const cells: Array<{ key: string; value?: number }> = [];
+    for (let i = 0; i < mondayBasedOffset; i += 1) {
+      cells.push({ key: `empty-${i}` });
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      cells.push({ key: `day-${day}`, value: day });
+    }
+    return cells;
+  }, [pickerMonth]);
+
+  function openDatePicker(target: "start" | "end") {
+    setDatePickerVisible(target);
+  }
+
+  function selectDate(day: number) {
+    const selected = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), day);
+    const value = toDisplayDate(selected);
+    if (datePickerVisible === "start") setStartDate(value);
+    if (datePickerVisible === "end") setEndDate(value);
+    setDatePickerVisible(null);
+  }
+
   const previewImage = imageUrls.map((x) => x.trim()).find(Boolean) || "";
   const previewTitle = name.trim() || "Yemek Adı";
   const previewSummary = cardSummary.trim() || description.trim() || "Yemeğiniz burada müşteri kartında görünecek.";
@@ -356,11 +405,21 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <View style={styles.row2}>
             <View style={styles.rowItem}>
               <Text style={styles.sectionTitle}>Başlangıç Tarihi</Text>
-              <TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="DD/MM/YYYY" />
+              <View style={styles.dateInputWrap}>
+                <TextInput style={[styles.input, styles.dateInput]} value={startDate} placeholder="DD/MM/YYYY" editable={false} />
+                <TouchableOpacity style={styles.dateIconBtn} onPress={() => openDatePicker("start")}>
+                  <Ionicons name="calendar-outline" size={18} color="#7A6B5D" />
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.rowItem}>
               <Text style={styles.sectionTitle}>Bitiş Tarihi</Text>
-              <TextInput style={styles.input} value={endDate} onChangeText={setEndDate} placeholder="DD/MM/YYYY" />
+              <View style={styles.dateInputWrap}>
+                <TextInput style={[styles.input, styles.dateInput]} value={endDate} placeholder="DD/MM/YYYY" editable={false} />
+                <TouchableOpacity style={styles.dateIconBtn} onPress={() => openDatePicker("end")}>
+                  <Ionicons name="calendar-outline" size={18} color="#7A6B5D" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -475,6 +534,42 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           </View>
         </View>
       </Modal>
+
+      <Modal visible={Boolean(datePickerVisible)} transparent animationType="fade" onRequestClose={() => setDatePickerVisible(null)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setDatePickerVisible(null)} />
+          <View style={styles.datePickerCard}>
+            <View style={styles.datePickerHead}>
+              <TouchableOpacity onPress={() => setPickerMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
+                <Ionicons name="chevron-back" size={20} color="#2E241C" />
+              </TouchableOpacity>
+              <Text style={styles.datePickerTitle}>{pickerMonthLabel}</Text>
+              <TouchableOpacity onPress={() => setPickerMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
+                <Ionicons name="chevron-forward" size={20} color="#2E241C" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.dateWeekRow}>
+              {["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((label) => (
+                <Text key={label} style={styles.dateWeekLabel}>{label}</Text>
+              ))}
+            </View>
+            <View style={styles.dateGrid}>
+              {pickerDays.map((cell) => (
+                <TouchableOpacity
+                  key={cell.key}
+                  style={[styles.dateCell, !cell.value && styles.dateCellEmpty]}
+                  disabled={!cell.value}
+                  onPress={() => cell.value && selectDate(cell.value)}
+                >
+                  <Text style={[styles.dateCellText, !cell.value && styles.dateCellTextEmpty]}>
+                    {cell.value ?? ""}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -501,6 +596,13 @@ const styles = StyleSheet.create({
   },
   row2: { flexDirection: "row", gap: 10 },
   rowItem: { flex: 1 },
+  dateInputWrap: { position: "relative" },
+  dateInput: { paddingRight: 38 },
+  dateIconBtn: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+  },
   photoRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   photoPreviewBtn: {
     width: 92,
@@ -636,4 +738,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   previewCloseBtnText: { color: "#fff", fontWeight: "700" },
+  datePickerCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+  },
+  datePickerHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  datePickerTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  dateWeekRow: { flexDirection: "row", marginBottom: 6 },
+  dateWeekLabel: { flex: 1, textAlign: "center", color: "#7A6B5D", fontSize: 12, fontWeight: "700" },
+  dateGrid: { flexDirection: "row", flexWrap: "wrap" },
+  dateCell: {
+    width: "14.285%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  dateCellEmpty: { opacity: 0 },
+  dateCellText: { color: "#2E241C", fontWeight: "600" },
+  dateCellTextEmpty: { color: "transparent" },
 });
