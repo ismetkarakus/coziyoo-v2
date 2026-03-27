@@ -322,6 +322,7 @@ export default function SellerProfileDetailScreen({
         return;
       }
 
+      let addressErrorMessage: string | null = null;
       if (hasProfileUpdate) {
         const meRes = await authedFetch("/v1/auth/me", baseUrl, {
           method: "PUT",
@@ -334,40 +335,48 @@ export default function SellerProfileDetailScreen({
       setIsEditModalOpen(false);
 
       if (hasAddressUpdate) {
-        const listRes = await authedFetch("/v1/auth/me/addresses", baseUrl, undefined);
-        const listJson = await listRes.json();
-        if (!listRes.ok) throw new Error(listJson?.error?.message ?? "Adres listesi alınamadı");
-        const defaultAddress = Array.isArray(listJson?.data)
-          ? listJson.data.find((item: { isDefault?: boolean }) => item?.isDefault)
-          : null;
+        try {
+          const listRes = await authedFetch("/v1/auth/me/addresses", baseUrl, undefined);
+          const listJson = await listRes.json();
+          if (!listRes.ok) throw new Error(listJson?.error?.message ?? "Adres listesi alınamadı");
+          const defaultAddress = Array.isArray(listJson?.data)
+            ? listJson.data.find((item: { isDefault?: boolean }) => item?.isDefault)
+            : null;
 
-        if (defaultAddress?.id) {
-          const patchRes = await authedFetch(`/v1/auth/me/addresses/${defaultAddress.id}`, baseUrl, {
-            method: "PATCH",
-            body: JSON.stringify({
-              title,
-              addressLine: line,
-              isDefault: true,
-            }),
-          });
-          const patchJson = await patchRes.json();
-          if (!patchRes.ok) throw new Error(patchJson?.error?.message ?? "Adres kaydedilemedi");
-        } else {
-          const addrRes = await authedFetch("/v1/auth/me/addresses", baseUrl, {
-            method: "POST",
-            body: JSON.stringify({
-              title,
-              addressLine: line,
-              isDefault: true,
-            }),
-          });
-          const addrJson = await addrRes.json();
-          if (!addrRes.ok) throw new Error(addrJson?.error?.message ?? "Adres kaydedilemedi");
+          if (defaultAddress?.id) {
+            const patchRes = await authedFetch(`/v1/auth/me/addresses/${defaultAddress.id}`, baseUrl, {
+              method: "PATCH",
+              body: JSON.stringify({
+                title,
+                addressLine: line,
+                isDefault: true,
+              }),
+            });
+            const patchJson = await patchRes.json();
+            if (!patchRes.ok) throw new Error(patchJson?.error?.message ?? "Adres kaydedilemedi");
+          } else {
+            const addrRes = await authedFetch("/v1/auth/me/addresses", baseUrl, {
+              method: "POST",
+              body: JSON.stringify({
+                title,
+                addressLine: line,
+                isDefault: true,
+              }),
+            });
+            const addrJson = await addrRes.json();
+            if (!addrRes.ok) throw new Error(addrJson?.error?.message ?? "Adres kaydedilemedi");
+          }
+        } catch (addressError) {
+          addressErrorMessage = addressError instanceof Error ? addressError.message : "Adres kaydedilemedi";
         }
       }
 
       await load();
-      Alert.alert("Başarılı", "İletişim bilgileri kaydedildi.");
+      if (addressErrorMessage) {
+        Alert.alert("Uyarı", `Profil güncellendi, adres kaydedilemedi: ${addressErrorMessage}`);
+      } else {
+        Alert.alert("Başarılı", "İletişim bilgileri kaydedildi.");
+      }
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Bilgiler kaydedilemedi");
     } finally {
