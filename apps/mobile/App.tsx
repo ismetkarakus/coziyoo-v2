@@ -168,8 +168,8 @@ export default function App() {
   function handleOnboardingComplete(session: AuthSession) {
     setAuth(session);
     setActorMode(session.userType === 'seller' ? 'seller' : 'buyer');
-    setIsNewRegistration(true);
-    setScreen('profileEdit');
+    setIsNewRegistration(false);
+    setScreen('home');
   }
 
   async function handleLogout() {
