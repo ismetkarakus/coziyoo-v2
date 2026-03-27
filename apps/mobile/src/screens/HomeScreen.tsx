@@ -184,6 +184,14 @@ function formatSellerIdentity(name: string, username?: string | null): string {
   return `@${cleanUsername}`;
 }
 
+function formatCuisineLabel(cuisine?: string | null): string {
+  const value = (cuisine ?? "").trim();
+  if (!value) return "";
+  const lower = value.toLocaleLowerCase("tr-TR");
+  if (lower.endsWith(" mutfağı") || lower.endsWith(" mutfagi")) return value;
+  return `${value} Mutfağı`;
+}
+
 type FavoriteFoodItem = {
   id: string;
 };
@@ -985,7 +993,7 @@ function FoodCard({
               </Text>
               {meal.cuisine ? (
                 <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
-                  {meal.cuisine} Mutfağı
+                  {formatCuisineLabel(meal.cuisine)}
                 </Text>
               ) : null}
             </View>
@@ -3284,7 +3292,7 @@ export default function HomeScreen({
                 <Text style={styles.modalSeller}>{formatSellerIdentity(selectedMeal.seller, selectedMeal.sellerUsername)}</Text>
               </View>
               {selectedMeal.cuisine ? (
-                <Text style={styles.modalCuisine}>{selectedMeal.cuisine} Mutfağı</Text>
+                <Text style={styles.modalCuisine}>{formatCuisineLabel(selectedMeal.cuisine)}</Text>
               ) : null}
               {selectedMeal.locationBasisLabel ? (
                 <Text style={styles.modalBasis}>{selectedMeal.locationBasisLabel}</Text>
