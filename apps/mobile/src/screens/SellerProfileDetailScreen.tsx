@@ -511,6 +511,16 @@ export default function SellerProfileDetailScreen({
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
+              <Text style={styles.modalLabel}>Doğum Tarihi</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={contactDob}
+                onChangeText={setContactDob}
+                keyboardType="numbers-and-punctuation"
+                placeholder="Örn: 15/01/1990"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
+
               <Text style={styles.modalLabel}>E-posta</Text>
               <View style={styles.modalEmailRow}>
                 <TextInput
@@ -532,16 +542,6 @@ export default function SellerProfileDetailScreen({
                 onChangeText={setContactPhone}
                 keyboardType="phone-pad"
                 placeholder="Örn: 0555 111 22 33"
-                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
-              />
-
-              <Text style={styles.modalLabel}>Doğum Tarihi</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={contactDob}
-                onChangeText={setContactDob}
-                keyboardType="numbers-and-punctuation"
-                placeholder="Örn: 15/01/1990"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
