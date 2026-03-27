@@ -50,7 +50,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [recipe, setRecipe] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [allergens, setAllergens] = useState("");
-  const [imageUrls, setImageUrls] = useState<string[]>([""]);
+  const [imageUrls, setImageUrls] = useState<string[]>(["", "", "", "", ""]);
   const [prepTime, setPrepTime] = useState("");
 
   // UI parity fields (opsiyonlar)
@@ -123,7 +123,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setRecipe("");
     setIngredients("");
     setAllergens("");
-    setImageUrls([""]);
+    setImageUrls(["", "", "", "", ""]);
     setPrepTime("");
     setCuisine("");
     setCategoryId("");
@@ -144,7 +144,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setRecipe(food.recipe ?? "");
     setIngredients(food.ingredients.join(", "));
     setAllergens(food.allergens.join(", "));
-    setImageUrls([food.imageUrl ?? ""]);
+    setImageUrls([food.imageUrl ?? "", "", "", "", ""]);
     setPrepTime(food.preparationTimeMinutes ? String(food.preparationTimeMinutes) : "");
   }
 
@@ -184,18 +184,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Fotoğraf seçilemedi.");
     }
-  }
-
-  function addPhotoField() {
-    setImageUrls((prev) => (prev.length >= 5 ? prev : [...prev, ""]));
-  }
-
-  function removePhotoField(index: number) {
-    setImageUrls((prev) => {
-      if (prev.length <= 1) return [""];
-      const next = prev.filter((_, i) => i !== index);
-      return next.length > 0 ? next : [""];
-    });
   }
 
   async function saveFood(options?: { publishAfterSave?: boolean }) {
@@ -337,9 +325,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
-          {imageUrls.map((url, index) => (
-            <View key={`photo-${index}`} style={styles.photoRow}>
-              <TouchableOpacity style={styles.photoPreviewBtn} onPress={() => void pickImageFromAlbum(index)}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
+            {imageUrls.map((url, index) => (
+              <TouchableOpacity key={`photo-${index}`} style={styles.photoPreviewBtn} onPress={() => void pickImageFromAlbum(index)}>
                 {url.trim() ? (
                   <Image source={{ uri: url }} style={styles.photoPreviewImage} />
                 ) : (
@@ -350,26 +338,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                   </View>
                 )}
               </TouchableOpacity>
-              <TextInput
-                style={[styles.input, styles.photoInput]}
-                value={url}
-                onChangeText={(value) => setImageAt(index, value)}
-                placeholder={`Fotoğraf ${index + 1} URL`}
-              />
-              {imageUrls.length > 1 ? (
-                <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhotoField(index)}>
-                  <Text style={styles.photoRemoveText}>Sil</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ))}
-          {imageUrls.length < 5 ? (
-            <TouchableOpacity style={styles.photoAddBtn} onPress={addPhotoField}>
-              <Text style={styles.photoAddText}>+ Fotoğraf Ekle ({imageUrls.length}/5)</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.subHint}>En fazla 5 fotoğraf ekleyebilirsin.</Text>
-          )}
+            ))}
+          </ScrollView>
+          <Text style={styles.subHint}>{`Seçilen fotoğraf: ${imageUrls.filter((x) => x.trim()).length}/5`}</Text>
           <Text style={styles.subHint}>Fotoğraf kutusuna dokunup albümden seçebilirsin.</Text>
 
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
@@ -600,6 +571,7 @@ const styles = StyleSheet.create({
     right: 10,
     top: 10,
   },
+  photoStrip: { flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 2 },
   photoRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   photoPreviewBtn: {
     width: 92,
