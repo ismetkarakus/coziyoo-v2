@@ -51,6 +51,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [ingredients, setIngredients] = useState("");
   const [allergens, setAllergens] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>(["", "", "", "", ""]);
+  const [movingImageIndex, setMovingImageIndex] = useState<number | null>(null);
   const [prepTime, setPrepTime] = useState("");
 
   // UI parity fields (opsiyonlar)
@@ -124,6 +125,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setIngredients("");
     setAllergens("");
     setImageUrls(["", "", "", "", ""]);
+    setMovingImageIndex(null);
     setPrepTime("");
     setCuisine("");
     setCategoryId("");
@@ -145,6 +147,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setIngredients(food.ingredients.join(", "));
     setAllergens(food.allergens.join(", "));
     setImageUrls([food.imageUrl ?? "", "", "", "", ""]);
+    setMovingImageIndex(null);
     setPrepTime(food.preparationTimeMinutes ? String(food.preparationTimeMinutes) : "");
   }
 
@@ -156,6 +159,20 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       next[index] = value;
       return next;
     });
+  }
+
+  function moveImage(from: number, to: number) {
+    if (from === to) {
+      setMovingImageIndex(null);
+      return;
+    }
+    setImageUrls((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setMovingImageIndex(null);
   }
 
   async function pickImageFromAlbum(index: number) {
@@ -327,20 +344,41 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
             {imageUrls.map((url, index) => (
-              <TouchableOpacity key={`photo-${index}`} style={styles.photoPreviewBtn} onPress={() => void pickImageFromAlbum(index)}>
-                {url.trim() ? (
-                  <Image source={{ uri: url }} style={styles.photoPreviewImage} />
-                ) : (
-                  <View style={styles.photoPreviewPlaceholder}>
-                    <Text style={styles.photoPreviewIcon}>📸</Text>
-                    <Text style={styles.photoPreviewText}>Resim Ekle</Text>
-                    <Text style={styles.photoPreviewSub}>(Tak/Çek/Kamera)</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+              <View key={`photo-${index}`} style={styles.photoTileWrap}>
+                <TouchableOpacity
+                  style={[
+                    styles.photoPreviewBtn,
+                    movingImageIndex === index && styles.photoPreviewBtnMoving,
+                  ]}
+                  onLongPress={() => setMovingImageIndex(index)}
+                  delayLongPress={220}
+                  onPress={() => {
+                    if (movingImageIndex !== null) {
+                      moveImage(movingImageIndex, index);
+                      return;
+                    }
+                    void pickImageFromAlbum(index);
+                  }}
+                >
+                  {url.trim() ? (
+                    <Image source={{ uri: url }} style={styles.photoPreviewImage} />
+                  ) : (
+                    <View style={styles.photoPreviewPlaceholder}>
+                      <Text style={styles.photoPreviewIcon}>📸</Text>
+                      <Text style={styles.photoPreviewText}>Resim Ekle</Text>
+                      <Text style={styles.photoPreviewSub}>(Tak/Çek/Kamera)</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             ))}
           </ScrollView>
           <Text style={styles.subHint}>{`Seçilen fotoğraf: ${imageUrls.filter((x) => x.trim()).length}/5`}</Text>
+          <Text style={styles.subHint}>
+            {movingImageIndex === null
+              ? "Sıralamayı değiştirmek için resme uzun bas."
+              : "Şimdi hedef kutuya dokun, sırası değişsin."}
+          </Text>
 
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
           <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..." />
@@ -568,6 +606,7 @@ const styles = StyleSheet.create({
     top: 10,
   },
   photoStrip: { flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 2 },
+  photoTileWrap: { alignItems: "center", gap: 6 },
   photoRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   photoPreviewBtn: {
     width: 92,
@@ -579,6 +618,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4EEE4",
     alignItems: "center",
     justifyContent: "center",
+  },
+  photoPreviewBtnMoving: {
+    borderColor: "#3F855C",
+    borderWidth: 2,
   },
   photoPreviewImage: { width: "100%", height: "100%" },
   photoPreviewPlaceholder: { alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
