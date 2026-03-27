@@ -299,7 +299,6 @@ export default function SellerProfileDetailScreen({
 
       if (masterName.trim()) payload.displayName = masterName.trim();
       if (fullName.trim()) payload.fullName = fullName.trim();
-      if (contactEmail.trim()) payload.email = contactEmail.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
       if (contactDob.trim()) {
         const normalizedDob = normalizeDobForApi(contactDob);
@@ -549,7 +548,7 @@ export default function SellerProfileDetailScreen({
                 <TextInput
                   style={[styles.modalInput, styles.modalEmailInput]}
                   value={contactEmail}
-                  onChangeText={setContactEmail}
+                  editable={false}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   placeholder="Örn: ayse@example.com"

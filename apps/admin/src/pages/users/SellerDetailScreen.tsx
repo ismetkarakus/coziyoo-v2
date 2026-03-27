@@ -664,7 +664,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     const formData = new FormData(event.currentTarget);
     const submittedLanguage = formData.get("language");
     const payload: Record<string, string | null> = {
-      email: String(formData.get("email") ?? "").trim(),
+      email: String(row?.email ?? "").trim(),
       displayName: String(formData.get("displayName") ?? "").trim(),
       fullName: String(formData.get("fullName") ?? "").trim() || null,
       phone: String(formData.get("phone") ?? "").trim() || null,
@@ -1867,7 +1867,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 </label>
                 <label className="ghost seller-detail-filter-item seller-general-filter-item">
                   <span>{dict.auth.email}</span>
-                  <input name="email" type="email" defaultValue={String(row.email ?? "")} placeholder=" " disabled={!isSuperAdmin} required />
+                  <input
+                    name="email"
+                    type="email"
+                    value={String(row.email ?? "")}
+                    readOnly
+                    disabled
+                    placeholder=" "
+                    autoComplete="off"
+                  />
                 </label>
                 <label className="ghost seller-detail-filter-item seller-general-filter-item">
                   <span>{language === "tr" ? "Ad Soyad" : "Full Name"}</span>
@@ -1888,7 +1896,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                 <input type="hidden" name="profileImageUrl" value={String(row.profileImageUrl ?? row.profile_image_url ?? "")} />
                 <label className="ghost seller-detail-filter-item seller-general-filter-item">
                   <span>{dict.detail.passwordOptional}</span>
-                  <input name="password" type="password" placeholder=" " disabled={!isSuperAdmin} />
+                  <input name="password" type="password" placeholder=" " disabled={!isSuperAdmin} autoComplete="new-password" />
                 </label>
                 <div className="seller-profile-actions-grid">
                   <button
