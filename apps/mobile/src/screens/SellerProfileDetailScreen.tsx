@@ -88,6 +88,7 @@ export default function SellerProfileDetailScreen({
   const [fullName, setFullName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [contactDob, setContactDob] = useState("");
   const [cityDistrict, setCityDistrict] = useState("");
   const [addressLine, setAddressLine] = useState("");
 
@@ -133,6 +134,7 @@ export default function SellerProfileDetailScreen({
       setMasterName("");
       setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || String((loaded as { email?: string | null } | null)?.email ?? "").trim());
       setContactPhone("");
+      setContactDob("");
       setCityDistrict("");
       setAddressLine("");
       setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
@@ -227,6 +229,17 @@ export default function SellerProfileDetailScreen({
     setSpecialties((prev) => prev.filter((s) => s !== item));
   }
 
+  function normalizeDobForApi(value: string): string | null {
+    const raw = value.trim();
+    if (!raw) return null;
+    const normalized = raw.replace(/\./g, "-").replace(/\//g, "-");
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+    if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+    const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(normalized);
+    if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+    return null;
+  }
+
   async function saveKitchen() {
     setKitchenSaving(true);
     try {
@@ -260,6 +273,15 @@ export default function SellerProfileDetailScreen({
       if (fullName.trim()) payload.fullName = fullName.trim();
       if (contactEmail.trim()) payload.email = contactEmail.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
+      if (contactDob.trim()) {
+        const normalizedDob = normalizeDobForApi(contactDob);
+        if (!normalizedDob) {
+          Alert.alert("Hata", "Doğum tarihi formatı GG/AA/YYYY veya YYYY-AA-GG olmalı.");
+          setContactSaving(false);
+          return;
+        }
+        payload.dob = normalizedDob;
+      }
 
       const meRes = await authedFetch("/v1/auth/me", baseUrl, {
         method: "PUT",
@@ -504,6 +526,16 @@ export default function SellerProfileDetailScreen({
                 onChangeText={setContactPhone}
                 keyboardType="phone-pad"
                 placeholder="Örn: 0555 111 22 33"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
+
+              <Text style={styles.modalLabel}>Doğum Tarihi</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={contactDob}
+                onChangeText={setContactDob}
+                keyboardType="numbers-and-punctuation"
+                placeholder="Örn: 15/01/1990"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
