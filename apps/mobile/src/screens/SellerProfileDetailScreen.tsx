@@ -261,9 +261,6 @@ export default function SellerProfileDetailScreen({
                 <Ionicons name="pencil" size={18} color={theme.primary} />
               </TouchableOpacity>
             </View>
-            <InfoRow label="Başlık" value={profile?.kitchenTitle} />
-            <InfoRow label="Açıklama" value={profile?.kitchenDescription} />
-            <InfoRow label="Telefon" value={profile?.phone} />
           </View>
 
           {/* Çalışma Saatleri */}
