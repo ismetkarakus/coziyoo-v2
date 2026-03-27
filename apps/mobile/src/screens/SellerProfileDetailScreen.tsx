@@ -157,6 +157,24 @@ export default function SellerProfileDetailScreen({
             <Text style={styles.complianceAction}>Belgeleri aç →</Text>
           </TouchableOpacity>
 
+          {/* Profili Düzenle */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Profili Düzenle</Text>
+            {[
+              { label: "Telefon", ok: profile?.requirements?.hasPhone },
+              { label: "Varsayılan adres", ok: profile?.requirements?.hasDefaultAddress },
+              { label: "Mutfak başlığı", ok: profile?.requirements?.hasKitchenTitle },
+              { label: "Mutfak açıklaması", ok: profile?.requirements?.hasKitchenDescription },
+              { label: "Teslimat yarıçapı", ok: profile?.requirements?.hasDeliveryRadius },
+              { label: "Çalışma saatleri", ok: profile?.requirements?.hasWorkingHours },
+            ].map((item) => (
+              <View key={item.label} style={styles.checkRow}>
+                <Text style={item.ok ? styles.checkOk : styles.checkMissing}>{item.ok ? "✓" : "✗"}</Text>
+                <Text style={styles.checkLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+
           {/* Mutfak Bilgileri */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Mutfak Bilgileri</Text>
@@ -194,24 +212,6 @@ export default function SellerProfileDetailScreen({
             )}
             <Text style={styles.addressLink}>Adresleri yönet →</Text>
           </TouchableOpacity>
-
-          {/* Profil Tamamlanma */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Profil Durumu</Text>
-            {[
-              { label: "Telefon", ok: profile?.requirements?.hasPhone },
-              { label: "Varsayılan adres", ok: profile?.requirements?.hasDefaultAddress },
-              { label: "Mutfak başlığı", ok: profile?.requirements?.hasKitchenTitle },
-              { label: "Mutfak açıklaması", ok: profile?.requirements?.hasKitchenDescription },
-              { label: "Teslimat yarıçapı", ok: profile?.requirements?.hasDeliveryRadius },
-              { label: "Çalışma saatleri", ok: profile?.requirements?.hasWorkingHours },
-            ].map((item) => (
-              <View key={item.label} style={styles.checkRow}>
-                <Text style={item.ok ? styles.checkOk : styles.checkMissing}>{item.ok ? "✓" : "✗"}</Text>
-                <Text style={styles.checkLabel}>{item.label}</Text>
-              </View>
-            ))}
-          </View>
 
           {/* Navigasyon Butonları */}
           <TouchableOpacity style={styles.navBtn} onPress={onOpenFoods}>
