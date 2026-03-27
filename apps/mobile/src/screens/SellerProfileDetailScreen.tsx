@@ -129,10 +129,10 @@ export default function SellerProfileDetailScreen({
       if (!profileRes.ok) throw new Error(profileJson?.error?.message ?? "Profil yüklenemedi");
       const loaded = profileJson.data ?? null;
       setProfile(loaded);
-      // İlk kayıt akışında sadece e-posta kesin geldiği için modalda sadece e-posta otomatik dolu kalır.
-      setMasterName(String((loaded as { displayName?: string | null } | null)?.displayName ?? "").trim());
+      // İlk girişte sadece e-posta otomatik doldurulur; isim alanlarına otomatik değer yazılmaz.
+      setMasterName("");
       setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || String((loaded as { email?: string | null } | null)?.email ?? "").trim());
-      setContactPhone(String((loaded as { phone?: string | null } | null)?.phone ?? "").trim());
+      setContactPhone("");
       setCityDistrict("");
       setAddressLine("");
       setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
@@ -140,11 +140,7 @@ export default function SellerProfileDetailScreen({
 
       const meRes = await authedFetch("/v1/auth/me", baseUrl, undefined);
       const meJson = await meRes.json();
-      if (meRes.ok && meJson?.data) {
-        setFullName(String(meJson.data.fullName ?? "").trim());
-      } else {
-        setFullName("");
-      }
+      setFullName("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
