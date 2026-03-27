@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Dimensions, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -333,7 +333,7 @@ export default function SellerProfileDetailScreen({
         >
           <View style={styles.modalCard}>
             <ScrollView
-              style={{ maxHeight: Dimensions.get("window").height * 0.72 }}
+              style={styles.modalScroll}
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
@@ -401,16 +401,15 @@ export default function SellerProfileDetailScreen({
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
                 multiline
               />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
-                  <Text style={styles.modalCancelText}>İptal</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setIsEditModalOpen(false)}>
-                  <Text style={styles.modalSaveText}>Kaydet</Text>
-                </TouchableOpacity>
-              </View>
             </ScrollView>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
+                <Text style={styles.modalCancelText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setIsEditModalOpen(false)}>
+                <Text style={styles.modalSaveText}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -422,7 +421,7 @@ export default function SellerProfileDetailScreen({
         >
           <View style={styles.modalCard}>
             <ScrollView
-              style={{ maxHeight: Dimensions.get("window").height * 0.72 }}
+              style={styles.modalScroll}
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
@@ -589,9 +588,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D8D8D8",
     padding: 14,
+    maxHeight: "88%",
+  },
+  modalScroll: {
+    maxHeight: "74%",
   },
   modalScrollContent: {
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   modalTitle: {
     fontSize: 22,
@@ -647,6 +650,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
+    marginBottom: 8,
   },
   addSpecialtyInput: { flex: 1 },
   addSpecialtyBtn: {
@@ -668,7 +672,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 12,
+    marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#E0E0E0",
