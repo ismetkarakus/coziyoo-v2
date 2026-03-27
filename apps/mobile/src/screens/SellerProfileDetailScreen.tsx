@@ -82,7 +82,6 @@ export default function SellerProfileDetailScreen({
   const [contactPhone, setContactPhone] = useState("");
   const [cityDistrict, setCityDistrict] = useState("");
   const [addressLine, setAddressLine] = useState("");
-  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -126,7 +125,6 @@ export default function SellerProfileDetailScreen({
       const addressText = loaded?.defaultAddress?.addressLine?.trim() ?? "";
       setCityDistrict(addressTitle);
       setAddressLine(addressText);
-      setDeliveryDistanceKm(loaded?.deliveryRadiusKm != null ? String(loaded.deliveryRadiusKm) : "");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
@@ -304,9 +302,6 @@ export default function SellerProfileDetailScreen({
 
               <Text style={styles.modalLabel}>Adres</Text>
               <TextInput style={[styles.modalInput, styles.modalAddressInput]} value={addressLine} onChangeText={setAddressLine} placeholder="Rıhtım Cd. No:12, Kadıköy" multiline />
-
-              <Text style={styles.modalLabel}>Teslimat Mesafesi (km)</Text>
-              <TextInput style={styles.modalInput} value={deliveryDistanceKm} onChangeText={setDeliveryDistanceKm} placeholder="Örn: 5" keyboardType="numeric" />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
