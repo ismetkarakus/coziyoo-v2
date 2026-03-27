@@ -278,20 +278,6 @@ export default function SellerProfileDetailScreen({
             )}
           </View>
 
-          {/* Varsayılan Adres */}
-          <TouchableOpacity style={styles.card} onPress={onOpenAddresses} activeOpacity={0.8}>
-            <Text style={styles.cardTitle}>Varsayılan Adres</Text>
-            {profile?.defaultAddress ? (
-              <>
-                <Text style={styles.infoValue}>{profile.defaultAddress.title}</Text>
-                <Text style={[styles.infoValue, { marginTop: 2, textAlign: "left" }]}>{profile.defaultAddress.addressLine}</Text>
-              </>
-            ) : (
-              <Text style={styles.infoValue}>Adres eklenmemiş</Text>
-            )}
-            <Text style={styles.addressLink}>Adresleri yönet →</Text>
-          </TouchableOpacity>
-
           {/* Navigasyon Butonları */}
           <TouchableOpacity style={styles.navBtn} onPress={onOpenFoods}>
             <Text style={styles.navBtnText}>Yemeklerim</Text>
