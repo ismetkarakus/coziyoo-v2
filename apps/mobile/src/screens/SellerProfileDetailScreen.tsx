@@ -586,11 +586,10 @@ const styles = StyleSheet.create({
     maxHeight: "88%",
   },
   kitchenModalCard: {
-    minHeight: 560,
     maxHeight: "92%",
   },
   kitchenModalBody: {
-    flex: 1,
+    paddingBottom: 4,
   },
   modalScroll: {
     maxHeight: "74%",
@@ -636,7 +635,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 10,
   },
   tag: {
     flexDirection: "row",
@@ -652,7 +651,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 2,
   },
   addSpecialtyInput: { flex: 1 },
   addSpecialtyBtn: {
@@ -674,10 +673,8 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    marginTop: 8,
+    paddingTop: 8,
   },
   modalCancelBtn: {
     flex: 1,
