@@ -37,12 +37,9 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
   const [step, setStep] = useState<Step>('welcome');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [userType, setUserType] = useState<'buyer' | 'seller'>('buyer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -59,7 +56,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
     if (!trimmedEmail) { setError('E-posta adresini gir'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setError('Geçerli bir e-posta gir'); return; }
     if (password.length < 8) { setError('Şifre en az 8 karakter olmalı'); return; }
-    if (password !== passwordConfirm) { setError('Şifreler eşleşmiyor'); return; }
     handleRegister();
   }
 
@@ -74,7 +70,7 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
-          userType,
+          userType: 'both',
         }),
       });
       const json = await readJsonSafe<RegisterResponse>(response);
@@ -164,26 +160,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Hesap tipi</Text>
-          <View style={styles.roleRow}>
-            <TouchableOpacity
-              style={[styles.roleBtn, userType === 'buyer' && styles.roleBtnActive]}
-              onPress={() => setUserType('buyer')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.roleBtnText, userType === 'buyer' && styles.roleBtnTextActive]}>Alıcı</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.roleBtn, userType === 'seller' && styles.roleBtnActive]}
-              onPress={() => setUserType('seller')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.roleBtnText, userType === 'seller' && styles.roleBtnTextActive]}>Satıcı</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Şifre</Text>
           <View style={styles.inputWrap}>
             <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} style={styles.inputIcon} />
@@ -198,27 +174,6 @@ export default function OnboardingScreen({ onComplete, onGoToLogin }: Props) {
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Şifre Tekrar</Text>
-          <View style={styles.inputWrap}>
-            <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={passwordConfirm}
-              onChangeText={(v) => { setPasswordConfirm(v); setError(null); }}
-              placeholder="Şifreni tekrar gir"
-              placeholderTextColor={theme.textSecondary}
-              secureTextEntry={!showPasswordConfirm}
-              returnKeyType="go"
-              onSubmitEditing={handleRegisterPress}
-              editable={!loading}
-            />
-            <TouchableOpacity onPress={() => setShowPasswordConfirm(!showPasswordConfirm)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name={showPasswordConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
