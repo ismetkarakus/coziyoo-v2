@@ -357,9 +357,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.sectionTitle}>Tarif</Text>
           <TextInput style={[styles.input, styles.textArea]} value={recipe} onChangeText={setRecipe} placeholder="Yemeğin hazırlanışını yazın" multiline />
 
-          <Text style={styles.sectionTitle}>İçerikler</Text>
-          <TextInput style={styles.input} value={ingredients} onChangeText={setIngredients} placeholder="Örn: Un, süt, yumurta" />
-
           <Text style={styles.sectionTitle}>Alerjenler</Text>
           <TextInput style={styles.input} value={allergens} onChangeText={setAllergens} placeholder="Örn: Gluten, süt" />
 
