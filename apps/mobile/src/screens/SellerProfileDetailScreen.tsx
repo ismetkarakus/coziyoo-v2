@@ -238,18 +238,43 @@ export default function SellerProfileDetailScreen({
   function normalizeDobForApi(value: string): string | null {
     const raw = value.trim();
     if (!raw) return null;
-    const digitsOnly = raw.replace(/\D/g, "");
-    if (digitsOnly.length === 8) {
-      const day = digitsOnly.slice(0, 2);
-      const month = digitsOnly.slice(2, 4);
-      const year = digitsOnly.slice(4, 8);
-      return `${year}-${month}-${day}`;
-    }
+
+    const ensureValidDate = (year: string, month: string, day: string): string | null => {
+      const yyyy = Number(year);
+      const mm = Number(month);
+      const dd = Number(day);
+      if (!Number.isInteger(yyyy) || !Number.isInteger(mm) || !Number.isInteger(dd)) return null;
+      if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+      const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+      if (
+        date.getUTCFullYear() !== yyyy ||
+        date.getUTCMonth() !== mm - 1 ||
+        date.getUTCDate() !== dd
+      ) {
+        return null;
+      }
+      return `${year.padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    };
+
     const normalized = raw.replace(/\./g, "-").replace(/\//g, "-");
     const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
-    if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+    if (ymd) return ensureValidDate(ymd[1], ymd[2], ymd[3]);
+
+    const ymdWithTime = /^(\d{4})-(\d{2})-(\d{2})T/.exec(raw);
+    if (ymdWithTime) return ensureValidDate(ymdWithTime[1], ymdWithTime[2], ymdWithTime[3]);
+
     const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(normalized);
-    if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+    if (dmy) return ensureValidDate(dmy[3], dmy[2], dmy[1]);
+
+    const digitsOnly = raw.replace(/\D/g, "");
+    if (digitsOnly.length === 8) {
+      return ensureValidDate(
+        digitsOnly.slice(4, 8),
+        digitsOnly.slice(2, 4),
+        digitsOnly.slice(0, 2),
+      );
+    }
+
     return null;
   }
 
@@ -265,6 +290,8 @@ export default function SellerProfileDetailScreen({
     if (!raw) return "";
     const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
     if (ymd) return `${ymd[3]}/${ymd[2]}/${ymd[1]}`;
+    const ymdWithTime = /^(\d{4})-(\d{2})-(\d{2})T/.exec(raw);
+    if (ymdWithTime) return `${ymdWithTime[3]}/${ymdWithTime[2]}/${ymdWithTime[1]}`;
     return formatDobInput(raw);
   }
 
