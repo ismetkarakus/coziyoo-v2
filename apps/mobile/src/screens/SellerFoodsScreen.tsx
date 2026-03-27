@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -28,12 +28,16 @@ type SellerFood = {
   stock: number;
 };
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
 export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [foods, setFoods] = useState<SellerFood[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
   const [editingFood, setEditingFood] = useState<SellerFood | null>(null);
 
   const [name, setName] = useState("");
@@ -43,8 +47,18 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [recipe, setRecipe] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [allergens, setAllergens] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([""]);
   const [prepTime, setPrepTime] = useState("");
+
+  // UI parity fields (opsiyonlar)
+  const [cuisine, setCuisine] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [dailyStock, setDailyStock] = useState("10");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [pickupEnabled, setPickupEnabled] = useState(true);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(true);
+  const [deliveryFee, setDeliveryFee] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -92,7 +106,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     void loadFoods();
   }, []);
 
-  function openCreate() {
+  function resetForm() {
     setEditingFood(null);
     setName("");
     setPrice("");
@@ -101,9 +115,16 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setRecipe("");
     setIngredients("");
     setAllergens("");
-    setImageUrl("");
+    setImageUrls([""]);
     setPrepTime("");
-    setModalVisible(true);
+    setCuisine("");
+    setCategoryId("");
+    setDailyStock("10");
+    setStartDate("");
+    setEndDate("");
+    setPickupEnabled(true);
+    setDeliveryEnabled(true);
+    setDeliveryFee("");
   }
 
   function openEdit(food: SellerFood) {
@@ -115,27 +136,64 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setRecipe(food.recipe ?? "");
     setIngredients(food.ingredients.join(", "));
     setAllergens(food.allergens.join(", "));
-    setImageUrl(food.imageUrl ?? "");
+    setImageUrls([food.imageUrl ?? ""]);
     setPrepTime(food.preparationTimeMinutes ? String(food.preparationTimeMinutes) : "");
-    setModalVisible(true);
+  }
+
+  const canShowDeliveryFee = deliveryEnabled;
+
+  function setImageAt(index: number, value: string) {
+    setImageUrls((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }
+
+  function addPhotoField() {
+    setImageUrls((prev) => (prev.length >= 5 ? prev : [...prev, ""]));
+  }
+
+  function removePhotoField(index: number) {
+    setImageUrls((prev) => {
+      if (prev.length <= 1) return [""];
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [""];
+    });
   }
 
   async function saveFood() {
     try {
-      const payload = {
+      if (!pickupEnabled && !deliveryEnabled) {
+        Alert.alert("Hata", "En az bir teslimat seçeneği seçmelisin (Gel Al veya Teslimat).");
+        return;
+      }
+
+      const parsedPrice = Number(price);
+      if (!name.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        Alert.alert("Hata", "Yemek adı ve fiyat zorunlu.");
+        return;
+      }
+
+      setSaving(true);
+
+      const primaryImageUrl = imageUrls.map((x) => x.trim()).find(Boolean) || undefined;
+      const payload: Record<string, unknown> = {
         name: name.trim(),
-        price: Number(price),
+        price: parsedPrice,
         cardSummary: cardSummary.trim() || undefined,
         description: description.trim() || undefined,
         recipe: recipe.trim() || undefined,
+        imageUrl: primaryImageUrl,
         ingredients: ingredients.split(",").map((x) => x.trim()).filter(Boolean),
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
       };
-      if (!payload.name || !Number.isFinite(payload.price) || payload.price <= 0) {
-        Alert.alert("Hata", "Yemek adı ve fiyat zorunlu.");
-        return;
+
+      if (isUuid(categoryId)) {
+        payload.categoryId = categoryId.trim();
       }
+
       const path = editingFood ? `/v1/seller/foods/${editingFood.id}` : "/v1/seller/foods";
       const method = editingFood ? "PATCH" : "POST";
       const res = await authedFetch(path, { method, body: JSON.stringify(payload) });
@@ -143,16 +201,24 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       if (!res.ok) throw new Error(json?.error?.message ?? "Kaydedilemedi");
 
       const foodId = editingFood?.id ?? json?.data?.foodId;
-      if (foodId && imageUrl.trim()) {
-        await authedFetch(`/v1/seller/foods/${foodId}/image`, {
+      if (foodId && primaryImageUrl) {
+        const imageRes = await authedFetch(`/v1/seller/foods/${foodId}/image`, {
           method: "POST",
-          body: JSON.stringify({ imageUrl: imageUrl.trim() }),
+          body: JSON.stringify({ imageUrl: primaryImageUrl }),
         });
+        if (!imageRes.ok) {
+          const imageJson = await imageRes.json();
+          throw new Error(imageJson?.error?.message ?? "Görsel kaydedilemedi");
+        }
       }
-      setModalVisible(false);
+
       await loadFoods();
+      resetForm();
+      Alert.alert("Başarılı", "Yemek kaydedildi.");
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Yemek kaydedilemedi");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -170,71 +236,247 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     }
   }
 
+  const deliveryTypeHint = useMemo(() => {
+    if (pickupEnabled && deliveryEnabled) return "Gel Al ve Teslimat birlikte açık";
+    if (pickupEnabled) return "Sadece Gel Al açık";
+    if (deliveryEnabled) return "Sadece Teslimat açık";
+    return "";
+  }, [pickupEnabled, deliveryEnabled]);
+
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Yemeklerim"
-        onBack={onBack}
-        rightAction={
-          <TouchableOpacity onPress={openCreate}>
-            <Text style={styles.add}>+ Ekle</Text>
-          </TouchableOpacity>
-        }
-      />
-      {loading ? (
-        <ActivityIndicator size="large" color={theme.primary} />
-      ) : (
-        <FlatList
-          data={foods}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 14, gap: 10 }}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.foodName}>{item.name}</Text>
-              <Text style={styles.meta}>{item.price.toFixed(2)} TL · Stok: {item.stock}</Text>
-              <Text style={styles.meta}>{item.isActive ? "Aktif" : "Pasif"}</Text>
-              <View style={styles.row}>
-                <TouchableOpacity style={styles.ghostBtn} onPress={() => openEdit(item)}><Text>Düzenle</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.ghostBtn} onPress={() => void toggleStatus(item)}><Text>{item.isActive ? "Pasifleştir" : "Aktifleştir"}</Text></TouchableOpacity>
-              </View>
+      <ScreenHeader title="Yemek Ekle" onBack={onBack} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
+          {imageUrls.map((url, index) => (
+            <View key={`photo-${index}`} style={styles.photoRow}>
+              <TextInput
+                style={[styles.input, styles.photoInput]}
+                value={url}
+                onChangeText={(value) => setImageAt(index, value)}
+                placeholder={`Fotoğraf ${index + 1} URL`}
+              />
+              {imageUrls.length > 1 ? (
+                <TouchableOpacity style={styles.photoRemoveBtn} onPress={() => removePhotoField(index)}>
+                  <Text style={styles.photoRemoveText}>Sil</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
+          ))}
+          {imageUrls.length < 5 ? (
+            <TouchableOpacity style={styles.photoAddBtn} onPress={addPhotoField}>
+              <Text style={styles.photoAddText}>+ Fotoğraf Ekle ({imageUrls.length}/5)</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.subHint}>En fazla 5 fotoğraf ekleyebilirsin.</Text>
           )}
-        />
-      )}
+          <Text style={styles.subHint}>Kaydedilen ana görsel: ilk dolu fotoğraf</Text>
 
-      <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <ScrollView style={styles.modal} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-          <Text style={styles.modalTitle}>{editingFood ? "Yemeği Düzenle" : "Yeni Yemek"}</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Yemek adı" />
-          <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="Fiyat" keyboardType="decimal-pad" />
-          <TextInput style={styles.input} value={cardSummary} onChangeText={setCardSummary} placeholder="Kısa özet" />
-          <TextInput style={styles.input} value={description} onChangeText={setDescription} placeholder="Açıklama" />
-          <TextInput style={styles.input} value={recipe} onChangeText={setRecipe} placeholder="Tarif" />
-          <TextInput style={styles.input} value={ingredients} onChangeText={setIngredients} placeholder="İçerikler (virgül)" />
-          <TextInput style={styles.input} value={allergens} onChangeText={setAllergens} placeholder="Alerjenler (virgül)" />
-          <TextInput style={styles.input} value={prepTime} onChangeText={setPrepTime} placeholder="Hazırlık süresi (dk)" keyboardType="number-pad" />
-          <TextInput style={styles.input} value={imageUrl} onChangeText={setImageUrl} placeholder="Görsel URL" />
-          <TouchableOpacity style={styles.saveBtn} onPress={() => void saveFood()}><Text style={styles.saveText}>Kaydet</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}><Text>Vazgeç</Text></TouchableOpacity>
+          <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+          <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, İtalyan" />
+
+          <Text style={styles.sectionTitle}>Kategori Seç</Text>
+          <TextInput style={styles.input} value={categoryId} onChangeText={setCategoryId} placeholder="Kategori UUID (opsiyonel)" />
+
+          <Text style={styles.sectionTitle}>Yemek Adı *</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Örn: Ev Yapımı Mantı" />
+
+          <Text style={styles.sectionTitle}>Kart Sloganı (Kısa)</Text>
+          <TextInput style={styles.input} value={cardSummary} onChangeText={setCardSummary} placeholder="Örn: Günlük taze, ev yapımı" />
+
+          <Text style={styles.sectionTitle}>Açıklama / Baharatlar *</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Yemeğinizin özelliklerini açıklayın" multiline />
+
+          <Text style={styles.sectionTitle}>Tarif</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={recipe} onChangeText={setRecipe} placeholder="Yemeğin hazırlanışını yazın" multiline />
+
+          <Text style={styles.sectionTitle}>İçerikler</Text>
+          <TextInput style={styles.input} value={ingredients} onChangeText={setIngredients} placeholder="Örn: Un, süt, yumurta" />
+
+          <Text style={styles.sectionTitle}>Alerjenler</Text>
+          <TextInput style={styles.input} value={allergens} onChangeText={setAllergens} placeholder="Örn: Gluten, süt" />
+
+          <Text style={styles.sectionTitle}>Fiyat (₺) *</Text>
+          <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="25" keyboardType="decimal-pad" />
+
+          <Text style={styles.sectionTitle}>Günlük Stok *</Text>
+          <TextInput style={styles.input} value={dailyStock} onChangeText={setDailyStock} placeholder="10" keyboardType="number-pad" />
+
+          <View style={styles.row2}>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Başlangıç Tarihi</Text>
+              <TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="DD/MM/YYYY" />
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Bitiş Tarihi</Text>
+              <TextInput style={styles.input} value={endDate} onChangeText={setEndDate} placeholder="DD/MM/YYYY" />
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Teslimat Seçenekleri</Text>
+          <View style={styles.row2}>
+            <TouchableOpacity
+              style={[styles.deliveryToggle, pickupEnabled && styles.deliveryToggleActive]}
+              onPress={() => setPickupEnabled((prev) => !prev)}
+            >
+              <Text style={[styles.deliveryToggleText, pickupEnabled && styles.deliveryToggleTextActive]}>Gel Al</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.deliveryToggle, deliveryEnabled && styles.deliveryToggleActive]}
+              onPress={() => {
+                setDeliveryEnabled((prev) => {
+                  const next = !prev;
+                  if (!next) setDeliveryFee("");
+                  return next;
+                });
+              }}
+            >
+              <Text style={[styles.deliveryToggleText, deliveryEnabled && styles.deliveryToggleTextActive]}>Teslimat</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.optionHint}>{deliveryTypeHint}</Text>
+
+          {canShowDeliveryFee ? (
+            <>
+              <Text style={styles.sectionTitle}>Teslimat Ücreti (₺)</Text>
+              <TextInput
+                style={styles.input}
+                value={deliveryFee}
+                onChangeText={setDeliveryFee}
+                placeholder="Örn: 10"
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.subHint}>Müşterilerden alacağınız teslimat ücreti</Text>
+            </>
+          ) : null}
+
+          <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
+          <TextInput style={styles.input} value={prepTime} onChangeText={setPrepTime} placeholder="Örn: 45" keyboardType="number-pad" />
+
+          <TouchableOpacity style={[styles.saveBtn, saving && styles.btnDisabled]} onPress={() => void saveFood()} disabled={saving}>
+            <Text style={styles.saveText}>{saving ? "Kaydediliyor..." : editingFood ? "Değişiklikleri Kaydet" : "Yemeği Kaydet"}</Text>
+          </TouchableOpacity>
+
+          {editingFood ? (
+            <TouchableOpacity style={styles.cancelBtn} onPress={resetForm}>
+              <Text style={styles.cancelText}>Düzenlemeyi Temizle</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={styles.listHeaderRow}>
+            <Text style={styles.listHeader}>Mevcut Yemekler</Text>
+            <TouchableOpacity onPress={resetForm}><Text style={styles.newFoodLink}>+ Yeni Form</Text></TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.primary} style={{ marginVertical: 16 }} />
+          ) : foods.length === 0 ? (
+            <Text style={styles.emptyText}>Henüz yemek eklenmedi.</Text>
+          ) : (
+            foods.map((item) => (
+              <View style={styles.card} key={item.id}>
+                <Text style={styles.foodName}>{item.name}</Text>
+                <Text style={styles.meta}>{item.price.toFixed(2)} TL · Stok: {item.stock}</Text>
+                <Text style={styles.meta}>{item.isActive ? "Aktif" : "Pasif"}</Text>
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity style={styles.ghostBtn} onPress={() => openEdit(item)}><Text>Düzenle</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.ghostBtn} onPress={() => void toggleStatus(item)}><Text>{item.isActive ? "Pasifleştir" : "Aktifleştir"}</Text></TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )}
         </ScrollView>
-      </Modal>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  add: { color: "#3F855C", fontWeight: "700", fontSize: 14 },
-  card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
+  page: { flex: 1 },
+  content: { padding: 14, paddingBottom: 42 },
+  sectionTitle: { color: "#2E241C", fontWeight: "700", marginBottom: 6, marginTop: 10 },
+  input: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    color: "#2E241C",
+  },
+  textArea: {
+    minHeight: 120,
+    textAlignVertical: "top",
+    paddingTop: 10,
+  },
+  row2: { flexDirection: "row", gap: 10 },
+  rowItem: { flex: 1 },
+  photoRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  photoInput: { flex: 1 },
+  photoAddBtn: {
+    marginTop: 4,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: "#D8CCBA",
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  photoAddText: { color: "#3F855C", fontWeight: "700" },
+  photoRemoveBtn: {
+    borderWidth: 1,
+    borderColor: "#E4D7C5",
+    backgroundColor: "#F7EFE2",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  photoRemoveText: { color: "#7A4A2A", fontWeight: "700" },
+  deliveryToggle: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#DCD2C2",
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  deliveryToggleActive: {
+    backgroundColor: "#8FA58F",
+    borderColor: "#8FA58F",
+  },
+  deliveryToggleText: { color: "#473C31", fontWeight: "700" },
+  deliveryToggleTextActive: { color: "#fff" },
+  optionHint: { color: "#75685C", fontSize: 12, marginTop: 6 },
+  subHint: { color: "#75685C", fontSize: 12, marginTop: 6 },
+  saveBtn: {
+    marginTop: 16,
+    backgroundColor: "#3F855C",
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  saveText: { color: "#fff", fontWeight: "800" },
+  btnDisabled: { opacity: 0.7 },
+  cancelBtn: {
+    marginTop: 8,
+    backgroundColor: "#EFE7DA",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelText: { color: "#4A3D31", fontWeight: "700" },
+  listHeaderRow: { marginTop: 18, marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  listHeader: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  newFoodLink: { color: "#3F855C", fontWeight: "700" },
+  emptyText: { color: "#75685C", paddingVertical: 8 },
+  card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10 },
   foodName: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
   meta: { color: "#6F6358", marginTop: 4 },
-  row: { marginTop: 10, flexDirection: "row", gap: 8 },
+  actionsRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   ghostBtn: { backgroundColor: "#F4EEE4", paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
-  modal: { flex: 1, backgroundColor: "#F7F4EF" },
-  modalContent: { padding: 16, paddingBottom: 40 },
-  modalTitle: { fontSize: 22, fontWeight: "800", color: "#2E241C", marginBottom: 10 },
-  input: { backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E5DDCF", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, color: "#2E241C" },
-  saveBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
-  saveText: { color: "#fff", fontWeight: "700" },
-  cancelBtn: { marginTop: 8, backgroundColor: "#EFE7DA", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
 });
