@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -37,6 +37,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const [foods, setFoods] = useState<SellerFood[]>([]);
   const [editingFood, setEditingFood] = useState<SellerFood | null>(null);
 
@@ -162,7 +163,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     });
   }
 
-  async function saveFood() {
+  async function saveFood(options?: { publishAfterSave?: boolean }) {
     try {
       if (!pickupEnabled && !deliveryEnabled) {
         Alert.alert("Hata", "En az bir teslimat seçeneği seçmelisin (Gel Al veya Teslimat).");
@@ -214,7 +215,11 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
 
       await loadFoods();
       resetForm();
-      Alert.alert("Başarılı", "Yemek kaydedildi.");
+      if (options?.publishAfterSave) {
+        Alert.alert("Başarılı", "Yemek yayınlandı.", [{ text: "Tamam", onPress: onBack }]);
+      } else {
+        Alert.alert("Başarılı", "Yemek kaydedildi.");
+      }
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Yemek kaydedilemedi");
     } finally {
@@ -242,6 +247,11 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     if (deliveryEnabled) return "Sadece Teslimat açık";
     return "";
   }, [pickupEnabled, deliveryEnabled]);
+
+  const previewImage = imageUrls.map((x) => x.trim()).find(Boolean) || "";
+  const previewTitle = name.trim() || "Yemek Adı";
+  const previewSummary = cardSummary.trim() || description.trim() || "Yemeğiniz burada müşteri kartında görünecek.";
+  const previewPrice = Number.isFinite(Number(price)) && Number(price) > 0 ? `${Number(price).toFixed(2)} ₺` : "-- ₺";
 
   return (
     <View style={styles.container}>
@@ -354,8 +364,16 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
           <TextInput style={styles.input} value={prepTime} onChangeText={setPrepTime} placeholder="Örn: 45" keyboardType="number-pad" />
 
-          <TouchableOpacity style={[styles.saveBtn, saving && styles.btnDisabled]} onPress={() => void saveFood()} disabled={saving}>
-            <Text style={styles.saveText}>{saving ? "Kaydediliyor..." : editingFood ? "Değişiklikleri Kaydet" : "Yemeği Kaydet"}</Text>
+          <TouchableOpacity style={styles.previewBtn} onPress={() => setPreviewVisible(true)}>
+            <Text style={styles.previewBtnText}>👁️ Önizleme (Müşteri Görünümü)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && styles.btnDisabled]}
+            onPress={() => void saveFood({ publishAfterSave: true })}
+            disabled={saving}
+          >
+            <Text style={styles.saveText}>{saving ? "Yayınlanıyor..." : "Yemeği Yayınla"}</Text>
           </TouchableOpacity>
 
           {editingFood ? (
@@ -388,6 +406,35 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={previewVisible} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setPreviewVisible(false)} />
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>Müşteri Görünümü</Text>
+            <View style={styles.previewFoodCard}>
+              {previewImage ? (
+                <Image source={{ uri: previewImage }} style={styles.previewImage} />
+              ) : (
+                <View style={styles.previewImagePlaceholder}>
+                  <Text style={styles.previewImagePlaceholderText}>Fotoğraf Önizleme</Text>
+                </View>
+              )}
+              <View style={styles.previewBody}>
+                <Text style={styles.previewFoodTitle}>{previewTitle}</Text>
+                <Text style={styles.previewFoodSummary} numberOfLines={2}>{previewSummary}</Text>
+                <View style={styles.previewFooter}>
+                  <Text style={styles.previewPrice}>{previewPrice}</Text>
+                  <Text style={styles.previewSeller}>Ev Şefi</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setPreviewVisible(false)}>
+              <Text style={styles.previewCloseBtnText}>Düzenlemeye Devam Et</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -453,8 +500,18 @@ const styles = StyleSheet.create({
   deliveryToggleTextActive: { color: "#fff" },
   optionHint: { color: "#75685C", fontSize: 12, marginTop: 6 },
   subHint: { color: "#75685C", fontSize: 12, marginTop: 6 },
-  saveBtn: {
+  previewBtn: {
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#D6CCBD",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  previewBtnText: { color: "#46392D", fontWeight: "700" },
+  saveBtn: {
+    marginTop: 10,
     backgroundColor: "#3F855C",
     borderRadius: 10,
     paddingVertical: 13,
@@ -479,4 +536,48 @@ const styles = StyleSheet.create({
   meta: { color: "#6F6358", marginTop: 4 },
   actionsRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   ghostBtn: { backgroundColor: "#F4EEE4", paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.42)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  previewCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+  },
+  previewTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16, marginBottom: 10 },
+  previewFoodCard: {
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#FDFBF8",
+  },
+  previewImage: { width: "100%", height: 160, backgroundColor: "#EDE5D8" },
+  previewImagePlaceholder: {
+    width: "100%",
+    height: 160,
+    backgroundColor: "#EFE7DA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewImagePlaceholderText: { color: "#77695B", fontWeight: "600" },
+  previewBody: { padding: 12 },
+  previewFoodTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  previewFoodSummary: { color: "#6F6358", marginTop: 4 },
+  previewFooter: { marginTop: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  previewPrice: { color: "#2E6B44", fontWeight: "800", fontSize: 15 },
+  previewSeller: { color: "#8A7A6A", fontWeight: "600" },
+  previewCloseBtn: {
+    marginTop: 12,
+    backgroundColor: "#3F855C",
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  previewCloseBtnText: { color: "#fff", fontWeight: "700" },
 });
