@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -262,53 +262,63 @@ export default function SellerProfileDetailScreen({
       )}
 
       <Modal visible={isEditModalOpen} transparent animationType="fade" onRequestClose={() => setIsEditModalOpen(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 18 : 0}
+        >
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
 
-            <Text style={styles.modalLabel}>Usta Adı</Text>
-            <TextInput style={styles.modalInput} value={masterName} onChangeText={setMasterName} placeholder="Usta adınızı girin" />
+              <Text style={styles.modalLabel}>Usta Adı</Text>
+              <TextInput style={styles.modalInput} value={masterName} onChangeText={setMasterName} placeholder="Usta adınızı girin" />
 
-            <Text style={styles.modalLabel}>Ad</Text>
-            <TextInput style={styles.modalInput} value={firstName} onChangeText={setFirstName} />
+              <Text style={styles.modalLabel}>Ad</Text>
+              <TextInput style={styles.modalInput} value={firstName} onChangeText={setFirstName} />
 
-            <Text style={styles.modalLabel}>Soyad</Text>
-            <TextInput style={styles.modalInput} value={lastName} onChangeText={setLastName} />
+              <Text style={styles.modalLabel}>Soyad</Text>
+              <TextInput style={styles.modalInput} value={lastName} onChangeText={setLastName} />
 
-            <Text style={styles.modalLabel}>E-posta</Text>
-            <View style={styles.modalEmailRow}>
-              <TextInput
-                style={[styles.modalInput, styles.modalEmailInput]}
-                value={contactEmail}
-                onChangeText={setContactEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <Ionicons name="shield-checkmark" size={18} color="#2563EB" />
-            </View>
+              <Text style={styles.modalLabel}>E-posta</Text>
+              <View style={styles.modalEmailRow}>
+                <TextInput
+                  style={[styles.modalInput, styles.modalEmailInput]}
+                  value={contactEmail}
+                  onChangeText={setContactEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <Ionicons name="shield-checkmark" size={18} color="#2563EB" />
+              </View>
 
-            <Text style={styles.modalLabel}>Telefon</Text>
-            <TextInput style={styles.modalInput} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
+              <Text style={styles.modalLabel}>Telefon</Text>
+              <TextInput style={styles.modalInput} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
 
-            <Text style={styles.modalLabel}>Şehir/İlçe</Text>
-            <TextInput style={styles.modalInput} value={cityDistrict} onChangeText={setCityDistrict} placeholder="Kadıköy, İstanbul" />
+              <Text style={styles.modalLabel}>Şehir/İlçe</Text>
+              <TextInput style={styles.modalInput} value={cityDistrict} onChangeText={setCityDistrict} placeholder="Kadıköy, İstanbul" />
 
-            <Text style={styles.modalLabel}>Adres</Text>
-            <TextInput style={[styles.modalInput, styles.modalAddressInput]} value={addressLine} onChangeText={setAddressLine} placeholder="Rıhtım Cd. No:12, Kadıköy" multiline />
+              <Text style={styles.modalLabel}>Adres</Text>
+              <TextInput style={[styles.modalInput, styles.modalAddressInput]} value={addressLine} onChangeText={setAddressLine} placeholder="Rıhtım Cd. No:12, Kadıköy" multiline />
 
-            <Text style={styles.modalLabel}>Teslimat Mesafesi (km)</Text>
-            <TextInput style={styles.modalInput} value={deliveryDistanceKm} onChangeText={setDeliveryDistanceKm} placeholder="Örn: 5" keyboardType="numeric" />
+              <Text style={styles.modalLabel}>Teslimat Mesafesi (km)</Text>
+              <TextInput style={styles.modalInput} value={deliveryDistanceKm} onChangeText={setDeliveryDistanceKm} placeholder="Örn: 5" keyboardType="numeric" />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
-                <Text style={styles.modalCancelText}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setIsEditModalOpen(false)}>
-                <Text style={styles.modalSaveText}>Kaydet</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
+                  <Text style={styles.modalCancelText}>İptal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setIsEditModalOpen(false)}>
+                  <Text style={styles.modalSaveText}>Kaydet</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -418,6 +428,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D8D8D8",
     padding: 14,
+    maxHeight: "86%",
+  },
+  modalScrollContent: {
+    paddingBottom: 8,
   },
   modalTitle: {
     fontSize: 22,
