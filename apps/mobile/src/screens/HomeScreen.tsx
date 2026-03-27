@@ -181,7 +181,7 @@ type MealCard = {
 function formatSellerIdentity(name: string, username?: string | null): string {
   const cleanUsername = (username ?? "").trim().replace(/^@+/, "");
   if (!cleanUsername) return name;
-  return `${name} · @${cleanUsername}`;
+  return `@${cleanUsername}`;
 }
 
 type FavoriteFoodItem = {
