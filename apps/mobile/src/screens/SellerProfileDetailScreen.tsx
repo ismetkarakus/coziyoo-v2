@@ -144,7 +144,7 @@ export default function SellerProfileDetailScreen({
       const meJson = await meRes.json();
       if (meRes.ok && meJson?.data) {
         setFullName(String(meJson.data.fullName ?? "").trim());
-        setContactDob(String(meJson.data.dob ?? "").trim());
+        setContactDob(formatDobForDisplay(String(meJson.data.dob ?? "")));
       } else {
         setFullName("");
         setContactDob("");
@@ -238,12 +238,34 @@ export default function SellerProfileDetailScreen({
   function normalizeDobForApi(value: string): string | null {
     const raw = value.trim();
     if (!raw) return null;
+    const digitsOnly = raw.replace(/\D/g, "");
+    if (digitsOnly.length === 8) {
+      const day = digitsOnly.slice(0, 2);
+      const month = digitsOnly.slice(2, 4);
+      const year = digitsOnly.slice(4, 8);
+      return `${year}-${month}-${day}`;
+    }
     const normalized = raw.replace(/\./g, "-").replace(/\//g, "-");
     const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
     if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
     const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(normalized);
     if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
     return null;
+  }
+
+  function formatDobInput(value: string): string {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  }
+
+  function formatDobForDisplay(value: string): string {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+    if (ymd) return `${ymd[3]}/${ymd[2]}/${ymd[1]}`;
+    return formatDobInput(raw);
   }
 
   async function saveKitchen() {
@@ -515,10 +537,11 @@ export default function SellerProfileDetailScreen({
               <TextInput
                 style={styles.modalInput}
                 value={contactDob}
-                onChangeText={setContactDob}
-                keyboardType="numbers-and-punctuation"
+                onChangeText={(value) => setContactDob(formatDobInput(value))}
+                keyboardType="number-pad"
                 placeholder="Örn: 15/01/1990"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+                maxLength={10}
               />
 
               <Text style={styles.modalLabel}>E-posta</Text>
