@@ -198,6 +198,7 @@ export default function SellerProfileDetailScreen({
     .join("");
   const complianceRequired = profile?.requirements?.complianceRequiredCount ?? 0;
   const complianceUploaded = profile?.requirements?.complianceUploadedRequiredCount ?? 0;
+  const complianceRemaining = Math.max(0, complianceRequired - complianceUploaded);
 
   return (
     <View style={styles.container}>
@@ -232,6 +233,7 @@ export default function SellerProfileDetailScreen({
           <TouchableOpacity style={styles.complianceCard} activeOpacity={0.85} onPress={onOpenCompliance}>
             <Text style={styles.complianceTitle}>Belge Durumu</Text>
             <Text style={styles.complianceText}>Tamamlanan: {complianceUploaded}/{complianceRequired}</Text>
+            <Text style={styles.complianceRemainingText}>Kalan: {complianceRemaining}</Text>
             <Text style={styles.complianceAction}>Belgeleri aç →</Text>
           </TouchableOpacity>
 
@@ -517,6 +519,7 @@ const styles = StyleSheet.create({
   },
   complianceTitle: { color: "#2E6B44", fontWeight: "800" },
   complianceText: { marginTop: 4, color: "#2E6B44" },
+  complianceRemainingText: { marginTop: 2, color: "#B42318", fontWeight: "700" },
   complianceAction: { marginTop: 6, color: "#2E6B44", fontWeight: "700" },
 
   card: {
