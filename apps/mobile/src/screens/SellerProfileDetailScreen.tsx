@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -27,6 +28,7 @@ type SellerProfile = {
   displayName?: string | null;
   username?: string | null;
   email?: string | null;
+  profileImageUrl?: string | null;
   phone?: string | null;
   kitchenTitle?: string | null;
   kitchenDescription?: string | null;
@@ -78,6 +80,7 @@ export default function SellerProfileDetailScreen({
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<SellerProfile | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [masterName, setMasterName] = useState("");
@@ -142,6 +145,59 @@ export default function SellerProfileDetailScreen({
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function handleAvatarPress() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("İzin gerekli", "Galeriden resim seçebilmek için izin vermelisin.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.55,
+        base64: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const base64Image = asset.base64 ?? null;
+      if (!base64Image) {
+        Alert.alert("Hata", "Resim verisi alınamadı.");
+        return;
+      }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+        Alert.alert("Hata", "Sadece JPEG, PNG veya WebP seçebilirsin.");
+        return;
+      }
+
+      setAvatarUploading(true);
+      const baseUrl = apiUrl || (await loadSettings()).apiUrl;
+      const uploadRes = await authedFetch("/v1/auth/me/profile-image/upload", baseUrl, {
+        method: "POST",
+        body: JSON.stringify({
+          contentType: mimeType,
+          dataBase64: base64Image,
+        }),
+      });
+      const uploadJson = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(uploadJson?.error?.message ?? "Profil resmi yüklenemedi");
+      }
+      const nextUrl = String(uploadJson?.data?.profileImageUrl ?? "").trim();
+      if (nextUrl) {
+        setProfile((prev) => (prev ? { ...prev, profileImageUrl: nextUrl } : prev));
+      }
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "Profil resmi yüklenemedi");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   function parseWorkingHours(value: string): Array<{ day: string; open: string; close: string; enabled: boolean }> {
     const parts = value.split(",").map((x) => x.trim()).filter(Boolean);
@@ -216,9 +272,20 @@ export default function SellerProfileDetailScreen({
 
           {/* Avatar + İsim + Durum */}
           <View style={styles.heroCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            <TouchableOpacity style={styles.avatar} activeOpacity={0.85} onPress={() => void handleAvatarPress()} disabled={avatarUploading}>
+              {profile?.profileImageUrl ? (
+                <Image source={{ uri: profile.profileImageUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
+              <View style={styles.avatarEditBadge}>
+                {avatarUploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="camera" size={12} color="#fff" />
+                )}
+              </View>
+            </TouchableOpacity>
             <View style={styles.heroInfo}>
               <Text style={styles.displayName}>{profile?.displayName ?? "—"}</Text>
               {profile?.username ? <Text style={styles.kitchenTitle}>@{profile.username}</Text> : null}
@@ -498,6 +565,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#3F855C",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#2E6B44",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#fff",
   },
   avatarText: { color: "#fff", fontSize: 20, fontWeight: "800" },
   heroInfo: { flex: 1 },

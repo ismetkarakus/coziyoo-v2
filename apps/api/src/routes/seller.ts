@@ -105,6 +105,7 @@ sellerRouter.get("/profile", async (req, res) => {
         display_name: string | null;
         username: string | null;
         email: string;
+        profile_image_url: string | null;
         phone: string | null;
         kitchen_title: string | null;
         kitchen_description: string | null;
@@ -113,7 +114,7 @@ sellerRouter.get("/profile", async (req, res) => {
         working_hours_json: unknown;
         seller_profile_status: "incomplete" | "pending_review" | "active";
       }>(
-        `SELECT id, display_name, username, email, phone, kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, working_hours_json, seller_profile_status
+        `SELECT id, display_name, username, email, profile_image_url, phone, kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, working_hours_json, seller_profile_status
          FROM users
          WHERE id = $1 AND is_active = TRUE`,
         [userId],
@@ -152,6 +153,7 @@ sellerRouter.get("/profile", async (req, res) => {
         displayName: row.display_name,
         username: row.username,
         email: row.email,
+        profileImageUrl: row.profile_image_url,
         phone: row.phone,
         kitchenTitle: row.kitchen_title,
         kitchenDescription: row.kitchen_description,
