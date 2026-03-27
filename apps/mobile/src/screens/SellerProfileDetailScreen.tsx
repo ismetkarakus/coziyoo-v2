@@ -350,7 +350,6 @@ export default function SellerProfileDetailScreen({
       if (!hasProfileUpdate && !hasAddressUpdate) {
         setIsEditModalOpen(false);
         setContactSaving(false);
-        onBack();
         return;
       }
 
@@ -415,13 +414,9 @@ export default function SellerProfileDetailScreen({
 
       await load();
       if (addressErrorMessage) {
-        Alert.alert("Uyarı", `Profil güncellendi, adres kaydedilemedi: ${addressErrorMessage}`, [
-          { text: "Tamam", onPress: onBack },
-        ]);
+        Alert.alert("Uyarı", `Profil güncellendi, adres kaydedilemedi: ${addressErrorMessage}`);
       } else {
-        Alert.alert("Başarılı", "İletişim bilgileri kaydedildi.", [
-          { text: "Tamam", onPress: onBack },
-        ]);
+        Alert.alert("Başarılı", "İletişim bilgileri kaydedildi.");
       }
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Bilgiler kaydedilemedi");
