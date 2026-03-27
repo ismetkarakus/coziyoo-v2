@@ -297,8 +297,7 @@ export default function SellerProfileDetailScreen({
       const baseUrl = apiUrl || (await loadSettings()).apiUrl;
       const payload: Record<string, string> = {};
 
-      const loginEmail = currentAuth.email?.trim() || auth.email?.trim() || "";
-      if (loginEmail) payload.email = loginEmail;
+      if (contactEmail.trim()) payload.email = contactEmail.trim();
       if (masterName.trim()) payload.displayName = masterName.trim();
       if (fullName.trim()) payload.fullName = fullName.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
@@ -570,7 +569,7 @@ export default function SellerProfileDetailScreen({
                 <TextInput
                   style={[styles.modalInput, styles.modalEmailInput]}
                   value={contactEmail}
-                  editable={false}
+                  onChangeText={setContactEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   placeholder="Örn: ayse@example.com"
