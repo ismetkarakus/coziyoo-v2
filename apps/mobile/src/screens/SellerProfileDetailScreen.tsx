@@ -83,6 +83,7 @@ export default function SellerProfileDetailScreen({
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [contactSaving, setContactSaving] = useState(false);
   const [masterName, setMasterName] = useState("");
   const [fullName, setFullName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -129,14 +130,21 @@ export default function SellerProfileDetailScreen({
       const loaded = profileJson.data ?? null;
       setProfile(loaded);
       // İlk kayıt akışında sadece e-posta kesin geldiği için modalda sadece e-posta otomatik dolu kalır.
-      setMasterName(String((loaded as { username?: string | null } | null)?.username ?? "").replace(/^@+/, ""));
-      setFullName("");
+      setMasterName(String((loaded as { displayName?: string | null } | null)?.displayName ?? "").trim());
       setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || String((loaded as { email?: string | null } | null)?.email ?? "").trim());
-      setContactPhone("");
+      setContactPhone(String((loaded as { phone?: string | null } | null)?.phone ?? "").trim());
       setCityDistrict("");
       setAddressLine("");
       setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
       setSpecialties(Array.isArray(loaded?.kitchenSpecialties) ? loaded.kitchenSpecialties : []);
+
+      const meRes = await authedFetch("/v1/auth/me", baseUrl, undefined);
+      const meJson = await meRes.json();
+      if (meRes.ok && meJson?.data) {
+        setFullName(String(meJson.data.fullName ?? "").trim());
+      } else {
+        setFullName("");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
@@ -243,6 +251,69 @@ export default function SellerProfileDetailScreen({
       console.error("[kitchen save]", e);
     } finally {
       setKitchenSaving(false);
+    }
+  }
+
+  async function saveContactProfile() {
+    setContactSaving(true);
+    try {
+      const baseUrl = apiUrl || (await loadSettings()).apiUrl;
+      const payload: Record<string, string> = {};
+
+      if (masterName.trim()) payload.displayName = masterName.trim();
+      if (fullName.trim()) payload.fullName = fullName.trim();
+      if (contactEmail.trim()) payload.email = contactEmail.trim();
+      if (contactPhone.trim()) payload.phone = contactPhone.trim();
+
+      const meRes = await authedFetch("/v1/auth/me", baseUrl, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      const meJson = await meRes.json();
+      if (!meRes.ok) throw new Error(meJson?.error?.message ?? "Profil bilgileri kaydedilemedi");
+
+      const title = cityDistrict.trim();
+      const line = addressLine.trim();
+      if (title && line) {
+        const listRes = await authedFetch("/v1/auth/me/addresses", baseUrl, undefined);
+        const listJson = await listRes.json();
+        if (!listRes.ok) throw new Error(listJson?.error?.message ?? "Adres listesi alınamadı");
+        const defaultAddress = Array.isArray(listJson?.data)
+          ? listJson.data.find((item: { isDefault?: boolean }) => item?.isDefault)
+          : null;
+
+        if (defaultAddress?.id) {
+          const patchRes = await authedFetch(`/v1/auth/me/addresses/${defaultAddress.id}`, baseUrl, {
+            method: "PATCH",
+            body: JSON.stringify({
+              title,
+              addressLine: line,
+              isDefault: true,
+            }),
+          });
+          const patchJson = await patchRes.json();
+          if (!patchRes.ok) throw new Error(patchJson?.error?.message ?? "Adres kaydedilemedi");
+        } else {
+          const addrRes = await authedFetch("/v1/auth/me/addresses", baseUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              title,
+              addressLine: line,
+              isDefault: true,
+            }),
+          });
+          const addrJson = await addrRes.json();
+          if (!addrRes.ok) throw new Error(addrJson?.error?.message ?? "Adres kaydedilemedi");
+        }
+      }
+
+      setIsEditModalOpen(false);
+      await load();
+      Alert.alert("Başarılı", "İletişim bilgileri kaydedildi.");
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "Bilgiler kaydedilemedi");
+    } finally {
+      setContactSaving(false);
     }
   }
 
@@ -398,13 +469,12 @@ export default function SellerProfileDetailScreen({
             >
               <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
 
-              <Text style={styles.modalLabel}>Kullanıcı Adı (@username)</Text>
+              <Text style={styles.modalLabel}>Satıcı Adı</Text>
               <TextInput
                 style={styles.modalInput}
                 value={masterName}
                 onChangeText={setMasterName}
-                autoCapitalize="none"
-                placeholder="Örn: lezzetduragi"
+                placeholder="Örn: Lezzet Durağı"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
@@ -461,11 +531,11 @@ export default function SellerProfileDetailScreen({
               />
             </ScrollView>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)} disabled={contactSaving}>
                 <Text style={styles.modalCancelText}>İptal</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setIsEditModalOpen(false)}>
-                <Text style={styles.modalSaveText}>Kaydet</Text>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => void saveContactProfile()} disabled={contactSaving}>
+                <Text style={styles.modalSaveText}>{contactSaving ? "Kaydediliyor..." : "Kaydet"}</Text>
               </TouchableOpacity>
             </View>
           </View>
