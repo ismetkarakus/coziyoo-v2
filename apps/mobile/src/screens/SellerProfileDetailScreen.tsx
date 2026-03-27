@@ -419,13 +419,8 @@ export default function SellerProfileDetailScreen({
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 18 : 0}
         >
-          <View style={styles.modalCard}>
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
-            >
+          <View style={[styles.modalCard, styles.kitchenModalCard]}>
+            <View style={styles.kitchenModalBody}>
               <Text style={styles.modalTitle}>Hakkımda</Text>
 
               <Text style={styles.modalLabel}>Açıklama</Text>
@@ -467,7 +462,7 @@ export default function SellerProfileDetailScreen({
                   <Ionicons name="add" size={22} color="#fff" />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsKitchenModalOpen(false)} disabled={kitchenSaving}>
@@ -589,6 +584,13 @@ const styles = StyleSheet.create({
     borderColor: "#D8D8D8",
     padding: 14,
     maxHeight: "88%",
+  },
+  kitchenModalCard: {
+    minHeight: 560,
+    maxHeight: "92%",
+  },
+  kitchenModalBody: {
+    flex: 1,
   },
   modalScroll: {
     maxHeight: "74%",
