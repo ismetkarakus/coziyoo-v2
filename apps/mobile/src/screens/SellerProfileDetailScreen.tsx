@@ -453,7 +453,7 @@ export default function SellerProfileDetailScreen({
                   style={[styles.modalInput, styles.addSpecialtyInput]}
                   value={newSpecialty}
                   onChangeText={setNewSpecialty}
-                  placeholder="Örn: İtalyan Mutfağı, Vegan Yemekler, Glutensiz Tarifler"
+                  placeholder="Örn: Tatlı, Kek, Fırın Yemekleri"
                   placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
                   onSubmitEditing={addSpecialty}
                   returnKeyType="done"
