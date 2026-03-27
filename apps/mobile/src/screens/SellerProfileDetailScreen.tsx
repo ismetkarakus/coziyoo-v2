@@ -675,6 +675,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
     paddingTop: 8,
+    marginBottom: 6,
   },
   modalCancelBtn: {
     flex: 1,
