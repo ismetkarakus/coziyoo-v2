@@ -337,6 +337,40 @@ sellerRouter.get("/foods", async (req, res) => {
   }
 });
 
+sellerRouter.get("/categories", async (req, res) => {
+  if (!ensureSellerRole(req, res)) return;
+  try {
+    const result = await pool.query<{
+      id: string;
+      name_tr: string | null;
+      name_en: string | null;
+      slug: string | null;
+      sort_order: number | null;
+    }>(
+      `SELECT
+         id::text,
+         name_tr,
+         name_en,
+         slug,
+         sort_order
+       FROM categories
+       ORDER BY sort_order ASC NULLS LAST, name_tr ASC, name_en ASC`,
+    );
+
+    return res.json({
+      data: result.rows.map((row) => ({
+        id: row.id,
+        nameTr: row.name_tr,
+        nameEn: row.name_en,
+        slug: row.slug,
+      })),
+    });
+  } catch (error) {
+    console.error("[seller] categories list error:", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to list categories" } });
+  }
+});
+
 sellerRouter.post("/foods", async (req, res) => {
     if (!ensureSellerRole(req, res)) return;
     const parsed = SellerFoodCreateSchema.safeParse(req.body ?? {});

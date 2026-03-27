@@ -30,17 +30,26 @@ type SellerFood = {
   stock: number;
 };
 
+type FoodCategoryOption = {
+  id: string;
+  name: string;
+};
+
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 
 export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props) {
+  const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [saving, setSaving] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [foods, setFoods] = useState<SellerFood[]>([]);
+  const [categories, setCategories] = useState<FoodCategoryOption[]>([]);
   const [editingFood, setEditingFood] = useState<SellerFood | null>(null);
 
   const [name, setName] = useState("");
@@ -104,10 +113,40 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
       setFoods(Array.isArray(json?.data) ? json.data : []);
+      void loadCategories(baseUrl);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Yemekler yüklenemedi");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadCategories(baseUrl = apiUrl) {
+    try {
+      setLoadingCategories(true);
+      const res = await authedFetch("/v1/seller/categories", undefined, baseUrl);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error?.message ?? "Kategoriler yüklenemedi");
+      const items: unknown[] = Array.isArray(json?.data) ? json.data : [];
+      setCategories(
+        items
+          .map((item) => {
+            const row = item as { id?: unknown; nameTr?: unknown; name?: unknown };
+            const id = typeof row.id === "string" ? row.id : "";
+            const nameTr = typeof row.nameTr === "string" ? row.nameTr.trim() : "";
+            const fallbackName = typeof row.name === "string" ? row.name.trim() : "";
+            return {
+              id,
+              name: nameTr || fallbackName,
+            };
+          })
+          .filter((item) => item.id && item.name),
+      );
+    } catch (e) {
+      console.warn("[seller-foods] categories load failed:", e);
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
     }
   }
 
@@ -332,6 +371,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   }
 
   const previewImage = imageUrls.map((x) => x.trim()).find(Boolean) || "";
+  const selectedCategoryName = categories.find((item) => item.id === categoryId)?.name ?? "";
   const previewTitle = name.trim() || "Yemek Adı";
   const previewSummary = cardSummary.trim() || description.trim() || "Yemeğiniz burada müşteri kartında görünecek.";
   const previewPrice = Number.isFinite(Number(price)) && Number(price) > 0 ? `${Number(price).toFixed(2)} ₺` : "-- ₺";
@@ -381,34 +421,95 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           </Text>
 
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
-          <TextInput style={styles.input} value={cuisine} onChangeText={setCuisine} placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..." />
+          <TextInput
+            style={styles.input}
+            value={cuisine}
+            onChangeText={setCuisine}
+            placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+          />
 
           <Text style={styles.sectionTitle}>Kategori Seç</Text>
-          <TextInput style={styles.input} value={categoryId} onChangeText={setCategoryId} placeholder="Kategori seçin" />
+          <TouchableOpacity
+            style={[styles.input, styles.dropdownInput]}
+            onPress={() => setCategoryModalVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
+              {selectedCategoryName || "Kategori seçin"}
+            </Text>
+            <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
+          </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>Yemek Adı *</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Örn: Ev Yapımı Mantı" />
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Örn: Ev Yapımı Mantı"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+          />
 
           <Text style={styles.sectionTitle}>Malzemeler / Baharatlar *</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Kullanılan malzemeler ve baharatları açıklayın..." multiline />
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Kullanılan malzemeler ve baharatları açıklayın..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            multiline
+          />
 
           <Text style={styles.sectionTitle}>Tarif</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={recipe} onChangeText={setRecipe} placeholder="Yemeğin hazırlanış tarifini buraya yazın..." multiline />
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={recipe}
+            onChangeText={setRecipe}
+            placeholder="Yemeğin hazırlanış tarifini buraya yazın..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            multiline
+          />
 
           <Text style={styles.sectionTitle}>Alerjenler</Text>
-          <TextInput style={styles.input} value={allergens} onChangeText={setAllergens} placeholder="Örn: Gluten, süt" />
+          <TextInput
+            style={styles.input}
+            value={allergens}
+            onChangeText={setAllergens}
+            placeholder="Örn: Gluten, süt"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+          />
 
           <Text style={styles.sectionTitle}>Fiyat (₺) *</Text>
-          <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="25" keyboardType="decimal-pad" />
+          <TextInput
+            style={styles.input}
+            value={price}
+            onChangeText={setPrice}
+            placeholder="25"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            keyboardType="decimal-pad"
+          />
 
           <Text style={styles.sectionTitle}>Günlük Stok *</Text>
-          <TextInput style={styles.input} value={dailyStock} onChangeText={setDailyStock} placeholder="10" keyboardType="number-pad" />
+          <TextInput
+            style={styles.input}
+            value={dailyStock}
+            onChangeText={setDailyStock}
+            placeholder="10"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            keyboardType="number-pad"
+          />
 
           <View style={styles.row2}>
             <View style={styles.rowItem}>
               <Text style={styles.sectionTitle}>Başlangıç Tarihi</Text>
               <View style={styles.dateInputWrap}>
-                <TextInput style={[styles.input, styles.dateInput]} value={startDate} placeholder="DD/MM/YYYY" editable={false} />
+                <TextInput
+                  style={[styles.input, styles.dateInput]}
+                  value={startDate}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor={PLACEHOLDER_COLOR}
+                  editable={false}
+                />
                 <TouchableOpacity style={styles.dateIconBtn} onPress={() => openDatePicker("start")}>
                   <Ionicons name="calendar-outline" size={18} color="#7A6B5D" />
                 </TouchableOpacity>
@@ -417,7 +518,13 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             <View style={styles.rowItem}>
               <Text style={styles.sectionTitle}>Bitiş Tarihi</Text>
               <View style={styles.dateInputWrap}>
-                <TextInput style={[styles.input, styles.dateInput]} value={endDate} placeholder="DD/MM/YYYY" editable={false} />
+                <TextInput
+                  style={[styles.input, styles.dateInput]}
+                  value={endDate}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor={PLACEHOLDER_COLOR}
+                  editable={false}
+                />
                 <TouchableOpacity style={styles.dateIconBtn} onPress={() => openDatePicker("end")}>
                   <Ionicons name="calendar-outline" size={18} color="#7A6B5D" />
                 </TouchableOpacity>
@@ -456,6 +563,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                 value={deliveryFee}
                 onChangeText={setDeliveryFee}
                 placeholder="Örn: 10 ₺"
+                placeholderTextColor={PLACEHOLDER_COLOR}
                 keyboardType="decimal-pad"
               />
               <Text style={styles.subHint}>Müşterilerden alacağınız teslimat ücreti</Text>
@@ -463,7 +571,14 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           ) : null}
 
           <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
-          <TextInput style={styles.input} value={prepTime} onChangeText={setPrepTime} placeholder="Örn: 45" keyboardType="number-pad" />
+          <TextInput
+            style={styles.input}
+            value={prepTime}
+            onChangeText={setPrepTime}
+            placeholder="Örn: 45"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            keyboardType="number-pad"
+          />
 
           <TouchableOpacity style={styles.previewBtn} onPress={() => setPreviewVisible(true)}>
             <Text style={styles.previewBtnText}>👁️ Önizleme (Müşteri Görünümü)</Text>
@@ -572,6 +687,36 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           </View>
         </View>
       </Modal>
+
+      <Modal visible={categoryModalVisible} transparent animationType="fade" onRequestClose={() => setCategoryModalVisible(false)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setCategoryModalVisible(false)} />
+          <View style={styles.categoryModalCard}>
+            <Text style={styles.categoryModalTitle}>Kategori Seç</Text>
+            {loadingCategories ? (
+              <ActivityIndicator size="small" color={theme.primary} style={{ marginVertical: 12 }} />
+            ) : (
+              <ScrollView style={styles.categoryList} contentContainerStyle={styles.categoryListContent}>
+                {categories.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.categoryOption, categoryId === item.id && styles.categoryOptionActive]}
+                    onPress={() => {
+                      setCategoryId(item.id);
+                      setCategoryModalVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.categoryOptionText, categoryId === item.id && styles.categoryOptionTextActive]}>
+                      {item.name}
+                    </Text>
+                    {categoryId === item.id ? <Ionicons name="checkmark-circle" size={18} color="#2E6B44" /> : null}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -591,6 +736,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     color: "#2E241C",
   },
+  dropdownInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dropdownPlaceholder: { color: "#8A7A6A" },
+  dropdownValue: { color: "#2E241C", fontWeight: "600" },
   textArea: {
     minHeight: 120,
     textAlignVertical: "top",
@@ -753,6 +905,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5DDCF",
   },
+  categoryModalCard: {
+    maxHeight: "70%",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+  },
+  categoryModalTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16, marginBottom: 10 },
+  categoryList: { maxHeight: 360 },
+  categoryListContent: { paddingBottom: 6 },
+  categoryOption: {
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+  },
+  categoryOptionActive: {
+    borderColor: "#8FA58F",
+    backgroundColor: "#ECF4EE",
+  },
+  categoryOptionText: { color: "#2E241C" },
+  categoryOptionTextActive: { color: "#2E6B44", fontWeight: "700" },
   datePickerHead: {
     flexDirection: "row",
     alignItems: "center",
