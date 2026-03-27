@@ -38,12 +38,11 @@ export default function SettingsScreen({ auth, onBack, onOpenComplaintOrders, on
   const [loading, setLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState(auth.email ?? '');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
 
   useEffect(() => {
     setCurrentAuth(auth);
-    setEmail((prev) => prev || auth.email || '');
   }, [auth]);
 
   useEffect(() => {
@@ -91,7 +90,7 @@ export default function SettingsScreen({ auth, onBack, onOpenComplaintOrders, on
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
       const data = json.data;
-      setEmail(data?.email?.trim() || currentAuth.email || auth.email || '');
+      setEmail(data?.email ?? '');
       setPhone(data?.phone?.trim() || t('status.security.phoneFallback'));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('error.settings.load'));

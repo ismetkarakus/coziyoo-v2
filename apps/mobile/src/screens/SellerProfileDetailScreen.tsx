@@ -117,10 +117,9 @@ export default function SellerProfileDetailScreen({
       setProfile(loaded);
       const display = String(loaded?.displayName ?? "").trim();
       const fullNameFromApi = String((loaded as { fullName?: string | null } | null)?.fullName ?? "").trim();
-      const emailFromApi = String((loaded as { email?: string | null } | null)?.email ?? "").trim();
       setMasterName(loaded?.kitchenTitle?.trim() || display);
       setFullName(fullNameFromApi || display);
-      setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || emailFromApi);
+      setContactEmail(currentAuth.email?.trim() ?? "");
       setContactPhone(loaded?.phone?.trim() ?? "");
       const addressTitle = loaded?.defaultAddress?.title?.trim() ?? "";
       const addressText = loaded?.defaultAddress?.addressLine?.trim() ?? "";
