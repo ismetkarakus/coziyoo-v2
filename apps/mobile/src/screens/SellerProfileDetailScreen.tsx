@@ -78,9 +78,8 @@ export default function SellerProfileDetailScreen({
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [masterName, setMasterName] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [contactEmail, setContactEmail] = useState(auth.email ?? "");
+  const [fullName, setFullName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [cityDistrict, setCityDistrict] = useState("");
   const [addressLine, setAddressLine] = useState("");
@@ -117,11 +116,10 @@ export default function SellerProfileDetailScreen({
       const loaded = profileJson.data ?? null;
       setProfile(loaded);
       const display = String(loaded?.displayName ?? "").trim();
-      const nameParts = display.split(" ").filter(Boolean);
-      setMasterName(loaded?.kitchenTitle?.trim() ?? "");
-      setFirstName(nameParts[0] ?? "");
-      setLastName(nameParts.slice(1).join(" "));
-      setContactEmail(currentAuth.email ?? "");
+      const fullNameFromApi = String((loaded as { fullName?: string | null } | null)?.fullName ?? "").trim();
+      setMasterName(loaded?.kitchenTitle?.trim() || display);
+      setFullName(fullNameFromApi || display);
+      setContactEmail(currentAuth.email?.trim() ?? "");
       setContactPhone(loaded?.phone?.trim() ?? "");
       const addressTitle = loaded?.defaultAddress?.title?.trim() ?? "";
       const addressText = loaded?.defaultAddress?.addressLine?.trim() ?? "";
@@ -275,7 +273,7 @@ export default function SellerProfileDetailScreen({
             >
               <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
 
-              <Text style={styles.modalLabel}>Usta Adı</Text>
+              <Text style={styles.modalLabel}>Satıcı Adı</Text>
               <TextInput
                 style={styles.modalInput}
                 value={masterName}
@@ -284,21 +282,12 @@ export default function SellerProfileDetailScreen({
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
-              <Text style={styles.modalLabel}>Ad</Text>
+              <Text style={styles.modalLabel}>Adı Soyadı</Text>
               <TextInput
                 style={styles.modalInput}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="Örn: Ayşe"
-                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
-              />
-
-              <Text style={styles.modalLabel}>Soyad</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Örn: Hanım"
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Örn: Ayşe Hanım"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
 
