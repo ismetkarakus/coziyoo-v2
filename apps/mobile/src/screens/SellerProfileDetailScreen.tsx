@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -73,6 +74,12 @@ export default function SellerProfileDetailScreen({
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [masterName, setMasterName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [contactEmail, setContactEmail] = useState(auth.email ?? "");
+  const [contactPhone, setContactPhone] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -103,7 +110,15 @@ export default function SellerProfileDetailScreen({
       const profileRes = await authedFetch("/v1/seller/profile", baseUrl);
       const profileJson = await profileRes.json();
       if (!profileRes.ok) throw new Error(profileJson?.error?.message ?? "Profil yüklenemedi");
-      setProfile(profileJson.data ?? null);
+      const loaded = profileJson.data ?? null;
+      setProfile(loaded);
+      const display = String(loaded?.displayName ?? "").trim();
+      const nameParts = display.split(" ").filter(Boolean);
+      setMasterName(loaded?.kitchenTitle?.trim() ?? "");
+      setFirstName(nameParts[0] ?? "");
+      setLastName(nameParts.slice(1).join(" "));
+      setContactEmail(currentAuth.email ?? "");
+      setContactPhone(loaded?.phone?.trim() ?? "");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
@@ -159,20 +174,16 @@ export default function SellerProfileDetailScreen({
 
           {/* Profili Düzenle */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Profili Düzenle</Text>
-            {[
-              { label: "Telefon", ok: profile?.requirements?.hasPhone },
-              { label: "Varsayılan adres", ok: profile?.requirements?.hasDefaultAddress },
-              { label: "Mutfak başlığı", ok: profile?.requirements?.hasKitchenTitle },
-              { label: "Mutfak açıklaması", ok: profile?.requirements?.hasKitchenDescription },
-              { label: "Teslimat yarıçapı", ok: profile?.requirements?.hasDeliveryRadius },
-              { label: "Çalışma saatleri", ok: profile?.requirements?.hasWorkingHours },
-            ].map((item) => (
-              <View key={item.label} style={styles.checkRow}>
-                <Text style={item.ok ? styles.checkOk : styles.checkMissing}>{item.ok ? "✓" : "✗"}</Text>
-                <Text style={styles.checkLabel}>{item.label}</Text>
-              </View>
-            ))}
+            <View style={styles.profileEditCardHeader}>
+              <Text style={styles.cardTitleNoCaps}>Profili Düzenle</Text>
+              <TouchableOpacity
+                style={styles.profileEditIconBtn}
+                onPress={() => setIsEditModalOpen(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="pencil" size={18} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Mutfak Bilgileri */}
@@ -241,6 +252,47 @@ export default function SellerProfileDetailScreen({
 
         </ScrollView>
       )}
+
+      <Modal visible={isEditModalOpen} transparent animationType="fade" onRequestClose={() => setIsEditModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
+
+            <Text style={styles.modalLabel}>Usta Adı</Text>
+            <TextInput style={styles.modalInput} value={masterName} onChangeText={setMasterName} placeholder="Usta adınızı girin" />
+
+            <Text style={styles.modalLabel}>Ad</Text>
+            <TextInput style={styles.modalInput} value={firstName} onChangeText={setFirstName} />
+
+            <Text style={styles.modalLabel}>Soyad</Text>
+            <TextInput style={styles.modalInput} value={lastName} onChangeText={setLastName} />
+
+            <Text style={styles.modalLabel}>E-posta</Text>
+            <View style={styles.modalEmailRow}>
+              <TextInput
+                style={[styles.modalInput, styles.modalEmailInput]}
+                value={contactEmail}
+                onChangeText={setContactEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Ionicons name="shield-checkmark" size={18} color="#2563EB" />
+            </View>
+
+            <Text style={styles.modalLabel}>Telefon</Text>
+            <TextInput style={styles.modalInput} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
+                <Text style={styles.modalCancelText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setIsEditModalOpen(false)}>
+                <Text style={styles.modalSaveText}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -301,6 +353,26 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 6,
   },
+  profileEditCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardTitleNoCaps: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#2E241C",
+  },
+  profileEditIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D6CCBD",
+    backgroundColor: "#F5F0E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cardTitle: { fontSize: 12, fontWeight: "800", color: "#2E241C", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
 
   infoRow: { flexDirection: "row", justifyContent: "space-between" },
@@ -317,6 +389,80 @@ const styles = StyleSheet.create({
   checkOk: { fontSize: 14, color: "#2E6B44", fontWeight: "700", width: 18 },
   checkMissing: { fontSize: 14, color: "#B42318", fontWeight: "700", width: 18 },
   checkLabel: { fontSize: 13, color: "#4E433A" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: "#F2F2F2",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D8D8D8",
+    padding: 14,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1F1F1F",
+    marginBottom: 8,
+  },
+  modalLabel: {
+    marginTop: 10,
+    marginBottom: 6,
+    color: "#2E2E2E",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  modalInput: {
+    backgroundColor: "#E7E6E4",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C7C7C7",
+    height: 42,
+    paddingHorizontal: 12,
+    color: "#242424",
+  },
+  modalEmailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalEmailInput: {
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C9C9C9",
+    backgroundColor: "#F0F0F0",
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCancelText: {
+    color: "#373737",
+    fontWeight: "600",
+  },
+  modalSaveBtn: {
+    flex: 1,
+    borderRadius: 8,
+    backgroundColor: "#8A9A87",
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSaveText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
 
   navBtn: {
     backgroundColor: "#fff",
