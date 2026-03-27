@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
-import { apiRequest } from "../utils/api";
-import ScreenHeader from "../components/ScreenHeader";
-import ActionButton from "../components/ActionButton";
+import { refreshAuthSession } from "../utils/auth";
+import { actorRoleHeader } from "../utils/actorRole";
+import { loadSettings } from "../utils/settings";
+import { theme } from "../theme/colors";
 
 type Props = {
   auth: AuthSession;
@@ -19,7 +20,7 @@ type OrderDetail = {
   buyerName?: string;
   deliveryType?: string;
   totalPrice: number;
-  items?: Array<{ name: string; quantity: number; unitPrice: number }>;
+  items?: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
   deliveryAddress?: { title?: string; addressLine?: string } | null;
 };
 
@@ -38,6 +39,7 @@ const transitionActions: Record<string, Array<{ label: string; toStatus?: string
 };
 
 export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
+  const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -45,17 +47,39 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
-  function handleRefresh(session: AuthSession) {
-    setCurrentAuth(session);
-    onAuthRefresh?.(session);
+  async function authedFetch(path: string, init?: RequestInit, baseUrl = apiUrl): Promise<Response> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${currentAuth.accessToken}`,
+      ...actorRoleHeader(currentAuth, "seller"),
+      ...(init?.headers as Record<string, string> | undefined),
+    };
+    let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
+    if (res.status !== 401) return res;
+    const refreshed = await refreshAuthSession(baseUrl, currentAuth);
+    if (!refreshed) return res;
+    setCurrentAuth(refreshed);
+    onAuthRefresh?.(refreshed);
+    return fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        ...headers,
+        Authorization: `Bearer ${refreshed.accessToken}`,
+        ...actorRoleHeader(refreshed, "seller"),
+      },
+    });
   }
 
   async function loadOrder() {
     setLoading(true);
     try {
-      const res = await apiRequest<OrderDetail>(`/v1/orders/${orderId}`, currentAuth, { actorRole: "seller" }, handleRefresh);
-      if (!res.ok) throw new Error(res.message ?? "Sipariş detay yüklenemedi");
-      setOrder(res.data ?? null);
+      const settings = await loadSettings();
+      const baseUrl = settings.apiUrl;
+      setApiUrl(baseUrl);
+      const res = await authedFetch(`/v1/orders/${orderId}`, undefined, baseUrl);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error?.message ?? "Sipariş detay yüklenemedi");
+      setOrder(json?.data ?? null);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Sipariş detay yüklenemedi");
     } finally {
@@ -73,12 +97,17 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     if (!order) return;
     setUpdating(true);
     try {
-      const path = action.endpoint
-        ? `/v1/orders/${order.id}/${action.endpoint}`
-        : `/v1/orders/${order.id}/status`;
-      const body = action.endpoint ? {} : { toStatus: action.toStatus };
-      const res = await apiRequest(path, currentAuth, { method: "POST", body, actorRole: "seller" }, handleRefresh);
-      if (!res.ok) throw new Error(res.message ?? "Durum güncellenemedi");
+      let res: Response;
+      if (action.endpoint) {
+        res = await authedFetch(`/v1/orders/${order.id}/${action.endpoint}`, { method: "POST", body: JSON.stringify({}) });
+      } else {
+        res = await authedFetch(`/v1/orders/${order.id}/status`, {
+          method: "POST",
+          body: JSON.stringify({ toStatus: action.toStatus }),
+        });
+      }
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error?.message ?? "Durum güncellenemedi");
       await loadOrder();
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Durum güncellenemedi");
@@ -88,72 +117,70 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader title="Sipariş Detayı" onBack={onBack} />
-      <ScrollView contentContainerStyle={styles.content}>
-        {loading || !order ? (
-          <Text style={styles.loadingText}>Yükleniyor...</Text>
-        ) : (
-          <>
-            <View style={styles.heroCard}>
-              <Text style={styles.heroTitle}>Sipariş akışını buradan yönetebilirsin.</Text>
-              <Text style={styles.heroText}>Adım adım ilerlet, müşteri tarafta durum anlık güncellensin.</Text>
-            </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack}><Text style={styles.back}>Geri</Text></TouchableOpacity>
+        <Text style={styles.title}>Sipariş Detayı</Text>
+        <View style={{ width: 36 }} />
+      </View>
+      {loading || !order ? (
+        <ActivityIndicator size="large" color={theme.primary} />
+      ) : (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.orderNo}>{order.orderNo || order.id.slice(0, 8)}</Text>
+            <Text style={styles.meta}>Durum: {order.status}</Text>
+            <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
+            <Text style={styles.meta}>Teslimat: {order.deliveryType || "-"}</Text>
+            <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
+            <Text style={styles.meta}>{order.deliveryAddress?.title || "-"}</Text>
+            <Text style={styles.meta}>{order.deliveryAddress?.addressLine || "-"}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Ürünler</Text>
+            {(order.items ?? []).map((item) => (
+              <Text key={item.id} style={styles.meta}>
+                {item.name} x{item.quantity} · {Number(item.unitPrice ?? 0).toFixed(2)} TL
+              </Text>
+            ))}
+          </View>
+
+          {actions.length > 0 ? (
             <View style={styles.card}>
-              <Text style={styles.orderNo}>{order.orderNo || order.id.slice(0, 8)}</Text>
-              <Text style={styles.meta}>Durum: {order.status}</Text>
-              <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
-              <Text style={styles.meta}>Teslimat: {order.deliveryType || "-"}</Text>
-              <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
-            </View>
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
-              <Text style={styles.meta}>{order.deliveryAddress?.title || "-"}</Text>
-              <Text style={styles.meta}>{order.deliveryAddress?.addressLine || "-"}</Text>
-            </View>
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Ürünler</Text>
-              {(order.items ?? []).map((item, index) => (
-                <Text key={`${item.name}-${index}`} style={styles.meta}>
-                  {item.name} x{item.quantity} · {Number(item.unitPrice ?? 0).toFixed(2)} TL
-                </Text>
+              <Text style={styles.sectionTitle}>Aksiyonlar</Text>
+              {actions.map((action) => (
+                <TouchableOpacity
+                  key={action.label}
+                  style={[styles.actionBtn, updating && styles.actionDisabled]}
+                  disabled={updating}
+                  onPress={() => void runAction(action)}
+                >
+                  <Text style={styles.actionText}>{action.label}</Text>
+                </TouchableOpacity>
               ))}
             </View>
-            {actions.length > 0 ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Sonraki Adım</Text>
-                <View style={styles.actionRow}>
-                  {actions.map((action) => (
-                    <ActionButton
-                      key={action.label}
-                      label={action.label}
-                      onPress={() => void runAction(action)}
-                      loading={updating}
-                      variant={action.endpoint === "reject" ? "danger" : "primary"}
-                      fullWidth
-                    />
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </>
-        )}
-      </ScrollView>
-    </View>
+          ) : null}
+        </>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 36, gap: 10 },
-  loadingText: { textAlign: "center", marginTop: 40, color: "#6C6055" },
-  heroCard: { backgroundColor: "#F1E8D9", borderColor: "#E8D6BB", borderWidth: 1, borderRadius: 14, padding: 12 },
-  heroTitle: { color: "#4B3422", fontWeight: "800", fontSize: 15, lineHeight: 20 },
-  heroText: { marginTop: 4, color: "#6B5545", lineHeight: 18 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  back: { color: "#3F855C", fontWeight: "700" },
+  title: { fontSize: 20, fontWeight: "800", color: "#2E241C" },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   orderNo: { fontSize: 17, fontWeight: "800", color: "#2E241C" },
   meta: { marginTop: 4, color: "#6C6055" },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
-  sectionTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 8 },
-  actionRow: { gap: 8 },
+  sectionTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 4 },
+  actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
+  actionDisabled: { opacity: 0.45 },
+  actionText: { color: "#fff", fontWeight: "700" },
 });
