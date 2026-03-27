@@ -297,6 +297,8 @@ export default function SellerProfileDetailScreen({
       const baseUrl = apiUrl || (await loadSettings()).apiUrl;
       const payload: Record<string, string> = {};
 
+      const loginEmail = currentAuth.email?.trim() || auth.email?.trim() || "";
+      if (loginEmail) payload.email = loginEmail;
       if (masterName.trim()) payload.displayName = masterName.trim();
       if (fullName.trim()) payload.fullName = fullName.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
@@ -310,16 +312,28 @@ export default function SellerProfileDetailScreen({
         payload.dob = normalizedDob;
       }
 
-      const meRes = await authedFetch("/v1/auth/me", baseUrl, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-      const meJson = await meRes.json();
-      if (!meRes.ok) throw new Error(meJson?.error?.message ?? "Profil bilgileri kaydedilemedi");
-
       const title = cityDistrict.trim();
       const line = addressLine.trim();
-      if (title && line) {
+      const hasAddressUpdate = Boolean(title && line);
+      const hasProfileUpdate = Object.keys(payload).length > 0;
+      if (!hasProfileUpdate && !hasAddressUpdate) {
+        setIsEditModalOpen(false);
+        setContactSaving(false);
+        return;
+      }
+
+      if (hasProfileUpdate) {
+        const meRes = await authedFetch("/v1/auth/me", baseUrl, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        const meJson = await meRes.json();
+        if (!meRes.ok) throw new Error(meJson?.error?.message ?? "Profil bilgileri kaydedilemedi");
+      }
+
+      setIsEditModalOpen(false);
+
+      if (hasAddressUpdate) {
         const listRes = await authedFetch("/v1/auth/me/addresses", baseUrl, undefined);
         const listJson = await listRes.json();
         if (!listRes.ok) throw new Error(listJson?.error?.message ?? "Adres listesi alınamadı");
@@ -352,7 +366,6 @@ export default function SellerProfileDetailScreen({
         }
       }
 
-      setIsEditModalOpen(false);
       await load();
       Alert.alert("Başarılı", "İletişim bilgileri kaydedildi.");
     } catch (e) {
