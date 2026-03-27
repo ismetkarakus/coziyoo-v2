@@ -60,7 +60,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(auth.email ?? '');
   const [editField, setEditField] = useState<'displayName' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
   const [editValue, setEditValue] = useState('');
   const fallbackEmail = currentAuth.email || auth.email || '';
@@ -91,6 +91,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
 
   useEffect(() => {
     setCurrentAuth(auth);
+    setEmail((prev) => prev || auth.email || '');
   }, [auth]);
 
   useEffect(() => {
