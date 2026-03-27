@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 18,
   },
   addSpecialtyInput: { flex: 1 },
   addSpecialtyBtn: {
@@ -673,9 +673,9 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 8,
-    paddingTop: 8,
-    marginBottom: 6,
+    marginTop: 18,
+    paddingTop: 10,
+    marginBottom: 10,
   },
   modalCancelBtn: {
     flex: 1,
