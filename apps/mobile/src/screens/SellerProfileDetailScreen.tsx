@@ -8,6 +8,8 @@ import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 
+const MODAL_PLACEHOLDER_COLOR = "#A9A7A1";
+
 type Props = {
   auth: AuthSession;
   onBack: () => void;
@@ -274,13 +276,31 @@ export default function SellerProfileDetailScreen({
               <Text style={styles.modalTitle}>İletişim Bilgileri</Text>
 
               <Text style={styles.modalLabel}>Usta Adı</Text>
-              <TextInput style={styles.modalInput} value={masterName} onChangeText={setMasterName} placeholder="Usta adınızı girin" />
+              <TextInput
+                style={styles.modalInput}
+                value={masterName}
+                onChangeText={setMasterName}
+                placeholder="Örn: Lezzet Durağı"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
 
               <Text style={styles.modalLabel}>Ad</Text>
-              <TextInput style={styles.modalInput} value={firstName} onChangeText={setFirstName} />
+              <TextInput
+                style={styles.modalInput}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Örn: Ayşe"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
 
               <Text style={styles.modalLabel}>Soyad</Text>
-              <TextInput style={styles.modalInput} value={lastName} onChangeText={setLastName} />
+              <TextInput
+                style={styles.modalInput}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Örn: Hanım"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
 
               <Text style={styles.modalLabel}>E-posta</Text>
               <View style={styles.modalEmailRow}>
@@ -290,18 +310,40 @@ export default function SellerProfileDetailScreen({
                   onChangeText={setContactEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  placeholder="Örn: ayse@example.com"
+                  placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
                 />
                 <Ionicons name="shield-checkmark" size={18} color="#2563EB" />
               </View>
 
               <Text style={styles.modalLabel}>Telefon</Text>
-              <TextInput style={styles.modalInput} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
+              <TextInput
+                style={styles.modalInput}
+                value={contactPhone}
+                onChangeText={setContactPhone}
+                keyboardType="phone-pad"
+                placeholder="Örn: 0555 111 22 33"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
 
               <Text style={styles.modalLabel}>Şehir/İlçe</Text>
-              <TextInput style={styles.modalInput} value={cityDistrict} onChangeText={setCityDistrict} placeholder="Kadıköy, İstanbul" />
+              <TextInput
+                style={styles.modalInput}
+                value={cityDistrict}
+                onChangeText={setCityDistrict}
+                placeholder="Örn: Kadıköy, İstanbul"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
 
               <Text style={styles.modalLabel}>Adres</Text>
-              <TextInput style={[styles.modalInput, styles.modalAddressInput]} value={addressLine} onChangeText={setAddressLine} placeholder="Rıhtım Cd. No:12, Kadıköy" multiline />
+              <TextInput
+                style={[styles.modalInput, styles.modalAddressInput]}
+                value={addressLine}
+                onChangeText={setAddressLine}
+                placeholder="Örn: Rıhtım Cd. No:12, Kadıköy"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+                multiline
+              />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)}>
