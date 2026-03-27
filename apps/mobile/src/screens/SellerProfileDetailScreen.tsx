@@ -263,7 +263,6 @@ export default function SellerProfileDetailScreen({
             </View>
             <InfoRow label="Başlık" value={profile?.kitchenTitle} />
             <InfoRow label="Açıklama" value={profile?.kitchenDescription} />
-            <InfoRow label="Teslimat" value={profile?.deliveryRadiusKm ? `${profile.deliveryRadiusKm} km` : null} />
             <InfoRow label="Telefon" value={profile?.phone} />
           </View>
 
