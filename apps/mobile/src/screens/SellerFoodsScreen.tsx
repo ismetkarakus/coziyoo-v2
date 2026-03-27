@@ -295,7 +295,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.sectionTitle}>Kart Sloganı (Kısa)</Text>
           <TextInput style={styles.input} value={cardSummary} onChangeText={setCardSummary} placeholder="Örn: Günlük taze, ev yapımı" />
 
-          <Text style={styles.sectionTitle}>Açıklama / Baharatlar *</Text>
+          <Text style={styles.sectionTitle}>Malzemeler / Baharatlar *</Text>
           <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Yemeğinizin özelliklerini açıklayın" multiline />
 
           <Text style={styles.sectionTitle}>Tarif</Text>
