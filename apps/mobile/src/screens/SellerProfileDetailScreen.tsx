@@ -130,19 +130,25 @@ export default function SellerProfileDetailScreen({
       if (!profileRes.ok) throw new Error(profileJson?.error?.message ?? "Profil yüklenemedi");
       const loaded = profileJson.data ?? null;
       setProfile(loaded);
-      // İlk girişte sadece e-posta otomatik doldurulur; isim alanlarına otomatik değer yazılmaz.
-      setMasterName("");
+      // Kayıtlı verileri modalda geri doldur: kullanıcı tekrar düzenleyebilsin.
+      setMasterName(String((loaded as { displayName?: string | null } | null)?.displayName ?? "").trim());
       setContactEmail(currentAuth.email?.trim() || auth.email?.trim() || String((loaded as { email?: string | null } | null)?.email ?? "").trim());
-      setContactPhone("");
+      setContactPhone(String((loaded as { phone?: string | null } | null)?.phone ?? "").trim());
       setContactDob("");
-      setCityDistrict("");
-      setAddressLine("");
+      setCityDistrict(String((loaded as { defaultAddress?: { title?: string | null } | null } | null)?.defaultAddress?.title ?? "").trim());
+      setAddressLine(String((loaded as { defaultAddress?: { addressLine?: string | null } | null } | null)?.defaultAddress?.addressLine ?? "").trim());
       setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
       setSpecialties(Array.isArray(loaded?.kitchenSpecialties) ? loaded.kitchenSpecialties : []);
 
       const meRes = await authedFetch("/v1/auth/me", baseUrl, undefined);
       const meJson = await meRes.json();
-      setFullName("");
+      if (meRes.ok && meJson?.data) {
+        setFullName(String(meJson.data.fullName ?? "").trim());
+        setContactDob(String(meJson.data.dob ?? "").trim());
+      } else {
+        setFullName("");
+        setContactDob("");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
