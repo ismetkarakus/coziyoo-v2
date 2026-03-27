@@ -331,6 +331,11 @@ export default function SellerProfileDetailScreen({
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 18 : 0}
         >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setIsEditModalOpen(false)}
+          />
           <View style={styles.modalCard}>
             <ScrollView
               style={styles.modalScroll}
@@ -419,6 +424,11 @@ export default function SellerProfileDetailScreen({
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 18 : 0}
         >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setIsKitchenModalOpen(false)}
+          />
           <View style={[styles.modalCard, styles.kitchenModalCard]}>
             <View style={styles.kitchenModalBody}>
               <Text style={styles.modalTitle}>Hakkımda</Text>
