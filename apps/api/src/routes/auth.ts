@@ -529,6 +529,7 @@ authRouter.post("/refresh", async (req, res) => {
 
     return res.json({
       data: {
+        userType: currentSession.user_type,
         tokens: {
           accessToken,
           refreshToken: nextRefreshToken,
@@ -805,6 +806,59 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
       profileImageUrl: user.profile_image_url,
     },
   });
+});
+
+authRouter.post("/me/enable-seller", requireAuth("app"), async (req, res) => {
+  try {
+    const result = await pool.query<{
+      id: string;
+      email: string;
+      user_type: "buyer" | "seller" | "both";
+      display_name: string | null;
+      username: string | null;
+    }>(
+      `UPDATE users
+       SET user_type = CASE
+         WHEN user_type = 'buyer' THEN 'both'
+         ELSE user_type
+       END,
+       updated_at = now()
+       WHERE id = $1 AND is_active = TRUE
+       RETURNING id, email, user_type, display_name, username`,
+      [req.auth!.userId]
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+    }
+
+    const user = result.rows[0];
+    const accessToken = signAccessToken({
+      sub: req.auth!.userId,
+      sessionId: req.auth!.sessionId,
+      realm: "app",
+      role: user.user_type,
+    });
+
+    return res.json({
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.display_name,
+          username: user.username,
+          userType: user.user_type,
+        },
+        tokens: {
+          accessToken,
+          tokenType: "Bearer",
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[auth] enable seller error:", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Seller mode could not be enabled" } });
+  }
 });
 
 const UpdateProfileSchema = z.object({

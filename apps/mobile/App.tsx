@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, Alert } from 'react-native';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -27,7 +27,7 @@ import SellerOrdersScreen from './src/screens/SellerOrdersScreen';
 import SellerOrderDetailScreen from './src/screens/SellerOrderDetailScreen';
 import SellerComplianceScreen from './src/screens/SellerComplianceScreen';
 import SellerFinanceScreen from './src/screens/SellerFinanceScreen';
-import { loadAuthSession, clearAuthSession, type AuthSession } from './src/utils/auth';
+import { loadAuthSession, clearAuthSession, refreshAuthSession, saveAuthSession, type AuthSession } from './src/utils/auth';
 import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
 
@@ -181,6 +181,69 @@ export default function App() {
   function goHome(tab: TabKey = 'home') {
     setHomeTab(tab);
     setScreen('home');
+  }
+
+  async function enableSellerModeAndOpen() {
+    try {
+      const session = auth;
+      if (!session) {
+        Alert.alert('Oturum', 'Önce giriş yapmalısın.');
+        return;
+      }
+
+      if (session.userType === 'seller' || session.userType === 'both') {
+        setActorMode('seller');
+        setScreen('home');
+        return;
+      }
+
+      const { apiUrl } = await loadSettings();
+      let currentSession: AuthSession = session;
+      let response = await fetch(`${apiUrl}/v1/auth/me/enable-seller`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentSession.accessToken}`,
+        },
+      });
+
+      if (response.status === 401) {
+        const refreshed = await refreshAuthSession(apiUrl, currentSession);
+        if (!refreshed) {
+          Alert.alert('Oturum', 'Oturumun yenilenemedi. Lütfen tekrar giriş yap.');
+          return;
+        }
+        currentSession = refreshed;
+        setAuth(refreshed);
+        response = await fetch(`${apiUrl}/v1/auth/me/enable-seller`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentSession.accessToken}`,
+          },
+        });
+      }
+
+      const payload = await response.json().catch(() => ({} as { error?: { message?: string }; data?: { user?: { userType?: string }; tokens?: { accessToken?: string } } }));
+      if (!response.ok) {
+        Alert.alert('Hata', payload?.error?.message ?? 'Satıcı modu açılamadı.');
+        return;
+      }
+
+      const nextUserType = payload?.data?.user?.userType ?? 'both';
+      const nextAccessToken = payload?.data?.tokens?.accessToken ?? currentSession.accessToken;
+      const nextSession: AuthSession = {
+        ...currentSession,
+        accessToken: nextAccessToken,
+        userType: nextUserType,
+      };
+      await saveAuthSession(nextSession);
+      setAuth(nextSession);
+      setActorMode('seller');
+      setScreen('home');
+    } catch (error) {
+      Alert.alert('Hata', error instanceof Error ? error.message : 'Satıcı modu açılamadı.');
+    }
   }
 
   if (screen === 'loading') {
@@ -520,7 +583,9 @@ export default function App() {
       onOpenFoodDetail={(food: FoodItem) => { setSelectedFood(food); setScreen('foodDetail'); }}
       onLogout={handleLogout}
       onAuthRefresh={setAuth}
-      onSwitchToSeller={canSwitchRole ? () => { setActorMode('seller'); setScreen('home'); } : undefined}
+      onSwitchToSeller={auth.userType === 'seller' || auth.userType === 'both' || auth.userType === 'buyer'
+        ? () => { void enableSellerModeAndOpen(); }
+        : undefined}
     />
   );
 }

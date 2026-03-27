@@ -41,7 +41,7 @@ export async function refreshAuthSession(
     });
     if (!response.ok) return null;
     const json = await readJsonSafe<{
-      data?: { tokens?: { accessToken?: string; refreshToken?: string } };
+      data?: { userType?: string; tokens?: { accessToken?: string; refreshToken?: string } };
     }>(response);
     const tokens = json.data?.tokens;
     if (!tokens?.accessToken || !tokens?.refreshToken) return null;
@@ -49,6 +49,7 @@ export async function refreshAuthSession(
       ...session,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      userType: json.data?.userType ?? session.userType,
     };
     await saveAuthSession(next);
     return next;
