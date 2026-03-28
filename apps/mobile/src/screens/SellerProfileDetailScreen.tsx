@@ -17,7 +17,6 @@ type Props = {
   onEdit: () => void;
   onOpenFoods: () => void;
   onOpenLots: () => void;
-  onOpenOrders: () => void;
   onOpenCompliance: () => void;
   onOpenFinance: () => void;
   onOpenAddresses: () => void;
@@ -70,7 +69,6 @@ export default function SellerProfileDetailScreen({
   onEdit,
   onOpenFoods,
   onOpenLots,
-  onOpenOrders,
   onOpenCompliance,
   onOpenFinance,
   onOpenAddresses,
@@ -539,10 +537,6 @@ export default function SellerProfileDetailScreen({
           </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={onOpenLots}>
             <Text style={styles.navBtnText}>Lot / Stok</Text>
-            <Text style={styles.navArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navBtn} onPress={onOpenOrders}>
-            <Text style={styles.navBtnText}>Sipariş Yönetimi</Text>
             <Text style={styles.navArrow}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={onOpenCompliance}>

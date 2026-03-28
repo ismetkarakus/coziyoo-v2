@@ -508,7 +508,6 @@ export default function App() {
         onEdit={() => setScreen('sellerProfile')}
         onOpenFoods={() => setScreen('sellerFoods')}
         onOpenLots={() => setScreen('sellerLots')}
-        onOpenOrders={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
         onOpenAddresses={() => setScreen('addresses')}
