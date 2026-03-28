@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform, Alert, Modal } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, Alert, Modal, TouchableOpacity } from 'react-native';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -638,17 +638,24 @@ export default function App() {
         <Modal
           visible={sellerOrderModalVisible && Boolean(selectedOrderId)}
           animationType="slide"
-          presentationStyle="fullScreen"
+          transparent
+          presentationStyle="overFullScreen"
           onRequestClose={() => setSellerOrderModalVisible(false)}
         >
-          {selectedOrderId ? (
-            <SellerOrderDetailScreen
-              auth={auth}
-              orderId={selectedOrderId}
-              onBack={() => setSellerOrderModalVisible(false)}
-              onAuthRefresh={setAuth}
-            />
-          ) : null}
+          <View style={styles.sheetOverlay}>
+            <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setSellerOrderModalVisible(false)} />
+            <View style={styles.sheetCard}>
+              <View style={styles.sheetGrabber} />
+              {selectedOrderId ? (
+                <SellerOrderDetailScreen
+                  auth={auth}
+                  orderId={selectedOrderId}
+                  onBack={() => setSellerOrderModalVisible(false)}
+                  onAuthRefresh={setAuth}
+                />
+              ) : null}
+            </View>
+          </View>
         </Modal>
       </>
     );
@@ -679,5 +686,29 @@ const styles = StyleSheet.create({
     backgroundColor: theme.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    flex: 1,
+  },
+  sheetCard: {
+    height: '88%',
+    backgroundColor: '#F7F4EF',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    overflow: 'hidden',
+  },
+  sheetGrabber: {
+    width: 52,
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: '#D2C8BA',
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 2,
   },
 });
