@@ -2516,6 +2516,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     </th>
                     <th>{dict.detail.lotActions}</th>
                     <th>{dict.detail.foodName}</th>
+                    <th>{language === "tr" ? "Kategori" : "Category"}</th>
+                    <th>{language === "tr" ? "Mutfak" : "Cuisine"}</th>
                     <th>{dict.detail.foodStatus}</th>
                     <th>{dict.detail.foodPrice}</th>
                     <th>{dict.detail.updatedAtLabel}</th>
@@ -2526,7 +2528,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   {foodRows.map((food) => {
                     const isActiveFood = food.status === "active";
                     const foodLots = lotsByFoodId[food.id] ?? [];
-                    const activeLots = foodLots.filter((lot) => lot.lifecycle_status === "on_sale").length;
+                    const activeLots = Number(food.activeLotCount ?? foodLots.filter((lot) => lot.lifecycle_status === "on_sale").length);
+                    const onSaleQuantity = Number(food.onSaleQuantity ?? 0);
                     const recalledLots = foodLots.filter((lot) => lot.lifecycle_status === "recalled").length;
                     const foodExpanded = Boolean(expandedFoodIds[food.id]);
                     const metadata = foodMetadataByName(food.name);
@@ -2585,6 +2588,8 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           <td>
                             <strong>{`${food.name} (${food.code || "-"})`}</strong>
                           </td>
+                          <td>{food.categoryName ?? <span className="panel-meta">-</span>}</td>
+                          <td>{food.cuisine ?? <span className="panel-meta">-</span>}</td>
                           <td>
                             <span className={`status-pill ${isActiveFood ? "is-active" : "is-disabled"}`}>
                               {isActiveFood ? dict.common.active : dict.common.disabled}
@@ -2596,13 +2601,14 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                             <div className="lot-summary-cell">
                               <span>{`${dict.detail.lotsTitle}: ${foodLots.length}`}</span>
                               <span>{`${language === "tr" ? "Satışta" : "On Sale"}: ${activeLots}`}</span>
+                              <span>{`${language === "tr" ? "Satışta Stok" : "On-Sale Stock"}: ${onSaleQuantity}`}</span>
                               {recalledLots > 0 ? <span className="lot-summary-danger">{`${language === "tr" ? "Geri çağrılan" : "Recalled"}: ${recalledLots}`}</span> : null}
                             </div>
                           </td>
                         </tr>
                         {foodExpanded ? (
                           <tr className="foods-lots-expanded-row">
-                            <td colSpan={7}>
+                            <td colSpan={9}>
                               {lotsLoading ? (
                                 <p className="panel-meta">{dict.common.loading}</p>
                               ) : foodLots.length === 0 ? (
@@ -3188,10 +3194,39 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <div className="foods-detail-grid">
                     <div><span className="panel-meta">ID</span><strong>{food.id}</strong></div>
                     <div><span className="panel-meta">{dict.detail.foodName}</span><strong>{food.name}</strong></div>
+                    <div><span className="panel-meta">{language === "tr" ? "Kategori" : "Category"}</span><strong>{food.categoryName ?? "-"}</strong></div>
+                    <div><span className="panel-meta">{language === "tr" ? "Mutfak" : "Cuisine"}</span><strong>{food.cuisine ?? "-"}</strong></div>
                     <div><span className="panel-meta">{dict.detail.foodStatus}</span><strong>{food.status === "active" ? dict.common.active : dict.common.disabled}</strong></div>
                     <div><span className="panel-meta">{dict.detail.foodPrice}</span><strong>{formatCurrency(food.price, language)}</strong></div>
+                    <div>
+                      <span className="panel-meta">{language === "tr" ? "Teslimat" : "Delivery"}</span>
+                      <strong>
+                        {food.deliveryOptions
+                          ? food.deliveryOptions.pickup && food.deliveryOptions.delivery
+                            ? (language === "tr" ? "Gel Al + Teslimat" : "Pickup + Delivery")
+                            : food.deliveryOptions.pickup
+                              ? (language === "tr" ? "Gel Al" : "Pickup")
+                              : food.deliveryOptions.delivery
+                                ? (language === "tr" ? "Teslimat" : "Delivery")
+                                : "-"
+                          : "-"}
+                      </strong>
+                    </div>
+                    <div><span className="panel-meta">{language === "tr" ? "Teslimat Ücreti" : "Delivery Fee"}</span><strong>{formatCurrency(food.deliveryFee ?? 0, language)}</strong></div>
                     <div><span className="panel-meta">{dict.detail.updatedAtLabel}</span><strong>{formatUiDate(food.updatedAt, language)}</strong></div>
                   </div>
+                  {Array.isArray(food.imageUrls) && food.imageUrls.length > 0 ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Yemek Fotoğrafları" : "Food Photos"}</h4>
+                      <div className="seller-detail-inline-gallery">
+                        {food.imageUrls.map((url, index) => (
+                          <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt={`${food.name}-${index + 1}`} />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   {food.description ? (
                     <div className="foods-detail-text-block">
                       <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
@@ -3206,7 +3241,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   ) : null}
                   {food.ingredients ? (
                     <div className="foods-detail-text-block">
-                      <h4>{language === "tr" ? "İçerikler" : "Ingredients"}</h4>
+                      <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
                       <p className="foods-detail-paragraph">{food.ingredients}</p>
                     </div>
                   ) : null}

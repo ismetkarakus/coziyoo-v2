@@ -8235,6 +8235,27 @@ table tbody tr:has(.order-status-pill.is-delivery) td:first-child {
   font-size: clamp(1.04rem, 1.1vw, 1.2rem);
 }
 
+.seller-detail-inline-gallery {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.seller-detail-inline-gallery a {
+  border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  display: block;
+  background: var(--color-subtle-bg);
+}
+
+.seller-detail-inline-gallery img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
 .foods-detail-paragraph {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent);

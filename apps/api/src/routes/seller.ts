@@ -28,9 +28,16 @@ const SellerFoodCreateSchema = z.object({
   recipe: z.string().max(5000).optional(),
   ingredients: z.array(z.string().min(1).max(200)).max(60).optional(),
   allergens: z.array(z.string().min(1).max(120)).max(40).optional(),
+  cuisine: z.string().min(1).max(120).optional(),
   price: z.number().min(1).max(100000),
+  deliveryFee: z.number().min(0).max(100000).optional(),
+  deliveryOptions: z.object({
+    pickup: z.boolean(),
+    delivery: z.boolean(),
+  }).optional(),
   preparationTimeMinutes: z.number().int().min(1).max(1440).optional(),
   imageUrl: z.string().url().optional(),
+  imageUrls: z.array(z.string().url()).max(5).optional(),
   isActive: z.boolean().optional(),
   categoryId: z.string().uuid().optional(),
 });
@@ -68,6 +75,22 @@ function ensureSellerRole(req: Request, res: Response): boolean {
     return false;
   }
   return true;
+}
+
+function normalizeImageUrls(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const values = input
+    .map((item) => String(item ?? "").trim())
+    .filter((item) => /^https?:\/\//i.test(item) || /^data:/i.test(item));
+  return values.slice(0, 5);
+}
+
+function normalizeDeliveryOptions(input: unknown): { pickup: boolean; delivery: boolean } | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as Record<string, unknown>;
+  const pickup = Boolean(raw.pickup);
+  const delivery = Boolean(raw.delivery);
+  return { pickup, delivery };
 }
 
 function computeSellerProfileStatus(input: {
@@ -287,12 +310,18 @@ sellerRouter.get("/foods", async (req, res) => {
     const result = await pool.query(
       `SELECT
          f.id::text,
+         f.category_id::text AS category_id,
+         c.name_tr AS category_name,
          f.name,
          f.card_summary,
          f.description,
          f.recipe,
+         f.cuisine,
          f.price::text,
+         f.delivery_fee::text AS delivery_fee,
+         f.delivery_options_json,
          f.image_url,
+         f.image_urls_json,
          f.ingredients_json,
          f.allergens_json,
          f.preparation_time_minutes,
@@ -309,6 +338,7 @@ sellerRouter.get("/foods", async (req, res) => {
              AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
          ), 0)::int AS stock
        FROM foods f
+       LEFT JOIN categories c ON c.id = f.category_id
        WHERE f.seller_id = $1
        ORDER BY f.updated_at DESC`,
       [userId],
@@ -316,12 +346,18 @@ sellerRouter.get("/foods", async (req, res) => {
     return res.json({
       data: result.rows.map((row) => ({
         id: row.id,
+        categoryId: row.category_id ?? null,
+        categoryName: row.category_name ?? null,
         name: row.name,
         cardSummary: row.card_summary,
         description: row.description,
         recipe: row.recipe,
+        cuisine: row.cuisine ?? null,
         price: Number(row.price),
+        deliveryFee: row.delivery_fee != null ? Number(row.delivery_fee) : 0,
+        deliveryOptions: normalizeDeliveryOptions(row.delivery_options_json),
         imageUrl: row.image_url,
+        imageUrls: normalizeImageUrls(row.image_urls_json),
         ingredients: Array.isArray(row.ingredients_json) ? row.ingredients_json : [],
         allergens: Array.isArray(row.allergens_json) ? row.allergens_json : [],
         preparationTimeMinutes: row.preparation_time_minutes,
@@ -381,8 +417,8 @@ sellerRouter.post("/foods", async (req, res) => {
     try {
       const created = await pool.query<{ id: string }>(
         `INSERT INTO foods
-           (seller_id, category_id, name, card_summary, description, recipe, price, image_url, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, now(), now())
+           (seller_id, category_id, name, card_summary, description, recipe, cuisine, price, delivery_fee, delivery_options_json, image_url, image_urls_json, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16, now(), now())
          RETURNING id::text`,
         [
           req.auth!.userId,
@@ -391,8 +427,12 @@ sellerRouter.post("/foods", async (req, res) => {
           input.cardSummary?.trim() ?? null,
           input.description?.trim() ?? null,
           input.recipe?.trim() ?? null,
+          input.cuisine?.trim() ?? null,
           input.price,
-          input.imageUrl ?? null,
+          input.deliveryFee ?? 0,
+          JSON.stringify(input.deliveryOptions ?? { pickup: true, delivery: true }),
+          input.imageUrls?.[0] ?? input.imageUrl ?? null,
+          JSON.stringify((input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : [])).slice(0, 5)),
           JSON.stringify(input.ingredients ?? []),
           JSON.stringify(input.allergens ?? []),
           input.preparationTimeMinutes ?? null,
@@ -442,13 +482,43 @@ sellerRouter.patch("/foods/:foodId", async (req, res) => {
       setClauses.push(`recipe = $${idx++}`);
       values.push(input.recipe?.trim() ?? null);
     }
+    if (input.cuisine !== undefined) {
+      setClauses.push(`cuisine = $${idx++}`);
+      values.push(input.cuisine?.trim() ?? null);
+    }
     if (input.price !== undefined) {
       setClauses.push(`price = $${idx++}`);
       values.push(input.price);
     }
+    if (input.deliveryFee !== undefined) {
+      setClauses.push(`delivery_fee = $${idx++}`);
+      values.push(input.deliveryFee ?? 0);
+    }
+    if (input.deliveryOptions !== undefined) {
+      setClauses.push(`delivery_options_json = $${idx++}::jsonb`);
+      values.push(JSON.stringify(input.deliveryOptions ?? { pickup: true, delivery: true }));
+    }
     if (input.imageUrl !== undefined) {
       setClauses.push(`image_url = $${idx++}`);
       values.push(input.imageUrl ?? null);
+      if (input.imageUrls === undefined) {
+        setClauses.push(`image_urls_json = CASE
+          WHEN $${idx}::text IS NULL OR btrim($${idx}::text) = '' THEN '[]'::jsonb
+          WHEN jsonb_typeof(image_urls_json) = 'array' THEN jsonb_set(image_urls_json, '{0}', to_jsonb($${idx}::text), true)
+          ELSE jsonb_build_array($${idx}::text)
+        END`);
+        values.push(input.imageUrl ?? null);
+        idx += 1;
+      }
+    }
+    if (input.imageUrls !== undefined) {
+      const normalizedImageUrls = (input.imageUrls ?? []).slice(0, 5);
+      setClauses.push(`image_urls_json = $${idx++}::jsonb`);
+      values.push(JSON.stringify(normalizedImageUrls));
+      if (input.imageUrl === undefined) {
+        setClauses.push(`image_url = $${idx++}`);
+        values.push(normalizedImageUrls[0] ?? null);
+      }
     }
     if (input.ingredients !== undefined) {
       setClauses.push(`ingredients_json = $${idx++}::jsonb`);
@@ -533,7 +603,17 @@ sellerRouter.post("/foods/:foodId/image", async (req, res) => {
   try {
     const updated = await pool.query<{ id: string; image_url: string | null }>(
       `UPDATE foods
-       SET image_url = $3, updated_at = now()
+       SET image_url = $3,
+           image_urls_json = CASE
+             WHEN jsonb_typeof(image_urls_json) = 'array' THEN jsonb_set(
+               image_urls_json,
+               '{0}',
+               to_jsonb($3::text),
+               true
+             )
+             ELSE jsonb_build_array($3::text)
+           END,
+           updated_at = now()
        WHERE id = $1 AND seller_id = $2
        RETURNING id::text, image_url`,
       [foodId, req.auth!.userId, imageUrl],

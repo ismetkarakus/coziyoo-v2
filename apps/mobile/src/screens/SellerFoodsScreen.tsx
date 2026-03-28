@@ -17,12 +17,18 @@ type Props = {
 
 type SellerFood = {
   id: string;
+  categoryId: string | null;
+  categoryName: string | null;
   name: string;
   cardSummary: string | null;
   description: string | null;
   recipe: string | null;
+  cuisine: string | null;
   price: number;
+  deliveryFee: number;
+  deliveryOptions: { pickup: boolean; delivery: boolean } | null;
   imageUrl: string | null;
+  imageUrls: string[];
   ingredients: string[];
   allergens: string[];
   preparationTimeMinutes: number | null;
@@ -205,9 +211,16 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setRecipe(food.recipe ?? "");
     setIngredients(food.ingredients.join(", "));
     setAllergens(food.allergens.join(", "));
-    setImageUrls([food.imageUrl ?? "", "", "", "", ""]);
+    const seededImageUrls = (food.imageUrls?.length ? food.imageUrls : [food.imageUrl ?? ""]).slice(0, 5);
+    while (seededImageUrls.length < 5) seededImageUrls.push("");
+    setImageUrls(seededImageUrls);
     setMovingImageIndex(null);
     setPrepTime(food.preparationTimeMinutes ? String(food.preparationTimeMinutes) : "");
+    setCuisine(food.cuisine ?? "");
+    setCategoryId(food.categoryId ?? "");
+    setDeliveryFee(food.deliveryFee ? String(food.deliveryFee) : "");
+    setPickupEnabled(food.deliveryOptions?.pickup ?? true);
+    setDeliveryEnabled(food.deliveryOptions?.delivery ?? true);
   }
 
   const canShowDeliveryFee = deliveryEnabled;
@@ -289,6 +302,10 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         description: description.trim() || undefined,
         recipe: recipe.trim() || undefined,
         imageUrl: primaryImageUrl,
+        imageUrls: imageUrls.map((x) => x.trim()).filter(Boolean).slice(0, 5),
+        cuisine: cuisine.trim() || undefined,
+        deliveryFee: deliveryFee.trim() ? Number(deliveryFee) : 0,
+        deliveryOptions: { pickup: pickupEnabled, delivery: deliveryEnabled },
         ingredients: ingredients.split(",").map((x) => x.trim()).filter(Boolean),
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,

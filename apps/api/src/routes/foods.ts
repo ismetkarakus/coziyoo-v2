@@ -27,6 +27,21 @@ function parseAllergens(value: unknown): string[] {
   return [];
 }
 
+function parseImageUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter((item) => /^https?:\/\//i.test(item) || /^data:/i.test(item))
+    .slice(0, 5);
+}
+
+function resolvePrimaryFoodImage(imageUrlsValue: unknown, imageUrlFallback: unknown): string | null {
+  const imageUrls = parseImageUrls(imageUrlsValue);
+  if (imageUrls.length > 0) return imageUrls[0] ?? null;
+  const fallback = String(imageUrlFallback ?? "").trim();
+  return fallback.length > 0 ? fallback : null;
+}
+
 function pickRandom<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
 }
@@ -97,6 +112,7 @@ foodsRouter.get("/", async (req, res) => {
         f.description,
         f.price,
         f.image_url,
+        f.image_urls_json,
         f.rating,
         f.review_count,
         f.preparation_time_minutes,
@@ -163,7 +179,7 @@ foodsRouter.get("/", async (req, res) => {
       cardSummary: r.card_summary,
       description: r.description,
       price: parseFloat(r.price),
-      imageUrl: r.image_url,
+      imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
       rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
       reviewCount: r.review_count,
       prepTime: r.preparation_time_minutes,
@@ -210,6 +226,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
             f.id,
             f.name,
             f.image_url,
+            f.image_urls_json,
             f.rating,
             f.review_count,
             COALESCE(SUM(oi.quantity), 0)::int AS sold_qty
@@ -218,7 +235,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
           JOIN foods f ON f.id = oi.food_id
           WHERE o.payment_completed = TRUE
             AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')
-          GROUP BY f.id, f.name, f.image_url, f.rating, f.review_count
+          GROUP BY f.id, f.name, f.image_url, f.image_urls_json, f.rating, f.review_count
         ),
         by_name AS (
           SELECT
@@ -233,6 +250,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
             lower(trim(name)) AS name_key,
             id AS food_id,
             image_url,
+            image_urls_json,
             ROW_NUMBER() OVER (
               PARTITION BY lower(trim(name))
               ORDER BY sold_qty DESC, review_count DESC NULLS LAST, rating DESC NULLS LAST, id
@@ -244,6 +262,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
           b.total_sold,
           tv.food_id,
           tv.image_url,
+          tv.image_urls_json,
           f.price,
           f.description,
           f.preparation_time_minutes AS prep_time,
@@ -282,7 +301,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
     const data = rows.map((r) => ({
       id: r.food_id ?? `dish-${String(r.name ?? "").toLowerCase()}`,
       name: r.name as string,
-      imageUrl: (r.image_url as string | null) ?? null,
+      imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
       totalSold: Number(r.total_sold ?? 0),
       price: r.price != null ? `₺${Number(r.price).toFixed(2)}` : null,
       description: (r.description as string | null) ?? null,
@@ -353,6 +372,7 @@ foodsRouter.get("/top-sold/:foodId/nearest", async (req, res) => {
             f.description,
             f.price,
             f.image_url,
+            f.image_urls_json,
             f.rating,
             f.review_count,
             f.preparation_time_minutes,
@@ -471,7 +491,7 @@ foodsRouter.get("/top-sold/:foodId/nearest", async (req, res) => {
           cardSummary: r.card_summary,
           description: r.description,
           price: parseFloat(r.price),
-          imageUrl: r.image_url,
+          imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
           rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
           reviewCount: Number(r.review_count ?? 0),
           prepTime: r.preparation_time_minutes,
@@ -524,6 +544,7 @@ foodsRouter.get("/recommendations", async (req, res) => {
             f.description,
             f.price,
             f.image_url,
+            f.image_urls_json,
             f.rating,
             f.review_count,
             f.preparation_time_minutes,
@@ -637,7 +658,7 @@ foodsRouter.get("/recommendations", async (req, res) => {
           cardSummary: r.card_summary,
           description: r.description,
           price: parseFloat(r.price),
-          imageUrl: r.image_url,
+          imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
           rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
           reviewCount: r.review_count,
           prepTime: r.preparation_time_minutes,
@@ -767,6 +788,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
           f.description,
           f.price,
           f.image_url,
+          f.image_urls_json,
           f.rating,
           f.review_count,
           f.preparation_time_minutes,
@@ -825,7 +847,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
       cardSummary: r.card_summary,
       description: r.description,
       price: parseFloat(r.price),
-      imageUrl: r.image_url,
+      imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
       rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
       reviewCount: r.review_count,
       prepTime: r.preparation_time_minutes,

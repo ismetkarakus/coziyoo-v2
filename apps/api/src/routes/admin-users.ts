@@ -567,6 +567,26 @@ function ingredientsTextFromJson(value: unknown): string | null {
   return unique.length > 0 ? unique.join(", ") : null;
 }
 
+function imageUrlsFromJson(value: unknown, fallbackImageUrl?: string | null): string[] {
+  const urls = Array.isArray(value)
+    ? value
+      .map((item) => String(item ?? "").trim())
+      .filter((item) => /^https?:\/\//i.test(item) || /^data:/i.test(item))
+    : [];
+  if (urls.length > 0) return urls.slice(0, 5);
+  const fallback = String(fallbackImageUrl ?? "").trim();
+  return fallback ? [fallback] : [];
+}
+
+function deliveryOptionsFromJson(value: unknown): { pickup: boolean; delivery: boolean } | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  return {
+    pickup: Boolean(row.pickup),
+    delivery: Boolean(row.delivery),
+  };
+}
+
 function stableExportStringify(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim().toLowerCase();
@@ -2186,7 +2206,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
     review_count: string;
   }>(
     `SELECT
-       id,
+       f.id,
        email,
        display_name,
        full_name,
@@ -2516,6 +2536,9 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
 
   const rows = await pool.query<{
     id: string;
+    category_id: string | null;
+    category_name: string | null;
+    cuisine: string | null;
     name: string;
     card_summary: string | null;
     description: string | null;
@@ -2523,13 +2546,21 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     ingredients_json: unknown;
     allergens_json: unknown;
     price: string;
+    delivery_fee: string | null;
+    delivery_options_json: unknown;
     image_url: string | null;
+    image_urls_json: unknown;
+    active_lot_count: string;
+    on_sale_quantity: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
   }>(
     `SELECT
        id,
+       f.category_id::text AS category_id,
+       c.name_tr AS category_name,
+       f.cuisine,
        name,
        card_summary,
        description,
@@ -2537,13 +2568,36 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
        ingredients_json,
        allergens_json,
        price::text,
+       delivery_fee::text AS delivery_fee,
+       delivery_options_json,
        image_url,
+       image_urls_json,
+       COALESCE(lot_stats.active_lot_count, 0)::text AS active_lot_count,
+       COALESCE(lot_stats.on_sale_quantity, 0)::text AS on_sale_quantity,
        is_active,
-       created_at::text,
-       updated_at::text
-     FROM foods
-     WHERE seller_id = $1
-     ORDER BY updated_at ${sortDir}, id ${sortDir}
+       f.created_at::text,
+       f.updated_at::text
+     FROM foods f
+     LEFT JOIN categories c ON c.id = f.category_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*) FILTER (
+           WHERE pl.status IN ('open', 'active')
+             AND pl.quantity_available > 0
+             AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= now())
+             AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
+         )::int AS active_lot_count,
+         COALESCE(SUM(pl.quantity_available) FILTER (
+           WHERE pl.status IN ('open', 'active')
+             AND pl.quantity_available > 0
+             AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= now())
+             AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
+         ), 0)::int AS on_sale_quantity
+       FROM production_lots pl
+       WHERE pl.food_id = f.id
+     ) lot_stats ON TRUE
+     WHERE f.seller_id = $1
+     ORDER BY f.updated_at ${sortDir}, f.id ${sortDir}
      LIMIT $2 OFFSET $3`,
     [params.data.id, query.data.pageSize, offset]
   );
@@ -2554,14 +2608,22 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       id: row.id,
       name: row.name,
       code: `FD-${row.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`,
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      cuisine: row.cuisine,
       cardSummary: row.card_summary,
       description: row.description,
       recipe: row.recipe,
       ingredients: ingredientsTextFromJson(row.ingredients_json),
       allergens: textItemsFromJson(row.allergens_json),
       price: Number(row.price),
+      deliveryFee: Number(row.delivery_fee ?? 0),
+      deliveryOptions: deliveryOptionsFromJson(row.delivery_options_json),
       imageUrl: row.image_url,
+      imageUrls: imageUrlsFromJson(row.image_urls_json, row.image_url),
       status: row.is_active ? "active" : "disabled",
+      activeLotCount: Number(row.active_lot_count ?? 0),
+      onSaleQuantity: Number(row.on_sale_quantity ?? 0),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     })),
@@ -2599,27 +2661,40 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
 
   const foods = await pool.query<{
     id: string;
+    category_name: string | null;
+    cuisine: string | null;
     name: string;
     recipe: string | null;
     ingredients_json: unknown;
     allergens_json: unknown;
     price: string;
+    delivery_fee: string | null;
+    delivery_options_json: unknown;
+    image_url: string | null;
+    image_urls_json: unknown;
     is_active: boolean;
     updated_at: string;
   }>(
     `SELECT
-       id,
+       f.id,
+       c.name_tr AS category_name,
+       f.cuisine,
        name,
        recipe,
        ingredients_json,
        allergens_json,
        price::text,
+       delivery_fee::text AS delivery_fee,
+       delivery_options_json,
+       image_url,
+       image_urls_json,
        is_active,
-       updated_at::text
-     FROM foods
-     WHERE seller_id = $1
+       f.updated_at::text
+     FROM foods f
+     LEFT JOIN categories c ON c.id = f.category_id
+     WHERE f.seller_id = $1
        AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
-     ORDER BY updated_at DESC, id DESC`,
+     ORDER BY f.updated_at DESC, f.id DESC`,
     [params.data.id, scopedFoodIds.length > 0 ? scopedFoodIds : null]
   );
 
@@ -2680,8 +2755,21 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
       "Food ID": food.id,
       "Food Code": foodCode,
       Food: food.name,
+      Category: food.category_name ?? "-",
+      Cuisine: food.cuisine ?? "-",
       Status: food.is_active ? "Active" : "Disabled",
       Price: Number(food.price),
+      "Delivery Fee": Number(food.delivery_fee ?? 0),
+      "Delivery Options": (() => {
+        const options = deliveryOptionsFromJson(food.delivery_options_json);
+        if (!options) return "-";
+        if (options.pickup && options.delivery) return "pickup+delivery";
+        if (options.pickup) return "pickup";
+        if (options.delivery) return "delivery";
+        return "-";
+      })(),
+      "Primary Image": food.image_url ?? "-",
+      "Image URLs": imageUrlsFromJson(food.image_urls_json, food.image_url).join(", ") || "-",
       "Updated At": food.updated_at,
       Ingredients: ingredientItems.join(", ") || "-",
       Spices: spices.join(", ") || "-",
