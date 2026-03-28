@@ -25,7 +25,14 @@ type SellerFood = {
   description: string | null;
   recipe: string | null;
   cuisine: string | null;
-  menuItems?: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  menuItems?: Array<{
+    name: string;
+    categoryId?: string;
+    categoryName?: string | null;
+    kind?: "sauce" | "extra" | "appetizer";
+    pricing?: "free" | "paid";
+    price?: number;
+  }>;
   secondaryCategories?: Array<{ id: string; name: string }>;
   price: number;
   deliveryFee: number;
@@ -43,6 +50,21 @@ type FoodCategoryOption = {
   id: string;
   name: string;
 };
+
+type AddonKind = "sauce" | "extra" | "appetizer";
+type AddonPricing = "free" | "paid";
+type SellerMenuAddon = {
+  name: string;
+  kind: AddonKind;
+  pricing: AddonPricing;
+  price?: number;
+};
+
+const ADDON_KIND_OPTIONS: Array<{ value: AddonKind; label: string }> = [
+  { value: "sauce", label: "Soslar" },
+  { value: "extra", label: "Ek Gıdalar" },
+  { value: "appetizer", label: "Aparatifler" },
+];
 
 function fallbackHomeCategoryOptions(): FoodCategoryOption[] {
   return HOME_FOOD_CATEGORIES.map((name) => ({
@@ -108,7 +130,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [saving, setSaving] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [categoryPickerTarget, setCategoryPickerTarget] = useState<"main" | "menuItem">("main");
   const [foods, setFoods] = useState<SellerFood[]>([]);
   const [categories, setCategories] = useState<FoodCategoryOption[]>([]);
   const [editingFood, setEditingFood] = useState<SellerFood | null>(null);
@@ -141,9 +162,12 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState("");
   const [deliveryDistanceKm, setDeliveryDistanceKm] = useState("");
-  const [menuItems, setMenuItems] = useState<Array<{ name: string; categoryId?: string }>>([]);
-  const [menuItemNameInput, setMenuItemNameInput] = useState("");
-  const [menuItemCategoryIdInput, setMenuItemCategoryIdInput] = useState("");
+  const [menuItems, setMenuItems] = useState<SellerMenuAddon[]>([]);
+  const [freeAddonNameInput, setFreeAddonNameInput] = useState("");
+  const [freeAddonKindInput, setFreeAddonKindInput] = useState<AddonKind>("extra");
+  const [paidAddonNameInput, setPaidAddonNameInput] = useState("");
+  const [paidAddonKindInput, setPaidAddonKindInput] = useState<AddonKind>("extra");
+  const [paidAddonPriceInput, setPaidAddonPriceInput] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -256,8 +280,11 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setDeliveryFee("");
     setDeliveryDistanceKm("");
     setMenuItems([]);
-    setMenuItemNameInput("");
-    setMenuItemCategoryIdInput("");
+    setFreeAddonNameInput("");
+    setFreeAddonKindInput("extra");
+    setPaidAddonNameInput("");
+    setPaidAddonKindInput("extra");
+    setPaidAddonPriceInput("");
   }
 
   function openEdit(food: SellerFood) {
@@ -284,17 +311,27 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       ? food.menuItems
         .map((item) => ({
           name: String(item?.name ?? "").trim(),
-          categoryId: typeof item?.categoryId === "string" ? item.categoryId : undefined,
+          kind: (item?.kind === "sauce" || item?.kind === "appetizer" ? item.kind : "extra") as AddonKind,
+          pricing: (item?.pricing === "paid" ? "paid" : "free") as AddonPricing,
+          price: typeof item?.price === "number" && Number.isFinite(item.price) ? Number(item.price) : undefined,
         }))
         .filter((item) => item.name)
+        .map((item) => (
+          item.pricing === "paid" && Number.isFinite(item.price)
+            ? { ...item, price: Number(item.price) }
+            : { name: item.name, kind: item.kind, pricing: "free" as const }
+        ))
       : [];
     setMenuItems(
       normalizedMenuItems.length > 0
         ? normalizedMenuItems
-        : [{ name: food.name, categoryId: food.categoryId ?? undefined }],
+        : [{ name: food.name, kind: "extra", pricing: "free" }],
     );
-    setMenuItemNameInput("");
-    setMenuItemCategoryIdInput("");
+    setFreeAddonNameInput("");
+    setFreeAddonKindInput("extra");
+    setPaidAddonNameInput("");
+    setPaidAddonKindInput("extra");
+    setPaidAddonPriceInput("");
   }
 
   const canShowDeliveryFee = deliveryEnabled;
@@ -370,7 +407,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         return;
       }
       if (menuItems.length < 1) {
-        Alert.alert("Hata", "Menü içeriğinde en az 1 kalem olmalı.");
+        Alert.alert("Hata", "Ekler bölümünde en az 1 kalem olmalı.");
         return;
       }
       if (options?.publishAfterSave && !recipe.trim()) {
@@ -394,6 +431,19 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       const normalizedIngredients = ingredientItemsFromInput.length > 0
         ? ingredientItemsFromInput
         : ingredientItemsFromDescription;
+      const normalizedAddons = menuItems.map((item) => ({
+        name: item.name.trim(),
+        kind: item.kind,
+        pricing: item.pricing,
+        ...(item.pricing === "paid" && Number.isFinite(item.price) ? { price: Number(item.price) } : {}),
+      }));
+      const invalidPaidAddon = normalizedAddons.find(
+        (item) => item.pricing === "paid" && (!("price" in item) || Number(item.price) <= 0),
+      );
+      if (invalidPaidAddon) {
+        Alert.alert("Hata", "Ücretli eklerde fiyat 0'dan büyük olmalı.");
+        return;
+      }
       const payload: Record<string, unknown> = {
         name: name.trim(),
         price: parsedPrice,
@@ -409,8 +459,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
         deliveryDistanceKm: Number.isFinite(parsedDeliveryDistance) ? parsedDeliveryDistance : undefined,
-        menuItems,
-        secondaryCategoryIds: Array.from(new Set(menuItems.map((item) => item.categoryId).filter(Boolean) as string[])),
+        menuItems: normalizedAddons,
+        secondaryCategoryIds: [],
       };
 
       if (isUuid(categoryId)) {
@@ -504,24 +554,42 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     }
   }
 
-  function addMenuItem() {
-    const rawName = menuItemNameInput.trim().replace(/\s+/g, " ");
+  function addAddon(pricing: AddonPricing) {
+    const rawName = (pricing === "free" ? freeAddonNameInput : paidAddonNameInput).trim().replace(/\s+/g, " ");
     if (!rawName) {
-      Alert.alert("Hata", "Menü kalemi adı zorunlu.");
+      Alert.alert("Hata", "Ek adı zorunlu.");
       return;
     }
-    const normalizedKey = rawName.toLocaleLowerCase("tr-TR");
-    if (menuItems.some((item) => item.name.trim().toLocaleLowerCase("tr-TR") === normalizedKey)) {
-      Alert.alert("Hata", "Aynı menü kalemi tekrar eklenemez.");
+    const kind = pricing === "free" ? freeAddonKindInput : paidAddonKindInput;
+    const normalizedKey = `${rawName.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}`;
+    if (
+      menuItems.some(
+        (item) => `${item.name.trim().toLocaleLowerCase("tr-TR")}|${item.kind}|${item.pricing}` === normalizedKey,
+      )
+    ) {
+      Alert.alert("Hata", "Aynı ek tekrar eklenemez.");
       return;
     }
-    const next = {
+    const next: SellerMenuAddon = {
       name: rawName,
-      categoryId: isUuid(menuItemCategoryIdInput) ? menuItemCategoryIdInput : undefined,
+      kind,
+      pricing,
     };
+    if (pricing === "paid") {
+      const parsed = parseLocalizedDecimal(paidAddonPriceInput);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        Alert.alert("Hata", "Ücretli ek için fiyat zorunlu.");
+        return;
+      }
+      next.price = Number(parsed.toFixed(2));
+    }
     setMenuItems((prev) => [...prev, next]);
-    setMenuItemNameInput("");
-    setMenuItemCategoryIdInput("");
+    if (pricing === "free") {
+      setFreeAddonNameInput("");
+    } else {
+      setPaidAddonNameInput("");
+      setPaidAddonPriceInput("");
+    }
   }
 
   function removeMenuItem(index: number) {
@@ -623,6 +691,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     .filter(Boolean)
     .slice(0, 2)
     .join(", ");
+  const freeMenuItems = menuItems.filter((item) => item.pricing === "free");
+  const paidMenuItems = menuItems.filter((item) => item.pricing === "paid");
 
   return (
     <View style={styles.container}>
@@ -697,7 +767,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               if (!loadingCategories && categories.length === 0) {
                 void loadCategories();
               }
-              setCategoryPickerTarget("main");
               setCategoryModalVisible(true);
             }}
             activeOpacity={0.85}
@@ -727,51 +796,98 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             multiline
           />
 
-          <Text style={styles.sectionTitle}>Menü İçerikleri *</Text>
-          <View style={styles.menuItemInputRow}>
-            <TextInput
-              style={[styles.input, styles.menuItemNameInput]}
-              value={menuItemNameInput}
-              onChangeText={setMenuItemNameInput}
-              placeholder="Örn: Kuru fasulye"
-              placeholderTextColor={PLACEHOLDER_COLOR}
-            />
+          <Text style={styles.sectionTitle}>Ücretsiz Ekler *</Text>
+          <View style={styles.kindRow}>
+            {ADDON_KIND_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={`free-kind-${option.value}`}
+                style={[styles.kindChip, freeAddonKindInput === option.value && styles.kindChipActive]}
+                onPress={() => setFreeAddonKindInput(option.value)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.kindChipText, freeAddonKindInput === option.value && styles.kindChipTextActive]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <TouchableOpacity
-            style={[styles.input, styles.dropdownInput, { marginTop: 8 }]}
-            onPress={() => {
-              if (!loadingCategories && categories.length === 0) {
-                void loadCategories();
-              }
-              setCategoryPickerTarget("menuItem");
-              setCategoryModalVisible(true);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={menuItemCategoryIdInput ? styles.dropdownValue : styles.dropdownPlaceholder}>
-              {menuItemCategoryIdInput
-                ? (categories.find((item) => item.id === menuItemCategoryIdInput)?.name ?? "Kategori")
-                : "Kalem kategorisi (opsiyonel)"}
-            </Text>
-            <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addMenuItemBtn} onPress={addMenuItem} activeOpacity={0.85}>
-            <Text style={styles.addMenuItemBtnText}>+ Kalem Ekle</Text>
+          <TextInput
+            style={styles.input}
+            value={freeAddonNameInput}
+            onChangeText={setFreeAddonNameInput}
+            placeholder="Örn: Acı sos"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+          />
+          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => addAddon("free")} activeOpacity={0.85}>
+            <Text style={styles.addMenuItemBtnText}>+ Ücretsiz ek ekle</Text>
           </TouchableOpacity>
           <View style={styles.menuItemsWrap}>
-            {menuItems.map((item, index) => (
-              <View key={`${item.name}-${index}`} style={styles.menuItemChip}>
-                <Text style={styles.menuItemChipText}>
-                  {item.name}
-                  {item.categoryId
-                    ? ` · ${categories.find((c) => c.id === item.categoryId)?.name ?? "Kategori"}`
-                    : ""}
+            {freeMenuItems.map((item, index) => {
+              const absoluteIndex = menuItems.findIndex(
+                (entry) => entry.name === item.name && entry.kind === item.kind && entry.pricing === item.pricing,
+              );
+              return (
+                <View key={`free-${item.name}-${index}`} style={styles.menuItemChip}>
+                  <Text style={styles.menuItemChipText}>{item.name} · {ADDON_KIND_OPTIONS.find((x) => x.value === item.kind)?.label}</Text>
+                  <TouchableOpacity onPress={() => removeMenuItem(absoluteIndex)} hitSlop={8}>
+                    <Ionicons name="close" size={16} color="#2F241C" />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+
+          <Text style={styles.sectionTitle}>Ücretli Ekler</Text>
+          <View style={styles.kindRow}>
+            {ADDON_KIND_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={`paid-kind-${option.value}`}
+                style={[styles.kindChip, paidAddonKindInput === option.value && styles.kindChipActive]}
+                onPress={() => setPaidAddonKindInput(option.value)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.kindChipText, paidAddonKindInput === option.value && styles.kindChipTextActive]}>
+                  {option.label}
                 </Text>
-                <TouchableOpacity onPress={() => removeMenuItem(index)} hitSlop={8}>
-                  <Ionicons name="close" size={16} color="#2F241C" />
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
+          </View>
+          <View style={styles.row2}>
+            <TextInput
+              style={[styles.input, styles.rowItem]}
+              value={paidAddonNameInput}
+              onChangeText={setPaidAddonNameInput}
+              placeholder="Örn: Özel sos"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+            />
+            <TextInput
+              style={[styles.input, styles.rowItem]}
+              value={paidAddonPriceInput}
+              onChangeText={setPaidAddonPriceInput}
+              placeholder="Ücret (₺)"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => addAddon("paid")} activeOpacity={0.85}>
+            <Text style={styles.addMenuItemBtnText}>+ Ücretli ek ekle</Text>
+          </TouchableOpacity>
+          <View style={styles.menuItemsWrap}>
+            {paidMenuItems.map((item, index) => {
+              const absoluteIndex = menuItems.findIndex(
+                (entry) => entry.name === item.name && entry.kind === item.kind && entry.pricing === item.pricing && entry.price === item.price,
+              );
+              return (
+                <View key={`paid-${item.name}-${index}`} style={styles.menuItemChip}>
+                  <Text style={styles.menuItemChipText}>
+                    {item.name} · {ADDON_KIND_OPTIONS.find((x) => x.value === item.kind)?.label} · {Number(item.price ?? 0).toFixed(2)} ₺
+                  </Text>
+                  <TouchableOpacity onPress={() => removeMenuItem(absoluteIndex)} hitSlop={8}>
+                    <Ionicons name="close" size={16} color="#2F241C" />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
 
           <Text style={styles.sectionTitle}>Tarif</Text>
@@ -1053,18 +1169,14 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             ) : (
               <ScrollView style={styles.categoryList} contentContainerStyle={styles.categoryListContent}>
                 {categories.map((item) => {
-                  const selectedCategoryForTarget = categoryPickerTarget === "main" ? categoryId : menuItemCategoryIdInput;
+                  const selectedCategoryForTarget = categoryId;
                   const isSelected = selectedCategoryForTarget === item.id;
                   return (
                     <TouchableOpacity
                       key={item.id}
                       style={[styles.categoryOption, isSelected && styles.categoryOptionActive]}
                       onPress={() => {
-                        if (categoryPickerTarget === "main") {
-                          setCategoryId(item.id);
-                        } else {
-                          setMenuItemCategoryIdInput(item.id);
-                        }
+                        setCategoryId(item.id);
                         setCategoryModalVisible(false);
                       }}
                     >
@@ -1106,8 +1218,21 @@ const styles = StyleSheet.create({
   },
   dropdownPlaceholder: { color: "#8A7A6A" },
   dropdownValue: { color: "#2E241C", fontWeight: "600" },
-  menuItemInputRow: { flexDirection: "row", alignItems: "center" },
-  menuItemNameInput: { flex: 1 },
+  kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  kindChip: {
+    borderWidth: 1,
+    borderColor: "#DCD2C2",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "#fff",
+  },
+  kindChipActive: {
+    borderColor: "#3F855C",
+    backgroundColor: "#EAF4EC",
+  },
+  kindChipText: { color: "#5C4D3F", fontSize: 12, fontWeight: "700" },
+  kindChipTextActive: { color: "#2E6B44" },
   addMenuItemBtn: {
     marginTop: 8,
     borderRadius: 10,

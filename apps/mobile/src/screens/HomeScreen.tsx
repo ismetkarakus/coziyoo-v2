@@ -150,7 +150,14 @@ type ApiFoodItem = {
   category: string | null;
   allergens?: string[];
   ingredients?: string[];
-  menuItems?: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  menuItems?: Array<{
+    name: string;
+    categoryId?: string;
+    categoryName?: string | null;
+    kind?: "sauce" | "extra" | "appetizer";
+    pricing?: "free" | "paid";
+    price?: number;
+  }>;
   secondaryCategories?: Array<{ id: string; name: string }>;
   cuisine?: string | null;
   lotId?: string | null;
@@ -168,6 +175,12 @@ type MealCard = {
   allergens: string[];
   ingredients: string[];
   menuItems: string[];
+  addons: Array<{
+    name: string;
+    kind: "sauce" | "extra" | "appetizer";
+    pricing: "free" | "paid";
+    price?: number;
+  }>;
   description: string;
   cuisine: string;
   lotId?: string | null;
@@ -194,6 +207,50 @@ function formatCuisineLabel(cuisine?: string | null): string {
   const lower = value.toLocaleLowerCase("tr-TR");
   if (lower.endsWith(" mutfağı") || lower.endsWith(" mutfagi")) return value;
   return `${value} Mutfağı`;
+}
+
+function addonKindLabel(kind: "sauce" | "extra" | "appetizer"): string {
+  if (kind === "sauce") return "Soslar";
+  if (kind === "appetizer") return "Aparatifler";
+  return "Ek Gıdalar";
+}
+
+function normalizeMealAddons(value: ApiFoodItem["menuItems"]): MealCard["addons"] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const items: MealCard["addons"] = [];
+  for (const raw of value) {
+    const name = String(raw?.name ?? "").trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const kind = raw?.kind === "sauce" || raw?.kind === "appetizer" ? raw.kind : "extra";
+    const pricing = raw?.pricing === "paid" ? "paid" : "free";
+    const parsedPrice = Number(raw?.price);
+    const price = Number.isFinite(parsedPrice) ? Number(parsedPrice.toFixed(2)) : undefined;
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}|${price ?? 0}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (pricing === "paid" && price && price > 0) {
+      items.push({ name, kind, pricing, price });
+    } else {
+      items.push({ name, kind, pricing: "free" });
+    }
+  }
+  return items.slice(0, 50);
+}
+
+function buildCartItemKey(
+  mealId: string,
+  selectedAddons: CartItem["selectedAddons"],
+): string {
+  const free = [...selectedAddons.free]
+    .map((item) => `${item.name}|${item.kind}`)
+    .sort()
+    .join(",");
+  const paid = [...selectedAddons.paid]
+    .map((item) => `${item.name}|${item.kind}|${item.price}`)
+    .sort()
+    .join(",");
+  return `${mealId}::${free}::${paid}`;
 }
 
 type FavoriteFoodItem = {
@@ -248,8 +305,13 @@ type SellerReview = {
 };
 
 type CartItem = {
+  key: string;
   meal: MealCard;
   quantity: number;
+  selectedAddons: {
+    free: Array<{ name: string; kind: "sauce" | "extra" | "appetizer" }>;
+    paid: Array<{ name: string; kind: "sauce" | "extra" | "appetizer"; price: number }>;
+  };
 };
 
 type PaymentStatusSnapshot = {
@@ -673,6 +735,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
       .map((entry) => String(entry?.name ?? "").trim())
       .filter(Boolean)
     : [];
+  const addons = normalizeMealAddons(item.menuItems);
   return {
     id: item.id,
     title: item.name,
@@ -683,6 +746,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     allergens: item.allergens ?? [],
     ingredients: item.ingredients ?? [],
     menuItems,
+    addons,
     description: item.description ?? '',
     cuisine: item.cuisine ?? '',
     lotId: item.lotId ?? null,
@@ -1071,6 +1135,10 @@ export default function HomeScreen({
   const [inboxInput, setInboxInput] = useState('');
   const [messagesWallpaperIndex, setMessagesWallpaperIndex] = useState(0);
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
+  const [selectedMealAddons, setSelectedMealAddons] = useState<CartItem["selectedAddons"]>({
+    free: [],
+    paid: [],
+  });
   const [mealModalAnimType, setMealModalAnimType] = useState<'slide' | 'none'>('slide');
   const [selectedSeller, setSelectedSeller] = useState<{
     id: string;
@@ -1155,6 +1223,10 @@ export default function HomeScreen({
     () => userAddresses.find((item) => item.isDefault) ?? null,
     [userAddresses],
   );
+
+  useEffect(() => {
+    setSelectedMealAddons({ free: [], paid: [] });
+  }, [selectedMeal?.id]);
   const selectedCheckoutAddress = useMemo(() => {
     if (selectedCheckoutAddressId) {
       return userAddresses.find((item) => item.id === selectedCheckoutAddressId) ?? defaultAddress;
@@ -1793,7 +1865,10 @@ export default function HomeScreen({
     setLocationModalVisible(false);
   }
 
-  function doAddMealToCart(meal: MealCard) {
+  function doAddMealToCart(
+    meal: MealCard,
+    selectedAddons: CartItem["selectedAddons"] = { free: [], paid: [] },
+  ) {
     setActiveOrderId(null);
     setActiveOrderIds([]);
     setPaymentError(null);
@@ -1803,7 +1878,8 @@ export default function HomeScreen({
     setCartItems((prev) => {
       const latestMeal = meals.find((m) => m.id === meal.id) ?? meal;
       const totalStock = Math.max(0, latestMeal.stock ?? 0);
-      const existing = prev.find((item) => item.meal.id === meal.id);
+      const nextKey = buildCartItemKey(latestMeal.id, selectedAddons);
+      const existing = prev.find((item) => item.key === nextKey);
       const existingQty = existing?.quantity ?? 0;
       if (totalStock <= existingQty) {
         Alert.alert(t('helper.home.stockLimitTitle'), t('helper.home.stockLimitMessage'));
@@ -1811,18 +1887,18 @@ export default function HomeScreen({
       }
       if (!existing) {
         showCartToast();
-        return [...prev, { meal: latestMeal, quantity: 1 }];
+        return [...prev, { key: nextKey, meal: latestMeal, quantity: 1, selectedAddons }];
       }
       showCartToast();
       return prev.map((item) =>
-        item.meal.id === meal.id
+        item.key === nextKey
           ? { ...item, meal: latestMeal, quantity: item.quantity + 1 }
           : item,
       );
     });
   }
 
-  function addMealToCart(meal: MealCard) {
+  function addMealToCart(meal: MealCard, selectedAddons: CartItem["selectedAddons"] = { free: [], paid: [] }) {
     const allergens = Array.isArray(meal.allergens) ? meal.allergens.filter(Boolean) : [];
     if (allergens.length > 0) {
       Alert.alert(
@@ -1830,15 +1906,36 @@ export default function HomeScreen({
         `Bu yemek şu alerjenler içermektedir:\n\n🔴 ${allergens.join('\n🔴 ')}\n\nYine de sepete eklemek istiyor musunuz?`,
         [
           { text: 'İptal', style: 'cancel' },
-          { text: 'Yine de Ekle', style: 'destructive', onPress: () => doAddMealToCart(meal) },
+          { text: 'Yine de Ekle', style: 'destructive', onPress: () => doAddMealToCart(meal, selectedAddons) },
         ],
       );
       return;
     }
-    doAddMealToCart(meal);
+    doAddMealToCart(meal, selectedAddons);
   }
 
-  function decreaseCartItem(mealId: string) {
+  function toggleSelectedMealAddon(addon: MealCard["addons"][number]) {
+    setSelectedMealAddons((prev) => {
+      if (addon.pricing === "paid") {
+        const exists = prev.paid.some((item) => item.name === addon.name && item.kind === addon.kind && item.price === addon.price);
+        return exists
+          ? {
+              ...prev,
+              paid: prev.paid.filter((item) => !(item.name === addon.name && item.kind === addon.kind && item.price === addon.price)),
+            }
+          : {
+              ...prev,
+              paid: [...prev.paid, { name: addon.name, kind: addon.kind, price: Number(addon.price ?? 0) }],
+            };
+      }
+      const exists = prev.free.some((item) => item.name === addon.name && item.kind === addon.kind);
+      return exists
+        ? { ...prev, free: prev.free.filter((item) => !(item.name === addon.name && item.kind === addon.kind)) }
+        : { ...prev, free: [...prev.free, { name: addon.name, kind: addon.kind }] };
+    });
+  }
+
+  function decreaseCartItem(itemKey: string) {
     setActiveOrderId(null);
     setActiveOrderIds([]);
     setPaymentError(null);
@@ -1846,13 +1943,13 @@ export default function HomeScreen({
     setPaymentStatus(null);
     setPendingCheckoutUrls([]);
     setCartItems((prev) => {
-      const current = prev.find((item) => item.meal.id === mealId);
+      const current = prev.find((item) => item.key === itemKey);
       if (!current) return prev;
       if (current.quantity <= 1) {
-        return prev.filter((item) => item.meal.id !== mealId);
+        return prev.filter((item) => item.key !== itemKey);
       }
       return prev.map((item) =>
-        item.meal.id === mealId
+        item.key === itemKey
           ? { ...item, quantity: item.quantity - 1 }
           : item,
       );
@@ -1937,6 +2034,7 @@ export default function HomeScreen({
             items: sellerItems.map((item) => ({
               lotId: item.meal.lotId,
               quantity: item.quantity,
+              selectedAddons: item.selectedAddons,
             })),
           }),
         });
@@ -2547,7 +2645,9 @@ export default function HomeScreen({
         </View>
         {visibleMeals.map((meal) => {
           const totalStock = Math.max(0, meal.stock ?? 0);
-          const inCartQty = cartItems.find((item) => item.meal.id === meal.id)?.quantity ?? 0;
+          const inCartQty = cartItems
+            .filter((item) => item.meal.id === meal.id)
+            .reduce((sum, item) => sum + item.quantity, 0);
           const remainingStock = Math.max(0, totalStock - inCartQty);
           return (
             <FoodCard
@@ -2637,7 +2737,8 @@ export default function HomeScreen({
     if (activeTab === 'cart') {
       const total = cartItems.reduce((sum, item) => {
         const value = Number(item.meal.price.replace(/[^\d.,]/g, '').replace(',', '.'));
-        return sum + value * item.quantity;
+        const addonsTotal = item.selectedAddons.paid.reduce((addonSum, addon) => addonSum + addon.price, 0);
+        return sum + (value + addonsTotal) * item.quantity;
       }, 0);
       return (
         <View style={styles.cartWrap}>
@@ -2657,12 +2758,22 @@ export default function HomeScreen({
                 showsVerticalScrollIndicator={false}
               >
                 {cartItems.map((item) => (
-                  <View key={item.meal.id} style={styles.cartItemCard}>
+                  <View key={item.key} style={styles.cartItemCard}>
                     <View style={styles.cartItemTextWrap}>
                       <Text style={styles.cartItemTitle}>{item.meal.title}</Text>
                       <Text style={styles.cartItemSeller}>
                         {formatSellerIdentity(item.meal.seller, item.meal.sellerUsername)}
                       </Text>
+                      {item.selectedAddons.free.length > 0 ? (
+                        <Text style={styles.cartAddonLine}>
+                          Ücretsiz: {item.selectedAddons.free.map((addon) => addon.name).join(', ')}
+                        </Text>
+                      ) : null}
+                      {item.selectedAddons.paid.length > 0 ? (
+                        <Text style={styles.cartAddonLine}>
+                          Ücretli: {item.selectedAddons.paid.map((addon) => `${addon.name} (+₺${addon.price.toFixed(2)})`).join(', ')}
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={styles.cartItemRight}>
                       <Text style={styles.cartItemPrice}>
@@ -2671,7 +2782,7 @@ export default function HomeScreen({
                       <View style={styles.cartQtyRow}>
                         <TouchableOpacity
                           style={styles.cartQtyBtn}
-                          onPress={() => decreaseCartItem(item.meal.id)}
+                          onPress={() => decreaseCartItem(item.key)}
                           activeOpacity={0.85}
                         >
                           <Ionicons name="remove" size={14} color="#5F5246" />
@@ -2679,7 +2790,7 @@ export default function HomeScreen({
                         <Text style={styles.cartQtyText}>{item.quantity}</Text>
                         <TouchableOpacity
                           style={styles.cartQtyBtn}
-                          onPress={() => addMealToCart(item.meal)}
+                          onPress={() => addMealToCart(item.meal, item.selectedAddons)}
                           activeOpacity={0.85}
                         >
                           <Ionicons name="add" size={14} color="#5F5246" />
@@ -3355,12 +3466,61 @@ export default function HomeScreen({
                 </View>
               )}
 
+              {selectedMeal.addons.length > 0 ? (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Ücretsiz Ekler</Text>
+                  <View style={styles.modalAddonsWrap}>
+                    {selectedMeal.addons
+                      .filter((addon) => addon.pricing === 'free')
+                      .map((addon, index) => {
+                        const selected = selectedMealAddons.free.some(
+                          (item) => item.name === addon.name && item.kind === addon.kind,
+                        );
+                        return (
+                          <TouchableOpacity
+                            key={`free-addon-${addon.name}-${index}`}
+                            style={[styles.modalAddonChip, selected && styles.modalAddonChipSelected]}
+                            onPress={() => toggleSelectedMealAddon(addon)}
+                            activeOpacity={0.85}
+                          >
+                            <Text style={[styles.modalAddonChipText, selected && styles.modalAddonChipTextSelected]}>
+                              {addon.name} · {addonKindLabel(addon.kind)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </View>
+                  <Text style={[styles.modalSectionTitle, { marginTop: 12 }]}>Ücretli Ekler</Text>
+                  <View style={styles.modalAddonsWrap}>
+                    {selectedMeal.addons
+                      .filter((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0)
+                      .map((addon, index) => {
+                        const selected = selectedMealAddons.paid.some(
+                          (item) => item.name === addon.name && item.kind === addon.kind && item.price === Number(addon.price ?? 0),
+                        );
+                        return (
+                          <TouchableOpacity
+                            key={`paid-addon-${addon.name}-${index}`}
+                            style={[styles.modalAddonChip, selected && styles.modalAddonChipSelected]}
+                            onPress={() => toggleSelectedMealAddon(addon)}
+                            activeOpacity={0.85}
+                          >
+                            <Text style={[styles.modalAddonChipText, selected && styles.modalAddonChipTextSelected]}>
+                              {addon.name} · {addonKindLabel(addon.kind)} · +₺{Number(addon.price ?? 0).toFixed(2)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </View>
+                </View>
+              ) : null}
+
               <Text style={styles.modalPrice}>{selectedMeal.price}</Text>
               <TouchableOpacity
                 style={styles.modalCartButton}
                 activeOpacity={0.85}
                 onPress={() => {
-                  addMealToCart(selectedMeal);
+                  addMealToCart(selectedMeal, selectedMealAddons);
                   setSelectedMeal(null);
                 }}
               >
@@ -4525,6 +4685,7 @@ const styles = StyleSheet.create({
   cartItemTextWrap: { flex: 1, paddingRight: 8 },
   cartItemTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700' },
   cartItemSeller: { color: '#8D8072', fontSize: 12, marginTop: 2 },
+  cartAddonLine: { color: '#7A6D5D', fontSize: 11, marginTop: 3, lineHeight: 15 },
   cartItemRight: { alignItems: 'flex-end' },
   cartItemPrice: { color: '#3D3229', fontSize: 14, fontWeight: '700', marginBottom: 6 },
   cartQtyRow: { flexDirection: 'row', alignItems: 'center' },
@@ -5198,6 +5359,21 @@ const styles = StyleSheet.create({
   modalSection: { width: '100%' as unknown as number, marginBottom: 12 },
   modalSectionTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700', marginBottom: 8 },
   modalTagsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  modalAddonsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  modalAddonChip: {
+    borderWidth: 1,
+    borderColor: '#D8CEBF',
+    borderRadius: 999,
+    backgroundColor: '#FFFDF9',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  modalAddonChipSelected: {
+    borderColor: '#3E845B',
+    backgroundColor: '#EAF4EC',
+  },
+  modalAddonChipText: { color: '#5E5247', fontSize: 12, fontWeight: '600' },
+  modalAddonChipTextSelected: { color: '#2E6B44', fontWeight: '700' },
   modalIngredientsPlain: { color: '#5F5246', fontSize: 14, lineHeight: 20 },
   modalAllergenTag: { backgroundColor: '#FDECEA', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#F5C6CB' },
   modalAllergenText: { color: '#DC3545', fontSize: 13, fontWeight: '600' },

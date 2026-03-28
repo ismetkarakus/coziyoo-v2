@@ -587,23 +587,50 @@ function deliveryOptionsFromJson(value: unknown): { pickup: boolean; delivery: b
   };
 }
 
-type MenuItemView = { name: string; categoryId?: string; categoryName?: string | null };
+type MenuItemView = {
+  name: string;
+  categoryId?: string;
+  categoryName?: string | null;
+  kind: "sauce" | "extra" | "appetizer";
+  pricing: "free" | "paid";
+  price?: number;
+};
 type SecondaryCategoryView = { id: string; name: string };
 
-function menuItemsFromJson(value: unknown): Array<{ name: string; categoryId?: string }> {
+function menuItemsFromJson(value: unknown): Array<{
+  name: string;
+  categoryId?: string;
+  kind: "sauce" | "extra" | "appetizer";
+  pricing: "free" | "paid";
+  price?: number;
+}> {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
-  const rows: Array<{ name: string; categoryId?: string }> = [];
+  const rows: Array<{
+    name: string;
+    categoryId?: string;
+    kind: "sauce" | "extra" | "appetizer";
+    pricing: "free" | "paid";
+    price?: number;
+  }> = [];
   for (const raw of value) {
     if (!raw || typeof raw !== "object") continue;
     const record = raw as Record<string, unknown>;
     const name = String(record.name ?? "").trim().replace(/\s+/g, " ");
     if (!name) continue;
-    const key = name.toLocaleLowerCase("tr-TR");
+    const rawKind = String(record.kind ?? "").trim().toLocaleLowerCase("en-US");
+    const kind: "sauce" | "extra" | "appetizer" =
+      rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
+    const rawPricing = String(record.pricing ?? "").trim().toLocaleLowerCase("en-US");
+    const pricing: "free" | "paid" = rawPricing === "paid" ? "paid" : "free";
+    const rawPrice = Number(record.price);
+    const price = Number.isFinite(rawPrice) ? Number(rawPrice.toFixed(2)) : undefined;
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}`;
     if (seen.has(key)) continue;
     seen.add(key);
     const categoryId = typeof record.categoryId === "string" && record.categoryId.trim() ? record.categoryId.trim() : undefined;
-    rows.push(categoryId ? { name, categoryId } : { name });
+    const base = { name, kind, pricing, ...(categoryId ? { categoryId } : {}) };
+    rows.push(pricing === "paid" && price && price > 0 ? { ...base, price } : base);
   }
   return rows.slice(0, 20);
 }
@@ -639,6 +666,9 @@ function mapMenuItemsWithNames(value: unknown, categoryMap: Map<string, string>)
     name: item.name,
     categoryId: item.categoryId,
     categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
+    kind: item.kind,
+    pricing: item.pricing,
+    ...(item.pricing === "paid" && Number.isFinite(item.price) ? { price: Number(item.price) } : {}),
   }));
 }
 
@@ -3663,7 +3693,8 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
            'imageUrl', f.image_url,
            'quantity', oi.quantity,
            'unitPrice', oi.unit_price,
-           'lineTotal', oi.line_total
+           'lineTotal', oi.line_total,
+           'selectedAddons', COALESCE(oi.selected_addons_json, '{"free":[],"paid":[]}'::jsonb)
          )
          ORDER BY oi.created_at ASC
        ) AS items_json
@@ -3786,7 +3817,8 @@ adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), 
            'imageUrl', f.image_url,
            'quantity', oi.quantity,
            'unitPrice', oi.unit_price,
-           'lineTotal', oi.line_total
+           'lineTotal', oi.line_total,
+           'selectedAddons', COALESCE(oi.selected_addons_json, '{"free":[],"paid":[]}'::jsonb)
          )
          ORDER BY oi.created_at ASC
        ) AS items_json
@@ -4308,7 +4340,8 @@ adminUserManagementRouter.get("/users/:id/buyer-cancellations", requireAuth("adm
            'name', f.name,
            'imageUrl', f.image_url,
            'quantity', oi.quantity,
-           'lineTotal', oi.line_total
+           'lineTotal', oi.line_total,
+           'selectedAddons', COALESCE(oi.selected_addons_json, '{"free":[],"paid":[]}'::jsonb)
          )
          ORDER BY oi.created_at ASC
        ) AS items_json

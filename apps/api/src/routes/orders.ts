@@ -25,7 +25,21 @@ const CreateOrderSchema = z.object({
   deliveryType: z.enum(["pickup", "delivery"]),
   deliveryAddress: z.record(z.string(), z.unknown()).optional(),
   requestedAt: z.string().datetime().optional(),
-  items: z.array(z.object({ lotId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
+  items: z.array(z.object({
+    lotId: z.string().uuid(),
+    quantity: z.number().int().positive(),
+    selectedAddons: z.object({
+      free: z.array(z.object({
+        name: z.string().trim().min(1).max(120),
+        kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
+      })).max(50).optional(),
+      paid: z.array(z.object({
+        name: z.string().trim().min(1).max(120),
+        kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
+        price: z.number().min(0.01).max(100000),
+      })).max(50).optional(),
+    }).optional(),
+  })).min(1),
 });
 
 const ListOrdersQuerySchema = z.object({
@@ -66,6 +80,63 @@ const OrderLocationPingSchema = z.object({
   lng: z.number().min(-180).max(180),
   accuracyM: z.number().int().positive().max(10000).optional(),
 });
+
+type OrderAddonKind = "sauce" | "extra" | "appetizer";
+type NormalizedSelectedAddons = {
+  free: Array<{ name: string; kind: OrderAddonKind }>;
+  paid: Array<{ name: string; kind: OrderAddonKind; price: number }>;
+};
+
+function normalizeSelectedAddons(input: unknown): NormalizedSelectedAddons {
+  if (!input || typeof input !== "object") return { free: [], paid: [] };
+  const row = input as Record<string, unknown>;
+  const freeRaw = Array.isArray(row.free) ? row.free : [];
+  const paidRaw = Array.isArray(row.paid) ? row.paid : [];
+
+  const freeSeen = new Set<string>();
+  const paidSeen = new Set<string>();
+  const free: Array<{ name: string; kind: OrderAddonKind }> = [];
+  const paid: Array<{ name: string; kind: OrderAddonKind; price: number }> = [];
+
+  for (const raw of freeRaw) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+    const name = String(entry.name ?? "").trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const rawKind = String(entry.kind ?? "").trim().toLocaleLowerCase("en-US");
+    const kind: OrderAddonKind = rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}`;
+    if (freeSeen.has(key)) continue;
+    freeSeen.add(key);
+    free.push({ name, kind });
+  }
+
+  for (const raw of paidRaw) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+    const name = String(entry.name ?? "").trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const parsedPrice = Number(entry.price);
+    const price = Number.isFinite(parsedPrice) ? Number(parsedPrice.toFixed(2)) : Number.NaN;
+    if (!Number.isFinite(price) || price <= 0) continue;
+    const rawKind = String(entry.kind ?? "").trim().toLocaleLowerCase("en-US");
+    const kind: OrderAddonKind = rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${price}`;
+    if (paidSeen.has(key)) continue;
+    paidSeen.add(key);
+    paid.push({ name, kind, price });
+  }
+
+  return {
+    free: free.slice(0, 50),
+    paid: paid.slice(0, 50),
+  };
+}
+
+function selectedPaidAddonsTotal(selectedAddons: NormalizedSelectedAddons): number {
+  const total = selectedAddons.paid.reduce((sum, item) => sum + item.price, 0);
+  return Number(total.toFixed(2));
+}
 
 function resolveDeliveryDestination(deliveryAddressJson: unknown): { coord: LatLng | null; addressLine: string | null } {
   const coord = extractLatLng(deliveryAddressJson);
@@ -182,10 +253,14 @@ ordersRouter.post(
       }
     }
 
+    const normalizedAddonsByLotId = new Map<string, NormalizedSelectedAddons>();
     let total = 0;
     for (const item of input.items) {
       const price = Number(lotsMap.get(item.lotId)!.price);
-      total += price * item.quantity;
+      const selectedAddons = normalizeSelectedAddons(item.selectedAddons);
+      normalizedAddonsByLotId.set(item.lotId, selectedAddons);
+      const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
+      total += unitTotal * item.quantity;
     }
     total = Number(total.toFixed(2));
 
@@ -206,11 +281,21 @@ ordersRouter.post(
     for (const item of input.items) {
       const lot = lotsMap.get(item.lotId)!;
       const price = Number(lot.price);
-      const lineTotal = Number((price * item.quantity).toFixed(2));
+      const selectedAddons = normalizedAddonsByLotId.get(item.lotId) ?? { free: [], paid: [] };
+      const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
+      const lineTotal = Number((unitTotal * item.quantity).toFixed(2));
       await client.query(
-        `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [orderInsert.rows[0].id, item.lotId, lot.food_id, item.quantity, price, lineTotal]
+        `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total, selected_addons_json)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+        [
+          orderInsert.rows[0].id,
+          item.lotId,
+          lot.food_id,
+          item.quantity,
+          price,
+          lineTotal,
+          JSON.stringify(selectedAddons),
+        ]
       );
       await client.query(
         `UPDATE production_lots SET quantity_available = quantity_available - $1 WHERE id = $2`,
@@ -333,7 +418,13 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
 
   // Fetch order items for all orders in one query
   const orderIds = listResult.rows.map((r) => r.id);
-  let itemsByOrder: Record<string, { name: string; quantity: number; unitPrice: number; lineTotal: number }[]> = {};
+  let itemsByOrder: Record<string, {
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    selectedAddons: NormalizedSelectedAddons;
+  }[]> = {};
   if (orderIds.length > 0) {
     const itemsResult = await pool.query<{
       order_id: string;
@@ -341,8 +432,9 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       quantity: number;
       unit_price: string;
       line_total: string;
+      selected_addons_json: unknown;
     }>(
-      `SELECT oi.order_id, f.name AS food_name, oi.quantity, oi.unit_price::text, oi.line_total::text
+      `SELECT oi.order_id, f.name AS food_name, oi.quantity, oi.unit_price::text, oi.line_total::text, oi.selected_addons_json
        FROM order_items oi
        JOIN foods f ON f.id = oi.food_id
        WHERE oi.order_id = ANY($1)
@@ -356,6 +448,7 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
         quantity: item.quantity,
         unitPrice: Number(item.unit_price),
         lineTotal: Number(item.line_total),
+        selectedAddons: normalizeSelectedAddons(item.selected_addons_json),
       });
     }
   }
@@ -418,9 +511,10 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
     pool.query<{
       food_name: string; food_image: string | null; quantity: number;
       unit_price: string; line_total: string;
+      selected_addons_json: unknown;
     }>(
       `SELECT f.name AS food_name, f.image_url AS food_image, oi.quantity,
-              oi.unit_price::text, oi.line_total::text
+              oi.unit_price::text, oi.line_total::text, oi.selected_addons_json
        FROM order_items oi JOIN foods f ON f.id = oi.food_id
        WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
       [orderId]
@@ -458,6 +552,7 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
         quantity: i.quantity,
         unitPrice: Number(i.unit_price),
         lineTotal: Number(i.line_total),
+        selectedAddons: normalizeSelectedAddons(i.selected_addons_json),
       })),
       events: eventsRes.rows.map((e) => ({
         eventType: e.event_type,
@@ -1007,7 +1102,21 @@ const VoiceCreateOrderSchema = z.object({
   deliveryType: z.enum(["pickup", "delivery"]),
   deliveryAddress: z.record(z.string(), z.unknown()).optional(),
   requestedAt: z.string().datetime().optional(),
-  items: z.array(z.object({ lotId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
+  items: z.array(z.object({
+    lotId: z.string().uuid(),
+    quantity: z.number().int().positive(),
+    selectedAddons: z.object({
+      free: z.array(z.object({
+        name: z.string().trim().min(1).max(120),
+        kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
+      })).max(50).optional(),
+      paid: z.array(z.object({
+        name: z.string().trim().min(1).max(120),
+        kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
+        price: z.number().min(0.01).max(100000),
+      })).max(50).optional(),
+    }).optional(),
+  })).min(1),
 });
 
 export const voiceOrderRouter = Router();
@@ -1176,10 +1285,14 @@ voiceOrderRouter.post(
         }
       }
 
+      const normalizedAddonsByLotId = new Map<string, NormalizedSelectedAddons>();
       let total = 0;
       for (const item of input.items) {
         const price = Number(lotsMap.get(item.lotId)!.price);
-        total += price * item.quantity;
+        const selectedAddons = normalizeSelectedAddons(item.selectedAddons);
+        normalizedAddonsByLotId.set(item.lotId, selectedAddons);
+        const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
+        total += unitTotal * item.quantity;
       }
       total = Number(total.toFixed(2));
 
@@ -1200,11 +1313,21 @@ voiceOrderRouter.post(
       for (const item of input.items) {
         const lot = lotsMap.get(item.lotId)!;
         const price = Number(lot.price);
-        const lineTotal = Number((price * item.quantity).toFixed(2));
+        const selectedAddons = normalizedAddonsByLotId.get(item.lotId) ?? { free: [], paid: [] };
+        const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
+        const lineTotal = Number((unitTotal * item.quantity).toFixed(2));
         await client.query(
-          `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [orderInsert.rows[0].id, item.lotId, lot.food_id, item.quantity, price, lineTotal]
+          `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total, selected_addons_json)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+          [
+            orderInsert.rows[0].id,
+            item.lotId,
+            lot.food_id,
+            item.quantity,
+            price,
+            lineTotal,
+            JSON.stringify(selectedAddons),
+          ]
         );
         await client.query(
           `UPDATE production_lots SET quantity_available = quantity_available - $1 WHERE id = $2`,

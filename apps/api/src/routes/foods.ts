@@ -42,23 +42,55 @@ function resolvePrimaryFoodImage(imageUrlsValue: unknown, imageUrlFallback: unkn
   return fallback.length > 0 ? fallback : null;
 }
 
-type FoodMenuItem = { name: string; categoryId?: string; categoryName?: string | null };
+type FoodMenuItem = {
+  name: string;
+  categoryId?: string;
+  categoryName?: string | null;
+  kind: "sauce" | "extra" | "appetizer";
+  pricing: "free" | "paid";
+  price?: number;
+};
 type SecondaryCategory = { id: string; name: string };
 
-function parseMenuItems(value: unknown): Array<{ name: string; categoryId?: string }> {
+function parseMenuItems(value: unknown): Array<{
+  name: string;
+  categoryId?: string;
+  kind: "sauce" | "extra" | "appetizer";
+  pricing: "free" | "paid";
+  price?: number;
+}> {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
-  const items: Array<{ name: string; categoryId?: string }> = [];
+  const items: Array<{
+    name: string;
+    categoryId?: string;
+    kind: "sauce" | "extra" | "appetizer";
+    pricing: "free" | "paid";
+    price?: number;
+  }> = [];
   for (const raw of value) {
     if (!raw || typeof raw !== "object") continue;
     const row = raw as Record<string, unknown>;
     const name = String(row.name ?? "").trim().replace(/\s+/g, " ");
     if (!name) continue;
-    const key = name.toLocaleLowerCase("tr-TR");
+    const rawKind = String(row.kind ?? "").trim().toLocaleLowerCase("en-US");
+    const kind: "sauce" | "extra" | "appetizer" =
+      rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
+    const rawPricing = String(row.pricing ?? "").trim().toLocaleLowerCase("en-US");
+    const pricing: "free" | "paid" = rawPricing === "paid" ? "paid" : "free";
+    const rawPrice = Number(row.price);
+    const price = Number.isFinite(rawPrice) ? Number(rawPrice.toFixed(2)) : undefined;
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}`;
     if (seen.has(key)) continue;
     seen.add(key);
     const categoryId = typeof row.categoryId === "string" && row.categoryId.trim() ? row.categoryId.trim() : undefined;
-    items.push(categoryId ? { name, categoryId } : { name });
+    const base = {
+      name,
+      kind,
+      pricing,
+      ...(categoryId ? { categoryId } : {}),
+    };
+    items.push(pricing === "paid" && price && price > 0 ? { ...base, price } : base);
   }
   return items.slice(0, 20);
 }
@@ -90,11 +122,26 @@ async function loadCategoryNameMap(categoryIds: string[]): Promise<Map<string, s
   return map;
 }
 
+async function hasFoodsMenuColumns(): Promise<boolean> {
+  const result = await pool.query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'foods'
+       AND column_name IN ('menu_items_json', 'secondary_category_ids_json')`,
+  );
+  const names = new Set(result.rows.map((row) => row.column_name));
+  return names.has("menu_items_json") && names.has("secondary_category_ids_json");
+}
+
 function mapMenuItemsWithNames(value: unknown, categoryMap: Map<string, string>): FoodMenuItem[] {
   return parseMenuItems(value).map((item) => ({
     name: item.name,
     categoryId: item.categoryId,
     categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
+    kind: item.kind,
+    pricing: item.pricing,
+    ...(item.pricing === "paid" && Number.isFinite(item.price) ? { price: Number(item.price) } : {}),
   }));
 }
 
@@ -164,6 +211,7 @@ function buildRecommendationReason(input: {
  */
 foodsRouter.get("/", async (req, res) => {
   try {
+    const menuColumnsEnabled = await hasFoodsMenuColumns();
     const categoryFilter = req.query.category as string | undefined;
 
     let query = `
@@ -182,8 +230,7 @@ foodsRouter.get("/", async (req, res) => {
         f.allergens_json,
         f.ingredients_json,
         f.cuisine,
-        f.menu_items_json,
-        f.secondary_category_ids_json,
+        ${menuColumnsEnabled ? "f.menu_items_json, f.secondary_category_ids_json," : "'[]'::jsonb AS menu_items_json, '[]'::jsonb AS secondary_category_ids_json,"}
         f.category_id::text AS category_id,
         (
           SELECT pl.id
@@ -858,6 +905,7 @@ foodsRouter.get("/sellers", async (req, res) => {
 foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
   try {
     const { sellerId } = req.params;
+    const menuColumnsEnabled = await hasFoodsMenuColumns();
     const { rows } = await pool.query(
       `
         SELECT
@@ -875,8 +923,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
           f.allergens_json,
           f.ingredients_json,
           f.cuisine,
-          f.menu_items_json,
-          f.secondary_category_ids_json,
+          ${menuColumnsEnabled ? "f.menu_items_json, f.secondary_category_ids_json," : "'[]'::jsonb AS menu_items_json, '[]'::jsonb AS secondary_category_ids_json,"}
           f.category_id::text AS category_id,
           (
             SELECT pl.id

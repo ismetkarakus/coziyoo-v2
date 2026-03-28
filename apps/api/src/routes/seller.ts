@@ -52,6 +52,9 @@ const SellerFoodCreateSchema = z.object({
       z.object({
         name: z.string().trim().min(1).max(120),
         categoryId: z.string().uuid().optional(),
+        kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
+        pricing: z.enum(["free", "paid"]).optional(),
+        price: z.number().min(0).max(100000).optional(),
       }),
     )
     .min(1)
@@ -111,25 +114,56 @@ function normalizeDeliveryOptions(input: unknown): { pickup: boolean; delivery: 
   return { pickup, delivery };
 }
 
-type MenuItemInput = { name: string; categoryId?: string };
-type MenuItemView = { name: string; categoryId?: string; categoryName?: string | null };
+type MenuItemKind = "sauce" | "extra" | "appetizer";
+type MenuItemPricing = "free" | "paid";
+type MenuItemInput = {
+  name: string;
+  categoryId?: string;
+  kind: MenuItemKind;
+  pricing: MenuItemPricing;
+  price?: number;
+};
+type MenuItemView = {
+  name: string;
+  categoryId?: string;
+  categoryName?: string | null;
+  kind: MenuItemKind;
+  pricing: MenuItemPricing;
+  price?: number;
+};
 type SecondaryCategoryView = { id: string; name: string };
 
-function normalizeMenuItems(input: unknown): Array<{ name: string; categoryId?: string }> {
+function normalizeMenuItems(input: unknown): MenuItemInput[] {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
-  const items: Array<{ name: string; categoryId?: string }> = [];
+  const items: MenuItemInput[] = [];
 
   for (const raw of input) {
     if (!raw || typeof raw !== "object") continue;
     const row = raw as Record<string, unknown>;
     const name = String(row.name ?? "").trim().replace(/\s+/g, " ");
     if (!name) continue;
-    const dedupeKey = name.toLocaleLowerCase("tr-TR");
+    const rawKind = String(row.kind ?? "").trim().toLocaleLowerCase("en-US");
+    const kind: MenuItemKind = rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
+    const rawPricing = String(row.pricing ?? "").trim().toLocaleLowerCase("en-US");
+    const pricing: MenuItemPricing = rawPricing === "paid" ? "paid" : "free";
+    const rawPrice = Number(row.price);
+    const normalizedPrice = Number.isFinite(rawPrice) ? Number(rawPrice.toFixed(2)) : undefined;
+    const dedupeKey = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}`;
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
     const categoryId = typeof row.categoryId === "string" && row.categoryId.trim() ? row.categoryId.trim() : undefined;
-    items.push(categoryId ? { name, categoryId } : { name });
+    const baseItem: MenuItemInput = {
+      name,
+      kind,
+      pricing,
+      ...(categoryId ? { categoryId } : {}),
+    };
+    if (pricing === "paid" && normalizedPrice !== undefined) {
+      items.push({ ...baseItem, price: normalizedPrice });
+    } else {
+      items.push(baseItem);
+    }
   }
 
   return items.slice(0, 20);
@@ -170,10 +204,15 @@ function validateMenuItems(items: MenuItemInput[] | undefined): string | null {
   if (items.length < 1) return "menuItems must include at least one item";
   const seen = new Set<string>();
   for (const item of items) {
-    const key = item.name.trim().toLocaleLowerCase("tr-TR");
+    const key = `${item.name.trim().toLocaleLowerCase("tr-TR")}|${item.kind}|${item.pricing}`;
     if (!key) return "menuItems contains empty item name";
     if (seen.has(key)) return "menuItems contains duplicate names";
     seen.add(key);
+    if (item.pricing === "paid") {
+      if (!Number.isFinite(item.price) || Number(item.price) <= 0) {
+        return "paid menuItems must include price > 0";
+      }
+    }
   }
   return null;
 }
@@ -197,11 +236,26 @@ async function loadCategoryNameMap(categoryIds: string[]): Promise<Map<string, s
   return map;
 }
 
+async function hasFoodsMenuColumns(): Promise<boolean> {
+  const result = await pool.query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'foods'
+       AND column_name IN ('menu_items_json', 'secondary_category_ids_json')`,
+  );
+  const names = new Set(result.rows.map((row) => row.column_name));
+  return names.has("menu_items_json") && names.has("secondary_category_ids_json");
+}
+
 function mapMenuItemsWithCategoryNames(menuItems: unknown, categoryMap: Map<string, string>): MenuItemView[] {
   return normalizeMenuItems(menuItems).map((item) => ({
     name: item.name,
     categoryId: item.categoryId,
     categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
+    kind: item.kind,
+    pricing: item.pricing,
+    ...(item.pricing === "paid" && Number.isFinite(item.price) ? { price: Number(item.price) } : {}),
   }));
 }
 
@@ -428,6 +482,7 @@ sellerRouter.get("/foods", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
   const userId = req.auth!.userId;
   try {
+    const menuColumnsEnabled = await hasFoodsMenuColumns();
     const result = await pool.query(
       `SELECT
          f.id::text,
@@ -438,8 +493,7 @@ sellerRouter.get("/foods", async (req, res) => {
          f.description,
          f.recipe,
          f.cuisine,
-         f.menu_items_json,
-         f.secondary_category_ids_json,
+         ${menuColumnsEnabled ? "f.menu_items_json, f.secondary_category_ids_json," : "'[]'::jsonb AS menu_items_json, '[]'::jsonb AS secondary_category_ids_json,"}
          f.price::text,
          f.delivery_fee::text AS delivery_fee,
          f.delivery_options_json,
@@ -574,32 +628,58 @@ sellerRouter.post("/foods", async (req, res) => {
       secondaryCategoryIds: normalizeSecondaryCategoryIds(input.secondaryCategoryIds),
     });
     try {
-      const created = await pool.query<{ id: string }>(
-        `INSERT INTO foods
-           (seller_id, category_id, name, card_summary, description, recipe, cuisine, menu_items_json, secondary_category_ids_json, price, delivery_fee, delivery_options_json, image_url, image_urls_json, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12::jsonb, $13, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, now(), now())
-         RETURNING id::text`,
-        [
-          req.auth!.userId,
-          input.categoryId ?? null,
-          input.name.trim(),
-          input.cardSummary?.trim() ?? null,
-          input.description?.trim() ?? null,
-          input.recipe?.trim() ?? null,
-          input.cuisine?.trim() ?? null,
-          JSON.stringify(normalizedMenuItems),
-          JSON.stringify(resolvedSecondaryCategoryIds),
-          input.price,
-          input.deliveryFee ?? 0,
-          JSON.stringify(input.deliveryOptions ?? { pickup: true, delivery: true }),
-          input.imageUrls?.[0] ?? input.imageUrl ?? null,
-          JSON.stringify((input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : [])).slice(0, 5)),
-          JSON.stringify(input.ingredients ?? []),
-          JSON.stringify(input.allergens ?? []),
-          input.preparationTimeMinutes ?? null,
-          input.isActive ?? true,
-        ],
-      );
+      const menuColumnsEnabled = await hasFoodsMenuColumns();
+      const created = menuColumnsEnabled
+        ? await pool.query<{ id: string }>(
+          `INSERT INTO foods
+             (seller_id, category_id, name, card_summary, description, recipe, cuisine, menu_items_json, secondary_category_ids_json, price, delivery_fee, delivery_options_json, image_url, image_urls_json, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12::jsonb, $13, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, now(), now())
+           RETURNING id::text`,
+          [
+            req.auth!.userId,
+            input.categoryId ?? null,
+            input.name.trim(),
+            input.cardSummary?.trim() ?? null,
+            input.description?.trim() ?? null,
+            input.recipe?.trim() ?? null,
+            input.cuisine?.trim() ?? null,
+            JSON.stringify(normalizedMenuItems),
+            JSON.stringify(resolvedSecondaryCategoryIds),
+            input.price,
+            input.deliveryFee ?? 0,
+            JSON.stringify(input.deliveryOptions ?? { pickup: true, delivery: true }),
+            input.imageUrls?.[0] ?? input.imageUrl ?? null,
+            JSON.stringify((input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : [])).slice(0, 5)),
+            JSON.stringify(input.ingredients ?? []),
+            JSON.stringify(input.allergens ?? []),
+            input.preparationTimeMinutes ?? null,
+            input.isActive ?? true,
+          ],
+        )
+        : await pool.query<{ id: string }>(
+          `INSERT INTO foods
+             (seller_id, category_id, name, card_summary, description, recipe, cuisine, price, delivery_fee, delivery_options_json, image_url, image_urls_json, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16, now(), now())
+           RETURNING id::text`,
+          [
+            req.auth!.userId,
+            input.categoryId ?? null,
+            input.name.trim(),
+            input.cardSummary?.trim() ?? null,
+            input.description?.trim() ?? null,
+            input.recipe?.trim() ?? null,
+            input.cuisine?.trim() ?? null,
+            input.price,
+            input.deliveryFee ?? 0,
+            JSON.stringify(input.deliveryOptions ?? { pickup: true, delivery: true }),
+            input.imageUrls?.[0] ?? input.imageUrl ?? null,
+            JSON.stringify((input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : [])).slice(0, 5)),
+            JSON.stringify(input.ingredients ?? []),
+            JSON.stringify(input.allergens ?? []),
+            input.preparationTimeMinutes ?? null,
+            input.isActive ?? true,
+          ],
+        );
       return res.status(201).json({ data: { foodId: created.rows[0].id } });
     } catch (error) {
       console.error("[seller] food create error:", error);
@@ -652,11 +732,12 @@ sellerRouter.patch("/foods/:foodId", async (req, res) => {
       setClauses.push(`cuisine = $${idx++}`);
       values.push(input.cuisine?.trim() ?? null);
     }
-    if (normalizedMenuItems !== undefined) {
+    const menuColumnsEnabled = await hasFoodsMenuColumns();
+    if (normalizedMenuItems !== undefined && menuColumnsEnabled) {
       setClauses.push(`menu_items_json = $${idx++}::jsonb`);
       values.push(JSON.stringify(normalizedMenuItems));
     }
-    if (input.secondaryCategoryIds !== undefined || normalizedMenuItems !== undefined || input.categoryId !== undefined) {
+    if (menuColumnsEnabled && (input.secondaryCategoryIds !== undefined || normalizedMenuItems !== undefined || input.categoryId !== undefined)) {
       const existingResult = await pool.query<{ category_id: string | null; menu_items_json: unknown; secondary_category_ids_json: unknown }>(
         `SELECT category_id::text, menu_items_json, secondary_category_ids_json
          FROM foods
