@@ -14,6 +14,8 @@ import AllergenDisclosureScreen from './src/screens/AllergenDisclosureScreen';
 import DeliveryPinScreen from './src/screens/DeliveryPinScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
 import ComplaintScreen from './src/screens/ComplaintScreen';
+import TicketListScreen from './src/screens/TicketListScreen';
+import TicketDetailScreen from './src/screens/TicketDetailScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -99,7 +101,7 @@ async function registerPushToken(auth: AuthSession, apiUrl: string) {
 type Screen =
   | 'loading' | 'onboarding' | 'login' | 'home'
   | 'settings' | 'profileEdit' | 'addresses'
-  | 'orders' | 'orderDetail' | 'complaintOrders'
+  | 'orders' | 'orderDetail' | 'complaintOrders' | 'ticketList' | 'ticketDetail'
   | 'foodDetail' | 'payment'
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
@@ -117,6 +119,7 @@ export default function App() {
 
   // Screen params
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedChatName, setSelectedChatName] = useState('');
@@ -272,7 +275,33 @@ export default function App() {
       <SettingsScreen
         auth={auth}
         onBack={() => goHome('profile')}
-        onOpenComplaintOrders={() => setScreen('complaintOrders')}
+        onOpenComplaintOrders={() => setScreen('ticketList')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'ticketList') {
+    return (
+      <TicketListScreen
+        auth={auth}
+        onBack={() => setScreen('settings')}
+        onCreateTicket={() => setScreen('complaintOrders')}
+        onOpenTicket={(ticketId) => {
+          setSelectedTicketId(ticketId);
+          setScreen('ticketDetail');
+        }}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'ticketDetail' && selectedTicketId) {
+    return (
+      <TicketDetailScreen
+        auth={auth}
+        ticketId={selectedTicketId}
+        onBack={() => setScreen('ticketList')}
         onAuthRefresh={setAuth}
       />
     );
@@ -417,6 +446,10 @@ export default function App() {
       <ComplaintScreen
         auth={auth}
         orderId={selectedOrderId}
+        onCreated={(ticket) => {
+          setSelectedTicketId(ticket.id);
+          setScreen('ticketDetail');
+        }}
         onBack={() => setScreen(complaintBackTarget)}
         onAuthRefresh={setAuth}
       />

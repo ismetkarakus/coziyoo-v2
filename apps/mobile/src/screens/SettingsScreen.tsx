@@ -237,17 +237,17 @@ export default function SettingsScreen({ auth, onBack, onOpenComplaintOrders, on
                 <View style={[styles.iconWrap, { backgroundColor: '#C4513D' }]}>
                   <Ionicons name="flag" size={18} color="#fff" />
                 </View>
-                <View style={styles.headTextWrap}>
-                  <Text style={styles.cardTitle}>Şikayetler</Text>
-                  <Text style={styles.cardMetaInline}>Siparişini seçip hızlıca şikayet oluştur.</Text>
-                </View>
+              <View style={styles.headTextWrap}>
+                  <Text style={styles.cardTitle}>Destek Ticketları</Text>
+                  <Text style={styles.cardMetaInline}>Ticketlarını gör, detaydan mesaj at, gerekirse yenisini aç.</Text>
+              </View>
               </View>
               <TouchableOpacity
                 style={styles.buttonSoft}
                 onPress={onOpenComplaintOrders}
                 activeOpacity={0.85}
               >
-                <Text style={styles.buttonSoftText}>Şikayet Oluştur</Text>
+                <Text style={styles.buttonSoftText}>Ticketları Aç</Text>
               </TouchableOpacity>
             </View>
 

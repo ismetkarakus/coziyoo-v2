@@ -372,6 +372,7 @@ app.use("/v1/admin/agent-profiles", requireAuth("admin"), agentProfilesRouter);
 app.use("/v1/admin/agent-call-logs", requireAuth("admin"), adminAgentCallLogsRouter);
 app.use("/v1/foods", foodsRouter);
 app.use("/v1/complaints", complaintsRouter);
+app.use("/v1/tickets", complaintsRouter);
 app.use("/v1/notifications", notificationsRouter);
 app.use("/v1/chats", chatsRouter);
 app.use("/v1/favorites", favoritesRouter);

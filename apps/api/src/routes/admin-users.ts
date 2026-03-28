@@ -1141,6 +1141,8 @@ adminUserManagementRouter.get("/investigations/complaints/:id/notes", requireAut
     note: string;
     created_by_admin_id: string;
     created_by_admin_email: string | null;
+    sender_role: "buyer" | "admin";
+    sender_name: string | null;
     created_at: string;
   }>(
     `SELECT
@@ -1149,11 +1151,25 @@ adminUserManagementRouter.get("/investigations/complaints/:id/notes", requireAut
        n.note,
        n.created_by_admin_id::text,
        a.email AS created_by_admin_email,
+       'admin'::text AS sender_role,
+       a.email AS sender_name,
        n.created_at::text
      FROM complaint_admin_notes n
      LEFT JOIN admin_users a ON a.id = n.created_by_admin_id
      WHERE n.complaint_id = $1
-     ORDER BY n.created_at DESC`,
+     UNION ALL
+     SELECT
+       tm.id::text,
+       tm.complaint_id::text,
+       tm.message AS note,
+       COALESCE(tm.sender_user_id::text, '') AS created_by_admin_id,
+       NULL::text AS created_by_admin_email,
+       tm.sender_role,
+       tm.sender_name,
+       tm.created_at::text
+     FROM ticket_messages tm
+     WHERE tm.complaint_id = $1
+     ORDER BY created_at DESC`,
     [params.data.id]
   );
 
@@ -1164,6 +1180,8 @@ adminUserManagementRouter.get("/investigations/complaints/:id/notes", requireAut
       note: row.note,
       createdByAdminId: row.created_by_admin_id,
       createdByAdminEmail: row.created_by_admin_email,
+      senderRole: row.sender_role,
+      senderName: row.sender_name,
       createdAt: row.created_at,
     })),
   });
@@ -1197,6 +1215,8 @@ adminUserManagementRouter.post("/investigations/complaints/:id/notes", requireAu
     [params.data.id, parsed.data.note, req.auth!.userId]
   );
 
+  await pool.query("UPDATE complaints SET updated_at = now() WHERE id = $1", [params.data.id]);
+
   return res.status(201).json({
     data: {
       id: created.rows[0].id,
@@ -1206,6 +1226,79 @@ adminUserManagementRouter.post("/investigations/complaints/:id/notes", requireAu
       createdAt: created.rows[0].created_at,
     },
   });
+});
+
+adminUserManagementRouter.get("/investigations/tickets/:id", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  return res.redirect(307, `/v1/admin/investigations/complaints/${params.data.id}`);
+});
+
+adminUserManagementRouter.get("/investigations/tickets/:id/messages", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  return res.redirect(307, `/v1/admin/investigations/complaints/${params.data.id}/notes`);
+});
+
+adminUserManagementRouter.post("/investigations/tickets/:id/messages", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  return res.redirect(307, `/v1/admin/investigations/complaints/${params.data.id}/notes`);
+});
+
+adminUserManagementRouter.patch("/investigations/tickets/:id/status", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = z.object({ status: z.enum(["open", "in_review", "resolved", "closed"]) }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const updated = await pool.query<{ id: string; status: string }>(
+    `UPDATE complaints
+     SET status = $2, updated_at = now()
+     WHERE id = $1
+     RETURNING id::text, status`,
+    [params.data.id, parsed.data.status]
+  );
+  if (!updated.rows[0]) {
+    return res.status(404).json({ error: { code: "TICKET_NOT_FOUND", message: "Ticket not found" } });
+  }
+  return res.json({ data: { id: updated.rows[0].id, status: updated.rows[0].status } });
+});
+
+adminUserManagementRouter.patch("/investigations/tickets/:id/priority", requireAuth("admin"), async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+  const parsed = z.object({ priority: z.enum(["low", "medium", "high", "urgent"]) }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const updated = await pool.query<{ id: string; priority: string }>(
+    `UPDATE complaints
+     SET priority = $2, updated_at = now()
+     WHERE id = $1
+     RETURNING id::text, priority`,
+    [params.data.id, parsed.data.priority]
+  );
+  if (!updated.rows[0]) {
+    return res.status(404).json({ error: { code: "TICKET_NOT_FOUND", message: "Ticket not found" } });
+  }
+  return res.json({ data: { id: updated.rows[0].id, priority: updated.rows[0].priority } });
 });
 
 adminUserManagementRouter.post("/investigations/complaint-categories", requireAuth("admin"), async (req, res) => {

@@ -19,10 +19,11 @@ type Props = {
   auth: AuthSession;
   orderId: string;
   onBack: () => void;
+  onCreated?: (ticket: { id: string; ticketNo: number }) => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
+export default function ComplaintScreen({ auth, orderId, onBack, onCreated, onAuthRefresh }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -38,7 +39,7 @@ export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }
       return;
     }
     setSubmitting(true);
-    const result = await apiRequest(
+    const result = await apiRequest<{ id: string; ticketNo: number }>(
       '/v1/complaints',
       auth,
       {
@@ -54,6 +55,7 @@ export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }
     );
     setSubmitting(false);
     if (result.ok) {
+      onCreated?.({ id: result.data.id, ticketNo: result.data.ticketNo ?? 0 });
       setSubmitted(true);
     } else {
       Alert.alert('Hata', result.message ?? 'Şikayet gönderilemedi');
@@ -69,8 +71,8 @@ export default function ComplaintScreen({ auth, orderId, onBack, onAuthRefresh }
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={56} color="#3E845B" />
           </View>
-          <Text style={styles.successTitle}>Şikayetin Alındı</Text>
-          <Text style={styles.successSub}>En kısa sürede incelenecek. Teşekkürler.</Text>
+          <Text style={styles.successTitle}>Ticketın Açıldı</Text>
+          <Text style={styles.successSub}>Destek ekibi en kısa sürede dönüş yapacak.</Text>
           <ActionButton label="Geri Dön" onPress={onBack} variant="primary" />
         </View>
       </View>

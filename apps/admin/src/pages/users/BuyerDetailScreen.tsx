@@ -774,12 +774,12 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                 <button className={activeTab === "general" ? "is-active" : ""} onClick={() => switchBuyerTab("general")} type="button">Genel</button>
                 <button className={activeTab === "orders" ? "is-active" : ""} onClick={() => switchBuyerTab("orders")} type="button">Siparisler</button>
                 <button className={activeTab === "payments" ? "is-active" : ""} onClick={() => switchBuyerTab("payments")} type="button">Odemeler</button>
-                <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => switchBuyerTab("complaints")} type="button">Sikayetler</button>
+                <button className={activeTab === "complaints" ? "is-active" : ""} onClick={() => switchBuyerTab("complaints")} type="button">Ticketlar</button>
                 <button className={activeTab === "reviews" ? "is-active" : ""} onClick={() => switchBuyerTab("reviews")} type="button">Yorumlar & Puanlar</button>
                 <button className={activeTab === "activity" ? "is-active" : ""} onClick={() => switchBuyerTab("activity")} type="button">Aktivite Logu</button>
                 <button className={activeTab === "notes" ? "is-active" : ""} onClick={() => switchBuyerTab("notes")} type="button">Notlar & Etiketler</button>
                 <button className={activeTab === "raw" ? "is-active" : ""} onClick={() => switchBuyerTab("raw")} type="button">Ham Veri</button>
-                <button className={activeTab === "create_ticket" ? "is-active" : ""} onClick={() => switchBuyerTab("create_ticket")} type="button">+ Talep Olustur</button>
+                <button className={activeTab === "create_ticket" ? "is-active" : ""} onClick={() => switchBuyerTab("create_ticket")} type="button">+ Ticket Ac</button>
               </div>
               <ExcelExportButton
                 className="buyer-tabs-export-btn"
@@ -1067,8 +1067,8 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
 
             {activeTab === "create_ticket" ? (
               <div className="create-ticket-form">
-                <h3 className="create-ticket-title">Yeni Destek Talebi</h3>
-                <p className="panel-meta" style={{ marginBottom: 20 }}>Bu alıcı adına sisteme yeni bir şikayet talebi açar.</p>
+                <h3 className="create-ticket-title">Yeni Ticket</h3>
+                <p className="panel-meta" style={{ marginBottom: 20 }}>Bu alıcı adına sisteme yeni destek ticketı açar.</p>
 
                 {ticketError ? <div className="alert" style={{ marginBottom: 16 }}>{ticketError}</div> : null}
                 {ticketSuccess ? (
