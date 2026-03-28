@@ -1016,6 +1016,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const contactPhoneHrefValue = contactPhone.replace(/[^\d+]/g, "");
   const contactHasPhone = contactPhoneHrefValue.length > 0;
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
+  const primaryAddressTitle = addresses.find((item) => item.isDefault)?.title ?? addresses[0]?.title ?? "-";
   const primaryAddress = addresses.find((item) => item.isDefault)?.addressLine ?? addresses[0]?.addressLine ?? "-";
 
   const legalRows = mapComplianceRows(compliance, dict, language);
@@ -1822,72 +1823,16 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <strong>{formatUiDate(row.createdAt, language)}</strong>
                 </div>
               </div>
-              <form className="seller-address-create-form seller-address-inline-create" onSubmit={createAddress} onKeyDown={onEnterSubmit}>
-                <div className="seller-address-title-row">
-                  <h3>{language === "tr" ? "Yeni Adres" : "New Address"}</h3>
-                  <button
-                    className="ghost seller-address-plus"
-                    type="button"
-                    onClick={() => setAddressHistoryOpen((prev) => !prev)}
-                    title={language === "tr" ? "Eski adresleri göster" : "Show saved addresses"}
-                  >
-                    +
-                  </button>
+              <div className="seller-general-kv" style={{ marginTop: 14 }}>
+                <div>
+                  <span>{language === "tr" ? "Şehir/İlçe" : "City/District"}</span>
+                  <strong>{String(primaryAddressTitle || "-")}</strong>
                 </div>
-                {addresses[0]?.addressLine ? (
-                  <p className="panel-meta seller-address-preview">
-                    {language === "tr" ? "Son kayıtlı adres" : "Last saved address"}: {addresses[0].addressLine}
-                  </p>
-                ) : null}
-                {addressHistoryOpen ? (
-                  <div className="seller-address-history-list">
-                    {addresses.length === 0 ? (
-                      <p className="panel-meta">{language === "tr" ? "Kayıtlı adres yok." : "No saved addresses."}</p>
-                    ) : (
-                      addresses.map((address) => (
-                        <button
-                          key={address.id}
-                          type="button"
-                          className={`ghost seller-address-history-item ${addressEditorId === address.id ? "is-active" : ""}`}
-                          onClick={() => {
-                            setAddressEditorId(address.id);
-                            setNewAddressLine(address.addressLine);
-                            setAddressDirty(true);
-                          }}
-                        >
-                          {address.addressLine}
-                        </button>
-                      ))
-                    )}
-                    <button
-                      type="button"
-                      className="ghost seller-address-history-item"
-                      onClick={() => {
-                        setAddressEditorId(null);
-                        setNewAddressLine("");
-                        setAddressDirty(true);
-                      }}
-                    >
-                      {language === "tr" ? "Yeni adres girişi" : "New address entry"}
-                    </button>
-                  </div>
-                ) : null}
-                <label className="ghost seller-detail-filter-item seller-general-filter-item">
+                <div>
                   <span>{language === "tr" ? "Adres" : "Address"}</span>
-                  <input
-                    value={newAddressLine}
-                    onChange={(event) => {
-                      setNewAddressLine(event.target.value);
-                      setAddressDirty(true);
-                    }}
-                    placeholder=" "
-                    disabled={!isSuperAdmin || addressSaving}
-                  />
-                </label>
-                <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
-                  {addressEditorId ? (language === "tr" ? "Adresi Güncelle" : "Update Address") : language === "tr" ? "Adres Ekle" : "Add Address"}
-                </button>
-              </form>
+                  <strong>{String(primaryAddress || "-")}</strong>
+                </div>
+              </div>
             </article>
 
             <article className="seller-general-card">

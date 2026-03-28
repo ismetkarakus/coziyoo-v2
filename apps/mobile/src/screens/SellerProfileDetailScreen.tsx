@@ -663,7 +663,6 @@ export default function SellerProfileDetailScreen({
                 placeholder="Örn: TR (Türkiye), GB (İngiltere)"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
-              <Text style={styles.modalHelperText}>2 harfli ülke kodu yaz: TR, GB, DE gibi.</Text>
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)} disabled={contactSaving}>
@@ -911,11 +910,6 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     paddingTop: 10,
     paddingBottom: 10,
-  },
-  modalHelperText: {
-    marginTop: 6,
-    color: "#6F6B63",
-    fontSize: 12,
   },
   modalDescInput: {
     minHeight: 90,
