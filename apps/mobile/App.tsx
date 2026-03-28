@@ -596,7 +596,7 @@ export default function App() {
       <SellerHomeScreen
         auth={auth}
         onOpenProfile={() => setScreen('sellerProfileDetail')}
-        onOpenOrders={() => setScreen('sellerOrders')}
+        onOpenOrder={(id) => { setSelectedOrderId(id); setScreen('sellerOrderDetail'); }}
         onOpenSettings={() => setScreen('settings')}
         onLogout={handleLogout}
         onAuthRefresh={setAuth}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -10,17 +10,28 @@ type Props = {
   auth: AuthSession;
   onAuthRefresh?: (session: AuthSession) => void;
   onOpenProfile: () => void;
-  onOpenOrders: () => void;
+  onOpenOrder: (orderId: string) => void;
   onOpenSettings: () => void;
   onLogout: () => void;
   onSwitchToBuyer?: () => void;
 };
 
+type SellerOrder = {
+  id: string;
+  orderNo?: string | null;
+  buyerName?: string | null;
+  status: string;
+  totalPrice: number;
+  createdAt?: string;
+};
+
+type KpiFilter = "all" | "today" | "preparing" | "waiting";
+
 export default function SellerHomeScreen({
   auth,
   onAuthRefresh,
   onOpenProfile,
-  onOpenOrders,
+  onOpenOrder,
   onOpenSettings,
   onLogout,
   onSwitchToBuyer,
@@ -30,6 +41,8 @@ export default function SellerHomeScreen({
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>("Usta");
   const [stats, setStats] = useState({ today: 0, preparing: 0, waiting: 0 });
+  const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [activeFilter, setActiveFilter] = useState<KpiFilter>("all");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -65,7 +78,8 @@ export default function SellerHomeScreen({
       if (ordersRes.ok) {
         const ordersJson = await ordersRes.json();
         const todayKey = new Date().toISOString().slice(0, 10);
-        const orders: Array<{ status: string; createdAt?: string }> = Array.isArray(ordersJson.data) ? ordersJson.data : [];
+        const orders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
+        setOrders(orders);
         setStats({
           today: orders.filter((o) => String(o.createdAt ?? "").slice(0, 10) === todayKey).length,
           preparing: orders.filter((o) => o.status === "preparing").length,
@@ -80,6 +94,20 @@ export default function SellerHomeScreen({
   }
 
   useEffect(() => { void load(); }, []);
+
+  const filteredOrders = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (activeFilter === "today") {
+      return orders.filter((o) => String(o.createdAt ?? "").slice(0, 10) === todayKey);
+    }
+    if (activeFilter === "preparing") {
+      return orders.filter((o) => o.status === "preparing");
+    }
+    if (activeFilter === "waiting") {
+      return orders.filter((o) => o.status === "pending_seller_approval");
+    }
+    return orders;
+  }, [orders, activeFilter]);
 
   const initials = displayName
     .split(" ")
@@ -105,20 +133,61 @@ export default function SellerHomeScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Stats Chips */}
+      {/* KPI + Filtre Chips */}
       <View style={styles.statsRow}>
-        <TouchableOpacity style={styles.statChip} onPress={onOpenOrders} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.statChip, activeFilter === "today" && styles.statChipActive]}
+          onPress={() => setActiveFilter("today")}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statValue}>{stats.today}</Text>
           <Text style={styles.statLabel}>Bugünkü</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statChip} onPress={onOpenOrders} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.statChip, activeFilter === "preparing" && styles.statChipActive]}
+          onPress={() => setActiveFilter("preparing")}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statValue}>{stats.preparing}</Text>
           <Text style={styles.statLabel}>Hazırlanıyor</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statChip} onPress={onOpenOrders} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.statChip, activeFilter === "waiting" && styles.statChipActive]}
+          onPress={() => setActiveFilter("waiting")}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statValue}>{stats.waiting}</Text>
           <Text style={styles.statLabel}>Onay Bekliyor</Text>
         </TouchableOpacity>
+      </View>
+      <TouchableOpacity style={styles.allButton} onPress={() => setActiveFilter("all")} activeOpacity={0.85}>
+        <Text style={styles.allButtonText}>Tüm Siparişleri Göster</Text>
+      </TouchableOpacity>
+
+      {/* Sipariş listesi */}
+      <View style={styles.ordersSection}>
+        <View style={styles.ordersHead}>
+          <Text style={styles.ordersTitle}>Siparişler</Text>
+          <TouchableOpacity onPress={() => void load()} activeOpacity={0.8}>
+            <Text style={styles.reloadText}>Yenile</Text>
+          </TouchableOpacity>
+        </View>
+
+        {filteredOrders.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>Bu filtrede sipariş yok</Text>
+            <Text style={styles.emptySub}>Diğer KPI'ya dokun veya tümünü göster.</Text>
+          </View>
+        ) : (
+          filteredOrders.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.orderCard} activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
+              <Text style={styles.orderNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
+              <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
+              <Text style={styles.orderMeta}>Durum: {item.status}</Text>
+              <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+            </TouchableOpacity>
+          ))
+        )}
       </View>
 
       {/* Action Buttons */}
@@ -156,7 +225,29 @@ const styles = StyleSheet.create({
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   statChip: { flex: 1, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E6DED1", padding: 12, alignItems: "center" },
+  statChipActive: { borderColor: "#3F855C", backgroundColor: "#EDF7F0" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
   statLabel: { fontSize: 12, color: "#6F6358", marginTop: 2 },
+  allButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DDD3C7",
+    backgroundColor: "#F4EEE4",
+    paddingVertical: 8,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  allButtonText: { color: "#5E5347", fontWeight: "700" },
+  ordersSection: { marginBottom: 14 },
+  ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  ordersTitle: { fontSize: 18, fontWeight: "800", color: "#2E241C" },
+  reloadText: { color: "#3F855C", fontWeight: "700" },
+  emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
+  emptyTitle: { color: "#2E241C", fontWeight: "800" },
+  emptySub: { color: "#6C6055", marginTop: 4 },
+  orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10 },
+  orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  orderMeta: { color: "#6C6055", marginTop: 3 },
+  orderTotal: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   actions: { gap: 10 },
 });
