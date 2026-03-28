@@ -124,95 +124,104 @@ export default function SellerHomeScreen({
     .join("");
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-
-      {/* Greeting + Avatar */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Merhaba, {displayName} 👋</Text>
-          <Text style={styles.subtitle}>Satıcı Paneli</Text>
-        </View>
-        <TouchableOpacity style={styles.avatar} onPress={onOpenProfile} activeOpacity={0.8}>
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.avatarText}>{initials}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* KPI + Filtre Chips */}
-      <View style={styles.statsRow}>
-        <TouchableOpacity
-          style={[styles.statChip, activeFilter === "today" && styles.statChipActive]}
-          onPress={() => setActiveFilter((prev) => (prev === "today" ? "all" : "today"))}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{stats.today}</Text>
-          <Text style={styles.statLabel}>Bugünkü</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statChip, activeFilter === "preparing" && styles.statChipActive]}
-          onPress={() => setActiveFilter((prev) => (prev === "preparing" ? "all" : "preparing"))}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{stats.preparing}</Text>
-          <Text style={styles.statLabel}>Hazırlanıyor</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statChip, activeFilter === "waiting" && styles.statChipActive]}
-          onPress={() => setActiveFilter((prev) => (prev === "waiting" ? "all" : "waiting"))}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{stats.waiting}</Text>
-          <Text style={styles.statLabel}>Onay Bekliyor</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Sipariş listesi */}
-      <View style={styles.ordersSection}>
-        <View style={styles.ordersHead}>
-          <Text style={styles.ordersTitle}>Siparişler</Text>
-        </View>
-
-        {filteredOrders.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Bu filtrede sipariş yok</Text>
-            <Text style={styles.emptySub}>Filtreyi kapatmak için seçili KPI'ya tekrar dokun.</Text>
+    <View style={styles.container}>
+      <View style={styles.stickyTop}>
+        {/* Greeting + Avatar */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Merhaba, {displayName} 👋</Text>
+            <Text style={styles.subtitle}>Satıcı Paneli</Text>
           </View>
-        ) : (
-          filteredOrders.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.orderCard} activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
-              <Text style={styles.orderNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
-              <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
-              <Text style={styles.orderMeta}>Durum: {item.status}</Text>
-              <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-            </TouchableOpacity>
-          ))
-        )}
+          <TouchableOpacity style={styles.avatar} onPress={onOpenProfile} activeOpacity={0.8}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* KPI + Filtre Chips (sticky) */}
+        <View style={styles.statsRow}>
+          <TouchableOpacity
+            style={[styles.statChip, activeFilter === "today" && styles.statChipActive]}
+            onPress={() => setActiveFilter((prev) => (prev === "today" ? "all" : "today"))}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.statValue}>{stats.today}</Text>
+            <Text style={styles.statLabel}>Bugünkü</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statChip, activeFilter === "preparing" && styles.statChipActive]}
+            onPress={() => setActiveFilter((prev) => (prev === "preparing" ? "all" : "preparing"))}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.statValue}>{stats.preparing}</Text>
+            <Text style={styles.statLabel}>Hazırlanıyor</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statChip, activeFilter === "waiting" && styles.statChipActive]}
+            onPress={() => setActiveFilter((prev) => (prev === "waiting" ? "all" : "waiting"))}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.statValue}>{stats.waiting}</Text>
+            <Text style={styles.statLabel}>Onay Bekliyor</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
-        <ActionButton label="Ayarlar" onPress={onOpenSettings} variant="soft" fullWidth />
-        {onSwitchToBuyer ? (
-          <ActionButton label="Alıcı Moduna Geç" onPress={onSwitchToBuyer} variant="outline" fullWidth />
-        ) : null}
-        <ActionButton label="Çıkış Yap" onPress={onLogout} variant="danger" fullWidth />
-      </View>
+      <ScrollView style={styles.ordersScroll} contentContainerStyle={styles.ordersContent}>
+        {/* Sipariş listesi */}
+        <View style={styles.ordersSection}>
+          <View style={styles.ordersHead}>
+            <Text style={styles.ordersTitle}>Siparişler</Text>
+          </View>
 
-    </ScrollView>
+          {filteredOrders.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>Bu filtrede sipariş yok</Text>
+              <Text style={styles.emptySub}>Filtreyi kapatmak için seçili KPI'ya tekrar dokun.</Text>
+            </View>
+          ) : (
+            filteredOrders.map((item) => (
+              <TouchableOpacity key={item.id} style={styles.orderCard} activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
+                <Text style={styles.orderNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
+                <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
+                <Text style={styles.orderMeta}>Durum: {item.status}</Text>
+                <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          <ActionButton label="Ayarlar" onPress={onOpenSettings} variant="soft" fullWidth />
+          {onSwitchToBuyer ? (
+            <ActionButton label="Alıcı Moduna Geç" onPress={onSwitchToBuyer} variant="outline" fullWidth />
+          ) : null}
+          <ActionButton label="Çıkış Yap" onPress={onLogout} variant="danger" fullWidth />
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 36 },
+  stickyTop: {
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 12,
+    backgroundColor: "#F7F4EF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E6DED1",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 14,
   },
   title: { fontSize: 26, fontWeight: "800", color: "#2E241C" },
   subtitle: { marginTop: 4, fontSize: 13, color: "#9A8C82", fontWeight: "500" },
@@ -230,6 +239,8 @@ const styles = StyleSheet.create({
   statChipActive: { borderColor: "#3F855C", backgroundColor: "#EDF7F0" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
   statLabel: { fontSize: 12, color: "#6F6358", marginTop: 2 },
+  ordersScroll: { flex: 1 },
+  ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
   ordersSection: { marginBottom: 14 },
   ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   ordersTitle: { fontSize: 18, fontWeight: "800", color: "#2E241C" },
