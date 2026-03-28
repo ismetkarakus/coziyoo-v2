@@ -495,8 +495,27 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const previewImage = imageUrls.map((x) => x.trim()).find(Boolean) || "";
   const selectedCategoryName = categories.find((item) => item.id === categoryId)?.name ?? "";
   const previewTitle = name.trim() || "Yemek Adı";
-  const previewSummary = cardSummary.trim() || description.trim() || "Yemeğiniz burada müşteri kartında görünecek.";
+  const previewSummary = cardSummary.trim() || description.trim() || "Lezzetli ev yemeği";
   const previewPrice = Number.isFinite(Number(price)) && Number(price) > 0 ? `${Number(price).toFixed(2)} ₺` : "-- ₺";
+  const previewSellerHandle = useMemo(() => {
+    const emailLocal = String(currentAuth.email ?? "").split("@")[0]?.trim();
+    const normalized = (emailLocal || "ev.usta")
+      .toLocaleLowerCase("tr-TR")
+      .replace(/\s+/g, ".")
+      .replace(/[^a-z0-9._]/g, "");
+    return normalized.startsWith("@") ? normalized : `@${normalized}`;
+  }, [currentAuth.email]);
+  const previewCuisine = cuisine.trim()
+    ? (/(mutfağı|mutfagi)$/i.test(cuisine.trim()) ? cuisine.trim() : `${cuisine.trim()} Mutfağı`)
+    : "Ev Mutfağı";
+  const previewMeta = prepTime.trim() ? `${prepTime.trim()} dk` : "40 dk";
+  const previewDistance = deliveryEnabled ? "14.76 km" : "Gel Al";
+  const previewAllergens = allergens
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(", ");
 
   return (
     <View style={styles.container}>
@@ -772,12 +791,30 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                   <Text style={styles.previewImagePlaceholderText}>Fotoğraf Önizleme</Text>
                 </View>
               )}
+              <TouchableOpacity style={styles.previewLikeBtn} activeOpacity={0.9}>
+                <Ionicons name="heart-outline" size={16} color="#2E241C" />
+              </TouchableOpacity>
+              <View style={styles.previewRatingChip}>
+                <Text style={styles.previewRatingChipText}>⭐ 5.0</Text>
+              </View>
               <View style={styles.previewBody}>
-                <Text style={styles.previewFoodTitle}>{previewTitle}</Text>
-                <Text style={styles.previewFoodSummary} numberOfLines={2}>{previewSummary}</Text>
+                <View style={styles.previewTopRow}>
+                  <View style={styles.previewTopRowLeft}>
+                    <Text style={styles.previewFoodTitle} numberOfLines={1}>{previewTitle}</Text>
+                    <Text style={styles.previewFoodSummary} numberOfLines={1}>{previewSummary}</Text>
+                  </View>
+                  <View style={styles.previewTopRowRight}>
+                    <Text style={styles.previewSeller}>{previewSellerHandle} ›</Text>
+                    <Text style={styles.previewCuisine}>{previewCuisine}</Text>
+                  </View>
+                </View>
+                <View style={styles.previewMidRow}>
+                  <Ionicons name="time-outline" size={13} color="#8A7A6A" />
+                  <Text style={styles.previewMetaText}>{`${previewMeta} · ${previewDistance}`}</Text>
+                </View>
                 <View style={styles.previewFooter}>
                   <Text style={styles.previewPrice}>{previewPrice}</Text>
-                  <Text style={styles.previewSeller}>Ev Şefi</Text>
+                  {previewAllergens ? <Text style={styles.previewAllergen}>{`Alerjen: ${previewAllergens}`}</Text> : null}
                 </View>
               </View>
             </View>
@@ -1020,22 +1057,51 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#FDFBF8",
+    position: "relative",
   },
-  previewImage: { width: "100%", height: 160, backgroundColor: "#EDE5D8" },
+  previewImage: { width: "100%", height: 170, backgroundColor: "#EDE5D8" },
   previewImagePlaceholder: {
     width: "100%",
-    height: 160,
+    height: 170,
     backgroundColor: "#EFE7DA",
     alignItems: "center",
     justifyContent: "center",
   },
+  previewLikeBtn: {
+    position: "absolute",
+    left: 10,
+    top: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewRatingChip: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(27,22,17,0.78)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  previewRatingChipText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   previewImagePlaceholderText: { color: "#77695B", fontWeight: "600" },
   previewBody: { padding: 12 },
-  previewFoodTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
-  previewFoodSummary: { color: "#6F6358", marginTop: 4 },
-  previewFooter: { marginTop: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  previewPrice: { color: "#2E6B44", fontWeight: "800", fontSize: 15 },
-  previewSeller: { color: "#8A7A6A", fontWeight: "600" },
+  previewTopRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  previewTopRowLeft: { flex: 1, minWidth: 0 },
+  previewTopRowRight: { alignItems: "flex-end", maxWidth: "50%" },
+  previewFoodTitle: { color: "#2E241C", fontWeight: "800", fontSize: 18 },
+  previewFoodSummary: { color: "#6F6358", marginTop: 2, fontSize: 14, fontWeight: "600" },
+  previewSeller: { color: "#5A4B3F", fontWeight: "700", fontSize: 16 },
+  previewCuisine: { color: "#7D6D60", fontWeight: "700", fontSize: 14, marginTop: 2 },
+  previewMidRow: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 5 },
+  previewMetaText: { color: "#7D6D60", fontWeight: "600", fontSize: 13 },
+  previewFooter: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  previewPrice: { color: "#2E6B44", fontWeight: "800", fontSize: 22 },
+  previewAllergen: { color: "#B73D35", fontWeight: "700", fontSize: 13, flex: 1, textAlign: "right" },
   previewCloseBtn: {
     marginTop: 12,
     backgroundColor: "#3F855C",
