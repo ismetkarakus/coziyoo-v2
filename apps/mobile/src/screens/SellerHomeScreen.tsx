@@ -142,6 +142,14 @@ export default function SellerHomeScreen({
         </View>
 
         {/* KPI + Filtre Chips (sticky) */}
+        <View style={styles.quickButtonsRow}>
+          <TouchableOpacity style={styles.quickButton} activeOpacity={0.85}>
+            <Text style={styles.quickButtonText}>Buton 1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickButton} activeOpacity={0.85}>
+            <Text style={styles.quickButtonText}>Buton 2</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.statsRow}>
           <TouchableOpacity
             style={[styles.statChip, activeFilter === "today" && styles.statChipActive]}
@@ -235,6 +243,17 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
+  quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  quickButton: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E6DED1",
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  quickButtonText: { color: "#2E241C", fontSize: 14, fontWeight: "700" },
   statChip: { flex: 1, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E6DED1", padding: 12, alignItems: "center" },
   statChipActive: { borderColor: "#3F855C", backgroundColor: "#EDF7F0" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
