@@ -541,6 +541,15 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   İçecekler: '🍹',
 };
 
+const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  Çorbalar: 'water-outline',
+  'Ana Yemekler': 'restaurant-outline',
+  Salata: 'leaf-outline',
+  Meze: 'wine-outline',
+  Tatlılar: 'ice-cream-outline',
+  İçecekler: 'cafe-outline',
+};
+
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   Salata: 'Salatalar',
 };
@@ -2445,11 +2454,12 @@ export default function HomeScreen({
                 activeOpacity={0.85}
                 onPress={() => setActiveCategory(cat)}
               >
-                {cat === 'Tümü' ? (
-                  <Ionicons name="grid" size={18} color={activeCategory === cat ? '#fff' : '#5A3E2B'} style={{ marginRight: 6 }} />
-                ) : (
-                  <Text style={styles.chipEmoji}>{CATEGORY_EMOJIS[cat] || '🍽️'}</Text>
-                )}
+                <Ionicons
+                  name={cat === 'Tümü' ? 'grid' : (CATEGORY_ICONS[cat] || 'restaurant-outline')}
+                  size={18}
+                  color={activeCategory === cat ? '#fff' : '#5A3E2B'}
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
                   {CATEGORY_DISPLAY_NAMES[cat] || cat}
                 </Text>
@@ -2464,7 +2474,7 @@ export default function HomeScreen({
             </View>
             <View style={styles.nearbyHeaderTextWrap}>
               <Text style={styles.nearbyHeaderTitle}>Anne Eli Değmiş Gibi</Text>
-              <Text style={styles.nearbyHeaderSubtitle}>Tüm yemekler ev yapımı ve günlük taze 🧡</Text>
+              <Text style={styles.nearbyHeaderSubtitle}>Tüm yemekler ev yapımı ve günlük taze</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={22} color="#8B6A52" />
