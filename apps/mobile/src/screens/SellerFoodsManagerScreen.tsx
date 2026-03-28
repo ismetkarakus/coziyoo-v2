@@ -4,6 +4,7 @@ import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
+import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
 import ScreenHeader from "../components/ScreenHeader";
 import ActionButton from "../components/ActionButton";
 
@@ -24,13 +25,12 @@ type SellerFood = {
   [key: string]: unknown;
 };
 
-let foodsCache: SellerFood[] | null = null;
-
 export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm, onAuthRefresh }: Props) {
+  const initialCache = getSellerFoodsCache() as SellerFood[] | null;
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
-  const [foods, setFoods] = useState<SellerFood[]>(foodsCache ?? []);
-  const [loading, setLoading] = useState(!(foodsCache && foodsCache.length > 0));
+  const [foods, setFoods] = useState<SellerFood[]>(initialCache ?? []);
+  const [loading, setLoading] = useState(!(initialCache && initialCache.length > 0));
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -75,9 +75,10 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         stock: Number(item.stock ?? 0),
       })) : [];
       setFoods(list);
-      foodsCache = list;
+      setSellerFoodsCache(list as unknown as Record<string, unknown>[]);
     } catch (e) {
-      if (!foodsCache || foodsCache.length === 0) {
+      const cache = getSellerFoodsCache();
+      if (!cache || cache.length === 0) {
         Alert.alert("Hata", e instanceof Error ? e.message : "Yemekler yüklenemedi");
       }
     } finally {
@@ -86,7 +87,8 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
   }
 
   useEffect(() => {
-    void loadFoods({ silent: Boolean(foodsCache && foodsCache.length > 0) });
+    const cache = getSellerFoodsCache();
+    void loadFoods({ silent: Boolean(cache && cache.length > 0) });
   }, []);
 
   return (
@@ -96,39 +98,43 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         <ActionButton label="Yemek Ekle" onPress={() => onOpenFoodsForm("add")} fullWidth />
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#3F855C" />
-        </View>
-      ) : (
-        <FlatList
-          data={foods}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={() => onOpenFoodsForm("edit", item.id, item)}>
-              <View style={styles.rowTop}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={[styles.badge, item.isActive ? styles.badgeActive : styles.badgePassive]}>
-                  {item.isActive ? "Aktif" : "Pasif"}
-                </Text>
-              </View>
-              <Text style={styles.summary}>{item.cardSummary || "Özet yok"}</Text>
-              <View style={styles.rowBottom}>
-                <Text style={styles.price}>{item.price.toFixed(2)} TL</Text>
-                <Text style={styles.stock}>Stok: {item.stock ?? 0}</Text>
-              </View>
-              <Text style={styles.editHint}>Yemek Düzenle</Text>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
+      <FlatList
+        data={foods}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          loading ? (
+            <View style={styles.inlineLoading}>
+              <ActivityIndicator size="small" color="#3F855C" />
+              <Text style={styles.inlineLoadingText}>Yemekler hazırlanıyor...</Text>
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={() => onOpenFoodsForm("edit", item.id, item)}>
+            <View style={styles.rowTop}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={[styles.badge, item.isActive ? styles.badgeActive : styles.badgePassive]}>
+                {item.isActive ? "Aktif" : "Pasif"}
+              </Text>
+            </View>
+            <Text style={styles.summary}>{item.cardSummary || "Özet yok"}</Text>
+            <View style={styles.rowBottom}>
+              <Text style={styles.price}>{item.price.toFixed(2)} TL</Text>
+              <Text style={styles.stock}>Stok: {item.stock ?? 0}</Text>
+            </View>
+            <Text style={styles.editHint}>Yemek Düzenle</Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          !loading ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>Henüz yemek yok</Text>
               <Text style={styles.emptySub}>Yemek eklediğinde burada göreceksin.</Text>
             </View>
-          }
-        />
-      )}
+          ) : null
+        }
+      />
     </View>
   );
 }
@@ -137,6 +143,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   topAction: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  inlineLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
+  inlineLoadingText: { color: "#6C6055", fontWeight: "600" },
   listContent: { padding: 14, gap: 10, paddingBottom: 24 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, gap: 6 },
   rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

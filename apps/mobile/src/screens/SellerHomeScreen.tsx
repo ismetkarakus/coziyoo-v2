@@ -4,6 +4,7 @@ import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
+import { setSellerFoodsCache } from "../utils/sellerFoodsCache";
 import { subscribeSellerOrdersRealtime } from "../utils/realtime";
 import ActionButton from "../components/ActionButton";
 
@@ -89,6 +90,20 @@ export default function SellerHomeScreen({
           waiting: orders.filter((o) => o.status === "pending_seller_approval").length,
         });
       }
+
+      // Warm up foods cache so "Yemek Yönetimi" opens instantly on first try.
+      void (async () => {
+        try {
+          const foodsRes = await fetchWithAuth("/v1/seller/foods", baseUrl);
+          if (!foodsRes.ok) return;
+          const foodsJson = await foodsRes.json();
+          if (Array.isArray(foodsJson?.data)) {
+            setSellerFoodsCache(foodsJson.data as Record<string, unknown>[]);
+          }
+        } catch {
+          // best-effort warmup
+        }
+      })();
     } catch {
       // best-effort
     } finally {
