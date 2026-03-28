@@ -10,7 +10,7 @@ import ActionButton from "../components/ActionButton";
 type Props = {
   auth: AuthSession;
   onBack: () => void;
-  onOpenFoodsForm: (mode: "add" | "edit", foodId?: string) => void;
+  onOpenFoodsForm: (mode: "add" | "edit", foodId?: string, food?: SellerFood) => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
@@ -21,6 +21,7 @@ type SellerFood = {
   price: number;
   isActive: boolean;
   stock?: number;
+  [key: string]: unknown;
 };
 
 let foodsCache: SellerFood[] | null = null;
@@ -65,6 +66,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
       const list: SellerFood[] = Array.isArray(json?.data) ? json.data.map((item: any) => ({
+        ...item,
         id: String(item.id),
         name: String(item.name ?? ""),
         cardSummary: typeof item.cardSummary === "string" ? item.cardSummary : null,
@@ -104,7 +106,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={() => onOpenFoodsForm("edit", item.id)}>
+            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={() => onOpenFoodsForm("edit", item.id, item)}>
               <View style={styles.rowTop}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={[styles.badge, item.isActive ? styles.badgeActive : styles.badgePassive]}>

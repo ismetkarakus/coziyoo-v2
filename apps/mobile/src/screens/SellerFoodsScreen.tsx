@@ -14,6 +14,7 @@ type Props = {
   auth: AuthSession;
   onBack: () => void;
   initialEditFoodId?: string | null;
+  initialEditFood?: SellerFood | null;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
@@ -122,7 +123,7 @@ function parseLocalizedDecimal(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
-export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onAuthRefresh }: Props) {
+export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, initialEditFood, onAuthRefresh }: Props) {
   const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
@@ -178,6 +179,12 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onA
   useEffect(() => {
     setPendingInitialEditId(initialEditFoodId ?? null);
   }, [initialEditFoodId]);
+
+  useEffect(() => {
+    if (!initialEditFood) return;
+    openEdit(initialEditFood);
+    setPendingInitialEditId(null);
+  }, [initialEditFood]);
 
   async function authedFetch(path: string, init?: RequestInit, baseUrl = apiUrl): Promise<Response> {
     const headers: Record<string, string> = {
@@ -304,8 +311,8 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onA
     setCardSummary(food.cardSummary ?? "");
     setDescription(food.description ?? "");
     setRecipe(food.recipe ?? "");
-    setIngredients(food.ingredients.join(", "));
-    setAllergens(food.allergens.join(", "));
+    setIngredients(Array.isArray(food.ingredients) ? food.ingredients.join(", ") : "");
+    setAllergens(Array.isArray(food.allergens) ? food.allergens.join(", ") : "");
     const seededImageUrls = (food.imageUrls?.length ? food.imageUrls : [food.imageUrl ?? ""]).slice(0, 5);
     while (seededImageUrls.length < 5) seededImageUrls.push("");
     setImageUrls(seededImageUrls);
