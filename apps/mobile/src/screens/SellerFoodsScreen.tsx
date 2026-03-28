@@ -127,6 +127,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [pickupEnabled, setPickupEnabled] = useState(true);
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState("");
+  const [deliveryDistanceKm, setDeliveryDistanceKm] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -237,6 +238,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setPickupEnabled(true);
     setDeliveryEnabled(true);
     setDeliveryFee("");
+    setDeliveryDistanceKm("");
   }
 
   function openEdit(food: SellerFood) {
@@ -258,6 +260,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setDeliveryFee(food.deliveryFee ? String(food.deliveryFee) : "");
     setPickupEnabled(food.deliveryOptions?.pickup ?? true);
     setDeliveryEnabled(food.deliveryOptions?.delivery ?? true);
+    setDeliveryDistanceKm("");
   }
 
   const canShowDeliveryFee = deliveryEnabled;
@@ -354,6 +357,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         ingredients: ingredients.split(",").map((x) => x.trim()).filter(Boolean),
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
+        deliveryDistanceKm: deliveryDistanceKm.trim() ? Number(deliveryDistanceKm) : undefined,
       };
 
       if (isUuid(categoryId)) {
@@ -509,7 +513,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     ? (/(mutfağı|mutfagi)$/i.test(cuisine.trim()) ? cuisine.trim() : `${cuisine.trim()} Mutfağı`)
     : "Ev Mutfağı";
   const previewMeta = prepTime.trim() ? `${prepTime.trim()} dk` : "40 dk";
-  const previewDistance = deliveryEnabled ? "14.76 km" : "Gel Al";
+  const previewDistance = deliveryEnabled
+    ? `${deliveryDistanceKm.trim() || "14.76"} km`
+    : "Gel Al";
   const previewAllergens = allergens
     .split(",")
     .map((item) => item.trim())
@@ -733,6 +739,16 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             placeholder="Örn: 45"
             placeholderTextColor={PLACEHOLDER_COLOR}
             keyboardType="number-pad"
+          />
+
+          <Text style={styles.sectionTitle}>Teslimat Mesafesi (km)</Text>
+          <TextInput
+            style={styles.input}
+            value={deliveryDistanceKm}
+            onChangeText={setDeliveryDistanceKm}
+            placeholder="Örn: 8 (kaç km uzağa götüreceğini yaz)"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            keyboardType="decimal-pad"
           />
 
           <TouchableOpacity style={styles.previewBtn} onPress={() => setPreviewVisible(true)}>
