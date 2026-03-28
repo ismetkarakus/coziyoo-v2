@@ -934,7 +934,6 @@ function FoodCard({
   isFavorite,
   favoritePending,
   onPress,
-  onSellerPress,
   onFavoritePress,
 }: {
   meal: MealCard;
@@ -943,7 +942,6 @@ function FoodCard({
   isFavorite: boolean;
   favoritePending: boolean;
   onPress: () => void;
-  onSellerPress: () => void;
   onFavoritePress: () => void;
 }) {
   const [colors, setColors] = useState<CardColors>(
@@ -1050,19 +1048,9 @@ function FoodCard({
                 </Text>
               </TouchableOpacity>
               <View style={styles.foodNameMetaRight}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    onSellerPress();
-                  }}
-                  style={styles.foodSellerInlineBtn}
-                >
-                  <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
-                    {formatSellerIdentity(meal.seller, meal.sellerUsername)}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.subtitle} />
-                </TouchableOpacity>
+                <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
+                  {formatSellerIdentity(meal.seller, meal.sellerUsername)}
+                </Text>
               </View>
             </View>
             <View style={styles.foodMetaRow}>
@@ -1143,11 +1131,6 @@ export default function HomeScreen({
   });
   const [mealModalAnimType, setMealModalAnimType] = useState<'slide' | 'none'>('slide');
   const [selectedSeller, setSelectedSeller] = useState<{
-    id: string;
-    name: string;
-    image?: string | null;
-  } | null>(null);
-  const [pendingSellerOpen, setPendingSellerOpen] = useState<{
     id: string;
     name: string;
     image?: string | null;
@@ -2378,16 +2361,6 @@ export default function HomeScreen({
   }, [selectedSeller?.id, apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
-    if (!pendingSellerOpen || selectedMeal) return;
-    const timer = setTimeout(() => {
-      setSelectedSeller(pendingSellerOpen);
-      setSellerModalTouchGuardUntil(Date.now() + 500);
-      setPendingSellerOpen(null);
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [pendingSellerOpen, selectedMeal]);
-
-  useEffect(() => {
     if (!selectedSeller) return;
     sellerModalSlideX.setValue(Dimensions.get('window').width);
     Animated.timing(sellerModalSlideX, {
@@ -2688,13 +2661,6 @@ export default function HomeScreen({
               isFavorite={Boolean(favoriteIds[meal.id])}
               favoritePending={Boolean(favoritePendingIds[meal.id])}
               onPress={() => setSelectedMeal(meal)}
-              onSellerPress={() =>
-                setSelectedSeller({
-                  id: meal.sellerId,
-                  name: meal.seller,
-                  image: meal.sellerImage ?? null,
-                })
-              }
               onFavoritePress={() => {
                 void toggleFavorite(meal.id);
               }}
@@ -3454,9 +3420,21 @@ export default function HomeScreen({
                 )}
               </View>
               <Text style={styles.modalTitle}>{selectedMeal.title}</Text>
-              <View style={styles.modalSellerRow}>
+              <TouchableOpacity
+                style={styles.modalSellerRow}
+                activeOpacity={0.82}
+                onPress={() => {
+                  setSellerModalTouchGuardUntil(Date.now() + 350);
+                  setSelectedSeller({
+                    id: selectedMeal.sellerId,
+                    name: selectedMeal.seller,
+                    image: selectedMeal.sellerImage ?? null,
+                  });
+                }}
+              >
                 <Text style={styles.modalSeller}>{formatSellerIdentity(selectedMeal.seller, selectedMeal.sellerUsername)}</Text>
-              </View>
+                <Ionicons name="chevron-forward" size={15} color="#7A8B6E" />
+              </TouchableOpacity>
               {selectedMeal.cuisine ? (
                 <Text style={styles.modalCuisine}>{formatCuisineLabel(selectedMeal.cuisine)}</Text>
               ) : null}
