@@ -1272,6 +1272,13 @@ export default function HomeScreen({
     fetchFoods(apiUrl);
   }, [apiUrl, currentAuth.accessToken]);
 
+  // Refresh feed every time user returns to home tab (e.g. after publishing from seller side)
+  useEffect(() => {
+    if (activeTab !== 'home') return;
+    if (!apiUrl) return;
+    fetchFoods(apiUrl);
+  }, [activeTab, apiUrl]);
+
   useEffect(() => {
     let cancelled = false;
     setRecommendedMealsLoading(true);
