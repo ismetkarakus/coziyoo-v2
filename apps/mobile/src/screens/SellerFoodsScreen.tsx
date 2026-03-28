@@ -25,6 +25,8 @@ type SellerFood = {
   description: string | null;
   recipe: string | null;
   cuisine: string | null;
+  menuItems?: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  secondaryCategories?: Array<{ id: string; name: string }>;
   price: number;
   deliveryFee: number;
   deliveryOptions: { pickup: boolean; delivery: boolean } | null;
@@ -106,6 +108,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [saving, setSaving] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [categoryPickerTarget, setCategoryPickerTarget] = useState<"main" | "menuItem">("main");
   const [foods, setFoods] = useState<SellerFood[]>([]);
   const [categories, setCategories] = useState<FoodCategoryOption[]>([]);
   const [editingFood, setEditingFood] = useState<SellerFood | null>(null);
@@ -138,6 +141,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [deliveryEnabled, setDeliveryEnabled] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState("");
   const [deliveryDistanceKm, setDeliveryDistanceKm] = useState("");
+  const [menuItems, setMenuItems] = useState<Array<{ name: string; categoryId?: string }>>([]);
+  const [menuItemNameInput, setMenuItemNameInput] = useState("");
+  const [menuItemCategoryIdInput, setMenuItemCategoryIdInput] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -249,6 +255,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setDeliveryEnabled(true);
     setDeliveryFee("");
     setDeliveryDistanceKm("");
+    setMenuItems([]);
+    setMenuItemNameInput("");
+    setMenuItemCategoryIdInput("");
   }
 
   function openEdit(food: SellerFood) {
@@ -271,6 +280,21 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setPickupEnabled(food.deliveryOptions?.pickup ?? true);
     setDeliveryEnabled(food.deliveryOptions?.delivery ?? true);
     setDeliveryDistanceKm("");
+    const normalizedMenuItems = Array.isArray(food.menuItems)
+      ? food.menuItems
+        .map((item) => ({
+          name: String(item?.name ?? "").trim(),
+          categoryId: typeof item?.categoryId === "string" ? item.categoryId : undefined,
+        }))
+        .filter((item) => item.name)
+      : [];
+    setMenuItems(
+      normalizedMenuItems.length > 0
+        ? normalizedMenuItems
+        : [{ name: food.name, categoryId: food.categoryId ?? undefined }],
+    );
+    setMenuItemNameInput("");
+    setMenuItemCategoryIdInput("");
   }
 
   const canShowDeliveryFee = deliveryEnabled;
@@ -345,6 +369,10 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         Alert.alert("Hata", "Yemek adı ve fiyat zorunlu.");
         return;
       }
+      if (menuItems.length < 1) {
+        Alert.alert("Hata", "Menü içeriğinde en az 1 kalem olmalı.");
+        return;
+      }
       if (options?.publishAfterSave && !recipe.trim()) {
         Alert.alert("Hata", "Yemeği yayınlamak için tarif alanını doldurmalısın.");
         return;
@@ -381,6 +409,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
         deliveryDistanceKm: Number.isFinite(parsedDeliveryDistance) ? parsedDeliveryDistance : undefined,
+        menuItems,
+        secondaryCategoryIds: Array.from(new Set(menuItems.map((item) => item.categoryId).filter(Boolean) as string[])),
       };
 
       if (isUuid(categoryId)) {
@@ -472,6 +502,30 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     } finally {
       setSaving(false);
     }
+  }
+
+  function addMenuItem() {
+    const rawName = menuItemNameInput.trim().replace(/\s+/g, " ");
+    if (!rawName) {
+      Alert.alert("Hata", "Menü kalemi adı zorunlu.");
+      return;
+    }
+    const normalizedKey = rawName.toLocaleLowerCase("tr-TR");
+    if (menuItems.some((item) => item.name.trim().toLocaleLowerCase("tr-TR") === normalizedKey)) {
+      Alert.alert("Hata", "Aynı menü kalemi tekrar eklenemez.");
+      return;
+    }
+    const next = {
+      name: rawName,
+      categoryId: isUuid(menuItemCategoryIdInput) ? menuItemCategoryIdInput : undefined,
+    };
+    setMenuItems((prev) => [...prev, next]);
+    setMenuItemNameInput("");
+    setMenuItemCategoryIdInput("");
+  }
+
+  function removeMenuItem(index: number) {
+    setMenuItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function toggleStatus(food: SellerFood) {
@@ -643,6 +697,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               if (!loadingCategories && categories.length === 0) {
                 void loadCategories();
               }
+              setCategoryPickerTarget("main");
               setCategoryModalVisible(true);
             }}
             activeOpacity={0.85}
@@ -671,6 +726,53 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             placeholderTextColor={PLACEHOLDER_COLOR}
             multiline
           />
+
+          <Text style={styles.sectionTitle}>Menü İçerikleri *</Text>
+          <View style={styles.menuItemInputRow}>
+            <TextInput
+              style={[styles.input, styles.menuItemNameInput]}
+              value={menuItemNameInput}
+              onChangeText={setMenuItemNameInput}
+              placeholder="Örn: Kuru fasulye"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.input, styles.dropdownInput, { marginTop: 8 }]}
+            onPress={() => {
+              if (!loadingCategories && categories.length === 0) {
+                void loadCategories();
+              }
+              setCategoryPickerTarget("menuItem");
+              setCategoryModalVisible(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={menuItemCategoryIdInput ? styles.dropdownValue : styles.dropdownPlaceholder}>
+              {menuItemCategoryIdInput
+                ? (categories.find((item) => item.id === menuItemCategoryIdInput)?.name ?? "Kategori")
+                : "Kalem kategorisi (opsiyonel)"}
+            </Text>
+            <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addMenuItemBtn} onPress={addMenuItem} activeOpacity={0.85}>
+            <Text style={styles.addMenuItemBtnText}>+ Kalem Ekle</Text>
+          </TouchableOpacity>
+          <View style={styles.menuItemsWrap}>
+            {menuItems.map((item, index) => (
+              <View key={`${item.name}-${index}`} style={styles.menuItemChip}>
+                <Text style={styles.menuItemChipText}>
+                  {item.name}
+                  {item.categoryId
+                    ? ` · ${categories.find((c) => c.id === item.categoryId)?.name ?? "Kategori"}`
+                    : ""}
+                </Text>
+                <TouchableOpacity onPress={() => removeMenuItem(index)} hitSlop={8}>
+                  <Ionicons name="close" size={16} color="#2F241C" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
 
           <Text style={styles.sectionTitle}>Tarif</Text>
           <TextInput
@@ -950,21 +1052,29 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               </View>
             ) : (
               <ScrollView style={styles.categoryList} contentContainerStyle={styles.categoryListContent}>
-                {categories.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.categoryOption, categoryId === item.id && styles.categoryOptionActive]}
-                    onPress={() => {
-                      setCategoryId(item.id);
-                      setCategoryModalVisible(false);
-                    }}
-                  >
-                    <Text style={[styles.categoryOptionText, categoryId === item.id && styles.categoryOptionTextActive]}>
-                      {item.name}
-                    </Text>
-                    {categoryId === item.id ? <Ionicons name="checkmark-circle" size={18} color="#2E6B44" /> : null}
-                  </TouchableOpacity>
-                ))}
+                {categories.map((item) => {
+                  const selectedCategoryForTarget = categoryPickerTarget === "main" ? categoryId : menuItemCategoryIdInput;
+                  const isSelected = selectedCategoryForTarget === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.categoryOption, isSelected && styles.categoryOptionActive]}
+                      onPress={() => {
+                        if (categoryPickerTarget === "main") {
+                          setCategoryId(item.id);
+                        } else {
+                          setMenuItemCategoryIdInput(item.id);
+                        }
+                        setCategoryModalVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.categoryOptionText, isSelected && styles.categoryOptionTextActive]}>
+                        {item.name}
+                      </Text>
+                      {isSelected ? <Ionicons name="checkmark-circle" size={18} color="#2E6B44" /> : null}
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
           </View>
@@ -996,6 +1106,31 @@ const styles = StyleSheet.create({
   },
   dropdownPlaceholder: { color: "#8A7A6A" },
   dropdownValue: { color: "#2E241C", fontWeight: "600" },
+  menuItemInputRow: { flexDirection: "row", alignItems: "center" },
+  menuItemNameInput: { flex: 1 },
+  addMenuItemBtn: {
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#D6CCBD",
+    backgroundColor: "#F7EFE2",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  addMenuItemBtnText: { color: "#3F855C", fontWeight: "800" },
+  menuItemsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  menuItemChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  menuItemChipText: { color: "#2F241C", fontSize: 12, fontWeight: "600" },
   textArea: {
     minHeight: 120,
     textAlignVertical: "top",

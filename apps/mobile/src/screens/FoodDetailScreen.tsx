@@ -19,6 +19,8 @@ export type FoodItem = {
   maxDistance: number | null;
   allergens: string[];
   ingredients: string[];
+  menuItems?: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  secondaryCategories?: Array<{ id: string; name: string }>;
   cuisine: string | null;
   stock: number;
   lotId: string | null;
@@ -175,6 +177,22 @@ export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSell
               {food.ingredients.map((ing, i) => (
                 <View key={i} style={styles.ingredientTag}>
                   <Text style={styles.ingredientText}>{ing}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {Array.isArray(food.menuItems) && food.menuItems.length > 0 && (
+          <View style={styles.section}>
+            <SectionDivider icon="restaurant-outline" label="Menü İçeriği" />
+            <View style={styles.tagRow}>
+              {food.menuItems.map((item, i) => (
+                <View key={`${item.name}-${i}`} style={styles.ingredientTag}>
+                  <Text style={styles.ingredientText}>
+                    {item.name}
+                    {item.categoryName ? ` · ${item.categoryName}` : ""}
+                  </Text>
                 </View>
               ))}
             </View>

@@ -47,6 +47,17 @@ const SellerFoodCreateSchema = z.object({
   imageUrls: z.array(foodImageUrlSchema).max(5).optional(),
   isActive: z.boolean().optional(),
   categoryId: z.string().uuid().optional(),
+  menuItems: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        categoryId: z.string().uuid().optional(),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
+  secondaryCategoryIds: z.array(z.string().uuid()).max(20).optional(),
 });
 
 const SellerFoodUpdateSchema = SellerFoodCreateSchema.partial().refine(
@@ -98,6 +109,109 @@ function normalizeDeliveryOptions(input: unknown): { pickup: boolean; delivery: 
   const pickup = Boolean(raw.pickup);
   const delivery = Boolean(raw.delivery);
   return { pickup, delivery };
+}
+
+type MenuItemInput = { name: string; categoryId?: string };
+type MenuItemView = { name: string; categoryId?: string; categoryName?: string | null };
+type SecondaryCategoryView = { id: string; name: string };
+
+function normalizeMenuItems(input: unknown): Array<{ name: string; categoryId?: string }> {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const items: Array<{ name: string; categoryId?: string }> = [];
+
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const name = String(row.name ?? "").trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const dedupeKey = name.toLocaleLowerCase("tr-TR");
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    const categoryId = typeof row.categoryId === "string" && row.categoryId.trim() ? row.categoryId.trim() : undefined;
+    items.push(categoryId ? { name, categoryId } : { name });
+  }
+
+  return items.slice(0, 20);
+}
+
+function normalizeSecondaryCategoryIds(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const unique = new Set<string>();
+  for (const raw of input) {
+    const value = String(raw ?? "").trim();
+    if (value) unique.add(value);
+  }
+  return Array.from(unique).slice(0, 20);
+}
+
+function resolveSecondaryCategoryIds(input: {
+  mainCategoryId?: string | null;
+  menuItems?: Array<{ name: string; categoryId?: string }>;
+  secondaryCategoryIds?: string[];
+}): string[] {
+  const unique = new Set<string>();
+  const mainCategoryId = input.mainCategoryId?.trim() || null;
+
+  for (const id of input.secondaryCategoryIds ?? []) {
+    const value = id.trim();
+    if (value && value !== mainCategoryId) unique.add(value);
+  }
+  for (const item of input.menuItems ?? []) {
+    const value = item.categoryId?.trim();
+    if (value && value !== mainCategoryId) unique.add(value);
+  }
+
+  return Array.from(unique).slice(0, 20);
+}
+
+function validateMenuItems(items: MenuItemInput[] | undefined): string | null {
+  if (!items) return null;
+  if (items.length < 1) return "menuItems must include at least one item";
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = item.name.trim().toLocaleLowerCase("tr-TR");
+    if (!key) return "menuItems contains empty item name";
+    if (seen.has(key)) return "menuItems contains duplicate names";
+    seen.add(key);
+  }
+  return null;
+}
+
+async function loadCategoryNameMap(categoryIds: string[]): Promise<Map<string, string>> {
+  const uniq = Array.from(new Set(categoryIds.map((item) => item.trim()).filter(Boolean)));
+  if (uniq.length === 0) return new Map<string, string>();
+
+  const result = await pool.query<{ id: string; name_tr: string | null; name_en: string | null }>(
+    `SELECT id::text, name_tr, name_en
+     FROM categories
+     WHERE id = ANY($1::uuid[])`,
+    [uniq],
+  );
+
+  const map = new Map<string, string>();
+  for (const row of result.rows) {
+    const label = row.name_tr?.trim() || row.name_en?.trim() || row.id;
+    map.set(row.id, label);
+  }
+  return map;
+}
+
+function mapMenuItemsWithCategoryNames(menuItems: unknown, categoryMap: Map<string, string>): MenuItemView[] {
+  return normalizeMenuItems(menuItems).map((item) => ({
+    name: item.name,
+    categoryId: item.categoryId,
+    categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
+  }));
+}
+
+function mapSecondaryCategories(
+  idsRaw: unknown,
+  categoryMap: Map<string, string>,
+): SecondaryCategoryView[] {
+  return normalizeSecondaryCategoryIds(idsRaw)
+    .map((id) => ({ id, name: categoryMap.get(id) ?? "" }))
+    .filter((item) => item.name);
 }
 
 function computeSellerProfileStatus(input: {
@@ -324,6 +438,8 @@ sellerRouter.get("/foods", async (req, res) => {
          f.description,
          f.recipe,
          f.cuisine,
+         f.menu_items_json,
+         f.secondary_category_ids_json,
          f.price::text,
          f.delivery_fee::text AS delivery_fee,
          f.delivery_options_json,
@@ -350,6 +466,18 @@ sellerRouter.get("/foods", async (req, res) => {
        ORDER BY f.updated_at DESC`,
       [userId],
     );
+    const categoryIds = new Set<string>();
+    for (const row of result.rows) {
+      if (typeof row.category_id === "string" && row.category_id) categoryIds.add(row.category_id);
+      for (const item of normalizeMenuItems((row as { menu_items_json?: unknown }).menu_items_json)) {
+        if (item.categoryId) categoryIds.add(item.categoryId);
+      }
+      for (const id of normalizeSecondaryCategoryIds((row as { secondary_category_ids_json?: unknown }).secondary_category_ids_json)) {
+        categoryIds.add(id);
+      }
+    }
+    const categoryMap = await loadCategoryNameMap(Array.from(categoryIds));
+
     return res.json({
       data: result.rows.map((row) => ({
         id: row.id,
@@ -360,6 +488,8 @@ sellerRouter.get("/foods", async (req, res) => {
         description: row.description,
         recipe: row.recipe,
         cuisine: row.cuisine ?? null,
+        menuItems: mapMenuItemsWithCategoryNames((row as { menu_items_json?: unknown }).menu_items_json, categoryMap),
+        secondaryCategories: mapSecondaryCategories((row as { secondary_category_ids_json?: unknown }).secondary_category_ids_json, categoryMap),
         price: Number(row.price),
         deliveryFee: row.delivery_fee != null ? Number(row.delivery_fee) : 0,
         deliveryOptions: normalizeDeliveryOptions(row.delivery_options_json),
@@ -387,24 +517,37 @@ sellerRouter.get("/categories", async (req, res) => {
       id: string;
       name_tr: string | null;
       name_en: string | null;
-      slug: string | null;
     }>(
-      `SELECT
-         id::text,
-         name_tr,
-         name_en,
-         slug
+      `SELECT id::text, name_tr, name_en
        FROM categories
-       ORDER BY
-         COALESCE(NULLIF(name_tr, ''), NULLIF(name_en, ''), slug, id::text) ASC`,
+       WHERE is_active = true
+       ORDER BY sort_order ASC NULLS LAST, name_tr ASC, name_en ASC`,
+    );
+
+    if (result.rows.length > 0) {
+      return res.json({
+        data: result.rows.map((row) => ({
+          id: row.id,
+          nameTr: row.name_tr,
+          nameEn: row.name_en,
+        })),
+      });
+    }
+
+    // Fallback: derive distinct categories from existing foods (same source as home screen)
+    const fallback = await pool.query<{ id: string; name_tr: string }>(
+      `SELECT DISTINCT c.id::text, c.name_tr
+       FROM categories c
+       JOIN foods f ON f.category_id = c.id
+       WHERE f.is_active = true
+       ORDER BY c.name_tr ASC`,
     );
 
     return res.json({
-      data: result.rows.map((row) => ({
+      data: fallback.rows.map((row) => ({
         id: row.id,
         nameTr: row.name_tr,
-        nameEn: row.name_en,
-        slug: row.slug,
+        nameEn: null,
       })),
     });
   } catch (error) {
@@ -420,11 +563,21 @@ sellerRouter.post("/foods", async (req, res) => {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
     }
     const input = parsed.data;
+    const normalizedMenuItems = normalizeMenuItems(input.menuItems);
+    const menuValidationError = validateMenuItems(normalizedMenuItems);
+    if (menuValidationError) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: menuValidationError } });
+    }
+    const resolvedSecondaryCategoryIds = resolveSecondaryCategoryIds({
+      mainCategoryId: input.categoryId ?? null,
+      menuItems: normalizedMenuItems,
+      secondaryCategoryIds: normalizeSecondaryCategoryIds(input.secondaryCategoryIds),
+    });
     try {
       const created = await pool.query<{ id: string }>(
         `INSERT INTO foods
-           (seller_id, category_id, name, card_summary, description, recipe, cuisine, price, delivery_fee, delivery_options_json, image_url, image_urls_json, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16, now(), now())
+           (seller_id, category_id, name, card_summary, description, recipe, cuisine, menu_items_json, secondary_category_ids_json, price, delivery_fee, delivery_options_json, image_url, image_urls_json, ingredients_json, allergens_json, preparation_time_minutes, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12::jsonb, $13, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, now(), now())
          RETURNING id::text`,
         [
           req.auth!.userId,
@@ -434,6 +587,8 @@ sellerRouter.post("/foods", async (req, res) => {
           input.description?.trim() ?? null,
           input.recipe?.trim() ?? null,
           input.cuisine?.trim() ?? null,
+          JSON.stringify(normalizedMenuItems),
+          JSON.stringify(resolvedSecondaryCategoryIds),
           input.price,
           input.deliveryFee ?? 0,
           JSON.stringify(input.deliveryOptions ?? { pickup: true, delivery: true }),
@@ -463,6 +618,11 @@ sellerRouter.patch("/foods/:foodId", async (req, res) => {
       return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
     }
     const input = parsed.data;
+    const normalizedMenuItems = input.menuItems !== undefined ? normalizeMenuItems(input.menuItems) : undefined;
+    const menuValidationError = validateMenuItems(normalizedMenuItems);
+    if (menuValidationError) {
+      return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: menuValidationError } });
+    }
 
     const setClauses: string[] = [];
     const values: unknown[] = [];
@@ -491,6 +651,34 @@ sellerRouter.patch("/foods/:foodId", async (req, res) => {
     if (input.cuisine !== undefined) {
       setClauses.push(`cuisine = $${idx++}`);
       values.push(input.cuisine?.trim() ?? null);
+    }
+    if (normalizedMenuItems !== undefined) {
+      setClauses.push(`menu_items_json = $${idx++}::jsonb`);
+      values.push(JSON.stringify(normalizedMenuItems));
+    }
+    if (input.secondaryCategoryIds !== undefined || normalizedMenuItems !== undefined || input.categoryId !== undefined) {
+      const existingResult = await pool.query<{ category_id: string | null; menu_items_json: unknown; secondary_category_ids_json: unknown }>(
+        `SELECT category_id::text, menu_items_json, secondary_category_ids_json
+         FROM foods
+         WHERE id = $1 AND seller_id = $2`,
+        [foodId, req.auth!.userId],
+      );
+      if ((existingResult.rowCount ?? 0) === 0) {
+        return res.status(404).json({ error: { code: "FOOD_NOT_FOUND", message: "Food not found in seller scope" } });
+      }
+      const existing = existingResult.rows[0];
+      const nextMainCategoryId = input.categoryId !== undefined ? (input.categoryId ?? null) : existing.category_id;
+      const nextMenuItems = normalizedMenuItems ?? normalizeMenuItems(existing.menu_items_json);
+      const secondaryInput = input.secondaryCategoryIds !== undefined
+        ? normalizeSecondaryCategoryIds(input.secondaryCategoryIds)
+        : normalizeSecondaryCategoryIds(existing.secondary_category_ids_json);
+      const resolvedSecondaryCategoryIds = resolveSecondaryCategoryIds({
+        mainCategoryId: nextMainCategoryId,
+        menuItems: nextMenuItems,
+        secondaryCategoryIds: secondaryInput,
+      });
+      setClauses.push(`secondary_category_ids_json = $${idx++}::jsonb`);
+      values.push(JSON.stringify(resolvedSecondaryCategoryIds));
     }
     if (input.price !== undefined) {
       setClauses.push(`price = $${idx++}`);

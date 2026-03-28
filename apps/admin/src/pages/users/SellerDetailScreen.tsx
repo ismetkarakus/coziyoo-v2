@@ -2559,6 +2559,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           </td>
                           <td>
                             <strong>{`${food.name} (${food.code || "-"})`}</strong>
+                            {Array.isArray(food.menuItems) && food.menuItems.length > 0 ? (
+                              <div className="panel-meta">{`${language === "tr" ? "İçindekiler" : "Items"}: ${food.menuItems.map((item) => item.name).join(", ")}`}</div>
+                            ) : null}
                           </td>
                           <td>{food.categoryName ?? <span className="panel-meta">-</span>}</td>
                           <td>{food.cuisine ?? <span className="panel-meta">-</span>}</td>
@@ -3215,6 +3218,20 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                     <div className="foods-detail-text-block">
                       <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
                       <p className="foods-detail-paragraph">{food.ingredients}</p>
+                    </div>
+                  ) : null}
+                  {Array.isArray(food.menuItems) && food.menuItems.length > 0 ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Menü İçeriği" : "Menu Items"}</h4>
+                      <p className="foods-detail-paragraph">
+                        {food.menuItems.map((item) => (item.categoryName ? `${item.name} (${item.categoryName})` : item.name)).join(", ")}
+                      </p>
+                    </div>
+                  ) : null}
+                  {Array.isArray(food.secondaryCategories) && food.secondaryCategories.length > 0 ? (
+                    <div className="foods-detail-text-block">
+                      <h4>{language === "tr" ? "Alt Kategoriler" : "Secondary Categories"}</h4>
+                      <p className="foods-detail-paragraph">{food.secondaryCategories.map((item) => item.name).join(", ")}</p>
                     </div>
                   ) : null}
                   {food.allergens.length > 0 ? (

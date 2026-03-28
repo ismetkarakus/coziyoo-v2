@@ -42,6 +42,68 @@ function resolvePrimaryFoodImage(imageUrlsValue: unknown, imageUrlFallback: unkn
   return fallback.length > 0 ? fallback : null;
 }
 
+type FoodMenuItem = { name: string; categoryId?: string; categoryName?: string | null };
+type SecondaryCategory = { id: string; name: string };
+
+function parseMenuItems(value: unknown): Array<{ name: string; categoryId?: string }> {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const items: Array<{ name: string; categoryId?: string }> = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const name = String(row.name ?? "").trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const key = name.toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const categoryId = typeof row.categoryId === "string" && row.categoryId.trim() ? row.categoryId.trim() : undefined;
+    items.push(categoryId ? { name, categoryId } : { name });
+  }
+  return items.slice(0, 20);
+}
+
+function parseSecondaryCategoryIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const unique = new Set<string>();
+  for (const raw of value) {
+    const id = String(raw ?? "").trim();
+    if (id) unique.add(id);
+  }
+  return Array.from(unique).slice(0, 20);
+}
+
+async function loadCategoryNameMap(categoryIds: string[]): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(categoryIds.map((item) => item.trim()).filter(Boolean)));
+  if (ids.length === 0) return new Map<string, string>();
+
+  const result = await pool.query<{ id: string; name_tr: string | null; name_en: string | null }>(
+    `SELECT id::text, name_tr, name_en
+     FROM categories
+     WHERE id = ANY($1::uuid[])`,
+    [ids],
+  );
+  const map = new Map<string, string>();
+  for (const row of result.rows) {
+    map.set(row.id, row.name_tr?.trim() || row.name_en?.trim() || row.id);
+  }
+  return map;
+}
+
+function mapMenuItemsWithNames(value: unknown, categoryMap: Map<string, string>): FoodMenuItem[] {
+  return parseMenuItems(value).map((item) => ({
+    name: item.name,
+    categoryId: item.categoryId,
+    categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
+  }));
+}
+
+function mapSecondaryCategories(value: unknown, categoryMap: Map<string, string>): SecondaryCategory[] {
+  return parseSecondaryCategoryIds(value)
+    .map((id) => ({ id, name: categoryMap.get(id) ?? "" }))
+    .filter((item) => item.name);
+}
+
 function pickRandom<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
 }
@@ -120,6 +182,9 @@ foodsRouter.get("/", async (req, res) => {
         f.allergens_json,
         f.ingredients_json,
         f.cuisine,
+        f.menu_items_json,
+        f.secondary_category_ids_json,
+        f.category_id::text AS category_id,
         (
           SELECT pl.id
           FROM production_lots pl
@@ -173,6 +238,18 @@ foodsRouter.get("/", async (req, res) => {
 
     const { rows } = await pool.query(query, params);
 
+    const categoryIds = new Set<string>();
+    for (const row of rows) {
+      if (typeof row.category_id === "string" && row.category_id) categoryIds.add(row.category_id);
+      for (const item of parseMenuItems((row as { menu_items_json?: unknown }).menu_items_json)) {
+        if (item.categoryId) categoryIds.add(item.categoryId);
+      }
+      for (const id of parseSecondaryCategoryIds((row as { secondary_category_ids_json?: unknown }).secondary_category_ids_json)) {
+        categoryIds.add(id);
+      }
+    }
+    const categoryMap = await loadCategoryNameMap(Array.from(categoryIds));
+
     const foods = rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -189,9 +266,11 @@ foodsRouter.get("/", async (req, res) => {
       allergens: parseAllergens(r.allergens_json),
       ingredients: parseAllergens(r.ingredients_json),
       cuisine: r.cuisine ?? null,
+      menuItems: mapMenuItemsWithNames((r as { menu_items_json?: unknown }).menu_items_json, categoryMap),
+      secondaryCategories: mapSecondaryCategories((r as { secondary_category_ids_json?: unknown }).secondary_category_ids_json, categoryMap),
       lotId: r.lot_id ?? null,
       category: r.category,
-      stock: r.stock,
+      stock: Number(r.stock ?? 0),
       seller: {
         id: r.seller_id,
         name: r.seller_name,
@@ -796,6 +875,9 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
           f.allergens_json,
           f.ingredients_json,
           f.cuisine,
+          f.menu_items_json,
+          f.secondary_category_ids_json,
+          f.category_id::text AS category_id,
           (
             SELECT pl.id
             FROM production_lots pl
@@ -841,6 +923,18 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
       [sellerId],
     );
 
+    const categoryIds = new Set<string>();
+    for (const row of rows) {
+      if (typeof row.category_id === "string" && row.category_id) categoryIds.add(row.category_id);
+      for (const item of parseMenuItems((row as { menu_items_json?: unknown }).menu_items_json)) {
+        if (item.categoryId) categoryIds.add(item.categoryId);
+      }
+      for (const id of parseSecondaryCategoryIds((row as { secondary_category_ids_json?: unknown }).secondary_category_ids_json)) {
+        categoryIds.add(id);
+      }
+    }
+    const categoryMap = await loadCategoryNameMap(Array.from(categoryIds));
+
     const foods = rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -857,9 +951,11 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
       allergens: parseAllergens(r.allergens_json),
       ingredients: parseAllergens(r.ingredients_json),
       cuisine: r.cuisine ?? null,
+      menuItems: mapMenuItemsWithNames((r as { menu_items_json?: unknown }).menu_items_json, categoryMap),
+      secondaryCategories: mapSecondaryCategories((r as { secondary_category_ids_json?: unknown }).secondary_category_ids_json, categoryMap),
       lotId: r.lot_id ?? null,
       category: r.category,
-      stock: r.stock,
+      stock: Number(r.stock ?? 0),
       seller: {
         id: r.seller_id,
         name: r.seller_name,

@@ -587,6 +587,67 @@ function deliveryOptionsFromJson(value: unknown): { pickup: boolean; delivery: b
   };
 }
 
+type MenuItemView = { name: string; categoryId?: string; categoryName?: string | null };
+type SecondaryCategoryView = { id: string; name: string };
+
+function menuItemsFromJson(value: unknown): Array<{ name: string; categoryId?: string }> {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const rows: Array<{ name: string; categoryId?: string }> = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const name = String(record.name ?? "").trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const key = name.toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const categoryId = typeof record.categoryId === "string" && record.categoryId.trim() ? record.categoryId.trim() : undefined;
+    rows.push(categoryId ? { name, categoryId } : { name });
+  }
+  return rows.slice(0, 20);
+}
+
+function secondaryCategoryIdsFromJson(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const unique = new Set<string>();
+  for (const raw of value) {
+    const id = String(raw ?? "").trim();
+    if (id) unique.add(id);
+  }
+  return Array.from(unique).slice(0, 20);
+}
+
+async function categoryNameMapFromIds(ids: string[]): Promise<Map<string, string>> {
+  const uniq = Array.from(new Set(ids.map((item) => item.trim()).filter(Boolean)));
+  if (uniq.length === 0) return new Map<string, string>();
+  const result = await pool.query<{ id: string; name_tr: string | null; name_en: string | null }>(
+    `SELECT id::text, name_tr, name_en
+     FROM categories
+     WHERE id = ANY($1::uuid[])`,
+    [uniq],
+  );
+  const map = new Map<string, string>();
+  for (const row of result.rows) {
+    map.set(row.id, row.name_tr?.trim() || row.name_en?.trim() || row.id);
+  }
+  return map;
+}
+
+function mapMenuItemsWithNames(value: unknown, categoryMap: Map<string, string>): MenuItemView[] {
+  return menuItemsFromJson(value).map((item) => ({
+    name: item.name,
+    categoryId: item.categoryId,
+    categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
+  }));
+}
+
+function mapSecondaryCategoriesWithNames(value: unknown, categoryMap: Map<string, string>): SecondaryCategoryView[] {
+  return secondaryCategoryIdsFromJson(value)
+    .map((id) => ({ id, name: categoryMap.get(id) ?? "" }))
+    .filter((item) => item.name);
+}
+
 function stableExportStringify(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim().toLowerCase();
@@ -1579,6 +1640,11 @@ adminUserManagementRouter.get("/search/global", requireAuth("admin"), async (req
        JOIN users s ON s.id = f.seller_id
        WHERE
          lower(f.name) LIKE $1
+         OR EXISTS (
+           SELECT 1
+           FROM jsonb_array_elements(COALESCE(f.menu_items_json, '[]'::jsonb)) AS mi
+           WHERE lower(COALESCE(mi ->> 'name', '')) LIKE $1
+         )
          OR lower(f.id::text) LIKE $1
          OR lower('FD-' || substring(f.id::text, 1, ${DISPLAY_ID_LENGTH})) LIKE $1
          OR regexp_replace(lower(f.id::text), '[^a-z0-9]', '', 'g') LIKE $2
@@ -2539,6 +2605,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     category_id: string | null;
     category_name: string | null;
     cuisine: string | null;
+    menu_items_json: unknown;
+    secondary_category_ids_json: unknown;
     name: string;
     card_summary: string | null;
     description: string | null;
@@ -2561,6 +2629,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
        f.category_id::text AS category_id,
        c.name_tr AS category_name,
        f.cuisine,
+       f.menu_items_json,
+       f.secondary_category_ids_json,
        name,
        card_summary,
        description,
@@ -2602,6 +2672,18 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     [params.data.id, query.data.pageSize, offset]
   );
 
+  const categoryIds = new Set<string>();
+  for (const row of rows.rows) {
+    if (row.category_id) categoryIds.add(row.category_id);
+    for (const item of menuItemsFromJson(row.menu_items_json)) {
+      if (item.categoryId) categoryIds.add(item.categoryId);
+    }
+    for (const id of secondaryCategoryIdsFromJson(row.secondary_category_ids_json)) {
+      categoryIds.add(id);
+    }
+  }
+  const categoryMap = await categoryNameMapFromIds(Array.from(categoryIds));
+
   const totalCount = Number(total.rows[0]?.count ?? 0);
   return res.json({
     data: rows.rows.map((row) => ({
@@ -2611,6 +2693,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       categoryId: row.category_id,
       categoryName: row.category_name,
       cuisine: row.cuisine,
+      menuItems: mapMenuItemsWithNames(row.menu_items_json, categoryMap),
+      secondaryCategories: mapSecondaryCategoriesWithNames(row.secondary_category_ids_json, categoryMap),
       cardSummary: row.card_summary,
       description: row.description,
       recipe: row.recipe,
@@ -2661,8 +2745,11 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
 
   const foods = await pool.query<{
     id: string;
+    category_id: string | null;
     category_name: string | null;
     cuisine: string | null;
+    menu_items_json: unknown;
+    secondary_category_ids_json: unknown;
     name: string;
     recipe: string | null;
     ingredients_json: unknown;
@@ -2677,8 +2764,11 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
   }>(
     `SELECT
        f.id,
+       f.category_id::text AS category_id,
        c.name_tr AS category_name,
        f.cuisine,
+       f.menu_items_json,
+       f.secondary_category_ids_json,
        name,
        recipe,
        ingredients_json,
@@ -2739,6 +2829,18 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
     lotsByFoodId.set(lot.food_id, current);
   }
 
+  const exportCategoryIds = new Set<string>();
+  for (const food of foods.rows) {
+    if (food.category_id) exportCategoryIds.add(food.category_id);
+    for (const item of menuItemsFromJson(food.menu_items_json)) {
+      if (item.categoryId) exportCategoryIds.add(item.categoryId);
+    }
+    for (const id of secondaryCategoryIdsFromJson(food.secondary_category_ids_json)) {
+      exportCategoryIds.add(id);
+    }
+  }
+  const exportCategoryMap = await categoryNameMapFromIds(Array.from(exportCategoryIds));
+
   const worksheetRows = foods.rows.flatMap((food) => {
     const foodCode = `FD-${food.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`;
     const ingredientText = ingredientsTextFromJson(food.ingredients_json) ?? "";
@@ -2756,6 +2858,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
       "Food Code": foodCode,
       Food: food.name,
       Category: food.category_name ?? "-",
+      "Menu Items": mapMenuItemsWithNames(food.menu_items_json, exportCategoryMap).map((item) => item.name).join(", ") || "-",
+      "Secondary Categories": mapSecondaryCategoriesWithNames(food.secondary_category_ids_json, exportCategoryMap).map((item) => item.name).join(", ") || "-",
       Cuisine: food.cuisine ?? "-",
       Status: food.is_active ? "Active" : "Disabled",
       Price: Number(food.price),

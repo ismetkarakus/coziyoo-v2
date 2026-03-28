@@ -150,6 +150,8 @@ type ApiFoodItem = {
   category: string | null;
   allergens?: string[];
   ingredients?: string[];
+  menuItems?: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  secondaryCategories?: Array<{ id: string; name: string }>;
   cuisine?: string | null;
   lotId?: string | null;
   stock: number;
@@ -165,6 +167,7 @@ type MealCard = {
   sellerImage?: string | null;
   allergens: string[];
   ingredients: string[];
+  menuItems: string[];
   description: string;
   cuisine: string;
   lotId?: string | null;
@@ -665,6 +668,11 @@ function resolveSecondaryDishImage(title: string, category: string | null): stri
 
 function apiToMealCard(item: ApiFoodItem): MealCard {
   const uiCategory = inferUiCategory(item);
+  const menuItems = Array.isArray(item.menuItems)
+    ? item.menuItems
+      .map((entry) => String(entry?.name ?? "").trim())
+      .filter(Boolean)
+    : [];
   return {
     id: item.id,
     title: item.name,
@@ -674,6 +682,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     sellerImage: item.seller.image,
     allergens: item.allergens ?? [],
     ingredients: item.ingredients ?? [],
+    menuItems,
     description: item.description ?? '',
     cuisine: item.cuisine ?? '',
     lotId: item.lotId ?? null,
@@ -909,6 +918,7 @@ function FoodCard({
   }, [imageUrl, meal.backgroundColor, imageFailed]);
 
   const allergens = Array.isArray(meal.allergens) ? meal.allergens : [];
+  const menuItemsText = meal.menuItems.length > 0 ? `İçindekiler: ${meal.menuItems.join(", ")}` : "";
 
   return (
     <View
@@ -1011,6 +1021,11 @@ function FoodCard({
             </Text>
           ) : null}
         </View>
+        {menuItemsText ? (
+          <Text style={[styles.foodMenuItemsText, { color: colors.subtitle }]} numberOfLines={1}>
+            {menuItemsText}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -4470,6 +4485,7 @@ const styles = StyleSheet.create({
   foodCuisine: { fontSize: 12, fontWeight: '500', marginTop: 2, fontStyle: 'italic' },
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
+  foodMenuItemsText: { marginTop: 4, fontSize: 11, fontWeight: '600' },
   foodMeta: { fontSize: 12 },
 
   /* --- Tab panels --- */
