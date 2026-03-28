@@ -65,6 +65,20 @@ function parseDisplayDateToUtcIso(value: string): string | null {
   return date.toISOString();
 }
 
+function normalizeIngredientTyping(prev: string, next: string): string {
+  if (
+    next.length > prev.length &&
+    next.endsWith(" ") &&
+    !next.endsWith(", ")
+  ) {
+    const trimmed = next.trimEnd();
+    if (!trimmed) return "";
+    if (trimmed.endsWith(",")) return `${trimmed} `;
+    return `${trimmed}, `;
+  }
+  return next;
+}
+
 export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props) {
   const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -548,7 +562,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <TextInput
             style={[styles.input, styles.textArea]}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(value) => setDescription((prev) => normalizeIngredientTyping(prev, value))}
             placeholder="Kullanılan malzemeler ve baharatları açıklayın..."
             placeholderTextColor={PLACEHOLDER_COLOR}
             multiline
