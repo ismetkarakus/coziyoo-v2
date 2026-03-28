@@ -1018,6 +1018,19 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const contactSmsBody = encodeURIComponent(language === "tr" ? "Merhaba" : "Hello");
   const primaryAddressTitle = addresses.find((item) => item.isDefault)?.title ?? addresses[0]?.title ?? "-";
   const primaryAddress = addresses.find((item) => item.isDefault)?.addressLine ?? addresses[0]?.addressLine ?? "-";
+  const cityDistrictDisplay = (() => {
+    const raw = String(primaryAddressTitle ?? "").trim();
+    if (!raw || raw === "-") return "-";
+    if (raw.includes("/")) return raw.replace(/\s*\/\s*/g, "/").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    if (raw.includes(",")) {
+      const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+      if (parts.length >= 2) return `${parts[0]}/${parts.slice(1).join(" ")}`.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+      return (parts[0] ?? "-").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    }
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    if (tokens.length >= 2) return `${tokens[0]}/${tokens.slice(1).join(" ")}`.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+    return raw.toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+  })();
 
   const legalRows = mapComplianceRows(compliance, dict, language);
   const profileBadge = profileBadgeFromStatus(compliance?.profile.status, dict);
@@ -1823,16 +1836,75 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <strong>{formatUiDate(row.createdAt, language)}</strong>
                 </div>
               </div>
-              <div className="seller-general-kv" style={{ marginTop: 14 }}>
-                <div>
-                  <span>{language === "tr" ? "Şehir/İlçe" : "City/District"}</span>
-                  <strong>{String(primaryAddressTitle || "-")}</strong>
+              <form className="seller-address-create-form seller-address-inline-create" onSubmit={createAddress} onKeyDown={onEnterSubmit}>
+                <div className="seller-address-title-row">
+                  <h3>{language === "tr" ? "Şehir / İlçe ve Adres" : "City / District and Address"}</h3>
+                  <button
+                    className="ghost seller-address-plus"
+                    type="button"
+                    onClick={() => setAddressHistoryOpen((prev) => !prev)}
+                    title={language === "tr" ? "Kayıtlı adresleri göster" : "Show saved addresses"}
+                  >
+                    +
+                  </button>
                 </div>
-                <div>
+                <p className="panel-meta seller-address-preview">
+                  {language === "tr" ? "Şehir/İlçe" : "City/District"}: {cityDistrictDisplay}
+                </p>
+                {addresses[0]?.addressLine ? (
+                  <p className="panel-meta seller-address-preview">
+                    {language === "tr" ? "Adres" : "Address"}: {addresses[0].addressLine}
+                  </p>
+                ) : null}
+                {addressHistoryOpen ? (
+                  <div className="seller-address-history-list">
+                    {addresses.length === 0 ? (
+                      <p className="panel-meta">{language === "tr" ? "Kayıtlı adres yok." : "No saved addresses."}</p>
+                    ) : (
+                      addresses.map((address) => (
+                        <button
+                          key={address.id}
+                          type="button"
+                          className={`ghost seller-address-history-item ${addressEditorId === address.id ? "is-active" : ""}`}
+                          onClick={() => {
+                            setAddressEditorId(address.id);
+                            setNewAddressLine(address.addressLine);
+                            setAddressDirty(true);
+                          }}
+                        >
+                          {address.addressLine}
+                        </button>
+                      ))
+                    )}
+                    <button
+                      type="button"
+                      className="ghost seller-address-history-item"
+                      onClick={() => {
+                        setAddressEditorId(null);
+                        setNewAddressLine("");
+                        setAddressDirty(true);
+                      }}
+                    >
+                      {language === "tr" ? "Yeni adres girişi" : "New address entry"}
+                    </button>
+                  </div>
+                ) : null}
+                <label className="ghost seller-detail-filter-item seller-general-filter-item">
                   <span>{language === "tr" ? "Adres" : "Address"}</span>
-                  <strong>{String(primaryAddress || "-")}</strong>
-                </div>
-              </div>
+                  <input
+                    value={newAddressLine}
+                    onChange={(event) => {
+                      setNewAddressLine(event.target.value);
+                      setAddressDirty(true);
+                    }}
+                    placeholder=" "
+                    disabled={!isSuperAdmin || addressSaving}
+                  />
+                </label>
+                <button className="primary" type="submit" disabled={!isSuperAdmin || addressSaving}>
+                  {addressEditorId ? (language === "tr" ? "Adresi Güncelle" : "Update Address") : language === "tr" ? "Adres Ekle" : "Add Address"}
+                </button>
+              </form>
             </article>
 
             <article className="seller-general-card">
