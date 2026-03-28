@@ -77,6 +77,7 @@ try {
   // WebView native module is optional at runtime; fallback is external link.
 }
 import { loadSettings } from '../utils/settings';
+import { subscribeBuyerFeedRealtime } from '../utils/realtime';
 import { refreshAuthSession, type AuthSession } from '../utils/auth';
 import { loadCachedProfileImageUrl, saveCachedProfileImageUrl } from '../utils/profileImage';
 import { apiRequest } from '../utils/api';
@@ -1385,6 +1386,14 @@ export default function HomeScreen({
       fetchFoods(apiUrl);
     }, 15000);
     return () => clearInterval(id);
+  }, [activeTab, apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (activeTab !== 'home' || !apiUrl) return;
+    const unsubscribe = subscribeBuyerFeedRealtime(() => {
+      fetchFoods(apiUrl);
+    });
+    return unsubscribe;
   }, [activeTab, apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {

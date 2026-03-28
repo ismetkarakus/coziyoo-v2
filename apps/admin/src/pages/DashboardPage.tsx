@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
+import { subscribeOrdersAndFoodsRealtime } from "../lib/realtime";
 import { DICTIONARIES } from "../lib/i18n";
 import { StatCard, LineChart, SparklineChart } from "../components/dashboard";
 import type { Language, Dictionary, ApiError } from "../types/core";
@@ -215,6 +216,13 @@ export default function DashboardPage({ language }: { language: Language }) {
       window.removeEventListener("pageshow", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOrdersAndFoodsRealtime(() => {
+      setLiveTick((prev) => prev + 1);
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {

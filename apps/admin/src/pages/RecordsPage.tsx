@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
+import { subscribeOrdersAndFoodsRealtime } from "../lib/realtime";
 import { Pager, ExcelExportButton, PrintButton, SortableHeader } from "../components/ui";
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
@@ -62,6 +63,13 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       window.removeEventListener("pageshow", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOrdersAndFoodsRealtime(() => {
+      setLiveTick((prev) => prev + 1);
+    });
+    return unsubscribe;
   }, []);
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
