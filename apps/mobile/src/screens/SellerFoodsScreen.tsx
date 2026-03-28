@@ -110,6 +110,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [imageUrls, setImageUrls] = useState<string[]>(["", "", "", "", ""]);
   const [movingImageIndex, setMovingImageIndex] = useState<number | null>(null);
   const longPressConsumedIndexRef = useRef<number | null>(null);
+  const imagePickerOpeningRef = useRef(false);
   const [prepTime, setPrepTime] = useState("");
 
   // UI parity fields (opsiyonlar)
@@ -284,13 +285,19 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   }
 
   async function pickImageFromAlbum(index: number) {
+    if (imagePickerOpeningRef.current) return;
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      imagePickerOpeningRef.current = true;
+      let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
       if (!permission.granted) {
         Alert.alert("İzin Gerekli", "Albümden fotoğraf seçmek için galeri izni vermelisin.");
         return;
       }
 
+      setMovingImageIndex(null);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
@@ -308,6 +315,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       setImageAt(index, dataUrl);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Fotoğraf seçilemedi.");
+    } finally {
+      imagePickerOpeningRef.current = false;
     }
   }
 
@@ -504,11 +513,12 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                     movingImageIndex === index && styles.photoPreviewBtnMoving,
                   ]}
                   onLongPress={() => {
+                    if (!url.trim()) return;
                     // Prevent the trailing onPress from cancelling move mode on the same tile.
                     longPressConsumedIndexRef.current = index;
                     setMovingImageIndex(index);
                   }}
-                  delayLongPress={220}
+                  delayLongPress={380}
                   onPress={() => {
                     if (longPressConsumedIndexRef.current === index) {
                       longPressConsumedIndexRef.current = null;
