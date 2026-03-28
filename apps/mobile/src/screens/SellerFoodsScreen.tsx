@@ -256,7 +256,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onA
 
   useEffect(() => {
     if (!pendingInitialEditId) return;
-    const target = foods.find((item) => item.id === pendingInitialEditId);
+    const target = foods.find((item) => String((item as { id?: unknown }).id ?? "") === pendingInitialEditId);
     if (!target) return;
     openEdit(target);
     setPendingInitialEditId(null);
