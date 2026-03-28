@@ -139,8 +139,8 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           </View>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Ürünler</Text>
-            {(order.items ?? []).map((item) => (
-              <Text key={item.id} style={styles.meta}>
+            {(order.items ?? []).map((item, index) => (
+              <Text key={`${item.id || item.name}-${index}`} style={styles.meta}>
                 {item.name} x{item.quantity} · {Number(item.unitPrice ?? 0).toFixed(2)} TL
               </Text>
             ))}
@@ -149,9 +149,9 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           {actions.length > 0 ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Aksiyonlar</Text>
-              {actions.map((action) => (
+              {actions.map((action, index) => (
                 <TouchableOpacity
-                  key={action.label}
+                  key={`${action.label}-${action.toStatus ?? action.endpoint ?? "none"}-${index}`}
                   style={[styles.actionBtn, updating && styles.actionDisabled]}
                   disabled={updating}
                   onPress={() => void runAction(action)}
