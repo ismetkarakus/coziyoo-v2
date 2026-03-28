@@ -508,6 +508,7 @@ export default function App() {
         onEdit={() => setScreen('sellerProfile')}
         onOpenFoods={() => setScreen('sellerFoods')}
         onOpenLots={() => setScreen('sellerLots')}
+        onOpenOrders={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
         onOpenAddresses={() => setScreen('addresses')}
@@ -551,7 +552,7 @@ export default function App() {
     return (
       <SellerOrdersScreen
         auth={auth}
-        onBack={() => setScreen('home')}
+        onBack={() => setScreen('sellerProfileDetail')}
         onOpenOrder={(id) => { setSelectedOrderId(id); setScreen('sellerOrderDetail'); }}
         onAuthRefresh={setAuth}
       />

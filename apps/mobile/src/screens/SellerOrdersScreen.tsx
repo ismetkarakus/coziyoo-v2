@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -23,12 +23,41 @@ type SellerOrder = {
   createdAt?: string;
 };
 
+type StatusFilter = "all" | "pending_seller_approval" | "preparing" | "in_delivery" | "delivered" | "completed" | "cancelled" | "rejected";
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: "all", label: "Tümü" },
+  { key: "pending_seller_approval", label: "Onay Bekliyor" },
+  { key: "preparing", label: "Hazırlanıyor" },
+  { key: "in_delivery", label: "Yolda" },
+  { key: "delivered", label: "Teslim" },
+  { key: "completed", label: "Tamamlandı" },
+  { key: "cancelled", label: "İptal" },
+  { key: "rejected", label: "Reddedildi" },
+];
+
+function parseDateInput(value: string): Date | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  const parts = raw.split("-");
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map((x) => Number(x));
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return null;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
 export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRefresh }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -97,6 +126,22 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
     return { waiting, prep, road };
   }, [orders]);
 
+  const filteredOrders = useMemo(() => {
+    const from = parseDateInput(fromDate);
+    const to = parseDateInput(toDate);
+    const toEnd = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999) : null;
+
+    return orders.filter((order) => {
+      if (statusFilter !== "all" && order.status !== statusFilter) return false;
+      if (!from && !toEnd) return true;
+      const createdAt = order.createdAt ? new Date(order.createdAt) : null;
+      if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
+      if (from && createdAt < from) return false;
+      if (toEnd && createdAt > toEnd) return false;
+      return true;
+    });
+  }, [orders, statusFilter, fromDate, toDate]);
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -113,22 +158,53 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
         <Text style={styles.stat}>Hazırlık: {grouped.prep}</Text>
         <Text style={styles.stat}>Yolda: {grouped.road}</Text>
       </View>
+      <View style={styles.filtersCard}>
+        <Text style={styles.filtersTitle}>Filtreler</Text>
+        <View style={styles.filterRow}>
+          <TextInput
+            value={fromDate}
+            onChangeText={setFromDate}
+            placeholder="Başlangıç (YYYY-MM-DD)"
+            placeholderTextColor="#9A8C82"
+            style={styles.dateInput}
+          />
+          <TextInput
+            value={toDate}
+            onChangeText={setToDate}
+            placeholder="Bitiş (YYYY-MM-DD)"
+            placeholderTextColor="#9A8C82"
+            style={styles.dateInput}
+          />
+        </View>
+        <View style={styles.statusWrap}>
+          {STATUS_FILTERS.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.statusChip, statusFilter === item.key && styles.statusChipActive]}
+              onPress={() => setStatusFilter(item.key)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.statusChipText, statusFilter === item.key && styles.statusChipTextActive]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
         <>
-          {orders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <View style={styles.emptyWrap}>
-              <Text style={styles.emptyTitle}>Henüz sipariş görünmüyor</Text>
+              <Text style={styles.emptyTitle}>Filtreye uygun sipariş bulunamadı</Text>
               <Text style={styles.emptySub}>
                 {errorText
                   ? "Bağlantıyı kontrol edip tekrar yenile."
-                  : "Yeni sipariş gelince burada listelenecek. Üstten Yenile'ye basabilirsin."}
+                  : "Tarih aralığını veya durum seçimini değiştirip tekrar dene."}
               </Text>
             </View>
           ) : (
             <FlatList
-              data={orders}
+              data={filteredOrders}
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ padding: 14, gap: 10 }}
               renderItem={({ item }) => (
@@ -152,6 +228,45 @@ const styles = StyleSheet.create({
   refresh: { color: "#3F855C", fontWeight: "700", fontSize: 14 },
   stats: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
   stat: { backgroundColor: "#EFE9DF", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, color: "#5D5145", fontWeight: "700" },
+  filtersCard: {
+    marginHorizontal: 14,
+    marginBottom: 8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    padding: 10,
+    gap: 8,
+  },
+  filtersTitle: { color: "#2E241C", fontWeight: "800", fontSize: 14 },
+  filterRow: { flexDirection: "row", gap: 8 },
+  dateInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#E0D6C9",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    color: "#2E241C",
+    backgroundColor: "#FCFAF7",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  statusWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  statusChip: {
+    borderWidth: 1,
+    borderColor: "#E2D8CC",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#F8F3ED",
+  },
+  statusChipActive: {
+    borderColor: "#3F855C",
+    backgroundColor: "#EAF4EE",
+  },
+  statusChipText: { color: "#6D6055", fontSize: 12, fontWeight: "700" },
+  statusChipTextActive: { color: "#2F6D49" },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
   meta: { color: "#6C6055", marginTop: 3 },
