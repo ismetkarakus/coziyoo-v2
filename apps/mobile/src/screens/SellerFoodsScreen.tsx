@@ -83,6 +83,20 @@ function normalizeIngredientTyping(prev: string, next: string): string {
   return next;
 }
 
+function parseLocalizedDecimal(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return Number.NaN;
+  const noCurrency = trimmed.replace(/[₺\s]/g, "");
+  const normalizedComma = noCurrency.replace(/,/g, ".");
+  const safe = normalizedComma.replace(/[^0-9.]/g, "");
+  if (!safe) return Number.NaN;
+  const parts = safe.split(".");
+  const normalized =
+    parts.length <= 1 ? safe : `${parts.shift()}.${parts.join("")}`;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props) {
   const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -326,7 +340,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         return;
       }
 
-      const parsedPrice = Number(price);
+      const parsedPrice = parseLocalizedDecimal(price);
       if (!name.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
         Alert.alert("Hata", "Yemek adı ve fiyat zorunlu.");
         return;
@@ -339,6 +353,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       setSaving(true);
 
       const primaryImageUrl = imageUrls.map((x) => x.trim()).find(Boolean) || undefined;
+      const parsedDeliveryFee = deliveryFee.trim() ? parseLocalizedDecimal(deliveryFee) : 0;
+      const parsedDeliveryDistance = deliveryDistanceKm.trim() ? parseLocalizedDecimal(deliveryDistanceKm) : Number.NaN;
       const payload: Record<string, unknown> = {
         name: name.trim(),
         price: parsedPrice,
@@ -348,12 +364,12 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         imageUrl: primaryImageUrl,
         imageUrls: imageUrls.map((x) => x.trim()).filter(Boolean).slice(0, 5),
         cuisine: cuisine.trim() || undefined,
-        deliveryFee: deliveryFee.trim() ? Number(deliveryFee) : 0,
+        deliveryFee: Number.isFinite(parsedDeliveryFee) ? parsedDeliveryFee : 0,
         deliveryOptions: { pickup: pickupEnabled, delivery: deliveryEnabled },
         ingredients: ingredients.split(",").map((x) => x.trim()).filter(Boolean),
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
-        deliveryDistanceKm: deliveryDistanceKm.trim() ? Number(deliveryDistanceKm) : undefined,
+        deliveryDistanceKm: Number.isFinite(parsedDeliveryDistance) ? parsedDeliveryDistance : undefined,
       };
 
       if (isUuid(categoryId)) {
@@ -500,7 +516,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     if (Number.isFinite(stock) && stock > 0) return `${stock} porsiyon kaldı`;
     return "Stok girilmedi";
   })();
-  const previewPrice = Number.isFinite(Number(price)) && Number(price) > 0 ? `${Number(price).toFixed(2)} ₺` : "-- ₺";
+  const parsedPreviewPrice = parseLocalizedDecimal(price);
+  const previewPrice = Number.isFinite(parsedPreviewPrice) && parsedPreviewPrice > 0 ? `${parsedPreviewPrice.toFixed(2)} ₺` : "-- ₺";
   const previewSellerHandle = useMemo(() => {
     const emailLocal = String(currentAuth.email ?? "").split("@")[0]?.trim();
     const normalized = (emailLocal || "ev.usta")
