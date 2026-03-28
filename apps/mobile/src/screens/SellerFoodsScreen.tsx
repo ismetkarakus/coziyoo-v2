@@ -554,7 +554,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                       return;
                     }
                     if (movingImageIndex !== null) {
-                      if (movingImageIndex !== index) {
+                      const targetHasImage = Boolean(imageUrls[index]?.trim());
+                      if (movingImageIndex !== index && targetHasImage) {
                         moveImage(movingImageIndex, index);
                         return;
                       }
