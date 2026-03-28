@@ -1944,7 +1944,7 @@ adminUserManagementRouter.get("/users", requireAuth("admin"), async (req, res) =
        u.profile_image_url,
        u.user_type,
        u.is_active,
-       COALESCE((to_jsonb(u) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+       CASE WHEN lower(COALESCE(to_jsonb(u) ->> 'legal_hold_state', '')) IN ('true','t','1','yes') THEN TRUE ELSE FALSE END AS legal_hold_state,
        u.country_code,
        u.language,
        u.created_at::text,
@@ -2206,7 +2206,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
     review_count: string;
   }>(
     `SELECT
-       f.id,
+       users.id,
        email,
        display_name,
        full_name,
@@ -2215,7 +2215,7 @@ adminUserManagementRouter.get("/users/:id", requireAuth("admin"), async (req, re
        profile_image_url,
        user_type,
        is_active,
-       COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+       CASE WHEN lower(COALESCE(to_jsonb(users) ->> 'legal_hold_state', '')) IN ('true','t','1','yes') THEN TRUE ELSE FALSE END AS legal_hold_state,
        country_code,
        language,
        created_at::text,
@@ -4450,7 +4450,7 @@ adminUserManagementRouter.post("/users", requireAuth("admin"), requireSuperAdmin
       `INSERT INTO users (email, password_hash, display_name, display_name_normalized, username, username_normalized, full_name, phone, dob, profile_image_url, user_type, is_active, country_code, language)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12, $13, $14)
        RETURNING id, email, display_name, username, full_name, phone, dob::text, profile_image_url, user_type, is_active,
-         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         CASE WHEN lower(COALESCE(to_jsonb(users) ->> 'legal_hold_state', '')) IN ('true','t','1','yes') THEN TRUE ELSE FALSE END AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [
         input.email.toLowerCase(),
@@ -4563,7 +4563,7 @@ adminUserManagementRouter.put("/users/:id", requireAuth("admin"), requireSuperAd
          updated_at = now()
        WHERE id = $1
        RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
-         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         CASE WHEN lower(COALESCE(to_jsonb(users) ->> 'legal_hold_state', '')) IN ('true','t','1','yes') THEN TRUE ELSE FALSE END AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [
         params.data.id,
@@ -4664,7 +4664,7 @@ adminUserManagementRouter.patch("/users/:id/status", requireAuth("admin"), requi
        SET is_active = $2, updated_at = now()
        WHERE id = $1
        RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
-         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         CASE WHEN lower(COALESCE(to_jsonb(users) ->> 'legal_hold_state', '')) IN ('true','t','1','yes') THEN TRUE ELSE FALSE END AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [params.data.id, nextActive]
     );
@@ -4735,7 +4735,7 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
        SET user_type = $2, updated_at = now()
        WHERE id = $1
        RETURNING id, email, display_name, full_name, phone, dob::text, profile_image_url, user_type, is_active,
-         COALESCE((to_jsonb(users) ->> 'legal_hold_state')::boolean, FALSE) AS legal_hold_state,
+         CASE WHEN lower(COALESCE(to_jsonb(users) ->> 'legal_hold_state', '')) IN ('true','t','1','yes') THEN TRUE ELSE FALSE END AS legal_hold_state,
          country_code, language, created_at::text, updated_at::text`,
       [params.data.id, parsed.data.role]
     );
