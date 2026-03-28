@@ -23,11 +23,13 @@ type SellerFood = {
   stock?: number;
 };
 
+let foodsCache: SellerFood[] | null = null;
+
 export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm, onAuthRefresh }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
-  const [loading, setLoading] = useState(true);
-  const [foods, setFoods] = useState<SellerFood[]>([]);
+  const [foods, setFoods] = useState<SellerFood[]>(foodsCache ?? []);
+  const [loading, setLoading] = useState(!(foodsCache && foodsCache.length > 0));
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -54,8 +56,8 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
     });
   }
 
-  async function loadFoods() {
-    setLoading(true);
+  async function loadFoods(options?: { silent?: boolean }) {
+    if (!options?.silent || foods.length === 0) setLoading(true);
     try {
       const settings = await loadSettings();
       setApiUrl(settings.apiUrl);
@@ -71,15 +73,18 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         stock: Number(item.stock ?? 0),
       })) : [];
       setFoods(list);
+      foodsCache = list;
     } catch (e) {
-      Alert.alert("Hata", e instanceof Error ? e.message : "Yemekler yüklenemedi");
+      if (!foodsCache || foodsCache.length === 0) {
+        Alert.alert("Hata", e instanceof Error ? e.message : "Yemekler yüklenemedi");
+      }
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadFoods();
+    void loadFoods({ silent: Boolean(foodsCache && foodsCache.length > 0) });
   }, []);
 
   return (

@@ -255,18 +255,6 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onA
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const settings = await loadSettings();
-        setApiUrl(settings.apiUrl);
-        await loadCategories(settings.apiUrl);
-      } catch {
-        // no-op
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
     if (!pendingInitialEditId) return;
     const target = foods.find((item) => item.id === pendingInitialEditId);
     if (!target) return;
