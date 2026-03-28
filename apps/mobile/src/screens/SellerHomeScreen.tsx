@@ -10,6 +10,7 @@ type Props = {
   auth: AuthSession;
   onAuthRefresh?: (session: AuthSession) => void;
   onOpenProfile: () => void;
+  onOpenOrders: () => void;
   onOpenSettings: () => void;
   onLogout: () => void;
   onSwitchToBuyer?: () => void;
@@ -19,6 +20,7 @@ export default function SellerHomeScreen({
   auth,
   onAuthRefresh,
   onOpenProfile,
+  onOpenOrders,
   onOpenSettings,
   onLogout,
   onSwitchToBuyer,
@@ -105,18 +107,18 @@ export default function SellerHomeScreen({
 
       {/* Stats Chips */}
       <View style={styles.statsRow}>
-        <View style={styles.statChip}>
+        <TouchableOpacity style={styles.statChip} onPress={onOpenOrders} activeOpacity={0.8}>
           <Text style={styles.statValue}>{stats.today}</Text>
           <Text style={styles.statLabel}>Bugünkü</Text>
-        </View>
-        <View style={styles.statChip}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.statChip} onPress={onOpenOrders} activeOpacity={0.8}>
           <Text style={styles.statValue}>{stats.preparing}</Text>
           <Text style={styles.statLabel}>Hazırlanıyor</Text>
-        </View>
-        <View style={styles.statChip}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.statChip} onPress={onOpenOrders} activeOpacity={0.8}>
           <Text style={styles.statValue}>{stats.waiting}</Text>
           <Text style={styles.statLabel}>Onay Bekliyor</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Action Buttons */}
