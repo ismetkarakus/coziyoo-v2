@@ -232,6 +232,8 @@
       "sortCreatedDate": "Sort: Created Date •",
       "sortUpdatedDate": "Updated: New -> Old",
       "actionMenu": "Action menu",
+      "resetTestPassword": "Set password to 12345678",
+      "confirmResetTestPassword": "Reset this user's password to 12345678?",
       "confirmStatusChange": "Confirm Status Change",
       "userWillActivate": "User will be activated.",
       "userWillDisable": "User will be disabled.",

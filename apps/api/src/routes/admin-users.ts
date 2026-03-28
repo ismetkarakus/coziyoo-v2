@@ -4914,6 +4914,50 @@ adminUserManagementRouter.patch("/users/:id/role", requireAuth("admin"), require
   }
 });
 
+adminUserManagementRouter.post("/users/:id/reset-test-password", requireAuth("admin"), requireSuperAdmin, async (req, res) => {
+  const params = UuidParamSchema.safeParse(req.params);
+  if (!params.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: params.error.flatten() } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const existing = await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [params.data.id]);
+    if ((existing.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+    }
+
+    const testPassword = "12345678";
+    const passwordHash = await hashPassword(testPassword);
+
+    await client.query(
+      `UPDATE users
+       SET password_hash = $2, updated_at = now()
+       WHERE id = $1`,
+      [params.data.id, passwordHash]
+    );
+
+    await writeAdminAudit(client, {
+      actorAdminId: req.auth!.userId,
+      action: "app_user_test_password_reset",
+      entityType: "users",
+      entityId: params.data.id,
+      after: { passwordResetTo: testPassword },
+    });
+
+    await client.query("COMMIT");
+    return res.status(200).json({ data: { id: params.data.id, password: testPassword } });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return handleMutationError(res, error);
+  } finally {
+    client.release();
+  }
+});
+
 adminUserManagementRouter.get("/admin-users", requireAuth("admin"), async (req, res) => {
   const parsed = AdminUserListQuerySchema.safeParse(req.query);
   if (!parsed.success) {

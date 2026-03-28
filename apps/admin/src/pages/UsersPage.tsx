@@ -407,6 +407,23 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
     setPendingStatusChange(null);
   }
 
+  async function resetTestPassword(row: any) {
+    if (!isSuperAdmin || kind !== "app") return;
+    const role = String(row.role ?? "");
+    if (role !== "buyer" && role !== "seller" && role !== "both") return;
+    const ok = window.confirm(dict.users.v2.confirmResetTestPassword);
+    if (!ok) return;
+
+    const response = await request(`/v1/admin/users/${row.id}/reset-test-password`, { method: "POST" });
+    if (response.status !== 200) {
+      const body = await parseJson<ApiError>(response);
+      setError(body.error?.message ?? dict.users.updateFailed);
+      return;
+    }
+
+    await loadRows();
+  }
+
   function openCreateDrawer() {
     setFormError(null);
     setEditingRow(null);
@@ -2005,6 +2022,18 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
                           ) : !isSellerPage ? (
                             <button className="ghost action-btn" type="button" disabled title={dict.users.onlySuperAdmin}>
                               {dict.users.v2.noPermission}
+                            </button>
+                          ) : null}
+                          {isSuperAdmin && kind === "app" && ["buyer", "seller", "both"].includes(String(row.role ?? "")) ? (
+                            <button
+                              className="ghost action-btn"
+                              type="button"
+                              title={dict.users.v2.resetTestPassword}
+                              aria-label={dict.users.v2.resetTestPassword}
+                              onClick={() => resetTestPassword(row).catch(() => setError(dict.users.updateFailed))}
+                            >
+                              <span aria-hidden="true">↺ {dict.users.v2.resetTestPassword}</span>
+                              <span className="sr-only">{dict.users.v2.resetTestPassword}</span>
                             </button>
                           ) : null}
                         </td>

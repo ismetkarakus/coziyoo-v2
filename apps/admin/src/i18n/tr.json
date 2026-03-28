@@ -232,6 +232,8 @@
       "sortCreatedDate": "Sırala: Kayıt Tarihi •",
       "sortUpdatedDate": "Güncelleme: Yeni → Eski",
       "actionMenu": "Aksiyon menüsü",
+      "resetTestPassword": "Sifreyi 12345678 yap",
+      "confirmResetTestPassword": "Bu kullanicinin sifresi 12345678 olarak sifirlansin mi?",
       "confirmStatusChange": "Durum Değişikliğini Onayla",
       "userWillActivate": "Kullanıcı aktif yapılacak.",
       "userWillDisable": "Kullanıcı pasif yapılacak.",
