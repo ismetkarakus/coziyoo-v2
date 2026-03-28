@@ -60,7 +60,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
-      const primaryRes = await authedFetch("/v1/orders?role=seller&page=1&pageSize=200", baseUrl);
+      const primaryRes = await authedFetch("/v1/seller/orders?page=1&pageSize=200", baseUrl);
       const primaryJson = await primaryRes.json();
       if (!primaryRes.ok) throw new Error(primaryJson?.error?.message ?? "Siparişler yüklenemedi");
       let sellerOrders = Array.isArray(primaryJson?.data) ? primaryJson.data : [];

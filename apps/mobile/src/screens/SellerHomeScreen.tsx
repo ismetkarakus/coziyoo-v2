@@ -56,7 +56,7 @@ export default function SellerHomeScreen({
       setApiUrl(baseUrl);
       const [profileRes, ordersRes] = await Promise.all([
         fetchWithAuth("/v1/seller/profile", baseUrl),
-        fetchWithAuth("/v1/orders?role=seller&page=1&pageSize=200", baseUrl),
+        fetchWithAuth("/v1/seller/orders?page=1&pageSize=200", baseUrl),
       ]);
       const profileJson = await profileRes.json();
       if (profileRes.ok) setDisplayName(profileJson.data?.displayName?.trim() || "Usta");

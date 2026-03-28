@@ -80,6 +80,10 @@ const SellerFoodImageSchema = z.object({
   (value) => Boolean(value.imageUrl || value.dataBase64),
   { message: "imageUrl or dataBase64 is required" },
 );
+const SellerOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(200).default(200),
+});
 
 export const sellerRouter = Router();
 sellerRouter.use(requireAuth("app"));
@@ -292,6 +296,84 @@ function computeSellerProfileStatus(input: {
   if (input.submitForReview) return "pending_review";
   return input.profileStatus === "pending_review" ? "pending_review" : "incomplete";
 }
+
+sellerRouter.get("/orders", async (req, res) => {
+  if (!ensureSellerRole(req, res)) return;
+
+  const parsed = SellerOrdersQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { page, pageSize } = parsed.data;
+  const offset = (page - 1) * pageSize;
+  const userId = req.auth!.userId;
+
+  try {
+    const [countResult, listResult] = await Promise.all([
+      pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count
+         FROM orders
+         WHERE seller_id = $1`,
+        [userId],
+      ),
+      pool.query<{
+        id: string;
+        buyer_id: string;
+        seller_id: string;
+        status: string;
+        delivery_type: string;
+        delivery_address_json: unknown;
+        total_price: string;
+        created_at: string;
+        buyer_name: string | null;
+      }>(
+        `SELECT
+           o.id::text,
+           o.buyer_id::text,
+           o.seller_id::text,
+           o.status,
+           o.delivery_type,
+           o.delivery_address_json,
+           o.total_price::text,
+           o.created_at::text,
+           b.display_name AS buyer_name
+         FROM orders o
+         LEFT JOIN users b ON b.id = o.buyer_id
+         WHERE o.seller_id = $1
+         ORDER BY o.created_at DESC, o.id DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, pageSize, offset],
+      ),
+    ]);
+
+    const total = Number(countResult.rows[0]?.count ?? "0");
+    return res.json({
+      data: listResult.rows.map((row) => ({
+        id: row.id,
+        buyerId: row.buyer_id,
+        sellerId: row.seller_id,
+        status: row.status,
+        deliveryType: row.delivery_type,
+        deliveryAddress: row.delivery_address_json,
+        totalPrice: Number(row.total_price),
+        createdAt: row.created_at,
+        buyerName: row.buyer_name ?? null,
+        orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+      })),
+      pagination: {
+        mode: "offset",
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error("[seller] orders list error:", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to load seller orders" } });
+  }
+});
 
 sellerRouter.get("/profile", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
