@@ -531,7 +531,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     <View style={styles.container}>
       <ScreenHeader title="Yemek Ekle" onBack={onBack} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="always">
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
             {imageUrls.map((url, index) => (
@@ -547,15 +547,18 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                     longPressConsumedIndexRef.current = index;
                     setMovingImageIndex(index);
                   }}
-                  delayLongPress={380}
+                  delayLongPress={600}
                   onPress={() => {
                     if (longPressConsumedIndexRef.current === index) {
                       longPressConsumedIndexRef.current = null;
                       return;
                     }
                     if (movingImageIndex !== null) {
-                      moveImage(movingImageIndex, index);
-                      return;
+                      if (movingImageIndex !== index) {
+                        moveImage(movingImageIndex, index);
+                        return;
+                      }
+                      setMovingImageIndex(null);
                     }
                     void pickImageFromAlbum(index);
                   }}
