@@ -476,7 +476,11 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
 
   const activeRows = rows.filter((row) => row.status === "active");
   const passiveRows = rows.filter((row) => row.status === "disabled");
-  const trRows = rows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
+  const isTrOrUnknownCountry = (row: any) => {
+    const country = String(row.countryCode ?? "").trim().toUpperCase();
+    return country === "TR" || country === "";
+  };
+  const trRows = rows.filter((row) => isTrOrUnknownCountry(row));
   const todayKey = new Date().toISOString().slice(0, 10);
   const newToday = trRows.filter((row) => String(row.createdAt ?? "").slice(0, 10) === todayKey).length;
   const trendDirection = (current: number, previous: number): "up" | "down" | "flat" => {
@@ -579,7 +583,7 @@ function UsersPage({ kind, isSuperAdmin, language }: { kind: UserKind; isSuperAd
   const filteredRows = useMemo(() => {
     let scopedRows = rows;
     if (isSellerPage) {
-      scopedRows = scopedRows.filter((row) => String(row.countryCode ?? "").toUpperCase() === "TR");
+      scopedRows = scopedRows.filter((row) => isTrOrUnknownCountry(row));
       if (activeSellerKpiFilter === "active") {
         scopedRows = scopedRows.filter((row) => sellerNeedsDocumentAttention(row));
       }
