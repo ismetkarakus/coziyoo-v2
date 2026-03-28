@@ -660,6 +660,26 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             keyboardType="number-pad"
           />
 
+          <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
+          <TextInput
+            style={styles.input}
+            value={prepTime}
+            onChangeText={setPrepTime}
+            placeholder="Örn: 45"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            keyboardType="number-pad"
+          />
+
+          <Text style={styles.sectionTitle}>Teslimat Mesafesi (km)</Text>
+          <TextInput
+            style={styles.input}
+            value={deliveryDistanceKm}
+            onChangeText={setDeliveryDistanceKm}
+            placeholder="Örn: 8 (kaç km uzağa götüreceğini yaz)"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            keyboardType="decimal-pad"
+          />
+
           <View style={styles.row2}>
             <View style={styles.rowItem}>
               <Text style={styles.sectionTitle}>Başlangıç Tarihi</Text>
@@ -730,26 +750,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               <Text style={styles.subHint}>Müşterilerden alacağınız teslimat ücreti</Text>
             </>
           ) : null}
-
-          <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
-          <TextInput
-            style={styles.input}
-            value={prepTime}
-            onChangeText={setPrepTime}
-            placeholder="Örn: 45"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            keyboardType="number-pad"
-          />
-
-          <Text style={styles.sectionTitle}>Teslimat Mesafesi (km)</Text>
-          <TextInput
-            style={styles.input}
-            value={deliveryDistanceKm}
-            onChangeText={setDeliveryDistanceKm}
-            placeholder="Örn: 8 (kaç km uzağa götüreceğini yaz)"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            keyboardType="decimal-pad"
-          />
 
           <TouchableOpacity style={styles.previewBtn} onPress={() => setPreviewVisible(true)}>
             <Text style={styles.previewBtnText}>👁️ Önizleme (Müşteri Görünümü)</Text>
