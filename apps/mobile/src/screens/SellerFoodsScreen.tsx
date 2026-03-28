@@ -398,9 +398,19 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       if (options?.publishAfterSave && foodId) {
         const startIso = parseDisplayDateToIso(startDate);
         const endIso = parseDisplayDateToIso(endDate);
-        const saleStartsAt = startIso ?? new Date().toISOString();
+        const nowTs = Date.now();
+        let saleStartsAt = startIso ?? new Date(nowTs).toISOString();
         let saleEndsAt = endIso;
         if (!saleEndsAt) {
+          const fallback = new Date(saleStartsAt);
+          fallback.setUTCDate(fallback.getUTCDate() + 30);
+          saleEndsAt = fallback.toISOString();
+        }
+        if (new Date(saleEndsAt).getTime() <= nowTs) {
+          // Prevent creating immediately expired lots; keep publish visible on home feed.
+          if (new Date(saleStartsAt).getTime() < nowTs) {
+            saleStartsAt = new Date(nowTs).toISOString();
+          }
           const fallback = new Date(saleStartsAt);
           fallback.setUTCDate(fallback.getUTCDate() + 30);
           saleEndsAt = fallback.toISOString();
