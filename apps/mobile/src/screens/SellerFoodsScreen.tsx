@@ -53,7 +53,7 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
 }
 
-function parseDisplayDateToUtcIso(value: string): string | null {
+function parseDisplayDateToIso(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -62,12 +62,8 @@ function parseDisplayDateToUtcIso(value: string): string | null {
   const day = Number(dd);
   const month = Number(mm);
   const year = Number(yyyy);
-  const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
+  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
     return null;
   }
   return date.toISOString();
@@ -373,8 +369,8 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       const foodId = editingFood?.id ?? json?.data?.foodId;
 
       if (options?.publishAfterSave && foodId) {
-        const startIso = parseDisplayDateToUtcIso(startDate);
-        const endIso = parseDisplayDateToUtcIso(endDate);
+        const startIso = parseDisplayDateToIso(startDate);
+        const endIso = parseDisplayDateToIso(endDate);
         const saleStartsAt = startIso ?? new Date().toISOString();
         let saleEndsAt = endIso;
         if (!saleEndsAt) {
