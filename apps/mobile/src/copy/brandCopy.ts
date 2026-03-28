@@ -105,6 +105,8 @@ export const brandCopy = {
   'helper.login.passwordLabel': 'Şifre',
   'helper.login.passwordPlaceholder': '••••••••',
   'cta.login.signIn': 'Giriş yap',
+  'cta.login.quickBuyerSignIn': 'Alıcı giriş',
+  'cta.login.quickSellerSignIn': 'Satıcı giriş',
   'cta.login.tryAgain': 'Tekrar dene',
   'error.login.invalidCredentials': 'E-posta ya da şifre doğru değil.',
   'error.login.accountLocked': 'Hesabın kilitli. E-postandaki linkle tekrar açabilirsin.',

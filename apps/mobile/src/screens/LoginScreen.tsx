@@ -60,9 +60,9 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
     return body?.error?.message ?? `${t('error.login.generic')} (${status})`;
   }
 
-  async function handleLogin() {
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedPassword = password.trim();
+  async function loginWithCredentials(rawEmail: string, rawPassword: string) {
+    const trimmedEmail = rawEmail.trim().toLowerCase();
+    const trimmedPassword = rawPassword.trim();
     if (!trimmedEmail) {
       setError(t('error.login.emailRequired'));
       return;
@@ -105,6 +105,18 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleLogin() {
+    await loginWithCredentials(email, password);
+  }
+
+  async function handleQuickLogin(role: 'buyer' | 'seller') {
+    const quickEmail = role === 'buyer' ? 'alici@coziyoo.com' : 'satici@coziyoo.com';
+    const quickPassword = '12345678';
+    setEmail(quickEmail);
+    setPassword(quickPassword);
+    await loginWithCredentials(quickEmail, quickPassword);
   }
 
   function openForgotPassword() {
@@ -274,6 +286,22 @@ export default function LoginScreen({ onLogin, onGoToRegister }: Props) {
               <Text style={styles.buttonText}>{error ? t('cta.login.tryAgain') : t('cta.login.signIn')}</Text>
             )}
           </TouchableOpacity>
+          <View style={styles.quickLoginRow}>
+            <TouchableOpacity
+              style={[styles.quickLoginButton, loading && styles.buttonDisabled]}
+              onPress={() => handleQuickLogin('buyer')}
+              disabled={loading}
+            >
+              <Text style={styles.quickLoginText}>{t('cta.login.quickBuyerSignIn')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickLoginButton, loading && styles.buttonDisabled]}
+              onPress={() => handleQuickLogin('seller')}
+              disabled={loading}
+            >
+              <Text style={styles.quickLoginText}>{t('cta.login.quickSellerSignIn')}</Text>
+            </TouchableOpacity>
+          </View>
 
           {onGoToRegister && (
             <TouchableOpacity onPress={onGoToRegister} style={styles.registerLink} activeOpacity={0.7}>
@@ -504,6 +532,25 @@ const styles = StyleSheet.create({
     color: theme.onPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  quickLoginRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  quickLoginButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+  },
+  quickLoginText: {
+    color: theme.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   registerLink: {
     alignItems: 'center',
