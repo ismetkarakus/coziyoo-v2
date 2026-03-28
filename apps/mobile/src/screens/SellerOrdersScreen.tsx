@@ -144,15 +144,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Sipariş Yönetimi"
-        onBack={onBack}
-        rightAction={
-          <TouchableOpacity onPress={() => void loadOrders()}>
-            <Text style={styles.refresh}>Yenile</Text>
-          </TouchableOpacity>
-        }
-      />
+      <ScreenHeader title="Sipariş Yönetimi" onBack={onBack} />
       <View style={styles.stats}>
         <Text style={styles.stat}>Onay: {grouped.waiting}</Text>
         <Text style={styles.stat}>Hazırlık: {grouped.prep}</Text>
@@ -225,7 +217,6 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  refresh: { color: "#3F855C", fontWeight: "700", fontSize: 14 },
   stats: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
   stat: { backgroundColor: "#EFE9DF", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, color: "#5D5145", fontWeight: "700" },
   filtersCard: {

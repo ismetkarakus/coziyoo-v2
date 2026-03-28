@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -26,8 +26,6 @@ type SellerOrder = {
   createdAt?: string;
 };
 
-type KpiFilter = "all" | "today" | "preparing" | "waiting";
-
 export default function SellerHomeScreen({
   auth,
   onAuthRefresh,
@@ -41,9 +39,7 @@ export default function SellerHomeScreen({
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>("Usta");
-  const [stats, setStats] = useState({ today: 0, preparing: 0, waiting: 0 });
   const [orders, setOrders] = useState<SellerOrder[]>([]);
-  const [activeFilter, setActiveFilter] = useState<KpiFilter>("all");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -78,14 +74,8 @@ export default function SellerHomeScreen({
       if (profileRes.ok) setDisplayName(profileJson.data?.displayName?.trim() || "Usta");
       if (ordersRes.ok) {
         const ordersJson = await ordersRes.json();
-        const todayKey = new Date().toISOString().slice(0, 10);
         const orders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
         setOrders(orders);
-        setStats({
-          today: orders.filter((o) => String(o.createdAt ?? "").slice(0, 10) === todayKey).length,
-          preparing: orders.filter((o) => o.status === "preparing").length,
-          waiting: orders.filter((o) => o.status === "pending_seller_approval").length,
-        });
       }
     } catch {
       // best-effort
@@ -102,20 +92,6 @@ export default function SellerHomeScreen({
     });
     return unsubscribe;
   }, [currentAuth.userId]);
-
-  const filteredOrders = useMemo(() => {
-    const todayKey = new Date().toISOString().slice(0, 10);
-    if (activeFilter === "today") {
-      return orders.filter((o) => String(o.createdAt ?? "").slice(0, 10) === todayKey);
-    }
-    if (activeFilter === "preparing") {
-      return orders.filter((o) => o.status === "preparing");
-    }
-    if (activeFilter === "waiting") {
-      return orders.filter((o) => o.status === "pending_seller_approval");
-    }
-    return orders;
-  }, [orders, activeFilter]);
 
   const initials = displayName
     .split(" ")
@@ -141,33 +117,6 @@ export default function SellerHomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* KPI + Filtre Chips (sticky) */}
-        <View style={styles.statsRow}>
-          <TouchableOpacity
-            style={[styles.statChip, activeFilter === "today" && styles.statChipActive]}
-            onPress={() => setActiveFilter((prev) => (prev === "today" ? "all" : "today"))}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.statValue}>{stats.today}</Text>
-            <Text style={styles.statLabel}>Bugünkü</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statChip, activeFilter === "preparing" && styles.statChipActive]}
-            onPress={() => setActiveFilter((prev) => (prev === "preparing" ? "all" : "preparing"))}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.statValue}>{stats.preparing}</Text>
-            <Text style={styles.statLabel}>Hazırlanıyor</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.statChip, activeFilter === "waiting" && styles.statChipActive]}
-            onPress={() => setActiveFilter((prev) => (prev === "waiting" ? "all" : "waiting"))}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.statValue}>{stats.waiting}</Text>
-            <Text style={styles.statLabel}>Onay Bekliyor</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <ScrollView style={styles.ordersScroll} contentContainerStyle={styles.ordersContent}>
@@ -177,13 +126,13 @@ export default function SellerHomeScreen({
             <Text style={styles.ordersTitle}>Siparişler</Text>
           </View>
 
-          {filteredOrders.length === 0 ? (
+          {orders.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Bu filtrede sipariş yok</Text>
-              <Text style={styles.emptySub}>Filtreyi kapatmak için seçili KPI'ya tekrar dokun.</Text>
+              <Text style={styles.emptyTitle}>Henüz sipariş yok</Text>
+              <Text style={styles.emptySub}>Yeni sipariş geldiğinde burada görünecek.</Text>
             </View>
           ) : (
-            filteredOrders.map((item) => (
+            orders.map((item) => (
               <TouchableOpacity key={item.id} style={styles.orderCard} activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
                 <Text style={styles.orderNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                 <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
@@ -234,11 +183,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
-  statChip: { flex: 1, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E6DED1", padding: 12, alignItems: "center" },
-  statChipActive: { borderColor: "#3F855C", backgroundColor: "#EDF7F0" },
-  statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
-  statLabel: { fontSize: 12, color: "#6F6358", marginTop: 2 },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
   ordersSection: { marginBottom: 14 },
