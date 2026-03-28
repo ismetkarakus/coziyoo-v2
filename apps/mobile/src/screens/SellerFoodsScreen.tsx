@@ -180,6 +180,18 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     void loadFoods();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const settings = await loadSettings();
+        setApiUrl(settings.apiUrl);
+        await loadCategories(settings.apiUrl);
+      } catch {
+        // no-op
+      }
+    })();
+  }, []);
+
   function resetForm() {
     setEditingFood(null);
     setName("");
@@ -322,16 +334,6 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       if (!res.ok) throw new Error(json?.error?.message ?? "Kaydedilemedi");
 
       const foodId = editingFood?.id ?? json?.data?.foodId;
-      if (foodId && primaryImageUrl) {
-        const imageRes = await authedFetch(`/v1/seller/foods/${foodId}/image`, {
-          method: "POST",
-          body: JSON.stringify({ imageUrl: primaryImageUrl }),
-        });
-        if (!imageRes.ok) {
-          const imageJson = await imageRes.json();
-          throw new Error(imageJson?.error?.message ?? "Görsel kaydedilemedi");
-        }
-      }
 
       if (options?.publishAfterSave && foodId) {
         const startIso = parseDisplayDateToUtcIso(startDate);
@@ -519,7 +521,12 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           <Text style={styles.sectionTitle}>Kategori Seç</Text>
           <TouchableOpacity
             style={[styles.input, styles.dropdownInput]}
-            onPress={() => setCategoryModalVisible(true)}
+            onPress={() => {
+              if (!loadingCategories && categories.length === 0) {
+                void loadCategories();
+              }
+              setCategoryModalVisible(true);
+            }}
             activeOpacity={0.85}
           >
             <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
@@ -782,6 +789,16 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
             <Text style={styles.categoryModalTitle}>Kategori Seç</Text>
             {loadingCategories ? (
               <ActivityIndicator size="small" color={theme.primary} style={{ marginVertical: 12 }} />
+            ) : categories.length === 0 ? (
+              <View style={styles.categoryEmptyWrap}>
+                <Text style={styles.categoryEmptyText}>Kategori bulunamadı. Yeniden dene.</Text>
+                <TouchableOpacity
+                  style={styles.categoryRetryBtn}
+                  onPress={() => void loadCategories()}
+                >
+                  <Text style={styles.categoryRetryBtnText}>Yenile</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <ScrollView style={styles.categoryList} contentContainerStyle={styles.categoryListContent}>
                 {categories.map((item) => (
@@ -1001,6 +1018,15 @@ const styles = StyleSheet.create({
     borderColor: "#E5DDCF",
   },
   categoryModalTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16, marginBottom: 10 },
+  categoryEmptyWrap: { alignItems: "center", paddingVertical: 18, gap: 10 },
+  categoryEmptyText: { color: "#6F6358", fontSize: 13 },
+  categoryRetryBtn: {
+    backgroundColor: "#3F855C",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  categoryRetryBtnText: { color: "#fff", fontWeight: "700" },
   categoryList: { maxHeight: 360 },
   categoryListContent: { paddingBottom: 6 },
   categoryOption: {
