@@ -257,10 +257,16 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onA
   useEffect(() => {
     if (!pendingInitialEditId) return;
     const target = foods.find((item) => String((item as { id?: unknown }).id ?? "") === pendingInitialEditId);
-    if (!target) return;
+    if (!target) {
+      if (!loading) {
+        setPendingInitialEditId(null);
+        Alert.alert("Hata", "Düzenlenecek yemek bulunamadı.");
+      }
+      return;
+    }
     openEdit(target);
     setPendingInitialEditId(null);
-  }, [pendingInitialEditId, foods]);
+  }, [pendingInitialEditId, foods, loading]);
 
   function resetForm() {
     setEditingFood(null);
@@ -746,12 +752,18 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
       .filter((item) => item.pricing === addonLibraryPricing && (addonLibraryPricing === "free" || item.kind === addonLibraryKind))
       .sort((a, b) => a.name.localeCompare(b.name, "tr"));
   }, [foods, addonLibraryKind, addonLibraryPricing]);
-  const screenTitle = editingFood ? "Yemek Düzenle" : "Yemek Ekle";
+  const screenTitle = editingFood || pendingInitialEditId ? "Yemek Düzenle" : "Yemek Ekle";
 
   return (
     <View style={styles.container}>
       <ScreenHeader title={screenTitle} onBack={onBack} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {pendingInitialEditId && !editingFood ? (
+          <View style={styles.hydrationWrap}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={styles.hydrationText}>Yemek düzenleme ekranı hazırlanıyor...</Text>
+          </View>
+        ) : (
           <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="always">
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
@@ -1081,7 +1093,8 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             </TouchableOpacity>
           ) : null}
 
-        </ScrollView>
+          </ScrollView>
+        )}
       </KeyboardAvoidingView>
 
       <Modal visible={previewVisible} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
@@ -1267,6 +1280,17 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: "#F7F4EF" },
+  hydrationWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  hydrationText: {
+    color: "#5E5144",
+    fontWeight: "600",
+  },
   page: { flex: 1 },
   content: { padding: 14, paddingBottom: 42 },
   sectionTitle: { color: "#2E241C", fontWeight: "700", marginBottom: 6, marginTop: 10 },
