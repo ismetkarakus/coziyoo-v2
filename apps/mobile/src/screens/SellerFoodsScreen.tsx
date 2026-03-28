@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -101,6 +101,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [allergens, setAllergens] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>(["", "", "", "", ""]);
   const [movingImageIndex, setMovingImageIndex] = useState<number | null>(null);
+  const longPressConsumedIndexRef = useRef<number | null>(null);
   const [prepTime, setPrepTime] = useState("");
 
   // UI parity fields (opsiyonlar)
@@ -493,9 +494,17 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                     styles.photoPreviewBtn,
                     movingImageIndex === index && styles.photoPreviewBtnMoving,
                   ]}
-                  onLongPress={() => setMovingImageIndex(index)}
+                  onLongPress={() => {
+                    // Prevent the trailing onPress from cancelling move mode on the same tile.
+                    longPressConsumedIndexRef.current = index;
+                    setMovingImageIndex(index);
+                  }}
                   delayLongPress={220}
                   onPress={() => {
+                    if (longPressConsumedIndexRef.current === index) {
+                      longPressConsumedIndexRef.current = null;
+                      return;
+                    }
                     if (movingImageIndex !== null) {
                       moveImage(movingImageIndex, index);
                       return;
