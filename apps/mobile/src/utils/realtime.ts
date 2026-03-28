@@ -37,3 +37,21 @@ export function subscribeBuyerFeedRealtime(onChange: () => void): RealtimeUnsubs
   };
 }
 
+export function subscribeSellerOrdersRealtime(sellerId: string, onChange: () => void): RealtimeUnsubscribe {
+  const client = getClient();
+  const normalizedSellerId = String(sellerId ?? "").trim();
+  if (!client || !normalizedSellerId) return () => {};
+
+  const channel: RealtimeChannel = client
+    .channel(`mobile-seller-orders-${normalizedSellerId}-${Date.now()}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: `seller_id=eq.${normalizedSellerId}` },
+      onChange,
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}

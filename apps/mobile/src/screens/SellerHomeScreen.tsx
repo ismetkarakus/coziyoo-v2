@@ -4,6 +4,7 @@ import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
+import { subscribeSellerOrdersRealtime } from "../utils/realtime";
 import ActionButton from "../components/ActionButton";
 
 type Props = {
@@ -95,6 +96,13 @@ export default function SellerHomeScreen({
 
   useEffect(() => { void load(); }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeSellerOrdersRealtime(currentAuth.userId, () => {
+      void load();
+    });
+    return unsubscribe;
+  }, [currentAuth.userId]);
+
   const filteredOrders = useMemo(() => {
     const todayKey = new Date().toISOString().slice(0, 10);
     if (activeFilter === "today") {
@@ -137,7 +145,7 @@ export default function SellerHomeScreen({
       <View style={styles.statsRow}>
         <TouchableOpacity
           style={[styles.statChip, activeFilter === "today" && styles.statChipActive]}
-          onPress={() => setActiveFilter("today")}
+          onPress={() => setActiveFilter((prev) => (prev === "today" ? "all" : "today"))}
           activeOpacity={0.8}
         >
           <Text style={styles.statValue}>{stats.today}</Text>
@@ -145,7 +153,7 @@ export default function SellerHomeScreen({
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.statChip, activeFilter === "preparing" && styles.statChipActive]}
-          onPress={() => setActiveFilter("preparing")}
+          onPress={() => setActiveFilter((prev) => (prev === "preparing" ? "all" : "preparing"))}
           activeOpacity={0.8}
         >
           <Text style={styles.statValue}>{stats.preparing}</Text>
@@ -153,30 +161,24 @@ export default function SellerHomeScreen({
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.statChip, activeFilter === "waiting" && styles.statChipActive]}
-          onPress={() => setActiveFilter("waiting")}
+          onPress={() => setActiveFilter((prev) => (prev === "waiting" ? "all" : "waiting"))}
           activeOpacity={0.8}
         >
           <Text style={styles.statValue}>{stats.waiting}</Text>
           <Text style={styles.statLabel}>Onay Bekliyor</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.allButton} onPress={() => setActiveFilter("all")} activeOpacity={0.85}>
-        <Text style={styles.allButtonText}>Tüm Siparişleri Göster</Text>
-      </TouchableOpacity>
 
       {/* Sipariş listesi */}
       <View style={styles.ordersSection}>
         <View style={styles.ordersHead}>
           <Text style={styles.ordersTitle}>Siparişler</Text>
-          <TouchableOpacity onPress={() => void load()} activeOpacity={0.8}>
-            <Text style={styles.reloadText}>Yenile</Text>
-          </TouchableOpacity>
         </View>
 
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>Bu filtrede sipariş yok</Text>
-            <Text style={styles.emptySub}>Diğer KPI'ya dokun veya tümünü göster.</Text>
+            <Text style={styles.emptySub}>Filtreyi kapatmak için seçili KPI'ya tekrar dokun.</Text>
           </View>
         ) : (
           filteredOrders.map((item) => (
@@ -228,20 +230,9 @@ const styles = StyleSheet.create({
   statChipActive: { borderColor: "#3F855C", backgroundColor: "#EDF7F0" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#2E241C" },
   statLabel: { fontSize: 12, color: "#6F6358", marginTop: 2 },
-  allButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#DDD3C7",
-    backgroundColor: "#F4EEE4",
-    paddingVertical: 8,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  allButtonText: { color: "#5E5347", fontWeight: "700" },
   ordersSection: { marginBottom: 14 },
   ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   ordersTitle: { fontSize: 18, fontWeight: "800", color: "#2E241C" },
-  reloadText: { color: "#3F855C", fontWeight: "700" },
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   emptyTitle: { color: "#2E241C", fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
