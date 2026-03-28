@@ -91,6 +91,7 @@ export default function SellerProfileDetailScreen({
   const [contactDob, setContactDob] = useState("");
   const [cityDistrict, setCityDistrict] = useState("");
   const [addressLine, setAddressLine] = useState("");
+  const [contactCountryCode, setContactCountryCode] = useState("");
 
   const [isKitchenModalOpen, setIsKitchenModalOpen] = useState(false);
   const [kitchenDescInput, setKitchenDescInput] = useState("");
@@ -146,6 +147,7 @@ export default function SellerProfileDetailScreen({
       if (meRes.ok && meJson?.data) {
         setFullName(String(meJson.data.fullName ?? "").trim());
         setContactDob(formatDobForDisplay(String(meJson.data.dob ?? "")));
+        setContactCountryCode(String(meJson.data.countryCode ?? "").trim().toUpperCase());
         const meEmail = String(meJson.data.email ?? "").trim();
         if (meEmail) {
           setContactEmail(meEmail);
@@ -153,6 +155,7 @@ export default function SellerProfileDetailScreen({
       } else {
         setFullName("");
         setContactDob("");
+        setContactCountryCode("");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
@@ -333,6 +336,7 @@ export default function SellerProfileDetailScreen({
       if (masterName.trim()) payload.displayName = masterName.trim();
       if (fullName.trim()) payload.fullName = fullName.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
+      if (contactCountryCode.trim()) payload.countryCode = contactCountryCode.trim().toUpperCase();
       if (contactDob.trim()) {
         const normalizedDob = normalizeDobForApi(contactDob);
         if (!normalizedDob) {
@@ -648,6 +652,18 @@ export default function SellerProfileDetailScreen({
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
                 multiline
               />
+
+              <Text style={styles.modalLabel}>Ülke Kodu</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={contactCountryCode}
+                onChangeText={(value) => setContactCountryCode(value.toUpperCase())}
+                autoCapitalize="characters"
+                maxLength={3}
+                placeholder="Örn: TR (Türkiye), GB (İngiltere)"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
+              <Text style={styles.modalHelperText}>2 harfli ülke kodu yaz: TR, GB, DE gibi.</Text>
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)} disabled={contactSaving}>
@@ -895,6 +911,11 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     paddingTop: 10,
     paddingBottom: 10,
+  },
+  modalHelperText: {
+    marginTop: 6,
+    color: "#6F6B63",
+    fontSize: 12,
   },
   modalDescInput: {
     minHeight: 90,
