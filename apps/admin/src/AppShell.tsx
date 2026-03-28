@@ -429,22 +429,22 @@ function AppShell({
           {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
           {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
           {visibleAppUserId ? (
-            <div style={{ display: location.pathname.startsWith(`/app/users/${visibleAppUserId}`) ? undefined : "none" }}>
+            <div style={{ display: location.pathname.startsWith("/app/users/") ? undefined : "none" }}>
               <UserDetail kind="app" isSuperAdmin={isSuperAdmin} language={language} id={visibleAppUserId} />
             </div>
           ) : null}
           {visibleBuyerId ? (
-            <div style={{ display: location.pathname.startsWith(`/app/buyers/${visibleBuyerId}`) ? undefined : "none" }}>
+            <div style={{ display: location.pathname.startsWith("/app/buyers/") ? undefined : "none" }}>
               <UserDetail kind="buyers" isSuperAdmin={isSuperAdmin} language={language} id={visibleBuyerId} />
             </div>
           ) : null}
           {visibleSellerId ? (
-            <div style={{ display: location.pathname.startsWith(`/app/sellers/${visibleSellerId}`) ? undefined : "none" }}>
+            <div style={{ display: location.pathname.startsWith("/app/sellers/") ? undefined : "none" }}>
               <UserDetail kind="sellers" isSuperAdmin={isSuperAdmin} language={language} id={visibleSellerId} />
             </div>
           ) : null}
           {visibleAdminId ? (
-            <div style={{ display: location.pathname.startsWith(`/app/admins/${visibleAdminId}`) ? undefined : "none" }}>
+            <div style={{ display: location.pathname.startsWith("/app/admins/") ? undefined : "none" }}>
               <UserDetail kind="admin" isSuperAdmin={isSuperAdmin} language={language} id={visibleAdminId} />
             </div>
           ) : null}

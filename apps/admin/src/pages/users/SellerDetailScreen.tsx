@@ -269,11 +269,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     );
   }
 
-  async function loadSellerCritical(options?: { includeFoods?: boolean; includeOrders?: boolean }) {
+  async function loadSellerCritical(options?: { includeFoods?: boolean; includeOrders?: boolean; silent?: boolean }) {
     const requestId = ++sellerCriticalReqRef.current;
     const includeFoods = options?.includeFoods ?? false;
     const includeOrders = options?.includeOrders ?? false;
-    if (!getCachedUser(id)) setLoading(true);
+    const silent = options?.silent ?? false;
+    if (!silent && !getCachedUser(id)) setLoading(true);
     setMessage(null);
     const bust = Date.now();
     try {
@@ -320,7 +321,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         setMessage(dict.detail.requestFailed);
       }
     } finally {
-      if (requestId === sellerCriticalReqRef.current) {
+      if (!silent && requestId === sellerCriticalReqRef.current) {
         setLoading(false);
       }
     }
@@ -580,6 +581,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       void loadSellerCritical({
         includeFoods: activeTab === "foods",
         includeOrders: activeTab === "orders" || activeTab === "wallet",
+        silent: true,
       });
       void loadSellerDeferred();
       if (activeTab === "foods") {
