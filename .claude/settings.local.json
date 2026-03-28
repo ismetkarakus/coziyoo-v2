@@ -56,7 +56,9 @@
       "Bash(curl -s -X POST \"https://api.coziyoo.com/v1/auth/register\" -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"etsatici@test.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"Test1234!\"\"\"\",\"\"\"\"userType\"\"\"\":\"\"\"\"seller\"\"\"\"}')",
       "Bash(npx expo:*)",
       "Bash(open /Users/ismetkarakus/Work/coziyoo-v2/apps/mobile/ios/Coziyoo.xcworkspace)",
-      "Bash(psql \"$DATABASE_URL\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name=''users'' AND column_name IN \\(''kitchen_title'',''kitchen_description'',''delivery_radius_km'',''working_hours_json'',''seller_profile_status''\\);\")"
+      "Bash(psql \"$DATABASE_URL\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name=''users'' AND column_name IN \\(''kitchen_title'',''kitchen_description'',''delivery_radius_km'',''working_hours_json'',''seller_profile_status''\\);\")",
+      "Bash(psql \"postgresql://postgres.yhfribehpmkbjrrgixsv:t6gOe6V8SsO4rU@aws-1-eu-central-1.pooler.supabase.com:6543/postgres\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name = ''foods'' ORDER BY column_name;\")",
+      "Bash(brew install:*)"
     ],
     "additionalDirectories": [
       "/tmp"
