@@ -8,6 +8,7 @@ import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
+import { HOME_FOOD_CATEGORIES } from "../constants/foodCategories";
 
 type Props = {
   auth: AuthSession;
@@ -40,6 +41,13 @@ type FoodCategoryOption = {
   id: string;
   name: string;
 };
+
+function fallbackHomeCategoryOptions(): FoodCategoryOption[] {
+  return HOME_FOOD_CATEGORIES.map((name) => ({
+    id: `home:${name.toLocaleLowerCase("tr-TR").replace(/\s+/g, "-")}`,
+    name,
+  }));
+}
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
@@ -169,7 +177,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Kategoriler yüklenemedi");
       const items: unknown[] = Array.isArray(json?.data) ? json.data : [];
-      setCategories(
+      const mapped =
         items
           .map((item) => {
             const row = item as { id?: unknown; nameTr?: unknown; name?: unknown };
@@ -181,11 +189,12 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               name: nameTr || fallbackName,
             };
           })
-          .filter((item) => item.id && item.name),
-      );
+          .filter((item) => item.id && item.name);
+
+      setCategories(mapped.length > 0 ? mapped : fallbackHomeCategoryOptions());
     } catch (e) {
       console.warn("[seller-foods] categories load failed:", e);
-      setCategories([]);
+      setCategories(fallbackHomeCategoryOptions());
     } finally {
       setLoadingCategories(false);
     }

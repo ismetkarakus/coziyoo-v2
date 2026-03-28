@@ -84,6 +84,7 @@ import VoiceSessionScreen from './VoiceSessionScreen';
 import ProfileEditScreen from './ProfileEditScreen';
 import AddressScreen from './AddressScreen';
 import { randomHomeGreetingSubtitle, requestErrorLine, stockLine, t } from '../copy/brandCopy';
+import { HOME_FEED_CATEGORIES } from '../constants/foodCategories';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -511,15 +512,7 @@ function deriveCardColors(dominant: string): CardColors {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const CATEGORIES = [
-  'Tümü',
-  'Çorbalar',
-  'Ana Yemekler',
-  'Salata',
-  'Meze',
-  'Tatlılar',
-  'İçecekler',
-] as const;
+const CATEGORIES = HOME_FEED_CATEGORIES;
 
 const DAILY_FLASH_MEALS = [
   'Anne usulü mercimek çorbası',
