@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform, Alert } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, Alert, Modal } from 'react-native';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -120,6 +120,7 @@ export default function App() {
 
   // Screen params
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [sellerOrderModalVisible, setSellerOrderModalVisible] = useState(false);
   const [sellerFoodsInitialEditId, setSellerFoodsInitialEditId] = useState<string | null>(null);
   const [sellerFoodsInitialEditFood, setSellerFoodsInitialEditFood] = useState<any | null>(null);
   const [sellerFoodsFromManager, setSellerFoodsFromManager] = useState(false);
@@ -620,16 +621,36 @@ export default function App() {
   const canSwitchRole = auth.userType === 'both';
   if (actorMode === 'seller' && screen === 'home') {
     return (
-      <SellerHomeScreen
-        auth={auth}
-        onOpenProfile={() => setScreen('sellerProfileDetail')}
-        onOpenFoodsManager={() => setScreen('sellerFoodsManager')}
-        onOpenOrder={(id) => { setSelectedOrderId(id); setScreen('sellerOrderDetail'); }}
-        onOpenSettings={() => setScreen('settings')}
-        onLogout={handleLogout}
-        onAuthRefresh={setAuth}
-        onSwitchToBuyer={canSwitchRole ? () => setActorMode('buyer') : undefined}
-      />
+      <>
+        <SellerHomeScreen
+          auth={auth}
+          onOpenProfile={() => setScreen('sellerProfileDetail')}
+          onOpenFoodsManager={() => setScreen('sellerFoodsManager')}
+          onOpenOrder={(id) => {
+            setSelectedOrderId(id);
+            setSellerOrderModalVisible(true);
+          }}
+          onOpenSettings={() => setScreen('settings')}
+          onLogout={handleLogout}
+          onAuthRefresh={setAuth}
+          onSwitchToBuyer={canSwitchRole ? () => setActorMode('buyer') : undefined}
+        />
+        <Modal
+          visible={sellerOrderModalVisible && Boolean(selectedOrderId)}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setSellerOrderModalVisible(false)}
+        >
+          {selectedOrderId ? (
+            <SellerOrderDetailScreen
+              auth={auth}
+              orderId={selectedOrderId}
+              onBack={() => setSellerOrderModalVisible(false)}
+              onAuthRefresh={setAuth}
+            />
+          ) : null}
+        </Modal>
+      </>
     );
   }
 
