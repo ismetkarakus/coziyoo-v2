@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  AppState,
   Dimensions,
   Easing,
   FlatList,
@@ -1365,6 +1366,26 @@ export default function HomeScreen({
     if (!apiUrl) return;
     fetchFoods(apiUrl);
   }, [activeTab, apiUrl]);
+
+  // Refresh feed when app comes back from background while home is open.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      if (activeTab !== 'home') return;
+      if (!apiUrl) return;
+      fetchFoods(apiUrl);
+    });
+    return () => sub.remove();
+  }, [activeTab, apiUrl, currentAuth.accessToken]);
+
+  // Keep home feed fresh while app stays open on Home.
+  useEffect(() => {
+    if (activeTab !== 'home' || !apiUrl) return;
+    const id = setInterval(() => {
+      fetchFoods(apiUrl);
+    }, 15000);
+    return () => clearInterval(id);
+  }, [activeTab, apiUrl, currentAuth.accessToken]);
 
   useEffect(() => {
     let cancelled = false;

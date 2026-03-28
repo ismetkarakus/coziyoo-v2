@@ -177,6 +177,7 @@ export default function DashboardPage({ language }: { language: Language }) {
   const dict = DICTIONARIES[language];
   const [data, setData] = useState<Record<string, number | string> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [liveTick, setLiveTick] = useState(0);
   const counterpartNotFound = dict.common.counterpartNotFound;
 
   const metricValueOrMissing = (value: unknown): number | string => {
@@ -191,6 +192,32 @@ export default function DashboardPage({ language }: { language: Language }) {
   };
 
   useEffect(() => {
+    let intervalId: number | null = null;
+    const tick = () => setLiveTick((prev) => prev + 1);
+    const restartInterval = () => {
+      if (intervalId) window.clearInterval(intervalId);
+      if (document.visibilityState === "visible") {
+        intervalId = window.setInterval(tick, 15000);
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") tick();
+      restartInterval();
+    };
+    const onFocus = () => tick();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    restartInterval();
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
     request("/v1/admin/dashboard/overview")
       .then(async (response) => {
         if (response.status !== 200) {
@@ -202,7 +229,7 @@ export default function DashboardPage({ language }: { language: Language }) {
         setData(body.data);
       })
       .catch(() => setError(dict.dashboard.requestFailed));
-  }, []);
+  }, [dict.dashboard.loadFailed, dict.dashboard.requestFailed, liveTick]);
 
   if (error) return <div className="alert">{error}</div>;
   if (!data) return <div className="panel">{dict.common.loading}</div>;

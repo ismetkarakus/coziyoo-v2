@@ -168,6 +168,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [paidAddonNameInput, setPaidAddonNameInput] = useState("");
   const [paidAddonKindInput, setPaidAddonKindInput] = useState<AddonKind>("extra");
   const [paidAddonPriceInput, setPaidAddonPriceInput] = useState("");
+  const [addonLibraryVisible, setAddonLibraryVisible] = useState(false);
+  const [addonLibraryKind, setAddonLibraryKind] = useState<AddonKind>("extra");
+  const [addonLibraryPricing, setAddonLibraryPricing] = useState<AddonPricing>("free");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -596,6 +599,27 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     setMenuItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   }
 
+function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
+    if (pricing === "free") setFreeAddonKindInput("extra");
+    else setPaidAddonKindInput(kind);
+    setAddonLibraryPricing(pricing);
+    setAddonLibraryKind(pricing === "free" ? "extra" : kind);
+    setAddonLibraryVisible(true);
+  }
+
+  function addAddonFromLibrary(item: SellerMenuAddon) {
+    const normalizedKey = `${item.name.toLocaleLowerCase("tr-TR")}|${item.kind}|${item.pricing}|${Number(item.price ?? 0)}`;
+    const exists = menuItems.some(
+      (entry) => `${entry.name.toLocaleLowerCase("tr-TR")}|${entry.kind}|${entry.pricing}|${Number(entry.price ?? 0)}` === normalizedKey,
+    );
+    if (exists) {
+      Alert.alert("Bilgi", "Bu ek zaten seçili.");
+      return;
+    }
+    setMenuItems((prev) => [...prev, item]);
+    setAddonLibraryVisible(false);
+  }
+
   async function toggleStatus(food: SellerFood) {
     try {
       const res = await authedFetch(`/v1/seller/foods/${food.id}/status`, {
@@ -693,6 +717,34 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
     .join(", ");
   const freeMenuItems = menuItems.filter((item) => item.pricing === "free");
   const paidMenuItems = menuItems.filter((item) => item.pricing === "paid");
+  const addonLibraryItems = useMemo(() => {
+    const merged: SellerMenuAddon[] = [];
+    const pushItem = (raw: SellerMenuAddon) => {
+      const key = `${raw.name.toLocaleLowerCase("tr-TR")}|${raw.kind}|${raw.pricing}|${Number(raw.price ?? 0)}`;
+      const exists = merged.some(
+        (item) => `${item.name.toLocaleLowerCase("tr-TR")}|${item.kind}|${item.pricing}|${Number(item.price ?? 0)}` === key,
+      );
+      if (!exists) merged.push(raw);
+    };
+    for (const food of foods) {
+      for (const raw of food.menuItems ?? []) {
+        const name = String(raw?.name ?? "").trim();
+        if (!name) continue;
+        const kind: AddonKind = raw?.kind === "sauce" || raw?.kind === "appetizer" ? raw.kind : "extra";
+        const pricing: AddonPricing = raw?.pricing === "paid" ? "paid" : "free";
+        const price = Number(raw?.price);
+        if (pricing === "paid") {
+          if (!Number.isFinite(price) || price <= 0) continue;
+          pushItem({ name, kind, pricing, price: Number(price.toFixed(2)) });
+        } else {
+          pushItem({ name, kind, pricing: "free" });
+        }
+      }
+    }
+    return merged
+      .filter((item) => item.pricing === addonLibraryPricing && (addonLibraryPricing === "free" || item.kind === addonLibraryKind))
+      .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  }, [foods, addonLibraryKind, addonLibraryPricing]);
 
   return (
     <View style={styles.container}>
@@ -797,20 +849,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           />
 
           <Text style={styles.sectionTitle}>Ücretsiz Ekler *</Text>
-          <View style={styles.kindRow}>
-            {ADDON_KIND_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={`free-kind-${option.value}`}
-                style={[styles.kindChip, freeAddonKindInput === option.value && styles.kindChipActive]}
-                onPress={() => setFreeAddonKindInput(option.value)}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.kindChipText, freeAddonKindInput === option.value && styles.kindChipTextActive]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => openAddonLibrary("free", "extra")} activeOpacity={0.85}>
+            <Text style={styles.addMenuItemBtnText}>+ Hazır ücretsiz eklerden seç</Text>
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             value={freeAddonNameInput}
@@ -828,7 +869,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               );
               return (
                 <View key={`free-${item.name}-${index}`} style={styles.menuItemChip}>
-                  <Text style={styles.menuItemChipText}>{item.name} · {ADDON_KIND_OPTIONS.find((x) => x.value === item.kind)?.label}</Text>
+                  <Text style={styles.menuItemChipText}>{item.name}</Text>
                   <TouchableOpacity onPress={() => removeMenuItem(absoluteIndex)} hitSlop={8}>
                     <Ionicons name="close" size={16} color="#2F241C" />
                   </TouchableOpacity>
@@ -843,7 +884,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               <TouchableOpacity
                 key={`paid-kind-${option.value}`}
                 style={[styles.kindChip, paidAddonKindInput === option.value && styles.kindChipActive]}
-                onPress={() => setPaidAddonKindInput(option.value)}
+                onPress={() => openAddonLibrary("paid", option.value)}
                 activeOpacity={0.85}
               >
                 <Text style={[styles.kindChipText, paidAddonKindInput === option.value && styles.kindChipTextActive]}>
@@ -1145,6 +1186,53 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={addonLibraryVisible} transparent animationType="fade" onRequestClose={() => setAddonLibraryVisible(false)}>
+        <View style={styles.previewOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setAddonLibraryVisible(false)} />
+          <View style={styles.categoryModalCard}>
+            <Text style={styles.categoryModalTitle}>
+              {addonLibraryPricing === "free"
+                ? "Ücretsiz Ekler"
+                : `Ücretli ${ADDON_KIND_OPTIONS.find((item) => item.value === addonLibraryKind)?.label ?? "Ekler"}`}
+            </Text>
+            {addonLibraryItems.length === 0 ? (
+              <View style={styles.categoryEmptyWrap}>
+                <Text style={styles.categoryEmptyText}>Bu grupta kayıtlı ek yok.</Text>
+                <TouchableOpacity
+                  style={styles.categoryRetryBtn}
+                  onPress={() => {
+                    setAddonLibraryVisible(false);
+                    if (addonLibraryPricing === "free") {
+                      setFreeAddonKindInput(addonLibraryKind);
+                    } else {
+                      setPaidAddonKindInput(addonLibraryKind);
+                    }
+                  }}
+                >
+                  <Text style={styles.categoryRetryBtnText}>Yeni ek ekle</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView style={styles.categoryList} contentContainerStyle={styles.categoryListContent}>
+                {addonLibraryItems.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.name}-${index}`}
+                    style={styles.categoryOption}
+                    onPress={() => addAddonFromLibrary(item)}
+                  >
+                    <Text style={styles.categoryOptionText}>
+                      {item.name}
+                      {item.pricing === "paid" ? ` · ${Number(item.price ?? 0).toFixed(2)} ₺` : ""}
+                    </Text>
+                    <Ionicons name="add-circle-outline" size={18} color="#2E6B44" />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>

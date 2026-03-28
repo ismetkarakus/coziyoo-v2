@@ -33,9 +33,36 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [liveTick, setLiveTick] = useState(0);
   const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedOrderIdRef = useRef<string>("");
   const pageSize = 20;
+
+  useEffect(() => {
+    let intervalId: number | null = null;
+    const tick = () => setLiveTick((prev) => prev + 1);
+    const restartInterval = () => {
+      if (intervalId) window.clearInterval(intervalId);
+      if (document.visibilityState === "visible") {
+        intervalId = window.setInterval(tick, 15000);
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") tick();
+      restartInterval();
+    };
+    const onFocus = () => tick();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    restartInterval();
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   const pageTitle = tableKey === "orders" ? dict.menu.orders : dict.menu.foods;
   const subtitle =
@@ -608,7 +635,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         setError(dict.entities.recordsRequestFailed);
         setLoading(false);
       });
-  }, [dict.entities.loadRecordsFailed, dict.entities.recordsRequestFailed, page, pageSize, search, sortBy, sortDir, tableKey]);
+  }, [dict.entities.loadRecordsFailed, dict.entities.recordsRequestFailed, liveTick, page, pageSize, search, sortBy, sortDir, tableKey]);
 
   useEffect(() => {
     if (tableKey !== "orders") return;
