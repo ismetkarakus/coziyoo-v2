@@ -119,13 +119,6 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
     void loadOrders();
   }, []);
 
-  const grouped = useMemo(() => {
-    const waiting = orders.filter((x) => x.status === "pending_seller_approval").length;
-    const prep = orders.filter((x) => x.status === "preparing").length;
-    const road = orders.filter((x) => x.status === "in_delivery").length;
-    return { waiting, prep, road };
-  }, [orders]);
-
   const filteredOrders = useMemo(() => {
     const from = parseDateInput(fromDate);
     const to = parseDateInput(toDate);
@@ -145,11 +138,6 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
   return (
     <View style={styles.container}>
       <ScreenHeader title="Sipariş Yönetimi" onBack={onBack} />
-      <View style={styles.stats}>
-        <Text style={styles.stat}>Onay: {grouped.waiting}</Text>
-        <Text style={styles.stat}>Hazırlık: {grouped.prep}</Text>
-        <Text style={styles.stat}>Yolda: {grouped.road}</Text>
-      </View>
       <View style={styles.filtersCard}>
         <Text style={styles.filtersTitle}>Filtreler</Text>
         <View style={styles.filterRow}>
@@ -217,8 +205,6 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  stats: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
-  stat: { backgroundColor: "#EFE9DF", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, color: "#5D5145", fontWeight: "700" },
   filtersCard: {
     marginHorizontal: 14,
     marginBottom: 8,
