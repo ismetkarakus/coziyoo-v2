@@ -21,6 +21,13 @@ const SellerProfileUpdateSchema = z.object({
   submitForReview: z.boolean().optional(),
 });
 
+const foodImageUrlSchema = z
+  .string()
+  .refine(
+    (v) => /^https?:\/\//i.test(v) || /^data:/i.test(v),
+    { message: "Must be an http(s) or data URL" },
+  );
+
 const SellerFoodCreateSchema = z.object({
   name: z.string().min(2).max(120),
   cardSummary: z.string().max(240).optional(),
@@ -36,8 +43,8 @@ const SellerFoodCreateSchema = z.object({
     delivery: z.boolean(),
   }).optional(),
   preparationTimeMinutes: z.number().int().min(1).max(1440).optional(),
-  imageUrl: z.string().url().optional(),
-  imageUrls: z.array(z.string().url()).max(5).optional(),
+  imageUrl: foodImageUrlSchema.optional(),
+  imageUrls: z.array(foodImageUrlSchema).max(5).optional(),
   isActive: z.boolean().optional(),
   categoryId: z.string().uuid().optional(),
 });
@@ -381,16 +388,15 @@ sellerRouter.get("/categories", async (req, res) => {
       name_tr: string | null;
       name_en: string | null;
       slug: string | null;
-      sort_order: number | null;
     }>(
       `SELECT
          id::text,
          name_tr,
          name_en,
-         slug,
-         sort_order
+         slug
        FROM categories
-       ORDER BY sort_order ASC NULLS LAST, name_tr ASC, name_en ASC`,
+       ORDER BY
+         COALESCE(NULLIF(name_tr, ''), NULLIF(name_en, ''), slug, id::text) ASC`,
     );
 
     return res.json({
