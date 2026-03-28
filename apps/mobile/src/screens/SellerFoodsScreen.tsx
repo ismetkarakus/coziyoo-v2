@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -173,14 +173,16 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
   const [addonLibraryVisible, setAddonLibraryVisible] = useState(false);
   const [addonLibraryKind, setAddonLibraryKind] = useState<AddonKind>("extra");
   const [addonLibraryPricing, setAddonLibraryPricing] = useState<AddonPricing>("free");
-  const [pendingInitialEditId, setPendingInitialEditId] = useState<string | null>(initialEditFoodId ?? null);
+  const [pendingInitialEditId, setPendingInitialEditId] = useState<string | null>(
+    initialEditFood ? null : (initialEditFoodId ?? null),
+  );
 
   useEffect(() => setCurrentAuth(auth), [auth]);
   useEffect(() => {
-    setPendingInitialEditId(initialEditFoodId ?? null);
-  }, [initialEditFoodId]);
+    setPendingInitialEditId(initialEditFood ? null : (initialEditFoodId ?? null));
+  }, [initialEditFoodId, initialEditFood]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!initialEditFood) return;
     openEdit(initialEditFood);
     setPendingInitialEditId(null);
