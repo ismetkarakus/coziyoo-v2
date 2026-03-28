@@ -278,10 +278,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     setMessage(null);
     const bust = Date.now();
     try {
-      const detailPromise = request(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${bust}`);
-      const foodsPromise = includeFoods ? request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`) : Promise.resolve(null);
-      const ordersPromise = includeOrders ? request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`) : Promise.resolve(null);
-      const [detailResponse, foodsResponse, sellerOrdersResponse] = await Promise.all([detailPromise, foodsPromise, ordersPromise]);
+      const detailResponse = await request(`${endpoint}${endpoint.includes("?") ? "&" : "?"}t=${bust}`);
       if (requestId !== sellerCriticalReqRef.current) return;
 
       if (detailResponse.status !== 200) {
@@ -295,22 +292,37 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setCachedUser(id, detailBody.data);
       setRow(detailBody.data);
 
-      if (foodsResponse) {
-        if (foodsResponse.status === 200) {
-          const foodsBody = await parseJson<{ data: SellerFoodRow[] }>(foodsResponse);
-          if (requestId !== sellerCriticalReqRef.current) return;
-          setFoodRows(foodsBody.data);
+      const [foodsResult, ordersResult] = await Promise.allSettled([
+        includeFoods ? request(`/v1/admin/users/${id}/seller-foods?page=1&pageSize=200&sortDir=desc`) : Promise.resolve<Response | null>(null),
+        includeOrders ? request(`/v1/admin/users/${id}/seller-orders?page=1&pageSize=20&sortDir=desc`) : Promise.resolve<Response | null>(null),
+      ]);
+      if (requestId !== sellerCriticalReqRef.current) return;
+
+      if (includeFoods) {
+        if (foodsResult.status === "fulfilled" && foodsResult.value) {
+          if (foodsResult.value.status === 200) {
+            const foodsBody = await parseJson<{ data: SellerFoodRow[] }>(foodsResult.value);
+            if (requestId !== sellerCriticalReqRef.current) return;
+            setFoodRows(foodsBody.data);
+          } else {
+            setFoodRows([]);
+          }
         } else {
           setFoodRows([]);
         }
       }
 
-      if (sellerOrdersResponse) {
-        if (sellerOrdersResponse.status === 200) {
-          const ordersBody = await parseJson<{ data: any[]; pagination: BuyerPagination }>(sellerOrdersResponse);
-          if (requestId !== sellerCriticalReqRef.current) return;
-          setSellerOrders(ordersBody.data);
-          setSellerOrdersPagination(ordersBody.pagination);
+      if (includeOrders) {
+        if (ordersResult.status === "fulfilled" && ordersResult.value) {
+          if (ordersResult.value.status === 200) {
+            const ordersBody = await parseJson<{ data: any[]; pagination: BuyerPagination }>(ordersResult.value);
+            if (requestId !== sellerCriticalReqRef.current) return;
+            setSellerOrders(ordersBody.data);
+            setSellerOrdersPagination(ordersBody.pagination);
+          } else {
+            setSellerOrders([]);
+            setSellerOrdersPagination(null);
+          }
         } else {
           setSellerOrders([]);
           setSellerOrdersPagination(null);

@@ -73,10 +73,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     setLoading(getCachedUser(id) === null);
     setMessage(null);
     try {
-      const [detailResponse, contactResponse] = await Promise.all([
-        request(endpoint),
-        request(`/v1/admin/users/${id}/buyer-contact`),
-      ]);
+      const detailResponse = await request(endpoint);
       if (requestId !== buyerCriticalReqRef.current) return;
 
       if (detailResponse.status !== 200) {
@@ -91,11 +88,18 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       setCachedUser(id, detailBody.data);
       setRow(detailBody.data);
 
-      if (contactResponse.status === 200) {
-        const body = await parseJson<{ data: BuyerContactInfo }>(contactResponse);
+      try {
+        const contactResponse = await request(`/v1/admin/users/${id}/buyer-contact`);
         if (requestId !== buyerCriticalReqRef.current) return;
-        setContactInfo(body.data);
-      } else {
+        if (contactResponse.status === 200) {
+          const body = await parseJson<{ data: BuyerContactInfo }>(contactResponse);
+          if (requestId !== buyerCriticalReqRef.current) return;
+          setContactInfo(body.data);
+        } else {
+          setContactInfo(null);
+        }
+      } catch {
+        if (requestId !== buyerCriticalReqRef.current) return;
         setContactInfo(null);
       }
     } catch {
