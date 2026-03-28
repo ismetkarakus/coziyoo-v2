@@ -810,6 +810,9 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
               <TouchableOpacity style={styles.previewLikeBtn} activeOpacity={0.9}>
                 <Ionicons name="heart-outline" size={16} color="#2E241C" />
               </TouchableOpacity>
+              <View style={styles.previewPriceChip}>
+                <Text style={styles.previewPriceChipText}>{previewPrice}</Text>
+              </View>
               <View style={styles.previewRatingChip}>
                 <Text style={styles.previewRatingChipText}>⭐ 5.0</Text>
               </View>
@@ -829,7 +832,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                   <Text style={styles.previewMetaText}>{`${previewMeta} · ${previewDistance}`}</Text>
                 </View>
                 <View style={styles.previewFooter}>
-                  <Text style={styles.previewPrice}>{previewPrice}</Text>
+                  <Text style={styles.previewFooterPlaceholder} />
                   {previewAllergens ? <Text style={styles.previewAllergen}>{`Alerjen: ${previewAllergens}`}</Text> : null}
                 </View>
               </View>
@@ -1094,16 +1097,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  previewRatingChip: {
+  previewPriceChip: {
     position: "absolute",
     right: 10,
     top: 10,
     borderRadius: 999,
-    backgroundColor: "rgba(27,22,17,0.78)",
+    backgroundColor: "rgba(35,28,22,0.82)",
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  previewRatingChipText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  previewPriceChipText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  previewRatingChip: {
+    position: "absolute",
+    right: 10,
+    top: 42,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  previewRatingChipText: { color: "#4A3D31", fontSize: 12, fontWeight: "800" },
   previewImagePlaceholderText: { color: "#77695B", fontWeight: "600" },
   previewBody: { padding: 12 },
   previewTopRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
@@ -1116,7 +1129,7 @@ const styles = StyleSheet.create({
   previewMidRow: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 5 },
   previewMetaText: { color: "#7D6D60", fontWeight: "600", fontSize: 13 },
   previewFooter: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  previewPrice: { color: "#2E6B44", fontWeight: "800", fontSize: 22 },
+  previewFooterPlaceholder: { color: "transparent" },
   previewAllergen: { color: "#B73D35", fontWeight: "700", fontSize: 13, flex: 1, textAlign: "right" },
   previewCloseBtn: {
     marginTop: 12,
