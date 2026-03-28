@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -10,6 +10,7 @@ import ActionButton from "../components/ActionButton";
 type Props = {
   auth: AuthSession;
   onBack: () => void;
+  onOpenFoodsForm: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
@@ -22,17 +23,11 @@ type SellerFood = {
   stock?: number;
 };
 
-export default function SellerFoodsManagerScreen({ auth, onBack, onAuthRefresh }: Props) {
+export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm, onAuthRefresh }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [foods, setFoods] = useState<SellerFood[]>([]);
-  const [editing, setEditing] = useState<SellerFood | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editSummary, setEditSummary] = useState("");
-  const [editPrice, setEditPrice] = useState("");
-  const [editActive, setEditActive] = useState(true);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -87,58 +82,12 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onAuthRefresh }
     void loadFoods();
   }, []);
 
-  function openEdit(food: SellerFood) {
-    setEditing(food);
-    setEditName(food.name);
-    setEditSummary(food.cardSummary ?? "");
-    setEditPrice(String(food.price));
-    setEditActive(food.isActive);
-  }
-
-  async function saveEdit() {
-    if (!editing) return;
-    const nextPrice = Number(editPrice);
-    if (!editName.trim()) {
-      Alert.alert("Hata", "Yemek adı boş olamaz.");
-      return;
-    }
-    if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
-      Alert.alert("Hata", "Fiyat 0'dan büyük olmalı.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const patchRes = await authedFetch(`/v1/seller/foods/${editing.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: editName.trim(),
-          cardSummary: editSummary.trim() || null,
-          price: nextPrice,
-        }),
-      });
-      const patchJson = await patchRes.json();
-      if (!patchRes.ok) throw new Error(patchJson?.error?.message ?? "Yemek güncellenemedi");
-
-      const statusRes = await authedFetch(`/v1/seller/foods/${editing.id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive: editActive }),
-      });
-      const statusJson = await statusRes.json();
-      if (!statusRes.ok) throw new Error(statusJson?.error?.message ?? "Durum güncellenemedi");
-
-      setEditing(null);
-      await loadFoods();
-    } catch (e) {
-      Alert.alert("Hata", e instanceof Error ? e.message : "Yemek güncellenemedi");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <View style={styles.container}>
       <ScreenHeader title="Yemek Yönetimi" onBack={onBack} />
+      <View style={styles.topAction}>
+        <ActionButton label="Yemek Ekle" onPress={onOpenFoodsForm} fullWidth />
+      </View>
 
       {loading ? (
         <View style={styles.center}>
@@ -150,7 +99,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onAuthRefresh }
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={() => openEdit(item)}>
+            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={onOpenFoodsForm}>
               <View style={styles.rowTop}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={[styles.badge, item.isActive ? styles.badgeActive : styles.badgePassive]}>
@@ -162,6 +111,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onAuthRefresh }
                 <Text style={styles.price}>{item.price.toFixed(2)} TL</Text>
                 <Text style={styles.stock}>Stok: {item.stock ?? 0}</Text>
               </View>
+              <Text style={styles.editHint}>Düzenlemek için dokun</Text>
             </TouchableOpacity>
           )}
           ListEmptyComponent={
@@ -172,45 +122,13 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onAuthRefresh }
           }
         />
       )}
-
-      <Modal visible={Boolean(editing)} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Yemeği Düzenle</Text>
-
-            <Text style={styles.label}>Yemek Adı</Text>
-            <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Yemek adı" />
-
-            <Text style={styles.label}>Kısa Özet</Text>
-            <TextInput style={styles.input} value={editSummary} onChangeText={setEditSummary} placeholder="Kısa özet" />
-
-            <Text style={styles.label}>Fiyat (TL)</Text>
-            <TextInput
-              style={styles.input}
-              value={editPrice}
-              onChangeText={setEditPrice}
-              keyboardType="decimal-pad"
-              placeholder="Örn: 120"
-            />
-
-            <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>Aktif Durum</Text>
-              <Switch value={editActive} onValueChange={setEditActive} />
-            </View>
-
-            <View style={styles.modalActions}>
-              <ActionButton label="Vazgeç" variant="soft" onPress={() => setEditing(null)} fullWidth />
-              <ActionButton label="Kaydet" onPress={() => void saveEdit()} loading={saving} fullWidth />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
+  topAction: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   listContent: { padding: 14, gap: 10, paddingBottom: 24 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, gap: 6 },
@@ -223,35 +141,8 @@ const styles = StyleSheet.create({
   rowBottom: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
   price: { color: "#2E241C", fontWeight: "800" },
   stock: { color: "#6C6055", fontWeight: "600" },
+  editHint: { color: "#6C6055", fontSize: 12, fontWeight: "700", marginTop: 6 },
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 14 },
   emptyTitle: { color: "#2E241C", fontSize: 16, fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
-  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
-  modalCard: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    padding: 16,
-    gap: 8,
-  },
-  modalTitle: { color: "#2E241C", fontSize: 18, fontWeight: "800", marginBottom: 4 },
-  label: { color: "#5E5247", fontWeight: "700", fontSize: 13 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E2D8CC",
-    backgroundColor: "#FCFAF7",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: "#2E241C",
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  switchLabel: { color: "#2E241C", fontWeight: "700" },
-  modalActions: { gap: 8, marginTop: 4, paddingBottom: 8 },
 });

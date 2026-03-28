@@ -544,6 +544,7 @@ export default function App() {
       <SellerFoodsManagerScreen
         auth={auth}
         onBack={() => setScreen('home')}
+        onOpenFoodsForm={() => setScreen('sellerFoods')}
         onAuthRefresh={setAuth}
       />
     );
