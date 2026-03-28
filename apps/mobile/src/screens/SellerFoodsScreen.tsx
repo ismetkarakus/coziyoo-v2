@@ -1081,28 +1081,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             </TouchableOpacity>
           ) : null}
 
-          <View style={styles.listHeaderRow}>
-            <Text style={styles.listHeader}>Mevcut Yemekler</Text>
-            <TouchableOpacity onPress={resetForm}><Text style={styles.newFoodLink}>+ Yeni Form</Text></TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator size="large" color={theme.primary} style={{ marginVertical: 16 }} />
-          ) : foods.length === 0 ? (
-            <Text style={styles.emptyText}>Henüz yemek eklenmedi.</Text>
-          ) : (
-            foods.map((item) => (
-              <View style={styles.card} key={item.id}>
-                <Text style={styles.foodName}>{item.name}</Text>
-                <Text style={styles.meta}>{item.price.toFixed(2)} TL · Stok: {item.stock}</Text>
-                <Text style={styles.meta}>{item.isActive ? "Aktif" : "Pasif"}</Text>
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity style={styles.ghostBtn} onPress={() => openEdit(item)}><Text>Düzenle</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.ghostBtn} onPress={() => void toggleStatus(item)}><Text>{item.isActive ? "Pasifleştir" : "Aktifleştir"}</Text></TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
