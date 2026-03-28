@@ -120,6 +120,8 @@ export default function App() {
 
   // Screen params
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [sellerFoodsInitialEditId, setSellerFoodsInitialEditId] = useState<string | null>(null);
+  const [sellerFoodsFromManager, setSellerFoodsFromManager] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -507,7 +509,11 @@ export default function App() {
         auth={auth}
         onBack={() => setScreen('home')}
         onEdit={() => setScreen('sellerProfile')}
-        onOpenFoods={() => setScreen('sellerFoods')}
+        onOpenFoods={() => {
+          setSellerFoodsFromManager(false);
+          setSellerFoodsInitialEditId(null);
+          setScreen('sellerFoods');
+        }}
         onOpenLots={() => setScreen('sellerLots')}
         onOpenOrders={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
@@ -533,7 +539,8 @@ export default function App() {
     return (
       <SellerFoodsScreen
         auth={auth}
-        onBack={() => setScreen('home')}
+        initialEditFoodId={sellerFoodsInitialEditId}
+        onBack={() => setScreen(sellerFoodsFromManager ? 'sellerFoodsManager' : 'home')}
         onAuthRefresh={setAuth}
       />
     );
@@ -544,7 +551,11 @@ export default function App() {
       <SellerFoodsManagerScreen
         auth={auth}
         onBack={() => setScreen('home')}
-        onOpenFoodsForm={() => setScreen('sellerFoods')}
+        onOpenFoodsForm={(mode, foodId) => {
+          setSellerFoodsFromManager(true);
+          setSellerFoodsInitialEditId(mode === 'edit' ? (foodId ?? null) : null);
+          setScreen('sellerFoods');
+        }}
         onAuthRefresh={setAuth}
       />
     );

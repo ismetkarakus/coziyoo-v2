@@ -10,7 +10,7 @@ import ActionButton from "../components/ActionButton";
 type Props = {
   auth: AuthSession;
   onBack: () => void;
-  onOpenFoodsForm: () => void;
+  onOpenFoodsForm: (mode: "add" | "edit", foodId?: string) => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
@@ -86,7 +86,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
     <View style={styles.container}>
       <ScreenHeader title="Yemek Yönetimi" onBack={onBack} />
       <View style={styles.topAction}>
-        <ActionButton label="Yemek Ekle" onPress={onOpenFoodsForm} fullWidth />
+        <ActionButton label="Yemek Ekle" onPress={() => onOpenFoodsForm("add")} fullWidth />
       </View>
 
       {loading ? (
@@ -99,7 +99,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={onOpenFoodsForm}>
+            <TouchableOpacity style={styles.card} activeOpacity={0.82} onPress={() => onOpenFoodsForm("edit", item.id)}>
               <View style={styles.rowTop}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={[styles.badge, item.isActive ? styles.badgeActive : styles.badgePassive]}>
@@ -111,7 +111,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
                 <Text style={styles.price}>{item.price.toFixed(2)} TL</Text>
                 <Text style={styles.stock}>Stok: {item.stock ?? 0}</Text>
               </View>
-              <Text style={styles.editHint}>Düzenlemek için dokun</Text>
+              <Text style={styles.editHint}>Yemek Düzenle</Text>
             </TouchableOpacity>
           )}
           ListEmptyComponent={

@@ -13,6 +13,7 @@ import { HOME_FOOD_CATEGORIES } from "../constants/foodCategories";
 type Props = {
   auth: AuthSession;
   onBack: () => void;
+  initialEditFoodId?: string | null;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
@@ -121,7 +122,7 @@ function parseLocalizedDecimal(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
-export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props) {
+export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, onAuthRefresh }: Props) {
   const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
@@ -171,8 +172,12 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const [addonLibraryVisible, setAddonLibraryVisible] = useState(false);
   const [addonLibraryKind, setAddonLibraryKind] = useState<AddonKind>("extra");
   const [addonLibraryPricing, setAddonLibraryPricing] = useState<AddonPricing>("free");
+  const [pendingInitialEditId, setPendingInitialEditId] = useState<string | null>(initialEditFoodId ?? null);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
+  useEffect(() => {
+    setPendingInitialEditId(initialEditFoodId ?? null);
+  }, [initialEditFoodId]);
 
   async function authedFetch(path: string, init?: RequestInit, baseUrl = apiUrl): Promise<Response> {
     const headers: Record<string, string> = {
@@ -260,6 +265,14 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!pendingInitialEditId) return;
+    const target = foods.find((item) => item.id === pendingInitialEditId);
+    if (!target) return;
+    openEdit(target);
+    setPendingInitialEditId(null);
+  }, [pendingInitialEditId, foods]);
 
   function resetForm() {
     setEditingFood(null);
@@ -745,10 +758,11 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
       .filter((item) => item.pricing === addonLibraryPricing && (addonLibraryPricing === "free" || item.kind === addonLibraryKind))
       .sort((a, b) => a.name.localeCompare(b.name, "tr"));
   }, [foods, addonLibraryKind, addonLibraryPricing]);
+  const screenTitle = editingFood ? "Yemek Düzenle" : "Yemek Ekle";
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Yemek Ekle" onBack={onBack} />
+      <ScreenHeader title={screenTitle} onBack={onBack} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="always">
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
