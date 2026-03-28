@@ -401,12 +401,14 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         const nowTs = Date.now();
         let saleStartsAt = startIso ?? new Date(nowTs).toISOString();
         let saleEndsAt = endIso;
+        let hadInvalidDateWindow = false;
         if (!saleEndsAt) {
           const fallback = new Date(saleStartsAt);
           fallback.setUTCDate(fallback.getUTCDate() + 30);
           saleEndsAt = fallback.toISOString();
         }
         if (new Date(saleEndsAt).getTime() <= nowTs) {
+          hadInvalidDateWindow = true;
           // Prevent creating immediately expired lots; keep publish visible on home feed.
           if (new Date(saleStartsAt).getTime() < nowTs) {
             saleStartsAt = new Date(nowTs).toISOString();
@@ -416,9 +418,16 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
           saleEndsAt = fallback.toISOString();
         }
         if (new Date(saleEndsAt).getTime() <= new Date(saleStartsAt).getTime()) {
+          hadInvalidDateWindow = true;
           const fallback = new Date(saleStartsAt);
           fallback.setUTCDate(fallback.getUTCDate() + 1);
           saleEndsAt = fallback.toISOString();
+        }
+        if (hadInvalidDateWindow) {
+          Alert.alert(
+            "Yanlış tarihtesin",
+            "Geçmiş veya hatalı tarih girdin. Sistem satış tarihini otomatik düzeltti.",
+          );
         }
 
         const producedAt = saleStartsAt;
