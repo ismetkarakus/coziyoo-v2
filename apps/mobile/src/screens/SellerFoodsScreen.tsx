@@ -355,6 +355,17 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
       const primaryImageUrl = imageUrls.map((x) => x.trim()).find(Boolean) || undefined;
       const parsedDeliveryFee = deliveryFee.trim() ? parseLocalizedDecimal(deliveryFee) : 0;
       const parsedDeliveryDistance = deliveryDistanceKm.trim() ? parseLocalizedDecimal(deliveryDistanceKm) : Number.NaN;
+      const ingredientItemsFromDescription = description
+        .split(/[,;\n]/g)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const ingredientItemsFromInput = ingredients
+        .split(/[,;\n]/g)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const normalizedIngredients = ingredientItemsFromInput.length > 0
+        ? ingredientItemsFromInput
+        : ingredientItemsFromDescription;
       const payload: Record<string, unknown> = {
         name: name.trim(),
         price: parsedPrice,
@@ -366,7 +377,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
         cuisine: cuisine.trim() || undefined,
         deliveryFee: Number.isFinite(parsedDeliveryFee) ? parsedDeliveryFee : 0,
         deliveryOptions: { pickup: pickupEnabled, delivery: deliveryEnabled },
-        ingredients: ingredients.split(",").map((x) => x.trim()).filter(Boolean),
+        ingredients: normalizedIngredients,
         allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
         preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
         deliveryDistanceKm: Number.isFinite(parsedDeliveryDistance) ? parsedDeliveryDistance : undefined,
