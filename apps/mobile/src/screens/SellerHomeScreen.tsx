@@ -128,10 +128,9 @@ export default function SellerHomeScreen({
       <View style={styles.stickyTop}>
         {/* Greeting + Avatar */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Merhaba, {displayName} 👋</Text>
-            <Text style={styles.subtitle}>Satıcı Paneli</Text>
-          </View>
+        <View>
+          <Text style={styles.title}>Merhaba, {displayName} 👋</Text>
+        </View>
           <TouchableOpacity style={styles.avatar} onPress={onOpenProfile} activeOpacity={0.8}>
             {loading ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -232,7 +231,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: { fontSize: 26, fontWeight: "800", color: "#2E241C" },
-  subtitle: { marginTop: 4, fontSize: 13, color: "#9A8C82", fontWeight: "500" },
   avatar: {
     width: 52,
     height: 52,
