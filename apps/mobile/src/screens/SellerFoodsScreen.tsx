@@ -499,7 +499,11 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
   const previewImage = imageUrls.map((x) => x.trim()).find(Boolean) || "";
   const selectedCategoryName = categories.find((item) => item.id === categoryId)?.name ?? "";
   const previewTitle = name.trim() || "Yemek Adı";
-  const previewSummary = cardSummary.trim() || description.trim() || "Lezzetli ev yemeği";
+  const previewStockLine = (() => {
+    const stock = Number.parseInt(dailyStock.trim() || "0", 10);
+    if (Number.isFinite(stock) && stock > 0) return `${stock} porsiyon kaldı`;
+    return "Stok girilmedi";
+  })();
   const previewPrice = Number.isFinite(Number(price)) && Number(price) > 0 ? `${Number(price).toFixed(2)} ₺` : "-- ₺";
   const previewSellerHandle = useMemo(() => {
     const emailLocal = String(currentAuth.email ?? "").split("@")[0]?.trim();
@@ -820,7 +824,7 @@ export default function SellerFoodsScreen({ auth, onBack, onAuthRefresh }: Props
                 <View style={styles.previewTopRow}>
                   <View style={styles.previewTopRowLeft}>
                     <Text style={styles.previewFoodTitle} numberOfLines={1}>{previewTitle}</Text>
-                    <Text style={styles.previewFoodSummary} numberOfLines={1}>{previewSummary}</Text>
+                    <Text style={styles.previewFoodSummary} numberOfLines={1}>{previewStockLine}</Text>
                   </View>
                   <View style={styles.previewTopRowRight}>
                     <Text style={styles.previewSeller}>{previewSellerHandle} ›</Text>
