@@ -28,6 +28,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -54,16 +55,32 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
 
   async function loadOrders() {
     setLoading(true);
+    setErrorText(null);
     try {
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
-      const res = await authedFetch("/v1/orders?role=seller&page=1&pageSize=200", baseUrl);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Siparişler yüklenemedi");
-      setOrders(Array.isArray(json?.data) ? json.data : []);
+      const primaryRes = await authedFetch("/v1/orders?role=seller&page=1&pageSize=200", baseUrl);
+      const primaryJson = await primaryRes.json();
+      if (!primaryRes.ok) throw new Error(primaryJson?.error?.message ?? "Siparişler yüklenemedi");
+      let sellerOrders = Array.isArray(primaryJson?.data) ? primaryJson.data : [];
+
+      // Some environments may return empty for role=seller due to legacy actor filtering.
+      // Fallback to unscoped list and extract seller-owned rows client-side.
+      if (sellerOrders.length === 0) {
+        const fallbackRes = await authedFetch("/v1/orders?page=1&pageSize=200", baseUrl);
+        const fallbackJson = await fallbackRes.json();
+        if (fallbackRes.ok && Array.isArray(fallbackJson?.data)) {
+          const fromAll = fallbackJson.data.filter((row: SellerOrder & { sellerId?: string }) => row.sellerId === currentAuth.userId);
+          sellerOrders = fromAll.length > 0 ? fromAll : fallbackJson.data;
+        }
+      }
+
+      setOrders(sellerOrders);
     } catch (e) {
-      Alert.alert("Hata", e instanceof Error ? e.message : "Siparişler yüklenemedi");
+      const message = e instanceof Error ? e.message : "Siparişler yüklenemedi";
+      setErrorText(message);
+      Alert.alert("Hata", message);
     } finally {
       setLoading(false);
     }
@@ -99,19 +116,32 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 14, gap: 10 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
-              <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
-              <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
-              <Text style={styles.meta}>Durum: {item.status}</Text>
-              <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-            </TouchableOpacity>
+        <>
+          {orders.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>Henüz sipariş görünmüyor</Text>
+              <Text style={styles.emptySub}>
+                {errorText
+                  ? "Bağlantıyı kontrol edip tekrar yenile."
+                  : "Yeni sipariş gelince burada listelenecek. Üstten Yenile'ye basabilirsin."}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={orders}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: 14, gap: 10 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
+                  <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
+                  <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
+                  <Text style={styles.meta}>Durum: {item.status}</Text>
+                  <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+                </TouchableOpacity>
+              )}
+            />
           )}
-        />
+        </>
       )}
     </View>
   );
@@ -126,4 +156,15 @@ const styles = StyleSheet.create({
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
   meta: { color: "#6C6055", marginTop: 3 },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
+  emptyWrap: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    padding: 14,
+  },
+  emptyTitle: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  emptySub: { color: "#6C6055", marginTop: 4, lineHeight: 20 },
 });
