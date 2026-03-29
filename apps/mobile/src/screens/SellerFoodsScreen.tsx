@@ -63,9 +63,9 @@ type SellerMenuAddon = {
 };
 
 const ADDON_KIND_OPTIONS: Array<{ value: AddonKind; label: string }> = [
-  { value: "sauce", label: "Soslar" },
-  { value: "extra", label: "Ek Gıdalar" },
-  { value: "appetizer", label: "Aparatifler" },
+  { value: "sauce", label: "Sos" },
+  { value: "extra", label: "Yan Ürün (pilav vb.)" },
+  { value: "appetizer", label: "Salata / İçecek" },
 ];
 
 function fallbackHomeCategoryOptions(): FoodCategoryOption[] {
@@ -624,10 +624,10 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
   }
 
 function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
-    if (pricing === "free") setFreeAddonKindInput("extra");
+    if (pricing === "free") setFreeAddonKindInput(kind);
     else setPaidAddonKindInput(kind);
     setAddonLibraryPricing(pricing);
-    setAddonLibraryKind(pricing === "free" ? "extra" : kind);
+    setAddonLibraryKind(kind);
     setAddonLibraryVisible(true);
   }
 
@@ -890,7 +890,22 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
           />
 
           <Text style={styles.sectionTitle}>Ücretsiz Ekler *</Text>
-          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => openAddonLibrary("free", "extra")} activeOpacity={0.85}>
+          <Text style={styles.subHint}>Sos, yan ürün (pilav vb.) veya salata/içecek ekleyebilirsin.</Text>
+          <View style={styles.kindRow}>
+            {ADDON_KIND_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={`free-kind-${option.value}`}
+                style={[styles.kindChip, freeAddonKindInput === option.value && styles.kindChipActive]}
+                onPress={() => setFreeAddonKindInput(option.value)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.kindChipText, freeAddonKindInput === option.value && styles.kindChipTextActive]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => openAddonLibrary("free", freeAddonKindInput)} activeOpacity={0.85}>
             <Text style={styles.addMenuItemBtnText}>+ Hazır ücretsiz eklerden seç</Text>
           </TouchableOpacity>
           <TextInput
