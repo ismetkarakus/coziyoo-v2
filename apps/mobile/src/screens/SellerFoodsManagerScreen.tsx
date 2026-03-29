@@ -104,9 +104,12 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.addBtn} activeOpacity={0.85} onPress={() => onOpenFoodsForm("add")}>
-          <Text style={styles.addBtnText}>Yemek Ekle</Text>
-        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <TouchableOpacity style={styles.addBtn} activeOpacity={0.85} onPress={() => onOpenFoodsForm("add")}>
+            <Text style={styles.addBtnText}>Yemek Ekle</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerSubText}>Yemek Düzenle</Text>
+        </View>
       </View>
 
       <FlatList
@@ -153,21 +156,29 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   headerRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
     paddingTop: Platform.OS === "ios" ? 56 : 16,
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#E6DED1",
     backgroundColor: "#F7F4EF",
+    position: "relative",
   },
   backBtn: {
+    position: "absolute",
+    left: 16,
+    top: Platform.OS === "ios" ? 56 : 16,
     width: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerCenter: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
   addBtn: {
     height: 36,
@@ -178,6 +189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   addBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  headerSubText: { color: "#6C6055", fontWeight: "700", fontSize: 12 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   inlineLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
   inlineLoadingText: { color: "#6C6055", fontWeight: "600" },
