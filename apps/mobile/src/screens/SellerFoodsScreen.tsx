@@ -836,31 +836,36 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
-          <Text style={styles.sectionTitle}>Kategori Seç</Text>
-          <TouchableOpacity
-            style={[styles.input, styles.dropdownInput]}
-            onPress={() => {
-              if (!loadingCategories && categories.length === 0) {
-                void loadCategories();
-              }
-              setCategoryModalVisible(true);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
-              {selectedCategoryName || "Kategori seçin"}
-            </Text>
-            <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
-          </TouchableOpacity>
-
-          <Text style={styles.sectionTitle}>Yemek Adı *</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Örn: Ev Yapımı Mantı"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-          />
+          <View style={styles.row2}>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Kategori Seç</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.dropdownInput]}
+                onPress={() => {
+                  if (!loadingCategories && categories.length === 0) {
+                    void loadCategories();
+                  }
+                  setCategoryModalVisible(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {selectedCategoryName || "Kategori seçin"}
+                </Text>
+                <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Yemek Adı *</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Örn: Ev Yapımı Mantı"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+              />
+            </View>
+          </View>
 
           <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler</Text>
           <TextInput
@@ -970,25 +975,30 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
-          <Text style={styles.sectionTitle}>Fiyat (₺) *</Text>
-          <TextInput
-            style={styles.input}
-            value={price}
-            onChangeText={setPrice}
-            placeholder="25"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            keyboardType="decimal-pad"
-          />
-
-          <Text style={styles.sectionTitle}>Günlük Stok *</Text>
-          <TextInput
-            style={styles.input}
-            value={dailyStock}
-            onChangeText={setDailyStock}
-            placeholder="10"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            keyboardType="number-pad"
-          />
+          <View style={styles.row2}>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Fiyat (₺) *</Text>
+              <TextInput
+                style={styles.input}
+                value={price}
+                onChangeText={setPrice}
+                placeholder="25"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Günlük Stok *</Text>
+              <TextInput
+                style={styles.input}
+                value={dailyStock}
+                onChangeText={setDailyStock}
+                placeholder="10"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                keyboardType="number-pad"
+              />
+            </View>
+          </View>
 
           <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
           <TextInput
