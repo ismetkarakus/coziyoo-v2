@@ -515,21 +515,6 @@ export default function SellerProfileDetailScreen({
             </View>
           </View>
 
-          {/* Çalışma Saatleri */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Çalışma Saatleri</Text>
-            {(profile?.workingHours ?? []).length > 0 ? (
-              profile!.workingHours!.map((h, i) => (
-                <View key={i} style={styles.hourRow}>
-                  <Text style={styles.hourDay}>{h.day}</Text>
-                  <Text style={styles.hourRange}>{h.open} – {h.close}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.infoValue}>—</Text>
-            )}
-          </View>
-
           {/* Navigasyon Butonları */}
           <TouchableOpacity style={styles.navBtn} onPress={onOpenFinance}>
             <Text style={styles.navBtnText}>Finans / Payout</Text>
@@ -546,6 +531,21 @@ export default function SellerProfileDetailScreen({
           <TouchableOpacity style={styles.editFullBtn} onPress={onEdit}>
             <Text style={styles.editFullText}>Profili Düzenle</Text>
           </TouchableOpacity>
+
+          {/* Çalışma Saatleri */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Çalışma Saatleri</Text>
+            {(profile?.workingHours ?? []).length > 0 ? (
+              profile!.workingHours!.map((h, i) => (
+                <View key={i} style={styles.hourRow}>
+                  <Text style={styles.hourDay}>{h.day}</Text>
+                  <Text style={styles.hourRange}>{h.open} – {h.close}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.infoValue}>—</Text>
+            )}
+          </View>
 
         </ScrollView>
       )}
