@@ -889,12 +889,12 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             multiline
           />
 
-          <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler (salata, ayran gibi)</Text>
+          <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler</Text>
           <TextInput
             style={styles.input}
             value={freeAddonNameInput}
             onChangeText={setFreeAddonNameInput}
-            placeholder="Örn: Ayran, salata, pilav"
+            placeholder="Yan ürün yaz"
             placeholderTextColor={PLACEHOLDER_COLOR}
             onSubmitEditing={() => addAddon("free")}
             returnKeyType="done"
