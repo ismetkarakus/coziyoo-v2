@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 14,
   },
-  addBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  addBtnText: { color: "#fff", fontWeight: "800", fontSize: 21 },
   pageTitle: {
     color: "#2E241C",
     fontWeight: "900",
