@@ -525,7 +525,6 @@ export default function App() {
         auth={auth}
         onBack={() => setScreen('home')}
         onEdit={() => setScreen('sellerProfile')}
-        onOpenLots={() => setScreen('sellerLots')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
         onOpenAddresses={() => setScreen('addresses')}
