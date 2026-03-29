@@ -327,6 +327,8 @@ sellerRouter.get("/orders", async (req, res) => {
         total_price: string;
         created_at: string;
         buyer_name: string | null;
+        primary_food_name: string | null;
+        item_count: string;
       }>(
         `SELECT
            o.id::text,
@@ -337,9 +339,24 @@ sellerRouter.get("/orders", async (req, res) => {
            o.delivery_address_json,
            o.total_price::text,
            o.created_at::text,
-           b.display_name AS buyer_name
+           b.display_name AS buyer_name,
+           first_item.food_name AS primary_food_name,
+           COALESCE(item_stats.item_count, 0)::text AS item_count
          FROM orders o
          LEFT JOIN users b ON b.id = o.buyer_id
+         LEFT JOIN LATERAL (
+           SELECT f.name AS food_name
+           FROM order_items oi
+           LEFT JOIN foods f ON f.id = oi.food_id
+           WHERE oi.order_id = o.id
+           ORDER BY oi.created_at ASC
+           LIMIT 1
+         ) first_item ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT count(*)::int AS item_count
+           FROM order_items oi
+           WHERE oi.order_id = o.id
+         ) item_stats ON TRUE
          WHERE o.seller_id = $1
          ORDER BY o.created_at DESC, o.id DESC
          LIMIT $2 OFFSET $3`,
@@ -360,6 +377,8 @@ sellerRouter.get("/orders", async (req, res) => {
         createdAt: row.created_at,
         buyerName: row.buyer_name ?? null,
         orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
+        primaryFoodName: row.primary_food_name ?? null,
+        itemCount: Number(row.item_count ?? "0"),
       })),
       pagination: {
         mode: "offset",

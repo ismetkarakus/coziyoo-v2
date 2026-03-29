@@ -25,6 +25,7 @@ const TYPE_ICONS: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: 
   order_received: { icon: 'receipt-outline', color: '#5D7394', bg: '#E8EDF3' },
   order_preparing: { icon: 'restaurant-outline', color: '#B7791F', bg: '#FEF3C7' },
   order_in_delivery: { icon: 'bicycle-outline', color: '#2563EB', bg: '#DBEAFE' },
+  order_halfway: { icon: 'navigate-outline', color: '#2563EB', bg: '#E8EDF3' },
   eta_10m: { icon: 'time-outline', color: '#2563EB', bg: '#E8EDF3' },
   eta_5m: { icon: 'timer-outline', color: '#1D4ED8', bg: '#E0EAFF' },
   eta_2m: { icon: 'flash-outline', color: '#1E40AF', bg: '#DBEAFE' },

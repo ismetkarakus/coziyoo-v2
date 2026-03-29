@@ -7,6 +7,7 @@ type MilestoneType =
   | "order_received"
   | "order_preparing"
   | "order_in_delivery"
+  | "order_halfway"
   | "eta_10m"
   | "eta_5m"
   | "eta_2m"
@@ -28,6 +29,8 @@ function milestoneMessage(milestone: Exclude<MilestoneType, "profile_long">): { 
       return { title: "Sipariş Hazırlanıyor", body: "Siparişin hazırlanıyor. Çok az kaldı." };
     case "order_in_delivery":
       return { title: "Sipariş Yola Çıktı", body: "Siparişin yola çıktı. Canlı süre güncelleniyor." };
+    case "order_halfway":
+      return { title: "Sipariş Yarı Yolda", body: "Siparişin yarı yolu geçti. Çok yakında sende." };
     case "eta_10m":
       return { title: "10 Dakika Kaldı", body: "Siparişin yaklaşık 10 dakika içinde sende." };
     case "eta_5m":
@@ -139,6 +142,17 @@ export async function emitEtaMilestonesTx(
 ): Promise<void> {
   await markLongProfileIfNeededTx(queryable, { orderId: input.orderId, routeDurationSec: input.routeDurationSec });
   const isLongProfile = await isLongProfileOrderTx(queryable, input.orderId);
+
+  if (input.routeDurationSec !== null && input.routeDurationSec > 0) {
+    const halfwayThreshold = Math.ceil(input.routeDurationSec * 0.5);
+    if (input.remainingSeconds <= halfwayThreshold) {
+      await emitOrderMilestoneTx(
+        queryable,
+        { orderId: input.orderId, buyerId: input.buyerId, milestone: "order_halfway" },
+        pushQueue,
+      );
+    }
+  }
 
   const milestones: Array<{ milestone: Exclude<MilestoneType, "profile_long">; thresholdSeconds: number }> = [];
   if (isLongProfile) milestones.push({ milestone: "eta_10m", thresholdSeconds: 10 * 60 });

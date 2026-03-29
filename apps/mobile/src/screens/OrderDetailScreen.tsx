@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, StatusBar, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { theme } from '../theme/colors';
@@ -98,6 +98,7 @@ export default function OrderDetailScreen({
   const [cancelModal, setCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
+  const [trackingFocused, setTrackingFocused] = useState(false);
   const locationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOrder = useCallback(async () => {
@@ -239,6 +240,15 @@ export default function OrderDetailScreen({
     return `${formatDate(iso)} ${h}:${m}`;
   }
 
+  function formatLastUpdate(iso: string | null | undefined): string {
+    if (!iso) return 'Az önce güncelleniyor';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'Az önce güncelleniyor';
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    return `Son güncelleme: ${hh}:${mm}`;
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -288,12 +298,29 @@ export default function OrderDetailScreen({
         {order.deliveryType === 'delivery' && (
           <View style={styles.section}>
             <SectionDivider icon="navigate-outline" label="Canlı Teslimat Durumu" />
-            <Text style={styles.trackingStatus}>{tracking?.statusLabel ?? 'Durum güncelleniyor'}</Text>
-            <Text style={styles.trackingEta}>
-              {tracking?.remainingMinutes !== null && tracking?.remainingMinutes !== undefined
-                ? `${tracking.remainingMinutes} dk kaldı`
-                : 'Kalan süre hesaplanıyor'}
-            </Text>
+            <TouchableOpacity
+              style={[styles.liveWatchButton, trackingFocused && styles.liveWatchButtonActive]}
+              activeOpacity={0.85}
+              onPress={() => setTrackingFocused((prev) => !prev)}
+            >
+              <Text style={[styles.liveWatchButtonText, trackingFocused && styles.liveWatchButtonTextActive]}>
+                {trackingFocused ? 'Canlı izleme açık' : 'Canlı izle'}
+              </Text>
+            </TouchableOpacity>
+
+            {trackingFocused ? (
+              <View style={styles.trackingPanel}>
+                <Text style={styles.trackingStatus}>{tracking?.statusLabel ?? 'Durum güncelleniyor'}</Text>
+                <Text style={styles.trackingEta}>
+                  {tracking?.remainingMinutes !== null && tracking?.remainingMinutes !== undefined
+                    ? `${tracking.remainingMinutes} dk kaldı`
+                    : 'Kalan süre hesaplanıyor'}
+                </Text>
+                <Text style={styles.trackingLastUpdate}>{formatLastUpdate(tracking?.lastSellerLocationAt)}</Text>
+              </View>
+            ) : (
+              <Text style={styles.trackingHint}>Canlı süre bilgisini görmek için "Canlı izle"ye dokun.</Text>
+            )}
           </View>
         )}
 
@@ -415,8 +442,34 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sectionValue: { color: theme.text, fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  liveWatchButton: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    borderRadius: 10,
+    backgroundColor: '#EAF4EE',
+    borderWidth: 1,
+    borderColor: '#CDE0D4',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  liveWatchButtonActive: {
+    backgroundColor: '#3F855C',
+    borderColor: '#3F855C',
+  },
+  liveWatchButtonText: { color: '#2E241C', fontSize: 13, fontWeight: '700' },
+  liveWatchButtonTextActive: { color: '#FFFFFF' },
+  trackingPanel: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E6DDD3',
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: '#FFFCF7',
+  },
   trackingStatus: { color: theme.text, fontSize: 16, fontWeight: '800' },
   trackingEta: { color: '#71685F', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  trackingLastUpdate: { color: '#9B8E80', fontSize: 12, marginTop: 6, fontWeight: '600' },
+  trackingHint: { color: '#71685F', fontSize: 13, marginTop: 8, fontWeight: '600' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
