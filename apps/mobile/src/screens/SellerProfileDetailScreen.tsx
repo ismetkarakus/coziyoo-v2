@@ -17,6 +17,8 @@ type Props = {
   onEdit: () => void;
   onOpenCompliance: () => void;
   onOpenFinance: () => void;
+  onOpenSettings: () => void;
+  onLogout: () => void;
   onOpenAddresses: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
@@ -67,6 +69,8 @@ export default function SellerProfileDetailScreen({
   onEdit,
   onOpenCompliance,
   onOpenFinance,
+  onOpenSettings,
+  onLogout,
   onOpenAddresses,
   onAuthRefresh,
 }: Props) {
@@ -531,6 +535,13 @@ export default function SellerProfileDetailScreen({
             <Text style={styles.navBtnText}>Finans / Payout</Text>
             <Text style={styles.navArrow}>›</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.navBtn} onPress={onOpenSettings}>
+            <Text style={styles.navBtnText}>Ayarlar</Text>
+            <Text style={styles.navArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+            <Text style={styles.logoutBtnText}>Çıkış Yap</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.editFullBtn} onPress={onEdit}>
             <Text style={styles.editFullText}>Profili Düzenle</Text>
@@ -981,6 +992,15 @@ const styles = StyleSheet.create({
   },
   navBtnText: { fontSize: 15, fontWeight: "700", color: "#2E241C" },
   navArrow: { fontSize: 20, color: "#9A8C82" },
+  logoutBtn: {
+    backgroundColor: "#FFF0EE",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F9CECA",
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  logoutBtnText: { color: "#B42318", fontWeight: "700", fontSize: 15 },
 
   editFullBtn: {
     backgroundColor: "#3F855C",

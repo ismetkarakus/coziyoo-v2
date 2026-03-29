@@ -527,6 +527,8 @@ export default function App() {
         onEdit={() => setScreen('sellerProfile')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
+        onOpenSettings={() => setScreen('settings')}
+        onLogout={handleLogout}
         onOpenAddresses={() => setScreen('addresses')}
         onAuthRefresh={setAuth}
       />
@@ -637,8 +639,6 @@ export default function App() {
             setSelectedOrderId(id);
             setSellerOrderModalVisible(true);
           }}
-          onOpenSettings={() => setScreen('settings')}
-          onLogout={handleLogout}
           onAuthRefresh={setAuth}
           onSwitchToBuyer={canSwitchRole ? () => setActorMode('buyer') : undefined}
         />

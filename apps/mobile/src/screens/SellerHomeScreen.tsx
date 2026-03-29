@@ -6,7 +6,6 @@ import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { setSellerFoodsCache } from "../utils/sellerFoodsCache";
 import { subscribeSellerOrdersRealtime } from "../utils/realtime";
-import ActionButton from "../components/ActionButton";
 
 type Props = {
   auth: AuthSession;
@@ -15,8 +14,6 @@ type Props = {
   onOpenFoodsManager: () => void;
   onOpenOrderHistory: () => void;
   onOpenOrder: (orderId: string) => void;
-  onOpenSettings: () => void;
-  onLogout: () => void;
   onSwitchToBuyer?: () => void;
 };
 
@@ -38,8 +35,6 @@ export default function SellerHomeScreen({
   onOpenFoodsManager,
   onOpenOrderHistory,
   onOpenOrder,
-  onOpenSettings,
-  onLogout,
   onSwitchToBuyer,
 }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -220,14 +215,17 @@ export default function SellerHomeScreen({
           )}
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <ActionButton label="Ayarlar" onPress={onOpenSettings} variant="soft" fullWidth />
-          {onSwitchToBuyer ? (
-            <ActionButton label="Alıcı Moduna Geç" onPress={onSwitchToBuyer} variant="outline" fullWidth />
-          ) : null}
-          <ActionButton label="Çıkış Yap" onPress={onLogout} variant="danger" fullWidth />
-        </View>
+        {onSwitchToBuyer ? (
+          <View style={styles.actions}>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              style={styles.switchRoleButton}
+              onPress={onSwitchToBuyer}
+            >
+              <Text style={styles.switchRoleButtonText}>Alıcı Moduna Geç</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -299,4 +297,18 @@ const styles = StyleSheet.create({
   orderMeta: { color: "#6C6055", marginTop: 3 },
   orderTotal: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   actions: { gap: 10 },
+  switchRoleButton: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#CFC5B6",
+    backgroundColor: "#F7F4EF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  switchRoleButtonText: {
+    color: "#5C4A3A",
+    fontSize: 14,
+    fontWeight: "700",
+  },
 });
