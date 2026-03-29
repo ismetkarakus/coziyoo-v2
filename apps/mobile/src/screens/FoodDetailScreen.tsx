@@ -20,6 +20,12 @@ export type FoodItem = {
   allergens: string[];
   ingredients: string[];
   menuItems?: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  addons?: Array<{
+    name: string;
+    kind?: 'sauce' | 'extra' | 'appetizer';
+    pricing?: 'free' | 'paid';
+    price?: number;
+  }>;
   secondaryCategories?: Array<{ id: string; name: string }>;
   cuisine: string | null;
   stock: number;
@@ -36,6 +42,13 @@ type Props = {
 
 export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSellerReviews, onOpenSeller }: Props) {
   const [quantity, setQuantity] = useState(1);
+  const sideItems = Array.isArray(food.addons) && food.addons.length > 0
+    ? food.addons
+      .filter((addon) => (addon?.pricing ?? 'free') === 'free')
+      .map((addon) => String(addon?.name ?? '').trim())
+      .filter(Boolean)
+    : (Array.isArray(food.menuItems) ? food.menuItems.map((item) => String(item?.name ?? '').trim()).filter(Boolean) : []);
+  const sideItemsText = sideItems.length > 0 ? Array.from(new Set(sideItems)).join(', ') : null;
 
   function sellerIdentity(): string {
     const username = String(food.seller.username ?? "").trim().replace(/^@+/, "");
@@ -77,6 +90,7 @@ export default function FoodDetailScreen({ food, onBack, onAddToCart, onOpenSell
             <Text style={styles.foodName}>{food.name}</Text>
             <Text style={styles.foodPrice}>{formatPrice(food.price)}</Text>
           </View>
+          {sideItemsText ? <Text style={styles.sideItemsText}>{sideItemsText}</Text> : null}
           {food.cuisine ? <Text style={styles.cuisine}>{food.cuisine}</Text> : null}
 
           {/* Rating + Prep + Distance */}
@@ -246,6 +260,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   foodName: { color: theme.text, fontSize: 20, fontWeight: '800', flex: 1, marginRight: 12 },
   foodPrice: { color: theme.priceText, fontSize: 20, fontWeight: '800' },
+  sideItemsText: { color: '#4E433A', fontSize: 13, fontWeight: '600', marginTop: 6 },
   cuisine: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
