@@ -889,7 +889,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             multiline
           />
 
-          <Text style={styles.sectionTitle}>Yemeğin yanında gelen yan ürünler (salata, ayran gibi)</Text>
+          <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler (salata, ayran gibi)</Text>
           <TextInput
             style={styles.input}
             value={freeAddonNameInput}
