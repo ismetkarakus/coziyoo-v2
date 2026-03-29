@@ -894,7 +894,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             style={styles.input}
             value={freeAddonNameInput}
             onChangeText={setFreeAddonNameInput}
-            placeholder="Yan ürün yaz"
+            placeholder="Örn: Ayran, salata, pilav"
             placeholderTextColor={PLACEHOLDER_COLOR}
             onSubmitEditing={() => addAddon("free")}
             returnKeyType="done"
