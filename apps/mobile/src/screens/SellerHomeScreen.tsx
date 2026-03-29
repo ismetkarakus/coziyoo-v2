@@ -162,7 +162,7 @@ export default function SellerHomeScreen({
         {/* KPI + Filtre Chips (sticky) */}
         <View style={styles.quickButtonsRow}>
           <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={onOpenFoodsManager}>
-            <Text style={styles.quickButtonText}>Buton 1</Text>
+            <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={onOpenOrderHistory}>
             <Text style={styles.quickButtonText}>Sipariş Geçmişim</Text>

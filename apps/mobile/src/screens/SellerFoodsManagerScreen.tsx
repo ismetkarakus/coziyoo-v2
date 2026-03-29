@@ -100,7 +100,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Yemek Yönetimi" onBack={onBack} />
+      <ScreenHeader title="" onBack={onBack} />
       <View style={styles.topAction}>
         <ActionButton label="Yemek Ekle" onPress={() => onOpenFoodsForm("add")} fullWidth />
       </View>
