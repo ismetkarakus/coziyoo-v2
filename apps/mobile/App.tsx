@@ -111,6 +111,7 @@ type Screen =
   | 'chatList' | 'chat';
 
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
+type OrderDetailBackTarget = 'orders' | 'home';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
@@ -120,6 +121,7 @@ export default function App() {
 
   // Screen params
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [orderDetailBackTarget, setOrderDetailBackTarget] = useState<OrderDetailBackTarget>('orders');
   const [sellerOrderModalVisible, setSellerOrderModalVisible] = useState(false);
   const [sellerFoodsInitialEditId, setSellerFoodsInitialEditId] = useState<string | null>(null);
   const [sellerFoodsInitialEditFood, setSellerFoodsInitialEditFood] = useState<any | null>(null);
@@ -160,6 +162,7 @@ export default function App() {
       const orderId = data?.orderId as string | undefined;
       if (orderId) {
         setSelectedOrderId(orderId);
+        setOrderDetailBackTarget('home');
         setScreen('orderDetail');
       }
     });
@@ -348,7 +351,11 @@ export default function App() {
       <OrdersScreen
         auth={auth}
         onBack={() => goHome('profile')}
-        onOpenOrderDetail={(id) => { setSelectedOrderId(id); setScreen('orderDetail'); }}
+        onOpenOrderDetail={(id) => {
+          setSelectedOrderId(id);
+          setOrderDetailBackTarget('orders');
+          setScreen('orderDetail');
+        }}
         onAuthRefresh={setAuth}
       />
     );
@@ -377,7 +384,10 @@ export default function App() {
       <OrderDetailScreen
         auth={auth}
         orderId={selectedOrderId}
-        onBack={() => setScreen('orders')}
+        onBack={() => {
+          if (orderDetailBackTarget === 'home') goHome('home');
+          else setScreen('orders');
+        }}
         onOpenPayment={(id) => { setSelectedOrderId(id); setScreen('payment'); }}
         onOpenReview={(id) => { setSelectedOrderId(id); setScreen('review'); }}
         onOpenComplaint={(id) => {
@@ -466,7 +476,11 @@ export default function App() {
       <NotificationsScreen
         auth={auth}
         onBack={() => goHome('notifications')}
-        onOpenOrderDetail={(id) => { setSelectedOrderId(id); setScreen('orderDetail'); }}
+        onOpenOrderDetail={(id) => {
+          setSelectedOrderId(id);
+          setOrderDetailBackTarget('home');
+          setScreen('orderDetail');
+        }}
         onAuthRefresh={setAuth}
       />
     );
