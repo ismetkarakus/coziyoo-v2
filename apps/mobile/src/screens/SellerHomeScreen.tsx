@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -253,7 +253,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 14,
   },
-  title: { fontSize: 26, fontWeight: "800", color: "#2E241C" },
+  title: {
+    fontSize: 26,
+    color: "#2E241C",
+    letterSpacing: -0.5,
+    ...(Platform.OS === "ios"
+      ? { fontFamily: "AvenirNextCondensed-Bold", fontWeight: "700" }
+      : { fontFamily: "sans-serif-condensed", fontWeight: "700" }),
+  },
   avatar: {
     width: 52,
     height: 52,
