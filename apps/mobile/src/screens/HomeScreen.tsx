@@ -251,7 +251,7 @@ function buildCartItemKey(
     .sort()
     .join(",");
   const paid = [...selectedAddons.paid]
-    .map((item) => `${item.name}|${item.kind}|${item.price}`)
+    .map((item) => `${item.name}|${item.kind}|${item.price}|${item.quantity}`)
     .sort()
     .join(",");
   return `${mealId}::${free}::${paid}`;
@@ -314,7 +314,7 @@ type CartItem = {
   quantity: number;
   selectedAddons: {
     free: Array<{ name: string; kind: "sauce" | "extra" | "appetizer" }>;
-    paid: Array<{ name: string; kind: "sauce" | "extra" | "appetizer"; price: number }>;
+    paid: Array<{ name: string; kind: "sauce" | "extra" | "appetizer"; price: number; quantity: number }>;
   };
 };
 
@@ -1989,24 +1989,38 @@ export default function HomeScreen({
     doAddMealToCart(meal, selectedAddons);
   }
 
-  function toggleSelectedMealAddon(addon: MealCard["addons"][number]) {
+  function toggleSelectedFreeAddon(addon: MealCard["addons"][number]) {
+    if (addon.pricing !== "free") return;
     setSelectedMealAddons((prev) => {
-      if (addon.pricing === "paid") {
-        const exists = prev.paid.some((item) => item.name === addon.name && item.kind === addon.kind && item.price === addon.price);
-        return exists
-          ? {
-              ...prev,
-              paid: prev.paid.filter((item) => !(item.name === addon.name && item.kind === addon.kind && item.price === addon.price)),
-            }
-          : {
-              ...prev,
-              paid: [...prev.paid, { name: addon.name, kind: addon.kind, price: Number(addon.price ?? 0) }],
-            };
-      }
       const exists = prev.free.some((item) => item.name === addon.name && item.kind === addon.kind);
       return exists
         ? { ...prev, free: prev.free.filter((item) => !(item.name === addon.name && item.kind === addon.kind)) }
         : { ...prev, free: [...prev.free, { name: addon.name, kind: addon.kind }] };
+    });
+  }
+
+  function adjustSelectedPaidAddonQuantity(addon: MealCard["addons"][number], delta: -1 | 1) {
+    if (addon.pricing !== "paid") return;
+    const addonPrice = Number(addon.price ?? 0);
+    if (!(addonPrice > 0)) return;
+
+    setSelectedMealAddons((prev) => {
+      const index = prev.paid.findIndex(
+        (item) => item.name === addon.name && item.kind === addon.kind && item.price === addonPrice,
+      );
+      const nextPaid = [...prev.paid];
+      if (index === -1) {
+        if (delta < 0) return prev;
+        nextPaid.push({ name: addon.name, kind: addon.kind, price: addonPrice, quantity: 1 });
+        return { ...prev, paid: nextPaid };
+      }
+      const nextQuantity = Math.max(0, Math.min(10, nextPaid[index].quantity + delta));
+      if (nextQuantity <= 0) {
+        nextPaid.splice(index, 1);
+        return { ...prev, paid: nextPaid };
+      }
+      nextPaid[index] = { ...nextPaid[index], quantity: nextQuantity };
+      return { ...prev, paid: nextPaid };
     });
   }
 
@@ -2788,7 +2802,10 @@ export default function HomeScreen({
     if (activeTab === 'cart') {
       const total = cartItems.reduce((sum, item) => {
         const value = Number(item.meal.price.replace(/[^\d.,]/g, '').replace(',', '.'));
-        const addonsTotal = item.selectedAddons.paid.reduce((addonSum, addon) => addonSum + addon.price, 0);
+        const addonsTotal = item.selectedAddons.paid.reduce(
+          (addonSum, addon) => addonSum + (addon.price * addon.quantity),
+          0,
+        );
         return sum + (value + addonsTotal) * item.quantity;
       }, 0);
       return (
@@ -2810,7 +2827,10 @@ export default function HomeScreen({
               >
                 {cartItems.map((item) => {
                   const unitPrice = Number(item.meal.price.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-                  const addonsUnitTotal = item.selectedAddons.paid.reduce((sum, addon) => sum + Number(addon.price ?? 0), 0);
+                  const addonsUnitTotal = item.selectedAddons.paid.reduce(
+                    (sum, addon) => sum + (Number(addon.price ?? 0) * Number(addon.quantity ?? 1)),
+                    0,
+                  );
                   const itemTotal = (unitPrice + addonsUnitTotal) * item.quantity;
                   return (
                     <View key={item.key} style={styles.cartItemCard}>
@@ -2828,7 +2848,7 @@ export default function HomeScreen({
                           <>
                             {item.selectedAddons.paid.map((addon, addonIndex) => (
                               <Text key={`${item.key}-paid-${addon.name}-${addonIndex}`} style={styles.cartAddonLine}>
-                                • {addon.name} (+₺{addon.price.toFixed(2)})
+                                • {addon.name} x{addon.quantity} (+₺{(addon.price * addon.quantity).toFixed(2)})
                               </Text>
                             ))}
                           </>
@@ -3512,6 +3532,19 @@ export default function HomeScreen({
                   🕐 {selectedMeal.time} · {selectedMeal.distance}
                 </Text>
               </View>
+              {(() => {
+                const freeNames = selectedMeal.addons
+                  .filter((addon) => addon.pricing === 'free')
+                  .map((addon) => addon.name.trim())
+                  .filter(Boolean);
+                const unique = Array.from(new Set(freeNames));
+                if (unique.length === 0) return null;
+                return (
+                  <Text style={styles.modalSideProductsText}>
+                    {[selectedMeal.title, ...unique].join(', ')}
+                  </Text>
+                );
+              })()}
 
               {selectedMeal.description ? (
                 <Text style={styles.modalDescription}>{selectedMeal.description}</Text>
@@ -3539,49 +3572,43 @@ export default function HomeScreen({
                 </View>
               )}
 
-              {selectedMeal.addons.length > 0 ? (
+              {selectedMeal.addons.some((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0) ? (
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Ücretsiz Ekler</Text>
-                  <View style={styles.modalAddonsWrap}>
-                    {selectedMeal.addons
-                      .filter((addon) => addon.pricing === 'free')
-                      .map((addon, index) => {
-                        const selected = selectedMealAddons.free.some(
-                          (item) => item.name === addon.name && item.kind === addon.kind,
-                        );
-                        return (
-                          <TouchableOpacity
-                            key={`free-addon-${addon.name}-${index}`}
-                            style={[styles.modalAddonChip, selected && styles.modalAddonChipSelected]}
-                            onPress={() => toggleSelectedMealAddon(addon)}
-                            activeOpacity={0.85}
-                          >
-                            <Text style={[styles.modalAddonChipText, selected && styles.modalAddonChipTextSelected]}>
-                              {addon.name} · {addonKindLabel(addon.kind)}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                  </View>
-                  <Text style={[styles.modalSectionTitle, { marginTop: 12 }]}>Ücretli Ekler</Text>
-                  <View style={styles.modalAddonsWrap}>
+                  <Text style={styles.modalSectionTitle}>Ücretli Ekler</Text>
+                  <View style={styles.modalPaidAddonsList}>
                     {selectedMeal.addons
                       .filter((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0)
                       .map((addon, index) => {
-                        const selected = selectedMealAddons.paid.some(
-                          (item) => item.name === addon.name && item.kind === addon.kind && item.price === Number(addon.price ?? 0),
-                        );
+                        const addonPrice = Number(addon.price ?? 0);
+                        const selectedQuantity = selectedMealAddons.paid.find(
+                          (item) => item.name === addon.name && item.kind === addon.kind && item.price === addonPrice,
+                        )?.quantity ?? 0;
                         return (
-                          <TouchableOpacity
-                            key={`paid-addon-${addon.name}-${index}`}
-                            style={[styles.modalAddonChip, selected && styles.modalAddonChipSelected]}
-                            onPress={() => toggleSelectedMealAddon(addon)}
-                            activeOpacity={0.85}
-                          >
-                            <Text style={[styles.modalAddonChipText, selected && styles.modalAddonChipTextSelected]}>
-                              {addon.name} · {addonKindLabel(addon.kind)} · +₺{Number(addon.price ?? 0).toFixed(2)}
-                            </Text>
-                          </TouchableOpacity>
+                          <View key={`paid-addon-${addon.name}-${index}`} style={styles.modalPaidAddonRow}>
+                            <View style={styles.modalPaidAddonInfo}>
+                              <Text style={styles.modalPaidAddonName}>{addon.name}</Text>
+                              <Text style={styles.modalPaidAddonMeta}>
+                                {addonKindLabel(addon.kind)} · +₺{addonPrice.toFixed(2)}
+                              </Text>
+                            </View>
+                            <View style={styles.modalAddonStepper}>
+                              <TouchableOpacity
+                                style={styles.modalAddonStepperButton}
+                                onPress={() => adjustSelectedPaidAddonQuantity(addon, -1)}
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="remove" size={14} color="#5F5246" />
+                              </TouchableOpacity>
+                              <Text style={styles.modalAddonStepperQty}>{selectedQuantity}</Text>
+                              <TouchableOpacity
+                                style={styles.modalAddonStepperButton}
+                                onPress={() => adjustSelectedPaidAddonQuantity(addon, 1)}
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="add" size={14} color="#5F5246" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
                         );
                       })}
                   </View>
@@ -5454,10 +5481,38 @@ const styles = StyleSheet.create({
   modalInfoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 8 },
   modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700' },
   modalMeta: { color: '#A89B8C', fontSize: 13 },
+  modalSideProductsText: { color: '#5E5247', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
   modalDescription: { color: '#6B5D4F', fontSize: 14, lineHeight: 20, textAlign: 'center' as const, marginBottom: 12, marginTop: 4 },
   modalSection: { width: '100%' as unknown as number, marginBottom: 12 },
   modalSectionTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700', marginBottom: 8 },
   modalTagsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  modalPaidAddonsList: { gap: 10 },
+  modalPaidAddonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E5DDCF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFFCF6',
+  },
+  modalPaidAddonInfo: { flex: 1, paddingRight: 8 },
+  modalPaidAddonName: { color: '#3D3229', fontSize: 14, fontWeight: '700' },
+  modalPaidAddonMeta: { color: '#7A6D61', fontSize: 12, marginTop: 2 },
+  modalAddonStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modalAddonStepperButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D7CCBE',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAddonStepperQty: { minWidth: 20, textAlign: 'center', color: '#3D3229', fontSize: 14, fontWeight: '700' },
   modalAddonsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
   modalAddonChip: {
     borderWidth: 1,

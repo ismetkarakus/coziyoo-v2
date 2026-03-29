@@ -37,6 +37,7 @@ const CreateOrderSchema = z.object({
         name: z.string().trim().min(1).max(120),
         kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
         price: z.number().min(0.01).max(100000),
+        quantity: z.number().int().min(1).max(10).optional(),
       })).max(50).optional(),
     }).optional(),
   })).min(1),
@@ -84,7 +85,7 @@ const OrderLocationPingSchema = z.object({
 type OrderAddonKind = "sauce" | "extra" | "appetizer";
 type NormalizedSelectedAddons = {
   free: Array<{ name: string; kind: OrderAddonKind }>;
-  paid: Array<{ name: string; kind: OrderAddonKind; price: number }>;
+  paid: Array<{ name: string; kind: OrderAddonKind; price: number; quantity: number }>;
 };
 
 function normalizeSelectedAddons(input: unknown): NormalizedSelectedAddons {
@@ -96,7 +97,7 @@ function normalizeSelectedAddons(input: unknown): NormalizedSelectedAddons {
   const freeSeen = new Set<string>();
   const paidSeen = new Set<string>();
   const free: Array<{ name: string; kind: OrderAddonKind }> = [];
-  const paid: Array<{ name: string; kind: OrderAddonKind; price: number }> = [];
+  const paid: Array<{ name: string; kind: OrderAddonKind; price: number; quantity: number }> = [];
 
   for (const raw of freeRaw) {
     if (!raw || typeof raw !== "object") continue;
@@ -119,12 +120,16 @@ function normalizeSelectedAddons(input: unknown): NormalizedSelectedAddons {
     const parsedPrice = Number(entry.price);
     const price = Number.isFinite(parsedPrice) ? Number(parsedPrice.toFixed(2)) : Number.NaN;
     if (!Number.isFinite(price) || price <= 0) continue;
+    const parsedQuantity = Number(entry.quantity);
+    const quantity = Number.isInteger(parsedQuantity) && parsedQuantity >= 1 && parsedQuantity <= 10
+      ? parsedQuantity
+      : 1;
     const rawKind = String(entry.kind ?? "").trim().toLocaleLowerCase("en-US");
     const kind: OrderAddonKind = rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
-    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${price}`;
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${price}|${quantity}`;
     if (paidSeen.has(key)) continue;
     paidSeen.add(key);
-    paid.push({ name, kind, price });
+    paid.push({ name, kind, price, quantity });
   }
 
   return {
@@ -134,7 +139,7 @@ function normalizeSelectedAddons(input: unknown): NormalizedSelectedAddons {
 }
 
 function selectedPaidAddonsTotal(selectedAddons: NormalizedSelectedAddons): number {
-  const total = selectedAddons.paid.reduce((sum, item) => sum + item.price, 0);
+  const total = selectedAddons.paid.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   return Number(total.toFixed(2));
 }
 
@@ -1114,6 +1119,7 @@ const VoiceCreateOrderSchema = z.object({
         name: z.string().trim().min(1).max(120),
         kind: z.enum(["sauce", "extra", "appetizer"]).optional(),
         price: z.number().min(0.01).max(100000),
+        quantity: z.number().int().min(1).max(10).optional(),
       })).max(50).optional(),
     }).optional(),
   })).min(1),

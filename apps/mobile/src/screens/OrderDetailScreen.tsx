@@ -30,7 +30,17 @@ type OrderDetail = {
   sellerName: string;
   sellerImage: string | null;
   buyerName: string;
-  items: { name: string; image: string | null; quantity: number; unitPrice: number; lineTotal: number }[];
+  items: Array<{
+    name: string;
+    image: string | null;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    selectedAddons?: {
+      free?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer" }>;
+      paid?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer"; price: number; quantity?: number }>;
+    };
+  }>;
   events: { eventType: string; fromStatus: string | null; toStatus: string | null; createdAt: string; reason?: string | null }[];
 };
 
@@ -328,7 +338,25 @@ export default function OrderDetailScreen({
         <View style={styles.section}>
           <SectionDivider icon="fast-food-outline" label="Ürünler" />
           {order.items.map((item, idx) => (
-            <ItemRow key={idx} name={item.name} quantity={item.quantity} price={formatPrice(item.lineTotal)} />
+            <View key={`${item.name}-${idx}`} style={styles.itemRowWrap}>
+              <ItemRow name={item.name} quantity={item.quantity} price={formatPrice(item.lineTotal)} />
+              {(item.selectedAddons?.free?.length ?? 0) > 0 ? (
+                <Text style={styles.itemAddonLine}>
+                  Ücretsiz: {(item.selectedAddons?.free ?? []).map((addon) => addon.name).join(", ")}
+                </Text>
+              ) : null}
+              {(item.selectedAddons?.paid?.length ?? 0) > 0
+                ? (item.selectedAddons?.paid ?? []).map((addon, addonIndex) => {
+                    const qty = Number.isInteger(addon.quantity) && Number(addon.quantity) > 0 ? Number(addon.quantity) : 1;
+                    const subtotal = Number(addon.price ?? 0) * qty;
+                    return (
+                      <Text key={`${item.name}-${idx}-paid-${addon.name}-${addonIndex}`} style={styles.itemAddonLine}>
+                        • {addon.name} x{qty} (+{formatPrice(subtotal)})
+                      </Text>
+                    );
+                  })
+                : null}
+            </View>
           ))}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Toplam</Text>
@@ -442,6 +470,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sectionValue: { color: theme.text, fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  itemRowWrap: { marginBottom: 6 },
+  itemAddonLine: { marginTop: 4, marginLeft: 6, color: '#71685F', fontSize: 13 },
   liveWatchButton: {
     marginTop: 4,
     alignSelf: 'flex-start',

@@ -21,7 +21,16 @@ type OrderDetail = {
   buyerName?: string;
   deliveryType?: string;
   totalPrice: number;
-  items?: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
+  items?: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    selectedAddons?: {
+      free?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer" }>;
+      paid?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer"; price: number; quantity?: number }>;
+    };
+  }>;
   deliveryAddress?: { title?: string; addressLine?: string } | null;
 };
 
@@ -140,9 +149,27 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Ürünler</Text>
             {(order.items ?? []).map((item, index) => (
-              <Text key={`${item.id || item.name}-${index}`} style={styles.meta}>
-                {item.name} x{item.quantity} · {Number(item.unitPrice ?? 0).toFixed(2)} TL
-              </Text>
+              <View key={`${item.id || item.name}-${index}`} style={styles.itemRowWrap}>
+                <Text style={styles.meta}>
+                  {item.name} x{item.quantity} · {Number(item.unitPrice ?? 0).toFixed(2)} TL
+                </Text>
+                {(item.selectedAddons?.free?.length ?? 0) > 0 ? (
+                  <Text style={styles.addonMeta}>
+                    Ücretsiz: {(item.selectedAddons?.free ?? []).map((addon) => addon.name).join(", ")}
+                  </Text>
+                ) : null}
+                {(item.selectedAddons?.paid?.length ?? 0) > 0
+                  ? (item.selectedAddons?.paid ?? []).map((addon, addonIndex) => {
+                      const qty = Number.isInteger(addon.quantity) && Number(addon.quantity) > 0 ? Number(addon.quantity) : 1;
+                      const subtotal = Number(addon.price ?? 0) * qty;
+                      return (
+                        <Text key={`${item.id || item.name}-${index}-paid-${addon.name}-${addonIndex}`} style={styles.addonMeta}>
+                          • {addon.name} x{qty} (+{subtotal.toFixed(2)} TL)
+                        </Text>
+                      );
+                    })
+                  : null}
+              </View>
             ))}
           </View>
 
@@ -176,6 +203,8 @@ const styles = StyleSheet.create({
   meta: { marginTop: 4, color: "#6C6055" },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   sectionTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 4 },
+  itemRowWrap: { marginTop: 4 },
+  addonMeta: { marginTop: 4, color: "#8A7D72", fontSize: 12.5 },
   actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
   actionDisabled: { opacity: 0.45 },
   actionText: { color: "#fff", fontWeight: "700" },
