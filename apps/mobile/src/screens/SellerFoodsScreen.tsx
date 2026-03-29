@@ -889,7 +889,16 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             multiline
           />
 
-          <Text style={styles.subHint}>Sos, yan ürün ve salata/içecek gibi ücretsiz eşlikçileri burada görebilirsin.</Text>
+          <Text style={styles.sectionTitle}>Yemeğin yanında gelen yan ürünler (salata, ayran gibi)</Text>
+          <TextInput
+            style={styles.input}
+            value={freeAddonNameInput}
+            onChangeText={setFreeAddonNameInput}
+            placeholder="Örn: Ayran, salata, pilav"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            onSubmitEditing={() => addAddon("free")}
+            returnKeyType="done"
+          />
           <View style={styles.menuItemsWrap}>
             {freeMenuItems.map((item, index) => {
               const absoluteIndex = menuItems.findIndex(
