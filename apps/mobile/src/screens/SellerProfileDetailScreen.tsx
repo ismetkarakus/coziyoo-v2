@@ -545,10 +545,6 @@ export default function SellerProfileDetailScreen({
             <Text style={styles.navBtnText}>Tüm Sipariş Geçmişi</Text>
             <Text style={styles.navArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navBtn} onPress={onOpenCompliance}>
-            <Text style={styles.navBtnText}>Compliance</Text>
-            <Text style={styles.navArrow}>›</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={onOpenFinance}>
             <Text style={styles.navBtnText}>Finans / Payout</Text>
             <Text style={styles.navArrow}>›</Text>
