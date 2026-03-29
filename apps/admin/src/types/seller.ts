@@ -19,7 +19,14 @@ export type SellerFoodRow = {
   categoryId: string | null;
   categoryName: string | null;
   cuisine: string | null;
-  menuItems: Array<{ name: string; categoryId?: string; categoryName?: string | null }>;
+  menuItems: Array<{
+    name: string;
+    categoryId?: string;
+    categoryName?: string | null;
+    kind?: "sauce" | "extra" | "appetizer";
+    pricing?: "free" | "paid";
+    price?: number;
+  }>;
   secondaryCategories: Array<{ id: string; name: string }>;
   cardSummary: string | null;
   description: string | null;

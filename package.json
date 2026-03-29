@@ -23,6 +23,7 @@
     "ios": "npm --prefix apps/mobile run ios"
   },
   "devDependencies": {
+    "@types/react": "~18.2.45",
     "typescript": "^5.0.0"
   },
   "engines": {

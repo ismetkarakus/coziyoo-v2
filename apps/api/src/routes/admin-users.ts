@@ -587,96 +587,52 @@ function deliveryOptionsFromJson(value: unknown): { pickup: boolean; delivery: b
   };
 }
 
-type MenuItemView = {
-  name: string;
-  categoryId?: string;
-  categoryName?: string | null;
-  kind: "sauce" | "extra" | "appetizer";
-  pricing: "free" | "paid";
-  price?: number;
-};
-type SecondaryCategoryView = { id: string; name: string };
-
 function menuItemsFromJson(value: unknown): Array<{
   name: string;
   categoryId?: string;
-  kind: "sauce" | "extra" | "appetizer";
-  pricing: "free" | "paid";
+  categoryName?: string | null;
+  kind?: "sauce" | "extra" | "appetizer";
+  pricing?: "free" | "paid";
   price?: number;
 }> {
   if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const rows: Array<{
+  const out: Array<{
     name: string;
     categoryId?: string;
-    kind: "sauce" | "extra" | "appetizer";
-    pricing: "free" | "paid";
+    categoryName?: string | null;
+    kind?: "sauce" | "extra" | "appetizer";
+    pricing?: "free" | "paid";
     price?: number;
   }> = [];
+  const seen = new Set<string>();
   for (const raw of value) {
     if (!raw || typeof raw !== "object") continue;
-    const record = raw as Record<string, unknown>;
-    const name = String(record.name ?? "").trim().replace(/\s+/g, " ");
+    const row = raw as Record<string, unknown>;
+    const name = String(row.name ?? "").trim();
     if (!name) continue;
-    const rawKind = String(record.kind ?? "").trim().toLocaleLowerCase("en-US");
+    const kindRaw = String(row.kind ?? "").trim().toLowerCase();
     const kind: "sauce" | "extra" | "appetizer" =
-      rawKind === "sauce" || rawKind === "appetizer" ? rawKind : "extra";
-    const rawPricing = String(record.pricing ?? "").trim().toLocaleLowerCase("en-US");
-    const pricing: "free" | "paid" = rawPricing === "paid" ? "paid" : "free";
-    const rawPrice = Number(record.price);
-    const price = Number.isFinite(rawPrice) ? Number(rawPrice.toFixed(2)) : undefined;
-    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}`;
+      kindRaw === "sauce" || kindRaw === "appetizer" ? kindRaw : "extra";
+    const pricingRaw = String(row.pricing ?? "").trim().toLowerCase();
+    const pricing: "free" | "paid" = pricingRaw === "paid" ? "paid" : "free";
+    const categoryId = typeof row.categoryId === "string" && row.categoryId.trim() ? row.categoryId.trim() : undefined;
+    const categoryName = typeof row.categoryName === "string" && row.categoryName.trim() ? row.categoryName.trim() : null;
+    const priceNum = Number(row.price);
+    const key = `${name.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}|${Number.isFinite(priceNum) ? Number(priceNum).toFixed(2) : "-"}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const categoryId = typeof record.categoryId === "string" && record.categoryId.trim() ? record.categoryId.trim() : undefined;
-    const base = { name, kind, pricing, ...(categoryId ? { categoryId } : {}) };
-    rows.push(pricing === "paid" && price && price > 0 ? { ...base, price } : base);
+    out.push({
+      name,
+      ...(categoryId ? { categoryId } : {}),
+      ...(categoryName ? { categoryName } : {}),
+      kind,
+      pricing,
+      ...(pricing === "paid" && Number.isFinite(priceNum) && priceNum > 0 ? { price: Number(priceNum.toFixed(2)) } : {}),
+    });
   }
-  return rows.slice(0, 20);
+  return out;
 }
 
-function secondaryCategoryIdsFromJson(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const unique = new Set<string>();
-  for (const raw of value) {
-    const id = String(raw ?? "").trim();
-    if (id) unique.add(id);
-  }
-  return Array.from(unique).slice(0, 20);
-}
-
-async function categoryNameMapFromIds(ids: string[]): Promise<Map<string, string>> {
-  const uniq = Array.from(new Set(ids.map((item) => item.trim()).filter(Boolean)));
-  if (uniq.length === 0) return new Map<string, string>();
-  const result = await pool.query<{ id: string; name_tr: string | null; name_en: string | null }>(
-    `SELECT id::text, name_tr, name_en
-     FROM categories
-     WHERE id = ANY($1::uuid[])`,
-    [uniq],
-  );
-  const map = new Map<string, string>();
-  for (const row of result.rows) {
-    map.set(row.id, row.name_tr?.trim() || row.name_en?.trim() || row.id);
-  }
-  return map;
-}
-
-function mapMenuItemsWithNames(value: unknown, categoryMap: Map<string, string>): MenuItemView[] {
-  return menuItemsFromJson(value).map((item) => ({
-    name: item.name,
-    categoryId: item.categoryId,
-    categoryName: item.categoryId ? (categoryMap.get(item.categoryId) ?? null) : null,
-    kind: item.kind,
-    pricing: item.pricing,
-    ...(item.pricing === "paid" && Number.isFinite(item.price) ? { price: Number(item.price) } : {}),
-  }));
-}
-
-function mapSecondaryCategoriesWithNames(value: unknown, categoryMap: Map<string, string>): SecondaryCategoryView[] {
-  return secondaryCategoryIdsFromJson(value)
-    .map((id) => ({ id, name: categoryMap.get(id) ?? "" }))
-    .filter((item) => item.name);
-}
 
 function stableExportStringify(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -2723,17 +2679,16 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     [params.data.id]
   );
 
-  const rows = await pool.query<{
+  type SellerFoodListRow = {
     id: string;
     category_id: string | null;
     category_name: string | null;
     cuisine: string | null;
-    menu_items_json: unknown;
-    secondary_category_ids_json: unknown;
     name: string;
     card_summary: string | null;
     description: string | null;
     recipe: string | null;
+    menu_items_json: unknown;
     ingredients_json: unknown;
     allergens_json: unknown;
     price: string;
@@ -2746,66 +2701,90 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     is_active: boolean;
     created_at: string;
     updated_at: string;
-  }>(
-    `SELECT
-       id,
-       f.category_id::text AS category_id,
-       c.name_tr AS category_name,
-       f.cuisine,
-       f.menu_items_json,
-       f.secondary_category_ids_json,
-       name,
-       card_summary,
-       description,
-       recipe,
-       ingredients_json,
-       allergens_json,
-       price::text,
-       delivery_fee::text AS delivery_fee,
-       delivery_options_json,
-       image_url,
-       image_urls_json,
-       COALESCE(lot_stats.active_lot_count, 0)::text AS active_lot_count,
-       COALESCE(lot_stats.on_sale_quantity, 0)::text AS on_sale_quantity,
-       is_active,
-       f.created_at::text,
-       f.updated_at::text
-     FROM foods f
-     LEFT JOIN categories c ON c.id = f.category_id
-     LEFT JOIN LATERAL (
-       SELECT
-         COUNT(*) FILTER (
-           WHERE pl.status IN ('open', 'active')
-             AND pl.quantity_available > 0
-             AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= now())
-             AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
-         )::int AS active_lot_count,
-         COALESCE(SUM(pl.quantity_available) FILTER (
-           WHERE pl.status IN ('open', 'active')
-             AND pl.quantity_available > 0
-             AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= now())
-             AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
-         ), 0)::int AS on_sale_quantity
-       FROM production_lots pl
-       WHERE pl.food_id = f.id
-     ) lot_stats ON TRUE
-     WHERE f.seller_id = $1
-     ORDER BY f.updated_at ${sortDir}, f.id ${sortDir}
-     LIMIT $2 OFFSET $3`,
-    [params.data.id, query.data.pageSize, offset]
-  );
-
-  const categoryIds = new Set<string>();
-  for (const row of rows.rows) {
-    if (row.category_id) categoryIds.add(row.category_id);
-    for (const item of menuItemsFromJson(row.menu_items_json)) {
-      if (item.categoryId) categoryIds.add(item.categoryId);
-    }
-    for (const id of secondaryCategoryIdsFromJson(row.secondary_category_ids_json)) {
-      categoryIds.add(id);
-    }
+  };
+  let rows;
+  try {
+    rows = await pool.query<SellerFoodListRow>(
+      `SELECT
+         id,
+         f.category_id::text AS category_id,
+         c.name_tr AS category_name,
+         f.cuisine,
+         name,
+         card_summary,
+         description,
+         recipe,
+         menu_items_json,
+         ingredients_json,
+         allergens_json,
+         price::text,
+         delivery_fee::text AS delivery_fee,
+         delivery_options_json,
+         image_url,
+         image_urls_json,
+         COALESCE(lot_stats.active_lot_count, 0)::text AS active_lot_count,
+         COALESCE(lot_stats.on_sale_quantity, 0)::text AS on_sale_quantity,
+         is_active,
+         f.created_at::text,
+         f.updated_at::text
+       FROM foods f
+       LEFT JOIN categories c ON c.id = f.category_id
+       LEFT JOIN LATERAL (
+         SELECT
+           COUNT(*) FILTER (
+             WHERE pl.status IN ('open', 'active')
+               AND pl.quantity_available > 0
+               AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= now())
+               AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
+           )::int AS active_lot_count,
+           COALESCE(SUM(pl.quantity_available) FILTER (
+             WHERE pl.status IN ('open', 'active')
+               AND pl.quantity_available > 0
+               AND (pl.sale_starts_at IS NULL OR pl.sale_starts_at <= now())
+               AND (pl.sale_ends_at IS NULL OR pl.sale_ends_at > now())
+           ), 0)::int AS on_sale_quantity
+         FROM production_lots pl
+         WHERE pl.food_id = f.id
+       ) lot_stats ON TRUE
+       WHERE f.seller_id = $1
+       ORDER BY f.updated_at ${sortDir}, f.id ${sortDir}
+       LIMIT $2 OFFSET $3`,
+      [params.data.id, query.data.pageSize, offset]
+    );
+  } catch (error) {
+    // Keep seller foods list available even if lot schema is not in sync on a server.
+    rows = await pool.query<SellerFoodListRow>(
+      `SELECT
+         id,
+         f.category_id::text AS category_id,
+         c.name_tr AS category_name,
+         f.cuisine,
+         name,
+         card_summary,
+         description,
+         recipe,
+         menu_items_json,
+         ingredients_json,
+         allergens_json,
+         price::text,
+         delivery_fee::text AS delivery_fee,
+         delivery_options_json,
+         image_url,
+         image_urls_json,
+         '0'::text AS active_lot_count,
+         '0'::text AS on_sale_quantity,
+         is_active,
+         f.created_at::text,
+         f.updated_at::text
+       FROM foods f
+       LEFT JOIN categories c ON c.id = f.category_id
+       WHERE f.seller_id = $1
+       ORDER BY f.updated_at ${sortDir}, f.id ${sortDir}
+       LIMIT $2 OFFSET $3`,
+      [params.data.id, query.data.pageSize, offset]
+    );
+    console.warn("[admin/users/:id/seller-foods] lot_stats skipped:", error);
   }
-  const categoryMap = await categoryNameMapFromIds(Array.from(categoryIds));
 
   const totalCount = Number(total.rows[0]?.count ?? 0);
   return res.json({
@@ -2816,8 +2795,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
       categoryId: row.category_id,
       categoryName: row.category_name,
       cuisine: row.cuisine,
-      menuItems: mapMenuItemsWithNames(row.menu_items_json, categoryMap),
-      secondaryCategories: mapSecondaryCategoriesWithNames(row.secondary_category_ids_json, categoryMap),
+      menuItems: menuItemsFromJson(row.menu_items_json),
+      secondaryCategories: [],
       cardSummary: row.card_summary,
       description: row.description,
       recipe: row.recipe,
@@ -2871,8 +2850,6 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
     category_id: string | null;
     category_name: string | null;
     cuisine: string | null;
-    menu_items_json: unknown;
-    secondary_category_ids_json: unknown;
     name: string;
     recipe: string | null;
     ingredients_json: unknown;
@@ -2890,8 +2867,6 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
        f.category_id::text AS category_id,
        c.name_tr AS category_name,
        f.cuisine,
-       f.menu_items_json,
-       f.secondary_category_ids_json,
        name,
        recipe,
        ingredients_json,
@@ -2952,18 +2927,6 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
     lotsByFoodId.set(lot.food_id, current);
   }
 
-  const exportCategoryIds = new Set<string>();
-  for (const food of foods.rows) {
-    if (food.category_id) exportCategoryIds.add(food.category_id);
-    for (const item of menuItemsFromJson(food.menu_items_json)) {
-      if (item.categoryId) exportCategoryIds.add(item.categoryId);
-    }
-    for (const id of secondaryCategoryIdsFromJson(food.secondary_category_ids_json)) {
-      exportCategoryIds.add(id);
-    }
-  }
-  const exportCategoryMap = await categoryNameMapFromIds(Array.from(exportCategoryIds));
-
   const worksheetRows = foods.rows.flatMap((food) => {
     const foodCode = `FD-${food.id.slice(0, DISPLAY_ID_LENGTH).toUpperCase()}`;
     const ingredientText = ingredientsTextFromJson(food.ingredients_json) ?? "";
@@ -2981,8 +2944,8 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
       "Food Code": foodCode,
       Food: food.name,
       Category: food.category_name ?? "-",
-      "Menu Items": mapMenuItemsWithNames(food.menu_items_json, exportCategoryMap).map((item) => item.name).join(", ") || "-",
-      "Secondary Categories": mapSecondaryCategoriesWithNames(food.secondary_category_ids_json, exportCategoryMap).map((item) => item.name).join(", ") || "-",
+      "Menu Items": "-",
+      "Secondary Categories": "-",
       Cuisine: food.cuisine ?? "-",
       Status: food.is_active ? "Active" : "Disabled",
       Price: Number(food.price),

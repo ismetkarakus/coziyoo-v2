@@ -28,6 +28,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       updatedAt: string;
       recipe: string | null;
       description: string | null;
+      menuItemsJson: unknown;
       ingredientsJson: unknown;
       allergensJson: unknown;
     }>
@@ -54,6 +55,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     updatedAt: string;
     recipe: string | null;
     description: string | null;
+    menuItemsJson: unknown;
     ingredientsJson: unknown;
     allergensJson: unknown;
   } | null>(null);
@@ -68,6 +70,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     updatedAt: string;
     recipe: string | null;
     description: string | null;
+    menuItemsJson: unknown;
     ingredientsJson: unknown;
     allergensJson: unknown;
   }>>({});
@@ -106,9 +109,29 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     updatedAt: String(record.updated_at ?? ""),
     recipe: typeof record.recipe === "string" ? record.recipe : null,
     description: typeof record.description === "string" ? record.description : typeof record.card_summary === "string" ? record.card_summary : null,
+    menuItemsJson: record.menu_items_json ?? null,
     ingredientsJson: record.ingredients_json ?? null,
     allergensJson: record.allergens_json ?? null,
   });
+
+  const extractFreeMenuItemNames = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of value) {
+      if (!raw || typeof raw !== "object") continue;
+      const row = raw as Record<string, unknown>;
+      const name = String(row.name ?? "").trim();
+      if (!name) continue;
+      const pricing = String(row.pricing ?? "free").trim().toLowerCase();
+      if (pricing === "paid") continue;
+      const key = name.toLocaleLowerCase("tr-TR");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(name);
+    }
+    return out;
+  };
 
   const toPrettyJson = (value: unknown) => {
     if (value === null || value === undefined) return "-";
@@ -341,6 +364,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     updatedAt: string;
     recipe: string | null;
     description: string | null;
+    menuItemsJson: unknown;
     ingredientsJson: unknown;
     allergensJson: unknown;
   }, checked: boolean) {
@@ -377,6 +401,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
     updatedAt: string;
     recipe: string | null;
     description: string | null;
+    menuItemsJson: unknown;
     ingredientsJson: unknown;
     allergensJson: unknown;
   }, lotId?: string) {
@@ -844,7 +869,7 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   </div>
                 </div>
                 <div className="foods-detail-text-block">
-                  <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
+                  <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
                   <p className="foods-detail-paragraph">{selectedFood.description?.trim() || "-"}</p>
                 </div>
                 <div className="foods-detail-text-block">
@@ -852,8 +877,13 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
                   <p className="foods-detail-paragraph">{selectedFood.recipe?.trim() || "-"}</p>
                 </div>
                 <div className="foods-detail-text-block">
-                  <h4>İçerikler</h4>
-                  <p className="foods-detail-paragraph">{toReadableText(selectedFood.ingredientsJson)}</p>
+                  <h4>{language === "tr" ? "Yan Ürünler" : "Side Items"}</h4>
+                  <p className="foods-detail-paragraph">
+                    {(() => {
+                      const names = extractFreeMenuItemNames(selectedFood.menuItemsJson);
+                      return names.length > 0 ? names.join(", ") : "-";
+                    })()}
+                  </p>
                 </div>
                 <div className="foods-detail-text-block">
                   <h4>{language === "tr" ? "Alerjen Durumu" : "Allergen Status"}</h4>

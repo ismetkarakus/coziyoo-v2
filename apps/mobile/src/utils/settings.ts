@@ -13,16 +13,29 @@ const defaults: AppSettings = {
 
 const RELEASE_FALLBACK_API_URL = "https://api.coziyoo.com";
 
+function isLocalhostLike(url: string): boolean {
+  const lower = url.toLowerCase();
+  return (
+    lower.includes("localhost") ||
+    lower.includes("127.0.0.1") ||
+    lower.includes("0.0.0.0")
+  );
+}
+
 function normalizeApiUrlForMode(rawUrl: string): string {
   const trimmed = rawUrl.trim().replace(/\/$/, "");
   const fallback = (process.env.EXPO_PUBLIC_API_URL || RELEASE_FALLBACK_API_URL).trim().replace(/\/$/, "");
   if (!trimmed) return fallback;
-  if (__DEV__) return trimmed;
+  if (__DEV__) {
+    // In dev, physical devices cannot reach localhost values saved in settings.
+    if (isLocalhostLike(trimmed) && fallback && !isLocalhostLike(fallback)) {
+      return fallback;
+    }
+    return trimmed;
+  }
   const lower = trimmed.toLowerCase();
   if (
-    lower.includes("localhost") ||
-    lower.includes("127.0.0.1") ||
-    lower.includes("0.0.0.0") ||
+    isLocalhostLike(lower) ||
     lower.includes("192.168.")
   ) {
     return fallback || RELEASE_FALLBACK_API_URL;

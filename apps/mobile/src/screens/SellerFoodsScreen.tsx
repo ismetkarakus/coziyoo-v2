@@ -123,6 +123,23 @@ function parseLocalizedDecimal(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+function parseFreeAddonNames(value: string): string[] {
+  const normalizedInput = value
+    .replace(/\s+(ve|ile)\s+/gi, ", ")
+    .replace(/\s*&\s*/g, ", ");
+  const seen = new Set<string>();
+  const items: string[] = [];
+  for (const raw of normalizedInput.split(/[,;\n]/g)) {
+    const name = raw.trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    const key = name.toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push(name);
+  }
+  return items;
+}
+
 export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, initialEditFood, onAuthRefresh }: Props) {
   const PLACEHOLDER_COLOR = "#8A7A6A";
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -152,7 +169,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
   // UI parity fields (opsiyonlar)
   const [cuisine, setCuisine] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [dailyStock, setDailyStock] = useState("10");
+  const [dailyStock, setDailyStock] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [datePickerVisible, setDatePickerVisible] = useState<null | "start" | "end">(null);
@@ -299,7 +316,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
     setPrepTime("");
     setCuisine("");
     setCategoryId("");
-    setDailyStock("10");
+    setDailyStock("");
     setStartDate("");
     setEndDate("");
     setPickupEnabled(true);
@@ -330,6 +347,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
     setPrepTime(food.preparationTimeMinutes ? String(food.preparationTimeMinutes) : "");
     setCuisine(food.cuisine ?? "");
     setCategoryId(food.categoryId ?? "");
+    setDailyStock(food.stock > 0 ? String(food.stock) : "");
     setDeliveryFee(food.deliveryFee ? String(food.deliveryFee) : "");
     setPickupEnabled(food.deliveryOptions?.pickup ?? true);
     setDeliveryEnabled(food.deliveryOptions?.delivery ?? true);
@@ -349,12 +367,12 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
             : { name: item.name, kind: item.kind, pricing: "free" as const }
         ))
       : [];
-    setMenuItems(
-      normalizedMenuItems.length > 0
-        ? normalizedMenuItems
-        : [{ name: food.name, kind: "extra", pricing: "free" }],
-    );
-    setFreeAddonNameInput("");
+    const freeAddonNames = normalizedMenuItems
+      .filter((item) => item.pricing === "free")
+      .map((item) => item.name.trim())
+      .filter(Boolean);
+    setMenuItems(normalizedMenuItems.filter((item) => item.pricing === "paid"));
+    setFreeAddonNameInput(freeAddonNames.join(", "));
     setFreeAddonKindInput("extra");
     setPaidAddonNameInput("");
     setPaidAddonKindInput("extra");
@@ -423,22 +441,80 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
 
   async function saveFood(options?: { publishAfterSave?: boolean }) {
     try {
+      const pendingFreeAddonNames = parseFreeAddonNames(freeAddonNameInput);
+      const paidOnlyItems = menuItems.filter((item) => item.pricing === "paid");
+      const freeItems: SellerMenuAddon[] = pendingFreeAddonNames.map((name) => ({
+        name,
+        kind: "extra",
+        pricing: "free",
+      }));
+      const workingMenuItems: SellerMenuAddon[] = [...paidOnlyItems, ...freeItems];
+      const parsedPrice = parseLocalizedDecimal(price);
+      const parsedDeliveryDistance = deliveryDistanceKm.trim() ? parseLocalizedDecimal(deliveryDistanceKm) : Number.NaN;
+      const parsedPrepTime = prepTime.trim() ? Number.parseInt(prepTime.trim(), 10) : Number.NaN;
+      const parsedDailyStock = dailyStock.trim() ? Number.parseInt(dailyStock.trim(), 10) : Number.NaN;
+      const parsedAllergens = allergens
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const startIsoRequired = parseDisplayDateToIso(startDate);
+      const endIsoRequired = parseDisplayDateToIso(endDate);
+
       if (!pickupEnabled && !deliveryEnabled) {
         Alert.alert("Hata", "En az bir teslimat seçeneği seçmelisin (Gel Al veya Teslimat).");
         return;
       }
 
-      const parsedPrice = parseLocalizedDecimal(price);
-      if (!name.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-        Alert.alert("Hata", "Yemek adı ve fiyat zorunlu.");
+      if (!name.trim()) {
+        Alert.alert("Hata", "Yemek adı zorunlu.");
         return;
       }
-      if (menuItems.length < 1) {
+      if (!isUuid(categoryId)) {
+        Alert.alert("Hata", "Kategori seçimi zorunlu.");
+        return;
+      }
+      if (!cuisine.trim()) {
+        Alert.alert("Hata", "Hangi ülke/şehir mutfağı alanı zorunlu.");
+        return;
+      }
+      if (!description.trim()) {
+        Alert.alert("Hata", "Malzemeler / baharatlar alanı zorunlu.");
+        return;
+      }
+      if (!recipe.trim()) {
+        Alert.alert("Hata", "Tarif alanı zorunlu.");
+        return;
+      }
+      if (parsedAllergens.length === 0) {
+        Alert.alert("Hata", "Alerjen alanı zorunlu. Yoksa 'yok' yaz.");
+        return;
+      }
+      if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        Alert.alert("Hata", "Fiyat zorunlu.");
+        return;
+      }
+      if (!Number.isFinite(parsedDailyStock) || parsedDailyStock <= 0) {
+        Alert.alert("Hata", "Günlük stok zorunlu ve 0'dan büyük olmalı.");
+        return;
+      }
+      if (!Number.isFinite(parsedPrepTime) || parsedPrepTime <= 0) {
+        Alert.alert("Hata", "Hazırlık süresi zorunlu ve 0'dan büyük olmalı.");
+        return;
+      }
+      if (!Number.isFinite(parsedDeliveryDistance) || parsedDeliveryDistance <= 0) {
+        Alert.alert("Hata", "Teslimat mesafesi zorunlu ve 0'dan büyük olmalı.");
+        return;
+      }
+      if (!startIsoRequired || !endIsoRequired) {
+        Alert.alert("Hata", "Başlangıç ve bitiş tarihi zorunlu.");
+        return;
+      }
+      if (new Date(endIsoRequired).getTime() <= new Date(startIsoRequired).getTime()) {
+        Alert.alert("Hata", "Bitiş tarihi başlangıç tarihinden sonra olmalı.");
+        return;
+      }
+      if (workingMenuItems.length < 1) {
         Alert.alert("Hata", "Ekler bölümünde en az 1 kalem olmalı.");
-        return;
-      }
-      if (options?.publishAfterSave && !recipe.trim()) {
-        Alert.alert("Hata", "Yemeği yayınlamak için tarif alanını doldurmalısın.");
         return;
       }
 
@@ -446,7 +522,6 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
 
       const primaryImageUrl = imageUrls.map((x) => x.trim()).find(Boolean) || undefined;
       const parsedDeliveryFee = deliveryFee.trim() ? parseLocalizedDecimal(deliveryFee) : 0;
-      const parsedDeliveryDistance = deliveryDistanceKm.trim() ? parseLocalizedDecimal(deliveryDistanceKm) : Number.NaN;
       const ingredientItemsFromDescription = description
         .split(/[,;\n]/g)
         .map((x) => x.trim())
@@ -458,7 +533,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       const normalizedIngredients = ingredientItemsFromInput.length > 0
         ? ingredientItemsFromInput
         : ingredientItemsFromDescription;
-      const normalizedAddons = menuItems.map((item) => ({
+      const normalizedAddons = workingMenuItems.map((item) => ({
         name: item.name.trim(),
         kind: item.kind,
         pricing: item.pricing,
@@ -483,16 +558,14 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
         deliveryFee: Number.isFinite(parsedDeliveryFee) ? parsedDeliveryFee : 0,
         deliveryOptions: { pickup: pickupEnabled, delivery: deliveryEnabled },
         ingredients: normalizedIngredients,
-        allergens: allergens.split(",").map((x) => x.trim()).filter(Boolean),
-        preparationTimeMinutes: prepTime.trim() ? Number(prepTime) : undefined,
+        allergens: parsedAllergens,
+        preparationTimeMinutes: parsedPrepTime,
         deliveryDistanceKm: Number.isFinite(parsedDeliveryDistance) ? parsedDeliveryDistance : undefined,
         menuItems: normalizedAddons,
         secondaryCategoryIds: [],
       };
 
-      if (isUuid(categoryId)) {
-        payload.categoryId = categoryId.trim();
-      }
+      payload.categoryId = categoryId.trim();
 
       const path = editingFood ? `/v1/seller/foods/${editingFood.id}` : "/v1/seller/foods";
       const method = editingFood ? "PATCH" : "POST";
@@ -503,8 +576,8 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       const foodId = editingFood?.id ?? json?.data?.foodId;
 
       if (options?.publishAfterSave && foodId) {
-        const startIso = parseDisplayDateToIso(startDate);
-        const endIso = parseDisplayDateToIso(endDate);
+        const startIso = startIsoRequired;
+        const endIso = endIsoRequired;
         const nowTs = Date.now();
         let saleStartsAt = startIso ?? new Date(nowTs).toISOString();
         let saleEndsAt = endIso;
@@ -513,6 +586,16 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
           const fallback = new Date(saleStartsAt);
           fallback.setUTCDate(fallback.getUTCDate() + 30);
           saleEndsAt = fallback.toISOString();
+        }
+        if (new Date(saleStartsAt).getTime() > nowTs) {
+          hadInvalidDateWindow = true;
+          // "Yayınla" aksiyonunda ürünün hemen görünmesi beklenir.
+          saleStartsAt = new Date(nowTs).toISOString();
+          if (new Date(saleEndsAt).getTime() <= new Date(saleStartsAt).getTime()) {
+            const fallback = new Date(saleStartsAt);
+            fallback.setUTCDate(fallback.getUTCDate() + 30);
+            saleEndsAt = fallback.toISOString();
+          }
         }
         if (new Date(saleEndsAt).getTime() <= nowTs) {
           hadInvalidDateWindow = true;
@@ -538,25 +621,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
         }
 
         const producedAt = saleStartsAt;
-        const quantityProduced = Math.max(1, Number.parseInt(dailyStock.trim() || "0", 10) || 1);
-
-        const lotRes = await authedFetch("/v1/seller/lots", {
-          method: "POST",
-          body: JSON.stringify({
-            foodId,
-            producedAt,
-            saleStartsAt,
-            saleEndsAt,
-            quantityProduced,
-            quantityAvailable: quantityProduced,
-            notes: "mobile_publish",
-          }),
-        });
-        const lotJson = await lotRes.json();
-        if (!lotRes.ok) {
-          throw new Error(lotJson?.error?.message ?? "Lot oluşturulamadı");
-        }
-
+        const quantityProduced = Math.max(1, parsedDailyStock || 1);
         const statusRes = await authedFetch(`/v1/seller/foods/${foodId}/status`, {
           method: "PATCH",
           body: JSON.stringify({ isActive: true }),
@@ -565,14 +630,59 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
           const statusJson = await statusRes.json();
           throw new Error(statusJson?.error?.message ?? "Yemek durumu güncellenemedi");
         }
+
+        let hasVisibleLot = false;
+        const lotsRes = await authedFetch(`/v1/seller/lots?foodId=${foodId}`);
+        if (lotsRes.ok) {
+          const lotsJson = await lotsRes.json();
+          const lots = Array.isArray(lotsJson?.data) ? lotsJson.data : [];
+          const now = Date.now();
+          hasVisibleLot = lots.some((lot: any) => {
+            const status = String(lot?.status ?? "").toLowerCase();
+            const qty = Number(lot?.quantity_available ?? 0);
+            const startsAt = Date.parse(String(lot?.sale_starts_at ?? ""));
+            const endsAt = Date.parse(String(lot?.sale_ends_at ?? ""));
+            return (
+              status === "active" &&
+              qty > 0 &&
+              Number.isFinite(startsAt) &&
+              Number.isFinite(endsAt) &&
+              startsAt <= now &&
+              endsAt > now
+            );
+          });
+        }
+
+        if (!hasVisibleLot) {
+          const lotRes = await authedFetch("/v1/seller/lots", {
+            method: "POST",
+            body: JSON.stringify({
+              foodId,
+              producedAt,
+              saleStartsAt,
+              saleEndsAt,
+              quantityProduced,
+              quantityAvailable: quantityProduced,
+              notes: "mobile_publish",
+            }),
+          });
+          const lotJson = await lotRes.json();
+          if (!lotRes.ok) {
+            throw new Error(lotJson?.error?.message ?? "Lot oluşturulamadı");
+          }
+        }
       }
 
       await loadFoods();
       resetForm();
       if (options?.publishAfterSave) {
-        Alert.alert("Başarılı", "Yemek yayınlandı.", [{ text: "Tamam", onPress: onBack }]);
+        Alert.alert(
+          "Başarılı",
+          editingFood ? "Yemek güncellenip yayınlandı." : "Yemek yayınlandı.",
+          [{ text: "Tamam", onPress: onBack }],
+        );
       } else {
-        Alert.alert("Başarılı", "Yemek kaydedildi.");
+        Alert.alert("Başarılı", editingFood ? "Yemek güncellendi." : "Yemek kaydedildi.");
       }
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Yemek kaydedilemedi");
@@ -581,13 +691,14 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
     }
   }
 
-  function addAddon(pricing: AddonPricing) {
-    const rawName = (pricing === "free" ? freeAddonNameInput : paidAddonNameInput).trim().replace(/\s+/g, " ");
+  function addAddon() {
+    const rawName = paidAddonNameInput.trim().replace(/\s+/g, " ");
     if (!rawName) {
       Alert.alert("Hata", "Ek adı zorunlu.");
       return;
     }
-    const kind = pricing === "free" ? freeAddonKindInput : paidAddonKindInput;
+    const pricing: AddonPricing = "paid";
+    const kind = paidAddonKindInput;
     const normalizedKey = `${rawName.toLocaleLowerCase("tr-TR")}|${kind}|${pricing}`;
     if (
       menuItems.some(
@@ -602,21 +713,15 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       kind,
       pricing,
     };
-    if (pricing === "paid") {
-      const parsed = parseLocalizedDecimal(paidAddonPriceInput);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        Alert.alert("Hata", "Ücretli ek için fiyat zorunlu.");
-        return;
-      }
-      next.price = Number(parsed.toFixed(2));
+    const parsed = parseLocalizedDecimal(paidAddonPriceInput);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      Alert.alert("Hata", "Ücretli ek için fiyat zorunlu.");
+      return;
     }
+    next.price = Number(parsed.toFixed(2));
     setMenuItems((prev) => [...prev, next]);
-    if (pricing === "free") {
-      setFreeAddonNameInput("");
-    } else {
-      setPaidAddonNameInput("");
-      setPaidAddonPriceInput("");
-    }
+    setPaidAddonNameInput("");
+    setPaidAddonPriceInput("");
   }
 
   function removeMenuItem(index: number) {
@@ -696,7 +801,30 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
     return cells;
   }, [pickerMonth]);
 
+  const todayDayInPickerMonth = useMemo(() => {
+    const now = new Date();
+    if (
+      now.getFullYear() !== pickerMonth.getFullYear() ||
+      now.getMonth() !== pickerMonth.getMonth()
+    ) {
+      return null;
+    }
+    return now.getDate();
+  }, [pickerMonth]);
+
   function openDatePicker(target: "start" | "end") {
+    const now = new Date();
+    const currentValue = target === "start" ? startDate : endDate;
+    let baseDate = now;
+    if (currentValue.trim()) {
+      const parsedIso = parseDisplayDateToIso(currentValue);
+      if (parsedIso) baseDate = new Date(parsedIso);
+    } else {
+      const todayDisplay = toDisplayDate(now);
+      if (target === "start") setStartDate(todayDisplay);
+      if (target === "end") setEndDate(todayDisplay);
+    }
+    setPickerMonth(new Date(baseDate.getFullYear(), baseDate.getMonth(), 1));
     setDatePickerVisible(target);
   }
 
@@ -739,7 +867,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
     .filter(Boolean)
     .slice(0, 2)
     .join(", ");
-  const freeMenuItems = menuItems.filter((item) => item.pricing === "free");
   const paidMenuItems = menuItems.filter((item) => item.pricing === "paid");
   const addonLibraryItems = useMemo(() => {
     const merged: SellerMenuAddon[] = [];
@@ -781,7 +908,12 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             <Text style={styles.hydrationText}>Yemek düzenleme ekranı hazırlanıyor...</Text>
           </View>
         ) : (
-          <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="always">
+          <ScrollView
+            style={styles.page}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          >
           <Text style={styles.sectionTitle}>Yemek Fotoğrafları</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
             {imageUrls.map((url, index) => (
@@ -839,7 +971,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
           <View style={styles.row2}>
             <View style={styles.rowItem}>
               <View style={styles.rowLabelWrap}>
-                <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+                <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı</Text>
               </View>
               <TextInput
                 style={styles.input}
@@ -878,24 +1010,8 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             onChangeText={setFreeAddonNameInput}
             placeholder="Örn: Ayran, salata, pilav"
             placeholderTextColor={PLACEHOLDER_COLOR}
-            onSubmitEditing={() => addAddon("free")}
             returnKeyType="done"
           />
-          <View style={styles.menuItemsWrap}>
-            {freeMenuItems.map((item, index) => {
-              const absoluteIndex = menuItems.findIndex(
-                (entry) => entry.name === item.name && entry.kind === item.kind && entry.pricing === item.pricing,
-              );
-              return (
-                <View key={`free-${item.name}-${index}`} style={styles.menuItemChip}>
-                  <Text style={styles.menuItemChipText}>{item.name}</Text>
-                  <TouchableOpacity onPress={() => removeMenuItem(absoluteIndex)} hitSlop={8}>
-                    <Ionicons name="close" size={16} color="#2F241C" />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
 
           <Text style={styles.sectionTitle}>Malzemeler / Baharatlar *</Text>
           <TextInput
@@ -937,7 +1053,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               style={[styles.input, styles.rowItem]}
               value={paidAddonNameInput}
               onChangeText={setPaidAddonNameInput}
-              placeholder="Örn: Özel sos"
+              placeholder="Ürün adı"
               placeholderTextColor={PLACEHOLDER_COLOR}
             />
             <TextInput
@@ -949,8 +1065,8 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               keyboardType="decimal-pad"
             />
           </View>
-          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => addAddon("paid")} activeOpacity={0.85}>
-            <Text style={styles.addMenuItemBtnText}>+ Ücretli ek ekle</Text>
+          <TouchableOpacity style={styles.addMenuItemBtn} onPress={addAddon} activeOpacity={0.85}>
+            <Text style={styles.addMenuItemBtnText}>+ Ekle</Text>
           </TouchableOpacity>
           <View style={styles.menuItemsWrap}>
             {paidMenuItems.map((item, index) => {
@@ -960,7 +1076,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               return (
                 <View key={`paid-${item.name}-${index}`} style={styles.menuItemChip}>
                   <Text style={styles.menuItemChipText}>
-                    {item.name} · {ADDON_KIND_OPTIONS.find((x) => x.value === item.kind)?.label} · {Number(item.price ?? 0).toFixed(2)} ₺
+                    {item.name} · {Number(item.price ?? 0).toFixed(2)} ₺
                   </Text>
                   <TouchableOpacity onPress={() => removeMenuItem(absoluteIndex)} hitSlop={8}>
                     <Ionicons name="close" size={16} color="#2F241C" />
@@ -975,7 +1091,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             style={styles.input}
             value={allergens}
             onChangeText={setAllergens}
-            placeholder="Örn: Gluten, süt"
+            placeholder="Örn: Gluten, süt (yoksa: yok)"
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
@@ -997,7 +1113,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
                 style={styles.input}
                 value={dailyStock}
                 onChangeText={setDailyStock}
-                placeholder="10"
+                placeholder="Örn: 10"
                 placeholderTextColor={PLACEHOLDER_COLOR}
                 keyboardType="number-pad"
               />
@@ -1109,7 +1225,13 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             onPress={() => void saveFood({ publishAfterSave: true })}
             disabled={saving}
           >
-            <Text style={styles.saveText}>{saving ? "Yayınlanıyor..." : "Yemeği Yayınla"}</Text>
+            <Text style={styles.saveText}>
+              {saving
+                ? "Yayınlanıyor..."
+                : editingFood
+                  ? "Güncelle ve Yayınla"
+                  : "Yemeği Yayınla"}
+            </Text>
           </TouchableOpacity>
 
           {editingFood ? (
@@ -1194,11 +1316,21 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               {pickerDays.map((cell) => (
                 <TouchableOpacity
                   key={cell.key}
-                  style={[styles.dateCell, !cell.value && styles.dateCellEmpty]}
+                  style={[
+                    styles.dateCell,
+                    !cell.value && styles.dateCellEmpty,
+                    cell.value && todayDayInPickerMonth === cell.value ? styles.dateCellToday : null,
+                  ]}
                   disabled={!cell.value}
                   onPress={() => cell.value && selectDate(cell.value)}
                 >
-                  <Text style={[styles.dateCellText, !cell.value && styles.dateCellTextEmpty]}>
+                  <Text
+                    style={[
+                      styles.dateCellText,
+                      !cell.value && styles.dateCellTextEmpty,
+                      cell.value && todayDayInPickerMonth === cell.value ? styles.dateCellTextToday : null,
+                    ]}
+                  >
                     {cell.value ?? ""}
                   </Text>
                 </TouchableOpacity>
@@ -1335,6 +1467,21 @@ const styles = StyleSheet.create({
   },
   dropdownPlaceholder: { color: "#8A7A6A" },
   dropdownValue: { color: "#2E241C", fontWeight: "600" },
+  freeAddonInputWrap: { position: "relative" },
+  freeAddonInput: { paddingRight: 44 },
+  freeAddonInlineAddBtn: {
+    position: "absolute",
+    right: 10,
+    top: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#79BA94",
+    backgroundColor: "#BFDFCF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
   kindChip: {
     borderWidth: 1,
@@ -1632,7 +1779,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 8,
   },
+  dateCellToday: {
+    borderWidth: 1.5,
+    borderColor: "#4A7C59",
+    backgroundColor: "#ECF4EE",
+  },
   dateCellEmpty: { opacity: 0 },
   dateCellText: { color: "#2E241C", fontWeight: "600" },
+  dateCellTextToday: { color: "#2E6B44", fontWeight: "800" },
   dateCellTextEmpty: { color: "transparent" },
 });

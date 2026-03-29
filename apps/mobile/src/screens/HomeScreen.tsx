@@ -150,6 +150,8 @@ type ApiFoodItem = {
   reviewCount: number;
   prepTime: number | null;
   maxDistance: number | null;
+  distanceKm?: number | null;
+  distance?: number | string | null;
   category: string | null;
   allergens?: string[];
   ingredients?: string[];
@@ -211,12 +213,6 @@ function formatCuisineLabel(cuisine?: string | null): string {
   const lower = value.toLocaleLowerCase("tr-TR");
   if (lower.endsWith(" mutfağı") || lower.endsWith(" mutfagi")) return value;
   return `${value} Mutfağı`;
-}
-
-function addonKindLabel(kind: "sauce" | "extra" | "appetizer"): string {
-  if (kind === "sauce") return "Soslar";
-  if (kind === "appetizer") return "Aparatifler";
-  return "Ek Gıdalar";
 }
 
 function normalizeMealAddons(value: ApiFoodItem["menuItems"]): MealCard["addons"] {
@@ -562,14 +558,14 @@ function deriveCardColors(dominant: string): CardColors {
   const safe = normalizeHexColor(dominant);
   const { r, g, b } = hexToRgb(safe);
   const { h, s } = rgbToHsl(r, g, b);
-  const sat = Math.min(0.45, Math.max(0.18, s));
-  const title = toneFromHue(h, sat, 0.24);
-  const subtitle = toneFromHue(h, sat * 0.92, 0.34);
-  const price = toneFromHue(h, sat, 0.28);
-  const metaBase = toneFromHue(h, sat * 0.85, 0.44);
+  const sat = Math.min(0.72, Math.max(0.28, s * 1.25));
+  const title = toneFromHue(h, sat * 0.98, 0.18);
+  const subtitle = toneFromHue(h, sat * 0.78, 0.30);
+  const price = toneFromHue(h, sat * 0.96, 0.22);
+  const metaBase = toneFromHue(h, sat * 0.74, 0.38);
   return {
-    bg: toneFromHue(h, sat * 0.55, 0.93),
-    border: toneFromHue(h, sat * 0.5, 0.84),
+    bg: toneFromHue(h, sat * 0.42, 0.89),
+    border: toneFromHue(h, sat * 0.54, 0.72),
     title,
     subtitle,
     price,
@@ -744,6 +740,23 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
       .filter(Boolean)
     : [];
   const addons = normalizeMealAddons(item.menuItems);
+  const distanceValueRaw =
+    item.maxDistance ??
+    item.distanceKm ??
+    (typeof item.distance === "number"
+      ? item.distance
+      : typeof item.distance === "string"
+        ? Number(String(item.distance).replace(",", "."))
+        : null);
+  const distanceText = Number.isFinite(distanceValueRaw as number)
+    ? `${Number(distanceValueRaw).toFixed(2)} km`
+    : "";
+  const normalizedAllergens = (item.allergens ?? [])
+    .map((value) => String(value ?? "").trim())
+    .filter((value) => {
+      const normalized = value.toLocaleLowerCase("tr-TR");
+      return Boolean(value) && normalized !== "yok" && normalized !== "yoktur" && normalized !== "-";
+    });
   return {
     id: item.id,
     title: item.name,
@@ -751,7 +764,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     seller: item.seller.name,
     sellerUsername: item.seller.username ?? null,
     sellerImage: item.seller.image,
-    allergens: item.allergens ?? [],
+    allergens: normalizedAllergens,
     ingredients: item.ingredients ?? [],
     menuItems,
     addons,
@@ -761,7 +774,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     stock: item.stock ?? 0,
     rating: item.rating ?? '0.0',
     time: item.prepTime ? `${item.prepTime} dk` : '',
-    distance: item.maxDistance ? `${item.maxDistance} km` : '',
+    distance: distanceText,
     price: `₺${item.price}`,
     backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
     category: uiCategory,
@@ -994,7 +1007,11 @@ function FoodCard({
   }, [primaryImageUrl, meal.backgroundColor]);
 
   const allergens = Array.isArray(meal.allergens) ? meal.allergens : [];
-  const menuItemsText = meal.menuItems.length > 0 ? `İçindekiler: ${meal.menuItems.join(", ")}` : "";
+  const timeDistanceParts = [meal.time, meal.distance].filter((value) => String(value ?? "").trim().length > 0);
+  const timeDistanceText = timeDistanceParts.join(" · ");
+  const stockSummary = Number.isFinite(meal.stock) && meal.stock > 0
+    ? `Toplam: ${meal.stock}/${meal.stock} kaldı`
+    : '';
 
   return (
     <View
@@ -1106,42 +1123,45 @@ function FoodCard({
       >
         <View style={styles.foodInfoRow}>
           <View style={styles.foodInfoLeft}>
-            <View style={styles.foodNameRow}>
-              <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.foodTitlePressArea}>
-                <Text style={[styles.foodName, { color: colors.title }]}>
-                  {meal.title}
-                </Text>
-              </TouchableOpacity>
-              <View style={styles.foodNameMetaRight}>
-                <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
-                  {formatSellerIdentity(meal.seller, meal.sellerUsername)}
-                </Text>
-              </View>
+            <Text style={[styles.foodName, { color: colors.title }]}>
+              {meal.title}
+            </Text>
+            {stockSummary ? (
+              <Text style={[styles.foodStockSummary, { color: colors.subtitle }]}>
+                {stockSummary}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.foodNameMetaRight}>
+            <View style={styles.foodSellerInlineBtn}>
+              <Text style={[styles.foodSellerInline, { color: colors.subtitle }]}>
+                {formatSellerIdentity(meal.seller, meal.sellerUsername)}
+              </Text>
             </View>
-            <View style={styles.foodMetaRow}>
-              {meal.cuisine ? (
-                <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
-                  {formatCuisineLabel(meal.cuisine)}
-                </Text>
-              ) : null}
-            </View>
+            {meal.cuisine ? (
+              <Text style={[styles.foodSellerCuisineInline, { color: colors.subtitle }]}>
+                {formatCuisineLabel(meal.cuisine)}
+              </Text>
+            ) : null}
           </View>
         </View>
         <View style={styles.foodBottomRow}>
-          <Text style={[styles.foodMeta, { color: colors.meta }]}>
-            🕐 {meal.time} · {meal.distance}
-          </Text>
+          {timeDistanceText ? (
+            <View style={styles.foodMetaInlineRow}>
+              <View style={styles.foodMetaClockBadge}>
+                <Ionicons name="time-outline" size={12} color="#3F454E" />
+              </View>
+              <Text style={[styles.foodMeta, { color: colors.meta }]}>
+                {timeDistanceText}
+              </Text>
+            </View>
+          ) : null}
           {allergens.length > 0 ? (
             <Text style={styles.foodBottomAllergenText}>
               Alerjen: {allergens.slice(0, 3).join(', ')}
             </Text>
           ) : null}
         </View>
-        {menuItemsText ? (
-          <Text style={[styles.foodMenuItemsText, { color: colors.subtitle }]} numberOfLines={1}>
-            {menuItemsText}
-          </Text>
-        ) : null}
       </TouchableOpacity>
     </View>
   );
@@ -1191,6 +1211,8 @@ export default function HomeScreen({
     free: [],
     paid: [],
   });
+  const [paidAddonsExpanded, setPaidAddonsExpanded] = useState(false);
+  const skipNextPaidCollapseRef = useRef(false);
   const [mealModalAnimType, setMealModalAnimType] = useState<'slide' | 'none'>('slide');
   const [selectedSeller, setSelectedSeller] = useState<{
     id: string;
@@ -1273,7 +1295,16 @@ export default function HomeScreen({
 
   useEffect(() => {
     setSelectedMealAddons({ free: [], paid: [] });
+    setPaidAddonsExpanded(false);
   }, [selectedMeal?.id]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        setPaidAddonsExpanded(false);
+      }
+    });
+    return () => sub.remove();
+  }, []);
   const selectedCheckoutAddress = useMemo(() => {
     if (selectedCheckoutAddressId) {
       return userAddresses.find((item) => item.id === selectedCheckoutAddressId) ?? defaultAddress;
@@ -2193,6 +2224,8 @@ export default function HomeScreen({
       ? activeOrderIds
       : activeOrderId
         ? [activeOrderId]
+        : paymentStatus?.orderId
+          ? [paymentStatus.orderId]
         : [];
     if (orderIds.length === 0) return;
     setPaymentLoading(true);
@@ -2967,6 +3000,9 @@ export default function HomeScreen({
               {paymentInfo ? (
                 <Text style={styles.paymentInfoText}>{paymentInfo}</Text>
               ) : null}
+              {(() => {
+                const canRefreshPayment = activeOrderIds.length > 0 || Boolean(activeOrderId) || Boolean(paymentStatus?.orderId);
+                return (
               <View style={styles.paymentActionsRow}>
                 <TouchableOpacity
                   style={[styles.paymentActionBtn, paymentLoading && styles.paymentActionBtnDisabled]}
@@ -2984,7 +3020,7 @@ export default function HomeScreen({
                   style={[styles.paymentRefreshBtn, paymentLoading && styles.paymentRefreshBtnDisabled]}
                   onPress={() => void refreshPaymentStatus()}
                   activeOpacity={0.9}
-                  disabled={paymentLoading || !activeOrderId}
+                  disabled={paymentLoading || !canRefreshPayment}
                 >
                   <Text style={styles.paymentRefreshBtnText}>{t('cta.home.paymentRefresh')}</Text>
                 </TouchableOpacity>
@@ -2998,6 +3034,8 @@ export default function HomeScreen({
                   </TouchableOpacity>
                 ) : null}
               </View>
+                );
+              })()}
             </>
           )}
         </View>
@@ -3481,6 +3519,13 @@ export default function HomeScreen({
               style={styles.modalContent}
               contentContainerStyle={styles.modalScrollContent}
               showsVerticalScrollIndicator={false}
+              onTouchStart={() => {
+                if (skipNextPaidCollapseRef.current) {
+                  skipNextPaidCollapseRef.current = false;
+                  return;
+                }
+                if (paidAddonsExpanded) setPaidAddonsExpanded(false);
+              }}
             >
               <TouchableOpacity
                 style={styles.modalClose}
@@ -3537,27 +3582,33 @@ export default function HomeScreen({
                   .filter((addon) => addon.pricing === 'free')
                   .map((addon) => addon.name.trim())
                   .filter(Boolean);
-                const unique = Array.from(new Set(freeNames));
-                if (unique.length === 0) return null;
+                const includedSidesText = freeNames.length > 0
+                  ? `${selectedMeal.title}, ${Array.from(new Set(freeNames)).join(", ")}`
+                  : "";
+                const mergedIngredients = Array.from(
+                  new Set(
+                    [...selectedMeal.ingredients]
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  ),
+                );
+                const topText = mergedIngredients.join(', ');
+                const bottomText = (selectedMeal.description ?? '').trim();
+                if (!includedSidesText && !topText && !bottomText) return null;
                 return (
-                  <Text style={styles.modalSideProductsText}>
-                    {[selectedMeal.title, ...unique].join(', ')}
-                  </Text>
+                  <>
+                    {includedSidesText ? (
+                      <Text style={styles.modalDescription}>{includedSidesText}</Text>
+                    ) : null}
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>Malzemeler / Baharatlar</Text>
+                      <Text style={styles.modalIngredientsPlain}>
+                        {bottomText || topText}
+                      </Text>
+                    </View>
+                  </>
                 );
               })()}
-
-              {selectedMeal.description ? (
-                <Text style={styles.modalDescription}>{selectedMeal.description}</Text>
-              ) : null}
-
-              {selectedMeal.ingredients.length > 0 && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Malzemeler / Baharatlar</Text>
-                  <Text style={styles.modalIngredientsPlain}>
-                    {selectedMeal.ingredients.join(', ')}
-                  </Text>
-                </View>
-              )}
 
               {selectedMeal.allergens.length > 0 && (
                 <View style={styles.modalSection}>
@@ -3573,45 +3624,66 @@ export default function HomeScreen({
               )}
 
               {selectedMeal.addons.some((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0) ? (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Ücretli Ekler</Text>
-                  <View style={styles.modalPaidAddonsList}>
-                    {selectedMeal.addons
-                      .filter((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0)
-                      .map((addon, index) => {
-                        const addonPrice = Number(addon.price ?? 0);
-                        const selectedQuantity = selectedMealAddons.paid.find(
-                          (item) => item.name === addon.name && item.kind === addon.kind && item.price === addonPrice,
-                        )?.quantity ?? 0;
-                        return (
-                          <View key={`paid-addon-${addon.name}-${index}`} style={styles.modalPaidAddonRow}>
-                            <View style={styles.modalPaidAddonInfo}>
-                              <Text style={styles.modalPaidAddonName}>{addon.name}</Text>
-                              <Text style={styles.modalPaidAddonMeta}>
-                                {addonKindLabel(addon.kind)} · +₺{addonPrice.toFixed(2)}
-                              </Text>
-                            </View>
-                            <View style={styles.modalAddonStepper}>
-                              <TouchableOpacity
-                                style={styles.modalAddonStepperButton}
-                                onPress={() => adjustSelectedPaidAddonQuantity(addon, -1)}
-                                activeOpacity={0.85}
-                              >
-                                <Ionicons name="remove" size={14} color="#5F5246" />
-                              </TouchableOpacity>
-                              <Text style={styles.modalAddonStepperQty}>{selectedQuantity}</Text>
-                              <TouchableOpacity
-                                style={styles.modalAddonStepperButton}
-                                onPress={() => adjustSelectedPaidAddonQuantity(addon, 1)}
-                                activeOpacity={0.85}
-                              >
-                                <Ionicons name="add" size={14} color="#5F5246" />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        );
-                      })}
-                  </View>
+                <View
+                  style={styles.modalSection}
+                  onTouchStart={() => {
+                    skipNextPaidCollapseRef.current = true;
+                  }}
+                >
+                  <TouchableOpacity
+                    style={styles.modalDropdownHeader}
+                    activeOpacity={0.85}
+                    onPress={() => setPaidAddonsExpanded((prev) => !prev)}
+                  >
+                    <Text style={styles.modalSectionTitle}>Ücretli Ekler</Text>
+                    <Ionicons
+                      name={paidAddonsExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color="#5F5246"
+                    />
+                  </TouchableOpacity>
+                  {paidAddonsExpanded ? (
+                    <>
+                      <Text style={styles.modalSectionHint}>Ekstra istersen buradan seçebilirsin.</Text>
+                      <View style={styles.modalPaidAddonsList}>
+                        {selectedMeal.addons
+                          .filter((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0)
+                          .map((addon, index) => {
+                            const addonPrice = Number(addon.price ?? 0);
+                            const selectedQuantity = selectedMealAddons.paid.find(
+                              (item) => item.name === addon.name && item.kind === addon.kind && item.price === addonPrice,
+                            )?.quantity ?? 0;
+                            return (
+                              <View key={`paid-addon-${addon.name}-${index}`} style={styles.modalPaidAddonRow}>
+                                <View style={styles.modalPaidAddonInfo}>
+                                  <Text style={styles.modalPaidAddonName}>{addon.name}</Text>
+                                  <Text style={styles.modalPaidAddonMeta}>
+                                    +₺{addonPrice.toFixed(2)}
+                                  </Text>
+                                </View>
+                                <View style={styles.modalAddonStepper}>
+                                  <TouchableOpacity
+                                    style={styles.modalAddonStepperButton}
+                                    onPress={() => adjustSelectedPaidAddonQuantity(addon, -1)}
+                                    activeOpacity={0.85}
+                                  >
+                                    <Ionicons name="remove" size={14} color="#5F5246" />
+                                  </TouchableOpacity>
+                                  <Text style={styles.modalAddonStepperQty}>{selectedQuantity}</Text>
+                                  <TouchableOpacity
+                                    style={styles.modalAddonStepperButton}
+                                    onPress={() => adjustSelectedPaidAddonQuantity(addon, 1)}
+                                    activeOpacity={0.85}
+                                  >
+                                    <Ionicons name="add" size={14} color="#5F5246" />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            );
+                          })}
+                      </View>
+                    </>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -4742,7 +4814,7 @@ const styles = StyleSheet.create({
   ratingBadgeStar: { color: '#C4953A', fontSize: 12, fontWeight: '700' },
   ratingBadgeText: { color: '#3D3229', fontSize: 12, fontWeight: '700' },
   foodInfo: { paddingHorizontal: 12, paddingVertical: 14 },
-  foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  foodInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   foodInfoLeft: { flex: 1 },
   foodNameRow: {
     flexDirection: 'row',
@@ -4760,8 +4832,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  foodSellerInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   foodSellerInline: { fontSize: 15, fontWeight: '700' },
+  foodSellerCuisineInline: { fontSize: 12, fontWeight: '700', marginTop: 4 },
+  foodStockSummary: { fontSize: 12, fontWeight: '700', marginTop: 4 },
   foodCuisineInline: { fontSize: 12, fontWeight: '600' },
   foodStockText: { fontSize: 11, fontWeight: '600' },
   foodSeller: { fontSize: 13, fontWeight: '500', marginTop: 2 },
@@ -4769,9 +4843,25 @@ const styles = StyleSheet.create({
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodCuisine: { fontSize: 12, fontWeight: '500', marginTop: 2, fontStyle: 'italic' },
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  foodMetaInlineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  foodMetaClockBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#AAB1BC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
   foodBottomAllergenText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#C2362F', textAlign: 'right', flexShrink: 1 },
   foodMenuItemsText: { marginTop: 4, fontSize: 11, fontWeight: '600' },
-  foodMeta: { fontSize: 12 },
+  foodMeta: { fontSize: 12, fontWeight: '700' },
 
   /* --- Tab panels --- */
   tabPanelCard: {
@@ -5475,16 +5565,17 @@ const styles = StyleSheet.create({
   modalEmoji: { fontSize: 56 },
   modalTitle: { color: '#3D3229', fontSize: 22, fontWeight: '700', marginBottom: 4 },
   modalSellerRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 },
-  modalSeller: { color: '#7A8B6E', fontSize: 14, fontWeight: '600' },
+  modalSeller: { color: '#7A8B6E', fontSize: 16, fontWeight: '600' },
   modalCuisine: { color: '#A89B8C', fontSize: 13, fontStyle: 'italic', marginBottom: 8 },
   modalBasis: { color: '#5E7C69', fontSize: 12, fontWeight: '600', marginBottom: 8 },
   modalInfoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 8 },
   modalRating: { color: '#C4953A', fontSize: 14, fontWeight: '700' },
   modalMeta: { color: '#A89B8C', fontSize: 13 },
-  modalSideProductsText: { color: '#5E5247', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
   modalDescription: { color: '#6B5D4F', fontSize: 14, lineHeight: 20, textAlign: 'center' as const, marginBottom: 12, marginTop: 4 },
   modalSection: { width: '100%' as unknown as number, marginBottom: 12 },
   modalSectionTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700', marginBottom: 8 },
+  modalDropdownHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalSectionHint: { color: '#7A6D61', fontSize: 12.5, marginBottom: 8 },
   modalTagsWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
   modalPaidAddonsList: { gap: 10 },
   modalPaidAddonRow: {

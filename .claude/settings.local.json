@@ -58,10 +58,15 @@
       "Bash(open /Users/ismetkarakus/Work/coziyoo-v2/apps/mobile/ios/Coziyoo.xcworkspace)",
       "Bash(psql \"$DATABASE_URL\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name=''users'' AND column_name IN \\(''kitchen_title'',''kitchen_description'',''delivery_radius_km'',''working_hours_json'',''seller_profile_status''\\);\")",
       "Bash(psql \"postgresql://postgres.yhfribehpmkbjrrgixsv:t6gOe6V8SsO4rU@aws-1-eu-central-1.pooler.supabase.com:6543/postgres\" -c \"SELECT column_name FROM information_schema.columns WHERE table_name = ''foods'' ORDER BY column_name;\")",
-      "Bash(brew install:*)"
+      "Bash(brew install:*)",
+      "Bash(find /Users/ismetkarakus/Work/coziyoo-v2/apps/mobile -name *.json -o -name *.js -o -name .env*)",
+      "Bash(env)",
+      "Bash(/Users/ismetkarakus/Work/coziyoo-v2/apps/mobile/node_modules/.bin/expo --version)",
+      "Read(//Users/ismetkarakus/**)"
     ],
     "additionalDirectories": [
-      "/tmp"
+      "/tmp",
+      "/Users/ismetkarakus"
     ]
   }
 }
