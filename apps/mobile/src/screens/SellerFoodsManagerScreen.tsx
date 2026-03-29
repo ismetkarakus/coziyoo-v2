@@ -100,15 +100,10 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title=""
-        onBack={onBack}
-        rightAction={(
-          <TouchableOpacity style={styles.headerAddBtn} activeOpacity={0.85} onPress={() => onOpenFoodsForm("add")}>
-            <Text style={styles.headerAddBtnText}>+ Ekle</Text>
-          </TouchableOpacity>
-        )}
-      />
+      <ScreenHeader title="" onBack={onBack} />
+      <View style={styles.topAction}>
+        <ActionButton label="Yemek Ekle" onPress={() => onOpenFoodsForm("add")} fullWidth />
+      </View>
 
       <FlatList
         data={foods}
@@ -153,16 +148,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  headerAddBtn: {
-    minWidth: 64,
-    height: 34,
-    borderRadius: 999,
-    backgroundColor: "#3F855C",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  headerAddBtnText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  topAction: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   inlineLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
   inlineLoadingText: { color: "#6C6055", fontWeight: "600" },
