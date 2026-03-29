@@ -838,7 +838,9 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
 
           <View style={styles.row2}>
             <View style={styles.rowItem}>
-              <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+              <View style={styles.rowLabelWrap}>
+                <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+              </View>
               <TextInput
                 style={styles.input}
                 value={cuisine}
@@ -848,7 +850,9 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               />
             </View>
             <View style={styles.rowItem}>
-              <Text style={styles.sectionTitle}>Kategori Seç</Text>
+              <View style={styles.rowLabelWrap}>
+                <Text style={styles.sectionTitle}>Kategori Seç</Text>
+              </View>
               <TouchableOpacity
                 style={[styles.input, styles.dropdownInput]}
                 onPress={() => {
@@ -1376,6 +1380,7 @@ const styles = StyleSheet.create({
   },
   row2: { flexDirection: "row", gap: 10 },
   rowItem: { flex: 1 },
+  rowLabelWrap: { minHeight: 28, justifyContent: "flex-end" },
   row3: { flexDirection: "row", gap: 8 },
   row3Item: { flex: 1 },
   dateInputWrap: { position: "relative" },
