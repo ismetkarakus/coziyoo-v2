@@ -525,12 +525,6 @@ export default function App() {
         auth={auth}
         onBack={() => setScreen('home')}
         onEdit={() => setScreen('sellerProfile')}
-        onOpenFoods={() => {
-          setSellerFoodsFromManager(false);
-          setSellerFoodsInitialEditId(null);
-          setSellerFoodsInitialEditFood(null);
-          setScreen('sellerFoods');
-        }}
         onOpenLots={() => setScreen('sellerLots')}
         onOpenOrders={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
