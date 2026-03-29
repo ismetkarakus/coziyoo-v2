@@ -827,23 +827,23 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               </View>
             ))}
           </ScrollView>
-          <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+          <Text style={styles.sectionTitle}>Yemek Adı *</Text>
           <TextInput
             style={styles.input}
-            value={cuisine}
-            onChangeText={setCuisine}
-            placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
+            value={name}
+            onChangeText={setName}
+            placeholder="Örn: Ev Yapımı Mantı"
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
           <View style={styles.row2}>
             <View style={styles.rowItem}>
-              <Text style={styles.sectionTitle}>Yemek Adı *</Text>
+              <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
               <TextInput
                 style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Örn: Ev Yapımı Mantı"
+                value={cuisine}
+                onChangeText={setCuisine}
+                placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
                 placeholderTextColor={PLACEHOLDER_COLOR}
               />
             </View>
