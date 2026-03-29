@@ -181,11 +181,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 14,
   },
-  addBtnText: { color: "#fff", fontWeight: "800", fontSize: 20 },
+  addBtnText: { color: "#fff", fontWeight: "800", fontSize: 19 },
   pageTitle: {
     color: "#2E241C",
     fontWeight: "900",
-    fontSize: 20,
+    fontSize: 19,
     textAlign: "center",
     marginTop: 8,
     marginBottom: 2,
