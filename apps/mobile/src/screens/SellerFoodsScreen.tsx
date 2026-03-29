@@ -836,34 +836,55 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
-          <View style={styles.row2}>
-            <View style={styles.rowItem}>
+          <Text style={styles.sectionTitle}>Kategori Seç</Text>
+          <TouchableOpacity
+            style={[styles.input, styles.dropdownInput]}
+            onPress={() => {
+              if (!loadingCategories && categories.length === 0) {
+                void loadCategories();
+              }
+              setCategoryModalVisible(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
+              {selectedCategoryName || "Kategori seçin"}
+            </Text>
+            <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
+          </TouchableOpacity>
+
+          <View style={styles.row3}>
+            <View style={styles.row3Item}>
               <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
               <TextInput
                 style={styles.input}
                 value={cuisine}
                 onChangeText={setCuisine}
-                placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
+                placeholder="Örn: Türkiye"
                 placeholderTextColor={PLACEHOLDER_COLOR}
               />
             </View>
-            <View style={styles.rowItem}>
-              <Text style={styles.sectionTitle}>Kategori Seç</Text>
-              <TouchableOpacity
-                style={[styles.input, styles.dropdownInput]}
-                onPress={() => {
-                  if (!loadingCategories && categories.length === 0) {
-                    void loadCategories();
-                  }
-                  setCategoryModalVisible(true);
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {selectedCategoryName || "Kategori seçin"}
-                </Text>
-                <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
-              </TouchableOpacity>
+            <View style={styles.row3Item}>
+              <Text style={styles.sectionTitle}>Hazırlık (dk)</Text>
+              <TextInput
+                style={styles.input}
+                value={prepTime}
+                onChangeText={setPrepTime}
+                placeholder="45"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                keyboardType="number-pad"
+              />
+            </View>
+            <View style={styles.row3Item}>
+              <Text style={styles.sectionTitle}>Teslimat (km)</Text>
+              <TextInput
+                style={styles.input}
+                value={deliveryDistanceKm}
+                onChangeText={setDeliveryDistanceKm}
+                placeholder="8"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                keyboardType="decimal-pad"
+              />
             </View>
           </View>
 
@@ -999,26 +1020,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               />
             </View>
           </View>
-
-          <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
-          <TextInput
-            style={styles.input}
-            value={prepTime}
-            onChangeText={setPrepTime}
-            placeholder="Örn: 45"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            keyboardType="number-pad"
-          />
-
-          <Text style={styles.sectionTitle}>Teslimat Mesafesi (km)</Text>
-          <TextInput
-            style={styles.input}
-            value={deliveryDistanceKm}
-            onChangeText={setDeliveryDistanceKm}
-            placeholder="Örn: 8 (kaç km uzağa götüreceğini yaz)"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            keyboardType="decimal-pad"
-          />
 
           <View style={styles.row2}>
             <View style={styles.rowItem}>
@@ -1371,6 +1372,8 @@ const styles = StyleSheet.create({
   },
   row2: { flexDirection: "row", gap: 10 },
   rowItem: { flex: 1 },
+  row3: { flexDirection: "row", gap: 8 },
+  row3Item: { flex: 1 },
   dateInputWrap: { position: "relative" },
   dateInput: { paddingRight: 38 },
   dateIconBtn: {
