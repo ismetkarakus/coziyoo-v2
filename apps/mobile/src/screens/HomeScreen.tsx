@@ -85,7 +85,7 @@ import { readJsonSafe } from '../utils/http';
 import VoiceSessionScreen from './VoiceSessionScreen';
 import ProfileEditScreen from './ProfileEditScreen';
 import AddressScreen from './AddressScreen';
-import { randomHomeGreetingSubtitle, requestErrorLine, stockLine, t } from '../copy/brandCopy';
+import { randomHomeGreetingSubtitle, requestErrorLine, t } from '../copy/brandCopy';
 import { HOME_FEED_CATEGORIES } from '../constants/foodCategories';
 
 /* ------------------------------------------------------------------ */
@@ -145,6 +145,7 @@ type ApiFoodItem = {
   description: string;
   price: number;
   imageUrl: string | null;
+  imageUrls?: string[];
   rating: string | null;
   reviewCount: number;
   prepTime: number | null;
@@ -194,6 +195,7 @@ type MealCard = {
   backgroundColor: string;
   category: string;
   imageUrl?: string;
+  imageUrls?: string[];
   locationBasisLabel?: string;
 };
 
@@ -732,6 +734,10 @@ function resolveSecondaryDishImage(title: string, category: string | null): stri
 
 function apiToMealCard(item: ApiFoodItem): MealCard {
   const uiCategory = inferUiCategory(item);
+  const normalizedImageUrls = [...(Array.isArray(item.imageUrls) ? item.imageUrls : []), item.imageUrl ?? '']
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .slice(0, 5);
   const menuItems = Array.isArray(item.menuItems)
     ? item.menuItems
       .map((entry) => String(entry?.name ?? "").trim())
@@ -759,7 +765,8 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     price: `₺${item.price}`,
     backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
     category: uiCategory,
-    imageUrl: item.imageUrl ?? resolveDishImage(item.name, uiCategory),
+    imageUrl: normalizedImageUrls[0] ?? resolveDishImage(item.name, uiCategory),
+    imageUrls: normalizedImageUrls.length > 0 ? normalizedImageUrls : undefined,
   };
 }
 
@@ -929,43 +936,48 @@ const MESSAGE_WALLPAPERS = [
 
 function FoodCard({
   meal,
-  totalStock,
-  remainingStock,
   isFavorite,
   favoritePending,
   onPress,
   onFavoritePress,
 }: {
   meal: MealCard;
-  totalStock: number;
-  remainingStock: number;
   isFavorite: boolean;
   favoritePending: boolean;
   onPress: () => void;
   onFavoritePress: () => void;
 }) {
+  const defaultCardImageWidth = Math.max(260, Math.round(Dimensions.get('window').width - 32));
   const [colors, setColors] = useState<CardColors>(
     deriveCardColors(meal.backgroundColor),
   );
-  const [imageFailed, setImageFailed] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | undefined>(meal.imageUrl);
-  const [didTrySecondary, setDidTrySecondary] = useState(false);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imageIndex, setImageIndex] = useState(0);
+  const [imageFrameWidth, setImageFrameWidth] = useState(defaultCardImageWidth);
+  const cardImageScrollRef = useRef<ScrollView | null>(null);
+  const primaryImageUrl = imageUrls[0];
 
   useEffect(() => {
-    setImageFailed(false);
-    setDidTrySecondary(false);
-    setImageUrl(meal.imageUrl);
-  }, [meal.imageUrl]);
+    const next = [...(meal.imageUrls ?? []), meal.imageUrl ?? '']
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    setImageUrls(next);
+    setImageIndex(0);
+    requestAnimationFrame(() => {
+      cardImageScrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+    });
+  }, [meal.imageUrl, meal.imageUrls]);
 
   useEffect(() => {
-    if (!imageUrl || imageFailed || !getColors) {
+    if (!primaryImageUrl || !getColors) {
       setColors(deriveCardColors(meal.backgroundColor));
       return;
     }
-    getColors(imageUrl, {
+    getColors(primaryImageUrl, {
       fallback: meal.backgroundColor,
       cache: true,
-      key: imageUrl,
+      key: primaryImageUrl,
     })
       .then((result) => {
         let dominant = meal.backgroundColor;
@@ -979,7 +991,7 @@ function FoodCard({
       .catch(() => {
         setColors(deriveCardColors(meal.backgroundColor));
       });
-  }, [imageUrl, meal.backgroundColor, imageFailed]);
+  }, [primaryImageUrl, meal.backgroundColor]);
 
   const allergens = Array.isArray(meal.allergens) ? meal.allergens : [];
   const menuItemsText = meal.menuItems.length > 0 ? `İçindekiler: ${meal.menuItems.join(", ")}` : "";
@@ -991,27 +1003,76 @@ function FoodCard({
         { backgroundColor: colors.bg, borderColor: colors.border },
       ]}
     >
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={onPress}
+      <View
         style={[styles.foodPhoto, { backgroundColor: meal.backgroundColor }]}
+        onLayout={(event) => {
+          const nextWidth = Math.max(220, Math.round(event.nativeEvent.layout.width));
+          setImageFrameWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+        }}
       >
-        {imageUrl && !imageFailed ? (
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.foodImage}
-            resizeMode="cover"
-            onError={() => {
-              if (!didTrySecondary) {
-                setDidTrySecondary(true);
-                setImageUrl(resolveSecondaryDishImage(meal.title, meal.category));
-                return;
-              }
-              setImageFailed(true);
-            }}
-          />
+        {imageUrls.length > 0 ? (
+          <View style={styles.foodImageSliderWrap}>
+            <ScrollView
+              ref={cardImageScrollRef}
+              horizontal
+              pagingEnabled
+              directionalLockEnabled
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              bounces={false}
+              decelerationRate="fast"
+              style={styles.foodImageSlider}
+              contentContainerStyle={styles.foodImageSliderContent}
+              onMomentumScrollEnd={(event) => {
+                if (!imageFrameWidth) return;
+                const offsetX = event.nativeEvent.contentOffset.x;
+                const nextIndex = Math.round(offsetX / imageFrameWidth);
+                const bounded = Math.max(0, Math.min(nextIndex, imageUrls.length - 1));
+                setImageIndex(bounded);
+              }}
+            >
+              {imageUrls.map((uri, idx) => (
+                <View
+                  key={`food-image-${meal.id}-${idx}`}
+                  style={[styles.foodImageTapArea, { width: imageFrameWidth }]}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={styles.foodImage}
+                    resizeMode="cover"
+                    onError={() => {
+                      setImageUrls((prev) => {
+                        const filtered = prev.filter((_, itemIndex) => itemIndex !== idx);
+                        const trimmed = filtered.slice(0, 5);
+                        setImageIndex((current) => {
+                          if (trimmed.length === 0) return 0;
+                          return Math.max(0, Math.min(current, trimmed.length - 1));
+                        });
+                        return trimmed;
+                      });
+                    }}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+            {imageUrls.length > 1 ? (
+              <View pointerEvents="none" style={styles.foodImageDotsRow}>
+                {imageUrls.map((_, idx) => (
+                  <View
+                    key={`food-image-dot-${meal.id}-${idx}`}
+                    style={[
+                      styles.foodImageDot,
+                      idx === imageIndex && styles.foodImageDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </View>
         ) : (
-          <Text style={styles.foodEmoji}>🍽️</Text>
+          <View style={styles.foodImageTapFallback}>
+            <Text style={styles.foodEmoji}>🍽️</Text>
+          </View>
         )}
         <TouchableOpacity
           activeOpacity={0.82}
@@ -1037,8 +1098,12 @@ function FoodCard({
             <Text style={styles.ratingBadgeText}>{meal.rating}</Text>
           </View>
         </View>
-      </TouchableOpacity>
-      <View style={styles.foodInfo}>
+      </View>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        style={styles.foodInfo}
+      >
         <View style={styles.foodInfoRow}>
           <View style={styles.foodInfoLeft}>
             <View style={styles.foodNameRow}>
@@ -1054,9 +1119,6 @@ function FoodCard({
               </View>
             </View>
             <View style={styles.foodMetaRow}>
-              <Text style={[styles.foodStockText, { color: colors.subtitle }]}>
-                {stockLine(totalStock, remainingStock)}
-              </Text>
               {meal.cuisine ? (
                 <Text style={[styles.foodCuisineInline, { color: colors.subtitle }]}>
                   {formatCuisineLabel(meal.cuisine)}
@@ -1080,7 +1142,7 @@ function FoodCard({
             {menuItemsText}
           </Text>
         ) : null}
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -2647,17 +2709,10 @@ export default function HomeScreen({
           </ScrollView>
         </View>
         {visibleMeals.map((meal) => {
-          const totalStock = Math.max(0, meal.stock ?? 0);
-          const inCartQty = cartItems
-            .filter((item) => item.meal.id === meal.id)
-            .reduce((sum, item) => sum + item.quantity, 0);
-          const remainingStock = Math.max(0, totalStock - inCartQty);
           return (
             <FoodCard
               key={meal.id}
               meal={meal}
-              totalStock={totalStock}
-              remainingStock={remainingStock}
               isFavorite={Boolean(favoriteIds[meal.id])}
               favoritePending={Boolean(favoritePendingIds[meal.id])}
               onPress={() => setSelectedMeal(meal)}
@@ -4588,6 +4643,31 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   foodPhoto: { width: '100%', height: 155, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  foodImageSliderWrap: { width: '100%', height: '100%' },
+  foodImageSlider: { width: '100%', height: '100%' },
+  foodImageSliderContent: { alignItems: 'stretch' },
+  foodImageTapArea: { height: '100%' },
+  foodImageTapFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  foodImageDotsRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+  },
+  foodImageDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  foodImageDotActive: {
+    width: 14,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
   foodImage: { width: '100%', height: '100%' },
   foodEmoji: { fontSize: 56 },
   foodFavoriteBtn: {
