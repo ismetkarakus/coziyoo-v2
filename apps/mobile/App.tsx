@@ -526,7 +526,6 @@ export default function App() {
         onBack={() => setScreen('home')}
         onEdit={() => setScreen('sellerProfile')}
         onOpenLots={() => setScreen('sellerLots')}
-        onOpenOrders={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
         onOpenAddresses={() => setScreen('addresses')}
@@ -634,6 +633,7 @@ export default function App() {
           auth={auth}
           onOpenProfile={() => setScreen('sellerProfileDetail')}
           onOpenFoodsManager={() => setScreen('sellerFoodsManager')}
+          onOpenOrderHistory={() => setScreen('sellerOrders')}
           onOpenOrder={(id) => {
             setSelectedOrderId(id);
             setSellerOrderModalVisible(true);

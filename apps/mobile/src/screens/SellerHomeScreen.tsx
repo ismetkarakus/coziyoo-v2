@@ -13,6 +13,7 @@ type Props = {
   onAuthRefresh?: (session: AuthSession) => void;
   onOpenProfile: () => void;
   onOpenFoodsManager: () => void;
+  onOpenOrderHistory: () => void;
   onOpenOrder: (orderId: string) => void;
   onOpenSettings: () => void;
   onLogout: () => void;
@@ -35,6 +36,7 @@ export default function SellerHomeScreen({
   onAuthRefresh,
   onOpenProfile,
   onOpenFoodsManager,
+  onOpenOrderHistory,
   onOpenOrder,
   onOpenSettings,
   onLogout,
@@ -162,8 +164,8 @@ export default function SellerHomeScreen({
           <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={onOpenFoodsManager}>
             <Text style={styles.quickButtonText}>Buton 1</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickButton} activeOpacity={0.85}>
-            <Text style={styles.quickButtonText}>Buton 2</Text>
+          <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={onOpenOrderHistory}>
+            <Text style={styles.quickButtonText}>Sipariş Geçmişim</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.statsRow}>
