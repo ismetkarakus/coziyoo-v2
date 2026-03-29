@@ -2706,7 +2706,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
   try {
     rows = await pool.query<SellerFoodListRow>(
       `SELECT
-         id,
+         f.id,
          f.category_id::text AS category_id,
          c.name_tr AS category_name,
          (to_jsonb(f)->>'cuisine') AS cuisine,
@@ -2755,7 +2755,7 @@ adminUserManagementRouter.get("/users/:id/seller-foods", requireAuth("admin"), a
     // Keep seller foods list available even if lot schema is not in sync on a server.
     rows = await pool.query<SellerFoodListRow>(
       `SELECT
-         id,
+         f.id,
          f.category_id::text AS category_id,
          c.name_tr AS category_name,
          (to_jsonb(f)->>'cuisine') AS cuisine,
