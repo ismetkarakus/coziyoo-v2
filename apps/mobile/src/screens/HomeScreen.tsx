@@ -2808,52 +2808,62 @@ export default function HomeScreen({
                 contentContainerStyle={styles.cartListContent}
                 showsVerticalScrollIndicator={false}
               >
-                {cartItems.map((item) => (
-                  <View key={item.key} style={styles.cartItemCard}>
-                    <View style={styles.cartItemTextWrap}>
-                      <Text style={styles.cartItemTitle}>{item.meal.title}</Text>
-                      <Text style={styles.cartItemSeller}>
-                        {formatSellerIdentity(item.meal.seller, item.meal.sellerUsername)}
-                      </Text>
-                      {item.selectedAddons.free.length > 0 ? (
-                        <Text style={styles.cartAddonLine}>
-                          Ücretsiz: {item.selectedAddons.free.map((addon) => addon.name).join(', ')}
+                {cartItems.map((item) => {
+                  const unitPrice = Number(item.meal.price.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+                  const addonsUnitTotal = item.selectedAddons.paid.reduce((sum, addon) => sum + Number(addon.price ?? 0), 0);
+                  const itemTotal = (unitPrice + addonsUnitTotal) * item.quantity;
+                  return (
+                    <View key={item.key} style={styles.cartItemCard}>
+                      <View style={styles.cartItemTextWrap}>
+                        <Text style={styles.cartItemTitle}>{item.meal.title}</Text>
+                        <Text style={styles.cartItemSeller}>
+                          {formatSellerIdentity(item.meal.seller, item.meal.sellerUsername)}
                         </Text>
-                      ) : null}
-                      {item.selectedAddons.paid.length > 0 ? (
-                        <Text style={styles.cartAddonLine}>
-                          Ücretli: {item.selectedAddons.paid.map((addon) => `${addon.name} (+₺${addon.price.toFixed(2)})`).join(', ')}
+                        {item.selectedAddons.free.length > 0 ? (
+                          <Text style={styles.cartAddonLine}>
+                            Ücretsiz: {item.selectedAddons.free.map((addon) => addon.name).join(', ')}
+                          </Text>
+                        ) : null}
+                        {item.selectedAddons.paid.length > 0 ? (
+                          <>
+                            {item.selectedAddons.paid.map((addon, addonIndex) => (
+                              <Text key={`${item.key}-paid-${addon.name}-${addonIndex}`} style={styles.cartAddonLine}>
+                                • {addon.name} (+₺{addon.price.toFixed(2)})
+                              </Text>
+                            ))}
+                          </>
+                        ) : null}
+                      </View>
+                      <View style={styles.cartItemRight}>
+                        <Text style={styles.cartItemPrice}>
+                          ₺{unitPrice.toFixed(2)} x {item.quantity}
                         </Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.cartItemRight}>
-                      <Text style={styles.cartItemPrice}>
-                        {item.meal.price} x {item.quantity}
-                      </Text>
-                      <View style={styles.cartQtyRow}>
-                        <TouchableOpacity
-                          style={styles.cartQtyBtn}
-                          onPress={() => decreaseCartItem(item.key)}
-                          activeOpacity={0.85}
-                        >
-                          <Ionicons name="remove" size={14} color="#5F5246" />
-                        </TouchableOpacity>
-                        <Text style={styles.cartQtyText}>{item.quantity}</Text>
-                        <TouchableOpacity
-                          style={styles.cartQtyBtn}
-                          onPress={() => addMealToCart(item.meal, item.selectedAddons)}
-                          activeOpacity={0.85}
-                        >
-                          <Ionicons name="add" size={14} color="#5F5246" />
-                        </TouchableOpacity>
+                        <Text style={styles.cartItemTotal}>Ara toplam: ₺{itemTotal.toFixed(2)}</Text>
+                        <View style={styles.cartQtyRow}>
+                          <TouchableOpacity
+                            style={styles.cartQtyBtn}
+                            onPress={() => decreaseCartItem(item.key)}
+                            activeOpacity={0.85}
+                          >
+                            <Ionicons name="remove" size={14} color="#5F5246" />
+                          </TouchableOpacity>
+                          <Text style={styles.cartQtyText}>{item.quantity}</Text>
+                          <TouchableOpacity
+                            style={styles.cartQtyBtn}
+                            onPress={() => addMealToCart(item.meal, item.selectedAddons)}
+                            activeOpacity={0.85}
+                          >
+                            <Ionicons name="add" size={14} color="#5F5246" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </ScrollView>
               <View style={styles.cartFooter}>
                 <Text style={styles.cartTotalLabel}>Toplam</Text>
-                <Text style={styles.cartTotalValue}>₺{total.toFixed(0)}</Text>
+                <Text style={styles.cartTotalValue}>₺{total.toFixed(2)}</Text>
               </View>
               <View style={styles.checkoutAddressCard}>
                 <Text style={styles.checkoutAddressTitle}>{t('helper.home.checkoutDeliveryType')}</Text>
@@ -4775,7 +4785,8 @@ const styles = StyleSheet.create({
   cartItemSeller: { color: '#8D8072', fontSize: 12, marginTop: 2 },
   cartAddonLine: { color: '#7A6D5D', fontSize: 11, marginTop: 3, lineHeight: 15 },
   cartItemRight: { alignItems: 'flex-end' },
-  cartItemPrice: { color: '#3D3229', fontSize: 14, fontWeight: '700', marginBottom: 6 },
+  cartItemPrice: { color: '#3D3229', fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  cartItemTotal: { color: '#2E6B44', fontSize: 12, fontWeight: '700', marginBottom: 6 },
   cartQtyRow: { flexDirection: 'row', alignItems: 'center' },
   cartQtyBtn: {
     width: 24,
