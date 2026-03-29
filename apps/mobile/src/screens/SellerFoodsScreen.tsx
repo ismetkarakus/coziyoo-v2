@@ -845,7 +845,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
                 style={styles.input}
                 value={cuisine}
                 onChangeText={setCuisine}
-                placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
+                placeholder="Örn: Türkiye, Hatay, Japonya, İtalya"
                 placeholderTextColor={PLACEHOLDER_COLOR}
               />
             </View>
