@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -39,6 +40,8 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
   const [kitchenDescription, setKitchenDescription] = useState("");
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState("3");
   const [workingHoursText, setWorkingHoursText] = useState("Pzt-Cuma 10:00-20:00");
+  const [editingDeliveryRadius, setEditingDeliveryRadius] = useState(false);
+  const [editingWorkingHours, setEditingWorkingHours] = useState(false);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -81,6 +84,8 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
       setDefaultAddress(json.data?.defaultAddress ? `${json.data.defaultAddress.title} - ${json.data.defaultAddress.addressLine}` : "Varsayılan adres yok");
       const hours = (json.data?.workingHours ?? []).map((x) => `${x.day} ${x.open}-${x.close}`).join(", ");
       if (hours.trim()) setWorkingHoursText(hours);
+      setEditingDeliveryRadius(false);
+      setEditingWorkingHours(false);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Profil yüklenemedi");
     } finally {
@@ -157,15 +162,51 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
           />
 
           <Text style={styles.label}>Teslimat yarıçapı (km)</Text>
-          <TextInput style={styles.input} value={deliveryRadiusKm} onChangeText={setDeliveryRadiusKm} keyboardType="numeric" />
+          <View style={styles.readOnlyCard}>
+            <View style={styles.readOnlyHeader}>
+              <Text style={styles.readOnlyValue}>{deliveryRadiusKm?.trim() ? `${deliveryRadiusKm} km` : "Henüz eklenmedi"}</Text>
+              <TouchableOpacity
+                style={styles.editIconBtn}
+                onPress={() => setEditingDeliveryRadius((prev) => !prev)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="pencil" size={16} color="#3F855C" />
+              </TouchableOpacity>
+            </View>
+            {editingDeliveryRadius ? (
+              <TextInput
+                style={styles.input}
+                value={deliveryRadiusKm}
+                onChangeText={setDeliveryRadiusKm}
+                keyboardType="numeric"
+                placeholder="Örn: 5"
+              />
+            ) : null}
+          </View>
 
           <Text style={styles.label}>Çalışma saatleri</Text>
-          <TextInput
-            style={styles.input}
-            value={workingHoursText}
-            onChangeText={setWorkingHoursText}
-            placeholder="Pzt 10:00-19:00, Salı 10:00-19:00"
-          />
+          <View style={styles.readOnlyCard}>
+            <View style={styles.readOnlyHeader}>
+              <Text style={styles.readOnlyValue}>
+                {workingHoursText?.trim() ? workingHoursText : "Henüz eklenmedi"}
+              </Text>
+              <TouchableOpacity
+                style={styles.editIconBtn}
+                onPress={() => setEditingWorkingHours((prev) => !prev)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="pencil" size={16} color="#3F855C" />
+              </TouchableOpacity>
+            </View>
+            {editingWorkingHours ? (
+              <TextInput
+                style={styles.input}
+                value={workingHoursText}
+                onChangeText={setWorkingHoursText}
+                placeholder="Pzt 10:00-19:00, Salı 10:00-19:00"
+              />
+            ) : null}
+          </View>
 
           <TouchableOpacity style={styles.saveBtn} disabled={saving} onPress={() => void saveProfile(false)}>
             <Text style={styles.saveText}>{saving ? "Kaydediliyor..." : "Kaydet"}</Text>
@@ -189,6 +230,36 @@ const styles = StyleSheet.create({
   addressAction: { marginTop: 6, color: "#3F855C", fontWeight: "700" },
   input: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E4DBCD", paddingHorizontal: 12, paddingVertical: 10, color: "#2E241C" },
   textArea: { minHeight: 92, textAlignVertical: "top" },
+  readOnlyCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E4DBCD",
+    padding: 10,
+    gap: 8,
+  },
+  readOnlyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  readOnlyValue: {
+    flex: 1,
+    color: "#2E241C",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  editIconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D6CCBD",
+    backgroundColor: "#F5F0E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   saveBtn: { marginTop: 14, backgroundColor: "#3F855C", borderRadius: 12, paddingVertical: 13, alignItems: "center" },
   saveText: { color: "#fff", fontWeight: "700" },
   submitBtn: { marginTop: 10, backgroundColor: "#EFE9DF", borderRadius: 12, paddingVertical: 13, alignItems: "center" },
