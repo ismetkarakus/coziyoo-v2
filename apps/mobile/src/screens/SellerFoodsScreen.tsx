@@ -827,13 +827,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               </View>
             ))}
           </ScrollView>
-          <Text style={styles.subHint}>{`Seçilen fotoğraf: ${imageUrls.filter((x) => x.trim()).length}/5`}</Text>
-          <Text style={styles.subHint}>
-            {movingImageIndex === null
-              ? "Sıralamayı değiştirmek için resme uzun bas."
-              : "Şimdi hedef kutuya dokun, sırası değişsin."}
-          </Text>
-
           <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
           <TextInput
             style={styles.input}
