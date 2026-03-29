@@ -836,31 +836,36 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
-          <Text style={styles.sectionTitle}>Kategori Seç</Text>
-          <TouchableOpacity
-            style={[styles.input, styles.dropdownInput]}
-            onPress={() => {
-              if (!loadingCategories && categories.length === 0) {
-                void loadCategories();
-              }
-              setCategoryModalVisible(true);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
-              {selectedCategoryName || "Kategori seçin"}
-            </Text>
-            <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
-          </TouchableOpacity>
-
-          <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
-          <TextInput
-            style={styles.input}
-            value={cuisine}
-            onChangeText={setCuisine}
-            placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
-            placeholderTextColor={PLACEHOLDER_COLOR}
-          />
+          <View style={styles.row2}>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Kategori Seç</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.dropdownInput]}
+                onPress={() => {
+                  if (!loadingCategories && categories.length === 0) {
+                    void loadCategories();
+                  }
+                  setCategoryModalVisible(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={selectedCategoryName ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {selectedCategoryName || "Kategori seçin"}
+                </Text>
+                <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+              <TextInput
+                style={styles.input}
+                value={cuisine}
+                onChangeText={setCuisine}
+                placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
+                placeholderTextColor={PLACEHOLDER_COLOR}
+              />
+            </View>
+          </View>
 
           <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler</Text>
           <TextInput
