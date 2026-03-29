@@ -879,6 +879,16 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             multiline
           />
 
+          <Text style={styles.sectionTitle}>Tarif</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={recipe}
+            onChangeText={setRecipe}
+            placeholder="Yemeğin hazırlanış tarifini buraya yazın..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            multiline
+          />
+
           <Text style={styles.sectionTitle}>Ücretsiz Ekler *</Text>
           <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => openAddonLibrary("free", "extra")} activeOpacity={0.85}>
             <Text style={styles.addMenuItemBtnText}>+ Hazır ücretsiz eklerden seç</Text>
@@ -961,16 +971,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               );
             })}
           </View>
-
-          <Text style={styles.sectionTitle}>Tarif</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={recipe}
-            onChangeText={setRecipe}
-            placeholder="Yemeğin hazırlanış tarifini buraya yazın..."
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            multiline
-          />
 
           <Text style={styles.sectionTitle}>Alerjenler</Text>
           <TextInput
