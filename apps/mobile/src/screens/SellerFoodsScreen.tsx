@@ -869,26 +869,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             placeholderTextColor={PLACEHOLDER_COLOR}
           />
 
-          <Text style={styles.sectionTitle}>Malzemeler / Baharatlar *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={description}
-            onChangeText={(value) => setDescription((prev) => normalizeIngredientTyping(prev, value))}
-            placeholder="Kullanılan malzemeler ve baharatları açıklayın..."
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            multiline
-          />
-
-          <Text style={styles.sectionTitle}>Tarif</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={recipe}
-            onChangeText={setRecipe}
-            placeholder="Yemeğin hazırlanış tarifini buraya yazın..."
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            multiline
-          />
-
           <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler</Text>
           <TextInput
             style={styles.input}
@@ -914,6 +894,26 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
               );
             })}
           </View>
+
+          <Text style={styles.sectionTitle}>Malzemeler / Baharatlar *</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={description}
+            onChangeText={(value) => setDescription((prev) => normalizeIngredientTyping(prev, value))}
+            placeholder="Kullanılan malzemeler ve baharatları açıklayın..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            multiline
+          />
+
+          <Text style={styles.sectionTitle}>Tarif</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={recipe}
+            onChangeText={setRecipe}
+            placeholder="Yemeğin hazırlanış tarifini buraya yazın..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            multiline
+          />
 
           <Text style={styles.sectionTitle}>Ücretli Ekler</Text>
           <View style={styles.kindRow}>
