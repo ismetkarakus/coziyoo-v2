@@ -853,40 +853,14 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
           </TouchableOpacity>
 
-          <View style={styles.row3}>
-            <View style={styles.row3Item}>
-              <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
-              <TextInput
-                style={styles.input}
-                value={cuisine}
-                onChangeText={setCuisine}
-                placeholder="Örn: Türkiye"
-                placeholderTextColor={PLACEHOLDER_COLOR}
-              />
-            </View>
-            <View style={styles.row3Item}>
-              <Text style={styles.sectionTitle}>Hazırlık (dk)</Text>
-              <TextInput
-                style={styles.input}
-                value={prepTime}
-                onChangeText={setPrepTime}
-                placeholder="45"
-                placeholderTextColor={PLACEHOLDER_COLOR}
-                keyboardType="number-pad"
-              />
-            </View>
-            <View style={styles.row3Item}>
-              <Text style={styles.sectionTitle}>Teslimat (km)</Text>
-              <TextInput
-                style={styles.input}
-                value={deliveryDistanceKm}
-                onChangeText={setDeliveryDistanceKm}
-                placeholder="8"
-                placeholderTextColor={PLACEHOLDER_COLOR}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
+          <Text style={styles.sectionTitle}>Hangi Ülke/Şehir Mutfağı *</Text>
+          <TextInput
+            style={styles.input}
+            value={cuisine}
+            onChangeText={setCuisine}
+            placeholder="Örn: Türkiye, Hatay, Japonya, İtalya..."
+            placeholderTextColor={PLACEHOLDER_COLOR}
+          />
 
           <Text style={styles.sectionTitle}>Yemekle gelen yan ürünler</Text>
           <TextInput
@@ -1017,6 +991,31 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
                 placeholder="10"
                 placeholderTextColor={PLACEHOLDER_COLOR}
                 keyboardType="number-pad"
+              />
+            </View>
+          </View>
+
+          <View style={styles.row2}>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Hazırlık Süresi (dk)</Text>
+              <TextInput
+                style={styles.input}
+                value={prepTime}
+                onChangeText={setPrepTime}
+                placeholder="Örn: 45"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                keyboardType="number-pad"
+              />
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Teslimat Mesafesi (km)</Text>
+              <TextInput
+                style={styles.input}
+                value={deliveryDistanceKm}
+                onChangeText={setDeliveryDistanceKm}
+                placeholder="Örn: 8"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                keyboardType="decimal-pad"
               />
             </View>
           </View>
