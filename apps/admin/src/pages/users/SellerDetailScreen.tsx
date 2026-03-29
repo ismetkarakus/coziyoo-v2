@@ -3030,7 +3030,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>{language === "tr" ? "Kategori" : "Category"}</th>
                       <th>{language === "tr" ? "Öncelik" : "Priority"}</th>
                       <th>{language === "tr" ? "Durum" : "Status"}</th>
-                      <th>{language === "tr" ? "Açıklama" : "Description"}</th>
+                      <th>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3202,29 +3202,30 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       </div>
                     </div>
                   ) : null}
-                  {food.description ? (
-                    <div className="foods-detail-text-block">
-                      <h4>{language === "tr" ? "Açıklama" : "Description"}</h4>
-                      <p className="foods-detail-paragraph">{food.description}</p>
-                    </div>
-                  ) : null}
+                  {(() => {
+                    const ingredientsText = (food.ingredients ?? "").trim() || (food.description ?? "").trim();
+                    if (!ingredientsText) return null;
+                    return (
+                      <div className="foods-detail-text-block">
+                        <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
+                        <p className="foods-detail-paragraph">{ingredientsText}</p>
+                      </div>
+                    );
+                  })()}
                   {food.recipe ? (
                     <div className="foods-detail-text-block">
                       <h4>{language === "tr" ? "Tarif" : "Recipe"}</h4>
                       <p className="foods-detail-paragraph">{food.recipe}</p>
                     </div>
                   ) : null}
-                  {food.ingredients ? (
+                  {Array.isArray(food.menuItems) && food.menuItems.some((item) => (item.pricing ?? "free") !== "paid") ? (
                     <div className="foods-detail-text-block">
-                      <h4>{language === "tr" ? "Malzemeler / Baharatlar" : "Ingredients / Spices"}</h4>
-                      <p className="foods-detail-paragraph">{food.ingredients}</p>
-                    </div>
-                  ) : null}
-                  {Array.isArray(food.menuItems) && food.menuItems.length > 0 ? (
-                    <div className="foods-detail-text-block">
-                      <h4>{language === "tr" ? "Menü İçeriği" : "Menu Items"}</h4>
+                      <h4>{language === "tr" ? "Yan Ürünler" : "Side Items"}</h4>
                       <p className="foods-detail-paragraph">
-                        {food.menuItems.map((item) => (item.categoryName ? `${item.name} (${item.categoryName})` : item.name)).join(", ")}
+                        {food.menuItems
+                          .filter((item) => (item.pricing ?? "free") !== "paid")
+                          .map((item) => item.name)
+                          .join(", ")}
                       </p>
                     </div>
                   ) : null}

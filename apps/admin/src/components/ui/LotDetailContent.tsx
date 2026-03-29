@@ -29,7 +29,7 @@ export function LotDetailContent({ lot, language, labels, lotDiff, addedIngredie
           <div>
             <span>
               {language === "tr"
-                ? `Bu lot ana yemekten farklı: ${[lotDiff.recipeChanged && "Tarif", lotDiff.ingredientsChanged && "İçerikler", lotDiff.allergensChanged && "Alerjenler"].filter(Boolean).join(", ")}`
+                ? `Bu lot ana yemekten farklı: ${[lotDiff.recipeChanged && "Tarif", lotDiff.ingredientsChanged && "Malzemeler / Baharatlar", lotDiff.allergensChanged && "Alerjenler"].filter(Boolean).join(", ")}`
                 : `This lot differs from the base food: ${[lotDiff.recipeChanged && "Recipe", lotDiff.ingredientsChanged && "Ingredients", lotDiff.allergensChanged && "Allergens"].filter(Boolean).join(", ")}`}
             </span>
             {lotDiff.ingredientsChanged ? (
