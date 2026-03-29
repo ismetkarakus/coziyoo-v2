@@ -305,7 +305,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
             if (requestId !== sellerCriticalReqRef.current) return;
             setFoodRows(foodsBody.data);
           } else {
+            const foodsErrorBody = await parseJson<ApiError>(foodsResult.value);
             setFoodRows([]);
+            setMessage(foodsErrorBody.error?.message ?? (language === "tr" ? "Yemek listesi alınamadı." : "Failed to load foods list."));
           }
         } else {
           setFoodRows([]);
