@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
 import { loadAuthSession, refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
-import ScreenHeader from "../components/ScreenHeader";
-import ActionButton from "../components/ActionButton";
+import { theme } from "../theme/colors";
 
 type Props = {
   auth: AuthSession;
@@ -100,9 +100,13 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="" onBack={onBack} />
-      <View style={styles.topAction}>
-        <ActionButton label="Yemek Ekle" onPress={() => onOpenFoodsForm("add")} fullWidth />
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.addBtn} activeOpacity={0.85} onPress={() => onOpenFoodsForm("add")}>
+          <Text style={styles.addBtnText}>Yemek Ekle</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -148,7 +152,32 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
-  topAction: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: Platform.OS === "ios" ? 56 : 16,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E6DED1",
+    backgroundColor: "#F7F4EF",
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addBtn: {
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: "#3F855C",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  addBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   inlineLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
   inlineLoadingText: { color: "#6C6055", fontWeight: "600" },
