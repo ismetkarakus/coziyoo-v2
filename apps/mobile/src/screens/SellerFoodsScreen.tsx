@@ -838,6 +838,16 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
 
           <View style={styles.row2}>
             <View style={styles.rowItem}>
+              <Text style={styles.sectionTitle}>Yemek Adı *</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Örn: Ev Yapımı Mantı"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+              />
+            </View>
+            <View style={styles.rowItem}>
               <Text style={styles.sectionTitle}>Kategori Seç</Text>
               <TouchableOpacity
                 style={[styles.input, styles.dropdownInput]}
@@ -854,16 +864,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
                 </Text>
                 <Ionicons name="chevron-down-outline" size={18} color="#7A6B5D" />
               </TouchableOpacity>
-            </View>
-            <View style={styles.rowItem}>
-              <Text style={styles.sectionTitle}>Yemek Adı *</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Örn: Ev Yapımı Mantı"
-                placeholderTextColor={PLACEHOLDER_COLOR}
-              />
             </View>
           </View>
 
