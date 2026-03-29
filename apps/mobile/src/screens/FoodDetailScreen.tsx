@@ -23,7 +23,6 @@ export type FoodItem = {
   secondaryCategories?: Array<{ id: string; name: string }>;
   cuisine: string | null;
   stock: number;
-  lotId: string | null;
   seller: { id: string; name: string; username?: string | null; image: string | null };
 };
 
