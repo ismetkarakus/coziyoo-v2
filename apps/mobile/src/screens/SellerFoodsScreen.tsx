@@ -889,7 +889,6 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
             multiline
           />
 
-          <Text style={styles.sectionTitle}>Ücretsiz Ekler *</Text>
           <Text style={styles.subHint}>Sos, yan ürün ve salata/içecek gibi ücretsiz eşlikçileri burada görebilirsin.</Text>
           <View style={styles.menuItemsWrap}>
             {freeMenuItems.map((item, index) => {
