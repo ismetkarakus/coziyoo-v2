@@ -30,7 +30,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [foods, setFoods] = useState<SellerFood[]>(initialCache ?? []);
-  const [loading, setLoading] = useState(!(initialCache && initialCache.length > 0));
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -115,7 +115,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          loading ? (
+          loading && foods.length > 0 ? (
             <View style={styles.inlineLoading}>
               <ActivityIndicator size="small" color="#3F855C" />
               <Text style={styles.inlineLoadingText}>Yemekler hazırlanıyor...</Text>
@@ -139,12 +139,17 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          !loading ? (
+          loading ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>Yemekler yükleniyor...</Text>
+              <Text style={styles.emptySub}>Ekran hazır, içerik birkaç saniye içinde gelecek.</Text>
+            </View>
+          ) : (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>Henüz yemek yok</Text>
               <Text style={styles.emptySub}>Yemek eklediğinde burada göreceksin.</Text>
             </View>
-          ) : null
+          )
         }
       />
     </View>

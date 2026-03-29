@@ -1444,11 +1444,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   deliveryToggleActive: {
-    backgroundColor: "#8FA58F",
-    borderColor: "#8FA58F",
+    backgroundColor: "#BFDFCF",
+    borderColor: "#79BA94",
   },
   deliveryToggleText: { color: "#473C31", fontWeight: "700" },
-  deliveryToggleTextActive: { color: "#fff" },
+  deliveryToggleTextActive: { color: "#1D5634" },
   optionHint: { color: "#75685C", fontSize: 12, marginTop: 6 },
   subHint: { color: "#75685C", fontSize: 12, marginTop: 6 },
   previewBtn: {

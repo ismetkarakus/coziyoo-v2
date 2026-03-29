@@ -32,20 +32,20 @@ type SellerOrder = {
 type SellerAction =
   | { label: "Onayla"; kind: "approve_then_prepare"; tone?: "primary" }
   | { label: "Reddet"; kind: "reject"; tone?: "danger" }
-  | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "primary" }
+  | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "info" }
   | { label: "Hazır"; kind: "to_ready"; tone?: "primary" }
   | { label: "Yola Çıktı"; kind: "to_in_delivery"; tone?: "primary" }
   | { label: "Teslim Edildi"; kind: "to_delivered"; tone?: "primary" }
   | { label: "Tamamlandı"; kind: "to_completed"; tone?: "primary" };
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, deliveryType?: string): string {
   if (status === "pending_seller_approval") return "Onay Bekliyor";
   if (status === "seller_approved") return "Onaylandı";
-  if (status === "awaiting_payment") return "Ödeme Bekliyor";
-  if (status === "paid") return "Ödendi";
+  if (status === "awaiting_payment" || status === "paid") return "Onaylandı";
   if (status === "preparing") return "Hazırlanıyor";
   if (status === "ready") return "Hazır";
-  if (status === "in_delivery") return "Yolda";
+  if (status === "in_delivery" && deliveryType === "pickup") return "Hazır";
+  if (status === "in_delivery") return "Onaylandı";
   if (status === "delivered") return "Teslim Edildi";
   if (status === "completed") return "Tamamlandı";
   if (status === "cancelled") return "İptal";
@@ -53,10 +53,29 @@ function statusLabel(status: string): string {
   return status;
 }
 
-function cardActionsByStatus(status: string): SellerAction[] {
+function statusTone(status: string, deliveryType?: string): { bg: string; border: string; text: string } {
+  if (status === "seller_approved" || status === "awaiting_payment" || status === "paid") {
+    return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
+  }
+  if (status === "preparing") return { bg: "#E8F0FF", border: "#C7D7F8", text: "#1D4ED8" };
+  if (status === "in_delivery" && deliveryType === "pickup") {
+    return { bg: "#FFF4E5", border: "#F7D7A8", text: "#B45309" };
+  }
+  if (status === "in_delivery") {
+    return { bg: "#E6F7EC", border: "#BFE7CC", text: "#2E7D4E" };
+  }
+  if (status === "delivered" || status === "completed") {
+    return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
+  }
+  if (status === "pending_seller_approval") return { bg: "#FEECEC", border: "#F8CACA", text: "#B42318" };
+  return { bg: "#F7EFE2", border: "#D6CCBD", text: "#5C4A3A" };
+}
+
+function cardActionsByStatus(status: string, deliveryType?: string): SellerAction[] {
   if (status === "pending_seller_approval") return [{ label: "Reddet", kind: "reject", tone: "danger" }, { label: "Onayla", kind: "approve_then_prepare", tone: "primary" }];
-  if (status === "seller_approved" || status === "awaiting_payment" || status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "primary" }];
+  if (status === "seller_approved" || status === "awaiting_payment" || status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
   if (status === "preparing") return [{ label: "Hazır", kind: "to_ready", tone: "primary" }];
+  if (status === "ready" && deliveryType === "pickup") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
   if (status === "ready") return [{ label: "Yola Çıktı", kind: "to_in_delivery", tone: "primary" }];
   if (status === "in_delivery") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
   if (status === "delivered") return [{ label: "Tamamlandı", kind: "to_completed", tone: "primary" }];
@@ -287,8 +306,9 @@ export default function SellerHomeScreen({
             </View>
           ) : (
             activeOrders.map((item) => {
-              const actions = cardActionsByStatus(item.status);
+              const actions = cardActionsByStatus(item.status, item.deliveryType);
               const isUpdating = updatingOrderId === item.id;
+              const tone = statusTone(item.status, item.deliveryType);
               return (
                 <View key={item.id} style={styles.orderCard}>
                   <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
@@ -297,8 +317,8 @@ export default function SellerHomeScreen({
                         {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
                         {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                       </Text>
-                      <View style={styles.statusBadge}>
-                        <Text style={styles.statusBadgeText}>{statusLabel(item.status)}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+                        <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
                       </View>
                     </View>
                     <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
@@ -315,6 +335,7 @@ export default function SellerHomeScreen({
                           style={[
                             styles.cardActionBtn,
                             action.tone === "danger" ? styles.cardActionBtnDanger : styles.cardActionBtnPrimary,
+                            action.tone === "info" ? styles.cardActionBtnInfo : null,
                             isUpdating && styles.cardActionBtnDisabled,
                           ]}
                           disabled={isUpdating}
@@ -326,6 +347,7 @@ export default function SellerHomeScreen({
                             style={[
                               styles.cardActionBtnText,
                               action.tone === "danger" ? styles.cardActionBtnTextDanger : styles.cardActionBtnTextPrimary,
+                              action.tone === "info" ? styles.cardActionBtnTextInfo : null,
                             ]}
                           >
                             {isUpdating ? "İşleniyor..." : action.label}
@@ -378,7 +400,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    color: "#2E241C",
+    color: "#4A3B2F",
     letterSpacing: -0.5,
     ...(Platform.OS === "ios"
       ? { fontFamily: "AvenirNextCondensed-Bold", fontWeight: "700" }
@@ -396,38 +418,31 @@ const styles = StyleSheet.create({
   quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   quickButton: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#BFDFCF",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E6DED1",
+    borderColor: "#79BA94",
     paddingVertical: 10,
     alignItems: "center",
   },
-  quickButtonText: { color: "#2E241C", fontSize: 14, fontWeight: "700" },
+  quickButtonText: { color: "#1D5634", fontSize: 14, fontWeight: "700" },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
   ordersSection: { marginBottom: 14 },
   ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   ordersTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  ordersTitle: { fontSize: 18, fontWeight: "800", color: "#2E241C" },
+  ordersTitle: { fontSize: 18, fontWeight: "800", color: "#4A3B2F" },
   ordersCountChip: {
-    minWidth: 28,
-    height: 24,
-    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: "#D6CCBD",
-    backgroundColor: "#fff",
   },
-  ordersCountChipText: { color: "#5C4A3A", fontSize: 12, fontWeight: "800" },
+  ordersCountChipText: { color: "#5C4A3A", fontSize: 18, fontWeight: "800" },
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
-  emptyTitle: { color: "#2E241C", fontWeight: "800" },
+  emptyTitle: { color: "#4A3B2F", fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
   orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10 },
   orderTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16, flex: 1 },
+  orderNo: { color: "#4A3B2F", fontWeight: "800", fontSize: 16, flex: 1 },
   orderSubNo: { color: "#887766", fontSize: 12, marginTop: 2, marginBottom: 2 },
   statusBadge: {
     borderRadius: 999,
@@ -439,14 +454,16 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: { color: "#5C4A3A", fontSize: 11, fontWeight: "700" },
   orderMeta: { color: "#6C6055", marginTop: 3 },
-  orderTotal: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
+  orderTotal: { marginTop: 8, color: "#4A3B2F", fontWeight: "800" },
   cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   cardActionBtn: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: "center" },
   cardActionBtnPrimary: { backgroundColor: "#3F855C", borderColor: "#3F855C" },
+  cardActionBtnInfo: { backgroundColor: "#B7791F", borderColor: "#B7791F" },
   cardActionBtnDanger: { backgroundColor: "#FFF0EE", borderColor: "#F9CECA" },
   cardActionBtnDisabled: { opacity: 0.6 },
   cardActionBtnText: { fontWeight: "700", fontSize: 13 },
   cardActionBtnTextPrimary: { color: "#FFFFFF" },
+  cardActionBtnTextInfo: { color: "#FFFFFF" },
   cardActionBtnTextDanger: { color: "#B42318" },
   actions: { gap: 10 },
   switchRoleButton: {
