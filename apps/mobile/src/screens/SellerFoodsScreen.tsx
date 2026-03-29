@@ -890,19 +890,7 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
           />
 
           <Text style={styles.sectionTitle}>Ücretsiz Ekler *</Text>
-          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => openAddonLibrary("free", "extra")} activeOpacity={0.85}>
-            <Text style={styles.addMenuItemBtnText}>+ Hazır ücretsiz eklerden seç</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={styles.input}
-            value={freeAddonNameInput}
-            onChangeText={setFreeAddonNameInput}
-            placeholder="Örn: Acı sos"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-          />
-          <TouchableOpacity style={styles.addMenuItemBtn} onPress={() => addAddon("free")} activeOpacity={0.85}>
-            <Text style={styles.addMenuItemBtnText}>+ Ücretsiz ek ekle</Text>
-          </TouchableOpacity>
+          <Text style={styles.subHint}>Sos, yan ürün ve salata/içecek gibi ücretsiz eşlikçileri burada görebilirsin.</Text>
           <View style={styles.menuItemsWrap}>
             {freeMenuItems.map((item, index) => {
               const absoluteIndex = menuItems.findIndex(
