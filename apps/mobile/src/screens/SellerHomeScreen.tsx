@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -38,6 +38,14 @@ type SellerAction =
   | { label: "Teslim Edildi"; kind: "to_delivered"; tone?: "primary" }
   | { label: "Tamamlandı"; kind: "to_completed"; tone?: "primary" };
 
+type ActiveFood = {
+  id: string;
+  name: string;
+  price: number;
+  isActive: boolean;
+  stock: number;
+};
+
 function statusLabel(status: string, deliveryType?: string): string {
   if (status === "pending_seller_approval") return "Onay Bekliyor";
   if (status === "seller_approved") return "Onaylandı";
@@ -46,8 +54,8 @@ function statusLabel(status: string, deliveryType?: string): string {
   if (status === "ready") return "Hazır";
   if (status === "in_delivery" && deliveryType === "pickup") return "Hazır";
   if (status === "in_delivery") return "Onaylandı";
-  if (status === "delivered") return "Teslim Edildi";
-  if (status === "completed") return "Tamamlandı";
+  if (status === "delivered") return "👍";
+  if (status === "completed") return "👍";
   if (status === "cancelled") return "İptal";
   if (status === "rejected") return "Reddedildi";
   return status;
@@ -97,6 +105,10 @@ export default function SellerHomeScreen({
   const [displayName, setDisplayName] = useState<string>("Usta");
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [activeFoods, setActiveFoods] = useState<ActiveFood[]>([]);
+  const [activePage, setActivePage] = useState(0);
+  const pagerRef = useRef<ScrollView>(null);
+  const screenWidth = Dimensions.get("window").width;
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -146,9 +158,10 @@ export default function SellerHomeScreen({
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
-      const [profileRes, ordersRes] = await Promise.all([
+      const [profileRes, ordersRes, foodsRes] = await Promise.all([
         fetchWithAuth("/v1/seller/profile", baseUrl),
         fetchWithAuth("/v1/seller/orders?page=1&pageSize=200", baseUrl),
+        fetchWithAuth("/v1/seller/foods", baseUrl),
       ]);
       const profileJson = await profileRes.json();
       if (profileRes.ok) setDisplayName(profileJson.data?.displayName?.trim() || "Usta");
@@ -157,20 +170,24 @@ export default function SellerHomeScreen({
         const orders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
         setOrders(orders);
       }
-
-      // Warm up foods cache so "Yemek Yönetimi" opens instantly on first try.
-      void (async () => {
-        try {
-          const foodsRes = await fetchWithAuth("/v1/seller/foods", baseUrl);
-          if (!foodsRes.ok) return;
-          const foodsJson = await foodsRes.json();
-          if (Array.isArray(foodsJson?.data)) {
-            setSellerFoodsCache(foodsJson.data as Record<string, unknown>[]);
-          }
-        } catch {
-          // best-effort warmup
+      if (foodsRes.ok) {
+        const foodsJson = await foodsRes.json();
+        if (Array.isArray(foodsJson?.data)) {
+          const foods = foodsJson.data as Record<string, unknown>[];
+          setSellerFoodsCache(foods);
+          setActiveFoods(
+            foods
+              .filter((f) => f.isActive)
+              .map((f) => ({
+                id: String(f.id ?? ""),
+                name: String(f.name ?? ""),
+                price: Number(f.price ?? 0),
+                isActive: true,
+                stock: Number(f.stock ?? 0),
+              })),
+          );
         }
-      })();
+      }
     } catch {
       // best-effort
     } finally {
@@ -187,10 +204,30 @@ export default function SellerHomeScreen({
     return unsubscribe;
   }, [currentAuth.userId]);
 
-  const activeOrders = useMemo(
-    () => orders.filter((o) => !["completed", "cancelled", "rejected"].includes(o.status)),
-    [orders],
-  );
+  const activeOrders = useMemo(() => {
+    const filtered = orders.filter((o) => !["completed", "cancelled", "rejected"].includes(o.status));
+    const statusPriority: Record<string, number> = {
+      preparing: 0,
+      seller_approved: 1,
+      awaiting_payment: 1,
+      paid: 1,
+      ready: 2,
+      in_delivery: 3,
+      delivered: 4,
+    };
+    const pending = filtered
+      .filter((o) => o.status === "pending_seller_approval")
+      .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
+    const approved = filtered
+      .filter((o) => o.status !== "pending_seller_approval")
+      .sort((a, b) => {
+        const pa = statusPriority[a.status] ?? 9;
+        const pb = statusPriority[b.status] ?? 9;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+      });
+    return [...pending, ...approved];
+  }, [orders]);
 
   async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "completed" | "preparing"): Promise<void> {
     const res = await fetchWithAuthInit(
@@ -287,92 +324,137 @@ export default function SellerHomeScreen({
         </View>
       </View>
 
-      <ScrollView style={styles.ordersScroll} contentContainerStyle={styles.ordersContent}>
-        {/* Sipariş listesi */}
-        <View style={styles.ordersSection}>
-          <View style={styles.ordersHead}>
-            <View style={styles.ordersTitleRow}>
-              <Text style={styles.ordersTitle}>Bugünkü Siparişler</Text>
-              <View style={styles.ordersCountChip}>
-                <Text style={styles.ordersCountChipText}>{activeOrders.length}</Text>
+      {/* Stats header */}
+      <View style={styles.ordersHead}>
+        <TouchableOpacity style={styles.statBlock} activeOpacity={0.75} onPress={() => {
+          pagerRef.current?.scrollTo({ x: 0, animated: true });
+          setActivePage(0);
+        }}>
+          <Text style={[styles.statCount, activePage === 0 && styles.statCountActive]}>{activeOrders.length}</Text>
+          <Text style={[styles.statLabel, activePage === 0 && styles.statLabelActive]}>Bugünkü Siparişler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.statBlock} activeOpacity={0.75} onPress={() => {
+          pagerRef.current?.scrollTo({ x: screenWidth, animated: true });
+          setActivePage(1);
+        }}>
+          <Text style={[styles.statCount, activePage === 1 && styles.statCountActive]}>{activeFoods.length}</Text>
+          <Text style={[styles.statLabel, activePage === 1 && styles.statLabelActive]}>Satıştaki Yemekler</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Horizontal pager */}
+      <ScrollView
+        ref={pagerRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        directionalLockEnabled={true}
+        disableIntervalMomentum={true}
+        onMomentumScrollEnd={(e) => {
+          const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+          setActivePage(page);
+        }}
+        style={styles.pager}
+      >
+        {/* Sayfa 1: Bugünkü Siparişler */}
+        <ScrollView style={{ width: screenWidth }} contentContainerStyle={styles.ordersContent} nestedScrollEnabled={true}>
+          <View style={styles.ordersSection}>
+            {activeOrders.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>Aktif sipariş yok</Text>
+                <Text style={styles.emptySub}>Yeni sipariş geldiğinde burada görünecek.</Text>
               </View>
-            </View>
-          </View>
-
-          {activeOrders.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Aktif sipariş yok</Text>
-              <Text style={styles.emptySub}>Yeni sipariş geldiğinde burada görünecek.</Text>
-            </View>
-          ) : (
-            activeOrders.map((item) => {
-              const actions = cardActionsByStatus(item.status, item.deliveryType);
-              const isUpdating = updatingOrderId === item.id;
-              const tone = statusTone(item.status, item.deliveryType);
-              return (
-                <View key={item.id} style={styles.orderCard}>
-                  <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
-                    <View style={styles.orderTopRow}>
-                      <Text style={styles.orderNo} numberOfLines={1}>
-                        {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
-                        {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
-                      </Text>
-                      <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                        <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
+            ) : (
+              activeOrders.map((item) => {
+                const actions = cardActionsByStatus(item.status, item.deliveryType);
+                const isUpdating = updatingOrderId === item.id;
+                const tone = statusTone(item.status, item.deliveryType);
+                return (
+                  <View key={item.id} style={styles.orderCard}>
+                    <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
+                      <View style={styles.orderTopRow}>
+                        <Text style={styles.orderNo} numberOfLines={1}>
+                          {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
+                          {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
+                        </View>
                       </View>
-                    </View>
-                    <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
-                    <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
-                    <Text style={styles.orderMeta}>Teslimat: {item.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
-                    <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-                  </TouchableOpacity>
-                  {actions.length > 0 ? (
-                    <View style={styles.cardActionRow}>
-                      {actions.map((action) => (
-                        <TouchableOpacity
-                          key={`${item.id}-${action.kind}`}
-                          activeOpacity={0.86}
-                          style={[
-                            styles.cardActionBtn,
-                            action.tone === "danger" ? styles.cardActionBtnDanger : styles.cardActionBtnPrimary,
-                            action.tone === "info" ? styles.cardActionBtnInfo : null,
-                            isUpdating && styles.cardActionBtnDisabled,
-                          ]}
-                          disabled={isUpdating}
-                          onPress={() => {
-                            void runCardAction(item.id, action);
-                          }}
-                        >
-                          <Text
+                      <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
+                      <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
+                      <Text style={styles.orderMeta}>Teslimat: {item.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
+                      <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+                    </TouchableOpacity>
+                    {actions.length > 0 ? (
+                      <View style={styles.cardActionRow}>
+                        {actions.map((action) => (
+                          <TouchableOpacity
+                            key={`${item.id}-${action.kind}`}
+                            activeOpacity={0.86}
                             style={[
-                              styles.cardActionBtnText,
-                              action.tone === "danger" ? styles.cardActionBtnTextDanger : styles.cardActionBtnTextPrimary,
-                              action.tone === "info" ? styles.cardActionBtnTextInfo : null,
+                              styles.cardActionBtn,
+                              action.tone === "danger" ? styles.cardActionBtnDanger : styles.cardActionBtnPrimary,
+                              action.tone === "info" ? styles.cardActionBtnInfo : null,
+                              isUpdating && styles.cardActionBtnDisabled,
                             ]}
+                            disabled={isUpdating}
+                            onPress={() => { void runCardAction(item.id, action); }}
                           >
-                            {isUpdating ? "İşleniyor..." : action.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })
-          )}
-        </View>
-
-        {onSwitchToBuyer ? (
-          <View style={styles.actions}>
-            <TouchableOpacity
-              activeOpacity={0.86}
-              style={styles.switchRoleButton}
-              onPress={onSwitchToBuyer}
-            >
-              <Text style={styles.switchRoleButtonText}>Alıcı Moduna Geç</Text>
-            </TouchableOpacity>
+                            <Text
+                              style={[
+                                styles.cardActionBtnText,
+                                action.tone === "danger" ? styles.cardActionBtnTextDanger : styles.cardActionBtnTextPrimary,
+                                action.tone === "info" ? styles.cardActionBtnTextInfo : null,
+                              ]}
+                            >
+                              {isUpdating ? "İşleniyor..." : action.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })
+            )}
           </View>
-        ) : null}
+          {onSwitchToBuyer ? (
+            <View style={styles.actions}>
+              <TouchableOpacity activeOpacity={0.86} style={styles.switchRoleButton} onPress={onSwitchToBuyer}>
+                <Text style={styles.switchRoleButtonText}>Alıcı Moduna Geç</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* Sayfa 2: Satıştaki Yemekler */}
+        <ScrollView style={{ width: screenWidth }} contentContainerStyle={styles.ordersContent} nestedScrollEnabled={true}>
+          <View style={styles.ordersSection}>
+            {activeFoods.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>Satıştaki yemek yok</Text>
+                <Text style={styles.emptySub}>Yemek Yönetimi'nden yemek aktifleştirebilirsin.</Text>
+              </View>
+            ) : (
+              activeFoods.map((food) => (
+                <View key={food.id} style={styles.orderCard}>
+                  <View style={styles.orderTopRow}>
+                    <Text style={styles.orderNo} numberOfLines={1}>{food.name}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: "#EAF7EE", borderColor: "#B7DEC3" }]}>
+                      <Text style={[styles.statusBadgeText, { color: "#166534" }]}>Aktif</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <Text style={styles.orderTotal}>{Number(food.price).toFixed(2)} TL</Text>
+                    <Text style={styles.orderMeta}>Stok: {food.stock} adet</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
       </ScrollView>
     </View>
   );
@@ -415,28 +497,63 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  quickButtonsRow: { flexDirection: "row", gap: 16, marginBottom: 10 },
   quickButton: {
     flex: 1,
-    backgroundColor: "#BFDFCF",
-    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#79BA94",
+    borderColor: "#E5DDCF",
     paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
-  quickButtonText: { color: "#1D5634", fontSize: 14, fontWeight: "700" },
+  quickButtonText: {
+    color: "#4A3B2F",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    ...(Platform.OS === "ios"
+      ? { fontFamily: "AvenirNextCondensed-DemiBold" }
+      : { fontFamily: "sans-serif-condensed" }),
+  },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
   ordersSection: { marginBottom: 14 },
-  ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingHorizontal: 16 },
   ordersTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   ordersTitle: { fontSize: 18, fontWeight: "800", color: "#4A3B2F" },
-  ordersCountChip: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  ordersCountChip: { alignItems: "center", justifyContent: "center" },
   ordersCountChipText: { color: "#5C4A3A", fontSize: 18, fontWeight: "800" },
+  pager: { flex: 1 },
+  statBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderBottomWidth: 2,
+    borderBottomColor: "#C8BFB3",
+    paddingBottom: 4,
+  },
+  statCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#3F855C",
+    ...(Platform.OS === "ios"
+      ? { fontFamily: "AvenirNextCondensed-Bold" }
+      : { fontFamily: "sans-serif-condensed" }),
+  },
+  statCountActive: { color: "#1D5634" },
+  statLabel: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#4A3B2F",
+    ...(Platform.OS === "ios"
+      ? { fontFamily: "AvenirNextCondensed-DemiBold" }
+      : { fontFamily: "sans-serif-condensed" }),
+  },
+  statLabelActive: { color: "#1D5634" },
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   emptyTitle: { color: "#4A3B2F", fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
