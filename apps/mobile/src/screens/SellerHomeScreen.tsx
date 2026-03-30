@@ -500,21 +500,14 @@ const styles = StyleSheet.create({
   quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   quickButton: {
     flex: 1,
-    backgroundColor: "#F9E9D5",
+    backgroundColor: "#BFDFCF",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#79BA94",
     paddingVertical: 10,
     alignItems: "center",
   },
-  quickButtonText: {
-    color: "#1D5634",
-    fontSize: 17,
-    fontWeight: "700",
-    ...(Platform.OS === "ios"
-      ? { fontFamily: "AvenirNextCondensed-DemiBold" }
-      : { fontFamily: "sans-serif-condensed" }),
-  },
+  quickButtonText: { color: "#1D5634", fontSize: 14, fontWeight: "700" },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
   ordersSection: { marginBottom: 14 },
