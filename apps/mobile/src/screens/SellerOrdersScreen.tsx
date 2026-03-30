@@ -25,17 +25,6 @@ type SellerOrder = {
 
 type StatusFilter = "all" | "pending_seller_approval" | "preparing" | "in_delivery" | "delivered" | "completed" | "cancelled" | "rejected";
 
-const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
-  { key: "all", label: "Tümü" },
-  { key: "pending_seller_approval", label: "Onay Bekliyor" },
-  { key: "preparing", label: "Hazırlanıyor" },
-  { key: "in_delivery", label: "Yolda" },
-  { key: "delivered", label: "Teslim" },
-  { key: "completed", label: "Tamamlandı" },
-  { key: "cancelled", label: "İptal" },
-  { key: "rejected", label: "Reddedildi" },
-];
-
 function parseDateInput(value: string): Date | null {
   const raw = value.trim();
   if (!raw) return null;
@@ -156,18 +145,6 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
             style={styles.dateInput}
           />
         </View>
-        <View style={styles.statusWrap}>
-          {STATUS_FILTERS.map((item) => (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.statusChip, statusFilter === item.key && styles.statusChipActive]}
-              onPress={() => setStatusFilter(item.key)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.statusChipText, statusFilter === item.key && styles.statusChipTextActive]}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </View>
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} />
@@ -229,21 +206,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  statusWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  statusChip: {
-    borderWidth: 1,
-    borderColor: "#E2D8CC",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "#F8F3ED",
-  },
-  statusChipActive: {
-    borderColor: "#3F855C",
-    backgroundColor: "#EAF4EE",
-  },
-  statusChipText: { color: "#6D6055", fontSize: 12, fontWeight: "700" },
-  statusChipTextActive: { color: "#2F6D49" },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
   meta: { color: "#6C6055", marginTop: 3 },
