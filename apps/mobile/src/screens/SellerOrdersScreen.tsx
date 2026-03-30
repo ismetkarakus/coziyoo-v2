@@ -113,7 +113,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
     const to = parseDateInput(toDate);
     const toEnd = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999) : null;
 
-    return orders.filter((order) => {
+    const filtered = orders.filter((order) => {
       if (statusFilter !== "all" && order.status !== statusFilter) return false;
       if (!from && !toEnd) return true;
       const createdAt = order.createdAt ? new Date(order.createdAt) : null;
@@ -121,6 +121,13 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       if (from && createdAt < from) return false;
       if (toEnd && createdAt > toEnd) return false;
       return true;
+    });
+
+    // Sort by createdAt descending (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
     });
   }, [orders, statusFilter, fromDate, toDate]);
 
@@ -168,7 +175,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
                   <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
                   <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
-                  <Text style={styles.meta}>Durum: {item.status}</Text>
+                  <Text style={styles.meta}>Durum: {item.status === "delivered" || item.status === "completed" ? "👍" : item.status}</Text>
                   <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
                 </TouchableOpacity>
               )}
