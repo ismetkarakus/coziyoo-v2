@@ -63,7 +63,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
   const [dob, setDob] = useState('');
   const [tcKimlikNo, setTcKimlikNo] = useState('');
   const [email, setEmail] = useState('');
-  const [editField, setEditField] = useState<'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email' | null>(null);
+  const [editField, setEditField] = useState<'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email' | 'tcKimlikNo' | null>(null);
   const [editValue, setEditValue] = useState('');
   const fallbackEmail = currentAuth.email || auth.email || '';
 
@@ -224,13 +224,14 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     }
   }
 
-  function openFieldEditor(field: 'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email') {
+  function openFieldEditor(field: 'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email' | 'tcKimlikNo') {
     if (field === 'displayName') setEditValue(displayName);
     if (field === 'username') setEditValue(username);
     if (field === 'fullName') setEditValue(fullName);
     if (field === 'phone') setEditValue(phone);
     if (field === 'dob') setEditValue(dob);
     if (field === 'email') setEditValue(email);
+    if (field === 'tcKimlikNo') setEditValue(tcKimlikNo);
     setEditField(field);
   }
 
@@ -243,6 +244,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     if (editField === 'phone') setPhone(next);
     if (editField === 'dob') setDob(next);
     if (editField === 'email') setEmail(next);
+    if (editField === 'tcKimlikNo') setTcKimlikNo(next);
     setEditField(null);
   }
 
@@ -252,6 +254,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
     if (editField === 'phone') return t('helper.profileEdit.phonePlaceholder');
     if (editField === 'dob') return t('helper.profileEdit.dobPlaceholder');
     if (editField === 'email') return t('helper.profileEdit.emailHint');
+    if (editField === 'tcKimlikNo') return t('helper.profileEdit.countryPlaceholder');
     return t('helper.profileEdit.displayNamePlaceholder');
   }
 
@@ -394,6 +397,23 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
 
                 <View style={styles.infoCard}>
                   <View style={styles.infoHead}>
+                    <View style={[styles.infoIconWrap, { backgroundColor: '#C0392B' }]}>
+                      <Ionicons name="id-card-outline" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.infoHeadText}>
+                      <Text style={styles.infoTitle}>{t('helper.profileEdit.countryLabel')}</Text>
+                      <Text style={styles.infoSubtitle}>11 haneli TC kimlik numarası</Text>
+                    </View>
+                    <TouchableOpacity style={styles.editChip} onPress={() => openFieldEditor('tcKimlikNo')}>
+                      <Text style={styles.editChipText}>{t('cta.profileEdit.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoValue}>{tcKimlikNo || t('helper.profileEdit.countryPlaceholder')}</Text>
+                </View>
+
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHead}>
                     <View style={[styles.infoIconWrap, { backgroundColor: '#9FB6D8' }]}>
                       <Ionicons name="mail" size={18} color="#FFFFFF" />
                     </View>
@@ -470,9 +490,9 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
               }}
               placeholder={getEditPlaceholder()}
               placeholderTextColor={theme.textSecondary}
-              autoCapitalize={editField === 'phone' || editField === 'email' || editField === 'dob' || editField === 'username' ? 'none' : 'words'}
-              keyboardType={editField === 'phone' ? 'phone-pad' : editField === 'email' ? 'email-address' : editField === 'dob' ? 'numbers-and-punctuation' : 'default'}
-              maxLength={editField === 'phone' ? 20 : editField === 'dob' ? 10 : editField === 'username' ? 30 : 120}
+              autoCapitalize={editField === 'phone' || editField === 'email' || editField === 'dob' || editField === 'username' || editField === 'tcKimlikNo' ? 'none' : 'words'}
+              keyboardType={editField === 'phone' ? 'phone-pad' : editField === 'email' ? 'email-address' : editField === 'dob' ? 'numbers-and-punctuation' : editField === 'tcKimlikNo' ? 'numeric' : 'default'}
+              maxLength={editField === 'phone' ? 20 : editField === 'dob' ? 10 : editField === 'username' ? 30 : editField === 'tcKimlikNo' ? 11 : 120}
               autoFocus
             />
             <View style={styles.editModalActions}>
