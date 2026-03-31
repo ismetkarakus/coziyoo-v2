@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10 },
   orderTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   orderNo: { color: "#4A3B2F", fontWeight: "800", fontSize: 16, flex: 1 },
-  orderSubNo: { color: "#887766", fontSize: 12, marginTop: 2, marginBottom: 2 },
+  orderSubNo: { color: "#887766", fontSize: 12, fontWeight: "700", marginTop: 2, marginBottom: 2 },
   statusBadge: {
     borderRadius: 999,
     paddingHorizontal: 10,

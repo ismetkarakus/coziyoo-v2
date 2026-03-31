@@ -30,6 +30,11 @@ type SellerOrder = {
 
 type StatusFilter = "all" | "pending_seller_approval" | "awaiting_payment" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
 
+function shouldShowHistoryStatus(status: string): boolean {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  return normalized === "cancelled" || normalized === "rejected";
+}
+
 function formatOrderDate(iso: string | undefined): string {
   if (!iso) return "-";
   const normalized = iso.trim().replace(" ", "T").replace(/(\.\d+)?([+-]\d{2})$/, "$1$2:00");
@@ -203,7 +208,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
-                    <StatusBadge status={item.status} size="sm" />
+                    {shouldShowHistoryStatus(item.status) ? <StatusBadge status={item.status} size="sm" /> : null}
                   </View>
                   {item.primaryFoodName ? (
                     <Text style={styles.foodName}>
