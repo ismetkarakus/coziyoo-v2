@@ -32,6 +32,8 @@ type SellerOrder = {
 };
 
 type SellerAction =
+  | { label: "Onayla"; kind: "approve"; tone?: "primary" }
+  | { label: "Reddet"; kind: "reject"; tone?: "danger" }
   | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "info" }
   | { label: "Hazır"; kind: "to_ready"; tone?: "primary" }
   | { label: "Yola Çıktı"; kind: "to_in_delivery"; tone?: "primary" }
@@ -98,6 +100,7 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 }
 
 function cardActionsByStatus(status: string, deliveryType?: string): SellerAction[] {
+  if (status === "pending_seller_approval") return [{ label: "Reddet", kind: "reject", tone: "danger" }, { label: "Onayla", kind: "approve", tone: "primary" }];
   if (status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
   if (status === "preparing") return [{ label: "Hazır", kind: "to_ready", tone: "primary" }];
   if (status === "ready" && deliveryType === "pickup") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
@@ -254,18 +257,21 @@ export default function SellerHomeScreen({
     const now = new Date();
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
-      if (!["paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(o.status)) return false;
+      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(o.status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
       return isSameLocalDay(activityAt, now);
     });
     const statusPriority: Record<string, number> = {
-      paid: 0,
-      preparing: 1,
-      ready: 2,
-      in_delivery: 3,
-      delivered: 4,
-      completed: 5,
+      pending_seller_approval: 0,
+      seller_approved: 1,
+      awaiting_payment: 1,
+      paid: 2,
+      preparing: 3,
+      ready: 4,
+      in_delivery: 5,
+      delivered: 6,
+      completed: 7,
     };
     return [...filtered].sort((a, b) => {
       const pa = statusPriority[a.status] ?? 9;
@@ -290,10 +296,34 @@ export default function SellerHomeScreen({
     if (!res.ok) throw new Error(body?.error?.message ?? "Durum güncellenemedi");
   }
 
+  async function approveOrder(orderId: string): Promise<void> {
+    const res = await fetchWithAuthInit(
+      `/v1/orders/${orderId}/approve`,
+      { method: "POST", body: JSON.stringify({}) },
+      apiUrl,
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body?.error?.message ?? "Sipariş onaylanamadı");
+  }
+
+  async function rejectOrder(orderId: string): Promise<void> {
+    const res = await fetchWithAuthInit(
+      `/v1/orders/${orderId}/reject`,
+      { method: "POST", body: JSON.stringify({ reason: "Şu an hazırlanamıyor." }) },
+      apiUrl,
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body?.error?.message ?? "Sipariş reddedilemedi");
+  }
+
   async function runCardAction(orderId: string, action: SellerAction) {
     try {
       setUpdatingOrderId(orderId);
-      if (action.kind === "to_preparing") {
+      if (action.kind === "approve") {
+        await approveOrder(orderId);
+      } else if (action.kind === "reject") {
+        await rejectOrder(orderId);
+      } else if (action.kind === "to_preparing") {
         await changeStatus(orderId, "preparing");
       } else if (action.kind === "to_ready") {
         await changeStatus(orderId, "ready");
@@ -416,7 +446,7 @@ export default function SellerHomeScreen({
                             activeOpacity={0.86}
                             style={[
                               styles.cardActionBtn,
-                              styles.cardActionBtnPrimary,
+                              action.tone === "danger" ? styles.cardActionBtnDanger : styles.cardActionBtnPrimary,
                               action.tone === "info" ? styles.cardActionBtnInfo : null,
                               isUpdating && styles.cardActionBtnDisabled,
                             ]}
@@ -426,7 +456,7 @@ export default function SellerHomeScreen({
                             <Text
                               style={[
                                 styles.cardActionBtnText,
-                                styles.cardActionBtnTextPrimary,
+                                action.tone === "danger" ? styles.cardActionBtnTextDanger : styles.cardActionBtnTextPrimary,
                                 action.tone === "info" ? styles.cardActionBtnTextInfo : null,
                               ]}
                             >

@@ -1036,7 +1036,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedOrderEvents.map((event, index) => {
+                      {selectedOrderEvents
+                        .filter((event) => {
+                          const to = String(event.to_status ?? "").trim();
+                          const from = String(event.from_status ?? "").trim();
+                          // skip no-op transitions (same status → same status)
+                          return to && !(from && from === to);
+                        })
+                        .map((event, index) => {
                         const toStatus = String(event.to_status ?? "").trim();
                         const fromStatus = String(event.from_status ?? "").trim();
                         const actorId = String(event.actor_user_id ?? "").trim();
@@ -1045,7 +1052,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                             <td style={{ whiteSpace: "nowrap" }}>{formatOrderCreatedAt(event.created_at)}</td>
                             <td>
                               {fromStatus ? `${orderStatusMeta(fromStatus).label} → ` : ""}
-                              {toStatus ? <strong>{orderStatusMeta(toStatus).label}</strong> : "-"}
+                              <strong>{orderStatusMeta(toStatus).label}</strong>
                             </td>
                             <td>{actorId ? (userNameById[actorId] ?? shortUuid(actorId)) : "-"}</td>
                           </tr>
