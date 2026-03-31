@@ -19,6 +19,7 @@ type Props = {
 
 type SellerOrder = {
   id: string;
+  sellerId?: string | null;
   orderNo?: string | null;
   buyerName?: string | null;
   primaryFoodName?: string | null;
@@ -45,6 +46,22 @@ type ActiveFood = {
   isActive: boolean;
   stock: number;
 };
+
+function parseApiDate(value?: string | null): Date | null {
+  if (!value?.trim()) return null;
+  const normalized = value.trim().replace(" ", "T").replace(/(\.\d+)?([+-]\d{2})$/, "$1$2:00");
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function isSameLocalDay(date: Date, reference: Date): boolean {
+  return (
+    date.getFullYear() === reference.getFullYear() &&
+    date.getMonth() === reference.getMonth() &&
+    date.getDate() === reference.getDate()
+  );
+}
 
 function statusLabel(status: string, deliveryType?: string): string {
   if (status === "pending_seller_approval") return "Onay Bekliyor";
@@ -180,8 +197,20 @@ export default function SellerHomeScreen({
       if (profileRes.ok) setDisplayName(profileJson.data?.displayName?.trim() || "Usta");
       if (ordersRes.ok) {
         const ordersJson = await ordersRes.json();
-        const orders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
-        setOrders(orders);
+        let sellerOrders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
+
+        // Keep the home feed aligned with SellerOrdersScreen when the seller-scoped
+        // endpoint returns empty due to legacy actor filtering in some environments.
+        if (sellerOrders.length === 0) {
+          const fallbackRes = await fetchWithAuth("/v1/orders?page=1&pageSize=200", baseUrl);
+          const fallbackJson = await fallbackRes.json().catch(() => ({}));
+          if (fallbackRes.ok && Array.isArray(fallbackJson?.data)) {
+            const fromAll = fallbackJson.data.filter((row: SellerOrder & { sellerId?: string }) => row.sellerId === currentAuth.userId);
+            sellerOrders = fromAll.length > 0 ? fromAll : fallbackJson.data;
+          }
+        }
+
+        setOrders(sellerOrders);
       }
       if (foodsRes.ok) {
         const foodsJson = await foodsRes.json();
@@ -218,7 +247,14 @@ export default function SellerHomeScreen({
   }, [currentAuth.userId]);
 
   const activeOrders = useMemo(() => {
-    const filtered = orders.filter((o) => !["completed", "cancelled", "rejected"].includes(o.status));
+    const now = new Date();
+    const filtered = orders.filter((o) => {
+      if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
+      if (["completed", "cancelled", "rejected"].includes(o.status)) return false;
+      const createdAt = parseApiDate(o.createdAt);
+      if (!createdAt) return false;
+      return isSameLocalDay(createdAt, now);
+    });
     const statusPriority: Record<string, number> = {
       preparing: 0,
       seller_approved: 1,
