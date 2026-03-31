@@ -202,7 +202,6 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
-                    <Text style={styles.orderNoRight}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
                   </View>
                   {item.primaryFoodName ? (
                     <Text style={styles.foodName}>
@@ -253,7 +252,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
-  orderNoRight: { color: "#6C6055", fontWeight: "700", fontSize: 12 },
   foodName: { color: "#2E241C", fontWeight: "700", fontSize: 14, marginTop: 4 },
   meta: { color: "#6C6055", marginTop: 3 },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
