@@ -135,14 +135,7 @@ export default function App() {
       },
       onPanResponderRelease: (_, gesture) => {
         if (gesture.dy > 120 || gesture.vy > 0.5) {
-          Animated.timing(sheetTranslateY, {
-            toValue: 600,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            sheetTranslateY.setValue(0);
-            setSellerOrderModalVisible(false);
-          });
+          closeSheet();
         } else {
           Animated.spring(sheetTranslateY, {
             toValue: 0,
@@ -153,6 +146,16 @@ export default function App() {
       },
     }),
   ).current;
+  function closeSheet() {
+    Animated.timing(sheetTranslateY, {
+      toValue: 600,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      sheetTranslateY.setValue(0);
+      setSellerOrderModalVisible(false);
+    });
+  }
   const [sellerFoodsInitialEditId, setSellerFoodsInitialEditId] = useState<string | null>(null);
   const [sellerFoodsInitialEditFood, setSellerFoodsInitialEditFood] = useState<any | null>(null);
   const [sellerFoodsFromManager, setSellerFoodsFromManager] = useState(false);
@@ -675,20 +678,28 @@ export default function App() {
         />
         <Modal
           visible={sellerOrderModalVisible && Boolean(selectedOrderId)}
-          animationType="slide"
+          animationType="none"
           transparent
           presentationStyle="overFullScreen"
-          onRequestClose={() => setSellerOrderModalVisible(false)}
+          onRequestClose={closeSheet}
+          onShow={() => {
+            sheetTranslateY.setValue(600);
+            Animated.spring(sheetTranslateY, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 4,
+            }).start();
+          }}
         >
           <View style={styles.sheetOverlay}>
-            <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setSellerOrderModalVisible(false)} />
+            <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeSheet} />
             <Animated.View style={[styles.sheetCard, { transform: [{ translateY: sheetTranslateY }] }]} {...sheetPanResponder.panHandlers}>
               <View style={styles.sheetGrabber} />
               {selectedOrderId ? (
                 <SellerOrderDetailScreen
                   auth={auth}
                   orderId={selectedOrderId}
-                  onBack={() => setSellerOrderModalVisible(false)}
+                  onBack={closeSheet}
                   onAuthRefresh={setAuth}
                 />
               ) : null}
