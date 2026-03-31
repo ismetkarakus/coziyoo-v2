@@ -52,13 +52,13 @@ const transitionActions: Record<string, Array<{ label: string; toStatus?: string
     { label: "Onayla", endpoint: "approve" },
     { label: "Reddet", endpoint: "reject" },
   ],
-  seller_approved: [{ label: "Ödeme Bekliyor", toStatus: "awaiting_payment" }],
+  seller_approved: [],
   awaiting_payment: [],
   paid: [{ label: "Hazırlanıyor", toStatus: "preparing" }],
   preparing: [{ label: "Hazır", toStatus: "ready" }],
   ready: [{ label: "Yola Çıktı", toStatus: "in_delivery" }],
   in_delivery: [{ label: "Teslim Edildi", toStatus: "delivered" }],
-  delivered: [{ label: "Tamamlandı", toStatus: "completed" }],
+  delivered: [],
 };
 
 export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
