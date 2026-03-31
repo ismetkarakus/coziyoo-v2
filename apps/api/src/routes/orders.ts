@@ -497,9 +497,13 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
     created_at: string; updated_at: string;
     seller_name: string; seller_image: string | null;
     buyer_name: string;
+    seller_address_json: unknown;
   }>(
     `SELECT o.*, s.display_name AS seller_name, s.profile_image_url AS seller_image,
-            b.display_name AS buyer_name
+            b.display_name AS buyer_name,
+            (SELECT json_build_object('title', sa.title, 'addressLine', sa.address_line)
+             FROM user_addresses sa WHERE sa.user_id = o.seller_id AND sa.is_default = TRUE
+             LIMIT 1) AS seller_address_json
      FROM orders o
      JOIN users s ON s.id = o.seller_id
      JOIN users b ON b.id = o.buyer_id
@@ -542,6 +546,7 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
       status: o.status,
       deliveryType: o.delivery_type,
       deliveryAddress: o.delivery_address_json,
+      sellerAddress: o.seller_address_json,
       totalPrice: Number(o.total_price),
       paymentCompleted: o.payment_completed,
       requestedAt: o.requested_at,

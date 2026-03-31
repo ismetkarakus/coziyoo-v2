@@ -101,7 +101,13 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     void loadOrder();
   }, [orderId]);
 
-  const actions = useMemo(() => transitionActions[order?.status ?? ""] ?? [], [order?.status]);
+  const actions = useMemo(() => {
+    const base = transitionActions[order?.status ?? ""] ?? [];
+    if (order?.status === "ready" && order.deliveryType === "pickup") {
+      return [{ label: "Teslim Edildi", toStatus: "delivered" }];
+    }
+    return base;
+  }, [order?.status, order?.deliveryType]);
 
   async function runAction(action: { label: string; toStatus?: string; endpoint?: "approve" | "reject" }) {
     if (!order) return;
@@ -138,14 +144,21 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             <Text style={styles.orderNo}>{order.orderNo || order.id.slice(0, 8)}</Text>
             <Text style={styles.meta}>Durum: {order.status}</Text>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
-            <Text style={styles.meta}>Teslimat: {order.deliveryType || "-"}</Text>
+            <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
             <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
           </View>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
-            <Text style={styles.meta}>{order.deliveryAddress?.title || "-"}</Text>
-            <Text style={styles.meta}>{order.deliveryAddress?.addressLine || "-"}</Text>
-          </View>
+          {order.deliveryType === "delivery" ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
+              <Text style={styles.meta}>{order.deliveryAddress?.title || "-"}</Text>
+              <Text style={styles.meta}>{order.deliveryAddress?.addressLine || "-"}</Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Gel Al</Text>
+              <Text style={styles.meta}>Alıcı siparişi sizden teslim alacak.</Text>
+            </View>
+          )}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Ürünler</Text>
             {(order.items ?? []).map((item, index) => (

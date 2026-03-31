@@ -24,6 +24,7 @@ type OrderDetail = {
   status: string;
   deliveryType: 'pickup' | 'delivery';
   deliveryAddress: unknown;
+  sellerAddress?: { title?: string; addressLine?: string } | null;
   totalPrice: number;
   paymentCompleted: boolean;
   createdAt: string;
@@ -373,7 +374,7 @@ export default function OrderDetailScreen({
           <Text style={styles.sectionValue}>
             {order.deliveryType === 'delivery'
               ? (addressText || 'Adres bilgisi yok')
-              : 'Satıcıdan teslim alınacak'}
+              : [order.sellerAddress?.title, order.sellerAddress?.addressLine].filter(Boolean).join(' · ') || 'Satıcıdan teslim alınacak'}
           </Text>
         </View>
 
