@@ -2329,7 +2329,7 @@ export default function HomeScreen({
     }
   }
 
-  async function refreshPaymentStatus() {
+  async function refreshPaymentStatus(waitForSettlement = false) {
     const orderIds = activeOrderIds.length > 0
       ? activeOrderIds
       : activeOrderId
@@ -2342,7 +2342,7 @@ export default function HomeScreen({
     setPaymentError(null);
     setPaymentInfo(null);
     try {
-      const snapshots = await Promise.all(
+      const loadSnapshots = async () => Promise.all(
         orderIds.map(async (oid) => {
           const response = await fetch(`${apiUrl}/v1/payments/${oid}/status`, {
             headers: {
@@ -2372,13 +2372,26 @@ export default function HomeScreen({
           } as PaymentStatusSnapshot;
         }),
       );
+
+      let snapshots = await loadSnapshots();
+      if (waitForSettlement) {
+        const hasPendingAttempt = (rows: PaymentStatusSnapshot[]) =>
+          rows.some((row) => !row.paymentCompleted && !["failed", "canceled"].includes((row.latestAttemptStatus ?? "").toLowerCase()));
+        for (let attempt = 0; attempt < 4 && hasPendingAttempt(snapshots); attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 900));
+          snapshots = await loadSnapshots();
+        }
+      }
       const completedCount = snapshots.filter((s) => s.paymentCompleted).length;
       setPaymentStatus(snapshots[0] ?? null);
       if (snapshots.length > 1) {
         setPaymentInfo(`${completedCount}/${snapshots.length} ödeme tamamlandı.`);
+      } else if (completedCount === 1) {
+        setPaymentInfo('Ödeme tamamlandı! Siparişin satıcıya iletildi.');
       }
       if (completedCount === snapshots.length && snapshots.length > 0) {
         setCartItems([]);
+        setCheckoutUrl(null);
         setPendingCheckoutUrls([]);
       }
     } catch (err) {
@@ -3418,7 +3431,7 @@ export default function HomeScreen({
                   url.includes('result=failed')
                 ) {
                   setPaymentWebVisible(false);
-                  void refreshPaymentStatus();
+                  void refreshPaymentStatus(true);
                 }
               }}
               startInLoadingState
@@ -4214,17 +4227,11 @@ export default function HomeScreen({
         <CartPaymentAnimation
           onDone={() => {
             setPaymentAnimating(false);
-            setCartItems([]);
-            setActiveOrderId(null);
-            setActiveOrderIds([]);
-            setPaymentStatus({
-              orderId: activeOrderIds[0] ?? activeOrderId ?? '',
-              orderStatus: 'confirmed',
-              paymentCompleted: true,
-              latestAttemptStatus: 'succeeded',
-            });
-            setPaymentInfo('Ödeme tamamlandı! Siparişin onaylandı.');
-            loadSettings().then((s) => fetchFoods(s.apiUrl));
+            if (checkoutUrl) {
+              setPaymentWebVisible(true);
+              return;
+            }
+            void refreshPaymentStatus(true);
           }}
         />
       </Modal>
