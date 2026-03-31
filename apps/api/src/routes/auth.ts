@@ -767,47 +767,52 @@ authRouter.post("/forgot-password/confirm", abuseProtection({ flow: "forgot_pass
 });
 
 authRouter.get("/me", requireAuth("app"), async (req, res) => {
-  const result = await pool.query<{
-    id: string;
-    email: string;
-    display_name: string;
-    username: string;
-    user_type: string;
-    full_name: string | null;
-    country_code: string | null;
-    national_id: string | null;
-    language: string | null;
-    phone: string | null;
-    dob: string | null;
-    profile_image_url: string | null;
-  }>(
-    `SELECT id, email, display_name, username, user_type, full_name, country_code, national_id, language, phone, dob, profile_image_url
-     FROM users
-     WHERE id = $1 AND is_active = TRUE`,
-    [req.auth!.userId]
-  );
+  try {
+    const result = await pool.query<{
+      id: string;
+      email: string;
+      display_name: string;
+      username: string;
+      user_type: string;
+      full_name: string | null;
+      country_code: string | null;
+      national_id: string | null;
+      language: string | null;
+      phone: string | null;
+      dob: string | null;
+      profile_image_url: string | null;
+    }>(
+      `SELECT id, email, display_name, username, user_type, full_name, country_code, national_id, language, phone, dob, profile_image_url
+       FROM users
+       WHERE id = $1 AND is_active = TRUE`,
+      [req.auth!.userId]
+    );
 
-  if ((result.rowCount ?? 0) === 0) {
-    return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+    if ((result.rowCount ?? 0) === 0) {
+      return res.status(404).json({ error: { code: "USER_NOT_FOUND", message: "User not found" } });
+    }
+
+    const user = result.rows[0];
+    return res.json({
+      data: {
+        id: user.id,
+        email: user.email,
+        displayName: user.display_name,
+        username: user.username,
+        fullName: user.full_name,
+        userType: user.user_type,
+        countryCode: user.country_code,
+        nationalId: user.national_id,
+        language: user.language,
+        phone: user.phone,
+        dob: user.dob,
+        profileImageUrl: user.profile_image_url,
+      },
+    });
+  } catch (error) {
+    console.error("[auth] GET /me error:", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to load profile" } });
   }
-
-  const user = result.rows[0];
-  return res.json({
-    data: {
-      id: user.id,
-      email: user.email,
-      displayName: user.display_name,
-      username: user.username,
-      fullName: user.full_name,
-      userType: user.user_type,
-      countryCode: user.country_code,
-      nationalId: user.national_id,
-      language: user.language,
-      phone: user.phone,
-      dob: user.dob,
-      profileImageUrl: user.profile_image_url,
-    },
-  });
 });
 
 authRouter.post("/me/enable-seller", requireAuth("app"), async (req, res) => {
