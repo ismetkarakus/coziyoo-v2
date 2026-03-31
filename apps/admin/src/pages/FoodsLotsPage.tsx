@@ -426,7 +426,14 @@ export default function FoodsLotsPage({ language }: { language: Language }) {
       return;
     }
     if (focusFoodId) {
-      navigate(-1);
+      const params = new URLSearchParams(location.search);
+      params.delete("focusFoodId");
+      params.delete("focusLotId");
+      params.delete("returnTo");
+      navigate({
+        pathname: location.pathname,
+        search: params.toString() ? `?${params.toString()}` : "",
+      }, { replace: true });
     }
   }
 
