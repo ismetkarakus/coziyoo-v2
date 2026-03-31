@@ -397,9 +397,12 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     }
   }
 
-  async function loadSellerLots() {
+  async function loadSellerLots(options?: { silent?: boolean }) {
     const requestId = ++sellerLotsReqRef.current;
-    setLotsLoading(true);
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLotsLoading(true);
+    }
     setLotsError(null);
     try {
       const lots = await fetchAllAdminLots({ sellerId: id });
@@ -415,7 +418,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       setLotsByFoodId({});
       setLotsError(error instanceof Error ? error.message : dict.detail.requestFailed);
     } finally {
-      if (requestId === sellerLotsReqRef.current) {
+      if (!silent && requestId === sellerLotsReqRef.current) {
         setLotsLoading(false);
       }
     }
@@ -581,7 +584,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   useEffect(() => {
     if (activeTab === "foods" && foodRows.length === 0) {
       void loadSellerCritical({ includeFoods: true, includeOrders: false });
-      void loadSellerLots();
+      void loadSellerLots({ silent: true });
       return;
     }
     if ((activeTab === "orders" || activeTab === "wallet") && sellerOrders.length === 0) {
@@ -599,11 +602,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       });
       void loadSellerDeferred();
       if (activeTab === "foods") {
-        void loadSellerLots();
+        void loadSellerLots({ silent: true });
       }
     };
 
-    const intervalId = window.setInterval(refresh, 7000);
+    const intervalId = window.setInterval(refresh, 20000);
     const onVisibility = () => {
       if (!document.hidden) refresh();
     };
