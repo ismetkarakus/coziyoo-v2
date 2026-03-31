@@ -358,6 +358,7 @@ ordersRouter.post(
       data: {
         orderId: orderInsert.rows[0].id,
         status: "pending_seller_approval",
+        deliveryType: input.deliveryType,
         totalPrice: total,
       },
     });
