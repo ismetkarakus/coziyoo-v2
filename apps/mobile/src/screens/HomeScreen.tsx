@@ -238,19 +238,76 @@ function normalizeMealAddons(value: ApiFoodItem["menuItems"]): MealCard["addons"
   return items.slice(0, 50);
 }
 
-function buildCartItemKey(
-  mealId: string,
+function buildCartItemKey(mealId: string): string {
+  return mealId;
+}
+
+function mergeCartAddons(
+  base: CartItem["selectedAddons"],
+  incoming: CartItem["selectedAddons"],
+): CartItem["selectedAddons"] {
+  const freeMap = new Map<string, CartItem["selectedAddons"]["free"][number]>();
+  for (const item of [...base.free, ...incoming.free]) {
+    freeMap.set(`${item.name}|${item.kind}`, item);
+  }
+
+  const paidMap = new Map<string, CartItem["selectedAddons"]["paid"][number]>();
+  for (const item of base.paid) {
+    paidMap.set(`${item.name}|${item.kind}|${item.price}`, { ...item });
+  }
+  for (const item of incoming.paid) {
+    const key = `${item.name}|${item.kind}|${item.price}`;
+    const existing = paidMap.get(key);
+    if (!existing) {
+      paidMap.set(key, { ...item });
+      continue;
+    }
+    paidMap.set(key, {
+      ...existing,
+      quantity: Math.min(10, Number(existing.quantity ?? 0) + Number(item.quantity ?? 0)),
+    });
+  }
+
+  return {
+    free: [...freeMap.values()],
+    paid: [...paidMap.values()],
+  };
+}
+
+function removeOnePaidAddon(
   selectedAddons: CartItem["selectedAddons"],
-): string {
-  const free = [...selectedAddons.free]
-    .map((item) => `${item.name}|${item.kind}`)
-    .sort()
-    .join(",");
-  const paid = [...selectedAddons.paid]
-    .map((item) => `${item.name}|${item.kind}|${item.price}|${item.quantity}`)
-    .sort()
-    .join(",");
-  return `${mealId}::${free}::${paid}`;
+): CartItem["selectedAddons"] | null {
+  if (selectedAddons.paid.length === 0) return null;
+  const nextPaid = [...selectedAddons.paid];
+  const targetIndex = nextPaid.length - 1;
+  const target = nextPaid[targetIndex];
+  if (target.quantity <= 1) {
+    nextPaid.splice(targetIndex, 1);
+  } else {
+    nextPaid[targetIndex] = { ...target, quantity: target.quantity - 1 };
+  }
+  return {
+    ...selectedAddons,
+    paid: nextPaid,
+  };
+}
+
+function decreaseSpecificPaidAddon(
+  selectedAddons: CartItem["selectedAddons"],
+  addonToDecrease: CartItem["selectedAddons"]["paid"][number],
+): CartItem["selectedAddons"] {
+  return {
+    ...selectedAddons,
+    paid: selectedAddons.paid.flatMap((addon) => {
+      const isTarget =
+        addon.name === addonToDecrease.name &&
+        addon.kind === addonToDecrease.kind &&
+        addon.price === addonToDecrease.price;
+      if (!isTarget) return [addon];
+      if (addon.quantity <= 1) return [];
+      return [{ ...addon, quantity: addon.quantity - 1 }];
+    }),
+  };
 }
 
 type FavoriteFoodItem = {
@@ -2005,7 +2062,7 @@ export default function HomeScreen({
     setCartItems((prev) => {
       const latestMeal = meals.find((m) => m.id === meal.id) ?? meal;
       const totalStock = Math.max(0, latestMeal.stock ?? 0);
-      const nextKey = buildCartItemKey(latestMeal.id, selectedAddons);
+      const nextKey = buildCartItemKey(latestMeal.id);
       const existing = prev.find((item) => item.key === nextKey);
       const existingQty = existing?.quantity ?? 0;
       if (totalStock <= existingQty) {
@@ -2019,7 +2076,12 @@ export default function HomeScreen({
       showCartToast();
       return prev.map((item) =>
         item.key === nextKey
-          ? { ...item, meal: latestMeal, quantity: item.quantity + 1 }
+          ? {
+              ...item,
+              meal: latestMeal,
+              quantity: item.quantity + 1,
+              selectedAddons: mergeCartAddons(item.selectedAddons, selectedAddons),
+            }
           : item,
       );
     });
@@ -2086,6 +2148,14 @@ export default function HomeScreen({
     setCartItems((prev) => {
       const current = prev.find((item) => item.key === itemKey);
       if (!current) return prev;
+      const nextAddons = removeOnePaidAddon(current.selectedAddons);
+      if (nextAddons) {
+        return prev.map((item) =>
+          item.key === itemKey
+            ? { ...item, selectedAddons: nextAddons }
+            : item,
+        );
+      }
       if (current.quantity <= 1) {
         return prev.filter((item) => item.key !== itemKey);
       }
@@ -2095,6 +2165,25 @@ export default function HomeScreen({
           : item,
       );
     });
+  }
+
+  function decreaseCartPaidAddon(
+    itemKey: string,
+    addonToDecrease: CartItem["selectedAddons"]["paid"][number],
+  ) {
+    setActiveOrderId(null);
+    setActiveOrderIds([]);
+    setPaymentError(null);
+    setPaymentInfo(null);
+    setPaymentStatus(null);
+    setPendingCheckoutUrls([]);
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.key === itemKey
+          ? { ...item, selectedAddons: decreaseSpecificPaidAddon(item.selectedAddons, addonToDecrease) }
+          : item,
+      ),
+    );
   }
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -2860,7 +2949,7 @@ export default function HomeScreen({
           (addonSum, addon) => addonSum + (addon.price * addon.quantity),
           0,
         );
-        return sum + (value + addonsTotal) * item.quantity;
+        return sum + (value * item.quantity) + addonsTotal;
       }, 0);
       return (
         <View style={styles.cartWrap}>
@@ -2885,7 +2974,7 @@ export default function HomeScreen({
                     (sum, addon) => sum + (Number(addon.price ?? 0) * Number(addon.quantity ?? 1)),
                     0,
                   );
-                  const itemTotal = (unitPrice + addonsUnitTotal) * item.quantity;
+                  const itemTotal = (unitPrice * item.quantity) + addonsUnitTotal;
                   return (
                     <View key={item.key} style={styles.cartItemCard}>
                       <View style={styles.cartItemTextWrap}>
@@ -2901,9 +2990,18 @@ export default function HomeScreen({
                         {item.selectedAddons.paid.length > 0 ? (
                           <>
                             {item.selectedAddons.paid.map((addon, addonIndex) => (
-                              <Text key={`${item.key}-paid-${addon.name}-${addonIndex}`} style={styles.cartAddonLine}>
-                                • {addon.name} x{addon.quantity} (+₺{(addon.price * addon.quantity).toFixed(2)})
-                              </Text>
+                              <View key={`${item.key}-paid-${addon.name}-${addonIndex}`} style={styles.cartAddonRow}>
+                                <Text style={styles.cartAddonLine}>
+                                  • {addon.name} x{addon.quantity} (+₺{(addon.price * addon.quantity).toFixed(2)})
+                                </Text>
+                                <TouchableOpacity
+                                  style={styles.cartAddonRemoveBtn}
+                                  onPress={() => decreaseCartPaidAddon(item.key, addon)}
+                                  activeOpacity={0.85}
+                                >
+                                  <Ionicons name="remove" size={12} color="#8A4B16" />
+                                </TouchableOpacity>
+                              </View>
                             ))}
                           </>
                         ) : null}
@@ -4930,7 +5028,18 @@ const styles = StyleSheet.create({
   cartItemTextWrap: { flex: 1, paddingRight: 8 },
   cartItemTitle: { color: '#3D3229', fontSize: 15, fontWeight: '700' },
   cartItemSeller: { color: '#8D8072', fontSize: 12, marginTop: 2 },
+  cartAddonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 3 },
   cartAddonLine: { color: '#7A6D5D', fontSize: 11, marginTop: 3, lineHeight: 15 },
+  cartAddonRemoveBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#E6C9A7',
+    backgroundColor: '#FBF2E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cartItemRight: { alignItems: 'flex-end' },
   cartItemPrice: { color: '#3D3229', fontSize: 14, fontWeight: '700', marginBottom: 2 },
   cartItemTotal: { color: '#2E6B44', fontSize: 12, fontWeight: '700', marginBottom: 6 },

@@ -265,8 +265,7 @@ ordersRouter.post(
       const price = Number(lotsMap.get(item.lotId)!.price);
       const selectedAddons = normalizeSelectedAddons(item.selectedAddons);
       normalizedAddonsByLotId.set(item.lotId, selectedAddons);
-      const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
-      total += unitTotal * item.quantity;
+      total += (price * item.quantity) + selectedPaidAddonsTotal(selectedAddons);
     }
     total = Number(total.toFixed(2));
 
@@ -288,8 +287,7 @@ ordersRouter.post(
       const lot = lotsMap.get(item.lotId)!;
       const price = Number(lot.price);
       const selectedAddons = normalizedAddonsByLotId.get(item.lotId) ?? { free: [], paid: [] };
-      const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
-      const lineTotal = Number((unitTotal * item.quantity).toFixed(2));
+      const lineTotal = Number(((price * item.quantity) + selectedPaidAddonsTotal(selectedAddons)).toFixed(2));
       await client.query(
         `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total, selected_addons_json)
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
@@ -1309,8 +1307,7 @@ voiceOrderRouter.post(
         const price = Number(lotsMap.get(item.lotId)!.price);
         const selectedAddons = normalizeSelectedAddons(item.selectedAddons);
         normalizedAddonsByLotId.set(item.lotId, selectedAddons);
-        const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
-        total += unitTotal * item.quantity;
+        total += (price * item.quantity) + selectedPaidAddonsTotal(selectedAddons);
       }
       total = Number(total.toFixed(2));
 
@@ -1332,8 +1329,7 @@ voiceOrderRouter.post(
         const lot = lotsMap.get(item.lotId)!;
         const price = Number(lot.price);
         const selectedAddons = normalizedAddonsByLotId.get(item.lotId) ?? { free: [], paid: [] };
-        const unitTotal = price + selectedPaidAddonsTotal(selectedAddons);
-        const lineTotal = Number((unitTotal * item.quantity).toFixed(2));
+        const lineTotal = Number(((price * item.quantity) + selectedPaidAddonsTotal(selectedAddons)).toFixed(2));
         await client.query(
           `INSERT INTO order_items (order_id, lot_id, food_id, quantity, unit_price, line_total, selected_addons_json)
            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
