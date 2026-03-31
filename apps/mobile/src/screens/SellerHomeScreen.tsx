@@ -25,6 +25,7 @@ type SellerOrder = {
   primaryFoodName?: string | null;
   itemCount?: number | null;
   status: string;
+  paymentCompleted?: boolean;
   deliveryType?: "pickup" | "delivery" | string;
   totalPrice: number;
   createdAt?: string;
@@ -59,6 +60,13 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
     date.getMonth() === reference.getMonth() &&
     date.getDate() === reference.getDate()
   );
+}
+
+function effectiveSellerStatus(status: string, paymentCompleted?: boolean): string {
+  if (paymentCompleted && ["pending_seller_approval", "seller_approved", "awaiting_payment", "confirmed"].includes(status)) {
+    return "paid";
+  }
+  return status;
 }
 
 function statusLabel(status: string, deliveryType?: string): string {
@@ -270,8 +278,9 @@ export default function SellerHomeScreen({
   const activeOrders = useMemo(() => {
     const now = new Date();
     const filtered = orders.filter((o) => {
+      const status = effectiveSellerStatus(o.status, o.paymentCompleted);
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
-      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(o.status)) return false;
+      if (!["paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
       return isSameLocalDay(activityAt, now);
@@ -288,8 +297,8 @@ export default function SellerHomeScreen({
       completed: 7,
     };
     return [...filtered].sort((a, b) => {
-      const pa = statusPriority[a.status] ?? 9;
-      const pb = statusPriority[b.status] ?? 9;
+      const pa = statusPriority[effectiveSellerStatus(a.status, a.paymentCompleted)] ?? 9;
+      const pb = statusPriority[effectiveSellerStatus(b.status, b.paymentCompleted)] ?? 9;
       if (pa !== pb) return pa - pb;
       const aTime = (parseApiDate(a.updatedAt) ?? parseApiDate(a.createdAt))?.getTime() ?? 0;
       const bTime = (parseApiDate(b.updatedAt) ?? parseApiDate(b.createdAt))?.getTime() ?? 0;
@@ -418,10 +427,11 @@ export default function SellerHomeScreen({
               </View>
             ) : (
               activeOrders.map((item) => {
-                const actions = cardActionsByStatus(item.status, item.deliveryType);
+                const effectiveStatus = effectiveSellerStatus(item.status, item.paymentCompleted);
+                const actions = cardActionsByStatus(effectiveStatus, item.deliveryType);
                 const isUpdating = updatingOrderId === item.id;
-                const tone = statusTone(item.status, item.deliveryType);
-                const footer = statusFooter(item.status);
+                const tone = statusTone(effectiveStatus, item.deliveryType);
+                const footer = statusFooter(effectiveStatus);
                 return (
                   <View key={item.id} style={styles.orderCard}>
                     <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
@@ -431,7 +441,7 @@ export default function SellerHomeScreen({
                           {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                         </Text>
                         <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
+                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(effectiveStatus, item.deliveryType)}</Text>
                         </View>
                       </View>
                       <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>

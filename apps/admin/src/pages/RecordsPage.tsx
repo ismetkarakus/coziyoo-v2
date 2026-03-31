@@ -218,8 +218,15 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   };
 
-  const orderStatusMeta = (rawStatus: unknown): { label: string; note: string; toneClass: string } => {
+  const orderStatusMeta = (rawStatus: unknown, paymentCompleted?: unknown): { label: string; note: string; toneClass: string } => {
     const status = String(rawStatus ?? "").trim().toLowerCase();
+    const paymentDone =
+      paymentCompleted === true ||
+      String(paymentCompleted ?? "").trim().toLowerCase() === "true";
+    const effectiveStatus =
+      paymentDone && ["pending_seller_approval", "seller_approved", "awaiting_payment", "confirmed"].includes(status)
+        ? "paid"
+        : status;
     const isTr = language === "tr";
     const map: Record<string, { label: string; note: string; toneClass: string }> = {
       pending_seller_approval: {
@@ -273,14 +280,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         toneClass: "is-disabled",
       },
     };
-    return map[status] ?? {
-      label: status ? status.replace(/_/g, " ") : dict.common.counterpartNotFound,
+    return map[effectiveStatus] ?? {
+      label: effectiveStatus ? effectiveStatus.replace(/_/g, " ") : dict.common.counterpartNotFound,
       note: dict.records.statusNoteNotFound,
       toneClass: "is-pending",
     };
   };
 
-  const renderRecordsCell = (column: string, value: unknown): ReactNode => {
+  const renderRecordsCell = (column: string, value: unknown, row?: Record<string, unknown>): ReactNode => {
     if (tableKey !== "orders") return renderCell(value, column);
 
     if (column === "__display_id") {
@@ -298,7 +305,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
 
     if (column === "status") {
-      const meta = orderStatusMeta(value);
+      const meta = orderStatusMeta(value, row?.payment_completed);
       return <span className={`status-pill order-status-pill ${meta.toneClass}`}>{meta.label}</span>;
     }
 
@@ -336,7 +343,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return renderCell(value, column);
   };
 
-  const orderCellText = (column: string, value: unknown): string => {
+  const orderCellText = (column: string, value: unknown, row?: Record<string, unknown>): string => {
     if (column === "__display_id") return toDisplayId(value);
     if (column === "created_at" || column.endsWith("_at")) return formatOrderCreatedAt(value);
     if (column === "buyer_id" || column === "seller_id") {
@@ -344,7 +351,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       if (!raw) return "-";
       return userNameById[raw] ?? raw;
     }
-    if (column === "status") return orderStatusMeta(value).label;
+    if (column === "status") return orderStatusMeta(value, row?.payment_completed).label;
     if (column === "payment_completed") {
       const done = value === true || String(value).toLowerCase() === "true";
       return done ? dict.common.completed : dict.common.pending;
@@ -723,7 +730,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }, [selectedOrderItems, foodNameById]);
 
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
-  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
+  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status, selectedOrder?.payment_completed);
   const selectedStatusRaw = String(selectedOrder?.status ?? "").trim().toLowerCase();
   const selectedCancelReason = (() => {
     if (selectedStatusRaw !== "cancelled") return "";
@@ -907,7 +914,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     ) : null}
                     {displayColumns.map((column) => (
                       <td key={`${index}-${column}`}>
-                        {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
+                        {renderRecordsCell(column, column === "__display_id" ? row.id : row[column], row)}
                       </td>
                     ))}
                   </tr>
@@ -1012,7 +1019,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                       {selectedOrderItems.map((row, index) => (
                         <tr key={`order-item-${index}`}>
                           {selectedOrderItemsColumnsWithFoodName.map((column) => (
-                            <td key={`${index}-${column}`}>{orderCellText(column, column === "food_name" ? row.food_id : row[column])}</td>
+                            <td key={`${index}-${column}`}>{orderCellText(column, column === "food_name" ? row.food_id : row[column], row)}</td>
                           ))}
                         </tr>
                       ))}

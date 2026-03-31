@@ -331,12 +331,14 @@ sellerRouter.get("/orders", async (req, res) => {
         buyer_name: string | null;
         primary_food_name: string | null;
         item_count: string;
+        payment_completed: boolean;
       }>(
         `SELECT
            o.id::text,
            o.buyer_id::text,
            o.seller_id::text,
            o.status,
+           o.payment_completed,
            o.delivery_type,
            o.delivery_address_json,
            o.total_price::text,
@@ -375,6 +377,7 @@ sellerRouter.get("/orders", async (req, res) => {
         buyerId: row.buyer_id,
         sellerId: row.seller_id,
         status: row.status,
+        paymentCompleted: row.payment_completed,
         deliveryType: row.delivery_type,
         deliveryAddress: row.delivery_address_json,
         totalPrice: Number(row.total_price),
