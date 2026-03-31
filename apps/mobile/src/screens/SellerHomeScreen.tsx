@@ -430,6 +430,8 @@ export default function SellerHomeScreen({
                 const actions = cardActionsByStatus(item.status, item.deliveryType);
                 const isUpdating = updatingOrderId === item.id;
                 const tone = statusTone(item.status, item.deliveryType);
+                const statusText = statusLabel(item.status, item.deliveryType);
+                const isBareEmojiStatus = statusText === "👍";
                 const footer = statusFooter(item.status);
                 return (
                   <View key={item.id} style={styles.orderCard}>
@@ -439,9 +441,13 @@ export default function SellerHomeScreen({
                           {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
                           {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                         </Text>
-                        <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
-                        </View>
+                        {isBareEmojiStatus ? (
+                          <Text style={styles.statusEmojiBare}>{statusText}</Text>
+                        ) : (
+                          <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+                            <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusText}</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                       <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
@@ -644,6 +650,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7EFE2",
   },
   statusBadgeText: { color: "#5C4A3A", fontSize: 11, fontWeight: "700" },
+  statusEmojiBare: { fontSize: 24, lineHeight: 26 },
   orderMeta: { color: "#6C6055", marginTop: 3 },
   orderTotal: { marginTop: 8, color: "#4A3B2F", fontWeight: "800" },
   cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
