@@ -15,6 +15,7 @@ type Props = {
   auth: AuthSession;
   onBack: () => void;
   onEdit: () => void;
+  onOpenOrderHistory: () => void;
   onOpenCompliance: () => void;
   onOpenFinance: () => void;
   onOpenSettings: () => void;
@@ -67,6 +68,7 @@ export default function SellerProfileDetailScreen({
   auth,
   onBack,
   onEdit,
+  onOpenOrderHistory,
   onOpenCompliance,
   onOpenFinance,
   onOpenSettings,
@@ -631,6 +633,10 @@ export default function SellerProfileDetailScreen({
           </View>
 
           {/* Navigasyon Butonları */}
+          <TouchableOpacity style={styles.navBtn} onPress={onOpenOrderHistory}>
+            <Text style={styles.navBtnText}>Sipariş Geçmişim</Text>
+            <Text style={styles.navArrow}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={onOpenFinance}>
             <Text style={styles.navBtnText}>Finans / Payout</Text>
             <Text style={styles.navArrow}>›</Text>

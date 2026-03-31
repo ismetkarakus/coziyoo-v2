@@ -576,6 +576,7 @@ export default function App() {
         auth={auth}
         onBack={() => setScreen('home')}
         onEdit={() => setScreen('sellerProfile')}
+        onOpenOrderHistory={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
         onOpenSettings={() => setScreen('settings')}
@@ -685,7 +686,6 @@ export default function App() {
           auth={auth}
           onOpenProfile={() => setScreen('sellerProfileDetail')}
           onOpenFoodsManager={() => setScreen('sellerFoodsManager')}
-          onOpenOrderHistory={() => setScreen('sellerOrders')}
           onOpenOrder={(id) => {
             setSelectedOrderId(id);
             sheetTranslateY.setValue(0);
