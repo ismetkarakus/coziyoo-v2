@@ -712,7 +712,12 @@
     "minAgo": "min ago",
     "hourAgo": "hours ago",
     "statusNoteNotFound": "Status note not found",
-    "exportSelectedWithCount": "Export to Excel ({count})"
+    "exportSelectedWithCount": "Export to Excel ({count})",
+    "orderTimeline": "Order Timeline",
+    "orderTimelineNoEvents": "No history found.",
+    "orderTimelineDate": "Date",
+    "orderTimelineStatus": "Status",
+    "orderTimelineActor": "Actor"
   },
   "reviewQueue": {
     "title": "Review Queue",

@@ -30,6 +30,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [foodNameById, setFoodNameById] = useState<Record<string, string>>({});
   const [orderItemsLoading, setOrderItemsLoading] = useState(false);
   const [selectedOrderCancelReasonFromEvent, setSelectedOrderCancelReasonFromEvent] = useState("");
+  const [selectedOrderEvents, setSelectedOrderEvents] = useState<Array<Record<string, unknown>>>([]);
   const [copyFeedbackKey, setCopyFeedbackKey] = useState<"" | "order-id" | "uuid">("");
   const [selectedOrderMap, setSelectedOrderMap] = useState<Record<string, Record<string, unknown>>>({});
   const [sortBy, setSortBy] = useState<string | null>(null);
@@ -416,6 +417,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     setSelectedOrderItems([]);
     setSelectedOrderItemsColumns([]);
     setSelectedOrderCancelReasonFromEvent("");
+    setSelectedOrderEvents([]);
     setOrderItemsLoading(true);
     try {
       const query = new URLSearchParams({
@@ -440,6 +442,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
           data?: { rows?: Array<Record<string, unknown>> };
         }>(eventsResponse);
         const rows = eventsBody.data?.rows ?? [];
+        // Store all events sorted oldest-first for timeline display
+        setSelectedOrderEvents([...rows].reverse());
         const cancelledEvent = rows.find((event) => {
           const eventOrderId = String(event.order_id ?? "").trim();
           if (eventOrderId !== orderId) return false;
@@ -1012,6 +1016,41 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                           ))}
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+            <section className="records-order-section">
+              <h4>{dict.records.orderTimeline}</h4>
+              {selectedOrderEvents.length === 0 ? (
+                <p className="panel-meta">{dict.records.orderTimelineNoEvents}</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{dict.records.orderTimelineDate}</th>
+                        <th>{dict.records.orderTimelineStatus}</th>
+                        <th>{dict.records.orderTimelineActor}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrderEvents.map((event, index) => {
+                        const toStatus = String(event.to_status ?? "").trim();
+                        const fromStatus = String(event.from_status ?? "").trim();
+                        const actorId = String(event.actor_user_id ?? "").trim();
+                        return (
+                          <tr key={`event-${index}`}>
+                            <td style={{ whiteSpace: "nowrap" }}>{formatOrderCreatedAt(event.created_at)}</td>
+                            <td>
+                              {fromStatus ? `${orderStatusMeta(fromStatus).label} → ` : ""}
+                              {toStatus ? <strong>{orderStatusMeta(toStatus).label}</strong> : "-"}
+                            </td>
+                            <td>{actorId ? (userNameById[actorId] ?? shortUuid(actorId)) : "-"}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

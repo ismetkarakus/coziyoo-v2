@@ -712,7 +712,12 @@
     "minAgo": "dk önce",
     "hourAgo": "saat önce",
     "statusNoteNotFound": "Durum notu bulunamadı",
-    "exportSelectedWithCount": "Excel'e Aktar ({count})"
+    "exportSelectedWithCount": "Excel'e Aktar ({count})",
+    "orderTimeline": "Sipariş Geçmişi",
+    "orderTimelineNoEvents": "Geçmiş kaydı bulunamadı.",
+    "orderTimelineDate": "Tarih",
+    "orderTimelineStatus": "Durum",
+    "orderTimelineActor": "İşlemi Yapan"
   },
   "reviewQueue": {
     "title": "Bekleyen İşler",
