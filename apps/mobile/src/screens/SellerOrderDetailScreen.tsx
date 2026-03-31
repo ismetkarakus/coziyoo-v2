@@ -75,7 +75,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       ...(init?.headers as Record<string, string> | undefined),
     };
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
-    if (res.status !== 401) return res;
+    if (res.status !== 401 && res.status !== 403) return res;
     const refreshed = await refreshAuthSession(baseUrl, currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);

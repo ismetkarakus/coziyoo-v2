@@ -72,7 +72,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       ...actorRoleHeader(currentAuth, "seller"),
     };
     let res = await fetch(`${baseUrl}${path}`, { headers });
-    if (res.status !== 401) return res;
+    if (res.status !== 401 && res.status !== 403) return res;
     const refreshed = await refreshAuthSession(baseUrl, currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);

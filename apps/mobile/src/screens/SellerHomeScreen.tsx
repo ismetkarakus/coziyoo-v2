@@ -153,7 +153,7 @@ export default function SellerHomeScreen({
       ...actorRoleHeader(currentAuth, "seller"),
     };
     let res = await fetch(`${baseUrl}${path}`, { headers });
-    if (res.status !== 401) return res;
+    if (res.status !== 401 && res.status !== 403) return res;
     const refreshed = await refreshAuthSession(baseUrl, currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
@@ -171,7 +171,7 @@ export default function SellerHomeScreen({
       ...(init.headers as Record<string, string> | undefined),
     };
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
-    if (res.status !== 401) return res;
+    if (res.status !== 401 && res.status !== 403) return res;
     const refreshed = await refreshAuthSession(baseUrl, currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
