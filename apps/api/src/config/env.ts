@@ -93,6 +93,8 @@ const EnvSchema = z.object({
   PASSWORD_RESET_EMAIL_WEBHOOK_PATH: z.string().default("/webhook/coziyoo/password-reset-code"),
   PAYOUT_SCHEDULER_ENABLED: boolFromEnv.optional(),
   PAYOUT_SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().max(86_400_000).default(300_000),
+  LOT_ALERTS_SCHEDULER_ENABLED: boolFromEnv.optional(),
+  LOT_ALERTS_SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().max(86_400_000).default(300_000),
   DELIVERY_TRACKING_SCHEDULER_ENABLED: boolFromEnv.optional(),
   DELIVERY_TRACKING_SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().max(300_000).default(30_000),
   ROUTING_PROVIDER: z.enum(["auto", "google", "mapbox", "osrm", "haversine"]).default("auto"),
