@@ -36,8 +36,7 @@ type SellerAction =
   | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "info" }
   | { label: "Hazır"; kind: "to_ready"; tone?: "primary" }
   | { label: "Yola Çıktı"; kind: "to_in_delivery"; tone?: "primary" }
-  | { label: "Teslim Edildi"; kind: "to_delivered"; tone?: "primary" }
-  | { label: "Tamamlandı"; kind: "to_completed"; tone?: "primary" };
+  | { label: "Teslim Edildi"; kind: "to_delivered"; tone?: "primary" };
 
 type ActiveFood = {
   id: string;
@@ -65,24 +64,28 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
 
 function statusLabel(status: string, deliveryType?: string): string {
   if (status === "pending_seller_approval") return "Onay Bekliyor";
-  if (status === "seller_approved") return "Onaylandı";
-  if (status === "awaiting_payment" || status === "paid") return "Onaylandı";
+  if (status === "seller_approved" || status === "awaiting_payment") return "Ödeme Bekleniyor";
+  if (status === "paid") return "Ödeme Alındı";
   if (status === "preparing") return "Hazırlanıyor";
   if (status === "ready") return "Hazır";
-  if (status === "in_delivery" && deliveryType === "pickup") return "Hazır";
-  if (status === "in_delivery") return "👍";
-  if (status === "delivered") return "👍";
-  if (status === "completed") return "👍";
+  if (status === "in_delivery" && deliveryType === "pickup") return "Teslim Edildi";
+  if (status === "in_delivery") return "Yolda";
+  if (status === "delivered") return "Teslim Edildi";
+  if (status === "completed") return "Sipariş Tamamlandı";
   if (status === "cancelled") return "İptal";
   if (status === "rejected") return "Reddedildi";
   return status;
 }
 
 function statusTone(status: string, deliveryType?: string): { bg: string; border: string; text: string } {
-  if (status === "seller_approved" || status === "awaiting_payment" || status === "paid") {
+  if (status === "seller_approved" || status === "awaiting_payment") {
+    return { bg: "#FFF4E5", border: "#F3D3A1", text: "#B45309" };
+  }
+  if (status === "paid") {
     return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
   }
-  if (status === "preparing") return { bg: "#E8F0FF", border: "#C7D7F8", text: "#1D4ED8" };
+  if (status === "preparing") return { bg: "#F4E2CF", border: "#D4A373", text: "#8A4B16" };
+  if (status === "completed") return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
   if (status === "in_delivery" && deliveryType === "pickup") {
     return { bg: "#FFF4E5", border: "#F7D7A8", text: "#B45309" };
   }
@@ -104,8 +107,13 @@ function cardActionsByStatus(status: string, deliveryType?: string): SellerActio
   if (status === "ready" && deliveryType === "pickup") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
   if (status === "ready") return [{ label: "Yola Çıktı", kind: "to_in_delivery", tone: "primary" }];
   if (status === "in_delivery") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
-  if (status === "delivered") return [{ label: "Tamamlandı", kind: "to_completed", tone: "primary" }];
   return [];
+}
+
+function statusFooter(status: string): { label: string; variant: "preparing" | "completed" } | null {
+  if (status === "preparing") return { label: "Hazırlanıyor", variant: "preparing" };
+  if (status === "completed") return { label: "Sipariş Tamamlandı", variant: "completed" };
+  return null;
 }
 
 export default function SellerHomeScreen({
@@ -250,7 +258,7 @@ export default function SellerHomeScreen({
     const now = new Date();
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
-      if (["completed", "cancelled", "rejected"].includes(o.status)) return false;
+      if (["cancelled", "rejected"].includes(o.status)) return false;
       const createdAt = parseApiDate(o.createdAt);
       if (!createdAt) return false;
       return isSameLocalDay(createdAt, now);
@@ -263,6 +271,7 @@ export default function SellerHomeScreen({
       ready: 2,
       in_delivery: 3,
       delivered: 4,
+      completed: 5,
     };
     const pending = filtered
       .filter((o) => o.status === "pending_seller_approval")
@@ -276,9 +285,9 @@ export default function SellerHomeScreen({
         return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
       });
     return [...pending, ...approved];
-  }, [orders]);
+  }, [orders, currentAuth.userId]);
 
-  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "completed" | "preparing"): Promise<void> {
+  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "preparing"): Promise<void> {
     const res = await fetchWithAuthInit(
       `/v1/orders/${orderId}/status`,
       {
@@ -326,8 +335,6 @@ export default function SellerHomeScreen({
         await changeStatus(orderId, "in_delivery");
       } else if (action.kind === "to_delivered") {
         await changeStatus(orderId, "delivered");
-      } else if (action.kind === "to_completed") {
-        await changeStatus(orderId, "completed");
       }
       await load();
     } catch (error) {
@@ -417,6 +424,7 @@ export default function SellerHomeScreen({
                 const actions = cardActionsByStatus(item.status, item.deliveryType);
                 const isUpdating = updatingOrderId === item.id;
                 const tone = statusTone(item.status, item.deliveryType);
+                const footer = statusFooter(item.status);
                 return (
                   <View key={item.id} style={styles.orderCard}>
                     <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
@@ -425,13 +433,9 @@ export default function SellerHomeScreen({
                           {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
                           {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                         </Text>
-                        {item.status === "in_delivery" || item.status === "delivered" || item.status === "completed" ? (
-                          <Text style={{ fontSize: 20 }}>👍</Text>
-                        ) : (
-                          <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                            <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
-                          </View>
-                        )}
+                        <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
+                        </View>
                       </View>
                       <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                       <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
@@ -464,6 +468,23 @@ export default function SellerHomeScreen({
                             </Text>
                           </TouchableOpacity>
                         ))}
+                      </View>
+                    ) : null}
+                    {footer ? (
+                      <View
+                        style={[
+                          styles.statusFooterButton,
+                          footer.variant === "preparing" ? styles.statusFooterPreparing : styles.statusFooterCompleted,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusFooterText,
+                            footer.variant === "preparing" ? styles.statusFooterTextPreparing : styles.statusFooterTextCompleted,
+                          ]}
+                        >
+                          {footer.label}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
@@ -629,6 +650,19 @@ const styles = StyleSheet.create({
   cardActionBtnTextPrimary: { color: "#FFFFFF" },
   cardActionBtnTextInfo: { color: "#FFFFFF" },
   cardActionBtnTextDanger: { color: "#B42318" },
+  statusFooterButton: {
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusFooterPreparing: { backgroundColor: "#F4E2CF", borderColor: "#D4A373" },
+  statusFooterCompleted: { backgroundColor: "#EAF7EE", borderColor: "#B7DEC3" },
+  statusFooterText: { fontSize: 14, fontWeight: "800" },
+  statusFooterTextPreparing: { color: "#8A4B16" },
+  statusFooterTextCompleted: { color: "#166534" },
   actions: { gap: 10 },
   switchRoleButton: {
     height: 44,

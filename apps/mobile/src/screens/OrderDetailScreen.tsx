@@ -284,7 +284,10 @@ export default function OrderDetailScreen({
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && COMPLETABLE.includes(order.status);
-  const canPay = isBuyer && order.status === 'awaiting_payment';
+  const canPay =
+    isBuyer &&
+    !order.paymentCompleted &&
+    ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && order.status === 'completed';
   const canComplain = isBuyer && ['completed', 'delivered'].includes(order.status);
 

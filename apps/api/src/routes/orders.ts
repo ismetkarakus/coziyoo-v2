@@ -71,6 +71,7 @@ type OrderRow = {
   seller_id: string;
   status: OrderStatus;
   total_price: string;
+  payment_completed: boolean;
   delivery_type: string;
   delivery_address_json: unknown;
   estimated_delivery_time: string | null;
@@ -862,7 +863,7 @@ async function transitionHandler(
   try {
     await client.query("BEGIN");
     const orderResult = await client.query<OrderRow>(
-      `SELECT id, buyer_id, seller_id, status, total_price::text, delivery_type, delivery_address_json, estimated_delivery_time::text
+      `SELECT id, buyer_id, seller_id, status, total_price::text, payment_completed, delivery_type, delivery_address_json, estimated_delivery_time::text
        FROM orders
        WHERE id = $1
        FOR UPDATE`,
@@ -889,10 +890,15 @@ async function transitionHandler(
       return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not buyer of this order" } });
     }
 
-    if (!canTransition(order.status, toStatus)) {
+    const effectiveToStatus: OrderStatus =
+      eventType === "seller_approve" && order.status === "pending_seller_approval"
+        ? (order.payment_completed ? "preparing" : "seller_approved")
+        : toStatus;
+
+    if (!canTransition(order.status, effectiveToStatus)) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${order.status} -> ${toStatus}` },
+        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${order.status} -> ${effectiveToStatus}` },
       });
     }
 
@@ -933,7 +939,7 @@ async function transitionHandler(
       }
     }
 
-    if (toStatus === "cancelled" && actorRole === "buyer") {
+    if (effectiveToStatus === "cancelled" && actorRole === "buyer") {
       if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(order.status)) {
         await client.query("ROLLBACK");
         return res.status(409).json({
@@ -942,12 +948,12 @@ async function transitionHandler(
       }
     }
 
-    if (toStatus === "rejected" && !reason) {
+    if (effectiveToStatus === "rejected" && !reason) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: { code: "REASON_REQUIRED", message: "Reject reason is required" } });
     }
 
-    if (toStatus === "completed") {
+    if (effectiveToStatus === "completed") {
       const disclosure = await client.query<{ pre_order_count: string; handover_count: string }>(
         `SELECT
           count(*) FILTER (WHERE phase = 'pre_order')::text AS pre_order_count,
@@ -969,7 +975,7 @@ async function transitionHandler(
       }
     }
 
-    if (["delivered", "completed"].includes(toStatus) && order.delivery_type === "delivery") {
+    if (["delivered", "completed"].includes(effectiveToStatus) && order.delivery_type === "delivery") {
       const proof = await client.query<{ status: string }>(
         "SELECT status FROM delivery_proof_records WHERE order_id = $1",
         [order.id]
@@ -985,14 +991,14 @@ async function transitionHandler(
       }
     }
 
-    await client.query("UPDATE orders SET status = $1, updated_at = now() WHERE id = $2", [toStatus, order.id]);
+    await client.query("UPDATE orders SET status = $1, updated_at = now() WHERE id = $2", [effectiveToStatus, order.id]);
     await client.query(
       `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [order.id, req.auth!.userId, eventType, order.status, toStatus, reason ? JSON.stringify({ reason }) : null]
+      [order.id, req.auth!.userId, eventType, order.status, effectiveToStatus, reason ? JSON.stringify({ reason }) : null]
     );
 
-    if (toStatus === "preparing") {
+    if (effectiveToStatus === "preparing") {
       try {
         await allocateLotsFefoTx({ client, orderId: order.id, sellerId: order.seller_id });
         await emitOrderMilestoneTx(
@@ -1012,7 +1018,7 @@ async function transitionHandler(
       }
     }
 
-    if (toStatus === "in_delivery" && order.delivery_type === "delivery") {
+    if (effectiveToStatus === "in_delivery" && order.delivery_type === "delivery") {
       let destination = extractLatLng(order.delivery_address_json);
       if (!destination) {
         const addrLine = extractAddressLine(order.delivery_address_json);
@@ -1054,7 +1060,7 @@ async function transitionHandler(
       );
     }
 
-    if (toStatus === "completed") {
+    if (effectiveToStatus === "completed") {
       await finalizeOrderFinanceTx({
         client,
         orderId: order.id,
@@ -1084,7 +1090,7 @@ async function transitionHandler(
         console.error("[orders] push flush failed after transition commit", pushErr);
       }
     }
-    return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus } });
+    return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus: effectiveToStatus } });
   } catch {
     if (!committed) {
       await client.query("ROLLBACK");

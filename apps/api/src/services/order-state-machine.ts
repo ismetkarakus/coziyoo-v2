@@ -14,7 +14,7 @@ export type OrderStatus =
   | "cancelled";
 
 const transitions: Record<OrderStatus, OrderStatus[]> = {
-  pending_seller_approval: ["seller_approved", "rejected", "cancelled"],
+  pending_seller_approval: ["seller_approved", "preparing", "rejected", "cancelled"],
   seller_approved: ["awaiting_payment", "cancelled"],
   awaiting_payment: ["paid", "cancelled"],
   paid: ["preparing", "cancelled"],
@@ -46,4 +46,3 @@ export function canActorSetStatus(actorRole: AppActorRole, to: OrderStatus): boo
 export function isTerminalStatus(status: OrderStatus): boolean {
   return ["completed", "rejected", "cancelled"].includes(status);
 }
-

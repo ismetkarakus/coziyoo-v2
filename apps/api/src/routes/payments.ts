@@ -69,22 +69,19 @@ paymentsRouter.post(
       });
     }
 
-    if (order.status === "pending_seller_approval" || order.status === "seller_approved") {
-      await client.query("UPDATE orders SET status = 'awaiting_payment', updated_at = now() WHERE id = $1", [order.id]);
-      await client.query(
-        `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
-         VALUES ($1, $2, 'payment_start', $3, 'awaiting_payment', $4)`,
-        [
-          order.id,
-          req.auth!.userId,
-          order.status,
-          JSON.stringify({
-            provider: env.PAYMENT_PROVIDER_NAME,
-            autoApproved: order.status === "pending_seller_approval",
-          }),
-        ]
-      );
-    }
+    await client.query(
+      `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+       VALUES ($1, $2, 'payment_start', $3, $4, $5)`,
+      [
+        order.id,
+        req.auth!.userId,
+        order.status,
+        order.status,
+        JSON.stringify({
+          provider: env.PAYMENT_PROVIDER_NAME,
+        }),
+      ]
+    );
 
     const sessionId = crypto.randomUUID();
     await client.query(
@@ -245,7 +242,7 @@ paymentsRouter.post("/webhook", async (req, res) => {
       return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found for payment attempt" } });
     }
     const orderStatus = orderResult.rows[0].status;
-    if (orderStatus !== "awaiting_payment") {
+    if (!["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(orderStatus)) {
       await client.query(
         `UPDATE payment_attempts
          SET signature_valid = TRUE,
@@ -258,9 +255,11 @@ paymentsRouter.post("/webhook", async (req, res) => {
       );
       await client.query("COMMIT");
       return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: `Order must be awaiting_payment, got ${orderStatus}` },
+        error: { code: "ORDER_INVALID_STATE", message: `Order cannot accept payment confirmation in state ${orderStatus}` },
       });
     }
+
+    const nextOrderStatus = orderStatus === "pending_seller_approval" ? "pending_seller_approval" : "paid";
 
     await client.query(
       `UPDATE payment_attempts
@@ -273,13 +272,19 @@ paymentsRouter.post("/webhook", async (req, res) => {
       [payment.id, payload.providerReferenceId, mergedPayload]
     );
 
-    await client.query("UPDATE orders SET status = 'paid', payment_completed = TRUE, updated_at = now() WHERE id = $1", [
+    await client.query("UPDATE orders SET status = $2, payment_completed = TRUE, updated_at = now() WHERE id = $1", [
       payment.order_id,
+      nextOrderStatus,
     ]);
     await client.query(
       `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
-       VALUES ($1, NULL, 'payment_confirmed', 'awaiting_payment', 'paid', $2)`,
-      [payment.order_id, JSON.stringify({ providerReferenceId: payload.providerReferenceId })]
+       VALUES ($1, NULL, 'payment_confirmed', $2, $3, $4)`,
+      [
+        payment.order_id,
+        orderStatus,
+        nextOrderStatus,
+        JSON.stringify({ providerReferenceId: payload.providerReferenceId }),
+      ]
     );
     await enqueueOutboxEvent(client, {
       eventType: "payment_confirmed",
