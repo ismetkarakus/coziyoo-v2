@@ -25,6 +25,7 @@ type SellerOrder = {
   status: string;
   totalPrice: number;
   createdAt?: string;
+  updatedAt?: string;
 };
 
 type StatusFilter = "all" | "pending_seller_approval" | "awaiting_payment" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
@@ -51,6 +52,22 @@ function parseDateInput(value: string): Date | null {
   const date = new Date(y, m - 1, d);
   if (Number.isNaN(date.getTime())) return null;
   return date;
+}
+
+function parseApiDate(value?: string | null): Date | null {
+  if (!value?.trim()) return null;
+  const normalized = value.trim().replace(" ", "T").replace(/(\.\d+)?([+-]\d{2})$/, "$1$2:00");
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function isSameLocalDay(date: Date, reference: Date): boolean {
+  return (
+    date.getFullYear() === reference.getFullYear() &&
+    date.getMonth() === reference.getMonth() &&
+    date.getDate() === reference.getDate()
+  );
 }
 
 export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRefresh }: Props) {
@@ -124,17 +141,20 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
   }, []);
 
   const filteredOrders = useMemo(() => {
+    const now = new Date();
     const from = parseDateInput(fromDate);
     const to = parseDateInput(toDate);
     const toEnd = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999) : null;
 
     return orders.filter((order) => {
       if (statusFilter !== "all" && order.status !== statusFilter) return false;
+      const activityAt = parseApiDate(order.updatedAt) ?? parseApiDate(order.createdAt);
+      if (!activityAt) return false;
+      // Bugün aktif olan siparişler ana sayfadaki "Bugünkü Siparişler" bölümünde kalır.
+      if (isSameLocalDay(activityAt, now)) return false;
       if (!from && !toEnd) return true;
-      const createdAt = order.createdAt ? new Date(order.createdAt) : null;
-      if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
-      if (from && createdAt < from) return false;
-      if (toEnd && createdAt > toEnd) return false;
+      if (from && activityAt < from) return false;
+      if (toEnd && activityAt > toEnd) return false;
       return true;
     });
   }, [orders, statusFilter, fromDate, toDate]);
@@ -171,7 +191,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
               <Text style={styles.emptySub}>
                 {errorText
                   ? "Bağlantıyı kontrol edip tekrar yenile."
-                  : "Tarih aralığını veya durum seçimini değiştirip tekrar dene."}
+                  : "Bugüne ait siparişler ana sayfadaki Bugünkü Siparişler bölümünde kalır."}
               </Text>
             </View>
           ) : (
@@ -191,7 +211,9 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                     </Text>
                   ) : null}
                   <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
-                  {item.createdAt ? <Text style={styles.meta}>{formatOrderDate(item.createdAt)}</Text> : null}
+                  {(item.updatedAt || item.createdAt) ? (
+                    <Text style={styles.meta}>{formatOrderDate(item.updatedAt ?? item.createdAt)}</Text>
+                  ) : null}
                   <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
                 </TouchableOpacity>
               )}
