@@ -6,7 +6,6 @@ import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
-import StatusBadge from "../components/StatusBadge";
 
 type Props = {
   auth: AuthSession;
@@ -29,11 +28,6 @@ type SellerOrder = {
 };
 
 type StatusFilter = "all" | "pending_seller_approval" | "awaiting_payment" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
-
-function shouldShowHistoryStatus(status: string): boolean {
-  const normalized = String(status ?? "").trim().toLowerCase();
-  return normalized === "cancelled" || normalized === "rejected";
-}
 
 function formatOrderDate(iso: string | undefined): string {
   if (!iso) return "-";
@@ -208,7 +202,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
-                    {shouldShowHistoryStatus(item.status) ? <StatusBadge status={item.status} size="sm" /> : null}
+                    <Text style={styles.orderNoRight}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
                   </View>
                   {item.primaryFoodName ? (
                     <Text style={styles.foodName}>
@@ -259,6 +253,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  orderNoRight: { color: "#6C6055", fontWeight: "700", fontSize: 12 },
   foodName: { color: "#2E241C", fontWeight: "700", fontSize: 14, marginTop: 4 },
   meta: { color: "#6C6055", marginTop: 3 },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
