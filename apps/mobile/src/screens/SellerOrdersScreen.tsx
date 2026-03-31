@@ -24,7 +24,6 @@ type SellerOrder = {
   itemCount?: number | null;
   status: string;
   totalPrice: number;
-  paymentCompleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -69,13 +68,6 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
     date.getMonth() === reference.getMonth() &&
     date.getDate() === reference.getDate()
   );
-}
-
-function effectiveSellerStatus(status: string, paymentCompleted?: boolean): string {
-  if (paymentCompleted && ["pending_seller_approval", "seller_approved", "awaiting_payment", "confirmed"].includes(status)) {
-    return "paid";
-  }
-  return status;
 }
 
 export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRefresh }: Props) {
@@ -155,8 +147,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
     const toEnd = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999) : null;
 
     return orders.filter((order) => {
-      const status = effectiveSellerStatus(order.status, order.paymentCompleted);
-      if (statusFilter !== "all" && status !== statusFilter) return false;
+      if (statusFilter !== "all" && order.status !== statusFilter) return false;
       const activityAt = parseApiDate(order.updatedAt) ?? parseApiDate(order.createdAt);
       if (!activityAt) return false;
       // Bugün aktif olan siparişler ana sayfadaki "Bugünkü Siparişler" bölümünde kalır.
@@ -212,7 +203,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
-                    <StatusBadge status={effectiveSellerStatus(item.status, item.paymentCompleted)} size="sm" />
+                    <StatusBadge status={item.status} size="sm" />
                   </View>
                   {item.primaryFoodName ? (
                     <Text style={styles.foodName}>

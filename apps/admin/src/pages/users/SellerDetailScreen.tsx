@@ -812,31 +812,6 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return "Successful";
   };
 
-  const effectiveOrderStatus = (status: string | null | undefined, paymentCompleted: boolean | null | undefined) => {
-    const normalized = String(status ?? "").trim().toLowerCase();
-    if (paymentCompleted && ["pending_seller_approval", "seller_approved", "awaiting_payment", "confirmed"].includes(normalized)) {
-      return "paid";
-    }
-    return normalized;
-  };
-
-  const orderStatusText = (status: string | null | undefined, paymentCompleted: boolean | null | undefined) => {
-    const key = effectiveOrderStatus(status, paymentCompleted);
-    if (language === "tr") {
-      if (key === "paid") return "Ödendi";
-      if (key === "preparing") return "Hazırlanıyor";
-      if (key === "ready") return "Hazır";
-      if (key === "in_delivery") return "Yolda";
-      if (key === "delivered") return "Teslim Edildi";
-      if (key === "completed") return "Tamamlandı";
-      if (key === "cancelled") return "İptal";
-      if (key === "rejected") return "Reddedildi";
-      if (key === "pending_seller_approval" || key === "awaiting_payment" || key === "seller_approved") return "Ödeme Bekleniyor";
-      return key || "-";
-    }
-    return key || "-";
-  };
-
   const deliveryTypeText = (value: string | null | undefined) => {
     const key = String(value ?? "").trim().toLowerCase();
     if (language === "tr") {
@@ -861,7 +836,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const filteredSellerOrders = useMemo(() => {
     const query = ordersSearch.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
     return sellerOrders.filter((order) => {
-      const statusMatches = ordersStatusFilter === "all" || effectiveOrderStatus(order.status, order.paymentCompleted) === ordersStatusFilter;
+      const statusMatches = ordersStatusFilter === "all" || String(order.status ?? "").toLowerCase() === ordersStatusFilter;
       const paymentMatches = ordersPaymentFilter === "all" || paymentStateKey(order.paymentStatus) === ordersPaymentFilter;
       if (!statusMatches || !paymentMatches) return false;
       if (!query) return true;
@@ -1559,7 +1534,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         foods || "-",
         formatCurrency(Number(order.totalAmount ?? 0), language),
         paymentText,
-        orderStatusText(order.status, order.paymentCompleted),
+        order.status,
       ];
     });
 
@@ -2802,7 +2777,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                           <td>{foods || "-"}</td>
                           <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                           <td>{paymentText}</td>
-                          <td>{orderStatusText(order.status, order.paymentCompleted)}</td>
+                          <td>{order.status}</td>
                         </tr>
                       );
                     })}

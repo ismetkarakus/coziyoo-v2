@@ -397,7 +397,6 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     buyer_id: string;
     seller_id: string;
     status: string;
-    payment_completed: boolean;
     delivery_type: string;
     delivery_address_json: unknown;
     total_price: string;
@@ -407,7 +406,7 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     seller_image: string | null;
     buyer_name: string;
   }>(
-    `SELECT o.id, o.buyer_id, o.seller_id, o.status, o.payment_completed, o.delivery_type,
+    `SELECT o.id, o.buyer_id, o.seller_id, o.status, o.delivery_type,
             o.delivery_address_json, o.total_price::text, o.created_at::text, o.updated_at::text,
             s.display_name AS seller_name, s.profile_image_url AS seller_image,
             b.display_name AS buyer_name
@@ -464,7 +463,6 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       buyerId: row.buyer_id,
       sellerId: row.seller_id,
       status: row.status,
-      paymentCompleted: row.payment_completed,
       deliveryType: row.delivery_type,
       deliveryAddress: row.delivery_address_json,
       totalPrice: Number(row.total_price),

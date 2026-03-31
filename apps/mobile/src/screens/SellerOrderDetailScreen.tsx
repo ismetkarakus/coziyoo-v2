@@ -30,7 +30,6 @@ type OrderDetail = {
   id: string;
   orderNo?: string;
   status: string;
-  paymentCompleted?: boolean;
   createdAt?: string;
   buyerName?: string;
   deliveryType?: string;
@@ -47,13 +46,6 @@ type OrderDetail = {
   }>;
   deliveryAddress?: { title?: string; addressLine?: string; line?: string } | null;
 };
-
-function effectiveSellerStatus(status: string, paymentCompleted?: boolean): string {
-  if (paymentCompleted && ["pending_seller_approval", "seller_approved", "awaiting_payment", "confirmed"].includes(status)) {
-    return "paid";
-  }
-  return status;
-}
 
 const transitionActions: Record<string, Array<{ label: string; toStatus: string }>> = {
   pending_seller_approval: [],
@@ -120,13 +112,12 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }, [orderId]);
 
   const actions = useMemo(() => {
-    const status = effectiveSellerStatus(order?.status ?? "", order?.paymentCompleted);
-    const base = transitionActions[status] ?? [];
-    if (status === "ready" && order?.deliveryType === "pickup") {
+    const base = transitionActions[order?.status ?? ""] ?? [];
+    if (order?.status === "ready" && order.deliveryType === "pickup") {
       return [{ label: "Teslim Edildi", toStatus: "delivered" }];
     }
     return base;
-  }, [order?.deliveryType, order?.paymentCompleted, order?.status]);
+  }, [order?.status, order?.deliveryType]);
 
   async function runAction(action: { label: string; toStatus: string }) {
     if (!order) return;
@@ -154,21 +145,16 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
         <>
-          {(() => {
-            const effectiveStatus = effectiveSellerStatus(order.status, order.paymentCompleted);
-            return (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.orderNo}>{order.orderNo || "#" + order.id.slice(0, 8).toUpperCase()}</Text>
-              <StatusBadge status={effectiveStatus} size="sm" />
+              <StatusBadge status={order.status} size="sm" />
             </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
             {order.createdAt ? <Text style={styles.meta}>Tarih: {formatOrderDate(order.createdAt)}</Text> : null}
             <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
           </View>
-            );
-          })()}
           {order.deliveryType === "delivery" ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
