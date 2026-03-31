@@ -228,20 +228,46 @@ export default function SellerProfileDetailScreen({
   }
 
   async function pickIdCardImage(side: "front" | "back") {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("İzin gerekli", "Galeriden resim seçebilmek için izin vermelisin.");
-        return;
-      }
+    const label = side === "front" ? "ön" : "arka";
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: [16, 10],
-        quality: 0.7,
-        base64: true,
-      });
+    const source = await new Promise<"camera" | "gallery" | null>((resolve) => {
+      Alert.alert("Kimlik Fotoğrafı", `${label.charAt(0).toUpperCase() + label.slice(1)} yüz fotoğrafını nasıl eklemek istersin?`, [
+        { text: "Kamera", onPress: () => resolve("camera") },
+        { text: "Galeri", onPress: () => resolve("gallery") },
+        { text: "İptal", style: "cancel", onPress: () => resolve(null) },
+      ]);
+    });
+    if (!source) return;
+
+    try {
+      let result: ImagePicker.ImagePickerResult;
+      if (source === "camera") {
+        const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!camPerm.granted) {
+          Alert.alert("İzin gerekli", "Fotoğraf çekebilmek için kamera izni vermelisin.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [16, 10],
+          quality: 0.7,
+          base64: true,
+        });
+      } else {
+        const libPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!libPerm.granted) {
+          Alert.alert("İzin gerekli", "Galeriden resim seçebilmek için izin vermelisin.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [16, 10],
+          quality: 0.7,
+          base64: true,
+        });
+      }
       if (result.canceled || !result.assets?.[0]) return;
 
       const asset = result.assets[0];
