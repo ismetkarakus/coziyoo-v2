@@ -390,9 +390,13 @@ export default function SellerHomeScreen({
                           {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
                           {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                         </Text>
-                        <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
-                        </View>
+                        {item.status === "in_delivery" || item.status === "delivered" || item.status === "completed" ? (
+                          <Text style={{ fontSize: 20 }}>👍</Text>
+                        ) : (
+                          <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+                            <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusLabel(item.status, item.deliveryType)}</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                       <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
