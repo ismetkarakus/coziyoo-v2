@@ -381,16 +381,16 @@ type PaymentStatusSnapshot = {
 function formatOrderStatusLabel(status: string): string {
   const normalized = status.trim().toLowerCase();
   if (!normalized) return '-';
-  if (normalized === 'pending_seller_approval') return t('status.home.orderStatus.pending_seller_approval');
-  if (normalized === 'seller_approved') return t('status.home.orderStatus.seller_approved');
-  if (normalized === 'awaiting_payment') return t('status.home.orderStatus.awaiting_payment');
+  if (normalized === 'pending_seller_approval' || normalized === 'seller_approved' || normalized === 'awaiting_payment') {
+    return t('status.home.orderStatus.awaiting_payment');
+  }
   if (normalized === 'preparing') return t('status.home.orderStatus.preparing');
   if (normalized === 'ready') return t('status.home.orderStatus.ready');
   if (normalized === 'in_delivery') return t('status.home.orderStatus.in_delivery');
   if (normalized === 'delivered') return t('status.home.orderStatus.delivered');
   if (normalized === 'completed') return t('status.home.orderStatus.completed');
   if (normalized === 'cancelled') return t('status.home.orderStatus.cancelled');
-  if (normalized === 'rejected') return t('status.home.orderStatus.rejected');
+  if (normalized === 'rejected') return t('status.home.orderStatus.cancelled');
   return status;
 }
 

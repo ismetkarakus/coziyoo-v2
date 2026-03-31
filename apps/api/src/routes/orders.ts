@@ -52,9 +52,6 @@ const ListOrdersQuerySchema = z.object({
 
 const StatusSchema = z.object({
   toStatus: z.enum([
-    "seller_approved",
-    "rejected",
-    "awaiting_payment",
     "preparing",
     "ready",
     "in_delivery",
@@ -382,11 +379,11 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
   const offset = (page - 1) * pageSize;
 
   const countWhere =
-    role === "seller" ? "seller_id = $1" :
+    role === "seller" ? "seller_id = $1 AND payment_completed = TRUE" :
     role === "buyer"  ? "buyer_id = $1"  :
     "(buyer_id = $1 OR seller_id = $1)";
   const listWhere =
-    role === "seller" ? "o.seller_id = $1" :
+    role === "seller" ? "o.seller_id = $1 AND o.payment_completed = TRUE" :
     role === "buyer"  ? "o.buyer_id = $1"  :
     "(o.buyer_id = $1 OR o.seller_id = $1)";
 
@@ -812,14 +809,22 @@ ordersRouter.post("/:id/review", requireAuth("app"), async (req, res) => {
   }
 });
 
-ordersRouter.post("/:id/approve", requireAuth("app"), async (req, res) => {
-  req.body = { toStatus: "seller_approved" };
-  return transitionHandler(req, res, "seller_approve");
+ordersRouter.post("/:id/approve", requireAuth("app"), async (_req, res) => {
+  return res.status(410).json({
+    error: {
+      code: "ORDER_APPROVAL_REMOVED",
+      message: "Seller approval is no longer used. Paid orders move directly into seller workflow.",
+    },
+  });
 });
 
-ordersRouter.post("/:id/reject", requireAuth("app"), async (req, res) => {
-  req.body = { toStatus: "rejected", reason: req.body?.reason };
-  return transitionHandler(req, res, "seller_reject");
+ordersRouter.post("/:id/reject", requireAuth("app"), async (_req, res) => {
+  return res.status(410).json({
+    error: {
+      code: "ORDER_REJECT_REMOVED",
+      message: "Seller rejection is no longer used in the current order flow.",
+    },
+  });
 });
 
 ordersRouter.post("/:id/cancel", requireAuth("app"), async (req, res) => {
@@ -888,19 +893,14 @@ async function transitionHandler(
       return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not buyer of this order" } });
     }
 
-    const effectiveToStatus: OrderStatus =
-      eventType === "seller_approve" && order.status === "pending_seller_approval"
-        ? (order.payment_completed ? "preparing" : "seller_approved")
-        : toStatus;
-
-    if (!canTransition(order.status, effectiveToStatus)) {
+    if (!canTransition(order.status, toStatus)) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${order.status} -> ${effectiveToStatus}` },
+        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${order.status} -> ${toStatus}` },
       });
     }
 
-    if (effectiveToStatus === "cancelled" && actorRole === "buyer") {
+    if (toStatus === "cancelled" && actorRole === "buyer") {
       if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(order.status)) {
         await client.query("ROLLBACK");
         return res.status(409).json({
@@ -909,12 +909,7 @@ async function transitionHandler(
       }
     }
 
-    if (effectiveToStatus === "rejected" && !reason) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: { code: "REASON_REQUIRED", message: "Reject reason is required" } });
-    }
-
-    if (effectiveToStatus === "completed") {
+    if (toStatus === "completed") {
       const disclosure = await client.query<{ pre_order_count: string; handover_count: string }>(
         `SELECT
           count(*) FILTER (WHERE phase = 'pre_order')::text AS pre_order_count,
@@ -936,7 +931,7 @@ async function transitionHandler(
       }
     }
 
-    if (["delivered", "completed"].includes(effectiveToStatus) && order.delivery_type === "delivery") {
+    if (["delivered", "completed"].includes(toStatus) && order.delivery_type === "delivery") {
       const proof = await client.query<{ status: string }>(
         "SELECT status FROM delivery_proof_records WHERE order_id = $1",
         [order.id]
@@ -952,14 +947,14 @@ async function transitionHandler(
       }
     }
 
-    await client.query("UPDATE orders SET status = $1, updated_at = now() WHERE id = $2", [effectiveToStatus, order.id]);
+    await client.query("UPDATE orders SET status = $1, updated_at = now() WHERE id = $2", [toStatus, order.id]);
     await client.query(
       `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [order.id, req.auth!.userId, eventType, order.status, effectiveToStatus, reason ? JSON.stringify({ reason }) : null]
+      [order.id, req.auth!.userId, eventType, order.status, toStatus, reason ? JSON.stringify({ reason }) : null]
     );
 
-    if (effectiveToStatus === "preparing") {
+    if (toStatus === "preparing") {
       try {
         await allocateLotsFefoTx({ client, orderId: order.id, sellerId: order.seller_id });
         await emitOrderMilestoneTx(
@@ -979,7 +974,7 @@ async function transitionHandler(
       }
     }
 
-    if (effectiveToStatus === "in_delivery" && order.delivery_type === "delivery") {
+    if (toStatus === "in_delivery" && order.delivery_type === "delivery") {
       let destination = extractLatLng(order.delivery_address_json);
       if (!destination) {
         const addrLine = extractAddressLine(order.delivery_address_json);
@@ -1021,7 +1016,7 @@ async function transitionHandler(
       );
     }
 
-    if (effectiveToStatus === "completed") {
+    if (toStatus === "completed") {
       await finalizeOrderFinanceTx({
         client,
         orderId: order.id,
@@ -1051,7 +1046,7 @@ async function transitionHandler(
         console.error("[orders] push flush failed after transition commit", pushErr);
       }
     }
-    return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus: effectiveToStatus } });
+    return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus } });
   } catch {
     if (!committed) {
       await client.query("ROLLBACK");

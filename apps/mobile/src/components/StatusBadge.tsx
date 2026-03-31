@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  pending_seller_approval: { label: 'Onay Bekliyor', color: '#B8860B', bg: '#FFF4E5' },
-  seller_approved: { label: 'Onaylandı', color: '#5D7394', bg: '#E8EDF3' },
-  confirmed: { label: 'Onaylandı', color: '#5D7394', bg: '#E8EDF3' },
+  pending_seller_approval: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
+  seller_approved: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
+  confirmed: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
   awaiting_payment: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
   paid: { label: 'Ödendi', color: '#5D7394', bg: '#E8EDF3' },
   preparing: { label: 'Hazırlanıyor', color: '#B8860B', bg: '#FFF4E5' },

@@ -212,10 +212,10 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           { status: "completed", paymentCompleted: true, hoursAgo: 12, sellerIdx: 0, foodIdx: 1, qty: 1, deliveryType: "delivery" as const },
           { status: "completed", paymentCompleted: true, hoursAgo: 72, sellerIdx: 2, foodIdx: 2, qty: 3, deliveryType: "pickup" as const },
           { status: "delivered", paymentCompleted: true, hoursAgo: 2, sellerIdx: 1, foodIdx: 0, qty: 1, deliveryType: "delivery" as const },
-          // Reddedilen siparis
-          { status: "rejected", paymentCompleted: false, hoursAgo: 36, sellerIdx: 2, foodIdx: 1, qty: 1, deliveryType: "delivery" as const },
-          // Bekleyen siparis
-          { status: "pending_seller_approval", paymentCompleted: false, hoursAgo: 0, sellerIdx: 0, foodIdx: 0, qty: 2, deliveryType: "pickup" as const },
+          // Odemesi beklenen siparis
+          { status: "awaiting_payment", paymentCompleted: false, hoursAgo: 0, sellerIdx: 0, foodIdx: 0, qty: 2, deliveryType: "pickup" as const },
+          // Iptal edilen siparis
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 36, sellerIdx: 2, foodIdx: 1, qty: 1, deliveryType: "delivery" as const },
         ],
         complaints: [
           { sellerIdx: 2, description: "Yanlis urun gonderildi, Nohut Pilavi yerine Acili Tavuk geldi.", priority: "high" as const, status: "open" as const },
@@ -316,7 +316,7 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           [orderId, food.id, scenario.qty, unitPrice, lineTotal]
         );
 
-        const eventFrom = scenario.status === "completed" ? "delivered" : scenario.status === "cancelled" ? "pending_seller_approval" : "created";
+        const eventFrom = scenario.status === "completed" ? "delivered" : scenario.status === "cancelled" ? "awaiting_payment" : "created";
         await client.query(
           `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
            VALUES ($1, $2, 'status_update', $3, $4, $5::jsonb)`,
@@ -379,10 +379,10 @@ adminSystemRouter.post("/system/seed-demo-data", requireAuth("admin"), requireSu
           { status: "completed", paymentCompleted: true, hoursAgo: 48, eventFrom: "delivered", eventTo: "completed" },
           { status: "in_delivery", paymentCompleted: true, hoursAgo: 1, eventFrom: "ready", eventTo: "in_delivery" },
           { status: "preparing", paymentCompleted: true, hoursAgo: 0, eventFrom: "paid", eventTo: "preparing" },
-          { status: "pending_seller_approval", paymentCompleted: false, hoursAgo: 0, eventFrom: "created", eventTo: "pending_seller_approval" },
+          { status: "awaiting_payment", paymentCompleted: false, hoursAgo: 0, eventFrom: "created", eventTo: "awaiting_payment" },
           { status: "delivered", paymentCompleted: true, hoursAgo: 6, eventFrom: "in_delivery", eventTo: "delivered" },
-          { status: "cancelled", paymentCompleted: false, hoursAgo: 24, eventFrom: "pending_seller_approval", eventTo: "cancelled" },
-          { status: "rejected", paymentCompleted: false, hoursAgo: 72, eventFrom: "pending_seller_approval", eventTo: "rejected" },
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 24, eventFrom: "awaiting_payment", eventTo: "cancelled" },
+          { status: "cancelled", paymentCompleted: false, hoursAgo: 72, eventFrom: "awaiting_payment", eventTo: "cancelled" },
           { status: "completed", paymentCompleted: true, hoursAgo: 120, eventFrom: "delivered", eventTo: "completed" },
           { status: "completed", paymentCompleted: true, hoursAgo: 168, eventFrom: "delivered", eventTo: "completed" },
         ];

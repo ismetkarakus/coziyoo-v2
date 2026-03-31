@@ -15,8 +15,8 @@ adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_re
     ),
     pool.query<{ active_orders: string; payment_pending_orders: string }>(
       `SELECT
-         count(*) FILTER (WHERE status IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment', 'preparing', 'ready', 'in_delivery'))::text AS active_orders,
-         count(*) FILTER (WHERE payment_completed = FALSE AND status IN ('awaiting_payment', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed'))::text AS payment_pending_orders
+         count(*) FILTER (WHERE status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered'))::text AS active_orders,
+         count(*) FILTER (WHERE payment_completed = FALSE AND status IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment'))::text AS payment_pending_orders
        FROM orders`
     ),
     pool.query<{ compliance_queue_count: string }>(
@@ -85,7 +85,7 @@ adminDashboardRouter.get("/dashboard/review-queue", requireAuth("admin"), async 
       `SELECT count(*)::text AS count
        FROM orders
        WHERE payment_completed = FALSE
-         AND status IN ('awaiting_payment', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')`
+         AND status IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment')`
     ),
     pool.query<{
       id: string;
@@ -183,7 +183,7 @@ adminDashboardRouter.get("/dashboard/review-queue", requireAuth("admin"), async 
        LEFT JOIN users b ON b.id = o.buyer_id
        LEFT JOIN users s ON s.id = o.seller_id
        WHERE o.payment_completed = FALSE
-         AND o.status IN ('awaiting_payment', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')
+         AND o.status IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment')
        ORDER BY o.created_at DESC
        LIMIT 10`
     ),

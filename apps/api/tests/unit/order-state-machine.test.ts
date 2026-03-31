@@ -8,7 +8,7 @@ import {
 
 describe("order-state-machine", () => {
   it("allows valid transitions", () => {
-    expect(canTransition("pending_seller_approval", "seller_approved")).toBe(true);
+    expect(canTransition("pending_seller_approval", "cancelled")).toBe(true);
     expect(canTransition("awaiting_payment", "paid")).toBe(true);
     expect(canTransition("delivered", "completed")).toBe(true);
   });
@@ -16,11 +16,14 @@ describe("order-state-machine", () => {
   it("blocks invalid transitions", () => {
     expect(canTransition("pending_seller_approval", "completed")).toBe(false);
     expect(canTransition("paid", "seller_approved")).toBe(false);
+    expect(canTransition("pending_seller_approval", "preparing")).toBe(false);
     expect(canTransition("completed", "cancelled")).toBe(false);
   });
 
   it("enforces actor permissions", () => {
     expect(canActorSetStatus("seller", "preparing")).toBe(true);
+    expect(canActorSetStatus("seller", "delivered")).toBe(true);
+    expect(canActorSetStatus("seller", "awaiting_payment")).toBe(false);
     expect(canActorSetStatus("seller", "completed")).toBe(false);
     expect(canActorSetStatus("buyer", "completed")).toBe(true);
     expect(canActorSetStatus("buyer", "preparing")).toBe(false);

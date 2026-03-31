@@ -314,7 +314,8 @@ sellerRouter.get("/orders", async (req, res) => {
       pool.query<{ count: string }>(
         `SELECT count(*)::text AS count
          FROM orders
-         WHERE seller_id = $1`,
+         WHERE seller_id = $1
+           AND payment_completed = TRUE`,
         [userId],
       ),
       pool.query<{
@@ -358,6 +359,7 @@ sellerRouter.get("/orders", async (req, res) => {
            WHERE oi.order_id = o.id
          ) item_stats ON TRUE
          WHERE o.seller_id = $1
+           AND o.payment_completed = TRUE
          ORDER BY o.created_at DESC, o.id DESC
          LIMIT $2 OFFSET $3`,
         [userId, pageSize, offset],

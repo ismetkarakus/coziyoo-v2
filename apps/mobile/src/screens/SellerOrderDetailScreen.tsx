@@ -47,11 +47,8 @@ type OrderDetail = {
   deliveryAddress?: { title?: string; addressLine?: string; line?: string } | null;
 };
 
-const transitionActions: Record<string, Array<{ label: string; toStatus?: string; endpoint?: "approve" | "reject" }>> = {
-  pending_seller_approval: [
-    { label: "Onayla", endpoint: "approve" },
-    { label: "Reddet", endpoint: "reject" },
-  ],
+const transitionActions: Record<string, Array<{ label: string; toStatus: string }>> = {
+  pending_seller_approval: [],
   seller_approved: [],
   awaiting_payment: [],
   paid: [{ label: "Hazırlanıyor", toStatus: "preparing" }],
@@ -122,19 +119,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     return base;
   }, [order?.status, order?.deliveryType]);
 
-  async function runAction(action: { label: string; toStatus?: string; endpoint?: "approve" | "reject" }) {
+  async function runAction(action: { label: string; toStatus: string }) {
     if (!order) return;
     setUpdating(true);
     try {
-      let res: Response;
-      if (action.endpoint) {
-        res = await authedFetch(`/v1/orders/${order.id}/${action.endpoint}`, { method: "POST", body: JSON.stringify({}) });
-      } else {
-        res = await authedFetch(`/v1/orders/${order.id}/status`, {
-          method: "POST",
-          body: JSON.stringify({ toStatus: action.toStatus }),
-        });
-      }
+      const res = await authedFetch(`/v1/orders/${order.id}/status`, {
+        method: "POST",
+        body: JSON.stringify({ toStatus: action.toStatus }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Durum güncellenemedi");
       await loadOrder();
@@ -207,7 +199,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
               <Text style={styles.sectionTitle}>Aksiyonlar</Text>
               {actions.map((action, index) => (
                 <TouchableOpacity
-                  key={`${action.label}-${action.toStatus ?? action.endpoint ?? "none"}-${index}`}
+                  key={`${action.label}-${action.toStatus}-${index}`}
                   style={[styles.actionBtn, updating && styles.actionDisabled]}
                   disabled={updating}
                   onPress={() => void runAction(action)}

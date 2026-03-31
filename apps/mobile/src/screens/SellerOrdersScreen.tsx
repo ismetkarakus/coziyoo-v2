@@ -17,6 +17,7 @@ type Props = {
 
 type SellerOrder = {
   id: string;
+  sellerId?: string | null;
   orderNo?: string | null;
   buyerName?: string | null;
   primaryFoodName?: string | null;
@@ -26,7 +27,7 @@ type SellerOrder = {
   createdAt?: string;
 };
 
-type StatusFilter = "all" | "pending_seller_approval" | "preparing" | "in_delivery" | "delivered" | "completed" | "cancelled" | "rejected";
+type StatusFilter = "all" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
 
 function formatOrderDate(iso: string | undefined): string {
   if (!iso) return "-";
@@ -100,7 +101,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       // Some environments may return empty for role=seller due to legacy actor filtering.
       // Fallback to unscoped list and extract seller-owned rows client-side.
       if (sellerOrders.length === 0) {
-        const fallbackRes = await authedFetch("/v1/orders?page=1&pageSize=200", baseUrl);
+        const fallbackRes = await authedFetch("/v1/orders?page=1&pageSize=200&role=seller", baseUrl);
         const fallbackJson = await fallbackRes.json();
         if (fallbackRes.ok && Array.isArray(fallbackJson?.data)) {
           const fromAll = fallbackJson.data.filter((row: SellerOrder & { sellerId?: string }) => row.sellerId === currentAuth.userId);
@@ -108,7 +109,11 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
         }
       }
 
-      setOrders(sellerOrders);
+      setOrders(
+        sellerOrders.filter((row: SellerOrder) =>
+          ["paid", "preparing", "ready", "in_delivery", "delivered", "completed", "cancelled"].includes(row.status),
+        ),
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : "Siparişler yüklenemedi";
       setErrorText(message);

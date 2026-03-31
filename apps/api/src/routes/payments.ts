@@ -259,7 +259,7 @@ paymentsRouter.post("/webhook", async (req, res) => {
       });
     }
 
-    const nextOrderStatus = orderStatus === "pending_seller_approval" ? "pending_seller_approval" : "paid";
+    const nextOrderStatus = "paid";
 
     await client.query(
       `UPDATE payment_attempts
