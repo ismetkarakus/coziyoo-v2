@@ -327,6 +327,7 @@ sellerRouter.get("/orders", async (req, res) => {
         delivery_address_json: unknown;
         total_price: string;
         created_at: string;
+        updated_at: string;
         buyer_name: string | null;
         primary_food_name: string | null;
         item_count: string;
@@ -340,6 +341,7 @@ sellerRouter.get("/orders", async (req, res) => {
            o.delivery_address_json,
            o.total_price::text,
            o.created_at::text,
+           o.updated_at::text,
            b.display_name AS buyer_name,
            first_item.food_name AS primary_food_name,
            COALESCE(item_stats.item_count, 0)::text AS item_count
@@ -377,6 +379,7 @@ sellerRouter.get("/orders", async (req, res) => {
         deliveryAddress: row.delivery_address_json,
         totalPrice: Number(row.total_price),
         createdAt: row.created_at,
+        updatedAt: row.updated_at,
         buyerName: row.buyer_name ?? null,
         orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
         primaryFoodName: row.primary_food_name ?? null,

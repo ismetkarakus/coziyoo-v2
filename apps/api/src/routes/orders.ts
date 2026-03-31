@@ -401,12 +401,13 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     delivery_address_json: unknown;
     total_price: string;
     created_at: string;
+    updated_at: string;
     seller_name: string;
     seller_image: string | null;
     buyer_name: string;
   }>(
     `SELECT o.id, o.buyer_id, o.seller_id, o.status, o.delivery_type,
-            o.delivery_address_json, o.total_price::text, o.created_at::text,
+            o.delivery_address_json, o.total_price::text, o.created_at::text, o.updated_at::text,
             s.display_name AS seller_name, s.profile_image_url AS seller_image,
             b.display_name AS buyer_name
      FROM orders o
@@ -466,6 +467,7 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       deliveryAddress: row.delivery_address_json,
       totalPrice: Number(row.total_price),
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
       sellerName: row.seller_name,
       sellerImage: row.seller_image,
       buyerName: row.buyer_name,

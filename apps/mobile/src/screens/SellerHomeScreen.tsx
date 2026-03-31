@@ -28,6 +28,7 @@ type SellerOrder = {
   deliveryType?: "pickup" | "delivery" | string;
   totalPrice: number;
   createdAt?: string;
+  updatedAt?: string;
 };
 
 type SellerAction =
@@ -254,9 +255,9 @@ export default function SellerHomeScreen({
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
       if (!["paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(o.status)) return false;
-      const createdAt = parseApiDate(o.createdAt);
-      if (!createdAt) return false;
-      return isSameLocalDay(createdAt, now);
+      const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
+      if (!activityAt) return false;
+      return isSameLocalDay(activityAt, now);
     });
     const statusPriority: Record<string, number> = {
       paid: 0,
@@ -270,7 +271,9 @@ export default function SellerHomeScreen({
       const pa = statusPriority[a.status] ?? 9;
       const pb = statusPriority[b.status] ?? 9;
       if (pa !== pb) return pa - pb;
-      return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+      const aTime = (parseApiDate(a.updatedAt) ?? parseApiDate(a.createdAt))?.getTime() ?? 0;
+      const bTime = (parseApiDate(b.updatedAt) ?? parseApiDate(b.createdAt))?.getTime() ?? 0;
+      return bTime - aTime;
     });
   }, [orders, currentAuth.userId]);
 
