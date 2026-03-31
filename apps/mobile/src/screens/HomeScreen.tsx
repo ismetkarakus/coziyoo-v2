@@ -3656,7 +3656,6 @@ export default function HomeScreen({
               {selectedMeal.addons.some((addon) => addon.pricing === 'paid' && Number(addon.price ?? 0) > 0) ? (
                 <View
                   style={styles.modalSection}
-                  onStartShouldSetResponder={() => paidAddonsExpanded}
                   onTouchStart={() => {
                     skipNextPaidCollapseRef.current = true;
                   }}
