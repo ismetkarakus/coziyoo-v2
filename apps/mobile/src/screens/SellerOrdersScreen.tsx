@@ -200,14 +200,18 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
               contentContainerStyle={{ padding: 14, gap: 10 }}
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
-                  </View>
                   {item.primaryFoodName ? (
-                    <Text style={styles.foodName}>
-                      {item.primaryFoodName}{item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
-                    </Text>
-                  ) : null}
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.foodName}>
+                        {item.primaryFoodName}{item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
+                      </Text>
+                      <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
+                    </View>
+                  )}
                   <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
                   {(item.updatedAt || item.createdAt) ? (
                     <Text style={styles.meta}>{formatOrderDate(item.updatedAt ?? item.createdAt)}</Text>
@@ -251,8 +255,8 @@ const styles = StyleSheet.create({
   },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
-  foodName: { color: "#2E241C", fontWeight: "700", fontSize: 14, marginTop: 4 },
+  orderNo: { color: "#6C6055", fontWeight: "800", fontSize: 13 },
+  foodName: { color: "#2E241C", fontWeight: "700", fontSize: 14, flex: 1, marginRight: 8 },
   meta: { color: "#6C6055", marginTop: 3 },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   emptyWrap: {
