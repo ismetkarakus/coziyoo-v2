@@ -6,6 +6,7 @@ import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
+import StatusBadge from "../components/StatusBadge";
 
 type Props = {
   auth: AuthSession;
@@ -24,6 +25,17 @@ type SellerOrder = {
 };
 
 type StatusFilter = "all" | "pending_seller_approval" | "preparing" | "in_delivery" | "delivered" | "completed" | "cancelled" | "rejected";
+
+function formatOrderDate(iso: string | undefined): string {
+  if (!iso) return "-";
+  const normalized = iso.trim().replace(" ", "T").replace(/(\.\d+)?([+-]\d{2})$/, "$1$2:00");
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return "-";
+  const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+  const h = d.getHours().toString().padStart(2, "0");
+  const m = d.getMinutes().toString().padStart(2, "0");
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${h}:${m}`;
+}
 
 function parseDateInput(value: string): Date | null {
   const raw = value.trim();
@@ -166,9 +178,12 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
               contentContainerStyle={{ padding: 14, gap: 10 }}
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.card} onPress={() => onOpenOrder(item.id)}>
-                  <Text style={styles.orderNo}>{item.orderNo || item.id.slice(0, 8)}</Text>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
+                    <StatusBadge status={item.status} size="sm" />
+                  </View>
                   <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
-                  <Text style={styles.meta}>Durum: {item.status}</Text>
+                  {item.createdAt ? <Text style={styles.meta}>{formatOrderDate(item.createdAt)}</Text> : null}
                   <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
                 </TouchableOpacity>
               )}
@@ -207,6 +222,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
   meta: { color: "#6C6055", marginTop: 3 },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },

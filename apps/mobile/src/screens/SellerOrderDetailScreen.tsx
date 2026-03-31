@@ -6,6 +6,7 @@ import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
+import StatusBadge from "../components/StatusBadge";
 
 type Props = {
   auth: AuthSession;
@@ -14,10 +15,22 @@ type Props = {
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
+function formatOrderDate(iso: string | undefined): string {
+  if (!iso) return "-";
+  const normalized = iso.trim().replace(" ", "T").replace(/(\.\d+)?([+-]\d{2})$/, "$1$2:00");
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return "-";
+  const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+  const h = d.getHours().toString().padStart(2, "0");
+  const m = d.getMinutes().toString().padStart(2, "0");
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${h}:${m}`;
+}
+
 type OrderDetail = {
   id: string;
   orderNo?: string;
   status: string;
+  createdAt?: string;
   buyerName?: string;
   deliveryType?: string;
   totalPrice: number;
@@ -141,10 +154,13 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       ) : (
         <>
           <View style={styles.card}>
-            <Text style={styles.orderNo}>{order.orderNo || order.id.slice(0, 8)}</Text>
-            <Text style={styles.meta}>Durum: {order.status}</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.orderNo}>{order.orderNo || "#" + order.id.slice(0, 8).toUpperCase()}</Text>
+              <StatusBadge status={order.status} size="sm" />
+            </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
+            {order.createdAt ? <Text style={styles.meta}>Tarih: {formatOrderDate(order.createdAt)}</Text> : null}
             <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
           </View>
           {order.deliveryType === "delivery" ? (
@@ -212,6 +228,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 36, gap: 10 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { fontSize: 17, fontWeight: "800", color: "#2E241C" },
   meta: { marginTop: 4, color: "#6C6055" },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
