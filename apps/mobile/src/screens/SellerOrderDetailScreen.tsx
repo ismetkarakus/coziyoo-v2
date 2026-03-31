@@ -31,7 +31,7 @@ type OrderDetail = {
       paid?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer"; price: number; quantity?: number }>;
     };
   }>;
-  deliveryAddress?: { title?: string; addressLine?: string } | null;
+  deliveryAddress?: { title?: string; addressLine?: string; line?: string } | null;
 };
 
 const transitionActions: Record<string, Array<{ label: string; toStatus?: string; endpoint?: "approve" | "reject" }>> = {
@@ -151,7 +151,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
               <Text style={styles.meta}>{order.deliveryAddress?.title || "-"}</Text>
-              <Text style={styles.meta}>{order.deliveryAddress?.addressLine || "-"}</Text>
+              <Text style={styles.meta}>{order.deliveryAddress?.addressLine || order.deliveryAddress?.line || "-"}</Text>
             </View>
           ) : (
             <View style={styles.card}>
