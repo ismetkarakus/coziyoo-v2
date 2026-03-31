@@ -53,7 +53,7 @@ function statusLabel(status: string, deliveryType?: string): string {
   if (status === "preparing") return "Hazırlanıyor";
   if (status === "ready") return "Hazır";
   if (status === "in_delivery" && deliveryType === "pickup") return "Hazır";
-  if (status === "in_delivery") return "Onaylandı";
+  if (status === "in_delivery") return "👍";
   if (status === "delivered") return "👍";
   if (status === "completed") return "👍";
   if (status === "cancelled") return "İptal";
