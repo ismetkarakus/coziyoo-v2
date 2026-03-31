@@ -4,7 +4,7 @@ import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
-import { setSellerFoodsCache } from "../utils/sellerFoodsCache";
+import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
 import { subscribeSellerOrdersRealtime } from "../utils/realtime";
 
 type Props = {
@@ -105,7 +105,19 @@ export default function SellerHomeScreen({
   const [displayName, setDisplayName] = useState<string>("Usta");
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [activeFoods, setActiveFoods] = useState<ActiveFood[]>([]);
+  const [activeFoods, setActiveFoods] = useState<ActiveFood[]>(() => {
+    const cached = getSellerFoodsCache();
+    if (!Array.isArray(cached)) return [];
+    return cached
+      .filter((f) => f.isActive)
+      .map((f) => ({
+        id: String(f.id ?? ""),
+        name: String(f.name ?? ""),
+        price: Number(f.price ?? 0),
+        isActive: true,
+        stock: Number(f.stock ?? 0),
+      }));
+  });
   const [activePage, setActivePage] = useState(0);
   const pagerRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get("window").width;
@@ -153,7 +165,7 @@ export default function SellerHomeScreen({
   }
 
   async function load() {
-    setLoading(true);
+    if (getSellerFoodsCache() === null) setLoading(true);
     try {
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
