@@ -19,6 +19,8 @@ type SellerOrder = {
   id: string;
   orderNo?: string | null;
   buyerName?: string | null;
+  primaryFoodName?: string | null;
+  itemCount?: number | null;
   status: string;
   totalPrice: number;
   createdAt?: string;
@@ -182,6 +184,11 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
                     <Text style={styles.orderNo}>{item.orderNo || "#" + item.id.slice(0, 8).toUpperCase()}</Text>
                     <StatusBadge status={item.status} size="sm" />
                   </View>
+                  {item.primaryFoodName ? (
+                    <Text style={styles.foodName}>
+                      {item.primaryFoodName}{item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
+                    </Text>
+                  ) : null}
                   <Text style={styles.meta}>Alıcı: {item.buyerName || "-"}</Text>
                   {item.createdAt ? <Text style={styles.meta}>{formatOrderDate(item.createdAt)}</Text> : null}
                   <Text style={styles.total}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
@@ -224,6 +231,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { color: "#2E241C", fontWeight: "800", fontSize: 16 },
+  foodName: { color: "#2E241C", fontWeight: "700", fontSize: 14, marginTop: 4 },
   meta: { color: "#6C6055", marginTop: 3 },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   emptyWrap: {

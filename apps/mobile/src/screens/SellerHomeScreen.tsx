@@ -30,7 +30,7 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: "Onayla"; kind: "approve_then_prepare"; tone?: "primary" }
+  | { label: "Onayla"; kind: "approve"; tone?: "primary" }
   | { label: "Reddet"; kind: "reject"; tone?: "danger" }
   | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "info" }
   | { label: "Hazır"; kind: "to_ready"; tone?: "primary" }
@@ -80,8 +80,9 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 }
 
 function cardActionsByStatus(status: string, deliveryType?: string): SellerAction[] {
-  if (status === "pending_seller_approval") return [{ label: "Reddet", kind: "reject", tone: "danger" }, { label: "Onayla", kind: "approve_then_prepare", tone: "primary" }];
-  if (status === "seller_approved" || status === "awaiting_payment" || status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
+  if (status === "pending_seller_approval") return [{ label: "Reddet", kind: "reject", tone: "danger" }, { label: "Onayla", kind: "approve", tone: "primary" }];
+  if (status === "seller_approved" || status === "awaiting_payment") return [];
+  if (status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
   if (status === "preparing") return [{ label: "Hazır", kind: "to_ready", tone: "primary" }];
   if (status === "ready" && deliveryType === "pickup") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
   if (status === "ready") return [{ label: "Yola Çıktı", kind: "to_in_delivery", tone: "primary" }];
@@ -254,7 +255,7 @@ export default function SellerHomeScreen({
     if (!res.ok) throw new Error(body?.error?.message ?? "Durum güncellenemedi");
   }
 
-  async function approveThenPrepare(orderId: string): Promise<void> {
+  async function approveOrder(orderId: string): Promise<void> {
     const approveRes = await fetchWithAuthInit(
       `/v1/orders/${orderId}/approve`,
       { method: "POST", body: JSON.stringify({}) },
@@ -262,8 +263,6 @@ export default function SellerHomeScreen({
     );
     const approveBody = await approveRes.json().catch(() => ({}));
     if (!approveRes.ok) throw new Error(approveBody?.error?.message ?? "Sipariş onaylanamadı");
-
-    await changeStatus(orderId, "preparing");
   }
 
   async function rejectOrder(orderId: string): Promise<void> {
@@ -279,8 +278,8 @@ export default function SellerHomeScreen({
   async function runCardAction(orderId: string, action: SellerAction) {
     try {
       setUpdatingOrderId(orderId);
-      if (action.kind === "approve_then_prepare") {
-        await approveThenPrepare(orderId);
+      if (action.kind === "approve") {
+        await approveOrder(orderId);
       } else if (action.kind === "reject") {
         await rejectOrder(orderId);
       } else if (action.kind === "to_preparing") {
