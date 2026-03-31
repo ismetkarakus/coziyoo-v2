@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform, Alert, Modal, TouchableOpacity, Animated, PanResponder } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, Alert, TouchableOpacity, Animated, PanResponder, BackHandler } from 'react-native';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -156,6 +156,24 @@ export default function App() {
       setSellerOrderModalVisible(false);
     });
   }
+  useEffect(() => {
+    if (sellerOrderModalVisible) {
+      sheetTranslateY.setValue(600);
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 4,
+      }).start();
+    }
+  }, [sellerOrderModalVisible]);
+  useEffect(() => {
+    if (!sellerOrderModalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeSheet();
+      return true;
+    });
+    return () => sub.remove();
+  }, [sellerOrderModalVisible]);
   const [sellerFoodsInitialEditId, setSellerFoodsInitialEditId] = useState<string | null>(null);
   const [sellerFoodsInitialEditFood, setSellerFoodsInitialEditFood] = useState<any | null>(null);
   const [sellerFoodsFromManager, setSellerFoodsFromManager] = useState(false);
@@ -676,36 +694,20 @@ export default function App() {
           onAuthRefresh={setAuth}
           onSwitchToBuyer={canSwitchRole ? () => setActorMode('buyer') : undefined}
         />
-        <Modal
-          visible={sellerOrderModalVisible && Boolean(selectedOrderId)}
-          animationType="none"
-          transparent
-          presentationStyle="overFullScreen"
-          onRequestClose={closeSheet}
-          onShow={() => {
-            sheetTranslateY.setValue(600);
-            Animated.spring(sheetTranslateY, {
-              toValue: 0,
-              useNativeDriver: true,
-              bounciness: 4,
-            }).start();
-          }}
-        >
+        {sellerOrderModalVisible && selectedOrderId ? (
           <View style={styles.sheetOverlay}>
             <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeSheet} />
             <Animated.View style={[styles.sheetCard, { transform: [{ translateY: sheetTranslateY }] }]} {...sheetPanResponder.panHandlers}>
               <View style={styles.sheetGrabber} />
-              {selectedOrderId ? (
-                <SellerOrderDetailScreen
-                  auth={auth}
-                  orderId={selectedOrderId}
-                  onBack={closeSheet}
-                  onAuthRefresh={setAuth}
-                />
-              ) : null}
+              <SellerOrderDetailScreen
+                auth={auth}
+                orderId={selectedOrderId}
+                onBack={closeSheet}
+                onAuthRefresh={setAuth}
+              />
             </Animated.View>
           </View>
-        </Modal>
+        ) : null}
       </>
     );
   }
@@ -737,9 +739,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sheetOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.25)',
     justifyContent: 'flex-end',
+    zIndex: 999,
   },
   sheetBackdrop: {
     flex: 1,
