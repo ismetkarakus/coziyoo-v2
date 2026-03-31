@@ -1285,7 +1285,6 @@ export default function HomeScreen({
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentAnimating, setPaymentAnimating] = useState(false);
   const [allergenWarnMeal, setAllergenWarnMeal] = useState<MealCard | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<string | null>(null);
@@ -2320,8 +2319,8 @@ export default function HomeScreen({
       if (createdCheckoutUrls.length > 0) {
         setCheckoutUrl(createdCheckoutUrls[0]);
         setPendingCheckoutUrls(createdCheckoutUrls.slice(1));
+        setPaymentWebVisible(true);
       }
-      setPaymentAnimating(true);
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Ödeme başlatma hatası');
     } finally {
@@ -2403,6 +2402,9 @@ export default function HomeScreen({
 
   function handleClosePaymentWeb() {
     setPaymentWebVisible(false);
+    if (!paymentStatus?.paymentCompleted) {
+      setPaymentInfo('Ödeme tamamlanmadıysa sipariş henüz satıcıya gitmez.');
+    }
   }
 
   function openNextCheckout() {
@@ -4223,18 +4225,6 @@ export default function HomeScreen({
       </View>
     </SafeAreaView>
 
-      <Modal visible={paymentAnimating} transparent animationType="fade" onRequestClose={() => {}}>
-        <CartPaymentAnimation
-          onDone={() => {
-            setPaymentAnimating(false);
-            if (checkoutUrl) {
-              setPaymentWebVisible(true);
-              return;
-            }
-            void refreshPaymentStatus(true);
-          }}
-        />
-      </Modal>
     </>
   );
 }
