@@ -218,47 +218,32 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   };
 
-  const orderStatusMeta = (rawStatus: unknown): { label: string; note: string; toneClass: string } => {
+  const normalizeBuyerFlowStatus = (rawStatus: unknown): string => {
     const status = String(rawStatus ?? "").trim().toLowerCase();
+    if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
+    if (status === "ready" || status === "in_delivery") return "in_delivery";
+    if (status === "delivered") return "delivered";
+    if (status === "completed") return "completed";
+    if (status === "rejected") return "cancelled";
+    return status;
+  };
+
+  const orderStatusMeta = (rawStatus: unknown): { label: string; note: string; toneClass: string } => {
+    const status = normalizeBuyerFlowStatus(rawStatus);
     const isTr = language === "tr";
     const map: Record<string, { label: string; note: string; toneClass: string }> = {
-      pending_seller_approval: {
-        label: isTr ? "Onay bekliyor" : "Pending approval",
-        note: isTr ? "Satıcı onayı bekleniyor" : "Waiting for seller approval",
-        toneClass: "is-pending",
-      },
-      seller_approved: {
-        label: isTr ? "Onaylandı" : "Approved",
-        note: isTr ? "Satıcı tarafından onaylandı" : "Approved by seller",
-        toneClass: "is-approved",
-      },
-      awaiting_payment: {
-        label: isTr ? "Ödeme bekliyor" : "Awaiting payment",
-        note: isTr ? "Ödeme adımı bekleniyor" : "Waiting for payment",
-        toneClass: "is-pending",
-      },
-      paid: {
-        label: isTr ? "Ödendi" : "Paid",
-        note: isTr ? "Ödeme tamamlandı" : "Payment completed",
-        toneClass: "is-paid",
-      },
       preparing: {
         label: isTr ? "Hazırlanıyor" : "Preparing",
         note: isTr ? "Sipariş hazırlanıyor" : "Order is being prepared",
         toneClass: "is-pending",
       },
-      ready: {
-        label: isTr ? "Teslime hazır" : "Ready",
-        note: isTr ? "Teslimata çıkmayı bekliyor" : "Waiting for delivery pickup",
-        toneClass: "is-approved",
-      },
       in_delivery: {
-        label: isTr ? "Teslimatta" : "In delivery",
-        note: isTr ? "Teslimat bekliyor" : "Out for delivery",
+        label: isTr ? "Yola çıktı" : "Out for delivery",
+        note: isTr ? "Sipariş yolda" : "Order is on the way",
         toneClass: "is-delivery",
       },
       delivered: {
-        label: isTr ? "Teslim edildi" : "Delivered",
+        label: isTr ? "Kapıda teslim edildi" : "Delivered at door",
         note: isTr ? "Teslimat tamamlandı" : "Delivery completed",
         toneClass: "is-done",
       },
@@ -1037,27 +1022,37 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     </thead>
                     <tbody>
                       {selectedOrderEvents
-                        .filter((event) => {
-                          const to = String(event.to_status ?? "").trim();
-                          const from = String(event.from_status ?? "").trim();
-                          // skip no-op transitions (same status → same status)
-                          return to && !(from && from === to);
+                        .map((event) => {
+                          const toStatus = normalizeBuyerFlowStatus(event.to_status);
+                          const fromStatus = normalizeBuyerFlowStatus(event.from_status);
+                          return {
+                            createdAt: event.created_at,
+                            toStatus,
+                            fromStatus,
+                            actorId: String(event.actor_user_id ?? "").trim(),
+                          };
                         })
-                        .map((event, index) => {
-                        const toStatus = String(event.to_status ?? "").trim();
-                        const fromStatus = String(event.from_status ?? "").trim();
-                        const actorId = String(event.actor_user_id ?? "").trim();
-                        return (
+                        .filter((event) => {
+                          if (!event.toStatus) return false;
+                          if (!["preparing", "in_delivery", "delivered", "completed", "cancelled"].includes(event.toStatus)) return false;
+                          return !(event.fromStatus && event.fromStatus === event.toStatus);
+                        })
+                        .reduce<Array<{ createdAt: unknown; toStatus: string; fromStatus: string; actorId: string }>>((acc, event) => {
+                          const prev = acc[acc.length - 1];
+                          if (prev && prev.toStatus === event.toStatus) return acc;
+                          acc.push(event);
+                          return acc;
+                        }, [])
+                        .map((event, index) => (
                           <tr key={`event-${index}`}>
-                            <td style={{ whiteSpace: "nowrap" }}>{formatOrderCreatedAt(event.created_at)}</td>
+                            <td style={{ whiteSpace: "nowrap" }}>{formatOrderCreatedAt(event.createdAt)}</td>
                             <td>
-                              {fromStatus ? `${orderStatusMeta(fromStatus).label} → ` : ""}
-                              <strong>{orderStatusMeta(toStatus).label}</strong>
+                              {event.fromStatus ? `${orderStatusMeta(event.fromStatus).label} → ` : ""}
+                              <strong>{orderStatusMeta(event.toStatus).label}</strong>
                             </td>
-                            <td>{actorId ? (userNameById[actorId] ?? shortUuid(actorId)) : "-"}</td>
+                            <td>{event.actorId ? (userNameById[event.actorId] ?? shortUuid(event.actorId)) : "-"}</td>
                           </tr>
-                        );
-                      })}
+                        ))}
                     </tbody>
                   </table>
                 </div>
