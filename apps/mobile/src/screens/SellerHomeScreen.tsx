@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, Dimensions, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -129,6 +129,7 @@ export default function SellerHomeScreen({
   const [displayName, setDisplayName] = useState<string>("Usta");
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFoods, setActiveFoods] = useState<ActiveFood[]>(() => {
     const cached = getSellerFoodsCache();
     if (!Array.isArray(cached)) return [];
@@ -252,6 +253,20 @@ export default function SellerHomeScreen({
     return unsubscribe;
   }, [currentAuth.userId]);
 
+  // Reload when app returns to foreground (covers case where realtime is not configured)
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") void load();
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Polling fallback: refresh every 30 s so new orders always appear
+  useEffect(() => {
+    const id = setInterval(() => { void load(); }, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const activeOrders = useMemo(() => {
     const now = new Date();
     const filtered = orders.filter((o) => {
@@ -281,6 +296,12 @@ export default function SellerHomeScreen({
       return bTime - aTime;
     });
   }, [orders, currentAuth.userId]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "preparing"): Promise<void> {
     const res = await fetchWithAuthInit(
@@ -383,7 +404,12 @@ export default function SellerHomeScreen({
         style={styles.pager}
       >
         {/* Sayfa 1: Bugünkü Siparişler */}
-        <ScrollView style={{ width: screenWidth }} contentContainerStyle={styles.ordersContent} nestedScrollEnabled={true}>
+        <ScrollView
+          style={{ width: screenWidth }}
+          contentContainerStyle={styles.ordersContent}
+          nestedScrollEnabled={true}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        >
           <View style={styles.ordersSection}>
             {activeOrders.length === 0 ? (
               <View style={styles.emptyCard}>
