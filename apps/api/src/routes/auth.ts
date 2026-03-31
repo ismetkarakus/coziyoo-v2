@@ -775,12 +775,13 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
     user_type: string;
     full_name: string | null;
     country_code: string | null;
+    national_id: string | null;
     language: string | null;
     phone: string | null;
     dob: string | null;
     profile_image_url: string | null;
   }>(
-    `SELECT id, email, display_name, username, user_type, full_name, country_code, language, phone, dob, profile_image_url
+    `SELECT id, email, display_name, username, user_type, full_name, country_code, national_id, language, phone, dob, profile_image_url
      FROM users
      WHERE id = $1 AND is_active = TRUE`,
     [req.auth!.userId]
@@ -800,6 +801,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
       fullName: user.full_name,
       userType: user.user_type,
       countryCode: user.country_code,
+      nationalId: user.national_id,
       language: user.language,
       phone: user.phone,
       dob: user.dob,
@@ -869,6 +871,7 @@ const UpdateProfileSchema = z.object({
     z.string().regex(/^\d{11}$/, "TC identity number must be 11 digits"),
     z.string().min(2).max(3),
   ]).optional(),
+  nationalId: z.string().regex(/^\d{11}$/, "TC kimlik numarası 11 haneli olmalı").optional(),
   language: z.string().min(2).max(10).optional(),
   phone: z.string().min(7).max(20).optional(),
   dob: z
@@ -918,6 +921,10 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
     setClauses.push(`country_code = $${idx++}`);
     values.push(fields.countryCode);
   }
+  if (fields.nationalId !== undefined) {
+    setClauses.push(`national_id = $${idx++}`);
+    values.push(fields.nationalId);
+  }
   if (fields.language !== undefined) {
     setClauses.push(`language = $${idx++}`);
     values.push(fields.language);
@@ -955,13 +962,14 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       full_name: string | null;
       user_type: string;
       country_code: string | null;
+      national_id: string | null;
       language: string | null;
       phone: string | null;
       dob: string | null;
       profile_image_url: string | null;
     }>(
       `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
-       RETURNING id, email, display_name, username, user_type, full_name, country_code, language, phone, dob, profile_image_url`,
+       RETURNING id, email, display_name, username, user_type, full_name, country_code, national_id, language, phone, dob, profile_image_url`,
       values
     );
   } catch (error: any) {
@@ -998,6 +1006,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       fullName: updated.full_name,
       userType: updated.user_type,
       countryCode: updated.country_code,
+      nationalId: updated.national_id,
       language: updated.language,
       phone: updated.phone,
       dob: updated.dob,

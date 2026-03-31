@@ -90,6 +90,7 @@ export default function SellerProfileDetailScreen({
   const [cityDistrict, setCityDistrict] = useState("");
   const [addressLine, setAddressLine] = useState("");
   const [contactCountryCode, setContactCountryCode] = useState("");
+  const [tcKimlikNo, setTcKimlikNo] = useState("");
 
   const [isKitchenModalOpen, setIsKitchenModalOpen] = useState(false);
   const [kitchenDescInput, setKitchenDescInput] = useState("");
@@ -146,6 +147,7 @@ export default function SellerProfileDetailScreen({
         setFullName(String(meJson.data.fullName ?? "").trim());
         setContactDob(formatDobForDisplay(String(meJson.data.dob ?? "")));
         setContactCountryCode(String(meJson.data.countryCode ?? "").trim().toUpperCase());
+        setTcKimlikNo(String(meJson.data.nationalId ?? "").trim());
         const meEmail = String(meJson.data.email ?? "").trim();
         if (meEmail) {
           setContactEmail(meEmail);
@@ -154,6 +156,7 @@ export default function SellerProfileDetailScreen({
         setFullName("");
         setContactDob("");
         setContactCountryCode("");
+        setTcKimlikNo("");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Profil yüklenemedi");
@@ -335,6 +338,7 @@ export default function SellerProfileDetailScreen({
       if (fullName.trim()) payload.fullName = fullName.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
       if (contactCountryCode.trim()) payload.countryCode = contactCountryCode.trim().toUpperCase();
+      if (tcKimlikNo.trim()) payload.nationalId = tcKimlikNo.trim();
       if (contactDob.trim()) {
         const normalizedDob = normalizeDobForApi(contactDob);
         if (!normalizedDob) {
@@ -650,6 +654,17 @@ export default function SellerProfileDetailScreen({
                 autoCapitalize="characters"
                 maxLength={3}
                 placeholder="Örn: TR (Türkiye), GB (İngiltere)"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
+
+              <Text style={styles.modalLabel}>T.C. Kimlik</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={tcKimlikNo}
+                onChangeText={setTcKimlikNo}
+                keyboardType="numeric"
+                maxLength={11}
+                placeholder="11 haneli T.C. kimlik numarası"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
             </ScrollView>
