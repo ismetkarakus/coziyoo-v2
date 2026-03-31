@@ -27,7 +27,7 @@ type SellerOrder = {
   createdAt?: string;
 };
 
-type StatusFilter = "all" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
+type StatusFilter = "all" | "pending_seller_approval" | "awaiting_payment" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
 
 function formatOrderDate(iso: string | undefined): string {
   if (!iso) return "-";
@@ -109,11 +109,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
         }
       }
 
-      setOrders(
-        sellerOrders.filter((row: SellerOrder) =>
-          ["paid", "preparing", "ready", "in_delivery", "delivered", "completed", "cancelled"].includes(row.status),
-        ),
-      );
+      setOrders(sellerOrders);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Siparişler yüklenemedi";
       setErrorText(message);

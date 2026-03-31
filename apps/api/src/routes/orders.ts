@@ -379,11 +379,11 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
   const offset = (page - 1) * pageSize;
 
   const countWhere =
-    role === "seller" ? "seller_id = $1 AND payment_completed = TRUE" :
+    role === "seller" ? "seller_id = $1 AND status NOT IN ('rejected', 'cancelled')" :
     role === "buyer"  ? "buyer_id = $1"  :
     "(buyer_id = $1 OR seller_id = $1)";
   const listWhere =
-    role === "seller" ? "o.seller_id = $1 AND o.payment_completed = TRUE" :
+    role === "seller" ? "o.seller_id = $1 AND o.status NOT IN ('rejected', 'cancelled')" :
     role === "buyer"  ? "o.buyer_id = $1"  :
     "(o.buyer_id = $1 OR o.seller_id = $1)";
 

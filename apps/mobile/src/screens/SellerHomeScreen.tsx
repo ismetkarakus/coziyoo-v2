@@ -32,8 +32,6 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: "Onayla"; kind: "approve"; tone?: "primary" }
-  | { label: "Reddet"; kind: "reject"; tone?: "danger" }
   | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "info" }
   | { label: "Hazır"; kind: "to_ready"; tone?: "primary" }
   | { label: "Yola Çıktı"; kind: "to_in_delivery"; tone?: "primary" }
@@ -100,7 +98,8 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 }
 
 function cardActionsByStatus(status: string, deliveryType?: string): SellerAction[] {
-  if (status === "pending_seller_approval") return [{ label: "Reddet", kind: "reject", tone: "danger" }, { label: "Onayla", kind: "approve", tone: "primary" }];
+  // pending_seller_approval / seller_approved / awaiting_payment:
+  // buyer has not paid yet — seller has no action, just waits for payment.
   if (status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
   if (status === "preparing") return [{ label: "Hazır", kind: "to_ready", tone: "primary" }];
   if (status === "ready" && deliveryType === "pickup") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
@@ -296,34 +295,10 @@ export default function SellerHomeScreen({
     if (!res.ok) throw new Error(body?.error?.message ?? "Durum güncellenemedi");
   }
 
-  async function approveOrder(orderId: string): Promise<void> {
-    const res = await fetchWithAuthInit(
-      `/v1/orders/${orderId}/approve`,
-      { method: "POST", body: JSON.stringify({}) },
-      apiUrl,
-    );
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body?.error?.message ?? "Sipariş onaylanamadı");
-  }
-
-  async function rejectOrder(orderId: string): Promise<void> {
-    const res = await fetchWithAuthInit(
-      `/v1/orders/${orderId}/reject`,
-      { method: "POST", body: JSON.stringify({ reason: "Şu an hazırlanamıyor." }) },
-      apiUrl,
-    );
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body?.error?.message ?? "Sipariş reddedilemedi");
-  }
-
   async function runCardAction(orderId: string, action: SellerAction) {
     try {
       setUpdatingOrderId(orderId);
-      if (action.kind === "approve") {
-        await approveOrder(orderId);
-      } else if (action.kind === "reject") {
-        await rejectOrder(orderId);
-      } else if (action.kind === "to_preparing") {
+      if (action.kind === "to_preparing") {
         await changeStatus(orderId, "preparing");
       } else if (action.kind === "to_ready") {
         await changeStatus(orderId, "ready");
@@ -446,7 +421,7 @@ export default function SellerHomeScreen({
                             activeOpacity={0.86}
                             style={[
                               styles.cardActionBtn,
-                              action.tone === "danger" ? styles.cardActionBtnDanger : styles.cardActionBtnPrimary,
+                              styles.cardActionBtnPrimary,
                               action.tone === "info" ? styles.cardActionBtnInfo : null,
                               isUpdating && styles.cardActionBtnDisabled,
                             ]}
@@ -456,7 +431,7 @@ export default function SellerHomeScreen({
                             <Text
                               style={[
                                 styles.cardActionBtnText,
-                                action.tone === "danger" ? styles.cardActionBtnTextDanger : styles.cardActionBtnTextPrimary,
+                                styles.cardActionBtnTextPrimary,
                                 action.tone === "info" ? styles.cardActionBtnTextInfo : null,
                               ]}
                             >
