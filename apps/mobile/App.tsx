@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform, Alert, Modal, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, Alert, Modal, TouchableOpacity, Animated, PanResponder } from 'react-native';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -123,6 +123,36 @@ export default function App() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderDetailBackTarget, setOrderDetailBackTarget] = useState<OrderDetailBackTarget>('orders');
   const [sellerOrderModalVisible, setSellerOrderModalVisible] = useState(false);
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+  const sheetPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 4,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) {
+          sheetTranslateY.setValue(gesture.dy);
+        }
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dy > 120 || gesture.vy > 0.5) {
+          Animated.timing(sheetTranslateY, {
+            toValue: 600,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            sheetTranslateY.setValue(0);
+            setSellerOrderModalVisible(false);
+          });
+        } else {
+          Animated.spring(sheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 4,
+          }).start();
+        }
+      },
+    }),
+  ).current;
   const [sellerFoodsInitialEditId, setSellerFoodsInitialEditId] = useState<string | null>(null);
   const [sellerFoodsInitialEditFood, setSellerFoodsInitialEditFood] = useState<any | null>(null);
   const [sellerFoodsFromManager, setSellerFoodsFromManager] = useState(false);
@@ -637,6 +667,7 @@ export default function App() {
           onOpenOrderHistory={() => setScreen('sellerOrders')}
           onOpenOrder={(id) => {
             setSelectedOrderId(id);
+            sheetTranslateY.setValue(0);
             setSellerOrderModalVisible(true);
           }}
           onAuthRefresh={setAuth}
@@ -651,7 +682,7 @@ export default function App() {
         >
           <View style={styles.sheetOverlay}>
             <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setSellerOrderModalVisible(false)} />
-            <View style={styles.sheetCard}>
+            <Animated.View style={[styles.sheetCard, { transform: [{ translateY: sheetTranslateY }] }]} {...sheetPanResponder.panHandlers}>
               <View style={styles.sheetGrabber} />
               {selectedOrderId ? (
                 <SellerOrderDetailScreen
@@ -661,7 +692,7 @@ export default function App() {
                   onAuthRefresh={setAuth}
                 />
               ) : null}
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       </>
