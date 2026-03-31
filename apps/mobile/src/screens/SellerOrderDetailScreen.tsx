@@ -8,6 +8,8 @@ import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 import StatusBadge from "../components/StatusBadge";
 
+const TEST_PAYMENT_BYPASS = __DEV__;
+
 type Props = {
   auth: AuthSession;
   orderId: string;
@@ -48,15 +50,22 @@ type OrderDetail = {
 };
 
 const transitionActions: Record<string, Array<{ label: string; toStatus: string }>> = {
-  pending_seller_approval: [],
-  seller_approved: [],
-  awaiting_payment: [],
+  pending_seller_approval: TEST_PAYMENT_BYPASS ? [{ label: "Hazırlanıyor", toStatus: "preparing" }] : [],
+  seller_approved: TEST_PAYMENT_BYPASS ? [{ label: "Hazırlanıyor", toStatus: "preparing" }] : [],
+  awaiting_payment: TEST_PAYMENT_BYPASS ? [{ label: "Hazırlanıyor", toStatus: "preparing" }] : [],
   paid: [{ label: "Hazırlanıyor", toStatus: "preparing" }],
   preparing: [{ label: "Hazır", toStatus: "ready" }],
   ready: [{ label: "Yola Çıktı", toStatus: "in_delivery" }],
   in_delivery: [{ label: "Teslim Edildi", toStatus: "delivered" }],
   delivered: [],
 };
+
+function mapStatusForTest(status: string): string {
+  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
+    return "paid";
+  }
+  return status;
+}
 
 export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -112,8 +121,9 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }, [orderId]);
 
   const actions = useMemo(() => {
-    const base = transitionActions[order?.status ?? ""] ?? [];
-    if (order?.status === "ready" && order.deliveryType === "pickup") {
+    const mappedStatus = mapStatusForTest(order?.status ?? "");
+    const base = transitionActions[mappedStatus] ?? [];
+    if (mappedStatus === "ready" && order?.deliveryType === "pickup") {
       return [{ label: "Teslim Edildi", toStatus: "delivered" }];
     }
     return base;
@@ -148,7 +158,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.orderNo}>{order.orderNo || "#" + order.id.slice(0, 8).toUpperCase()}</Text>
-              <StatusBadge status={order.status} size="sm" />
+              <StatusBadge status={mapStatusForTest(order.status)} size="sm" />
             </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>

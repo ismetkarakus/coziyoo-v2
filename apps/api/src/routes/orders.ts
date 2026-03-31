@@ -895,15 +895,36 @@ async function transitionHandler(
       return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not buyer of this order" } });
     }
 
-    if (!canTransition(order.status, toStatus)) {
+    let currentStatus: OrderStatus = order.status;
+    const canAutoMarkPaidForTest =
+      actorRole === "seller" &&
+      toStatus === "preparing" &&
+      env.PAYMENT_PROVIDER_NAME === "mockpay" &&
+      !order.payment_completed &&
+      ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(order.status);
+
+    if (canAutoMarkPaidForTest) {
+      await client.query(
+        "UPDATE orders SET status = 'paid', payment_completed = TRUE, updated_at = now() WHERE id = $1",
+        [order.id]
+      );
+      await client.query(
+        `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+         VALUES ($1, $2, 'payment_test_bypass', $3, 'paid', $4)`,
+        [order.id, req.auth!.userId, order.status, JSON.stringify({ mode: "mockpay_test" })]
+      );
+      currentStatus = "paid";
+    }
+
+    if (!canTransition(currentStatus, toStatus)) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${order.status} -> ${toStatus}` },
+        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${currentStatus} -> ${toStatus}` },
       });
     }
 
     if (toStatus === "cancelled" && actorRole === "buyer") {
-      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(order.status)) {
+      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(currentStatus)) {
         await client.query("ROLLBACK");
         return res.status(409).json({
           error: { code: "ORDER_CANCEL_POLICY", message: "Buyer cancellation allowed only before preparing" },
@@ -953,7 +974,7 @@ async function transitionHandler(
     await client.query(
       `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [order.id, req.auth!.userId, eventType, order.status, toStatus, reason ? JSON.stringify({ reason }) : null]
+      [order.id, req.auth!.userId, eventType, currentStatus, toStatus, reason ? JSON.stringify({ reason }) : null]
     );
 
     if (toStatus === "preparing") {
@@ -1048,7 +1069,7 @@ async function transitionHandler(
         console.error("[orders] push flush failed after transition commit", pushErr);
       }
     }
-    return res.json({ data: { orderId: order.id, fromStatus: order.status, toStatus } });
+    return res.json({ data: { orderId: order.id, fromStatus: currentStatus, toStatus } });
   } catch {
     if (!committed) {
       await client.query("ROLLBACK");

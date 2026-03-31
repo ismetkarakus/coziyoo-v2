@@ -7,6 +7,8 @@ import { loadSettings } from "../utils/settings";
 import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
 import { subscribeSellerOrdersRealtime } from "../utils/realtime";
 
+const TEST_PAYMENT_BYPASS = __DEV__;
+
 type Props = {
   auth: AuthSession;
   onAuthRefresh?: (session: AuthSession) => void;
@@ -62,6 +64,7 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
 }
 
 function statusLabel(status: string, deliveryType?: string): string {
+  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) return "Ödeme Alındı";
   if (status === "pending_seller_approval" || status === "seller_approved" || status === "awaiting_payment") return "Ödeme Bekleniyor";
   if (status === "paid") return "Ödeme Alındı";
   if (status === "preparing") return "Hazırlanıyor";
@@ -76,6 +79,9 @@ function statusLabel(status: string, deliveryType?: string): string {
 }
 
 function statusTone(status: string, deliveryType?: string): { bg: string; border: string; text: string } {
+  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
+    return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
+  }
   if (status === "seller_approved" || status === "awaiting_payment") {
     return { bg: "#FFF4E5", border: "#F3D3A1", text: "#B45309" };
   }
@@ -98,6 +104,9 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 }
 
 function cardActionsByStatus(status: string, deliveryType?: string): SellerAction[] {
+  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
+    return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
+  }
   // pending_seller_approval / seller_approved / awaiting_payment:
   // buyer has not paid yet — seller has no action, just waits for payment.
   if (status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
