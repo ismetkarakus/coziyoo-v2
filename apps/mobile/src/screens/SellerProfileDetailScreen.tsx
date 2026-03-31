@@ -91,6 +91,13 @@ export default function SellerProfileDetailScreen({
   const [addressLine, setAddressLine] = useState("");
   const [contactCountryCode, setContactCountryCode] = useState("");
   const [tcKimlikNo, setTcKimlikNo] = useState("");
+  const [idCardFrontUri, setIdCardFrontUri] = useState<string | null>(null);
+  const [idCardBackUri, setIdCardBackUri] = useState<string | null>(null);
+  const [idCardFrontBase64, setIdCardFrontBase64] = useState<string | null>(null);
+  const [idCardFrontMime, setIdCardFrontMime] = useState<string>("image/jpeg");
+  const [idCardBackBase64, setIdCardBackBase64] = useState<string | null>(null);
+  const [idCardBackMime, setIdCardBackMime] = useState<string>("image/jpeg");
+  const [idCardUploading, setIdCardUploading] = useState(false);
 
   const [isKitchenModalOpen, setIsKitchenModalOpen] = useState(false);
   const [kitchenDescInput, setKitchenDescInput] = useState("");
@@ -217,6 +224,49 @@ export default function SellerProfileDetailScreen({
       Alert.alert("Hata", e instanceof Error ? e.message : "Profil resmi yüklenemedi");
     } finally {
       setAvatarUploading(false);
+    }
+  }
+
+  async function pickIdCardImage(side: "front" | "back") {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("İzin gerekli", "Galeriden resim seçebilmek için izin vermelisin.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [16, 10],
+        quality: 0.7,
+        base64: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const mime = asset.mimeType ?? "image/jpeg";
+      const b64 = asset.base64 ?? null;
+      if (!b64) {
+        Alert.alert("Hata", "Resim verisi alınamadı.");
+        return;
+      }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
+        Alert.alert("Hata", "Sadece JPEG, PNG veya WebP seçebilirsin.");
+        return;
+      }
+
+      if (side === "front") {
+        setIdCardFrontUri(asset.uri);
+        setIdCardFrontBase64(b64);
+        setIdCardFrontMime(mime);
+      } else {
+        setIdCardBackUri(asset.uri);
+        setIdCardBackBase64(b64);
+        setIdCardBackMime(mime);
+      }
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "Resim yüklenemedi");
     }
   }
 
@@ -353,7 +403,8 @@ export default function SellerProfileDetailScreen({
       const line = addressLine.trim();
       const hasAddressUpdate = Boolean(title && line);
       const hasProfileUpdate = Object.keys(payload).length > 0;
-      if (!hasProfileUpdate && !hasAddressUpdate) {
+      const hasIdCardImages = Boolean(idCardFrontBase64 || idCardBackBase64);
+      if (!hasProfileUpdate && !hasAddressUpdate && !hasIdCardImages) {
         setIsEditModalOpen(false);
         setContactSaving(false);
         return;
@@ -415,6 +466,40 @@ export default function SellerProfileDetailScreen({
           }
         } catch (addressError) {
           addressErrorMessage = addressError instanceof Error ? addressError.message : "Adres kaydedilemedi";
+        }
+      }
+
+      if (hasIdCardImages) {
+        setIdCardUploading(true);
+        try {
+          if (idCardFrontBase64) {
+            const frontRes = await authedFetch("/v1/seller/compliance/documents", baseUrl, {
+              method: "POST",
+              body: JSON.stringify({
+                docType: "national_id_front",
+                dataBase64: idCardFrontBase64,
+                contentType: idCardFrontMime,
+              }),
+            });
+            const frontJson = await frontRes.json();
+            if (!frontRes.ok) throw new Error(frontJson?.error?.message ?? "Kimlik ön yüz yüklenemedi");
+          }
+          if (idCardBackBase64) {
+            const backRes = await authedFetch("/v1/seller/compliance/documents", baseUrl, {
+              method: "POST",
+              body: JSON.stringify({
+                docType: "national_id_back",
+                dataBase64: idCardBackBase64,
+                contentType: idCardBackMime,
+              }),
+            });
+            const backJson = await backRes.json();
+            if (!backRes.ok) throw new Error(backJson?.error?.message ?? "Kimlik arka yüz yüklenemedi");
+          }
+        } catch (idCardError) {
+          Alert.alert("Uyarı", idCardError instanceof Error ? idCardError.message : "Kimlik fotoğrafları yüklenemedi");
+        } finally {
+          setIdCardUploading(false);
         }
       }
 
@@ -667,6 +752,39 @@ export default function SellerProfileDetailScreen({
                 placeholder="11 haneli T.C. kimlik numarası"
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
               />
+
+              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Kimlik Fotoğrafı</Text>
+              <View style={styles.idCardRow}>
+                <TouchableOpacity
+                  style={styles.idCardSlot}
+                  onPress={() => void pickIdCardImage("front")}
+                  activeOpacity={0.7}
+                >
+                  {idCardFrontUri ? (
+                    <Image source={{ uri: idCardFrontUri }} style={styles.idCardPreview} />
+                  ) : (
+                    <View style={styles.idCardPlaceholder}>
+                      <Ionicons name="camera-outline" size={24} color="#9A8C82" />
+                      <Text style={styles.idCardPlaceholderText}>Ön Yüz</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.idCardSlot}
+                  onPress={() => void pickIdCardImage("back")}
+                  activeOpacity={0.7}
+                >
+                  {idCardBackUri ? (
+                    <Image source={{ uri: idCardBackUri }} style={styles.idCardPreview} />
+                  ) : (
+                    <View style={styles.idCardPlaceholder}>
+                      <Ionicons name="camera-outline" size={24} color="#9A8C82" />
+                      <Text style={styles.idCardPlaceholderText}>Arka Yüz</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsEditModalOpen(false)} disabled={contactSaving}>
@@ -920,6 +1038,37 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     paddingTop: 10,
     paddingBottom: 10,
+  },
+  idCardRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 8,
+  },
+  idCardSlot: {
+    flex: 1,
+    aspectRatio: 1.6,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#C7C7C7",
+    borderStyle: "dashed",
+    backgroundColor: "#E7E6E4",
+    overflow: "hidden",
+  },
+  idCardPreview: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  idCardPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  idCardPlaceholderText: {
+    fontSize: 12,
+    color: "#9A8C82",
+    fontWeight: "600",
   },
   tagsRow: {
     flexDirection: "row",
