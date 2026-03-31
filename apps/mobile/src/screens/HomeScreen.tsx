@@ -1259,6 +1259,27 @@ export default function HomeScreen({
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [selectedCheckoutAddressId, setSelectedCheckoutAddressId] = useState<string | null>(null);
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
+  const [pickupSellerAddress, setPickupSellerAddress] = useState<{ title?: string; addressLine?: string } | null>(null);
+
+  useEffect(() => {
+    if (deliveryType !== 'pickup' || cartItems.length === 0) {
+      setPickupSellerAddress(null);
+      return;
+    }
+    const sellerId = cartItems[0].meal.sellerId;
+    const sellerIds = [...new Set(cartItems.map((ci) => ci.meal.sellerId))];
+    if (sellerIds.length !== 1) return;
+    let cancelled = false;
+    fetch(`${apiUrl}/v1/foods/sellers/${sellerId}/address`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!cancelled) setPickupSellerAddress(json?.data ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPickupSellerAddress(null);
+      });
+    return () => { cancelled = true; };
+  }, [deliveryType, cartItems, apiUrl]);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
   const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() => (
@@ -2982,7 +3003,16 @@ export default function HomeScreen({
                       </TouchableOpacity>
                     </View>
                   </View>
-                ) : null}
+                ) : (
+                  <View style={styles.checkoutAddressBox}>
+                    <Text style={styles.checkoutAddressLabel}>Alınacak Adres</Text>
+                    <Text style={styles.checkoutAddressValue} numberOfLines={2}>
+                      {pickupSellerAddress
+                        ? [pickupSellerAddress.title, pickupSellerAddress.addressLine].filter(Boolean).join(' · ')
+                        : 'Satıcı adresi yükleniyor...'}
+                    </Text>
+                  </View>
+                )}
               </View>
               {paymentStatus ? (
                 <View style={styles.paymentStatusCard}>

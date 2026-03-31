@@ -1068,3 +1068,36 @@ foodsRouter.get("/sellers/:sellerId/reviews", async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /v1/foods/sellers/:sellerId/address
+ * Get seller's default address for pickup orders.
+ */
+foodsRouter.get("/sellers/:sellerId/address", async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { rows } = await pool.query(
+      `SELECT title, address_line
+       FROM user_addresses
+       WHERE user_id = $1 AND is_default = TRUE
+       LIMIT 1`,
+      [sellerId],
+    );
+
+    if (rows.length === 0) {
+      return res.json({ data: null });
+    }
+
+    res.json({
+      data: {
+        title: (rows[0].title as string | null) ?? null,
+        addressLine: (rows[0].address_line as string | null) ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("[foods] seller address error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load seller address" },
+    });
+  }
+});
