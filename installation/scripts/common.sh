@@ -137,7 +137,8 @@ maybe_git_update() {
     fi
 
     if [[ "${remote_head}" == "${base_head}" ]]; then
-      log "Local branch ${branch} is ahead of origin/${branch}; keeping local commits"
+      log "Local branch ${branch} is ahead of origin/${branch}; rebasing local commits on top of origin"
+      git rebase "origin/${branch}"
       return
     fi
 
