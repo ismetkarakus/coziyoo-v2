@@ -98,6 +98,26 @@ type Props = {
 
 const CANCELLABLE = ['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid'];
 const COMPLETABLE = ['delivered'];
+const BUYER_FLOW_STEPS = ['preparing', 'in_delivery', 'delivered', 'completed'] as const;
+type BuyerFlowStep = (typeof BUYER_FLOW_STEPS)[number];
+
+function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' | 'rejected' {
+  const normalized = String(status ?? '').trim().toLowerCase();
+  if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing'].includes(normalized)) return 'preparing';
+  if (normalized === 'ready' || normalized === 'in_delivery') return 'in_delivery';
+  if (normalized === 'delivered') return 'delivered';
+  if (normalized === 'completed') return 'completed';
+  if (normalized === 'cancelled') return 'cancelled';
+  if (normalized === 'rejected') return 'rejected';
+  return 'preparing';
+}
+
+function buyerFlowLabel(step: BuyerFlowStep): string {
+  if (step === 'preparing') return 'Hazırlanıyor';
+  if (step === 'in_delivery') return 'Yola Çıktı';
+  if (step === 'delivered') return 'Kapıda Teslim Edildi';
+  return 'Tamamlandı';
+}
 
 export default function OrderDetailScreen({
   auth, orderId, onBack, onOpenPayment, onOpenReview, onOpenComplaint, onAuthRefresh,
@@ -290,6 +310,17 @@ export default function OrderDetailScreen({
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && order.status === 'completed';
   const canComplain = isBuyer && ['completed', 'delivered'].includes(order.status);
+  const buyerFlowStatus = normalizeBuyerFlowStatus(order.status);
+  const buyerFlowCurrentIndex = BUYER_FLOW_STEPS.indexOf(
+    buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected' ? 'preparing' : buyerFlowStatus
+  );
+  const buyerFlowReachedAt = order.events.reduce<Record<BuyerFlowStep, string | null>>((acc, event) => {
+    if (!event.toStatus) return acc;
+    const mapped = normalizeBuyerFlowStatus(event.toStatus);
+    if (mapped === 'cancelled' || mapped === 'rejected') return acc;
+    if (!acc[mapped]) acc[mapped] = event.createdAt;
+    return acc;
+  }, { preparing: null, in_delivery: null, delivered: null, completed: null });
 
   return (
     <View style={styles.container}>
@@ -299,7 +330,7 @@ export default function OrderDetailScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Status + Order No */}
         <View style={styles.topRow}>
-          <StatusBadge status={order.status} size="md" />
+          <StatusBadge status={buyerFlowStatus} size="md" />
           <Text style={styles.orderNo}>{orderNo(order.id)}</Text>
         </View>
 
@@ -388,25 +419,36 @@ export default function OrderDetailScreen({
         </View>
 
         {/* Timeline */}
-        {order.events.length > 0 && (
-          <View style={styles.section}>
-            <SectionDivider icon="time-outline" label="Sipariş Durumu" />
-            <View style={styles.timeline}>
-              {order.events
-                .filter((e) => e.toStatus)
-                .map((event, idx, arr) => (
-                  <TimelineStep
-                    key={idx}
-                    status={event.toStatus!}
-                    date={formatEventDate(event.createdAt)}
-                    isLast={idx === arr.length - 1}
-                    isActive={true}
-                    reason={event.reason}
-                  />
-                ))}
-            </View>
+        <View style={styles.section}>
+          <SectionDivider icon="time-outline" label="Sipariş Durumu" />
+          <View style={styles.timeline}>
+            {BUYER_FLOW_STEPS.map((step, idx) => {
+              const reached = idx <= buyerFlowCurrentIndex && buyerFlowStatus !== 'cancelled' && buyerFlowStatus !== 'rejected';
+              const dateValue = buyerFlowReachedAt[step];
+              const fallbackDate = reached ? order.createdAt : '';
+              return (
+                <TimelineStep
+                  key={step}
+                  status={step}
+                  label={buyerFlowLabel(step)}
+                  date={dateValue ? formatEventDate(dateValue) : (fallbackDate ? formatEventDate(fallbackDate) : 'Bekleniyor')}
+                  isLast={idx === BUYER_FLOW_STEPS.length - 1}
+                  isActive={reached}
+                />
+              );
+            })}
+            {(buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected') ? (
+              <TimelineStep
+                status={buyerFlowStatus}
+                label="İptal Edildi"
+                date={formatEventDate(order.createdAt)}
+                isLast
+                isActive
+                reason={order.events.find((event) => normalizeBuyerFlowStatus(event.toStatus ?? '') === buyerFlowStatus)?.reason ?? null}
+              />
+            ) : null}
           </View>
-        )}
+        </View>
 
         {/* Actions */}
         <View style={styles.actions}>

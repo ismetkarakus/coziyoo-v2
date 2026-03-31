@@ -9,9 +9,10 @@ type Props = {
   isLast?: boolean;
   isActive?: boolean;
   reason?: string | null;
+  label?: string;
 };
 
-export default function TimelineStep({ status, date, isLast, isActive, reason }: Props) {
+export default function TimelineStep({ status, date, isLast, isActive, reason, label }: Props) {
   const info = getStatusInfo(status);
 
   return (
@@ -24,7 +25,7 @@ export default function TimelineStep({ status, date, isLast, isActive, reason }:
       </View>
       <View style={styles.content}>
         <Text style={[styles.label, isActive && { color: info.color, fontWeight: '700' }]}>
-          {info.label}
+          {label ?? info.label}
         </Text>
         <Text style={styles.date}>{date}</Text>
         {reason ? <Text style={styles.reason}>{reason}</Text> : null}
