@@ -62,6 +62,16 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
   );
 }
 
+function formatOrderDateTime(value?: string): string {
+  const parsed = parseApiDate(value);
+  if (!parsed) return "-";
+  const day = parsed.getDate().toString().padStart(2, "0");
+  const month = (parsed.getMonth() + 1).toString().padStart(2, "0");
+  const hours = parsed.getHours().toString().padStart(2, "0");
+  const minutes = parsed.getMinutes().toString().padStart(2, "0");
+  return `${day}.${month} ${hours}:${minutes}`;
+}
+
 function statusLabel(status: string, deliveryType?: string): string {
   const normalized = normalizeDisplayStatus(status, deliveryType);
   if (normalized === "cancelled" || normalized === "rejected") return "İptal";
@@ -111,6 +121,15 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   }
   if (status === "in_delivery") return { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" };
   if (status === "delivered") return { label: "Tamamlandı", toStatus: "completed", tone: "completed" };
+  return null;
+}
+
+function toneFromStatus(status: string, deliveryType?: string): SellerAction["tone"] | null {
+  const normalized = normalizeDisplayStatus(status, deliveryType);
+  if (normalized === "preparing") return "preparing";
+  if (normalized === "in_delivery") return "in_delivery";
+  if (normalized === "delivered") return "delivered";
+  if (normalized === "completed") return "completed";
   return null;
 }
 
@@ -455,8 +474,10 @@ export default function SellerHomeScreen({
               activeOrders.map((item) => {
                 const action = cardActionByStatus(item.status, item.deliveryType);
                 const isUpdating = updatingOrderId === item.id;
-                const tone = statusTone(item.status, item.deliveryType);
                 const statusText = statusLabel(item.status, item.deliveryType);
+                const passiveTone = toneFromStatus(item.status, item.deliveryType);
+                const resolvedTone = action?.tone ?? passiveTone;
+                const canRunAction = Boolean(action);
                 return (
                   <View key={item.id} style={styles.orderCard}>
                     <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
@@ -465,35 +486,38 @@ export default function SellerHomeScreen({
                           {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
                           {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                         </Text>
-                        <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusText}</Text>
-                        </View>
+                        <Text style={styles.orderIdText}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                       </View>
-                      <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                       <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
                       <Text style={styles.orderMeta}>Teslimat: {item.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
-                      <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+                      <View style={styles.orderBottomRow}>
+                        <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+                        <Text style={styles.orderDateText}>Sipariş: {formatOrderDateTime(item.createdAt)}</Text>
+                      </View>
                     </TouchableOpacity>
-                    {action ? (
+                    {resolvedTone ? (
                       <View style={styles.cardActionRow}>
                         <TouchableOpacity
                           activeOpacity={0.86}
                           style={[
                             styles.cardActionBtn,
-                            action.tone === "preparing"
+                            resolvedTone === "preparing"
                               ? styles.cardActionBtnPreparing
-                              : action.tone === "in_delivery"
+                              : resolvedTone === "in_delivery"
                                 ? styles.cardActionBtnInDelivery
-                                : action.tone === "delivered"
+                                : resolvedTone === "delivered"
                                   ? styles.cardActionBtnDelivered
                                   : styles.cardActionBtnCompleted,
                             isUpdating && styles.cardActionBtnDisabled,
                           ]}
-                          disabled={isUpdating}
-                          onPress={() => { void runCardAction(item.id, action); }}
+                          disabled={isUpdating || !canRunAction}
+                          onPress={() => {
+                            if (!action) return;
+                            void runCardAction(item.id, action);
+                          }}
                         >
                           <Text style={styles.cardActionBtnText}>
-                            {isUpdating ? "İşleniyor..." : action.label}
+                            {isUpdating ? "İşleniyor..." : (action?.label ?? statusText)}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -660,7 +684,6 @@ const styles = StyleSheet.create({
   orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10 },
   orderTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   orderNo: { color: "#4A3B2F", fontWeight: "800", fontSize: 16, flex: 1 },
-  orderSubNo: { color: "#887766", fontSize: 12, fontWeight: "700", marginTop: 2, marginBottom: 2 },
   statusBadge: {
     borderRadius: 999,
     paddingHorizontal: 10,
@@ -670,8 +693,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7EFE2",
   },
   statusBadgeText: { color: "#5C4A3A", fontSize: 11, fontWeight: "700" },
+  orderIdText: { color: "#887766", fontSize: 12, fontWeight: "800" },
   orderMeta: { color: "#6C6055", marginTop: 3 },
-  orderTotal: { marginTop: 8, color: "#4A3B2F", fontWeight: "800" },
+  orderBottomRow: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  orderTotal: { color: "#4A3B2F", fontWeight: "800" },
+  orderDateText: { color: "#7A6B5F", fontSize: 12, fontWeight: "700", flexShrink: 1 },
   cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   cardActionBtn: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: "center" },
   cardActionBtnPreparing: { backgroundColor: "#B86A00", borderColor: "#B86A00" },
