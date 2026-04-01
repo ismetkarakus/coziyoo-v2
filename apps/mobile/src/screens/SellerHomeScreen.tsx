@@ -84,13 +84,13 @@ function formatElapsed(value: string | undefined, nowMs: number): string {
   const diffMs = Math.max(0, nowMs - parsed.getTime());
   const totalMinutes = Math.floor(diffMs / 60_000);
   if (totalMinutes < 1) return "Az önce geldi";
-  if (totalMinutes < 60) return `${totalMinutes} dk geçti`;
+  if (totalMinutes < 60) return `${totalMinutes} dakika geçti`;
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  if (hours < 24) return `${hours} sa ${minutes} dk geçti`;
+  if (hours < 24) return `${hours} saat ${minutes} dakika geçti`;
   const days = Math.floor(hours / 24);
   const remHours = hours % 24;
-  return `${days} gün ${remHours} sa geçti`;
+  return `${days} gün ${remHours} saat geçti`;
 }
 
 function statusLabel(status: string, deliveryType?: string): string {
@@ -635,12 +635,12 @@ export default function SellerHomeScreen({
                                 <Text style={styles.orderDateText}>{formatOrderDateTime(item.createdAt)}</Text>
                               </View>
                             </View>
-                            <View style={styles.orderMetaRow}>
-                              <Text style={styles.orderElapsedText}>{formatElapsed(item.createdAt, clockMs)}</Text>
-                            </View>
                             <View style={styles.orderBottomRow}>
                               <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-                              {showSmallThumb ? <Text style={styles.orderThumbSmall}>👍</Text> : null}
+                              <View style={styles.orderBottomRight}>
+                                <Text style={styles.orderElapsedText}>{formatElapsed(item.createdAt, clockMs)}</Text>
+                                {showSmallThumb ? <Text style={styles.orderThumbSmall}>👍</Text> : null}
+                              </View>
                             </View>
                           </TouchableOpacity>
                           {resolvedTone ? (
@@ -879,7 +879,6 @@ const styles = StyleSheet.create({
   orderIdText: { color: "#887766", fontSize: 12, fontWeight: "800" },
   orderDateText: { color: "#9A8A7A", fontSize: 11, fontWeight: "700", marginTop: 2 },
   orderMeta: { color: "#6C6055", marginTop: 3 },
-  orderMetaRow: { marginTop: 6, flexDirection: "row", alignItems: "center" },
   orderElapsedText: { color: "#7A6C5E", fontSize: 12, fontWeight: "700" },
   newBadge: {
     borderRadius: 999,
@@ -889,6 +888,7 @@ const styles = StyleSheet.create({
   },
   newBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
   orderBottomRow: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  orderBottomRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   orderTotal: { color: "#4A3B2F", fontWeight: "800" },
   orderThumbSmall: { fontSize: 16, lineHeight: 18 },
   cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
