@@ -38,6 +38,8 @@ type SellerAction =
   | { label: "Kapıda"; toStatus: "delivered"; tone: "delivered" }
   | { label: "Teslim Edildi"; toStatus: "completed"; tone: "completed" };
 
+type OrderGroupKey = "preparing" | "route" | "done";
+
 type ActiveFood = {
   id: string;
   name: string;
@@ -60,6 +62,35 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
     date.getMonth() === reference.getMonth() &&
     date.getDate() === reference.getDate()
   );
+}
+
+function formatOrderDateTime(value?: string): string {
+  const parsed = parseApiDate(value);
+  if (!parsed) return "-";
+  const day = parsed.getDate().toString().padStart(2, "0");
+  const month = (parsed.getMonth() + 1).toString().padStart(2, "0");
+  const hours = parsed.getHours().toString().padStart(2, "0");
+  const minutes = parsed.getMinutes().toString().padStart(2, "0");
+  return `${day}.${month} ${hours}:${minutes}`;
+}
+
+function orderTimeForSort(order: SellerOrder): number {
+  return (parseApiDate(order.createdAt) ?? parseApiDate(order.updatedAt))?.getTime() ?? 0;
+}
+
+function formatElapsed(value: string | undefined, nowMs: number): string {
+  const parsed = parseApiDate(value);
+  if (!parsed) return "Süre bilgisi yok";
+  const diffMs = Math.max(0, nowMs - parsed.getTime());
+  const totalMinutes = Math.floor(diffMs / 60_000);
+  if (totalMinutes < 1) return "Az önce geldi";
+  if (totalMinutes < 60) return `${totalMinutes} dk geçti`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours < 24) return `${hours} sa ${minutes} dk geçti`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return `${days} gün ${remHours} sa geçti`;
 }
 
 function statusLabel(status: string, deliveryType?: string): string {
@@ -123,6 +154,13 @@ function toneFromStatus(status: string, deliveryType?: string): SellerAction["to
   return null;
 }
 
+function orderGroupKey(status: string, deliveryType?: string): OrderGroupKey {
+  const normalized = normalizeDisplayStatus(status, deliveryType);
+  if (normalized === "in_delivery" || normalized === "delivered") return "route";
+  if (normalized === "completed" || normalized === "cancelled" || normalized === "rejected") return "done";
+  return "preparing";
+}
+
 export default function SellerHomeScreen({
   auth,
   onAuthRefresh,
@@ -157,12 +195,39 @@ export default function SellerHomeScreen({
   });
   const [activePage, setActivePage] = useState(0);
   const [celebrationOrderId, setCelebrationOrderId] = useState<string | null>(null);
+  const [newOrderUntilById, setNewOrderUntilById] = useState<Record<string, number>>({});
+  const [clockMs, setClockMs] = useState(() => Date.now());
   const pagerRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get("window").width;
   const deliveredEmojiScale = useRef(new Animated.Value(0.4)).current;
   const deliveredEmojiOpacity = useRef(new Animated.Value(0)).current;
+  const pulseValue = useRef(new Animated.Value(0)).current;
+  const seenOrderIdsRef = useRef<Set<string>>(new Set());
+  const hasSeenInitialOrdersRef = useRef(false);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
+
+  useEffect(() => {
+    seenOrderIdsRef.current = new Set();
+    hasSeenInitialOrdersRef.current = false;
+    setNewOrderUntilById({});
+  }, [currentAuth.userId]);
+
+  useEffect(() => {
+    const id = setInterval(() => setClockMs(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseValue, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulseValue, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulseValue]);
 
   async function fetchWithAuth(path: string, baseUrl = apiUrl): Promise<Response> {
     const headers: Record<string, string> = {
@@ -238,6 +303,21 @@ export default function SellerHomeScreen({
         }
 
         setSellerOrdersCache(sellerOrders as Record<string, unknown>[]);
+        const now = Date.now();
+        setNewOrderUntilById((prev) => {
+          const next: Record<string, number> = {};
+          for (const [id, expiresAt] of Object.entries(prev)) {
+            if (expiresAt > now) next[id] = expiresAt;
+          }
+          for (const order of sellerOrders) {
+            if (!seenOrderIdsRef.current.has(order.id)) {
+              if (hasSeenInitialOrdersRef.current) next[order.id] = now + 75_000;
+              seenOrderIdsRef.current.add(order.id);
+            }
+          }
+          hasSeenInitialOrdersRef.current = true;
+          return next;
+        });
         setOrders(sellerOrders);
       }
       if (foodsRes.ok) {
@@ -288,35 +368,33 @@ export default function SellerHomeScreen({
     return () => clearInterval(id);
   }, []);
 
-  const activeOrders = useMemo(() => {
+  const todayOrders = useMemo(() => {
     const now = new Date();
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
-      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(o.status)) return false;
+      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
       return isSameLocalDay(activityAt, now);
     });
-    const statusPriority: Record<string, number> = {
-      pending_seller_approval: 0,
-      seller_approved: 1,
-      awaiting_payment: 1,
-      paid: 2,
-      preparing: 3,
-      ready: 4,
-      in_delivery: 5,
-      delivered: 6,
-      completed: 7,
-    };
-    return [...filtered].sort((a, b) => {
-      const pa = statusPriority[a.status] ?? 9;
-      const pb = statusPriority[b.status] ?? 9;
-      if (pa !== pb) return pa - pb;
-      const aTime = (parseApiDate(a.updatedAt) ?? parseApiDate(a.createdAt))?.getTime() ?? 0;
-      const bTime = (parseApiDate(b.updatedAt) ?? parseApiDate(b.createdAt))?.getTime() ?? 0;
-      return bTime - aTime;
-    });
+    return filtered;
   }, [orders, currentAuth.userId]);
+
+  const groupedOrders = useMemo(() => {
+    const preparing: SellerOrder[] = [];
+    const route: SellerOrder[] = [];
+    const done: SellerOrder[] = [];
+    for (const order of todayOrders) {
+      const key = orderGroupKey(order.status, order.deliveryType);
+      if (key === "preparing") preparing.push(order);
+      else if (key === "route") route.push(order);
+      else done.push(order);
+    }
+    preparing.sort((a, b) => orderTimeForSort(a) - orderTimeForSort(b));
+    route.sort((a, b) => orderTimeForSort(a) - orderTimeForSort(b));
+    done.sort((a, b) => orderTimeForSort(b) - orderTimeForSort(a));
+    return { preparing, route, done };
+  }, [todayOrders]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -434,7 +512,7 @@ export default function SellerHomeScreen({
           pagerRef.current?.scrollTo({ x: 0, animated: true });
           setActivePage(0);
         }}>
-          <Text style={[styles.statCount, activePage === 0 && styles.statCountActive]}>{loading ? "—" : activeOrders.length}</Text>
+          <Text style={[styles.statCount, activePage === 0 && styles.statCountActive]}>{loading ? "—" : todayOrders.length}</Text>
           <Text style={[styles.statLabel, activePage === 0 && styles.statLabelActive]}>Bugünkü Siparişler</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.statBlock} activeOpacity={0.75} onPress={() => {
@@ -474,81 +552,160 @@ export default function SellerHomeScreen({
                 <View style={styles.skeletonCard}><View style={styles.skeletonLine} /><View style={styles.skeletonLineShort} /></View>
                 <View style={styles.skeletonCard}><View style={styles.skeletonLine} /><View style={styles.skeletonLineShort} /></View>
               </>
-            ) : activeOrders.length === 0 ? (
+            ) : todayOrders.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>Aktif sipariş yok</Text>
                 <Text style={styles.emptySub}>Yeni sipariş geldiğinde burada görünecek.</Text>
               </View>
             ) : (
-              activeOrders.map((item) => {
-                const action = cardActionByStatus(item.status, item.deliveryType);
-                const isUpdating = updatingOrderId === item.id;
-                const statusText = statusLabel(item.status, item.deliveryType);
-                const passiveTone = toneFromStatus(item.status, item.deliveryType);
-                const resolvedTone = action?.tone ?? passiveTone;
-                const canRunAction = Boolean(action);
-                const showSmallThumb = normalizeDisplayStatus(item.status, item.deliveryType) === "completed";
-                return (
-                  <View key={item.id} style={styles.orderCard}>
-                    <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
-                      <View style={styles.orderTopRow}>
-                        <Text style={styles.orderNo} numberOfLines={1}>
-                          {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
-                          {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
-                        </Text>
-                        <Text style={styles.orderIdText}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
-                      </View>
-                      <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
-                      <Text style={styles.orderMeta}>Teslimat: {item.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
-                      <View style={styles.orderBottomRow}>
-                        <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-                        {showSmallThumb ? <Text style={styles.orderThumbSmall}>👍</Text> : null}
-                      </View>
-                    </TouchableOpacity>
-                    {resolvedTone ? (
-                      <View style={styles.cardActionRow}>
-                        {celebrationOrderId === item.id ? (
-                          <Animated.View
-                            pointerEvents="none"
-                            style={[
-                              styles.cardCelebrateEmojiWrap,
-                              {
-                                opacity: deliveredEmojiOpacity,
-                                transform: [{ scale: deliveredEmojiScale }],
-                              },
-                            ]}
-                          >
-                            <Text style={styles.cardCelebrateEmoji}>👍</Text>
-                          </Animated.View>
-                        ) : null}
-                        <TouchableOpacity
-                          activeOpacity={0.86}
-                          style={[
-                            styles.cardActionBtn,
-                            resolvedTone === "preparing"
-                              ? styles.cardActionBtnPreparing
-                              : resolvedTone === "in_delivery"
-                                ? styles.cardActionBtnInDelivery
-                                : resolvedTone === "delivered"
-                                  ? styles.cardActionBtnDelivered
-                                  : styles.cardActionBtnCompleted,
-                            isUpdating && styles.cardActionBtnDisabled,
-                          ]}
-                          disabled={isUpdating || !canRunAction}
-                          onPress={() => {
-                            if (!action) return;
-                            void runCardAction(item.id, action);
-                          }}
-                        >
-                          <Text style={styles.cardActionBtnText}>
-                            {isUpdating ? "İşleniyor..." : (action?.label ?? statusText)}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : null}
+              ([
+                { key: "preparing" as const, title: "Hazırlananlar", data: groupedOrders.preparing },
+                { key: "route" as const, title: "Yolda / Kapıda", data: groupedOrders.route },
+                { key: "done" as const, title: "Tamamlananlar", data: groupedOrders.done },
+              ]).map((section) => (
+                <View key={section.key} style={styles.groupSection}>
+                  <View style={styles.groupHeader}>
+                    <Text style={styles.groupTitle}>{section.title}</Text>
+                    <Text style={styles.groupCount}>{section.data.length}</Text>
                   </View>
-                );
-              })
+                  {section.data.length === 0 ? (
+                    <View style={styles.groupEmptyCard}>
+                      <Text style={styles.groupEmptyText}>Bu grupta sipariş yok.</Text>
+                    </View>
+                  ) : (
+                    section.data.map((item) => {
+                      const action = cardActionByStatus(item.status, item.deliveryType);
+                      const isUpdating = updatingOrderId === item.id;
+                      const statusText = statusLabel(item.status, item.deliveryType);
+                      const passiveTone = toneFromStatus(item.status, item.deliveryType);
+                      const resolvedTone = action?.tone ?? passiveTone;
+                      const canRunAction = Boolean(action);
+                      const normalizedStatus = normalizeDisplayStatus(item.status, item.deliveryType);
+                      const showSmallThumb = normalizedStatus === "completed";
+                      const isDoorStep = normalizedStatus === "delivered";
+                      const isNewOrder = (newOrderUntilById[item.id] ?? 0) > clockMs;
+                      return (
+                        <View key={item.id} style={styles.orderCard}>
+                          {isDoorStep ? (
+                            <Animated.View
+                              pointerEvents="none"
+                              style={[
+                                styles.kapidaHighlightLayer,
+                                {
+                                  opacity: pulseValue.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0.08, 0.2],
+                                  }),
+                                },
+                              ]}
+                            />
+                          ) : null}
+                          {isNewOrder ? (
+                            <Animated.View
+                              pointerEvents="none"
+                              style={[
+                                styles.newHighlightLayer,
+                                {
+                                  opacity: pulseValue.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0.12, 0.24],
+                                  }),
+                                },
+                              ]}
+                            />
+                          ) : null}
+                          <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
+                            <View style={styles.orderTopRow}>
+                              <View style={styles.orderTitleWrap}>
+                                <View style={styles.orderTitleRow}>
+                                  <Text style={styles.orderNo} numberOfLines={1}>
+                                    {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
+                                    {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
+                                  </Text>
+                                  {isNewOrder ? (
+                                    <View style={styles.newBadge}>
+                                      <Text style={styles.newBadgeText}>Yeni</Text>
+                                    </View>
+                                  ) : null}
+                                </View>
+                                <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
+                              </View>
+                              <View style={styles.orderTopRight}>
+                                <Text style={styles.orderIdText}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
+                                <Text style={styles.orderDateText}>{formatOrderDateTime(item.createdAt)}</Text>
+                              </View>
+                            </View>
+                            <View style={styles.orderMetaRow}>
+                              <Text style={styles.orderElapsedText}>{formatElapsed(item.createdAt, clockMs)}</Text>
+                              <View
+                                style={[
+                                  styles.deliveryTypeBadge,
+                                  item.deliveryType === "pickup" ? styles.deliveryTypePickup : styles.deliveryTypeDelivery,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.deliveryTypeText,
+                                    item.deliveryType === "pickup" ? styles.deliveryTypePickupText : styles.deliveryTypeDeliveryText,
+                                  ]}
+                                >
+                                  {item.deliveryType === "pickup" ? "Pickup" : "Delivery"}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.orderBottomRow}>
+                              <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
+                              {showSmallThumb ? <Text style={styles.orderThumbSmall}>👍</Text> : null}
+                            </View>
+                          </TouchableOpacity>
+                          {resolvedTone ? (
+                            <View style={styles.cardActionRow}>
+                              {celebrationOrderId === item.id ? (
+                                <Animated.View
+                                  pointerEvents="none"
+                                  style={[
+                                    styles.cardCelebrateEmojiWrap,
+                                    {
+                                      opacity: deliveredEmojiOpacity,
+                                      transform: [{ scale: deliveredEmojiScale }],
+                                    },
+                                  ]}
+                                >
+                                  <Text style={styles.cardCelebrateEmoji}>👍</Text>
+                                </Animated.View>
+                              ) : null}
+                              <TouchableOpacity
+                                activeOpacity={0.86}
+                                style={[
+                                  styles.cardActionBtn,
+                                  resolvedTone === "preparing"
+                                    ? styles.cardActionBtnPreparing
+                                    : resolvedTone === "in_delivery"
+                                      ? styles.cardActionBtnInDelivery
+                                      : resolvedTone === "delivered"
+                                        ? styles.cardActionBtnDelivered
+                                        : styles.cardActionBtnCompleted,
+                                  isDoorStep && styles.cardActionBtnKapidaPulse,
+                                  isUpdating && styles.cardActionBtnDisabled,
+                                ]}
+                                disabled={isUpdating || !canRunAction}
+                                onPress={() => {
+                                  if (!action) return;
+                                  void runCardAction(item.id, action);
+                                }}
+                              >
+                                <Text style={styles.cardActionBtnText}>
+                                  {isUpdating ? "İşleniyor..." : (action?.label ?? statusText)}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              ))
             )}
           </View>
           {onSwitchToBuyer ? (
@@ -705,9 +862,26 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   emptyTitle: { color: "#4A3B2F", fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
-  orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10 },
+  groupSection: { marginBottom: 12 },
+  groupHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingHorizontal: 2 },
+  groupTitle: { color: "#3F3126", fontSize: 16, fontWeight: "800" },
+  groupCount: { color: "#6A5A4B", fontSize: 14, fontWeight: "800" },
+  groupEmptyCard: { backgroundColor: "#FCFAF7", borderRadius: 10, borderWidth: 1, borderColor: "#ECE3D7", padding: 10, marginBottom: 8 },
+  groupEmptyText: { color: "#8A7A6B", fontWeight: "600" },
+  orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10, overflow: "hidden" },
+  kapidaHighlightLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#FFD166",
+  },
+  newHighlightLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#8FD9A8",
+  },
   orderTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  orderTitleWrap: { flex: 1, paddingRight: 8 },
+  orderTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   orderNo: { color: "#4A3B2F", fontWeight: "800", fontSize: 16, flex: 1 },
+  orderTopRight: { alignItems: "flex-end", minWidth: 108 },
   statusBadge: {
     borderRadius: 999,
     paddingHorizontal: 10,
@@ -718,7 +892,34 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: { color: "#5C4A3A", fontSize: 11, fontWeight: "700" },
   orderIdText: { color: "#887766", fontSize: 12, fontWeight: "800" },
+  orderDateText: { color: "#9A8A7A", fontSize: 11, fontWeight: "700", marginTop: 2 },
   orderMeta: { color: "#6C6055", marginTop: 3 },
+  orderMetaRow: { marginTop: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  orderElapsedText: { color: "#7A6C5E", fontSize: 12, fontWeight: "700" },
+  deliveryTypeBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  deliveryTypePickup: {
+    backgroundColor: "#F4ECFF",
+    borderColor: "#A78BFA",
+  },
+  deliveryTypeDelivery: {
+    backgroundColor: "#E5E7EB",
+    borderColor: "#4B5563",
+  },
+  deliveryTypeText: { fontSize: 11, fontWeight: "800" },
+  deliveryTypePickupText: { color: "#5B21B6" },
+  deliveryTypeDeliveryText: { color: "#1F2937" },
+  newBadge: {
+    borderRadius: 999,
+    backgroundColor: "#157347",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  newBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
   orderBottomRow: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   orderTotal: { color: "#4A3B2F", fontWeight: "800" },
   orderThumbSmall: { fontSize: 16, lineHeight: 18 },
@@ -741,6 +942,7 @@ const styles = StyleSheet.create({
   cardActionBtnInDelivery: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
   cardActionBtnDelivered: { backgroundColor: "#0F766E", borderColor: "#0F766E" },
   cardActionBtnCompleted: { backgroundColor: "#166534", borderColor: "#166534" },
+  cardActionBtnKapidaPulse: { borderWidth: 2, borderColor: "#F97316" },
   cardActionBtnDisabled: { opacity: 0.6 },
   cardActionBtnText: { fontWeight: "800", fontSize: 13, color: "#FFFFFF" },
   actions: { gap: 10 },
