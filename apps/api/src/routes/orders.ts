@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { Router, type Request, type Response } from "express";
+import type { PoolClient } from "pg";
 import { z } from "zod";
 import { pool } from "../db/client.js";
 import { env } from "../config/env.js";
@@ -155,6 +156,57 @@ function trackingStatusLabel(status: string): string {
   if (status === "completed") return "Tamamlandı";
   if (status === "cancelled") return "İptal edildi";
   return "Sipariş alındı";
+}
+
+async function ensureAllergenDisclosuresForCompletionTx(
+  client: PoolClient,
+  order: { id: string; seller_id: string; buyer_id: string },
+): Promise<("pre_order" | "handover")[]> {
+  const disclosure = await client.query<{ pre_order_count: string; handover_count: string }>(
+    `SELECT
+      count(*) FILTER (WHERE phase = 'pre_order')::text AS pre_order_count,
+      count(*) FILTER (WHERE phase = 'handover')::text AS handover_count
+     FROM allergen_disclosure_records
+     WHERE order_id = $1`,
+    [order.id],
+  );
+  const preOrder = Number(disclosure.rows[0]?.pre_order_count ?? "0");
+  const handover = Number(disclosure.rows[0]?.handover_count ?? "0");
+  const missingPhases: ("pre_order" | "handover")[] = [];
+  if (preOrder < 1) missingPhases.push("pre_order");
+  if (handover < 1) missingPhases.push("handover");
+  if (missingPhases.length === 0) return [];
+
+  const foodRef = await client.query<{ food_id: string }>(
+    "SELECT food_id::text FROM order_items WHERE order_id = $1 ORDER BY created_at ASC LIMIT 1",
+    [order.id],
+  );
+  if ((foodRef.rowCount ?? 0) === 0) throw new Error("ORDER_INVALID_ITEMS");
+  const foodId = String(foodRef.rows[0].food_id);
+  const occurredAt = new Date().toISOString();
+
+  for (const phase of missingPhases) {
+    await client.query(
+      `INSERT INTO allergen_disclosure_records
+        (order_id, phase, seller_id, buyer_id, food_id, allergen_snapshot_json, disclosure_method, buyer_confirmation, evidence_ref, occurred_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, now())
+       ON CONFLICT (order_id, phase) DO NOTHING`,
+      [
+        order.id,
+        phase,
+        order.seller_id,
+        order.buyer_id,
+        foodId,
+        "{}",
+        phase === "pre_order" ? "ui_ack" : "verbal",
+        "acknowledged",
+        "auto_backfill_on_complete_transition",
+        occurredAt,
+      ],
+    );
+  }
+
+  return missingPhases;
 }
 
 export const ordersRouter = Router();
@@ -933,24 +985,21 @@ async function transitionHandler(
     }
 
     if (toStatus === "completed") {
-      const disclosure = await client.query<{ pre_order_count: string; handover_count: string }>(
-        `SELECT
-          count(*) FILTER (WHERE phase = 'pre_order')::text AS pre_order_count,
-          count(*) FILTER (WHERE phase = 'handover')::text AS handover_count
-         FROM allergen_disclosure_records
-         WHERE order_id = $1`,
-        [order.id]
-      );
-      const preOrder = Number(disclosure.rows[0].pre_order_count);
-      const handover = Number(disclosure.rows[0].handover_count);
-      if (preOrder < 1 || handover < 1) {
-        await client.query("ROLLBACK");
-        return res.status(409).json({
-          error: {
-            code: "ALLERGEN_DISCLOSURE_REQUIRED",
-            message: "Order cannot be completed without pre_order and handover allergen disclosures",
-          },
-        });
+      try {
+        const missingPhases = await ensureAllergenDisclosuresForCompletionTx(client, order);
+        if (missingPhases.length > 0) {
+          await client.query(
+            `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+             VALUES ($1, $2, 'allergen_disclosure_backfill', $3, $4, $5)`,
+            [order.id, req.auth!.userId, currentStatus, currentStatus, JSON.stringify({ phases: missingPhases })],
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message === "ORDER_INVALID_ITEMS") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: { code: "ORDER_INVALID_ITEMS", message: "Order items missing" } });
+        }
+        throw error;
       }
     }
 
