@@ -59,10 +59,10 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   if (normalized === "preparing" || normalized === "ready") {
     return deliveryType === "delivery"
       ? { label: "Yola Çıktı", toStatus: "in_delivery" }
-      : { label: "Kapıda Teslim Edildi", toStatus: "delivered" };
+      : { label: "Kapıda", toStatus: "delivered" };
   }
-  if (normalized === "in_delivery") return { label: "Kapıda Teslim Edildi", toStatus: "delivered" };
-  if (normalized === "delivered") return { label: "Tamamlandı", toStatus: "completed" };
+  if (normalized === "in_delivery") return { label: "Kapıda", toStatus: "delivered" };
+  if (normalized === "delivered") return { label: "Teslim Edildi", toStatus: "completed" };
   return null;
 }
 

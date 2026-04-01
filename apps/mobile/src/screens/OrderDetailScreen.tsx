@@ -116,8 +116,8 @@ function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' |
 function buyerFlowLabel(step: BuyerFlowStep): string {
   if (step === 'preparing') return 'Hazırlanıyor';
   if (step === 'in_delivery') return 'Yola Çıktı';
-  if (step === 'delivered') return 'Kapıda Teslim Edildi';
-  return 'Tamamlandı';
+  if (step === 'delivered') return 'Kapıda';
+  return 'Teslim Edildi';
 }
 
 export default function OrderDetailScreen({

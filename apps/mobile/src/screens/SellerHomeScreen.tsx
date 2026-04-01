@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Dimensions, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, AppState, Dimensions, Easing, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -35,8 +35,8 @@ type SellerOrder = {
 type SellerAction =
   | { label: "Hazırlanıyor"; toStatus: "preparing"; tone: "preparing" }
   | { label: "Yola Çıktı"; toStatus: "in_delivery"; tone: "in_delivery" }
-  | { label: "Kapıda Teslim Edildi"; toStatus: "delivered"; tone: "delivered" }
-  | { label: "Tamamlandı"; toStatus: "completed"; tone: "completed" };
+  | { label: "Kapıda"; toStatus: "delivered"; tone: "delivered" }
+  | { label: "Teslim Edildi"; toStatus: "completed"; tone: "completed" };
 
 type ActiveFood = {
   id: string;
@@ -60,16 +60,6 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
     date.getMonth() === reference.getMonth() &&
     date.getDate() === reference.getDate()
   );
-}
-
-function formatOrderDateTime(value?: string): string {
-  const parsed = parseApiDate(value);
-  if (!parsed) return "-";
-  const day = parsed.getDate().toString().padStart(2, "0");
-  const month = (parsed.getMonth() + 1).toString().padStart(2, "0");
-  const hours = parsed.getHours().toString().padStart(2, "0");
-  const minutes = parsed.getMinutes().toString().padStart(2, "0");
-  return `${day}.${month} ${hours}:${minutes}`;
 }
 
 function statusLabel(status: string, deliveryType?: string): string {
@@ -111,16 +101,16 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   }
   if (status === "preparing") {
     return deliveryType === "pickup"
-      ? { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" }
+      ? { label: "Kapıda", toStatus: "delivered", tone: "delivered" }
       : { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
   if (status === "ready") {
     return deliveryType === "pickup"
-      ? { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" }
+      ? { label: "Kapıda", toStatus: "delivered", tone: "delivered" }
       : { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
-  if (status === "in_delivery") return { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" };
-  if (status === "delivered") return { label: "Tamamlandı", toStatus: "completed", tone: "completed" };
+  if (status === "in_delivery") return { label: "Kapıda", toStatus: "delivered", tone: "delivered" };
+  if (status === "delivered") return { label: "Teslim Edildi", toStatus: "completed", tone: "completed" };
   return null;
 }
 
@@ -166,8 +156,11 @@ export default function SellerHomeScreen({
       }));
   });
   const [activePage, setActivePage] = useState(0);
+  const [celebrationOrderId, setCelebrationOrderId] = useState<string | null>(null);
   const pagerRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get("window").width;
+  const deliveredEmojiScale = useRef(new Animated.Value(0.4)).current;
+  const deliveredEmojiOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -377,6 +370,22 @@ export default function SellerHomeScreen({
     try {
       setUpdatingOrderId(orderId);
       await advanceStatusWithCompatibility(orderId, action.toStatus);
+      if (action.toStatus === "completed") {
+        setCelebrationOrderId(orderId);
+        deliveredEmojiScale.setValue(0.4);
+        deliveredEmojiOpacity.setValue(0);
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(deliveredEmojiOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+            Animated.spring(deliveredEmojiScale, { toValue: 1, friction: 6, tension: 120, useNativeDriver: true }),
+          ]),
+          Animated.delay(520),
+          Animated.parallel([
+            Animated.timing(deliveredEmojiOpacity, { toValue: 0, duration: 260, useNativeDriver: true }),
+            Animated.timing(deliveredEmojiScale, { toValue: 1.25, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+          ]),
+        ]).start(() => setCelebrationOrderId(null));
+      }
       await load();
     } catch (error) {
       Alert.alert("Hata", error instanceof Error ? error.message : "İşlem başarısız");
@@ -478,6 +487,7 @@ export default function SellerHomeScreen({
                 const passiveTone = toneFromStatus(item.status, item.deliveryType);
                 const resolvedTone = action?.tone ?? passiveTone;
                 const canRunAction = Boolean(action);
+                const showSmallThumb = normalizeDisplayStatus(item.status, item.deliveryType) === "completed";
                 return (
                   <View key={item.id} style={styles.orderCard}>
                     <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
@@ -492,11 +502,25 @@ export default function SellerHomeScreen({
                       <Text style={styles.orderMeta}>Teslimat: {item.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
                       <View style={styles.orderBottomRow}>
                         <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
-                        <Text style={styles.orderDateText}>Sipariş: {formatOrderDateTime(item.createdAt)}</Text>
+                        {showSmallThumb ? <Text style={styles.orderThumbSmall}>👍</Text> : null}
                       </View>
                     </TouchableOpacity>
                     {resolvedTone ? (
                       <View style={styles.cardActionRow}>
+                        {celebrationOrderId === item.id ? (
+                          <Animated.View
+                            pointerEvents="none"
+                            style={[
+                              styles.cardCelebrateEmojiWrap,
+                              {
+                                opacity: deliveredEmojiOpacity,
+                                transform: [{ scale: deliveredEmojiScale }],
+                              },
+                            ]}
+                          >
+                            <Text style={styles.cardCelebrateEmoji}>👍</Text>
+                          </Animated.View>
+                        ) : null}
                         <TouchableOpacity
                           activeOpacity={0.86}
                           style={[
@@ -697,8 +721,21 @@ const styles = StyleSheet.create({
   orderMeta: { color: "#6C6055", marginTop: 3 },
   orderBottomRow: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   orderTotal: { color: "#4A3B2F", fontWeight: "800" },
-  orderDateText: { color: "#7A6B5F", fontSize: 12, fontWeight: "700", flexShrink: 1 },
+  orderThumbSmall: { fontSize: 16, lineHeight: 18 },
   cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
+  cardCelebrateEmojiWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: -38,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  cardCelebrateEmoji: {
+    fontSize: 44,
+    lineHeight: 48,
+  },
   cardActionBtn: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: "center" },
   cardActionBtnPreparing: { backgroundColor: "#B86A00", borderColor: "#B86A00" },
   cardActionBtnInDelivery: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
