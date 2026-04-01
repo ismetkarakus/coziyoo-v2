@@ -272,7 +272,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
 
     const headers = makeHeaders(currentAuth);
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
-    if (res.status !== 401) return res;
+    if (res.status !== 401 && res.status !== 403) return res;
 
     // Another screen may have already refreshed auth; try persisted session first.
     const persisted = await loadAuthSession();
@@ -280,7 +280,7 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       setCurrentAuth(persisted);
       onAuthRefresh?.(persisted);
       res = await fetch(`${baseUrl}${path}`, { ...init, headers: makeHeaders(persisted) });
-      if (res.status !== 401) return res;
+      if (res.status !== 401 && res.status !== 403) return res;
     }
 
     const refreshed = await refreshAuthSession(baseUrl, persisted && persisted.userId === currentAuth.userId ? persisted : currentAuth);
@@ -301,10 +301,22 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       setApiUrl(baseUrl);
       const res = await authedFetch("/v1/seller/foods", undefined, baseUrl);
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
+      if (!res.ok) {
+        console.warn("[seller-foods-screen] foods fetch failed", {
+          status: res.status,
+          message: json?.error?.message ?? null,
+          userId: currentAuth.userId,
+          actorRole: "seller",
+        });
+        throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
+      }
       const rows: SellerFood[] = Array.isArray(json?.data)
         ? json.data.map((item: unknown) => normalizeSellerFood((item ?? {}) as Record<string, unknown>))
         : [];
+      console.info("[seller-foods-screen] foods loaded", {
+        count: rows.length,
+        userId: currentAuth.userId,
+      });
       setFoods(rows);
       void loadCategories(baseUrl);
     } catch (e) {

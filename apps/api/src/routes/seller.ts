@@ -222,7 +222,14 @@ function validateMenuItems(items: MenuItemInput[] | undefined): string | null {
 }
 
 async function loadCategoryNameMap(categoryIds: string[]): Promise<Map<string, string>> {
-  const uniq = Array.from(new Set(categoryIds.map((item) => item.trim()).filter(Boolean)));
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const uniq = Array.from(
+    new Set(
+      categoryIds
+        .map((item) => item.trim())
+        .filter((item) => Boolean(item) && uuidPattern.test(item)),
+    ),
+  );
   if (uniq.length === 0) return new Map<string, string>();
 
   const result = await pool.query<{ id: string; name_tr: string | null; name_en: string | null }>(
@@ -636,7 +643,16 @@ sellerRouter.get("/foods", async (req, res) => {
         categoryIds.add(id);
       }
     }
-    const categoryMap = await loadCategoryNameMap(Array.from(categoryIds));
+    let categoryMap = new Map<string, string>();
+    try {
+      categoryMap = await loadCategoryNameMap(Array.from(categoryIds));
+    } catch (categoryError) {
+      console.warn("[seller] foods list category map failed; continuing without category labels", {
+        userId,
+        categoryCount: categoryIds.size,
+        error: categoryError instanceof Error ? categoryError.message : String(categoryError),
+      });
+    }
 
     return res.json({
       data: result.rows.map((row) => ({

@@ -54,14 +54,14 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
 
     const headers = makeHeaders(currentAuth);
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
-    if (res.status !== 401) return res;
+    if (res.status !== 401 && res.status !== 403) return res;
 
     const persisted = await loadAuthSession();
     if (persisted && persisted.userId === currentAuth.userId && persisted.accessToken !== currentAuth.accessToken) {
       setCurrentAuth(persisted);
       onAuthRefresh?.(persisted);
       res = await fetch(`${baseUrl}${path}`, { ...init, headers: makeHeaders(persisted) });
-      if (res.status !== 401) return res;
+      if (res.status !== 401 && res.status !== 403) return res;
     }
 
     const refreshed = await refreshAuthSession(baseUrl, persisted && persisted.userId === currentAuth.userId ? persisted : currentAuth);
@@ -81,7 +81,15 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
       setApiUrl(settings.apiUrl);
       const res = await authedFetch("/v1/seller/foods", undefined, settings.apiUrl);
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
+      if (!res.ok) {
+        console.warn("[seller-foods-manager] foods fetch failed", {
+          status: res.status,
+          message: json?.error?.message ?? null,
+          userId: currentAuth.userId,
+          actorRole: "seller",
+        });
+        throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
+      }
       const list: SellerFood[] = Array.isArray(json?.data) ? json.data.map((item: any) => ({
         ...item,
         id: String(item.id),
@@ -91,6 +99,10 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         isActive: toBool(item.isActive ?? item.is_active),
         stock: Number(item.stock ?? 0),
       })) : [];
+      console.info("[seller-foods-manager] foods loaded", {
+        count: list.length,
+        userId: currentAuth.userId,
+      });
       setFoods(list);
       setSellerFoodsCache(list as unknown as Record<string, unknown>[]);
     } catch (e) {

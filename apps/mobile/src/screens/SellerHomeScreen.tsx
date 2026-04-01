@@ -369,7 +369,20 @@ export default function SellerHomeScreen({
                 stock: Number(f.stock ?? 0),
               })),
           );
+          console.info("[seller-home] foods loaded", {
+            count: foods.length,
+            activeCount: foods.filter((f) => toBool(f.isActive)).length,
+            userId: currentAuth.userId,
+          });
         }
+      } else {
+        const foodsError = await foodsRes.json().catch(() => ({}));
+        console.warn("[seller-home] foods fetch failed", {
+          status: foodsRes.status,
+          message: foodsError?.error?.message ?? null,
+          userId: currentAuth.userId,
+          actorRole: "seller",
+        });
       }
     } catch {
       // best-effort
