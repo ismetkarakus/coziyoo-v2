@@ -55,3 +55,27 @@ export function subscribeSellerOrdersRealtime(sellerId: string, onChange: () => 
     void client.removeChannel(channel);
   };
 }
+
+export function subscribeOrderRealtime(orderId: string, onChange: () => void): RealtimeUnsubscribe {
+  const client = getClient();
+  const normalizedOrderId = String(orderId ?? "").trim();
+  if (!client || !normalizedOrderId) return () => {};
+
+  const channel: RealtimeChannel = client
+    .channel(`mobile-order-${normalizedOrderId}-${Date.now()}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: `id=eq.${normalizedOrderId}` },
+      onChange,
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "order_delivery_tracking", filter: `order_id=eq.${normalizedOrderId}` },
+      onChange,
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}

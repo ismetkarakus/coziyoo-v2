@@ -16,6 +16,7 @@ import ErrorState from '../components/ErrorState';
 import BottomSheet from '../components/BottomSheet';
 import TextInputField from '../components/TextInputField';
 import { formatPrice, formatDate, orderNo } from '../components/OrderCard';
+import { subscribeOrderRealtime } from '../utils/realtime';
 
 type OrderDetail = {
   id: string;
@@ -208,6 +209,14 @@ export default function OrderDetailScreen({
       }
     };
   }, [order, refreshOrderStatus]);
+
+  useEffect(() => {
+    if (!order?.id) return () => {};
+    return subscribeOrderRealtime(order.id, () => {
+      void refreshOrderStatus();
+      void fetchTracking();
+    });
+  }, [order?.id, refreshOrderStatus, fetchTracking]);
 
   // Seller location ping — only when seller + in_delivery + delivery type
   useEffect(() => {

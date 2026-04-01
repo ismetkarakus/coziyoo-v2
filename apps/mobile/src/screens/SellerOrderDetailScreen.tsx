@@ -8,8 +8,6 @@ import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 import StatusBadge from "../components/StatusBadge";
 
-const TEST_PAYMENT_BYPASS = __DEV__;
-
 type Props = {
   auth: AuthSession;
   orderId: string;
@@ -50,15 +48,12 @@ type OrderDetail = {
 };
 
 function normalizeFlowStatus(status: string): string {
-  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
-    return "paid";
-  }
   return status;
 }
 
 function getNextAction(status: string, deliveryType?: string): { label: string; toStatus: string } | null {
   const normalized = normalizeFlowStatus(status);
-  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(normalized)) {
+  if (normalized === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing" };
   }
   if (normalized === "preparing" || normalized === "ready") {

@@ -119,15 +119,42 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<'success' | 'failed' | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [provider, setProvider] = useState<string>('mockpay');
+  const [awaitingExternalPayment, setAwaitingExternalPayment] = useState(false);
   const paymentSessionIdRef = useRef<string | null>(null);
 
-  const startMockPayment = useCallback(async () => {
+  const checkPaymentStatus = useCallback(async () => {
+    const statusRes = await apiRequest<{
+      paymentCompleted?: boolean;
+      latestAttempt?: { status?: string };
+    }>(`/v1/payments/${orderId}/status`, auth, { actorRole: 'buyer' }, onAuthRefresh);
+    if (!statusRes.ok) return false;
+    if (statusRes.data.paymentCompleted) {
+      setResult('success');
+      setLoading(false);
+      setAwaitingExternalPayment(false);
+      return true;
+    }
+    const latest = String(statusRes.data.latestAttempt?.status ?? '').toLowerCase();
+    if (latest === 'failed' || latest === 'confirmation_failed') {
+      setError('Ödeme başarısız oldu. Lütfen tekrar dene.');
+      setResult('failed');
+      setLoading(false);
+      setAwaitingExternalPayment(false);
+      return true;
+    }
+    return false;
+  }, [auth, onAuthRefresh, orderId]);
+
+  const startPayment = useCallback(async () => {
     setLoading(true);
     setError(null);
     setResult(null);
+    setAwaitingExternalPayment(false);
+    setProvider('mockpay');
     paymentSessionIdRef.current = null;
 
-    const res = await apiRequest<{ sessionId?: string }>(
+    const res = await apiRequest<{ sessionId?: string; provider?: string }>(
       '/v1/payments/start',
       auth,
       { method: 'POST', body: { orderId }, actorRole: 'buyer' },
@@ -141,20 +168,32 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
     }
 
     const sessionId = String(res.data.sessionId ?? '').trim();
+    const activeProvider = String(res.data.provider ?? 'mockpay').trim().toLowerCase();
     if (!sessionId) {
       setError('Ödeme oturumu oluşturulamadı');
       setLoading(false);
       return;
     }
 
+    setProvider(activeProvider);
     paymentSessionIdRef.current = sessionId;
     setLoading(false);
-    setProcessing(true);
+    if (activeProvider === 'mockpay') {
+      setProcessing(true);
+      return;
+    }
+    setAwaitingExternalPayment(true);
   }, [auth, onAuthRefresh, orderId]);
 
   useEffect(() => {
-    void startMockPayment();
-  }, [startMockPayment]);
+    void startPayment();
+  }, [startPayment]);
+
+  useEffect(() => {
+    if (!awaitingExternalPayment) return;
+    const id = setInterval(() => { void checkPaymentStatus(); }, 5_000);
+    return () => clearInterval(id);
+  }, [awaitingExternalPayment, checkPaymentStatus]);
 
   const finalizeMockPayment = useCallback(async () => {
     setProcessing(false);
@@ -235,7 +274,7 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
           <Text style={styles.resultTitle}>Ödeme Başarısız</Text>
           <Text style={styles.resultSub}>{error ?? 'Ödeme işlemi tamamlanamadı. Tekrar deneyebilirsin.'}</Text>
           <View style={styles.resultActions}>
-            <ActionButton label="Tekrar Dene" onPress={() => { void startMockPayment(); }} variant="primary" />
+            <ActionButton label="Tekrar Dene" onPress={() => { void startPayment(); }} variant="primary" />
             <ActionButton label="Geri Dön" onPress={onBack} variant="soft" />
           </View>
         </View>
@@ -250,10 +289,24 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
 
       {processing ? (
         <PaymentProcessingAnimation onDone={() => void finalizeMockPayment()} />
+      ) : awaitingExternalPayment ? (
+        <View style={styles.resultCenter}>
+          <View style={[styles.resultIcon, { backgroundColor: '#E8EDF3' }]}>
+            <Ionicons name="time-outline" size={52} color="#5D7394" />
+          </View>
+          <Text style={styles.resultTitle}>Ödeme Bekleniyor</Text>
+          <Text style={styles.resultSub}>
+            {provider.toUpperCase()} ile ödeme doğrulaması bekleniyor. Durum otomatik yenilenir.
+          </Text>
+          <View style={styles.resultActions}>
+            <ActionButton label="Durumu Yenile" onPress={() => { void checkPaymentStatus(); }} variant="primary" />
+            <ActionButton label="Geri Dön" onPress={onBack} variant="soft" />
+          </View>
+        </View>
       ) : loading ? (
         <LoadingState message="Ödeme hazırlanıyor..." />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => { void startMockPayment(); }} />
+        <ErrorState message={error} onRetry={() => { void startPayment(); }} />
       ) : null}
     </View>
   );
@@ -294,4 +347,3 @@ const anim = StyleSheet.create({
   checkWrap: { width: 18, alignItems: 'center' },
   stepText: { color: '#6C6157', fontSize: 13, fontWeight: '600' },
 });
-

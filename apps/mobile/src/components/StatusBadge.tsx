@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  pending_seller_approval: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
-  seller_approved: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
-  confirmed: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
-  awaiting_payment: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
-  paid: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  pending_seller_approval: { label: 'Ödeme Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
+  seller_approved: { label: 'Ödeme Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
+  confirmed: { label: 'Ödeme Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
+  awaiting_payment: { label: 'Ödeme Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
+  paid: { label: 'Ödeme Alındı', color: '#166534', bg: '#EAF7EE' },
   preparing: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
   ready: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
   in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },

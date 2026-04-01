@@ -91,14 +91,12 @@ function normalizeDisplayStatus(status: string, deliveryType?: string): string {
   if (status === "delivered" || status === "completed") return status;
   if (status === "in_delivery" && deliveryType === "pickup") return "delivered";
   if (status === "in_delivery" || status === "ready") return "in_delivery";
-  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) {
-    return "preparing";
-  }
+  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return status;
   return status;
 }
 
 function cardActionByStatus(status: string, deliveryType?: string): SellerAction | null {
-  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(status)) {
+  if (status === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing", tone: "preparing" };
   }
   if (status === "preparing") {
