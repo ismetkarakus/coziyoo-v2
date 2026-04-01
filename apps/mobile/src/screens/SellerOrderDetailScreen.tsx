@@ -53,13 +53,12 @@ function normalizeFlowStatus(status: string): string {
 
 function getNextAction(status: string, deliveryType?: string): { label: string; toStatus: string } | null {
   const normalized = normalizeFlowStatus(status);
+  void deliveryType;
   if (normalized === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing" };
   }
   if (normalized === "preparing" || normalized === "ready") {
-    return deliveryType === "delivery"
-      ? { label: "Yola Çıktı", toStatus: "in_delivery" }
-      : { label: "Kapıda", toStatus: "delivered" };
+    return { label: "Yola Çıktı", toStatus: "in_delivery" };
   }
   if (normalized === "in_delivery") return { label: "Kapıda", toStatus: "delivered" };
   if (normalized === "delivered") return { label: "Teslim Edildi", toStatus: "completed" };
@@ -152,14 +151,9 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         const message = error instanceof Error ? error.message : "";
         const canFallbackInDelivery =
           action.toStatus === "in_delivery" && message.includes("Cannot transition preparing -> in_delivery");
-        const canFallbackDelivered =
-          action.toStatus === "delivered" && message.includes("Cannot transition preparing -> delivered");
         if (canFallbackInDelivery) {
           await changeStatus("ready");
           await changeStatus("in_delivery");
-        } else if (canFallbackDelivered) {
-          await changeStatus("ready");
-          await changeStatus("delivered");
         } else {
           throw error;
         }

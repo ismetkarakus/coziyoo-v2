@@ -128,27 +128,24 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 }
 
 function normalizeDisplayStatus(status: string, deliveryType?: string): string {
+  void deliveryType;
   if (status === "cancelled" || status === "rejected") return status;
   if (status === "delivered" || status === "completed") return status;
-  if (status === "in_delivery" && deliveryType === "pickup") return "delivered";
   if (status === "in_delivery" || status === "ready") return "in_delivery";
   if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return status;
   return status;
 }
 
 function cardActionByStatus(status: string, deliveryType?: string): SellerAction | null {
+  void deliveryType;
   if (status === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing", tone: "preparing" };
   }
   if (status === "preparing") {
-    return deliveryType === "pickup"
-      ? { label: "Kapıda", toStatus: "delivered", tone: "delivered" }
-      : { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
+    return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
   if (status === "ready") {
-    return deliveryType === "pickup"
-      ? { label: "Kapıda", toStatus: "delivered", tone: "delivered" }
-      : { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
+    return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
   if (status === "in_delivery") return { label: "Kapıda", toStatus: "delivered", tone: "delivered" };
   if (status === "delivered") return { label: "Teslim Edildi", toStatus: "completed", tone: "completed" };
@@ -461,12 +458,11 @@ export default function SellerHomeScreen({
     if (!res.ok) throw new Error(body?.error?.message ?? "Durum güncellenemedi");
   }
 
-  function shouldFallbackViaReady(error: unknown, toStatus: "in_delivery" | "delivered"): boolean {
+  function shouldFallbackViaReady(error: unknown): boolean {
     if (!(error instanceof Error)) return false;
     const message = error.message || "";
     if (!message.includes("Cannot transition")) return false;
-    if (toStatus === "in_delivery") return message.includes("preparing -> in_delivery");
-    return message.includes("preparing -> delivered");
+    return message.includes("preparing -> in_delivery");
   }
 
   async function advanceStatusWithCompatibility(
@@ -476,14 +472,9 @@ export default function SellerHomeScreen({
     try {
       await changeStatus(orderId, toStatus);
     } catch (error) {
-      if (toStatus === "in_delivery" && shouldFallbackViaReady(error, "in_delivery")) {
+      if (toStatus === "in_delivery" && shouldFallbackViaReady(error)) {
         await changeStatus(orderId, "ready");
         await changeStatus(orderId, "in_delivery");
-        return;
-      }
-      if (toStatus === "delivered" && shouldFallbackViaReady(error, "delivered")) {
-        await changeStatus(orderId, "ready");
-        await changeStatus(orderId, "delivered");
         return;
       }
       throw error;
