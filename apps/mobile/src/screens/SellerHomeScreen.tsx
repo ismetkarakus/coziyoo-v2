@@ -71,7 +71,7 @@ function formatOrderDateTime(value?: string): string {
   const month = (parsed.getMonth() + 1).toString().padStart(2, "0");
   const hours = parsed.getHours().toString().padStart(2, "0");
   const minutes = parsed.getMinutes().toString().padStart(2, "0");
-  return `${day}.${month} ${hours}:${minutes}`;
+  return `${day}.${month} / ${hours}:${minutes}`;
 }
 
 function orderTimeForSort(order: SellerOrder): number {
@@ -637,21 +637,6 @@ export default function SellerHomeScreen({
                             </View>
                             <View style={styles.orderMetaRow}>
                               <Text style={styles.orderElapsedText}>{formatElapsed(item.createdAt, clockMs)}</Text>
-                              <View
-                                style={[
-                                  styles.deliveryTypeBadge,
-                                  item.deliveryType === "pickup" ? styles.deliveryTypePickup : styles.deliveryTypeDelivery,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.deliveryTypeText,
-                                    item.deliveryType === "pickup" ? styles.deliveryTypePickupText : styles.deliveryTypeDeliveryText,
-                                  ]}
-                                >
-                                  {item.deliveryType === "pickup" ? "Pickup" : "Delivery"}
-                                </Text>
-                              </View>
                             </View>
                             <View style={styles.orderBottomRow}>
                               <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
@@ -894,25 +879,8 @@ const styles = StyleSheet.create({
   orderIdText: { color: "#887766", fontSize: 12, fontWeight: "800" },
   orderDateText: { color: "#9A8A7A", fontSize: 11, fontWeight: "700", marginTop: 2 },
   orderMeta: { color: "#6C6055", marginTop: 3 },
-  orderMetaRow: { marginTop: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  orderMetaRow: { marginTop: 6, flexDirection: "row", alignItems: "center" },
   orderElapsedText: { color: "#7A6C5E", fontSize: 12, fontWeight: "700" },
-  deliveryTypeBadge: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  deliveryTypePickup: {
-    backgroundColor: "#F4ECFF",
-    borderColor: "#A78BFA",
-  },
-  deliveryTypeDelivery: {
-    backgroundColor: "#E5E7EB",
-    borderColor: "#4B5563",
-  },
-  deliveryTypeText: { fontSize: 11, fontWeight: "800" },
-  deliveryTypePickupText: { color: "#5B21B6" },
-  deliveryTypeDeliveryText: { color: "#1F2937" },
   newBadge: {
     borderRadius: 999,
     backgroundColor: "#157347",
