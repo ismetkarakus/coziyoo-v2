@@ -131,6 +131,7 @@ export default function OrderDetailScreen({
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
   const [trackingFocused, setTrackingFocused] = useState(false);
   const locationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true);
@@ -150,6 +151,18 @@ export default function OrderDetailScreen({
   }, [orderId, auth, onAuthRefresh]);
 
   useEffect(() => { fetchOrder(); }, [fetchOrder]);
+
+  const refreshOrderStatus = useCallback(async () => {
+    const result = await apiRequest<OrderDetail>(
+      `/v1/orders/${orderId}`,
+      auth,
+      { actorRole: 'buyer' },
+      onAuthRefresh,
+    );
+    if (result.ok) {
+      setOrder(result.data);
+    }
+  }, [orderId, auth, onAuthRefresh]);
 
   const isBuyer = order?.buyerId === auth.userId;
   const actorRole = isBuyer ? 'buyer' : 'seller';
@@ -178,6 +191,23 @@ export default function OrderDetailScreen({
     const timer = setInterval(() => { void fetchTracking(); }, 20_000);
     return () => clearInterval(timer);
   }, [fetchTracking, order]);
+
+  useEffect(() => {
+    if (statusPollRef.current) {
+      clearInterval(statusPollRef.current);
+      statusPollRef.current = null;
+    }
+    if (!order) return;
+    const terminal = ['completed', 'cancelled', 'rejected'].includes(order.status);
+    if (terminal) return;
+    statusPollRef.current = setInterval(() => { void refreshOrderStatus(); }, 8_000);
+    return () => {
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+    };
+  }, [order, refreshOrderStatus]);
 
   // Seller location ping — only when seller + in_delivery + delivery type
   useEffect(() => {

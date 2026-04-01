@@ -3,11 +3,12 @@ import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AuthSession } from "../utils/auth";
-import { refreshAuthSession, saveAuthSession } from "../utils/auth";
+import { loadAuthSession, refreshAuthSession, saveAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
+import { getSellerProfileCache, setSellerProfileCache, getSellerMeCache, setSellerMeCache } from "../utils/sellerProfileCache";
 
 const MODAL_PLACEHOLDER_COLOR = "#A9A7A1";
 
@@ -24,7 +25,7 @@ type Props = {
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-type SellerProfile = {
+export type SellerProfile = {
   displayName?: string | null;
   username?: string | null;
   email?: string | null;
@@ -78,21 +79,21 @@ export default function SellerProfileDetailScreen({
 }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<SellerProfile | null>(null);
+  const [loading, setLoading] = useState(() => getSellerProfileCache() === null);
+  const [profile, setProfile] = useState<SellerProfile | null>(() => getSellerProfileCache());
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [contactSaving, setContactSaving] = useState(false);
-  const [masterName, setMasterName] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [contactDob, setContactDob] = useState("");
-  const [cityDistrict, setCityDistrict] = useState("");
-  const [addressLine, setAddressLine] = useState("");
-  const [contactCountryCode, setContactCountryCode] = useState("");
-  const [tcKimlikNo, setTcKimlikNo] = useState("");
+  const [masterName, setMasterName] = useState(() => getSellerProfileCache()?.displayName?.trim() ?? "");
+  const [fullName, setFullName] = useState(() => getSellerMeCache()?.fullName ?? "");
+  const [contactEmail, setContactEmail] = useState(() => getSellerMeCache()?.email || getSellerProfileCache()?.email?.trim() || "");
+  const [contactPhone, setContactPhone] = useState(() => getSellerProfileCache()?.phone?.trim() ?? "");
+  const [contactDob, setContactDob] = useState(() => getSellerMeCache()?.dob ?? "");
+  const [cityDistrict, setCityDistrict] = useState(() => getSellerProfileCache()?.defaultAddress?.title?.trim() ?? "");
+  const [addressLine, setAddressLine] = useState(() => getSellerProfileCache()?.defaultAddress?.addressLine?.trim() ?? "");
+  const [contactCountryCode, setContactCountryCode] = useState(() => getSellerMeCache()?.countryCode ?? "");
+  const [tcKimlikNo, setTcKimlikNo] = useState(() => getSellerMeCache()?.nationalId ?? "");
   const [idCardFrontUri, setIdCardFrontUri] = useState<string | null>(null);
   const [idCardBackUri, setIdCardBackUri] = useState<string | null>(null);
   const [idCardFrontBase64, setIdCardFrontBase64] = useState<string | null>(null);
@@ -110,25 +111,40 @@ export default function SellerProfileDetailScreen({
   useEffect(() => setCurrentAuth(auth), [auth]);
 
   async function authedFetch(path: string, baseUrl = apiUrl, init?: RequestInit): Promise<Response> {
-    const headers: Record<string, string> = {
+    const makeHeaders = (session: AuthSession): Record<string, string> => ({
       "Content-Type": "application/json",
-      Authorization: `Bearer ${currentAuth.accessToken}`,
-      ...actorRoleHeader(currentAuth, "seller"),
-    };
+      Authorization: `Bearer ${session.accessToken}`,
+      ...actorRoleHeader(session, "seller"),
+      ...(init?.headers as Record<string, string> | undefined),
+    });
+
+    const headers = makeHeaders(currentAuth);
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
     if (res.status !== 401) return res;
-    const refreshed = await refreshAuthSession(baseUrl, currentAuth);
+
+    const persisted = await loadAuthSession();
+    if (persisted && persisted.userId === currentAuth.userId && persisted.accessToken !== currentAuth.accessToken) {
+      setCurrentAuth(persisted);
+      onAuthRefresh?.(persisted);
+      res = await fetch(`${baseUrl}${path}`, { ...init, headers: makeHeaders(persisted) });
+      if (res.status !== 401) return res;
+    }
+
+    const refreshed = await refreshAuthSession(
+      baseUrl,
+      persisted && persisted.userId === currentAuth.userId ? persisted : currentAuth,
+    );
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
     onAuthRefresh?.(refreshed);
     return fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: { ...headers, Authorization: `Bearer ${refreshed.accessToken}`, ...actorRoleHeader(refreshed, "seller") },
+      headers: makeHeaders(refreshed),
     });
   }
 
   async function load() {
-    setLoading(true);
+    if (getSellerProfileCache() === null) setLoading(true);
     setError(null);
     try {
       const settings = await loadSettings();
@@ -137,30 +153,33 @@ export default function SellerProfileDetailScreen({
       const profileRes = await authedFetch("/v1/seller/profile", baseUrl, undefined);
       const profileJson = await profileRes.json();
       if (!profileRes.ok) throw new Error(profileJson?.error?.message ?? "Profil yüklenemedi");
-      const loaded = profileJson.data ?? null;
+      const loaded: SellerProfile = profileJson.data ?? null;
+      setSellerProfileCache(loaded);
       setProfile(loaded);
-      // Kayıtlı verileri modalda geri doldur: kullanıcı tekrar düzenleyebilsin.
-      setMasterName(String((loaded as { displayName?: string | null } | null)?.displayName ?? "").trim());
-      const profileEmail = String((loaded as { email?: string | null } | null)?.email ?? "").trim();
+      setMasterName(String(loaded?.displayName ?? "").trim());
+      const profileEmail = String(loaded?.email ?? "").trim();
       setContactEmail(profileEmail || currentAuth.email?.trim() || auth.email?.trim() || "");
-      setContactPhone(String((loaded as { phone?: string | null } | null)?.phone ?? "").trim());
+      setContactPhone(String(loaded?.phone ?? "").trim());
       setContactDob("");
-      setCityDistrict(String((loaded as { defaultAddress?: { title?: string | null } | null } | null)?.defaultAddress?.title ?? "").trim());
-      setAddressLine(String((loaded as { defaultAddress?: { addressLine?: string | null } | null } | null)?.defaultAddress?.addressLine ?? "").trim());
+      setCityDistrict(String(loaded?.defaultAddress?.title ?? "").trim());
+      setAddressLine(String(loaded?.defaultAddress?.addressLine ?? "").trim());
       setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
       setSpecialties(Array.isArray(loaded?.kitchenSpecialties) ? loaded.kitchenSpecialties : []);
 
       const meRes = await authedFetch("/v1/auth/me", baseUrl, undefined);
       const meJson = await meRes.json();
       if (meRes.ok && meJson?.data) {
-        setFullName(String(meJson.data.fullName ?? "").trim());
-        setContactDob(formatDobForDisplay(String(meJson.data.dob ?? "")));
-        setContactCountryCode(String(meJson.data.countryCode ?? "").trim().toUpperCase());
-        setTcKimlikNo(String(meJson.data.nationalId ?? "").trim());
+        const fullNameVal = String(meJson.data.fullName ?? "").trim();
+        const dobVal = formatDobForDisplay(String(meJson.data.dob ?? ""));
+        const countryCodeVal = String(meJson.data.countryCode ?? "").trim().toUpperCase();
+        const nationalIdVal = String(meJson.data.nationalId ?? "").trim();
         const meEmail = String(meJson.data.email ?? "").trim();
-        if (meEmail) {
-          setContactEmail(meEmail);
-        }
+        setSellerMeCache({ fullName: fullNameVal, dob: dobVal, countryCode: countryCodeVal, nationalId: nationalIdVal, email: meEmail });
+        setFullName(fullNameVal);
+        setContactDob(dobVal);
+        setContactCountryCode(countryCodeVal);
+        setTcKimlikNo(nationalIdVal);
+        if (meEmail) setContactEmail(meEmail);
       } else {
         setFullName("");
         setContactDob("");
@@ -564,7 +583,15 @@ export default function SellerProfileDetailScreen({
       {loading ? (
         <ActivityIndicator size="large" color={theme.primary} style={styles.loader} />
       ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
+            <Text style={styles.retryBtnText}>Tekrar Dene</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutErrBtn} onPress={onLogout}>
+            <Text style={styles.logoutErrBtnText}>Çıkış Yap</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
 
@@ -903,7 +930,12 @@ export default function SellerProfileDetailScreen({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   loader: { marginTop: 60 },
-  errorText: { textAlign: "center", marginTop: 40, color: "#B42318" },
+  errorContainer: { alignItems: "center", marginTop: 60, paddingHorizontal: 24, gap: 12 },
+  errorText: { textAlign: "center", color: "#B42318", fontSize: 15, fontWeight: "600" },
+  retryBtn: { backgroundColor: "#3F855C", borderRadius: 12, paddingVertical: 12, paddingHorizontal: 28 },
+  retryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  logoutErrBtn: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 28, borderWidth: 1, borderColor: "#D6CCBD" },
+  logoutErrBtnText: { color: "#5F5348", fontWeight: "700", fontSize: 15 },
   content: { padding: 16, paddingBottom: 40, gap: 10 },
 
   heroCard: {

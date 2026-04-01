@@ -307,6 +307,41 @@ paymentsRouter.post("/webhook", async (req, res) => {
 /*  Mock Checkout Page (development only)                              */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/*  Mock Process — server-side HMAC so WebView doesn't need crypto     */
+/* ------------------------------------------------------------------ */
+
+paymentsRouter.post("/mock-process", async (req, res) => {
+  if (env.PAYMENT_PROVIDER_NAME !== "mockpay") {
+    return res.status(403).json({ error: { code: "NOT_ALLOWED", message: "mock-process only available in mockpay mode" } });
+  }
+  const sessionId = String(req.body?.sessionId ?? "");
+  const result = String(req.body?.result ?? "");
+  if (!sessionId || !["success", "failed"].includes(result)) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "sessionId and result required" } });
+  }
+
+  const providerReferenceId = "MOCK-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+  const body = JSON.stringify({
+    sessionId,
+    providerReferenceId,
+    result: result === "success" ? "confirmed" : "failed",
+  });
+  const signature = crypto.createHmac("sha256", env.PAYMENT_WEBHOOK_SECRET).update(body).digest("hex");
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const webhookRes = await fetch(`${baseUrl}/v1/payments/webhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-provider-signature": signature },
+    body,
+  });
+  const json = await webhookRes.json().catch(() => ({}));
+  if (!webhookRes.ok) {
+    return res.status(webhookRes.status).json(json);
+  }
+  return res.json({ data: { ok: true, result } });
+});
+
 paymentsRouter.get("/mock-checkout", async (req, res) => {
   const sessionId = String(req.query.sessionId ?? "");
   if (!sessionId) {
@@ -499,7 +534,6 @@ paymentsRouter.get("/mock-checkout", async (req, res) => {
   <script>
     const SESSION_ID = ${JSON.stringify(sessionId)};
     const API_BASE = ${JSON.stringify(apiBase)};
-    const WEBHOOK_SECRET = ${JSON.stringify(env.PAYMENT_WEBHOOK_SECRET)};
 
     async function processPayment(result) {
       const payBtn = document.getElementById('payBtn');
@@ -511,29 +545,10 @@ paymentsRouter.get("/mock-checkout", async (req, res) => {
       msg.className = 'status-msg';
 
       try {
-        const providerReferenceId = 'MOCK-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        const body = JSON.stringify({
-          sessionId: SESSION_ID,
-          providerReferenceId: providerReferenceId,
-          result: result === 'success' ? 'confirmed' : 'failed',
-        });
-
-        // Compute HMAC signature
-        const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-          'raw', encoder.encode(WEBHOOK_SECRET),
-          { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-        );
-        const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
-        const signature = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-        const res = await fetch(API_BASE + '/v1/payments/webhook', {
+        const res = await fetch(API_BASE + '/v1/payments/mock-process', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-provider-signature': signature,
-          },
-          body: body,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: SESSION_ID, result: result }),
         });
 
         const json = await res.json();

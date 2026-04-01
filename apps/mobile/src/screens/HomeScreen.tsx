@@ -9,7 +9,6 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   SafeAreaView,
@@ -1289,9 +1288,9 @@ export default function HomeScreen({
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatusSnapshot | null>(null);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [paymentWebVisible, setPaymentWebVisible] = useState(false);
-  const [pendingCheckoutUrls, setPendingCheckoutUrls] = useState<string[]>([]);
+  const [cartPaymentAnimationVisible, setCartPaymentAnimationVisible] = useState(false);
+  const [cartPaymentAnimationDone, setCartPaymentAnimationDone] = useState(false);
+  const [checkoutFlowResult, setCheckoutFlowResult] = useState<{ ok: boolean; orderIds?: string[]; error?: string } | null>(null);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [cachedLocalImageUrl, setCachedLocalImageUrl] = useState<string | null>(null);
   const [profileImageLoadFailed, setProfileImageLoadFailed] = useState(false);
@@ -1571,7 +1570,6 @@ export default function HomeScreen({
         setRecommendedMeals(mapped);
       })
       .finally(() => {
-        if (cancelled) return;
         setRecommendedMealsLoading(false);
       });
     return () => {
@@ -2057,7 +2055,6 @@ export default function HomeScreen({
     setPaymentError(null);
     setPaymentInfo(null);
     setPaymentStatus(null);
-    setPendingCheckoutUrls([]);
     setCartItems((prev) => {
       const latestMeal = meals.find((m) => m.id === meal.id) ?? meal;
       const totalStock = Math.max(0, latestMeal.stock ?? 0);
@@ -2143,7 +2140,6 @@ export default function HomeScreen({
     setPaymentError(null);
     setPaymentInfo(null);
     setPaymentStatus(null);
-    setPendingCheckoutUrls([]);
     setCartItems((prev) => {
       const current = prev.find((item) => item.key === itemKey);
       if (!current) return prev;
@@ -2175,7 +2171,6 @@ export default function HomeScreen({
     setPaymentError(null);
     setPaymentInfo(null);
     setPaymentStatus(null);
-    setPendingCheckoutUrls([]);
     setCartItems((prev) =>
       prev.map((item) =>
         item.key === itemKey
@@ -2237,9 +2232,12 @@ export default function HomeScreen({
     setPaymentLoading(true);
     setPaymentError(null);
     setPaymentInfo(null);
+    setCartPaymentAnimationVisible(true);
+    setCartPaymentAnimationDone(false);
+    setCheckoutFlowResult(null);
     try {
       const createdOrderIds: string[] = [];
-      const createdCheckoutUrls: string[] = [];
+      const createdPaymentSessionIds: string[] = [];
 
       for (const [sellerId, sellerItems] of groupedBySeller.entries()) {
         const orderRes = await authedJsonFetch(`${apiUrl}/v1/orders`, {
@@ -2289,44 +2287,74 @@ export default function HomeScreen({
           body: JSON.stringify({ orderId }),
         });
         const paymentJson = await readJsonSafe<{
-          data?: { checkoutUrl?: string };
+          data?: { checkoutUrl?: string; sessionId?: string };
           error?: { message?: string };
         }>(paymentRes);
         if (!paymentRes.ok) {
           throw new Error(paymentJson?.error?.message ?? `Ödeme başlatılamadı (${paymentRes.status})`);
         }
-        const nextCheckoutUrl = String(paymentJson?.data?.checkoutUrl ?? '');
-        if (nextCheckoutUrl) createdCheckoutUrls.push(nextCheckoutUrl);
+        const sessionId = String(paymentJson?.data?.sessionId ?? '').trim();
+        if (!sessionId) {
+          throw new Error('Ödeme oturumu oluşturulamadı.');
+        }
+        createdPaymentSessionIds.push(sessionId);
       }
 
-      setActiveOrderId(createdOrderIds[0] ?? null);
-      setActiveOrderIds(createdOrderIds);
-      setPaymentStatus(
-        createdOrderIds[0]
-          ? {
-              orderId: createdOrderIds[0],
-              orderStatus: 'awaiting_payment',
-              paymentCompleted: false,
-              latestAttemptStatus: 'initiated',
-            }
-          : null,
-      );
-      if (createdOrderIds.length > 1) {
-        setPaymentInfo(
-          `${createdOrderIds.length} satıcı için ödeme oturumu oluşturuldu. Ödemeleri sırayla tamamlayabilirsin.`,
-        );
+      for (const sessionId of createdPaymentSessionIds) {
+        const mockPayRes = await authedJsonFetch(`${apiUrl}/v1/payments/mock-process`, {
+          method: 'POST',
+          headers: { 'x-actor-role': 'buyer' },
+          body: JSON.stringify({ sessionId, result: 'success' }),
+        });
+        const mockPayJson = await readJsonSafe<{ error?: { message?: string } }>(mockPayRes);
+        if (!mockPayRes.ok) {
+          throw new Error(mockPayJson?.error?.message ?? `Ödeme tamamlanamadı (${mockPayRes.status})`);
+        }
       }
-      if (createdCheckoutUrls.length > 0) {
-        setCheckoutUrl(createdCheckoutUrls[0]);
-        setPendingCheckoutUrls(createdCheckoutUrls.slice(1));
-        setPaymentWebVisible(true);
-      }
+      setCheckoutFlowResult({ ok: true, orderIds: createdOrderIds });
     } catch (err) {
-      setPaymentError(err instanceof Error ? err.message : 'Ödeme başlatma hatası');
+      setCheckoutFlowResult({ ok: false, error: err instanceof Error ? err.message : 'Ödeme başlatma hatası' });
     } finally {
       setPaymentLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!cartPaymentAnimationVisible) return;
+    if (!cartPaymentAnimationDone) return;
+    if (!checkoutFlowResult) return;
+
+    setCartPaymentAnimationVisible(false);
+    setCartPaymentAnimationDone(false);
+
+    if (!checkoutFlowResult.ok) {
+      setPaymentError(checkoutFlowResult.error ?? 'Ödeme başlatma hatası');
+      setCheckoutFlowResult(null);
+      return;
+    }
+
+    const createdOrderIds = checkoutFlowResult.orderIds ?? [];
+    setActiveOrderId(createdOrderIds[0] ?? null);
+    setActiveOrderIds(createdOrderIds);
+    setPaymentStatus(
+      createdOrderIds[0]
+        ? {
+            orderId: createdOrderIds[0],
+            orderStatus: 'paid',
+            paymentCompleted: true,
+            latestAttemptStatus: 'succeeded',
+          }
+        : null,
+    );
+    setPaymentError(null);
+    setPaymentInfo(
+      createdOrderIds.length > 1
+        ? `${createdOrderIds.length} sipariş için ödeme başarılı.`
+        : 'Ödeme başarılı! Siparişin satıcıya iletildi.',
+    );
+    setCartItems([]);
+    setCheckoutFlowResult(null);
+  }, [cartPaymentAnimationVisible, cartPaymentAnimationDone, checkoutFlowResult]);
 
   async function refreshPaymentStatus(waitForSettlement = false) {
     const orderIds = activeOrderIds.length > 0
@@ -2372,14 +2400,9 @@ export default function HomeScreen({
         }),
       );
 
-      let snapshots = await loadSnapshots();
+      const snapshots = await loadSnapshots();
       if (waitForSettlement) {
-        const hasPendingAttempt = (rows: PaymentStatusSnapshot[]) =>
-          rows.some((row) => !row.paymentCompleted && !["failed", "canceled"].includes((row.latestAttemptStatus ?? "").toLowerCase()));
-        for (let attempt = 0; attempt < 4 && hasPendingAttempt(snapshots); attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 900));
-          snapshots = await loadSnapshots();
-        }
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
       const completedCount = snapshots.filter((s) => s.paymentCompleted).length;
       setPaymentStatus(snapshots[0] ?? null);
@@ -2390,29 +2413,12 @@ export default function HomeScreen({
       }
       if (completedCount === snapshots.length && snapshots.length > 0) {
         setCartItems([]);
-        setCheckoutUrl(null);
-        setPendingCheckoutUrls([]);
       }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Ödeme durumu alınamadı');
     } finally {
       setPaymentLoading(false);
     }
-  }
-
-  function handleClosePaymentWeb() {
-    setPaymentWebVisible(false);
-    if (!paymentStatus?.paymentCompleted) {
-      setPaymentInfo('Ödeme tamamlanmadıysa sipariş henüz satıcıya gitmez.');
-    }
-  }
-
-  function openNextCheckout() {
-    if (pendingCheckoutUrls.length === 0) return;
-    const [next, ...rest] = pendingCheckoutUrls;
-    setCheckoutUrl(next);
-    setPendingCheckoutUrls(rest);
-    setPaymentWebVisible(true);
   }
 
   function renderMessagesWallpaper(
@@ -3143,9 +3149,6 @@ export default function HomeScreen({
               {paymentInfo ? (
                 <Text style={styles.paymentInfoText}>{paymentInfo}</Text>
               ) : null}
-              {(() => {
-                const canRefreshPayment = activeOrderIds.length > 0 || Boolean(activeOrderId) || Boolean(paymentStatus?.orderId);
-                return (
               <View style={styles.paymentActionsRow}>
                 <TouchableOpacity
                   style={[styles.paymentActionBtn, paymentLoading && styles.paymentActionBtnDisabled]}
@@ -3159,26 +3162,7 @@ export default function HomeScreen({
                     <Text style={styles.paymentActionBtnText}>{t('cta.home.cartCheckout')}</Text>
                   )}
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.paymentRefreshBtn, paymentLoading && styles.paymentRefreshBtnDisabled]}
-                  onPress={() => void refreshPaymentStatus()}
-                  activeOpacity={0.9}
-                  disabled={paymentLoading || !canRefreshPayment}
-                >
-                  <Text style={styles.paymentRefreshBtnText}>{t('cta.home.paymentRefresh')}</Text>
-                </TouchableOpacity>
-                {pendingCheckoutUrls.length > 0 ? (
-                  <TouchableOpacity
-                    style={styles.paymentNextBtn}
-                    onPress={openNextCheckout}
-                    activeOpacity={0.9}
-                  >
-                    <Text style={styles.paymentNextBtnText}>{t('cta.home.paymentNext')}</Text>
-                  </TouchableOpacity>
-                ) : null}
               </View>
-                );
-              })()}
             </>
           )}
         </View>
@@ -3402,66 +3386,8 @@ export default function HomeScreen({
     <>
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F3EFE6" />
-
-      <Modal
-        visible={paymentWebVisible}
-        animationType="slide"
-        onRequestClose={handleClosePaymentWeb}
-      >
-        <SafeAreaView style={styles.paymentWebSafe}>
-          <View style={styles.paymentWebHeader}>
-            <Text style={styles.paymentWebTitle}>{t('status.home.paymentWebTitle')}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                handleClosePaymentWeb();
-                void refreshPaymentStatus();
-              }}
-              style={styles.paymentWebClose}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.paymentWebCloseText}>{t('cta.home.close')}</Text>
-            </TouchableOpacity>
-          </View>
-          {checkoutUrl && PaymentWebView ? (
-            <PaymentWebView
-              source={{ uri: checkoutUrl }}
-              onNavigationStateChange={(navState) => {
-                const url = navState.url || '';
-                if (
-                  url.includes('/v1/payments/return') ||
-                  url.includes('result=success') ||
-                  url.includes('result=failed')
-                ) {
-                  setPaymentWebVisible(false);
-                  void refreshPaymentStatus(true);
-                }
-              }}
-              startInLoadingState
-              renderLoading={() => (
-                <View style={styles.paymentWebLoading}>
-                  <ActivityIndicator size="large" color="#4A7C59" />
-                </View>
-              )}
-            />
-          ) : checkoutUrl ? (
-            <View style={styles.paymentWebLoading}>
-              <Text style={styles.paymentWebErrorText}>{t('error.home.paymentModuleMissing')}</Text>
-              <TouchableOpacity
-                style={styles.paymentWebFallbackBtn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  void Linking.openURL(checkoutUrl);
-                }}
-              >
-                <Text style={styles.paymentWebFallbackBtnText}>{t('cta.home.openInBrowser')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.paymentWebLoading}>
-              <Text style={styles.paymentWebErrorText}>{t('error.home.checkoutMissing')}</Text>
-            </View>
-          )}
-        </SafeAreaView>
+      <Modal visible={cartPaymentAnimationVisible} transparent animationType="fade">
+        <CartPaymentAnimation onDone={() => setCartPaymentAnimationDone(true)} />
       </Modal>
 
       <Modal
@@ -4640,10 +4566,10 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     zIndex: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
 
   /* --- Floating Search Bar (premium shadow) --- */
@@ -4659,11 +4585,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    shadowColor: '#5A3E2B',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 15,
-    elevation: 12,
+    borderWidth: 1,
+    borderColor: '#E6DED3',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   floatingSearchBarActive: {
     borderWidth: 1,
@@ -4702,12 +4630,12 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F4F0E9',
+    backgroundColor: '#FFFFFF',
     borderRadius: 22,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderWidth: 1,
-    borderColor: '#E5DDD2',
+    borderColor: '#DDD2C2',
   },
   chipActive: {
     backgroundColor: '#3C2920',
@@ -4735,16 +4663,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F0DEC9',
+    borderColor: '#E8DCCB',
     borderRadius: 18,
-    backgroundColor: '#FFF9F2',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    shadowColor: '#A56A3E',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   nearbyHeaderTextWrap: {
     flexShrink: 1,
@@ -4806,10 +4734,10 @@ const styles = StyleSheet.create({
   recommendationsSection: {
     marginBottom: 22,
     marginHorizontal: 12,
-    marginTop: 12,
+    marginTop: 8,
   },
   recommendationsSectionTitle: {
-    color: '#3D2B22',
+    color: '#3A281F',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 8,
@@ -4832,9 +4760,9 @@ const styles = StyleSheet.create({
     minWidth: 232,
     maxWidth: 272,
     borderWidth: 1,
-    borderColor: '#E6DED4',
+    borderColor: '#E8DCCB',
     borderRadius: 14,
-    backgroundColor: '#FFFDF9',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -4857,9 +4785,9 @@ const styles = StyleSheet.create({
   sellerChipMeta: { color: '#8D8072', fontSize: 14, marginTop: 3 },
   topSoldLoadingChip: {
     borderWidth: 1,
-    borderColor: '#E6DED4',
+    borderColor: '#E8DCCB',
     borderRadius: 14,
-    backgroundColor: '#FFFDF9',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',

@@ -5,9 +5,9 @@ import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
+import { getSellerOrdersCache, setSellerOrdersCache, getSellerDisplayNameCache, setSellerDisplayNameCache } from "../utils/sellerOrdersCache";
 import { subscribeSellerOrdersRealtime } from "../utils/realtime";
-
-const TEST_PAYMENT_BYPASS = __DEV__;
+import { getStatusInfo } from "../components/StatusBadge";
 
 type Props = {
   auth: AuthSession;
@@ -33,10 +33,10 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: "Hazırlanıyor"; kind: "to_preparing"; tone?: "info" }
-  | { label: "Hazır"; kind: "to_ready"; tone?: "primary" }
-  | { label: "Yola Çıktı"; kind: "to_in_delivery"; tone?: "primary" }
-  | { label: "Teslim Edildi"; kind: "to_delivered"; tone?: "primary" };
+  | { label: "Hazırlanıyor"; toStatus: "preparing"; tone: "preparing" }
+  | { label: "Yola Çıktı"; toStatus: "in_delivery"; tone: "in_delivery" }
+  | { label: "Kapıda Teslim Edildi"; toStatus: "delivered"; tone: "delivered" }
+  | { label: "Tamamlandı"; toStatus: "completed"; tone: "completed" };
 
 type ActiveFood = {
   id: string;
@@ -63,62 +63,56 @@ function isSameLocalDay(date: Date, reference: Date): boolean {
 }
 
 function statusLabel(status: string, deliveryType?: string): string {
-  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) return "Ödeme Alındı";
-  if (status === "pending_seller_approval" || status === "seller_approved" || status === "awaiting_payment") return "Ödeme Bekleniyor";
-  if (status === "paid") return "Ödeme Alındı";
-  if (status === "preparing") return "Hazırlanıyor";
-  if (status === "ready") return "Hazır";
-  if (status === "in_delivery" && deliveryType === "pickup") return "Teslim Edildi";
-  if (status === "in_delivery") return "👍";
-  if (status === "delivered") return "Teslim Edildi";
-  if (status === "completed") return "Sipariş Tamamlandı";
-  if (status === "cancelled") return "İptal";
-  if (status === "rejected") return "İptal";
-  return status;
+  const normalized = normalizeDisplayStatus(status, deliveryType);
+  if (normalized === "cancelled" || normalized === "rejected") return "İptal";
+  return getStatusInfo(normalized).label;
 }
 
 function statusTone(status: string, deliveryType?: string): { bg: string; border: string; text: string } {
-  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
-    return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
-  }
-  if (status === "seller_approved" || status === "awaiting_payment") {
-    return { bg: "#FFF4E5", border: "#F3D3A1", text: "#B45309" };
-  }
-  if (status === "paid") {
-    return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
-  }
-  if (status === "preparing") return { bg: "#F4E2CF", border: "#D4A373", text: "#8A4B16" };
-  if (status === "completed") return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
-  if (status === "in_delivery" && deliveryType === "pickup") {
-    return { bg: "#FFF4E5", border: "#F7D7A8", text: "#B45309" };
-  }
-  if (status === "in_delivery") {
-    return { bg: "#E6F7EC", border: "#BFE7CC", text: "#2E7D4E" };
-  }
-  if (status === "delivered" || status === "completed") {
-    return { bg: "#EAF7EE", border: "#B7DEC3", text: "#166534" };
-  }
-  if (status === "pending_seller_approval") return { bg: "#FFF4E5", border: "#F3D3A1", text: "#B45309" };
-  return { bg: "#F7EFE2", border: "#D6CCBD", text: "#5C4A3A" };
+  const normalized = normalizeDisplayStatus(status, deliveryType);
+  const info = getStatusInfo(normalized);
+  const borders: Record<string, string> = {
+    preparing: "#F5C27A",
+    in_delivery: "#AFC6FF",
+    delivered: "#9EDBD2",
+    completed: "#79C796",
+    cancelled: "#F2B5B0",
+    rejected: "#F2B5B0",
+  };
+  return {
+    bg: info.bg,
+    border: borders[normalized] ?? "#D6CCBD",
+    text: info.color,
+  };
 }
 
-function cardActionsByStatus(status: string, deliveryType?: string): SellerAction[] {
-  if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
-    return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
+function normalizeDisplayStatus(status: string, deliveryType?: string): string {
+  if (status === "cancelled" || status === "rejected") return status;
+  if (status === "delivered" || status === "completed") return status;
+  if (status === "in_delivery" && deliveryType === "pickup") return "delivered";
+  if (status === "in_delivery" || status === "ready") return "in_delivery";
+  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) {
+    return "preparing";
   }
-  // pending_seller_approval / seller_approved / awaiting_payment:
-  // buyer has not paid yet — seller has no action, just waits for payment.
-  if (status === "paid") return [{ label: "Hazırlanıyor", kind: "to_preparing", tone: "info" }];
-  if (status === "preparing") return [{ label: "Hazır", kind: "to_ready", tone: "primary" }];
-  if (status === "ready" && deliveryType === "pickup") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
-  if (status === "ready") return [{ label: "Yola Çıktı", kind: "to_in_delivery", tone: "primary" }];
-  if (status === "in_delivery") return [{ label: "Teslim Edildi", kind: "to_delivered", tone: "primary" }];
-  return [];
+  return status;
 }
 
-function statusFooter(status: string): { label: string; variant: "preparing" | "completed" } | null {
-  if (status === "preparing") return { label: "Hazırlanıyor", variant: "preparing" };
-  if (status === "completed") return { label: "Sipariş Tamamlandı", variant: "completed" };
+function cardActionByStatus(status: string, deliveryType?: string): SellerAction | null {
+  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(status)) {
+    return { label: "Hazırlanıyor", toStatus: "preparing", tone: "preparing" };
+  }
+  if (status === "preparing") {
+    return deliveryType === "pickup"
+      ? { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" }
+      : { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
+  }
+  if (status === "ready") {
+    return deliveryType === "pickup"
+      ? { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" }
+      : { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
+  }
+  if (status === "in_delivery") return { label: "Kapıda Teslim Edildi", toStatus: "delivered", tone: "delivered" };
+  if (status === "delivered") return { label: "Tamamlandı", toStatus: "completed", tone: "completed" };
   return null;
 }
 
@@ -132,9 +126,13 @@ export default function SellerHomeScreen({
 }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
-  const [loading, setLoading] = useState(true);
-  const [displayName, setDisplayName] = useState<string>("Usta");
-  const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [loading, setLoading] = useState(() => getSellerOrdersCache() === null && getSellerFoodsCache() === null);
+  const [displayName, setDisplayName] = useState<string>(() => getSellerDisplayNameCache() ?? "Usta");
+  const [orders, setOrders] = useState<SellerOrder[]>(() => {
+    const cached = getSellerOrdersCache();
+    if (!Array.isArray(cached)) return [];
+    return cached as SellerOrder[];
+  });
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFoods, setActiveFoods] = useState<ActiveFood[]>(() => {
@@ -197,7 +195,8 @@ export default function SellerHomeScreen({
   }
 
   async function load() {
-    if (getSellerFoodsCache() === null) setLoading(true);
+    const hasCache = getSellerOrdersCache() !== null || getSellerFoodsCache() !== null;
+    if (!hasCache) setLoading(true);
     try {
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
@@ -208,7 +207,11 @@ export default function SellerHomeScreen({
         fetchWithAuth("/v1/seller/foods", baseUrl),
       ]);
       const profileJson = await profileRes.json();
-      if (profileRes.ok) setDisplayName(profileJson.data?.displayName?.trim() || "Usta");
+      if (profileRes.ok) {
+        const name = profileJson.data?.displayName?.trim() || "Usta";
+        setDisplayName(name);
+        setSellerDisplayNameCache(name);
+      }
       if (ordersRes.ok) {
         const ordersJson = await ordersRes.json();
         let sellerOrders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
@@ -224,6 +227,7 @@ export default function SellerHomeScreen({
           }
         }
 
+        setSellerOrdersCache(sellerOrders as Record<string, unknown>[]);
         setOrders(sellerOrders);
       }
       if (foodsRes.ok) {
@@ -310,7 +314,7 @@ export default function SellerHomeScreen({
     setRefreshing(false);
   }
 
-  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "preparing"): Promise<void> {
+  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "preparing" | "completed"): Promise<void> {
     const res = await fetchWithAuthInit(
       `/v1/orders/${orderId}/status`,
       {
@@ -323,18 +327,39 @@ export default function SellerHomeScreen({
     if (!res.ok) throw new Error(body?.error?.message ?? "Durum güncellenemedi");
   }
 
+  function shouldFallbackViaReady(error: unknown, toStatus: "in_delivery" | "delivered"): boolean {
+    if (!(error instanceof Error)) return false;
+    const message = error.message || "";
+    if (!message.includes("Cannot transition")) return false;
+    if (toStatus === "in_delivery") return message.includes("preparing -> in_delivery");
+    return message.includes("preparing -> delivered");
+  }
+
+  async function advanceStatusWithCompatibility(
+    orderId: string,
+    toStatus: "in_delivery" | "delivered" | "preparing" | "completed",
+  ): Promise<void> {
+    try {
+      await changeStatus(orderId, toStatus);
+    } catch (error) {
+      if (toStatus === "in_delivery" && shouldFallbackViaReady(error, "in_delivery")) {
+        await changeStatus(orderId, "ready");
+        await changeStatus(orderId, "in_delivery");
+        return;
+      }
+      if (toStatus === "delivered" && shouldFallbackViaReady(error, "delivered")) {
+        await changeStatus(orderId, "ready");
+        await changeStatus(orderId, "delivered");
+        return;
+      }
+      throw error;
+    }
+  }
+
   async function runCardAction(orderId: string, action: SellerAction) {
     try {
       setUpdatingOrderId(orderId);
-      if (action.kind === "to_preparing") {
-        await changeStatus(orderId, "preparing");
-      } else if (action.kind === "to_ready") {
-        await changeStatus(orderId, "ready");
-      } else if (action.kind === "to_in_delivery") {
-        await changeStatus(orderId, "in_delivery");
-      } else if (action.kind === "to_delivered") {
-        await changeStatus(orderId, "delivered");
-      }
+      await advanceStatusWithCompatibility(orderId, action.toStatus);
       await load();
     } catch (error) {
       Alert.alert("Hata", error instanceof Error ? error.message : "İşlem başarısız");
@@ -371,6 +396,9 @@ export default function SellerHomeScreen({
           <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={onOpenFoodsManager}>
             <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenProfile}>
+            <Text style={styles.quickButtonText}>Cüzdanım</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -380,14 +408,14 @@ export default function SellerHomeScreen({
           pagerRef.current?.scrollTo({ x: 0, animated: true });
           setActivePage(0);
         }}>
-          <Text style={[styles.statCount, activePage === 0 && styles.statCountActive]}>{activeOrders.length}</Text>
+          <Text style={[styles.statCount, activePage === 0 && styles.statCountActive]}>{loading ? "—" : activeOrders.length}</Text>
           <Text style={[styles.statLabel, activePage === 0 && styles.statLabelActive]}>Bugünkü Siparişler</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.statBlock} activeOpacity={0.75} onPress={() => {
           pagerRef.current?.scrollTo({ x: screenWidth, animated: true });
           setActivePage(1);
         }}>
-          <Text style={[styles.statCount, activePage === 1 && styles.statCountActive]}>{activeFoods.length}</Text>
+          <Text style={[styles.statCount, activePage === 1 && styles.statCountActive]}>{loading ? "—" : activeFoods.length}</Text>
           <Text style={[styles.statLabel, activePage === 1 && styles.statLabelActive]}>Satıştaki Yemekler</Text>
         </TouchableOpacity>
       </View>
@@ -415,19 +443,22 @@ export default function SellerHomeScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
           <View style={styles.ordersSection}>
-            {activeOrders.length === 0 ? (
+            {loading ? (
+              <>
+                <View style={styles.skeletonCard}><View style={styles.skeletonLine} /><View style={styles.skeletonLineShort} /></View>
+                <View style={styles.skeletonCard}><View style={styles.skeletonLine} /><View style={styles.skeletonLineShort} /></View>
+              </>
+            ) : activeOrders.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>Aktif sipariş yok</Text>
                 <Text style={styles.emptySub}>Yeni sipariş geldiğinde burada görünecek.</Text>
               </View>
             ) : (
               activeOrders.map((item) => {
-                const actions = cardActionsByStatus(item.status, item.deliveryType);
+                const action = cardActionByStatus(item.status, item.deliveryType);
                 const isUpdating = updatingOrderId === item.id;
                 const tone = statusTone(item.status, item.deliveryType);
                 const statusText = statusLabel(item.status, item.deliveryType);
-                const isBareEmojiStatus = statusText === "👍";
-                const footer = statusFooter(item.status);
                 return (
                   <View key={item.id} style={styles.orderCard}>
                     <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenOrder(item.id)}>
@@ -436,62 +467,37 @@ export default function SellerHomeScreen({
                           {item.primaryFoodName?.trim() || item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}
                           {item.itemCount && item.itemCount > 1 ? ` +${item.itemCount - 1}` : ""}
                         </Text>
-                        {isBareEmojiStatus ? (
-                          <Text style={styles.statusEmojiBare}>{statusText}</Text>
-                        ) : (
-                          <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
-                            <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusText}</Text>
-                          </View>
-                        )}
+                        <View style={[styles.statusBadge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+                          <Text style={[styles.statusBadgeText, { color: tone.text }]}>{statusText}</Text>
+                        </View>
                       </View>
                       <Text style={styles.orderSubNo}>{item.orderNo || `#${item.id.slice(0, 8).toUpperCase()}`}</Text>
                       <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
                       <Text style={styles.orderMeta}>Teslimat: {item.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
                       <Text style={styles.orderTotal}>{Number(item.totalPrice ?? 0).toFixed(2)} TL</Text>
                     </TouchableOpacity>
-                    {actions.length > 0 ? (
+                    {action ? (
                       <View style={styles.cardActionRow}>
-                        {actions.map((action) => (
-                          <TouchableOpacity
-                            key={`${item.id}-${action.kind}`}
-                            activeOpacity={0.86}
-                            style={[
-                              styles.cardActionBtn,
-                              styles.cardActionBtnPrimary,
-                              action.tone === "info" ? styles.cardActionBtnInfo : null,
-                              isUpdating && styles.cardActionBtnDisabled,
-                            ]}
-                            disabled={isUpdating}
-                            onPress={() => { void runCardAction(item.id, action); }}
-                          >
-                            <Text
-                              style={[
-                                styles.cardActionBtnText,
-                                styles.cardActionBtnTextPrimary,
-                                action.tone === "info" ? styles.cardActionBtnTextInfo : null,
-                              ]}
-                            >
-                              {isUpdating ? "İşleniyor..." : action.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ) : null}
-                    {footer ? (
-                      <View
-                        style={[
-                          styles.statusFooterButton,
-                          footer.variant === "preparing" ? styles.statusFooterPreparing : styles.statusFooterCompleted,
-                        ]}
-                      >
-                        <Text
+                        <TouchableOpacity
+                          activeOpacity={0.86}
                           style={[
-                            styles.statusFooterText,
-                            footer.variant === "preparing" ? styles.statusFooterTextPreparing : styles.statusFooterTextCompleted,
+                            styles.cardActionBtn,
+                            action.tone === "preparing"
+                              ? styles.cardActionBtnPreparing
+                              : action.tone === "in_delivery"
+                                ? styles.cardActionBtnInDelivery
+                                : action.tone === "delivered"
+                                  ? styles.cardActionBtnDelivered
+                                  : styles.cardActionBtnCompleted,
+                            isUpdating && styles.cardActionBtnDisabled,
                           ]}
+                          disabled={isUpdating}
+                          onPress={() => { void runCardAction(item.id, action); }}
                         >
-                          {footer.label}
-                        </Text>
+                          <Text style={styles.cardActionBtnText}>
+                            {isUpdating ? "İşleniyor..." : action.label}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
                     ) : null}
                   </View>
@@ -511,7 +517,12 @@ export default function SellerHomeScreen({
         {/* Sayfa 2: Satıştaki Yemekler */}
         <ScrollView style={{ width: screenWidth }} contentContainerStyle={styles.ordersContent} nestedScrollEnabled={true}>
           <View style={styles.ordersSection}>
-            {activeFoods.length === 0 ? (
+            {loading ? (
+              <>
+                <View style={styles.skeletonCard}><View style={styles.skeletonLine} /><View style={styles.skeletonLineShort} /></View>
+                <View style={styles.skeletonCard}><View style={styles.skeletonLine} /><View style={styles.skeletonLineShort} /></View>
+              </>
+            ) : activeFoods.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>Satıştaki yemek yok</Text>
                 <Text style={styles.emptySub}>Yemek Yönetimi'nden yemek aktifleştirebilirsin.</Text>
@@ -542,9 +553,9 @@ export default function SellerHomeScreen({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   stickyTop: {
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 12,
+    paddingHorizontal: 12,
+    paddingTop: 44,
+    paddingBottom: 8,
     backgroundColor: "#F7F4EF",
     borderBottomWidth: 1,
     borderBottomColor: "#E6DED1",
@@ -553,46 +564,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 20,
   },
   headerLeft: {
     flex: 1,
     paddingRight: 14,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     color: "#4A3B2F",
     letterSpacing: -0.5,
+    marginTop: 6,
     ...(Platform.OS === "ios"
       ? { fontFamily: "AvenirNextCondensed-Bold", fontWeight: "700" }
       : { fontFamily: "sans-serif-condensed", fontWeight: "700" }),
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#3F855C",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 6, alignItems: "stretch" },
   quickButton: {
     flex: 1,
+    height: 40,
     backgroundColor: "#F9E9D5",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#79BA94",
-    paddingVertical: 10,
     alignItems: "center",
+    justifyContent: "center",
   },
   quickButtonText: {
     color: "#1D5634",
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
     ...(Platform.OS === "ios"
-      ? { fontFamily: "AvenirNextCondensed-DemiBold" }
-      : { fontFamily: "sans-serif-condensed" }),
+      ? { fontFamily: "AvenirNextCondensed-Bold" }
+      : { fontFamily: "sans-serif-condensed", includeFontPadding: false }),
+  },
+  quickLpiPill: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#79BA94",
+    backgroundColor: "#F9E9D5",
+    alignItems: "center",
+    justifyContent: "center",
   },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
@@ -629,6 +653,9 @@ const styles = StyleSheet.create({
       : { fontFamily: "sans-serif-condensed" }),
   },
   statLabelActive: { color: "#1D5634" },
+  skeletonCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10, gap: 10 },
+  skeletonLine: { height: 14, borderRadius: 6, backgroundColor: "#EDE8E0", width: "70%" },
+  skeletonLineShort: { height: 12, borderRadius: 6, backgroundColor: "#F2EDE6", width: "40%" },
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   emptyTitle: { color: "#4A3B2F", fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
@@ -645,32 +672,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7EFE2",
   },
   statusBadgeText: { color: "#5C4A3A", fontSize: 11, fontWeight: "700" },
-  statusEmojiBare: { fontSize: 24, lineHeight: 26 },
   orderMeta: { color: "#6C6055", marginTop: 3 },
   orderTotal: { marginTop: 8, color: "#4A3B2F", fontWeight: "800" },
   cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   cardActionBtn: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: "center" },
-  cardActionBtnPrimary: { backgroundColor: "#3F855C", borderColor: "#3F855C" },
-  cardActionBtnInfo: { backgroundColor: "#B7791F", borderColor: "#B7791F" },
-  cardActionBtnDanger: { backgroundColor: "#FFF0EE", borderColor: "#F9CECA" },
+  cardActionBtnPreparing: { backgroundColor: "#B86A00", borderColor: "#B86A00" },
+  cardActionBtnInDelivery: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
+  cardActionBtnDelivered: { backgroundColor: "#0F766E", borderColor: "#0F766E" },
+  cardActionBtnCompleted: { backgroundColor: "#166534", borderColor: "#166534" },
   cardActionBtnDisabled: { opacity: 0.6 },
-  cardActionBtnText: { fontWeight: "700", fontSize: 13 },
-  cardActionBtnTextPrimary: { color: "#FFFFFF" },
-  cardActionBtnTextInfo: { color: "#FFFFFF" },
-  cardActionBtnTextDanger: { color: "#B42318" },
-  statusFooterButton: {
-    marginTop: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusFooterPreparing: { backgroundColor: "#F4E2CF", borderColor: "#D4A373" },
-  statusFooterCompleted: { backgroundColor: "#EAF7EE", borderColor: "#B7DEC3" },
-  statusFooterText: { fontSize: 14, fontWeight: "800" },
-  statusFooterTextPreparing: { color: "#8A4B16" },
-  statusFooterTextCompleted: { color: "#166534" },
+  cardActionBtnText: { fontWeight: "800", fontSize: 13, color: "#FFFFFF" },
   actions: { gap: 10 },
   switchRoleButton: {
     height: 44,

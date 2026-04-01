@@ -2,16 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  pending_seller_approval: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
-  seller_approved: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
-  confirmed: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
-  awaiting_payment: { label: 'Ödeme Bekleniyor', color: '#D4740B', bg: '#FFF0E0' },
-  paid: { label: 'Ödendi', color: '#5D7394', bg: '#E8EDF3' },
-  preparing: { label: 'Hazırlanıyor', color: '#B8860B', bg: '#FFF4E5' },
-  ready: { label: 'Hazır', color: '#6B4FA2', bg: '#EDE8F5' },
-  in_delivery: { label: 'Yolda', color: '#6B4FA2', bg: '#EDE8F5' },
-  delivered: { label: 'Teslim Edildi', color: '#3E845B', bg: '#E4F2E7' },
-  completed: { label: 'Tamamlandı', color: '#3E845B', bg: '#E4F2E7' },
+  pending_seller_approval: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  seller_approved: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  confirmed: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  awaiting_payment: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  paid: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  preparing: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
+  ready: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
+  in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
+  delivered: { label: 'Kapıda Teslim Edildi', color: '#0F766E', bg: '#E6FFFB' },
+  completed: { label: 'Tamamlandı', color: '#166534', bg: '#EAF7EE' },
   rejected: { label: 'Reddedildi', color: '#C0392B', bg: '#FDECEC' },
   cancelled: { label: 'İptal Edildi', color: '#C0392B', bg: '#FDECEC' },
 };

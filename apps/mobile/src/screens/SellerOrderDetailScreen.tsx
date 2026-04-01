@@ -49,22 +49,34 @@ type OrderDetail = {
   deliveryAddress?: { title?: string; addressLine?: string; line?: string } | null;
 };
 
-const transitionActions: Record<string, Array<{ label: string; toStatus: string }>> = {
-  pending_seller_approval: TEST_PAYMENT_BYPASS ? [{ label: "Hazırlanıyor", toStatus: "preparing" }] : [],
-  seller_approved: TEST_PAYMENT_BYPASS ? [{ label: "Hazırlanıyor", toStatus: "preparing" }] : [],
-  awaiting_payment: TEST_PAYMENT_BYPASS ? [{ label: "Hazırlanıyor", toStatus: "preparing" }] : [],
-  paid: [{ label: "Hazırlanıyor", toStatus: "preparing" }],
-  preparing: [{ label: "Hazır", toStatus: "ready" }],
-  ready: [{ label: "Yola Çıktı", toStatus: "in_delivery" }],
-  in_delivery: [{ label: "Teslim Edildi", toStatus: "delivered" }],
-  delivered: [],
-};
-
-function mapStatusForTest(status: string): string {
+function normalizeFlowStatus(status: string): string {
   if (TEST_PAYMENT_BYPASS && ["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(status)) {
     return "paid";
   }
   return status;
+}
+
+function getNextAction(status: string, deliveryType?: string): { label: string; toStatus: string } | null {
+  const normalized = normalizeFlowStatus(status);
+  if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid"].includes(normalized)) {
+    return { label: "Hazırlanıyor", toStatus: "preparing" };
+  }
+  if (normalized === "preparing" || normalized === "ready") {
+    return deliveryType === "delivery"
+      ? { label: "Yola Çıktı", toStatus: "in_delivery" }
+      : { label: "Kapıda Teslim Edildi", toStatus: "delivered" };
+  }
+  if (normalized === "in_delivery") return { label: "Kapıda Teslim Edildi", toStatus: "delivered" };
+  if (normalized === "delivered") return { label: "Tamamlandı", toStatus: "completed" };
+  return null;
+}
+
+function actionTone(toStatus: string): { bg: string; border: string } {
+  if (toStatus === "preparing") return { bg: "#B86A00", border: "#B86A00" };
+  if (toStatus === "in_delivery") return { bg: "#1D4ED8", border: "#1D4ED8" };
+  if (toStatus === "delivered") return { bg: "#0F766E", border: "#0F766E" };
+  if (toStatus === "completed") return { bg: "#166534", border: "#166534" };
+  return { bg: "#3F855C", border: "#3F855C" };
 }
 
 export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
@@ -120,25 +132,43 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     void loadOrder();
   }, [orderId]);
 
-  const actions = useMemo(() => {
-    const mappedStatus = mapStatusForTest(order?.status ?? "");
-    const base = transitionActions[mappedStatus] ?? [];
-    if (mappedStatus === "ready" && order?.deliveryType === "pickup") {
-      return [{ label: "Teslim Edildi", toStatus: "delivered" }];
-    }
-    return base;
+  const action = useMemo(() => {
+    if (!order) return null;
+    return getNextAction(order.status, order.deliveryType);
   }, [order?.status, order?.deliveryType]);
+  const actionColors = action ? actionTone(action.toStatus) : null;
 
   async function runAction(action: { label: string; toStatus: string }) {
     if (!order) return;
     setUpdating(true);
     try {
-      const res = await authedFetch(`/v1/orders/${order.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({ toStatus: action.toStatus }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Durum güncellenemedi");
+      const changeStatus = async (toStatus: string) => {
+        const res = await authedFetch(`/v1/orders/${order.id}/status`, {
+          method: "POST",
+          body: JSON.stringify({ toStatus }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error?.message ?? "Durum güncellenemedi");
+      };
+
+      try {
+        await changeStatus(action.toStatus);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        const canFallbackInDelivery =
+          action.toStatus === "in_delivery" && message.includes("Cannot transition preparing -> in_delivery");
+        const canFallbackDelivered =
+          action.toStatus === "delivered" && message.includes("Cannot transition preparing -> delivered");
+        if (canFallbackInDelivery) {
+          await changeStatus("ready");
+          await changeStatus("in_delivery");
+        } else if (canFallbackDelivered) {
+          await changeStatus("ready");
+          await changeStatus("delivered");
+        } else {
+          throw error;
+        }
+      }
       await loadOrder();
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Durum güncellenemedi");
@@ -158,7 +188,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.orderNo}>{order.orderNo || "#" + order.id.slice(0, 8).toUpperCase()}</Text>
-              <StatusBadge status={mapStatusForTest(order.status)} size="sm" />
+              <StatusBadge status={normalizeFlowStatus(order.status)} size="sm" />
             </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
@@ -204,19 +234,20 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             ))}
           </View>
 
-          {actions.length > 0 ? (
+          {action ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Aksiyonlar</Text>
-              {actions.map((action, index) => (
-                <TouchableOpacity
-                  key={`${action.label}-${action.toStatus}-${index}`}
-                  style={[styles.actionBtn, updating && styles.actionDisabled]}
-                  disabled={updating}
-                  onPress={() => void runAction(action)}
-                >
-                  <Text style={styles.actionText}>{action.label}</Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[
+                  styles.actionBtn,
+                  actionColors ? { backgroundColor: actionColors.bg, borderColor: actionColors.border } : null,
+                  updating && styles.actionDisabled,
+                ]}
+                disabled={updating}
+                onPress={() => void runAction(action)}
+              >
+                <Text style={styles.actionText}>{action.label}</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
         </>
@@ -237,7 +268,7 @@ const styles = StyleSheet.create({
   sectionTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 4 },
   itemRowWrap: { marginTop: 4 },
   addonMeta: { marginTop: 4, color: "#8A7D72", fontSize: 12.5 },
-  actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
+  actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
   actionDisabled: { opacity: 0.45 },
   actionText: { color: "#fff", fontWeight: "700" },
 });

@@ -33,18 +33,38 @@ export async function refreshAuthSession(
   apiUrl: string,
   session: AuthSession,
 ): Promise<AuthSession | null> {
+  const recoverFromPersistedSession = async (): Promise<AuthSession | null> => {
+    const persisted = await loadAuthSession();
+    if (!persisted) return null;
+    if (persisted.userId !== session.userId) return null;
+    if (!persisted.accessToken || !persisted.refreshToken) return null;
+    if (
+      persisted.accessToken === session.accessToken &&
+      persisted.refreshToken === session.refreshToken
+    ) {
+      return null;
+    }
+    return persisted;
+  };
+
   try {
     const response = await fetch(`${apiUrl}/v1/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: session.refreshToken }),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      // Refresh tokens rotate on every successful refresh. If another in-flight request
+      // already refreshed and persisted a new session, recover from storage instead of failing.
+      return await recoverFromPersistedSession();
+    }
     const json = await readJsonSafe<{
       data?: { userType?: string; tokens?: { accessToken?: string; refreshToken?: string } };
     }>(response);
     const tokens = json.data?.tokens;
-    if (!tokens?.accessToken || !tokens?.refreshToken) return null;
+    if (!tokens?.accessToken || !tokens?.refreshToken) {
+      return await recoverFromPersistedSession();
+    }
     const next: AuthSession = {
       ...session,
       accessToken: tokens.accessToken,
@@ -54,6 +74,6 @@ export async function refreshAuthSession(
     await saveAuthSession(next);
     return next;
   } catch {
-    return null;
+    return await recoverFromPersistedSession();
   }
 }

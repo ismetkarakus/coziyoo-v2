@@ -18,7 +18,7 @@ const transitions: Record<OrderStatus, OrderStatus[]> = {
   seller_approved: ["awaiting_payment", "cancelled"],
   awaiting_payment: ["paid", "cancelled"],
   paid: ["preparing", "cancelled"],
-  preparing: ["ready"],
+  preparing: ["ready", "in_delivery", "delivered"],
   ready: ["in_delivery", "delivered"],
   in_delivery: ["delivered"],
   delivered: ["completed"],
@@ -33,7 +33,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
 
 export function canActorSetStatus(actorRole: AppActorRole, to: OrderStatus): boolean {
   if (actorRole === "seller") {
-    return ["preparing", "ready", "in_delivery", "delivered"].includes(
+    return ["preparing", "ready", "in_delivery", "delivered", "completed"].includes(
       to
     );
   }

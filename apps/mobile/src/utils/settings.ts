@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 export type AppSettings = {
   apiUrl: string;
@@ -22,12 +23,45 @@ function isLocalhostLike(url: string): boolean {
   );
 }
 
+function firstHostFromCandidate(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const withoutProtocol = raw.replace(/^https?:\/\//i, "");
+  const hostPort = withoutProtocol.split("/")[0] || "";
+  const host = hostPort.split(":")[0] || "";
+  return host || null;
+}
+
+function resolveDevMachineApiUrl(): string | null {
+  try {
+    const candidates = [
+      (Constants.expoConfig as any)?.hostUri,
+      (Constants as any)?.expoGoConfig?.debuggerHost,
+      (Constants as any)?.manifest2?.extra?.expoClient?.hostUri,
+      (Constants as any)?.manifest?.debuggerHost,
+    ];
+    for (const candidate of candidates) {
+      const host = firstHostFromCandidate(candidate);
+      if (!host) continue;
+      if (host === "localhost" || host === "127.0.0.1") continue;
+      return `http://${host}:3000`;
+    }
+  } catch {
+    // ignore runtime source probing failures
+  }
+  return null;
+}
+
 function normalizeApiUrlForMode(rawUrl: string): string {
   const trimmed = rawUrl.trim().replace(/\/$/, "");
   const fallback = (process.env.EXPO_PUBLIC_API_URL || RELEASE_FALLBACK_API_URL).trim().replace(/\/$/, "");
+  const devMachineApi = resolveDevMachineApiUrl();
   if (!trimmed) return fallback;
   if (__DEV__) {
     // In dev, physical devices cannot reach localhost values saved in settings.
+    if (isLocalhostLike(trimmed) && devMachineApi) {
+      return devMachineApi;
+    }
     if (isLocalhostLike(trimmed) && fallback && !isLocalhostLike(fallback)) {
       return fallback;
     }
@@ -56,9 +90,17 @@ export async function loadSettings(): Promise<AppSettings> {
         current = {
           apiUrl: normalized || normalizeApiUrlForMode(defaults.apiUrl),
         };
+      } else {
+        // Ensure first-run defaults are normalized too (critical on physical devices).
+        current = {
+          apiUrl: normalizeApiUrlForMode(defaults.apiUrl),
+        };
       }
     } catch {
-      // ignore and keep defaults
+      // ignore and keep normalized defaults
+      current = {
+        apiUrl: normalizeApiUrlForMode(defaults.apiUrl),
+      };
     } finally {
       hydrated = true;
     }

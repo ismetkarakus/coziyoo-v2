@@ -954,7 +954,8 @@ async function transitionHandler(
       }
     }
 
-    if (["delivered", "completed"].includes(toStatus) && order.delivery_type === "delivery") {
+    const skipProofCheck = env.PAYMENT_PROVIDER_NAME === "mockpay";
+    if (!skipProofCheck && ["delivered", "completed"].includes(toStatus) && order.delivery_type === "delivery") {
       const proof = await client.query<{ status: string }>(
         "SELECT status FROM delivery_proof_records WHERE order_id = $1",
         [order.id]
