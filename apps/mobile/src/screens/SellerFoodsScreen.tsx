@@ -62,6 +62,63 @@ type SellerMenuAddon = {
   price?: number;
 };
 
+function toBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["1", "true", "t", "yes", "y", "aktif", "active"].includes(normalized);
+  }
+  return false;
+}
+
+function normalizeSellerFood(item: Record<string, unknown>): SellerFood {
+  const deliveryRaw = item.deliveryOptions ?? item.delivery_options_json;
+  const deliveryOptions = deliveryRaw && typeof deliveryRaw === "object"
+    ? {
+        pickup: toBool((deliveryRaw as Record<string, unknown>).pickup),
+        delivery: toBool((deliveryRaw as Record<string, unknown>).delivery),
+      }
+    : null;
+
+  const imageUrlsRaw = Array.isArray(item.imageUrls)
+    ? item.imageUrls
+    : Array.isArray(item.image_urls_json)
+      ? item.image_urls_json
+      : [];
+
+  const menuItemsRaw = Array.isArray(item.menuItems)
+    ? item.menuItems
+    : Array.isArray(item.menu_items_json)
+      ? item.menu_items_json
+      : [];
+
+  return {
+    id: String(item.id ?? ""),
+    categoryId: typeof item.categoryId === "string" ? item.categoryId : (typeof item.category_id === "string" ? item.category_id : null),
+    categoryName: typeof item.categoryName === "string" ? item.categoryName : (typeof item.category_name === "string" ? item.category_name : null),
+    name: String(item.name ?? ""),
+    cardSummary: typeof item.cardSummary === "string" ? item.cardSummary : null,
+    description: typeof item.description === "string" ? item.description : null,
+    recipe: typeof item.recipe === "string" ? item.recipe : null,
+    cuisine: typeof item.cuisine === "string" ? item.cuisine : null,
+    menuItems: menuItemsRaw as SellerFood["menuItems"],
+    secondaryCategories: Array.isArray(item.secondaryCategories) ? (item.secondaryCategories as SellerFood["secondaryCategories"]) : [],
+    price: Number(item.price ?? 0),
+    deliveryFee: Number(item.deliveryFee ?? item.delivery_fee ?? 0),
+    deliveryOptions,
+    imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : (typeof item.image_url === "string" ? item.image_url : null),
+    imageUrls: imageUrlsRaw.map((url) => String(url ?? "")).filter(Boolean).slice(0, 5),
+    ingredients: Array.isArray(item.ingredients) ? item.ingredients.map((v) => String(v ?? "")).filter(Boolean) : [],
+    allergens: Array.isArray(item.allergens) ? item.allergens.map((v) => String(v ?? "")).filter(Boolean) : [],
+    preparationTimeMinutes: Number.isFinite(Number(item.preparationTimeMinutes))
+      ? Number(item.preparationTimeMinutes)
+      : (Number.isFinite(Number(item.preparation_time_minutes)) ? Number(item.preparation_time_minutes) : null),
+    isActive: toBool(item.isActive ?? item.is_active),
+    stock: Number(item.stock ?? 0),
+  };
+}
+
 const ADDON_KIND_OPTIONS: Array<{ value: AddonKind; label: string }> = [
   { value: "sauce", label: "Soslar" },
   { value: "extra", label: "Ek Gıdalar" },
@@ -245,7 +302,10 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       const res = await authedFetch("/v1/seller/foods", undefined, baseUrl);
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
-      setFoods(Array.isArray(json?.data) ? json.data : []);
+      const rows: SellerFood[] = Array.isArray(json?.data)
+        ? json.data.map((item: unknown) => normalizeSellerFood((item ?? {}) as Record<string, unknown>))
+        : [];
+      setFoods(rows);
       void loadCategories(baseUrl);
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Yemekler yüklenemedi");

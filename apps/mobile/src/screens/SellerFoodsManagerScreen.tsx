@@ -25,6 +25,16 @@ type SellerFood = {
   [key: string]: unknown;
 };
 
+function toBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["1", "true", "t", "yes", "y", "aktif", "active"].includes(normalized);
+  }
+  return false;
+}
+
 export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm, onAuthRefresh }: Props) {
   const initialCache = getSellerFoodsCache() as SellerFood[] | null;
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
@@ -78,7 +88,7 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         name: String(item.name ?? ""),
         cardSummary: typeof item.cardSummary === "string" ? item.cardSummary : null,
         price: Number(item.price ?? 0),
-        isActive: Boolean(item.isActive),
+        isActive: toBool(item.isActive ?? item.is_active),
         stock: Number(item.stock ?? 0),
       })) : [];
       setFoods(list);

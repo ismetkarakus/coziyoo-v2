@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, AppState, Dimensions, Easing, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
-import { refreshAuthSession } from "../utils/auth";
+import { loadAuthSession, refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
@@ -47,6 +47,16 @@ type ActiveFood = {
   isActive: boolean;
   stock: number;
 };
+
+function toBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["1", "true", "t", "yes", "y", "aktif", "active"].includes(normalized);
+  }
+  return false;
+}
 
 function parseApiDate(value?: string | null): Date | null {
   if (!value?.trim()) return null;
@@ -230,42 +240,58 @@ export default function SellerHomeScreen({
   }, [pulseValue]);
 
   async function fetchWithAuth(path: string, baseUrl = apiUrl): Promise<Response> {
-    const headers: Record<string, string> = {
+    const makeHeaders = (session: AuthSession): Record<string, string> => ({
       "Content-Type": "application/json",
-      Authorization: `Bearer ${currentAuth.accessToken}`,
-      ...actorRoleHeader(currentAuth, "seller"),
-    };
+      Authorization: `Bearer ${session.accessToken}`,
+      ...actorRoleHeader(session, "seller"),
+    });
+    const headers = makeHeaders(currentAuth);
     let res = await fetch(`${baseUrl}${path}`, { headers });
     if (res.status !== 401 && res.status !== 403) return res;
-    const refreshed = await refreshAuthSession(baseUrl, currentAuth);
+
+    const persisted = await loadAuthSession();
+    if (persisted && persisted.userId === currentAuth.userId && persisted.accessToken !== currentAuth.accessToken) {
+      setCurrentAuth(persisted);
+      onAuthRefresh?.(persisted);
+      res = await fetch(`${baseUrl}${path}`, { headers: makeHeaders(persisted) });
+      if (res.status !== 401 && res.status !== 403) return res;
+    }
+
+    const refreshed = await refreshAuthSession(baseUrl, persisted && persisted.userId === currentAuth.userId ? persisted : currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
     onAuthRefresh?.(refreshed);
     return fetch(`${baseUrl}${path}`, {
-      headers: { ...headers, Authorization: `Bearer ${refreshed.accessToken}`, ...actorRoleHeader(refreshed, "seller") },
+      headers: makeHeaders(refreshed),
     });
   }
 
   async function fetchWithAuthInit(path: string, init: RequestInit, baseUrl = apiUrl): Promise<Response> {
-    const headers: Record<string, string> = {
+    const makeHeaders = (session: AuthSession): Record<string, string> => ({
       "Content-Type": "application/json",
-      Authorization: `Bearer ${currentAuth.accessToken}`,
-      ...actorRoleHeader(currentAuth, "seller"),
+      Authorization: `Bearer ${session.accessToken}`,
+      ...actorRoleHeader(session, "seller"),
       ...(init.headers as Record<string, string> | undefined),
-    };
+    });
+    const headers = makeHeaders(currentAuth);
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
     if (res.status !== 401 && res.status !== 403) return res;
-    const refreshed = await refreshAuthSession(baseUrl, currentAuth);
+
+    const persisted = await loadAuthSession();
+    if (persisted && persisted.userId === currentAuth.userId && persisted.accessToken !== currentAuth.accessToken) {
+      setCurrentAuth(persisted);
+      onAuthRefresh?.(persisted);
+      res = await fetch(`${baseUrl}${path}`, { ...init, headers: makeHeaders(persisted) });
+      if (res.status !== 401 && res.status !== 403) return res;
+    }
+
+    const refreshed = await refreshAuthSession(baseUrl, persisted && persisted.userId === currentAuth.userId ? persisted : currentAuth);
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
     onAuthRefresh?.(refreshed);
     return fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: {
-        ...headers,
-        Authorization: `Bearer ${refreshed.accessToken}`,
-        ...actorRoleHeader(refreshed, "seller"),
-      },
+      headers: makeHeaders(refreshed),
     });
   }
 
@@ -323,11 +349,18 @@ export default function SellerHomeScreen({
       if (foodsRes.ok) {
         const foodsJson = await foodsRes.json();
         if (Array.isArray(foodsJson?.data)) {
-          const foods = foodsJson.data as Record<string, unknown>[];
+          const foods = (foodsJson.data as Record<string, unknown>[]).map((f) => ({
+            ...f,
+            id: String(f.id ?? ""),
+            name: String(f.name ?? ""),
+            price: Number(f.price ?? 0),
+            isActive: toBool(f.isActive ?? f.is_active),
+            stock: Number(f.stock ?? 0),
+          }));
           setSellerFoodsCache(foods);
           setActiveFoods(
             foods
-              .filter((f) => f.isActive)
+              .filter((f) => toBool(f.isActive))
               .map((f) => ({
                 id: String(f.id ?? ""),
                 name: String(f.name ?? ""),
