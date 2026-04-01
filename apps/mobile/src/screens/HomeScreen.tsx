@@ -1073,7 +1073,7 @@ function FoodCard({
   const timeDistanceParts = [meal.time, meal.distance].filter((value) => String(value ?? "").trim().length > 0);
   const timeDistanceText = timeDistanceParts.join(" · ");
   const stockSummary = Number.isFinite(meal.stock) && meal.stock > 0
-    ? `Toplam: ${meal.stock}/${meal.stock} kaldı`
+    ? `Kalan: ${meal.stock}`
     : '';
 
   return (
