@@ -1322,25 +1322,58 @@ export default function HomeScreen({
   const [selectedCheckoutAddressId, setSelectedCheckoutAddressId] = useState<string | null>(null);
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [pickupSellerAddress, setPickupSellerAddress] = useState<{ title?: string; addressLine?: string } | null>(null);
+  const [pickupSellerAddressLoading, setPickupSellerAddressLoading] = useState(false);
+  const [pickupSellerAddressError, setPickupSellerAddressError] = useState<string | null>(null);
 
   useEffect(() => {
     if (deliveryType !== 'pickup' || cartItems.length === 0) {
       setPickupSellerAddress(null);
+      setPickupSellerAddressLoading(false);
+      setPickupSellerAddressError(null);
       return;
     }
     const sellerId = cartItems[0].meal.sellerId;
     const sellerIds = [...new Set(cartItems.map((ci) => ci.meal.sellerId))];
-    if (sellerIds.length !== 1) return;
+    if (sellerIds.length !== 1) {
+      setPickupSellerAddress(null);
+      setPickupSellerAddressLoading(false);
+      setPickupSellerAddressError('Pickup için sepette tek satıcı olmalı.');
+      return;
+    }
     let cancelled = false;
-    fetch(`${apiUrl}/v1/foods/sellers/${sellerId}/address`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (!cancelled) setPickupSellerAddress(json?.data ?? null);
+    const controller = new AbortController();
+    setPickupSellerAddressLoading(true);
+    setPickupSellerAddressError(null);
+    fetch(`${apiUrl}/v1/foods/sellers/${sellerId}/address`, { signal: controller.signal })
+      .then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(json?.error?.message ?? 'Satıcı adresi alınamadı');
+        return json;
       })
-      .catch(() => {
-        if (!cancelled) setPickupSellerAddress(null);
+      .then((json) => {
+        if (cancelled) return;
+        const data = json?.data ?? null;
+        const hasAddress = Boolean(data?.title || data?.addressLine);
+        if (hasAddress) {
+          setPickupSellerAddress(data);
+          setPickupSellerAddressError(null);
+        } else {
+          setPickupSellerAddress(null);
+          setPickupSellerAddressError('Satıcının varsayılan adresi bulunamadı.');
+        }
+      })
+      .catch((error) => {
+        if (cancelled || error?.name === 'AbortError') return;
+        setPickupSellerAddress(null);
+        setPickupSellerAddressError('Satıcı adresi şu an alınamıyor. Tekrar dene.');
+      })
+      .finally(() => {
+        if (!cancelled) setPickupSellerAddressLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [deliveryType, cartItems, apiUrl]);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
@@ -3157,9 +3190,11 @@ export default function HomeScreen({
                   <View style={styles.checkoutAddressBox}>
                     <Text style={styles.checkoutAddressLabel}>Alınacak Adres</Text>
                     <Text style={styles.checkoutAddressValue} numberOfLines={2}>
-                      {pickupSellerAddress
+                      {pickupSellerAddressLoading
+                        ? 'Satıcı adresi yükleniyor...'
+                        : pickupSellerAddress
                         ? [pickupSellerAddress.title, pickupSellerAddress.addressLine].filter(Boolean).join(' · ')
-                        : 'Satıcı adresi yükleniyor...'}
+                        : (pickupSellerAddressError ?? 'Satıcı adresi bulunamadı.')}
                     </Text>
                   </View>
                 )}
