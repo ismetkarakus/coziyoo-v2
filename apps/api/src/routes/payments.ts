@@ -259,7 +259,7 @@ paymentsRouter.post("/webhook", async (req, res) => {
       });
     }
 
-    const nextOrderStatus = "paid";
+    const nextOrderStatus = env.PAYMENT_PROVIDER_NAME === "mockpay" ? "paid" : "preparing";
 
     await client.query(
       `UPDATE payment_attempts

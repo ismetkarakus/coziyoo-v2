@@ -315,7 +315,7 @@ sellerRouter.get("/orders", async (req, res) => {
         `SELECT count(*)::text AS count
          FROM orders
          WHERE seller_id = $1
-           AND status NOT IN ('rejected', 'cancelled')`,
+           AND status NOT IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment', 'rejected', 'cancelled')`,
         [userId],
       ),
       pool.query<{
@@ -361,7 +361,7 @@ sellerRouter.get("/orders", async (req, res) => {
            WHERE oi.order_id = o.id
          ) item_stats ON TRUE
          WHERE o.seller_id = $1
-           AND o.status NOT IN ('rejected', 'cancelled')
+           AND o.status NOT IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment', 'rejected', 'cancelled')
          ORDER BY o.created_at DESC, o.id DESC
          LIMIT $2 OFFSET $3`,
         [userId, pageSize, offset],

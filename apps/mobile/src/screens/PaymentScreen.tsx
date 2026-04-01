@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Linking, Modal, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/colors';
 import { type AuthSession } from '../utils/auth';
@@ -121,6 +121,7 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
   const [processing, setProcessing] = useState(false);
   const [provider, setProvider] = useState<string>('mockpay');
   const [awaitingExternalPayment, setAwaitingExternalPayment] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const paymentSessionIdRef = useRef<string | null>(null);
 
   const checkPaymentStatus = useCallback(async () => {
@@ -154,7 +155,7 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
     setProvider('mockpay');
     paymentSessionIdRef.current = null;
 
-    const res = await apiRequest<{ sessionId?: string; provider?: string }>(
+    const res = await apiRequest<{ sessionId?: string; provider?: string; checkoutUrl?: string }>(
       '/v1/payments/start',
       auth,
       { method: 'POST', body: { orderId }, actorRole: 'buyer' },
@@ -176,6 +177,7 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
     }
 
     setProvider(activeProvider);
+    setCheckoutUrl(typeof res.data.checkoutUrl === 'string' ? res.data.checkoutUrl : null);
     paymentSessionIdRef.current = sessionId;
     setLoading(false);
     if (activeProvider === 'mockpay') {
@@ -183,6 +185,13 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
       return;
     }
     setAwaitingExternalPayment(true);
+    if (typeof res.data.checkoutUrl === 'string' && /^https?:\/\//i.test(res.data.checkoutUrl)) {
+      try {
+        await Linking.openURL(res.data.checkoutUrl);
+      } catch {
+        // ignore and keep polling panel visible
+      }
+    }
   }, [auth, onAuthRefresh, orderId]);
 
   useEffect(() => {
@@ -300,6 +309,9 @@ export default function PaymentScreen({ auth, orderId, onBack, onPaymentComplete
           </Text>
           <View style={styles.resultActions}>
             <ActionButton label="Durumu Yenile" onPress={() => { void checkPaymentStatus(); }} variant="primary" />
+            {checkoutUrl ? (
+              <ActionButton label="Ödeme Sayfasını Aç" onPress={() => { void Linking.openURL(checkoutUrl); }} variant="outline" />
+            ) : null}
             <ActionButton label="Geri Dön" onPress={onBack} variant="soft" />
           </View>
         </View>
