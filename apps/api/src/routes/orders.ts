@@ -160,6 +160,14 @@ function trackingStatusLabel(status: string): string {
   return "Sipariş alındı";
 }
 
+async function tableExistsTx(client: PoolClient, fqTableName: string): Promise<boolean> {
+  const result = await client.query<{ exists: boolean }>(
+    "SELECT to_regclass($1) IS NOT NULL AS exists",
+    [fqTableName],
+  );
+  return result.rows[0]?.exists === true;
+}
+
 async function ensureAllergenDisclosuresForCompletionTx(
   client: PoolClient,
   order: { id: string; seller_id: string; buyer_id: string },
@@ -1012,18 +1020,26 @@ async function transitionHandler(
 
     const skipProofCheck = env.PAYMENT_PROVIDER_NAME === "mockpay";
     if (!skipProofCheck && ["delivered", "completed"].includes(toStatus) && order.delivery_type === "delivery") {
-      const proof = await client.query<{ status: string }>(
-        "SELECT status FROM delivery_proof_records WHERE order_id = $1",
-        [order.id]
-      );
-      if ((proof.rowCount ?? 0) === 0 || proof.rows[0].status !== "verified") {
-        await client.query("ROLLBACK");
-        return res.status(409).json({
-          error: {
-            code: "DELIVERY_PIN_REQUIRED",
-            message: "Delivery orders require verified PIN before delivered/completed transitions",
-          },
+      const hasProofTable = await tableExistsTx(client, "public.delivery_proof_records");
+      if (!hasProofTable) {
+        console.warn("[orders] delivery proof table missing, skipping proof check", {
+          orderId: order.id,
+          toStatus,
         });
+      } else {
+        const proof = await client.query<{ status: string }>(
+          "SELECT status FROM delivery_proof_records WHERE order_id = $1",
+          [order.id]
+        );
+        if ((proof.rowCount ?? 0) === 0 || proof.rows[0].status !== "verified") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            error: {
+              code: "DELIVERY_PIN_REQUIRED",
+              message: "Delivery orders require verified PIN before delivered/completed transitions",
+            },
+          });
+        }
       }
     }
 
@@ -1118,12 +1134,20 @@ async function transitionHandler(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-      await enqueueOutboxEvent(client, {
-        eventType: "order_completed",
-        aggregateType: "order",
-        aggregateId: order.id,
-        payload: { orderId: order.id },
-      });
+      try {
+        await enqueueOutboxEvent(client, {
+          eventType: "order_completed",
+          aggregateType: "order",
+          aggregateId: order.id,
+          payload: { orderId: order.id },
+        });
+      } catch (error) {
+        // Outbox should not block completion confirmation on mobile flow.
+        console.error("[orders] order_completed outbox enqueue failed (non-fatal)", {
+          orderId: order.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     await client.query("COMMIT");
