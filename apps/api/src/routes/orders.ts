@@ -995,6 +995,9 @@ async function transitionHandler(
     }
 
     if (toStatus === "completed") {
+      // Use a savepoint so a failure here (e.g. missing migration table) rolls back only this
+      // sub-operation and leaves the outer transaction usable.
+      await client.query("SAVEPOINT before_allergen_backfill");
       try {
         const missingPhases = await ensureAllergenDisclosuresForCompletionTx(client, order);
         if (missingPhases.length > 0) {
@@ -1004,7 +1007,10 @@ async function transitionHandler(
             [order.id, req.auth!.userId, currentStatus, currentStatus, JSON.stringify({ phases: missingPhases })],
           );
         }
+        await client.query("RELEASE SAVEPOINT before_allergen_backfill");
       } catch (error) {
+        await client.query("ROLLBACK TO SAVEPOINT before_allergen_backfill");
+        await client.query("RELEASE SAVEPOINT before_allergen_backfill");
         if (error instanceof Error && error.message === "ORDER_INVALID_ITEMS") {
           await client.query("ROLLBACK");
           return res.status(409).json({ error: { code: "ORDER_INVALID_ITEMS", message: "Order items missing" } });
