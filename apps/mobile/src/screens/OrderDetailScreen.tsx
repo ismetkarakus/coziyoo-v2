@@ -287,6 +287,7 @@ export default function OrderDetailScreen({
   async function handleComplete() {
     if (!order) return;
     setActionLoading(true);
+    const previousStatus = order.status;
     const result = await apiRequest(
       `/v1/orders/${order.id}/status`,
       auth,
@@ -295,7 +296,39 @@ export default function OrderDetailScreen({
     );
     setActionLoading(false);
     if (result.ok) {
-      fetchOrder();
+      const nowIso = new Date().toISOString();
+      setOrder((prev) => {
+        if (!prev) return prev;
+        const hasCompletedEvent = prev.events.some((event) => String(event.toStatus ?? '') === 'completed');
+        return {
+          ...prev,
+          status: 'completed',
+          updatedAt: nowIso,
+          events: hasCompletedEvent
+            ? prev.events
+            : [
+                ...prev.events,
+                {
+                  eventType: 'buyer_completed',
+                  fromStatus: previousStatus,
+                  toStatus: 'completed',
+                  createdAt: nowIso,
+                  reason: null,
+                },
+              ],
+        };
+      });
+      setTracking((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'completed',
+              statusLabel: 'Tamamlandı',
+              remainingMinutes: 0,
+            }
+          : prev,
+      );
+      void fetchOrder();
     } else {
       Alert.alert('Hata', result.message ?? 'Tamamlanamadı');
     }
@@ -492,6 +525,12 @@ export default function OrderDetailScreen({
 
         {/* Actions */}
         <View style={styles.actions}>
+          {order.status === 'completed' ? (
+            <View style={styles.completeNotice}>
+              <Ionicons name="checkmark-circle" size={18} color="#2F7B4B" />
+              <Text style={styles.completeNoticeText}>Sipariş tamamlandı.</Text>
+            </View>
+          ) : null}
           {canPay && onOpenPayment && (
             <ActionButton label="Ödeme Yap" onPress={() => onOpenPayment(order.id)} variant="primary" fullWidth />
           )}
@@ -599,6 +638,18 @@ const styles = StyleSheet.create({
   totalValue: { color: theme.text, fontSize: 18, fontWeight: '800' },
   timeline: { marginTop: 4 },
   actions: { gap: 10, marginTop: 8 },
+  completeNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#CDE7D8',
+    backgroundColor: '#ECF8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  completeNoticeText: { color: '#2F7B4B', fontSize: 14, fontWeight: '700' },
   cancelTitle: { color: theme.text, fontSize: 20, fontWeight: '800', marginBottom: 6 },
   cancelSubtitle: { color: '#71685F', fontSize: 14, marginBottom: 16 },
   cancelActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 8 },
