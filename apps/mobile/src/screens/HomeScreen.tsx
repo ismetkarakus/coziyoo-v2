@@ -1333,26 +1333,61 @@ export default function HomeScreen({
   const [selectedCheckoutAddressId, setSelectedCheckoutAddressId] = useState<string | null>(null);
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [pickupSellerAddress, setPickupSellerAddress] = useState<{ title?: string; addressLine?: string } | null>(null);
+  const [pickupSellerAddressLoading, setPickupSellerAddressLoading] = useState(false);
+  const [pickupSellerAddressError, setPickupSellerAddressError] = useState<string | null>(null);
 
   useEffect(() => {
     if (deliveryType !== 'pickup' || cartItems.length === 0) {
       setPickupSellerAddress(null);
+      setPickupSellerAddressLoading(false);
+      setPickupSellerAddressError(null);
       return;
     }
     const sellerId = cartItems[0].meal.sellerId;
     const sellerIds = [...new Set(cartItems.map((ci) => ci.meal.sellerId))];
-    if (sellerIds.length !== 1) return;
+    if (sellerIds.length !== 1) {
+      setPickupSellerAddress(null);
+      setPickupSellerAddressLoading(false);
+      setPickupSellerAddressError('Gel al için sepette tek satıcı olmalı.');
+      return;
+    }
     let cancelled = false;
-    fetch(`${apiUrl}/v1/foods/sellers/${sellerId}/address`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (!cancelled) setPickupSellerAddress(json?.data ?? null);
+    setPickupSellerAddressLoading(true);
+    setPickupSellerAddressError(null);
+    fetch(`${apiUrl}/v1/foods/sellers/${sellerId}/address`, {
+      headers: {
+        Authorization: `Bearer ${currentAuth.accessToken}`,
+        'x-actor-role': 'buyer',
+      },
+    })
+      .then(async (r) => {
+        const json = await readJsonSafe<{ data?: { title?: string; addressLine?: string } | null; error?: { message?: string } }>(r);
+        if (!r.ok) {
+          throw new Error(json?.error?.message ?? requestErrorLine(r.status));
+        }
+        return json;
       })
-      .catch(() => {
-        if (!cancelled) setPickupSellerAddress(null);
+      .then((json) => {
+        if (cancelled) return;
+        const nextAddress = json?.data ?? null;
+        setPickupSellerAddress(nextAddress);
+        if (!nextAddress?.title && !nextAddress?.addressLine) {
+          setPickupSellerAddressError('Satıcı adresi bulunamadı.');
+        } else {
+          setPickupSellerAddressError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setPickupSellerAddress(null);
+        setPickupSellerAddressError(error instanceof Error ? error.message : 'Satıcı adresi alınamadı.');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setPickupSellerAddressLoading(false);
       });
     return () => { cancelled = true; };
-  }, [deliveryType, cartItems, apiUrl]);
+  }, [deliveryType, cartItems, apiUrl, currentAuth.accessToken]);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedLocationLabel, setSelectedLocationLabel] = useState('Kadıköy • 2.5 km çevre');
   const [headerImageSource, setHeaderImageSource] = useState<ImageSourcePropType>(() => (
@@ -3205,9 +3240,13 @@ export default function HomeScreen({
                   <View style={styles.checkoutAddressBox}>
                     <Text style={styles.checkoutAddressLabel}>Alınacak Adres</Text>
                     <Text style={styles.checkoutAddressValue} numberOfLines={2}>
-                      {pickupSellerAddress
-                        ? [pickupSellerAddress.title, pickupSellerAddress.addressLine].filter(Boolean).join(' · ')
-                        : 'Satıcı adresi yükleniyor...'}
+                      {pickupSellerAddressLoading
+                        ? 'Satıcı adresi yükleniyor...'
+                        : pickupSellerAddressError
+                          ? pickupSellerAddressError
+                          : pickupSellerAddress
+                            ? [pickupSellerAddress.title, pickupSellerAddress.addressLine].filter(Boolean).join(' · ')
+                            : 'Satıcı adresi bulunamadı.'}
                     </Text>
                   </View>
                 )}
