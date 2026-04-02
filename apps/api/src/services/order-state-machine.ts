@@ -8,6 +8,7 @@ export type OrderStatus =
   | "preparing"
   | "ready"
   | "in_delivery"
+  | "approaching"
   | "at_door"
   | "delivered"
   | "completed"
@@ -21,8 +22,9 @@ const transitions: Record<OrderStatus, OrderStatus[]> = {
   paid: ["preparing", "cancelled"],
   preparing: ["ready", "in_delivery"],
   ready: ["in_delivery"],
-  in_delivery: ["at_door"],
-  at_door: ["delivered"],
+  in_delivery: ["at_door", "approaching"],
+  approaching: ["at_door"],
+  at_door: ["delivered", "completed"],
   delivered: ["completed"],
   completed: [],
   rejected: [],
@@ -33,13 +35,21 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return transitions[from]?.includes(to) ?? false;
 }
 
-export function canActorSetStatus(actorRole: AppActorRole, to: OrderStatus): boolean {
+export function canActorSetStatus(
+  actorRole: AppActorRole,
+  to: OrderStatus,
+  deliveryType?: string
+): boolean {
   if (actorRole === "seller") {
-    return ["preparing", "ready", "in_delivery", "at_door", "delivered", "completed"].includes(
-      to
-    );
+    if (deliveryType === "pickup") {
+      return ["preparing", "ready"].includes(to);
+    }
+    return ["preparing", "ready", "in_delivery", "at_door", "delivered", "completed"].includes(to);
   }
   if (actorRole === "buyer") {
+    if (deliveryType === "pickup") {
+      return ["in_delivery", "approaching", "at_door", "completed", "cancelled"].includes(to);
+    }
     return ["completed", "cancelled"].includes(to);
   }
   return false;

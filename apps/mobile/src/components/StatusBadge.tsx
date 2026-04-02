@@ -8,9 +8,10 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   awaiting_payment: { label: 'Ödeme Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
   paid: { label: 'Ödeme Alındı', color: '#166534', bg: '#EAF7EE' },
   preparing: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
-  ready: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
+  ready: { label: 'Hazır', color: '#166534', bg: '#EAF7EE' },
   in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
   pickup_in_delivery: { label: 'Alıcı Yolda', color: '#1D4ED8', bg: '#E7F0FF' },
+  approaching: { label: 'Alıcı Geliyor', color: '#0F766E', bg: '#E6FFFB' },
   at_door: { label: 'Kapıda', color: '#0F766E', bg: '#E6FFFB' },
   delivered: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
   completed: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
@@ -27,7 +28,7 @@ type Props = {
 function statusKeyByDeliveryType(status: string, deliveryType?: string): string {
   const normalizedStatus = String(status ?? '').trim().toLowerCase();
   const normalizedDeliveryType = String(deliveryType ?? '').trim().toLowerCase();
-  if (normalizedDeliveryType === 'pickup' && (normalizedStatus === 'in_delivery' || normalizedStatus === 'ready')) {
+  if (normalizedDeliveryType === 'pickup' && normalizedStatus === 'in_delivery') {
     return 'pickup_in_delivery';
   }
   return normalizedStatus;

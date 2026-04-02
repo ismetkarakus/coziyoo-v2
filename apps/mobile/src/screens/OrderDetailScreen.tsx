@@ -104,8 +104,8 @@ type BuyerFlowStep = (typeof BUYER_FLOW_STEPS)[number];
 
 function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' | 'rejected' {
   const normalized = String(status ?? '').trim().toLowerCase();
-  if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing'].includes(normalized)) return 'preparing';
-  if (normalized === 'ready' || normalized === 'in_delivery') return 'in_delivery';
+  if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing', 'ready'].includes(normalized)) return 'preparing';
+  if (normalized === 'in_delivery' || normalized === 'approaching') return 'in_delivery';
   if (normalized === 'at_door') return 'at_door';
   if (normalized === 'delivered') return 'delivered';
   if (normalized === 'completed') return 'delivered';
@@ -113,6 +113,13 @@ function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' |
   if (normalized === 'rejected') return 'rejected';
   return 'preparing';
 }
+
+const PICKUP_BUYER_ACTIONS: Record<string, { label: string; toStatus: string }> = {
+  ready: { label: 'Yola çıktım', toStatus: 'in_delivery' },
+  in_delivery: { label: 'Geliyorum', toStatus: 'approaching' },
+  approaching: { label: 'Kapıdayım', toStatus: 'at_door' },
+  at_door: { label: 'Teslim aldım', toStatus: 'completed' },
+};
 
 function buyerFlowLabel(step: BuyerFlowStep): string {
   if (step === 'preparing') return 'Hazırlanıyor';
@@ -339,6 +346,23 @@ export default function OrderDetailScreen({
     }
   }
 
+  async function handlePickupAction(toStatus: string) {
+    if (!order) return;
+    setActionLoading(true);
+    const result = await apiRequest(
+      `/v1/orders/${order.id}/status`,
+      auth,
+      { method: 'POST', body: { toStatus }, actorRole: 'buyer' },
+      onAuthRefresh,
+    );
+    setActionLoading(false);
+    if (result.ok) {
+      void fetchOrder();
+    } else {
+      Alert.alert('Hata', result.message ?? 'Durum güncellenemedi');
+    }
+  }
+
   function formatEventDate(iso: string): string {
     if (!iso) return '-';
     const normalized = iso.trim().replace(' ', 'T').replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');
@@ -382,6 +406,9 @@ export default function OrderDetailScreen({
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
+  const pickupBuyerAction = isBuyer && order.deliveryType === 'pickup'
+    ? (PICKUP_BUYER_ACTIONS[order.status] ?? null)
+    : null;
   const canPay =
     isBuyer &&
     !order.paymentCompleted &&
@@ -541,6 +568,15 @@ export default function OrderDetailScreen({
           )}
           {canComplete && (
             <ActionButton label="Siparişi Tamamla" onPress={handleComplete} loading={actionLoading} variant="primary" fullWidth />
+          )}
+          {pickupBuyerAction && (
+            <ActionButton
+              label={pickupBuyerAction.label}
+              onPress={() => void handlePickupAction(pickupBuyerAction.toStatus)}
+              loading={actionLoading}
+              variant="primary"
+              fullWidth
+            />
           )}
           {canReview && onOpenReview && (
             <ActionButton label="Yorum Yap" onPress={() => onOpenReview(order.id)} variant="outline" fullWidth />

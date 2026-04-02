@@ -56,6 +56,7 @@ const StatusSchema = z.object({
     "preparing",
     "ready",
     "in_delivery",
+    "approaching",
     "at_door",
     "delivered",
     "completed",
@@ -990,7 +991,7 @@ async function transitionHandler(
       currentStatus = "paid";
     }
 
-    if (!canActorSetStatus(actorRole, toStatus)) {
+    if (!canActorSetStatus(actorRole, toStatus, order.delivery_type)) {
       await client.query("ROLLBACK");
       return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Actor cannot set target status" } });
     }
