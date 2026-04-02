@@ -187,6 +187,7 @@ export default function SellerHomeScreen({
     if (!Array.isArray(cached)) return [];
     return cached as SellerOrder[];
   });
+  const [rating, setRating] = useState<{ avg: number; count: number } | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFoods, setActiveFoods] = useState<ActiveFood[]>(() => {
@@ -344,9 +345,10 @@ export default function SellerHomeScreen({
       // Orders are highest priority; do not block them behind profile/foods fetches.
       await refreshOrdersOnly(baseUrl);
 
-      const [profileRes, foodsRes] = await Promise.all([
+      const [profileRes, foodsRes, reviewsRes] = await Promise.all([
         fetchWithAuth("/v1/seller/profile", baseUrl),
         fetchWithAuth("/v1/seller/foods", baseUrl),
+        fetchWithAuth("/v1/seller/reviews?pageSize=1", baseUrl),
       ]);
 
       const profileJson = await profileRes.json().catch(() => ({}));
@@ -354,6 +356,12 @@ export default function SellerHomeScreen({
         const name = profileJson?.data?.displayName?.trim() || "Usta";
         setDisplayName(name);
         setSellerDisplayNameCache(name);
+      }
+
+      const reviewsJson = await reviewsRes.json().catch(() => ({}));
+      if (reviewsRes.ok && reviewsJson?.data?.summary) {
+        const { averageRating, totalReviews } = reviewsJson.data.summary;
+        setRating({ avg: Number(averageRating ?? 0), count: Number(totalReviews ?? 0) });
       }
 
       if (foodsRes.ok) {
@@ -540,6 +548,13 @@ export default function SellerHomeScreen({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.title} numberOfLines={1}>Merhaba, {displayName} 👋</Text>
+            {rating !== null && rating.count > 0 ? (
+              <View style={styles.ratingRow}>
+                <Text style={styles.ratingStar}>★</Text>
+                <Text style={styles.ratingAvg}>{rating.avg.toFixed(1)}</Text>
+                <Text style={styles.ratingCount}>({rating.count} yorum)</Text>
+              </View>
+            ) : null}
           </View>
           <TouchableOpacity style={styles.avatar} onPress={onOpenProfile} activeOpacity={0.8}>
             {loading ? (
@@ -796,9 +811,9 @@ export default function SellerHomeScreen({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   stickyTop: {
-    paddingHorizontal: 12,
-    paddingTop: 44,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 14,
     backgroundColor: "#F7F4EF",
     borderBottomWidth: 1,
     borderBottomColor: "#E6DED1",
@@ -806,7 +821,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 20,
   },
   headerLeft: {
@@ -817,26 +832,48 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#4A3B2F",
     letterSpacing: -0.5,
-    marginTop: 6,
+    marginTop: 4,
     ...(Platform.OS === "ios"
       ? { fontFamily: "AvenirNextCondensed-Bold", fontWeight: "700" }
       : { fontFamily: "sans-serif-condensed", fontWeight: "700" }),
   },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+  },
+  ratingStar: {
+    fontSize: 15,
+    color: "#D4860A",
+    lineHeight: 18,
+  },
+  ratingAvg: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#4A3B2F",
+  },
+  ratingCount: {
+    fontSize: 13,
+    color: "#7A6B5C",
+    fontWeight: "500",
+  },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#3F855C",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 2,
   },
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  quickButtonsRow: { flexDirection: "row", gap: 10, marginBottom: 6, alignItems: "stretch" },
+  quickButtonsRow: { flexDirection: "row", gap: 12, marginBottom: 2, alignItems: "stretch" },
   quickButton: {
     flex: 1,
-    height: 40,
+    height: 46,
     backgroundColor: "#F9E9D5",
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#79BA94",
     alignItems: "center",
@@ -852,9 +889,9 @@ const styles = StyleSheet.create({
   },
   quickLpiPill: {
     flex: 1,
-    height: 40,
+    height: 46,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#79BA94",
     backgroundColor: "#F9E9D5",
@@ -862,9 +899,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ordersScroll: { flex: 1 },
-  ordersContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 36 },
+  ordersContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48 },
   ordersSection: { marginBottom: 14 },
-  ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingHorizontal: 16 },
+  ordersHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingHorizontal: 16 },
   ordersTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   ordersTitle: { fontSize: 18, fontWeight: "800", color: "#4A3B2F" },
   ordersCountChip: { alignItems: "center", justifyContent: "center" },
@@ -902,13 +939,13 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   emptyTitle: { color: "#4A3B2F", fontWeight: "800" },
   emptySub: { color: "#6C6055", marginTop: 4 },
-  groupSection: { marginBottom: 12 },
-  groupHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingHorizontal: 2 },
+  groupSection: { marginBottom: 18 },
+  groupHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10, paddingHorizontal: 2 },
   groupTitle: { color: "#3F3126", fontSize: 16, fontWeight: "800" },
   groupCount: { color: "#6A5A4B", fontSize: 14, fontWeight: "800" },
   groupEmptyCard: { backgroundColor: "#FCFAF7", borderRadius: 10, borderWidth: 1, borderColor: "#ECE3D7", padding: 10, marginBottom: 8 },
   groupEmptyText: { color: "#8A7A6B", fontWeight: "600" },
-  orderCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12, marginBottom: 10, overflow: "hidden" },
+  orderCard: { backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5DDCF", padding: 14, marginBottom: 12, overflow: "hidden" },
   kapidaHighlightLayer: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#FFD166",
@@ -946,7 +983,7 @@ const styles = StyleSheet.create({
   orderBottomRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   orderTotal: { color: "#4A3B2F", fontWeight: "800" },
   orderThumbSmall: { fontSize: 16, lineHeight: 18 },
-  cardActionRow: { marginTop: 10, flexDirection: "row", gap: 8 },
+  cardActionRow: { marginTop: 14, flexDirection: "row", gap: 8 },
   cardCelebrateEmojiWrap: {
     position: "absolute",
     left: 0,
@@ -960,7 +997,7 @@ const styles = StyleSheet.create({
     fontSize: 44,
     lineHeight: 48,
   },
-  cardActionBtn: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: "center" },
+  cardActionBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 13, alignItems: "center" },
   cardActionBtnPreparing: { backgroundColor: "#B86A00", borderColor: "#B86A00" },
   cardActionBtnInDelivery: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
   cardActionBtnDelivered: { backgroundColor: "#0F766E", borderColor: "#0F766E" },
@@ -968,10 +1005,10 @@ const styles = StyleSheet.create({
   cardActionBtnKapidaPulse: { borderWidth: 2, borderColor: "#F97316" },
   cardActionBtnDisabled: { opacity: 0.6 },
   cardActionBtnText: { fontWeight: "800", fontSize: 13, color: "#FFFFFF" },
-  actions: { gap: 10 },
+  actions: { gap: 12, marginTop: 8 },
   switchRoleButton: {
-    height: 44,
-    borderRadius: 12,
+    height: 48,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#CFC5B6",
     backgroundColor: "#F7F4EF",
