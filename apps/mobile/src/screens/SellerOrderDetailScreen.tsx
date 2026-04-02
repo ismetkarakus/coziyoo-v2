@@ -58,6 +58,10 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   if (normalized === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing" };
   }
+  if (pickup && (normalized === "preparing" || normalized === "ready")) {
+    return { label: "Alıcı Yolda", toStatus: "in_delivery" };
+  }
+  if (pickup && normalized === "in_delivery") return { label: "Kapıda", toStatus: "at_door" };
   if (!pickup && (normalized === "preparing" || normalized === "ready")) {
     return { label: "Yola Çıktı", toStatus: "in_delivery" };
   }

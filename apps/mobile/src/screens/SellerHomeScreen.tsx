@@ -142,16 +142,17 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (status === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing", tone: "preparing" };
   }
+  if (pickup && (status === "preparing" || status === "ready")) {
+    return { label: "Alıcı Yolda", toStatus: "in_delivery", tone: "in_delivery" };
+  }
   if (!pickup && status === "preparing") {
     return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
   if (!pickup && status === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
-  if (!pickup && status === "in_delivery") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
+  if (status === "in_delivery") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
   if (pickup && status === "at_door") return { label: "Teslim Edildi", toStatus: "delivered", tone: "delivered" };
-  if (pickup && status === "in_delivery") return null;
-  if (pickup && (status === "preparing" || status === "ready")) return null;
   if (!pickup && status === "at_door") return { label: "Teslim Edildi", toStatus: "delivered", tone: "delivered" };
   return null;
 }

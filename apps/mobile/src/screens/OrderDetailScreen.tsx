@@ -339,23 +339,6 @@ export default function OrderDetailScreen({
     }
   }
 
-  async function handlePickupBuyerProgress(toStatus: 'in_delivery' | 'at_door') {
-    if (!order) return;
-    setActionLoading(true);
-    const result = await apiRequest(
-      `/v1/orders/${order.id}/status`,
-      auth,
-      { method: 'POST', body: { toStatus }, actorRole: 'buyer' },
-      onAuthRefresh,
-    );
-    setActionLoading(false);
-    if (result.ok) {
-      void fetchOrder();
-      return;
-    }
-    Alert.alert('Hata', result.message ?? 'Durum güncellenemedi');
-  }
-
   function formatEventDate(iso: string): string {
     if (!iso) return '-';
     const normalized = iso.trim().replace(' ', 'T').replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');
@@ -398,22 +381,13 @@ export default function OrderDetailScreen({
   const addressText = formatDeliveryAddress(order.deliveryAddress);
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
-  const canComplete = isBuyer && COMPLETABLE.includes(order.status);
+  const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
   const canPay =
     isBuyer &&
     !order.paymentCompleted &&
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
-  const canPickupProgress =
-    isBuyer &&
-    order.deliveryType === 'pickup' &&
-    ['preparing', 'ready', 'in_delivery'].includes(order.status);
-  const pickupProgressAction = canPickupProgress
-    ? (order.status === 'in_delivery'
-      ? { label: 'Kapıdayım', toStatus: 'at_door' as const }
-      : { label: 'Alıcı Yolda', toStatus: 'in_delivery' as const })
-    : null;
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status);
   const buyerFlowCurrentIndex = BUYER_FLOW_STEPS.indexOf(
     buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected' ? 'preparing' : buyerFlowStatus
@@ -561,15 +535,6 @@ export default function OrderDetailScreen({
               <Ionicons name="checkmark-circle" size={18} color="#2F7B4B" />
               <Text style={styles.completeNoticeText}>Sipariş tamamlandı.</Text>
             </View>
-          ) : null}
-          {pickupProgressAction ? (
-            <ActionButton
-              label={pickupProgressAction.label}
-              onPress={() => handlePickupBuyerProgress(pickupProgressAction.toStatus)}
-              loading={actionLoading}
-              variant="primary"
-              fullWidth
-            />
           ) : null}
           {canPay && onOpenPayment && (
             <ActionButton label="Ödeme Yap" onPress={() => onOpenPayment(order.id)} variant="primary" fullWidth />

@@ -990,15 +990,7 @@ async function transitionHandler(
       currentStatus = "paid";
     }
 
-    const buyerPickupStatusAllowed =
-      actorRole === "buyer" &&
-      order.delivery_type === "pickup" &&
-      (
-        ((currentStatus === "preparing" || currentStatus === "ready") && toStatus === "in_delivery") ||
-        (currentStatus === "in_delivery" && toStatus === "at_door")
-      );
-
-    if (!canActorSetStatus(actorRole, toStatus) && !buyerPickupStatusAllowed) {
+    if (!canActorSetStatus(actorRole, toStatus)) {
       await client.query("ROLLBACK");
       return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Actor cannot set target status" } });
     }
