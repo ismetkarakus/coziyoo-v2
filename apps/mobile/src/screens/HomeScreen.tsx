@@ -1282,6 +1282,7 @@ export default function HomeScreen({
   const [inboxInput, setInboxInput] = useState('');
   const [messagesWallpaperIndex, setMessagesWallpaperIndex] = useState(0);
   const [selectedMeal, setSelectedMeal] = useState<MealCard | null>(null);
+  const [lastCartMealDetail, setLastCartMealDetail] = useState<MealCard | null>(null);
   const [selectedMealAddons, setSelectedMealAddons] = useState<CartItem["selectedAddons"]>({
     free: [],
     paid: [],
@@ -2111,8 +2112,9 @@ export default function HomeScreen({
     setPaymentError(null);
     setPaymentInfo(null);
     setPaymentStatus(null);
+    const latestMeal = meals.find((m) => m.id === meal.id) ?? meal;
+    setLastCartMealDetail(latestMeal);
     setCartItems((prev) => {
-      const latestMeal = meals.find((m) => m.id === meal.id) ?? meal;
       const totalStock = Math.max(0, latestMeal.stock ?? 0);
       const nextKey = buildCartItemKey(latestMeal.id);
       const existing = prev.find((item) => item.key === nextKey);
@@ -2595,6 +2597,22 @@ export default function HomeScreen({
     setActiveTab(tab);
   }
 
+  function openMealDetail(meal: MealCard) {
+    setLastCartMealDetail(meal);
+    setSelectedMeal(meal);
+  }
+
+  function handleCartBackPress() {
+    const fallbackFromCart = cartItems.length > 0 ? cartItems[cartItems.length - 1].meal : null;
+    const mealToOpen = lastCartMealDetail ?? fallbackFromCart;
+    if (!mealToOpen) {
+      setActiveTab('home');
+      return;
+    }
+    setActiveTab('home');
+    openMealDetail(mealToOpen);
+  }
+
   function handleSloganMarqueePress() {
     feedScrollRef.current?.scrollTo({
       y: Math.max(0, foodSectionOffsetY - 12),
@@ -2984,7 +3002,7 @@ export default function HomeScreen({
                 key={`rec-${meal.id}`}
                 style={styles.sellerChip}
                 activeOpacity={0.86}
-                onPress={() => setSelectedMeal(meal)}
+                onPress={() => openMealDetail(meal)}
               >
                 <View style={styles.sellerChipAvatar}>
                   {meal.imageUrl ? (
@@ -3010,7 +3028,7 @@ export default function HomeScreen({
               meal={meal}
               isFavorite={Boolean(favoriteIds[meal.id])}
               favoritePending={Boolean(favoritePendingIds[meal.id])}
-              onPress={() => setSelectedMeal(meal)}
+              onPress={() => openMealDetail(meal)}
               onFavoritePress={() => {
                 void toggleFavorite(meal.id);
               }}
@@ -3104,7 +3122,16 @@ export default function HomeScreen({
       return (
         <View style={styles.cartWrap}>
           <View style={styles.cartHeader}>
-            <Text style={styles.tabPanelTitle}>Sepet</Text>
+            <View style={styles.cartHeaderLeft}>
+              <TouchableOpacity
+                style={styles.cartBackBtn}
+                onPress={handleCartBackPress}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chevron-back" size={22} color="#4E433A" />
+              </TouchableOpacity>
+              <Text style={styles.tabPanelTitle}>Sepet</Text>
+            </View>
             <Text style={styles.cartHeaderCount}>{cartCount} urun</Text>
           </View>
           {cartItems.length === 0 ? (
@@ -4030,7 +4057,7 @@ export default function HomeScreen({
                     activeOpacity={0.85}
                     onPress={() => {
                       setSelectedSeller(null);
-                      setSelectedMeal(meal);
+                      openMealDetail(meal);
                     }}
                   >
                     <View style={styles.sellerMealTextWrap}>
@@ -5080,6 +5107,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  cartHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cartBackBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cartHeaderCount: { color: '#8D8072', fontSize: 13, fontWeight: '600' },
   cartList: { flex: 1 },
