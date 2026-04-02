@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { request, parseJson } from "../lib/api";
 import { subscribeOrdersAndFoodsRealtime } from "../lib/realtime";
@@ -8,6 +8,64 @@ import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/form
 import { printModalContent } from "../lib/print";
 import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
+
+type RecordRowProps = {
+  row: Record<string, unknown>;
+  displayColumns: string[];
+  tableKey: "orders" | "foods";
+  renderRecordsCell: (column: string, value: unknown) => ReactNode;
+  onRowClick: ((row: Record<string, unknown>) => void) | undefined;
+  isSelected: boolean;
+  onToggleSelect: (row: Record<string, unknown>, checked: boolean) => void;
+  selectLabel: string;
+};
+
+const RecordRow = memo(function RecordRow({
+  row,
+  displayColumns,
+  tableKey,
+  renderRecordsCell,
+  onRowClick,
+  isSelected,
+  onToggleSelect,
+  selectLabel,
+}: RecordRowProps) {
+  return (
+    <tr
+      className={tableKey === "orders" ? "records-order-row" : undefined}
+      onClick={onRowClick ? () => void onRowClick(row) : undefined}
+    >
+      {tableKey === "orders" ? (
+        <td>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            aria-label={selectLabel}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onToggleSelect(row, event.target.checked)}
+          />
+        </td>
+      ) : null}
+      {displayColumns.map((column) => (
+        <td key={column}>
+          {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+function mergeRows(
+  prev: Record<string, unknown>[],
+  next: Record<string, unknown>[]
+): Record<string, unknown>[] {
+  const prevById = new Map(prev.map((r) => [String(r.id ?? ""), r]));
+  return next.map((newRow) => {
+    const existing = prevById.get(String(newRow.id ?? ""));
+    if (existing && JSON.stringify(existing) === JSON.stringify(newRow)) return existing;
+    return newRow;
+  });
+}
 
 export default function RecordsPage({ language, tableKey }: { language: Language; tableKey: "orders" | "foods" }) {
   const location = useLocation();
@@ -272,7 +330,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     };
   };
 
-  const renderRecordsCell = (column: string, value: unknown): ReactNode => {
+  const renderRecordsCell = useCallback((column: string, value: unknown): ReactNode => {
     if (tableKey !== "orders") return renderCell(value, column);
 
     if (column === "__display_id") {
@@ -326,7 +384,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
 
     return renderCell(value, column);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableKey, userNameById, foodNameById, language, dict]);
 
   const orderCellText = (column: string, value: unknown): string => {
     if (column === "__display_id") return toDisplayId(value);
@@ -402,7 +461,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${text.slice(0, 8)}...${text.slice(-6)}`;
   };
 
-  async function openOrderDetails(row: Record<string, unknown>) {
+  const openOrderDetails = useCallback(async function openOrderDetails(row: Record<string, unknown>) {
     const orderId = String(row.id ?? "").trim();
     if (!orderId) return;
     setSelectedOrder(row);
@@ -464,9 +523,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     } finally {
       setOrderItemsLoading(false);
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  function toggleOrderSelection(row: Record<string, unknown>, checked: boolean) {
+  const toggleOrderSelection = useCallback(function toggleOrderSelection(row: Record<string, unknown>, checked: boolean) {
     const id = String(row.id ?? "").trim();
     if (!id) return;
     setSelectedOrderMap((prev) => {
@@ -475,7 +535,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       delete next[id];
       return next;
     });
-  }
+  }, []);
 
   function toggleAllVisibleOrders(checked: boolean) {
     if (tableKey !== "orders") return;
@@ -639,7 +699,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
           };
         }>(response);
 
-        setRows(body.data.rows);
+        setRows((prev) => (isSilentRefresh ? mergeRows(prev, body.data.rows) : body.data.rows));
         setColumns(body.data.columns);
         setPagination({ total: body.pagination.total, totalPages: body.pagination.totalPages });
         setLoading(false);
@@ -889,29 +949,18 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <td colSpan={Math.max((tableKey === "orders" ? orderColumns.length + 2 : orderColumns.length), 1)}>{dict.common.noRecords}</td>
                 </tr>
               ) : (
-                rows.map((row, index) => (
-                  <tr
-                    key={`${tableKey}-${index}`}
-                    className={tableKey === "orders" ? "records-order-row" : undefined}
-                    onClick={tableKey === "orders" ? () => void openOrderDetails(row) : undefined}
-                  >
-                    {tableKey === "orders" ? (
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selectedOrderMap[String(row.id ?? "").trim()])}
-                          aria-label={dict.records.selectOrder}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => toggleOrderSelection(row, event.target.checked)}
-                        />
-                      </td>
-                    ) : null}
-                    {displayColumns.map((column) => (
-                      <td key={`${index}-${column}`}>
-                        {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
-                      </td>
-                    ))}
-                  </tr>
+                rows.map((row) => (
+                  <RecordRow
+                    key={String(row.id ?? "")}
+                    row={row}
+                    displayColumns={displayColumns}
+                    tableKey={tableKey}
+                    renderRecordsCell={renderRecordsCell}
+                    onRowClick={tableKey === "orders" ? openOrderDetails : undefined}
+                    isSelected={Boolean(selectedOrderMap[String(row.id ?? "").trim()])}
+                    onToggleSelect={toggleOrderSelection}
+                    selectLabel={dict.records.selectOrder}
+                  />
                 ))
               )}
             </tbody>
