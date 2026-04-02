@@ -42,6 +42,11 @@ type TableKey = z.infer<typeof TableKeySchema>;
 type ColumnSensitivity = "public" | "internal" | "secret";
 const EXCLUDED_METADATA_COLUMNS = new Set(["short_id"]);
 
+type ColumnDef = { name: string; type: string; nullable: boolean; sensitivity: ColumnSensitivity };
+
+// Cache column definitions per table so information_schema is not queried on every poll.
+const columnDefsCache = new Map<string, ColumnDef[]>();
+
 // Per-table columns excluded from API responses (still stored in DB but not exposed).
 const TABLE_EXCLUDED_COLUMNS: Partial<Record<TableKey, Set<string>>> = {
   orderItems: new Set(["id", "order_id"]),
@@ -90,7 +95,10 @@ function resolveSensitivity(columnName: string): ColumnSensitivity {
   return "public";
 }
 
-async function loadColumnDefinitions(tableName: string) {
+async function loadColumnDefinitions(tableName: string): Promise<ColumnDef[]> {
+  const cached = columnDefsCache.get(tableName);
+  if (cached) return cached;
+
   const fields = await pool.query<{
     column_name: string;
     data_type: string;
@@ -104,12 +112,15 @@ async function loadColumnDefinitions(tableName: string) {
     [tableName]
   );
 
-  return fields.rows.map((f) => ({
+  const result: ColumnDef[] = fields.rows.map((f) => ({
     name: f.column_name,
     type: f.data_type,
     nullable: f.is_nullable === "YES",
     sensitivity: resolveSensitivity(f.column_name),
   }));
+
+  columnDefsCache.set(tableName, result);
+  return result;
 }
 
 function normalizeColumns(columns: string[], allowedColumns: string[]) {

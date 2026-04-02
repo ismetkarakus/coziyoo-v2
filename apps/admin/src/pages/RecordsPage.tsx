@@ -105,7 +105,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const restartInterval = () => {
       if (intervalId) window.clearInterval(intervalId);
       if (document.visibilityState === "visible") {
-        intervalId = window.setInterval(tick, 15000);
+        intervalId = window.setInterval(tick, 5000);
       }
     };
     const onVisibility = () => {
