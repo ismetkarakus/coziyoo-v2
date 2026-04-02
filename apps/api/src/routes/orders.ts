@@ -1045,7 +1045,7 @@ async function transitionHandler(
     }
 
     const skipProofCheck = env.PAYMENT_PROVIDER_NAME === "mockpay";
-    if (!skipProofCheck && ["delivered", "completed"].includes(toStatus) && order.delivery_type === "delivery") {
+    if (!skipProofCheck && toStatus === "completed") {
       const hasProofTable = await tableExistsTx(client, "public.delivery_proof_records");
       if (!hasProofTable) {
         console.warn("[orders] delivery proof table missing, skipping proof check", {
@@ -1062,7 +1062,7 @@ async function transitionHandler(
           return res.status(409).json({
             error: {
               code: "DELIVERY_PIN_REQUIRED",
-              message: "Delivery orders require verified PIN before delivered/completed transitions",
+              message: "Order completion requires verified PIN",
             },
           });
         }

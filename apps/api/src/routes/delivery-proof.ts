@@ -44,9 +44,8 @@ deliveryProofRouter.post("/:id/delivery-proof/pin/send", requireAuth("app"), asy
     const order = await client.query<{
       buyer_id: string;
       seller_id: string;
-      delivery_type: string;
       status: string;
-    }>("SELECT buyer_id, seller_id, delivery_type, status FROM orders WHERE id = $1 FOR UPDATE", [orderId]);
+    }>("SELECT buyer_id, seller_id, status FROM orders WHERE id = $1 FOR UPDATE", [orderId]);
 
     if ((order.rowCount ?? 0) === 0) {
       await client.query("ROLLBACK");
@@ -57,14 +56,10 @@ deliveryProofRouter.post("/:id/delivery-proof/pin/send", requireAuth("app"), asy
       await client.query("ROLLBACK");
       return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not seller of this order" } });
     }
-    if (row.delivery_type !== "delivery") {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: { code: "DELIVERY_PROOF_NOT_REQUIRED", message: "Order is not delivery type" } });
-    }
-    if (!["ready", "in_delivery"].includes(row.status)) {
+    if (!["ready", "in_delivery", "approaching", "at_door"].includes(row.status)) {
       await client.query("ROLLBACK");
       return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: "PIN can be sent only in ready/in_delivery states" },
+        error: { code: "ORDER_INVALID_STATE", message: "PIN can be sent only in ready/in_delivery/approaching/at_door states" },
       });
     }
 
@@ -308,4 +303,3 @@ function safeEqualHex(a: string, b: string): boolean {
   const bb = Buffer.from(b, "hex");
   return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
 }
-
