@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, StatusBar, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, StatusBar, Alert, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { theme } from '../theme/colors';
 import { type AuthSession } from '../utils/auth';
 import { apiRequest } from '../utils/api';
@@ -46,16 +45,6 @@ type OrderDetail = {
   events: { eventType: string; fromStatus: string | null; toStatus: string | null; createdAt: string; reason?: string | null }[];
 };
 
-type OrderTracking = {
-  orderId: string;
-  status: string;
-  statusLabel: string;
-  isDelivery: boolean;
-  estimatedDeliveryTime: string | null;
-  remainingMinutes: number | null;
-  lastSellerLocationAt: string | null;
-};
-
 function formatDeliveryAddress(value: unknown): string | null {
   if (!value) return null;
 
@@ -85,6 +74,18 @@ function formatDeliveryAddress(value: unknown): string | null {
 
   if (chunks.length === 0) return null;
   return Array.from(new Set(chunks)).join(', ');
+}
+
+async function openAddressInMaps(address: string): Promise<void> {
+  const query = address.trim();
+  if (!query) return;
+  const encoded = encodeURIComponent(query);
+  const url = Platform.OS === 'ios'
+    ? `http://maps.apple.com/?q=${encoded}`
+    : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+  const supported = await Linking.canOpenURL(url);
+  if (!supported) throw new Error('Harita uygulaması açılamadı');
+  await Linking.openURL(url);
 }
 
 type Props = {
@@ -157,9 +158,6 @@ export default function OrderDetailScreen({
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelModal, setCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const [tracking, setTracking] = useState<OrderTracking | null>(null);
-  const [trackingFocused, setTrackingFocused] = useState(false);
-  const locationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOrder = useCallback(async () => {
@@ -194,33 +192,6 @@ export default function OrderDetailScreen({
   }, [orderId, auth, onAuthRefresh]);
 
   const isBuyer = order?.buyerId === auth.userId;
-  const actorRole = isBuyer ? 'buyer' : 'seller';
-
-  const fetchTracking = useCallback(async () => {
-    if (!order || order.deliveryType !== 'delivery') {
-      setTracking(null);
-      return;
-    }
-    const result = await apiRequest<OrderTracking>(
-      `/v1/orders/${order.id}/tracking`,
-      auth,
-      { actorRole },
-      onAuthRefresh,
-    );
-    if (result.ok) {
-      setTracking(result.data);
-    }
-  }, [actorRole, auth, onAuthRefresh, order]);
-
-  useEffect(() => {
-    if (!order || order.deliveryType !== 'delivery') return;
-    void fetchTracking();
-    const active = ['preparing', 'ready', 'in_delivery', 'approaching', 'at_door'].includes(order.status);
-    if (!active) return;
-    const timer = setInterval(() => { void fetchTracking(); }, 20_000);
-    return () => clearInterval(timer);
-  }, [fetchTracking, order]);
-
   useEffect(() => {
     if (statusPollRef.current) {
       clearInterval(statusPollRef.current);
@@ -242,55 +213,8 @@ export default function OrderDetailScreen({
     if (!order?.id) return () => {};
     return subscribeOrderRealtime(order.id, () => {
       void refreshOrderStatus();
-      void fetchTracking();
     });
-  }, [order?.id, refreshOrderStatus, fetchTracking]);
-
-  // Seller location ping — only when seller + in_delivery + delivery type
-  useEffect(() => {
-    const isSeller = order?.sellerId === auth.userId;
-    if (!order || !isSeller || order.deliveryType !== 'delivery' || order.status !== 'in_delivery') {
-      if (locationTimerRef.current) {
-        clearInterval(locationTimerRef.current);
-        locationTimerRef.current = null;
-      }
-      return;
-    }
-
-    async function pingLocation() {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        await apiRequest(
-          `/v1/orders/${order!.id}/location`,
-          auth,
-          {
-            method: 'POST',
-            body: {
-              lat: loc.coords.latitude,
-              lng: loc.coords.longitude,
-              accuracyM: loc.coords.accuracy ?? undefined,
-            },
-            actorRole: 'seller',
-          },
-          onAuthRefresh,
-        );
-      } catch {
-        // Best-effort, silently ignore
-      }
-    }
-
-    void pingLocation();
-    locationTimerRef.current = setInterval(() => { void pingLocation(); }, 15_000);
-
-    return () => {
-      if (locationTimerRef.current) {
-        clearInterval(locationTimerRef.current);
-        locationTimerRef.current = null;
-      }
-    };
-  }, [auth, onAuthRefresh, order]);
+  }, [order?.id, refreshOrderStatus]);
 
   async function handleCancel() {
     if (!order) return;
@@ -345,16 +269,6 @@ export default function OrderDetailScreen({
               ],
         };
       });
-      setTracking((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'completed',
-              statusLabel: 'Tamamlandı',
-              remainingMinutes: 0,
-            }
-          : prev,
-      );
       void fetchOrder();
     } else {
       Alert.alert('Hata', result.message ?? 'Tamamlanamadı');
@@ -369,15 +283,6 @@ export default function OrderDetailScreen({
     const h = d.getHours().toString().padStart(2, '0');
     const m = d.getMinutes().toString().padStart(2, '0');
     return `${formatDate(iso)} ${h}:${m}`;
-  }
-
-  function formatLastUpdate(iso: string | null | undefined): string {
-    if (!iso) return 'Az önce güncelleniyor';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return 'Az önce güncelleniyor';
-    const hh = d.getHours().toString().padStart(2, '0');
-    const mm = d.getMinutes().toString().padStart(2, '0');
-    return `Son güncelleme: ${hh}:${mm}`;
   }
 
   if (loading) {
@@ -401,6 +306,10 @@ export default function OrderDetailScreen({
   }
 
   const addressText = formatDeliveryAddress(order.deliveryAddress);
+  const pickupSellerAddressText = [order.sellerAddress?.title, order.sellerAddress?.addressLine].filter(Boolean).join(' · ');
+  const mapAddressText = order.deliveryType === 'delivery'
+    ? addressText
+    : (pickupSellerAddressText || null);
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
@@ -445,35 +354,6 @@ export default function OrderDetailScreen({
           <Text style={styles.sectionValue}>{order.sellerName}</Text>
         </View>
 
-        {order.deliveryType === 'delivery' && (
-          <View style={styles.section}>
-            <SectionDivider icon="navigate-outline" label="Canlı Teslimat Durumu" />
-            <TouchableOpacity
-              style={[styles.liveWatchButton, trackingFocused && styles.liveWatchButtonActive]}
-              activeOpacity={0.85}
-              onPress={() => setTrackingFocused((prev) => !prev)}
-            >
-              <Text style={[styles.liveWatchButtonText, trackingFocused && styles.liveWatchButtonTextActive]}>
-                {trackingFocused ? 'Canlı izleme açık' : 'Canlı izle'}
-              </Text>
-            </TouchableOpacity>
-
-            {trackingFocused ? (
-              <View style={styles.trackingPanel}>
-                <Text style={styles.trackingStatus}>{tracking?.statusLabel ?? 'Durum güncelleniyor'}</Text>
-                <Text style={styles.trackingEta}>
-                  {tracking?.remainingMinutes !== null && tracking?.remainingMinutes !== undefined
-                    ? `${tracking.remainingMinutes} dk kaldı`
-                    : 'Kalan süre hesaplanıyor'}
-                </Text>
-                <Text style={styles.trackingLastUpdate}>{formatLastUpdate(tracking?.lastSellerLocationAt)}</Text>
-              </View>
-            ) : (
-              <Text style={styles.trackingHint}>Canlı süre bilgisini görmek için "Canlı izle"ye dokun.</Text>
-            )}
-          </View>
-        )}
-
         {/* Items */}
         <View style={styles.section}>
           <SectionDivider icon="fast-food-outline" label="Ürünler" />
@@ -510,11 +390,22 @@ export default function OrderDetailScreen({
             icon={order.deliveryType === 'delivery' ? 'location-outline' : 'storefront-outline'}
             label={order.deliveryType === 'delivery' ? 'Teslimat Adresi' : 'Gel Al'}
           />
-          <Text style={styles.sectionValue}>
-            {order.deliveryType === 'delivery'
-              ? (addressText || 'Adres bilgisi yok')
-              : [order.sellerAddress?.title, order.sellerAddress?.addressLine].filter(Boolean).join(' · ') || 'Satıcıdan teslim alınacak'}
-          </Text>
+          <TouchableOpacity
+            activeOpacity={mapAddressText ? 0.78 : 1}
+            disabled={!mapAddressText}
+            onPress={() => {
+              if (!mapAddressText) return;
+              openAddressInMaps(mapAddressText).catch((error) => {
+                Alert.alert('Hata', error instanceof Error ? error.message : 'Harita açılamadı');
+              });
+            }}
+          >
+            <Text style={[styles.sectionValue, mapAddressText && styles.sectionValueLink]}>
+              {order.deliveryType === 'delivery'
+                ? (addressText || 'Adres bilgisi yok')
+                : (pickupSellerAddressText || 'Satıcıdan teslim alınacak')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Date */}
@@ -627,36 +518,9 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sectionValue: { color: theme.text, fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  sectionValueLink: { textDecorationLine: 'underline' },
   itemRowWrap: { marginBottom: 6 },
   itemAddonLine: { marginTop: 4, marginLeft: 6, color: '#71685F', fontSize: 13 },
-  liveWatchButton: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
-    borderRadius: 10,
-    backgroundColor: '#EAF4EE',
-    borderWidth: 1,
-    borderColor: '#CDE0D4',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  liveWatchButtonActive: {
-    backgroundColor: '#3F855C',
-    borderColor: '#3F855C',
-  },
-  liveWatchButtonText: { color: '#2E241C', fontSize: 13, fontWeight: '700' },
-  liveWatchButtonTextActive: { color: '#FFFFFF' },
-  trackingPanel: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#E6DDD3',
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: '#FFFCF7',
-  },
-  trackingStatus: { color: theme.text, fontSize: 16, fontWeight: '800' },
-  trackingEta: { color: '#71685F', fontSize: 14, fontWeight: '600', marginTop: 4 },
-  trackingLastUpdate: { color: '#9B8E80', fontSize: 12, marginTop: 6, fontWeight: '600' },
-  trackingHint: { color: '#71685F', fontSize: 13, marginTop: 8, fontWeight: '600' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

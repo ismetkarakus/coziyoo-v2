@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -45,7 +45,20 @@ type OrderDetail = {
     };
   }>;
   deliveryAddress?: { title?: string; addressLine?: string; line?: string } | null;
+  sellerAddress?: { title?: string; addressLine?: string; line?: string } | null;
 };
+
+async function openAddressInMaps(address: string): Promise<void> {
+  const query = address.trim();
+  if (!query) return;
+  const encoded = encodeURIComponent(query);
+  const url = Platform.OS === "ios"
+    ? `http://maps.apple.com/?q=${encoded}`
+    : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+  const supported = await Linking.canOpenURL(url);
+  if (!supported) throw new Error("Harita uygulaması açılamadı");
+  await Linking.openURL(url);
+}
 
 function normalizeFlowStatus(status: string): string {
   if (status === "completed") return "delivered";
@@ -141,6 +154,15 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     return getNextAction(order.status, order.deliveryType);
   }, [order?.status, order?.deliveryType]);
   const actionColors = action ? actionTone(action.toStatus) : null;
+  const deliveryAddressText = useMemo(() => {
+    if (!order) return "";
+    return [order.deliveryAddress?.title, order.deliveryAddress?.addressLine || order.deliveryAddress?.line].filter(Boolean).join(" · ");
+  }, [order]);
+  const pickupSellerAddressText = useMemo(() => {
+    if (!order) return "";
+    return [order.sellerAddress?.title, order.sellerAddress?.addressLine || order.sellerAddress?.line].filter(Boolean).join(" · ");
+  }, [order]);
+  const mapAddressText = order?.deliveryType === "delivery" ? deliveryAddressText : pickupSellerAddressText;
   const sellerStatusBadgeKey = useMemo(() => {
     if (!order) return "";
     const normalized = normalizeFlowStatus(order.status);
@@ -209,13 +231,37 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           {order.deliveryType === "delivery" ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Teslimat Adresi</Text>
-              <Text style={styles.meta}>{order.deliveryAddress?.title || "-"}</Text>
-              <Text style={styles.meta}>{order.deliveryAddress?.addressLine || order.deliveryAddress?.line || "-"}</Text>
+              <TouchableOpacity
+                activeOpacity={mapAddressText ? 0.78 : 1}
+                disabled={!mapAddressText}
+                onPress={() => {
+                  if (!mapAddressText) return;
+                  openAddressInMaps(mapAddressText).catch((error) => {
+                    Alert.alert("Hata", error instanceof Error ? error.message : "Harita açılamadı");
+                  });
+                }}
+              >
+                <Text style={[styles.meta, mapAddressText ? styles.linkText : null]}>{order.deliveryAddress?.title || "-"}</Text>
+                <Text style={[styles.meta, mapAddressText ? styles.linkText : null]}>{order.deliveryAddress?.addressLine || order.deliveryAddress?.line || "-"}</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Gel Al</Text>
-              <Text style={styles.meta}>Alıcı siparişi sizden teslim alacak.</Text>
+              <TouchableOpacity
+                activeOpacity={mapAddressText ? 0.78 : 1}
+                disabled={!mapAddressText}
+                onPress={() => {
+                  if (!mapAddressText) return;
+                  openAddressInMaps(mapAddressText).catch((error) => {
+                    Alert.alert("Hata", error instanceof Error ? error.message : "Harita açılamadı");
+                  });
+                }}
+              >
+                <Text style={[styles.meta, mapAddressText ? styles.linkText : null]}>
+                  {pickupSellerAddressText || "Alıcı siparişi sizden teslim alacak."}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
           <View style={styles.card}>
@@ -277,6 +323,7 @@ const styles = StyleSheet.create({
   meta: { marginTop: 4, color: "#6C6055" },
   total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   sectionTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 4 },
+  linkText: { textDecorationLine: "underline" },
   itemRowWrap: { marginTop: 4 },
   addonMeta: { marginTop: 4, color: "#8A7D72", fontSize: 12.5 },
   actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
