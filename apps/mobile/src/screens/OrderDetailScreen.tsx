@@ -121,6 +121,11 @@ function buyerFlowLabel(step: BuyerFlowStep): string {
   return 'Teslim Edildi';
 }
 
+function buyerFlowLabelByDeliveryType(step: BuyerFlowStep, deliveryType: 'pickup' | 'delivery'): string {
+  if (step === 'in_delivery') return deliveryType === 'pickup' ? 'Alıcı Yolda' : 'Yola Çıktı';
+  return buyerFlowLabel(step);
+}
+
 export default function OrderDetailScreen({
   auth, orderId, onBack, onOpenPayment, onOpenReview, onOpenComplaint, onAuthRefresh,
 }: Props) {
@@ -334,6 +339,23 @@ export default function OrderDetailScreen({
     }
   }
 
+  async function handlePickupBuyerProgress(toStatus: 'in_delivery' | 'at_door') {
+    if (!order) return;
+    setActionLoading(true);
+    const result = await apiRequest(
+      `/v1/orders/${order.id}/status`,
+      auth,
+      { method: 'POST', body: { toStatus }, actorRole: 'buyer' },
+      onAuthRefresh,
+    );
+    setActionLoading(false);
+    if (result.ok) {
+      void fetchOrder();
+      return;
+    }
+    Alert.alert('Hata', result.message ?? 'Durum güncellenemedi');
+  }
+
   function formatEventDate(iso: string): string {
     if (!iso) return '-';
     const normalized = iso.trim().replace(' ', 'T').replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');
@@ -383,6 +405,15 @@ export default function OrderDetailScreen({
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
+  const canPickupProgress =
+    isBuyer &&
+    order.deliveryType === 'pickup' &&
+    ['preparing', 'ready', 'in_delivery'].includes(order.status);
+  const pickupProgressAction = canPickupProgress
+    ? (order.status === 'in_delivery'
+      ? { label: 'Kapıdayım', toStatus: 'at_door' as const }
+      : { label: 'Alıcı Yolda', toStatus: 'in_delivery' as const })
+    : null;
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status);
   const buyerFlowCurrentIndex = BUYER_FLOW_STEPS.indexOf(
     buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected' ? 'preparing' : buyerFlowStatus
@@ -403,7 +434,7 @@ export default function OrderDetailScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Status + Order No */}
         <View style={styles.topRow}>
-          <StatusBadge status={buyerFlowStatus} size="md" />
+          <StatusBadge status={buyerFlowStatus} size="md" deliveryType={order.deliveryType} />
           <Text style={styles.orderNo}>{orderNo(order.id)}</Text>
         </View>
 
@@ -503,7 +534,7 @@ export default function OrderDetailScreen({
                 <TimelineStep
                   key={step}
                   status={step}
-                  label={buyerFlowLabel(step)}
+                  label={buyerFlowLabelByDeliveryType(step, order.deliveryType)}
                   date={dateValue ? formatEventDate(dateValue) : (fallbackDate ? formatEventDate(fallbackDate) : 'Bekleniyor')}
                   isLast={idx === BUYER_FLOW_STEPS.length - 1}
                   isActive={reached}
@@ -530,6 +561,15 @@ export default function OrderDetailScreen({
               <Ionicons name="checkmark-circle" size={18} color="#2F7B4B" />
               <Text style={styles.completeNoticeText}>Sipariş tamamlandı.</Text>
             </View>
+          ) : null}
+          {pickupProgressAction ? (
+            <ActionButton
+              label={pickupProgressAction.label}
+              onPress={() => handlePickupBuyerProgress(pickupProgressAction.toStatus)}
+              loading={actionLoading}
+              variant="primary"
+              fullWidth
+            />
           ) : null}
           {canPay && onOpenPayment && (
             <ActionButton label="Ödeme Yap" onPress={() => onOpenPayment(order.id)} variant="primary" fullWidth />

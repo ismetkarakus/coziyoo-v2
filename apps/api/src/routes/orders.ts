@@ -935,9 +935,6 @@ async function transitionHandler(
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
   }
   const { toStatus, reason } = parsed.data;
-  if (!canActorSetStatus(actorRole, toStatus)) {
-    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Actor cannot set target status" } });
-  }
 
   const client = await pool.connect();
   const pushQueue: PushNotificationPayload[] = [];
@@ -991,6 +988,19 @@ async function transitionHandler(
         [order.id, req.auth!.userId, order.status, JSON.stringify({ mode: "mockpay_test" })]
       );
       currentStatus = "paid";
+    }
+
+    const buyerPickupStatusAllowed =
+      actorRole === "buyer" &&
+      order.delivery_type === "pickup" &&
+      (
+        ((currentStatus === "preparing" || currentStatus === "ready") && toStatus === "in_delivery") ||
+        (currentStatus === "in_delivery" && toStatus === "at_door")
+      );
+
+    if (!canActorSetStatus(actorRole, toStatus) && !buyerPickupStatusAllowed) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Actor cannot set target status" } });
     }
 
     if (!canTransition(currentStatus, toStatus)) {

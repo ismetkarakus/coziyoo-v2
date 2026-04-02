@@ -54,14 +54,14 @@ function normalizeFlowStatus(status: string): string {
 
 function getNextAction(status: string, deliveryType?: string): { label: string; toStatus: string } | null {
   const normalized = normalizeFlowStatus(status);
-  void deliveryType;
+  const pickup = deliveryType === "pickup";
   if (normalized === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing" };
   }
-  if (normalized === "preparing" || normalized === "ready") {
+  if (!pickup && (normalized === "preparing" || normalized === "ready")) {
     return { label: "Yola Çıktı", toStatus: "in_delivery" };
   }
-  if (normalized === "in_delivery") return { label: "Kapıda", toStatus: "at_door" };
+  if (!pickup && normalized === "in_delivery") return { label: "Kapıda", toStatus: "at_door" };
   if (normalized === "at_door") return { label: "Teslim Edildi", toStatus: "delivered" };
   return null;
 }
@@ -178,7 +178,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.orderNo}>{order.orderNo || "#" + order.id.slice(0, 8).toUpperCase()}</Text>
-              <StatusBadge status={normalizeFlowStatus(order.status)} size="sm" />
+              <StatusBadge status={normalizeFlowStatus(order.status)} size="sm" deliveryType={order.deliveryType} />
             </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>

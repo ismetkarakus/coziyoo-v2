@@ -13,7 +13,7 @@ type RecordRowProps = {
   row: Record<string, unknown>;
   displayColumns: string[];
   tableKey: "orders" | "foods";
-  renderRecordsCell: (column: string, value: unknown) => ReactNode;
+  renderRecordsCell: (column: string, value: unknown, row?: Record<string, unknown>) => ReactNode;
   onRowClick: ((row: Record<string, unknown>) => void) | undefined;
   isSelected: boolean;
   onToggleSelect: (row: Record<string, unknown>, checked: boolean) => void;
@@ -48,7 +48,7 @@ const RecordRow = memo(function RecordRow({
       ) : null}
       {displayColumns.map((column) => (
         <td key={column}>
-          {renderRecordsCell(column, column === "__display_id" ? row.id : row[column])}
+          {renderRecordsCell(column, column === "__display_id" ? row.id : row[column], row)}
         </td>
       ))}
     </tr>
@@ -288,8 +288,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return status;
   };
 
-  const orderStatusMeta = (rawStatus: unknown): { label: string; note: string; toneClass: string } => {
+  const orderStatusMeta = (rawStatus: unknown, deliveryType?: unknown): { label: string; note: string; toneClass: string } => {
     const status = normalizeBuyerFlowStatus(rawStatus);
+    const delivery = String(deliveryType ?? "").trim().toLowerCase();
+    const pickupInDeliveryLabel = language === "tr" ? "Alıcı Yolda" : "Buyer on the way";
+    const pickupInDeliveryNote = language === "tr" ? "Alıcı satıcıya doğru geliyor" : "Buyer is coming to seller";
     const isTr = language === "tr";
     const map: Record<string, { label: string; note: string; toneClass: string }> = {
       preparing: {
@@ -298,8 +301,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         toneClass: "is-pending",
       },
       in_delivery: {
-        label: isTr ? "Yola çıktı" : "Out for delivery",
-        note: isTr ? "Sipariş yolda" : "Order is on the way",
+        label: delivery === "pickup" ? pickupInDeliveryLabel : (isTr ? "Yola çıktı" : "Out for delivery"),
+        note: delivery === "pickup" ? pickupInDeliveryNote : (isTr ? "Sipariş yolda" : "Order is on the way"),
         toneClass: "is-delivery",
       },
       at_door: {
@@ -330,7 +333,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     };
   };
 
-  const renderRecordsCell = useCallback((column: string, value: unknown): ReactNode => {
+  const renderRecordsCell = useCallback((column: string, value: unknown, row?: Record<string, unknown>): ReactNode => {
     if (tableKey !== "orders") return renderCell(value, column);
 
     if (column === "__display_id") {
@@ -348,7 +351,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
 
     if (column === "status") {
-      const meta = orderStatusMeta(value);
+      const meta = orderStatusMeta(value, row?.delivery_type);
       return <span className={`status-pill order-status-pill ${meta.toneClass}`}>{meta.label}</span>;
     }
 
@@ -387,7 +390,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableKey, userNameById, foodNameById, language, dict]);
 
-  const orderCellText = (column: string, value: unknown): string => {
+  const orderCellText = (column: string, value: unknown, row?: Record<string, unknown>): string => {
     if (column === "__display_id") return toDisplayId(value);
     if (column === "created_at" || column.endsWith("_at")) return formatOrderCreatedAt(value);
     if (column === "buyer_id" || column === "seller_id") {
@@ -395,7 +398,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       if (!raw) return "-";
       return userNameById[raw] ?? raw;
     }
-    if (column === "status") return orderStatusMeta(value).label;
+    if (column === "status") return orderStatusMeta(value, row?.delivery_type).label;
     if (column === "payment_completed") {
       const done = value === true || String(value).toLowerCase() === "true";
       return done ? dict.common.completed : dict.common.pending;
@@ -559,7 +562,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const exportColumns = ["__display_id", ...orderColumns];
     const headers = exportColumns.map((column) => orderColumnLabel(column));
     const rowsForExport = selectedOrders.map((row) =>
-      exportColumns.map((column) => orderCellText(column, column === "__display_id" ? row.id : row[column]))
+      exportColumns.map((column) => orderCellText(column, column === "__display_id" ? row.id : row[column], row))
     );
     const escapeCsv = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
     const csv = [headers, ...rowsForExport].map((line) => line.map((cell) => escapeCsv(String(cell))).join(",")).join("\n");
@@ -587,7 +590,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       "delivery_address_json",
     ] as const;
     const baseHeader = baseFields.map((key) => orderColumnLabel(key));
-    const baseRow = baseFields.map((key) => orderCellText(key, key === "__display_id" ? selectedOrder.id : selectedOrder[key]));
+    const baseRow = baseFields.map((key) => orderCellText(key, key === "__display_id" ? selectedOrder.id : selectedOrder[key], selectedOrder));
 
     const itemColumnsForExport = selectedOrderItemsColumns.includes("food_id")
       ? [...selectedOrderItemsColumns, "food_name"]
@@ -784,7 +787,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }, [selectedOrderItems, foodNameById]);
 
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
-  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status);
+  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status, selectedOrder?.delivery_type);
   const selectedStatusRaw = String(selectedOrder?.status ?? "").trim().toLowerCase();
   const selectedCancelReason = (() => {
     if (selectedStatusRaw !== "cancelled") return "";
@@ -1099,7 +1102,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                         })
                         .filter((event) => {
                           if (!event.toStatus) return false;
-                          if (!["preparing", "in_delivery", "delivered", "completed", "cancelled"].includes(event.toStatus)) return false;
+                          if (!["preparing", "in_delivery", "at_door", "delivered", "completed", "cancelled"].includes(event.toStatus)) return false;
                           return !(event.fromStatus && event.fromStatus === event.toStatus);
                         })
                         .reduce<Array<{ createdAt: unknown; toStatus: string; fromStatus: string; actorId: string }>>((acc, event) => {
@@ -1112,8 +1115,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                           <tr key={`event-${index}`}>
                             <td style={{ whiteSpace: "nowrap" }}>{formatOrderCreatedAt(event.createdAt)}</td>
                             <td>
-                              {event.fromStatus ? `${orderStatusMeta(event.fromStatus).label} → ` : ""}
-                              <strong>{orderStatusMeta(event.toStatus).label}</strong>
+                              {event.fromStatus ? `${orderStatusMeta(event.fromStatus, selectedOrder?.delivery_type).label} → ` : ""}
+                              <strong>{orderStatusMeta(event.toStatus, selectedOrder?.delivery_type).label}</strong>
                             </td>
                             <td>{event.actorId ? (userNameById[event.actorId] ?? shortUuid(event.actorId)) : "-"}</td>
                           </tr>

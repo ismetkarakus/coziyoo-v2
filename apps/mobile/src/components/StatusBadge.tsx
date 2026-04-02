@@ -10,6 +10,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   preparing: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
   ready: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
   in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
+  pickup_in_delivery: { label: 'Alıcı Yolda', color: '#1D4ED8', bg: '#E7F0FF' },
   at_door: { label: 'Kapıda', color: '#0F766E', bg: '#E6FFFB' },
   delivered: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
   completed: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
@@ -20,10 +21,21 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
 type Props = {
   status: string;
   size?: 'sm' | 'md';
+  deliveryType?: 'pickup' | 'delivery' | string;
 };
 
-export default function StatusBadge({ status, size = 'sm' }: Props) {
-  const info = STATUS_MAP[status] ?? { label: status, color: '#71685F', bg: '#F0EBE4' };
+function statusKeyByDeliveryType(status: string, deliveryType?: string): string {
+  const normalizedStatus = String(status ?? '').trim().toLowerCase();
+  const normalizedDeliveryType = String(deliveryType ?? '').trim().toLowerCase();
+  if (normalizedDeliveryType === 'pickup' && (normalizedStatus === 'in_delivery' || normalizedStatus === 'ready')) {
+    return 'pickup_in_delivery';
+  }
+  return normalizedStatus;
+}
+
+export default function StatusBadge({ status, size = 'sm', deliveryType }: Props) {
+  const key = statusKeyByDeliveryType(status, deliveryType);
+  const info = STATUS_MAP[key] ?? { label: status, color: '#71685F', bg: '#F0EBE4' };
   const isMd = size === 'md';
 
   return (
@@ -35,8 +47,9 @@ export default function StatusBadge({ status, size = 'sm' }: Props) {
   );
 }
 
-export function getStatusInfo(status: string) {
-  return STATUS_MAP[status] ?? { label: status, color: '#71685F', bg: '#F0EBE4' };
+export function getStatusInfo(status: string, deliveryType?: string) {
+  const key = statusKeyByDeliveryType(status, deliveryType);
+  return STATUS_MAP[key] ?? { label: status, color: '#71685F', bg: '#F0EBE4' };
 }
 
 const styles = StyleSheet.create({

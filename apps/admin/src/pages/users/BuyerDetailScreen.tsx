@@ -378,7 +378,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     const orderEvents = orders.slice(0, 5).map((order) => ({
       id: order.orderId,
       at: order.updatedAt || order.createdAt,
-      action: `Siparis ${orderStatusLabel(order.status)}`,
+      action: `Siparis ${orderStatusLabel(order.status, order.deliveryType)}`,
       actor: "Sistem",
       detail: `No: ${order.orderNo}`,
     }));
@@ -400,11 +400,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
     let next = [...orders];
 
     if (statusFilter === "all_delivered") {
-      next = next.filter((order) => orderStatusLabel(order.status).toLowerCase().includes("teslim"));
+      next = next.filter((order) => orderStatusLabel(order.status, order.deliveryType).toLowerCase().includes("teslim"));
     } else if (statusFilter === "all_pending") {
       next = next.filter((order) => paymentBadge(order.paymentStatus).cls === "is-pending");
     } else if (statusFilter === "all_cancelled") {
-      next = next.filter((order) => orderStatusLabel(order.status).toLowerCase().includes("iptal"));
+      next = next.filter((order) => orderStatusLabel(order.status, order.deliveryType).toLowerCase().includes("iptal"));
     }
 
     if (dateFilter === "last7") {
@@ -559,7 +559,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       String(order.deliveryType ?? "").toLowerCase() === "delivery" ? "Adrese Teslim" : String(order.deliveryType ?? "").toLowerCase() === "pickup" ? "Elden Teslim" : "-",
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
       formatCurrency(order.totalAmount, "tr"),
-      orderStatusLabel(order.status),
+      orderStatusLabel(order.status, order.deliveryType),
       paymentBadge(order.paymentStatus).text,
     ]);
 
