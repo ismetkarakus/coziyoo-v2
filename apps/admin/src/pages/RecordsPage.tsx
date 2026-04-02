@@ -332,7 +332,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       },
       delivered: {
         label: isTr ? "Teslim Edildi" : "Delivered",
-        note: isTr ? "Teslimat tamamlandı" : "Delivery completed",
+        note: delivery === "pickup" ? (isTr ? "Sipariş tamamlandı" : "Order completed") : (isTr ? "Teslimat tamamlandı" : "Delivery completed"),
         toneClass: "is-done",
       },
       completed: {
@@ -818,6 +818,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const selectedBuyerText = orderCellText("buyer_id", selectedOrder?.buyer_id);
   const selectedSellerText = orderCellText("seller_id", selectedOrder?.seller_id);
   const selectedDeliveryAddress = formatDeliveryAddress(selectedOrder?.delivery_address_json);
+  const selectedDeliveryAddressLabel = normalizeDeliveryType(selectedOrder?.delivery_type) === "pickup"
+    ? dict.records.deliveryTypePickup
+    : dict.records.deliveryAddress;
   const selectedDeliveryType = (() => {
     const normalized = normalizeDeliveryType(selectedOrder?.delivery_type);
     if (normalized === "pickup") return dict.records.deliveryTypePickup;
@@ -1012,7 +1015,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                   <strong>{selectedBuyerText}</strong>
                 </article>
                 <article className="records-order-info-card">
-                  <span>{dict.records.deliveryAddress}</span>
+                  <span>{selectedDeliveryAddressLabel}</span>
                   <strong>{selectedDeliveryAddress}</strong>
                 </article>
                 <article className="records-order-info-card">
