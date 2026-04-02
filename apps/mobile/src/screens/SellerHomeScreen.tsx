@@ -103,10 +103,7 @@ function formatElapsed(value: string | undefined, nowMs: number): string {
 function statusLabel(status: string, deliveryType?: string): string {
   const normalized = normalizeDisplayStatus(status, deliveryType);
   if (normalized === "cancelled" || normalized === "rejected") return "İptal";
-  if (deliveryType === "pickup" && normalized === "ready") return "Hazırlandı, seni bekliyor";
-  if (deliveryType === "pickup" && normalized === "in_delivery") return "Alıcı Yolda";
-  if (deliveryType === "pickup" && normalized === "approaching") return "Geliyorum";
-  if (deliveryType === "pickup" && normalized === "at_door") return "Kapıdayım";
+  if (deliveryType === "pickup" && normalized === "ready") return "Hazırlandı";
   return getStatusInfo(normalized, deliveryType).label;
 }
 
@@ -134,9 +131,9 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 function normalizeDisplayStatus(status: string, deliveryType?: string): string {
   const pickup = deliveryType === "pickup";
   if (status === "cancelled" || status === "rejected") return status;
+  if (pickup && ["ready", "in_delivery", "approaching", "at_door"].includes(status)) return "ready";
   if (status === "completed") return "delivered";
   if (status === "delivered" || status === "at_door") return status;
-  if (pickup && status === "ready") return "ready";
   if (status === "in_delivery") return "in_delivery";
   if (status === "ready") return "in_delivery";
   if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return status;
@@ -146,10 +143,10 @@ function normalizeDisplayStatus(status: string, deliveryType?: string): string {
 function cardActionByStatus(status: string, deliveryType?: string): SellerAction | null {
   const pickup = deliveryType === "pickup";
   if (status === "paid") {
-    return { label: "Hazırlanıyor", toStatus: "preparing", tone: "preparing" };
+    return { label: "Hazırlıyorum", toStatus: "preparing", tone: "preparing" };
   }
   if (pickup && status === "preparing") {
-    return { label: "Hazırlandı, seni bekliyor", toStatus: "ready", tone: "ready" };
+    return { label: "Hazırlandı", toStatus: "ready", tone: "ready" };
   }
   if (pickup && ["ready", "in_delivery", "approaching", "at_door", "delivered", "completed"].includes(status)) {
     return null;

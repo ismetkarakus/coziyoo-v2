@@ -100,8 +100,8 @@ type Props = {
 const CANCELLABLE = ['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid'];
 const COMPLETABLE = ['delivered'];
 const DELIVERY_FLOW_STEPS = ['preparing', 'in_delivery', 'at_door', 'delivered'] as const;
-const PICKUP_FLOW_STEPS = ['preparing', 'ready', 'in_delivery', 'approaching', 'at_door', 'delivered'] as const;
-type BuyerFlowStep = (typeof PICKUP_FLOW_STEPS)[number];
+const PICKUP_FLOW_STEPS = ['preparing', 'ready'] as const;
+type BuyerFlowStep = (typeof DELIVERY_FLOW_STEPS)[number] | (typeof PICKUP_FLOW_STEPS)[number];
 
 function flowStepsByDeliveryType(deliveryType: 'pickup' | 'delivery'): readonly BuyerFlowStep[] {
   return deliveryType === 'pickup' ? PICKUP_FLOW_STEPS : DELIVERY_FLOW_STEPS;
@@ -114,11 +114,7 @@ function normalizeBuyerFlowStatus(
   const normalized = String(status ?? '').trim().toLowerCase();
   if (deliveryType === 'pickup') {
     if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing'].includes(normalized)) return 'preparing';
-    if (normalized === 'ready') return 'ready';
-    if (normalized === 'in_delivery') return 'in_delivery';
-    if (normalized === 'approaching') return 'approaching';
-    if (normalized === 'at_door') return 'at_door';
-    if (normalized === 'delivered' || normalized === 'completed') return 'delivered';
+    if (['ready', 'in_delivery', 'approaching', 'at_door', 'delivered', 'completed'].includes(normalized)) return 'ready';
     if (normalized === 'cancelled') return 'cancelled';
     if (normalized === 'rejected') return 'rejected';
     return 'preparing';
@@ -134,18 +130,10 @@ function normalizeBuyerFlowStatus(
   return 'preparing';
 }
 
-const PICKUP_BUYER_ACTIONS: Record<string, { label: string; toStatus: string }> = {
-  ready: { label: 'Yola çıktım', toStatus: 'in_delivery' },
-  in_delivery: { label: 'Geliyorum', toStatus: 'approaching' },
-  approaching: { label: 'Kapıdayım', toStatus: 'at_door' },
-  at_door: { label: 'Teslim aldım', toStatus: 'completed' },
-};
-
 function buyerFlowLabel(step: BuyerFlowStep): string {
   if (step === 'preparing') return 'Hazırlanıyor';
   if (step === 'ready') return 'Hazır';
   if (step === 'in_delivery') return 'Yola Çıktı';
-  if (step === 'approaching') return 'Geliyorum';
   if (step === 'at_door') return 'Kapıda';
   return 'Teslim Edildi';
 }
@@ -153,11 +141,7 @@ function buyerFlowLabel(step: BuyerFlowStep): string {
 function buyerFlowLabelByDeliveryType(step: BuyerFlowStep, deliveryType: 'pickup' | 'delivery'): string {
   if (deliveryType === 'pickup') {
     if (step === 'preparing') return 'Hazırlanıyor';
-    if (step === 'ready') return 'Hazırlandı, seni bekliyor';
-    if (step === 'in_delivery') return 'Yola çıktım';
-    if (step === 'approaching') return 'Geliyorum';
-    if (step === 'at_door') return 'Kapıdayım';
-    return 'Teslim aldım';
+    return 'Hazırlandı, seni bekliyor';
   }
   return buyerFlowLabel(step);
 }
@@ -375,23 +359,6 @@ export default function OrderDetailScreen({
     }
   }
 
-  async function handlePickupAction(toStatus: string) {
-    if (!order) return;
-    setActionLoading(true);
-    const result = await apiRequest(
-      `/v1/orders/${order.id}/status`,
-      auth,
-      { method: 'POST', body: { toStatus }, actorRole: 'buyer' },
-      onAuthRefresh,
-    );
-    setActionLoading(false);
-    if (result.ok) {
-      void fetchOrder();
-    } else {
-      Alert.alert('Hata', result.message ?? 'Durum güncellenemedi');
-    }
-  }
-
   function formatEventDate(iso: string): string {
     if (!iso) return '-';
     const normalized = iso.trim().replace(' ', 'T').replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');
@@ -435,9 +402,6 @@ export default function OrderDetailScreen({
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
-  const pickupBuyerAction = isBuyer && order.deliveryType === 'pickup'
-    ? (PICKUP_BUYER_ACTIONS[order.status] ?? null)
-    : null;
   const canPay =
     isBuyer &&
     !order.paymentCompleted &&
@@ -602,15 +566,6 @@ export default function OrderDetailScreen({
           )}
           {canComplete && (
             <ActionButton label="Siparişi Tamamla" onPress={handleComplete} loading={actionLoading} variant="primary" fullWidth />
-          )}
-          {pickupBuyerAction && (
-            <ActionButton
-              label={pickupBuyerAction.label}
-              onPress={() => void handlePickupAction(pickupBuyerAction.toStatus)}
-              loading={actionLoading}
-              variant="primary"
-              fullWidth
-            />
           )}
           {canReview && onOpenReview && (
             <ActionButton label="Yorum Yap" onPress={() => onOpenReview(order.id)} variant="outline" fullWidth />

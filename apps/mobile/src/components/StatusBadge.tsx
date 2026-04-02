@@ -10,8 +10,8 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   preparing: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
   ready: { label: 'Hazır', color: '#166534', bg: '#EAF7EE' },
   pickup_ready: { label: 'Hazırlandı, seni bekliyor', color: '#166534', bg: '#EAF7EE' },
+  pickup_ready_seller: { label: 'Hazırlandı', color: '#166534', bg: '#EAF7EE' },
   in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
-  pickup_in_delivery: { label: 'Alıcı Yolda', color: '#1D4ED8', bg: '#E7F0FF' },
   approaching: { label: 'Alıcı Geliyor', color: '#0F766E', bg: '#E6FFFB' },
   at_door: { label: 'Kapıda', color: '#0F766E', bg: '#E6FFFB' },
   delivered: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
@@ -32,8 +32,8 @@ function statusKeyByDeliveryType(status: string, deliveryType?: string): string 
   if (normalizedDeliveryType === 'pickup' && normalizedStatus === 'ready') {
     return 'pickup_ready';
   }
-  if (normalizedDeliveryType === 'pickup' && normalizedStatus === 'in_delivery') {
-    return 'pickup_in_delivery';
+  if (normalizedDeliveryType === 'pickup' && ['in_delivery', 'approaching', 'at_door'].includes(normalizedStatus)) {
+    return 'pickup_ready';
   }
   return normalizedStatus;
 }

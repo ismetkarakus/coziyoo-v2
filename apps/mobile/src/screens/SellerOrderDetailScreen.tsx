@@ -139,6 +139,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     return getNextAction(order.status, order.deliveryType);
   }, [order?.status, order?.deliveryType]);
   const actionColors = action ? actionTone(action.toStatus) : null;
+  const sellerStatusBadgeKey = useMemo(() => {
+    if (!order) return "";
+    const normalized = normalizeFlowStatus(order.status);
+    if (order.deliveryType === "pickup" && ["ready", "in_delivery", "approaching", "at_door"].includes(normalized)) {
+      return "pickup_ready_seller";
+    }
+    return normalized;
+  }, [order]);
 
   async function runAction(action: { label: string; toStatus: string }) {
     if (!order) return;
@@ -185,7 +193,11 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.orderNo}>{order.orderNo || "#" + order.id.slice(0, 8).toUpperCase()}</Text>
-              <StatusBadge status={normalizeFlowStatus(order.status)} size="sm" deliveryType={order.deliveryType} />
+              <StatusBadge
+                status={sellerStatusBadgeKey}
+                size="sm"
+                deliveryType={order.deliveryType === "pickup" ? undefined : order.deliveryType}
+              />
             </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
