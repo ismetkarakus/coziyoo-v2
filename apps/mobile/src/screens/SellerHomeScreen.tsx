@@ -447,7 +447,7 @@ export default function SellerHomeScreen({
       return isSameLocalDay(activityAt, now);
     });
     return filtered;
-  }, [orders, currentAuth.userId]);
+  }, [orders, currentAuth.userId, clockMs]);
 
   const groupedOrders = useMemo(() => {
     const preparing: SellerOrder[] = [];

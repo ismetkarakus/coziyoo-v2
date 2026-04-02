@@ -78,6 +78,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [clockMs, setClockMs] = useState(() => Date.now());
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -139,8 +140,13 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
     void loadOrders();
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setClockMs(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const filteredOrders = useMemo(() => {
-    const now = new Date();
+    const now = new Date(clockMs);
     const from = parseDateInput(fromDate);
     const to = parseDateInput(toDate);
     const toEnd = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999) : null;
@@ -156,7 +162,7 @@ export default function SellerOrdersScreen({ auth, onBack, onOpenOrder, onAuthRe
       if (toEnd && activityAt > toEnd) return false;
       return true;
     });
-  }, [orders, statusFilter, fromDate, toDate]);
+  }, [orders, statusFilter, fromDate, toDate, clockMs]);
 
   return (
     <View style={styles.container}>
