@@ -16,9 +16,10 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().default(3000),
+  API_CORS_ALLOWED_ORIGINS: z.string().optional(),
   CORS_ALLOWED_ORIGINS: z
     .string()
-    .default("http://localhost:8081,http://localhost:5173,http://localhost:19006"),
+    .default("http://localhost:8081,http://localhost:5173,http://localhost:5174,http://localhost:19006"),
   DATABASE_URL: z.string().url().optional(),
   PGHOST: z.string().min(1).optional(),
   PGPORT: z.coerce.number().int().positive().optional(),
@@ -145,9 +146,21 @@ const payoutSchedulerEnabledDefault = parsed.data.NODE_ENV !== "test";
 const databaseUrl = resolveDatabaseUrl(parsed.data);
 const speechToTextBaseUrl = parsed.data.SPEECH_TO_TEXT_BASE_URL ?? parsed.data.STT_BASE_URL;
 const n8nApiKey = parsed.data.N8N_API_KEY;
+const mergedCorsOrigins = Array.from(
+  new Set(
+    [
+      parsed.data.CORS_ALLOWED_ORIGINS,
+      parsed.data.API_CORS_ALLOWED_ORIGINS,
+    ]
+      .flatMap((value) => String(value ?? "").split(","))
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ),
+).join(",");
 
 export const env = {
   ...parsed.data,
+  CORS_ALLOWED_ORIGINS: mergedCorsOrigins,
   DATABASE_URL: databaseUrl,
   SPEECH_TO_TEXT_BASE_URL: speechToTextBaseUrl,
   N8N_API_KEY: n8nApiKey,

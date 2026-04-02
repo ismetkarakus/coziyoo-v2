@@ -62,7 +62,19 @@ function wildcardOriginMatches(origin: string, wildcardPattern: string): boolean
   }
 }
 
+function isLocalDevOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname.toLowerCase();
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 function isCorsOriginAllowed(origin: string): boolean {
+  if (env.NODE_ENV !== "production" && isLocalDevOrigin(origin)) return true;
   if (allowAnyOrigin) return true;
   if (allowedCorsOrigins.has(origin)) return true;
   return wildcardCorsOrigins.some((pattern) => wildcardOriginMatches(origin, pattern));
