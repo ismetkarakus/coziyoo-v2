@@ -264,6 +264,7 @@ ordersRouter.post(
       sale_starts_at: string;
       sale_ends_at: string;
       price: string;
+      delivery_fee: string | null;
       food_is_active: boolean;
     }>(
       `SELECT l.id AS lot_id,
@@ -274,6 +275,7 @@ ordersRouter.post(
               l.sale_starts_at::text,
               l.sale_ends_at::text,
               f.price::text AS price,
+              f.delivery_fee::text AS delivery_fee,
               f.is_active AS food_is_active
        FROM production_lots l
        LEFT JOIN foods f ON f.id = l.food_id
@@ -319,14 +321,23 @@ ordersRouter.post(
     }
 
     const normalizedAddonsByLotId = new Map<string, NormalizedSelectedAddons>();
-    let total = 0;
+    let subtotal = 0;
     for (const item of input.items) {
       const price = Number(lotsMap.get(item.lotId)!.price);
       const selectedAddons = normalizeSelectedAddons(item.selectedAddons);
       normalizedAddonsByLotId.set(item.lotId, selectedAddons);
-      total += (price * item.quantity) + selectedPaidAddonsTotal(selectedAddons);
+      subtotal += (price * item.quantity) + selectedPaidAddonsTotal(selectedAddons);
     }
-    total = Number(total.toFixed(2));
+    subtotal = Number(subtotal.toFixed(2));
+    const deliveryFee = input.deliveryType === "delivery"
+      ? Number(
+          Math.max(
+            0,
+            ...input.items.map((item) => Number(lotsMap.get(item.lotId)?.delivery_fee ?? 0)),
+          ).toFixed(2),
+        )
+      : 0;
+    const total = Number((subtotal + deliveryFee).toFixed(2));
 
     const orderInsert = await client.query<{ id: string }>(
       `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
@@ -375,7 +386,7 @@ ordersRouter.post(
         "order_created",
         null,
         "pending_seller_approval",
-        JSON.stringify({ deliveryType: input.deliveryType }),
+        JSON.stringify({ deliveryType: input.deliveryType, subtotal, deliveryFee }),
       ]
     );
 
@@ -387,6 +398,8 @@ ordersRouter.post(
         orderId: orderInsert.rows[0].id,
         buyerId: req.auth!.userId,
         sellerId: input.sellerId,
+        subtotal,
+        deliveryFee,
         totalPrice: total,
       },
     });
@@ -417,6 +430,8 @@ ordersRouter.post(
         orderId: orderInsert.rows[0].id,
         status: "pending_seller_approval",
         deliveryType: input.deliveryType,
+        subtotal,
+        deliveryFee,
         totalPrice: total,
       },
     });
@@ -1328,6 +1343,7 @@ voiceOrderRouter.post(
         sale_starts_at: string;
         sale_ends_at: string;
         price: string;
+        delivery_fee: string | null;
         food_is_active: boolean;
       }>(
         `SELECT l.id AS lot_id,
@@ -1338,6 +1354,7 @@ voiceOrderRouter.post(
                 l.sale_starts_at::text,
                 l.sale_ends_at::text,
                 f.price::text AS price,
+                f.delivery_fee::text AS delivery_fee,
                 f.is_active AS food_is_active
          FROM production_lots l
          LEFT JOIN foods f ON f.id = l.food_id
@@ -1387,14 +1404,23 @@ voiceOrderRouter.post(
       }
 
       const normalizedAddonsByLotId = new Map<string, NormalizedSelectedAddons>();
-      let total = 0;
+      let subtotal = 0;
       for (const item of input.items) {
         const price = Number(lotsMap.get(item.lotId)!.price);
         const selectedAddons = normalizeSelectedAddons(item.selectedAddons);
         normalizedAddonsByLotId.set(item.lotId, selectedAddons);
-        total += (price * item.quantity) + selectedPaidAddonsTotal(selectedAddons);
+        subtotal += (price * item.quantity) + selectedPaidAddonsTotal(selectedAddons);
       }
-      total = Number(total.toFixed(2));
+      subtotal = Number(subtotal.toFixed(2));
+      const deliveryFee = input.deliveryType === "delivery"
+        ? Number(
+            Math.max(
+              0,
+              ...input.items.map((item) => Number(lotsMap.get(item.lotId)?.delivery_fee ?? 0)),
+            ).toFixed(2),
+          )
+        : 0;
+      const total = Number((subtotal + deliveryFee).toFixed(2));
 
       const orderInsert = await client.query<{ id: string }>(
         `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
@@ -1443,7 +1469,7 @@ voiceOrderRouter.post(
           "order_created",
           null,
           "pending_seller_approval",
-          JSON.stringify({ deliveryType: input.deliveryType, source: "voice" }),
+          JSON.stringify({ deliveryType: input.deliveryType, source: "voice", subtotal, deliveryFee }),
         ]
       );
 
@@ -1455,6 +1481,8 @@ voiceOrderRouter.post(
           orderId: orderInsert.rows[0].id,
           buyerId: input.userId,
           sellerId: input.sellerId,
+          subtotal,
+          deliveryFee,
           totalPrice: total,
         },
       });
@@ -1464,6 +1492,8 @@ voiceOrderRouter.post(
         data: {
           orderId: orderInsert.rows[0].id,
           status: "pending_seller_approval",
+          subtotal,
+          deliveryFee,
           totalPrice: total,
         },
       });

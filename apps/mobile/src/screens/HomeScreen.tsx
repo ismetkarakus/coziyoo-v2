@@ -143,6 +143,7 @@ type ApiFoodItem = {
   cardSummary: string;
   description: string;
   price: number;
+  deliveryFee?: number | null;
   imageUrl: string | null;
   imageUrls?: string[];
   rating: string | null;
@@ -193,6 +194,7 @@ type MealCard = {
   time: string;
   distance: string;
   price: string;
+  deliveryFee: number;
   backgroundColor: string;
   category: string;
   imageUrl?: string;
@@ -848,6 +850,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     time: item.prepTime ? `${item.prepTime} dk` : '',
     distance: distanceText,
     price: `₺${item.price}`,
+    deliveryFee: Number(item.deliveryFee ?? 0),
     backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
     category: uiCategory,
     imageUrl: normalizedImageUrls[0] ?? resolveDishImage(item.name, uiCategory),
@@ -3078,7 +3081,7 @@ export default function HomeScreen({
       );
     }
     if (activeTab === 'cart') {
-      const total = cartItems.reduce((sum, item) => {
+      const subtotal = cartItems.reduce((sum, item) => {
         const value = Number(item.meal.price.replace(/[^\d.,]/g, '').replace(',', '.'));
         const addonsTotal = item.selectedAddons.paid.reduce(
           (addonSum, addon) => addonSum + (addon.price * addon.quantity),
@@ -3086,6 +3089,18 @@ export default function HomeScreen({
         );
         return sum + (value * item.quantity) + addonsTotal;
       }, 0);
+      const deliveryFeesBySeller = new Map<string, number>();
+      if (deliveryType === 'delivery') {
+        for (const item of cartItems) {
+          const sellerId = item.meal.sellerId;
+          const fee = Number(item.meal.deliveryFee ?? 0);
+          const prev = deliveryFeesBySeller.get(sellerId) ?? 0;
+          // Aynı satıcıdan kaç ürün olursa olsun tek kez; birden fazla yemekte en yüksek ücreti baz al.
+          if (fee > prev) deliveryFeesBySeller.set(sellerId, fee);
+        }
+      }
+      const deliveryTotal = Array.from(deliveryFeesBySeller.values()).reduce((sum, fee) => sum + fee, 0);
+      const total = subtotal + deliveryTotal;
       return (
         <View style={styles.cartWrap}>
           <View style={styles.cartHeader}>
@@ -3169,8 +3184,16 @@ export default function HomeScreen({
                 })}
               </ScrollView>
               <View style={styles.cartFooter}>
-                <Text style={styles.cartTotalLabel}>Toplam</Text>
-                <Text style={styles.cartTotalValue}>₺{total.toFixed(2)}</Text>
+                {deliveryType === 'delivery' ? (
+                  <View style={styles.cartDeliveryFeeRow}>
+                    <Text style={styles.cartDeliveryFeeLabel}>Teslimat</Text>
+                    <Text style={styles.cartDeliveryFeeValue}>₺{deliveryTotal.toFixed(2)}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.cartTotalRow}>
+                  <Text style={styles.cartTotalLabel}>Toplam</Text>
+                  <Text style={styles.cartTotalValue}>₺{total.toFixed(2)}</Text>
+                </View>
               </View>
               <View style={styles.checkoutAddressCard}>
                 <Text style={styles.checkoutAddressTitle}>{t('helper.home.checkoutDeliveryType')}</Text>
@@ -5108,6 +5131,16 @@ const styles = StyleSheet.create({
     borderTopColor: '#EDE8E0',
     paddingTop: 10,
     marginTop: 4,
+    gap: 4,
+  },
+  cartDeliveryFeeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cartDeliveryFeeLabel: { color: '#8D8072', fontSize: 13, fontWeight: '600' },
+  cartDeliveryFeeValue: { color: '#3D3229', fontSize: 15, fontWeight: '700' },
+  cartTotalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
