@@ -36,15 +36,10 @@ type TicketMessage = {
 };
 
 async function fetchTicketMessages(complaintId: string): Promise<TicketMessage[]> {
-  const rows = await pool.query<{
-    id: string;
-    sender_role: "buyer" | "admin";
-    sender_name: string | null;
-    sender_user_id: string | null;
-    message: string;
-    created_at: string;
-  }>(
-    `SELECT
+  let ticketMessagesPart = "";
+  try {
+    await pool.query("SELECT 1 FROM ticket_messages LIMIT 0");
+    ticketMessagesPart = `SELECT
        tm.id::text,
        tm.sender_role,
        tm.sender_name,
@@ -53,8 +48,20 @@ async function fetchTicketMessages(complaintId: string): Promise<TicketMessage[]
        tm.created_at::text
      FROM ticket_messages tm
      WHERE tm.complaint_id = $1
-     UNION ALL
-     SELECT
+     UNION ALL `;
+  } catch {
+    // ticket_messages table does not exist yet — migration pending
+  }
+
+  const rows = await pool.query<{
+    id: string;
+    sender_role: "buyer" | "admin";
+    sender_name: string | null;
+    sender_user_id: string | null;
+    message: string;
+    created_at: string;
+  }>(
+    `${ticketMessagesPart}SELECT
        can.id::text,
        'admin'::text AS sender_role,
        COALESCE(au.email, can.created_by_admin_id::text) AS sender_name,
@@ -227,7 +234,6 @@ complaintsRouter.get("/", async (req, res) => {
       created_at: string;
       updated_at: string;
       ticket_no: number | null;
-      last_message_at: string | null;
     }>(
       `SELECT
          c.id::text,
@@ -238,22 +244,34 @@ complaintsRouter.get("/", async (req, res) => {
          c.status,
          c.priority,
          c.created_at::text,
-         c.updated_at::text,
-         COALESCE((to_jsonb(c) ->> 'ticket_no')::int, 0) AS ticket_no,
-         latest_message.latest_message_at::text AS last_message_at
+         COALESCE((to_jsonb(c) ->> 'updated_at')::timestamptz, c.created_at)::text AS updated_at,
+         COALESCE((to_jsonb(c) ->> 'ticket_no')::int, 0) AS ticket_no
        FROM complaints c
        LEFT JOIN complaint_categories cat ON cat.id = c.category_id
-       LEFT JOIN LATERAL (
-         SELECT max(created_at) AS latest_message_at
-         FROM ticket_messages tm
-         WHERE tm.complaint_id = c.id
-       ) latest_message ON TRUE
        WHERE COALESCE(c.complainant_user_id::text, c.complainant_buyer_id::text) = $1
          AND COALESCE(to_jsonb(c) ->> 'complainant_type', 'buyer') = 'buyer'
-       ORDER BY COALESCE(latest_message.latest_message_at, c.updated_at, c.created_at) DESC
+       ORDER BY COALESCE((to_jsonb(c) ->> 'updated_at')::timestamptz, c.created_at) DESC
        LIMIT 100`,
       [req.auth!.userId]
     );
+
+    // Fetch last message timestamps separately so missing table doesn't break the list.
+    const lastMessageAtById: Record<string, string> = {};
+    try {
+      const ids = rows.rows.map((r) => r.id);
+      if (ids.length > 0) {
+        const msgTs = await pool.query<{ complaint_id: string; latest: string }>(
+          `SELECT complaint_id::text, max(created_at)::text AS latest
+           FROM ticket_messages
+           WHERE complaint_id = ANY($1::uuid[])
+           GROUP BY complaint_id`,
+          [ids],
+        );
+        for (const r of msgTs.rows) lastMessageAtById[r.complaint_id] = r.latest;
+      }
+    } catch {
+      // ticket_messages table not yet migrated — fall back to updated_at
+    }
 
     return res.json({
       data: rows.rows.map((row) => ({
@@ -267,7 +285,7 @@ complaintsRouter.get("/", async (req, res) => {
         description: row.description ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
-        lastActivityAt: row.last_message_at ?? row.updated_at ?? row.created_at,
+        lastActivityAt: lastMessageAtById[row.id] ?? row.updated_at ?? row.created_at,
       })),
     });
   } catch (err) {
@@ -311,7 +329,7 @@ complaintsRouter.get("/:id", async (req, res) => {
          c.status,
          c.priority,
          c.created_at::text,
-         c.updated_at::text,
+         COALESCE((to_jsonb(c) ->> 'updated_at')::timestamptz, c.created_at)::text AS updated_at,
          COALESCE((to_jsonb(c) ->> 'ticket_no')::int, 0) AS ticket_no,
          o.delivery_type AS order_delivery_type,
          o.delivery_address_json AS order_delivery_address_json,
