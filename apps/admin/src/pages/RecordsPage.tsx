@@ -38,6 +38,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const [liveTick, setLiveTick] = useState(0);
   const orderModalPrintRef = useRef<HTMLDivElement | null>(null);
   const autoOpenedOrderIdRef = useRef<string>("");
+  const prevFetchParamsRef = useRef<{ tableKey: string; page: number; search: string; sortBy: string | null; sortDir: string } | null>(null);
   const pageSize = 20;
 
   useEffect(() => {
@@ -599,7 +600,16 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }, [tableKey]);
 
   useEffect(() => {
-    setLoading(true);
+    const prev = prevFetchParamsRef.current;
+    const isSilentRefresh =
+      prev !== null &&
+      prev.tableKey === tableKey &&
+      prev.page === page &&
+      prev.search === search &&
+      prev.sortBy === sortBy &&
+      prev.sortDir === sortDir;
+    if (!isSilentRefresh) setLoading(true);
+    prevFetchParamsRef.current = { tableKey, page, search, sortBy, sortDir };
     setError(null);
 
     const query = new URLSearchParams({
