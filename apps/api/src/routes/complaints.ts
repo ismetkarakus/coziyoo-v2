@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
 import { resolveActorRole } from "../middleware/app-role.js";
+import { normalizeDeliveryType } from "../utils/delivery-type.js";
 
 export const complaintsRouter = Router();
 
@@ -380,7 +381,7 @@ complaintsRouter.get("/:id", async (req, res) => {
         lastActivityAt: messages.at(-1)?.createdAt ?? row.updated_at ?? row.created_at,
         orderSummary: {
           sellerName: row.seller_name ?? "-",
-          deliveryType: row.order_delivery_type,
+          deliveryType: normalizeDeliveryType(row.order_delivery_type) ?? row.order_delivery_type,
           deliveryAddress: row.order_delivery_address_json ?? null,
         },
         messages,

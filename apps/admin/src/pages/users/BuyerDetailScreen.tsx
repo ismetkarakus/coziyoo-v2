@@ -6,7 +6,7 @@ import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { formatUiDate, formatBirthDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
-import { paymentBadge, orderStatusLabel } from "../../lib/status";
+import { deliveryTypeLabel, paymentBadge, orderStatusLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { BuyerDetailTab } from "../../types/users";
@@ -556,7 +556,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       formatTableDateTime(order.createdAt),
       order.orderNo,
       order.sellerName ?? order.sellerEmail ?? order.sellerId,
-      String(order.deliveryType ?? "").toLowerCase() === "delivery" ? "Teslimat" : String(order.deliveryType ?? "").toLowerCase() === "pickup" ? "Gel Al" : "-",
+      deliveryTypeLabel(order.deliveryType),
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
       formatCurrency(order.totalAmount, "tr"),
       orderStatusLabel(order.status, order.deliveryType),
@@ -917,11 +917,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         <tr><td colSpan={9}>Siparis kaydi bulunamadi.</td></tr>
                       ) : visibleOrders.map((order: any) => {
                         const foods = order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ");
-                        const deliveryText = String(order.deliveryType ?? "").toLowerCase() === "delivery"
-                          ? "Teslimat"
-                          : String(order.deliveryType ?? "").toLowerCase() === "pickup"
-                            ? "Gel Al"
-                            : "-";
+                        const deliveryText = deliveryTypeLabel(order.deliveryType);
                         const deliveryAddressText = formatDeliveryAddress(order.deliveryAddress);
                         const paymentState = paymentBadge(order.paymentStatus);
                         const statusText = paymentState.cls === "is-pending"

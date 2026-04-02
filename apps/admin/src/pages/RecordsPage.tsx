@@ -6,6 +6,7 @@ import { Pager, ExcelExportButton, PrintButton, SortableHeader } from "../compon
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
 import { printModalContent } from "../lib/print";
+import { deliveryTypeLabel, normalizeDeliveryType } from "../lib/status";
 import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
@@ -279,7 +280,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   const normalizeBuyerFlowStatus = (rawStatus: unknown, deliveryType?: unknown): string => {
     const status = String(rawStatus ?? "").trim().toLowerCase();
-    const delivery = String(deliveryType ?? "").trim().toLowerCase();
+    const delivery = normalizeDeliveryType(deliveryType);
     if (delivery === "pickup") {
       if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
       if (status === "ready") return "ready";
@@ -301,7 +302,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
 
   const orderStatusMeta = (rawStatus: unknown, deliveryType?: unknown): { label: string; note: string; toneClass: string } => {
     const status = normalizeBuyerFlowStatus(rawStatus, deliveryType);
-    const delivery = String(deliveryType ?? "").trim().toLowerCase();
+    const delivery = normalizeDeliveryType(deliveryType);
     const isTr = language === "tr";
     const map: Record<string, { label: string; note: string; toneClass: string }> = {
       preparing: {
@@ -384,15 +385,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
 
     if (column === "delivery_type") {
-      const raw = String(value ?? "").trim().toLowerCase();
-      if (language === "tr") {
-        if (raw === "delivery") return "Teslimat";
-        if (raw === "pickup") return "Gel Al";
-      } else {
-        if (raw === "delivery") return "Delivery";
-        if (raw === "pickup") return "Pickup";
-      }
-      return raw || "-";
+      return deliveryTypeLabel(value);
     }
 
     if (column === "total_price" || column === "unit_price" || column === "line_total") {
@@ -423,15 +416,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       return done ? dict.common.completed : dict.common.pending;
     }
     if (column === "delivery_type") {
-      const raw = String(value ?? "").trim().toLowerCase();
-      if (language === "tr") {
-        if (raw === "delivery") return "Teslimat";
-        if (raw === "pickup") return "Gel Al";
-      } else {
-        if (raw === "delivery") return "Delivery";
-        if (raw === "pickup") return "Pickup";
-      }
-      return raw || "-";
+      return deliveryTypeLabel(value);
     }
     if (column === "total_price" || column === "unit_price" || column === "line_total") {
       const amount = Number(value ?? 0);
@@ -834,12 +819,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const selectedSellerText = orderCellText("seller_id", selectedOrder?.seller_id);
   const selectedDeliveryAddress = formatDeliveryAddress(selectedOrder?.delivery_address_json);
   const selectedDeliveryType = (() => {
+    const normalized = normalizeDeliveryType(selectedOrder?.delivery_type);
+    if (normalized === "pickup") return dict.records.deliveryTypePickup;
+    if (normalized === "delivery") return dict.records.deliveryTypeHome;
     const raw = String(selectedOrder?.delivery_type ?? "").trim().toLowerCase();
-    if (!raw) return "-";
-    if (raw.includes("pickup")) return dict.records.deliveryTypePickupRestaurant;
-    if (raw.includes("delivery")) return dict.records.deliveryTypeHome;
     if (raw.includes("courier")) return dict.records.deliveryTypeCourier;
-    return raw;
+    return raw || "-";
   })();
   const selectedCreatedAt = (() => {
     const raw = String(selectedOrder?.created_at ?? "").trim();

@@ -49,6 +49,23 @@ type ComplaintNote = {
   createdAt: string;
 };
 
+function normalizeDeliveryType(value: unknown): "pickup" | "delivery" | "" {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+  if (!normalized) return "";
+  if (normalized.includes("pickup") || normalized.includes("gel al")) return "pickup";
+  if (normalized.includes("delivery") || normalized.includes("teslimat")) return "delivery";
+  const hasRestaurantToken = normalized.includes("restaurant") || normalized.includes("restoran") || normalized.includes("restorandan");
+  if (hasRestaurantToken) {
+    if (normalized.includes("teslim")) return "delivery";
+    return "pickup";
+  }
+  return "";
+}
+
 export default function InvestigationComplaintDetailPage({ language, complaintId, onClose }: { language: Language; complaintId: string; onClose?: () => void }) {
   const navigate = useNavigate();
   const dict = DICTIONARIES[language];
@@ -96,6 +113,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
       String(orderAddress.title ?? "").trim(),
     ].filter(Boolean).join(", ")
     : null;
+  const orderDeliveryType = normalizeDeliveryType(detail?.orderSummary?.deliveryType);
 
   useEffect(() => {
     const textarea = noteInputRef.current;
@@ -333,8 +351,8 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                 <div className="complaint-description-row">
                   <span className="complaint-detail-label">{language === "tr" ? "Teslimat" : "Delivery"}</span>
                   <span className="complaint-description-value">
-                    {detail.orderSummary?.deliveryType === "pickup"
-                      ? (language === "tr" ? "Gel Al" : "Pickup")
+                    {orderDeliveryType === "pickup"
+                      ? "Gel Al"
                       : orderAddressText || (language === "tr" ? "Adres bilgisi yok" : "No address")}
                   </span>
                 </div>

@@ -21,6 +21,7 @@ import { resolveSellerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff, computeAddedItems, toReadableText } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
+import { deliveryTypeLabel } from "../../lib/status";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
 import type {
@@ -816,15 +817,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   };
 
   const deliveryTypeText = (value: string | null | undefined) => {
-    const key = String(value ?? "").trim().toLowerCase();
-    if (language === "tr") {
-      if (key === "delivery") return "Teslimat";
-      if (key === "pickup") return "Gel Al";
-      return "-";
-    }
-    if (key === "delivery") return "Delivery";
-    if (key === "pickup") return "Pickup";
-    return "-";
+    return deliveryTypeLabel(value);
   };
 
   const toLocalDateKey = (value: string | null | undefined) => {
@@ -3183,11 +3176,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <strong>
                         {food.deliveryOptions
                           ? food.deliveryOptions.pickup && food.deliveryOptions.delivery
-                            ? (language === "tr" ? "Gel Al + Teslimat" : "Pickup + Delivery")
+                            ? "Gel Al + Teslimat"
                             : food.deliveryOptions.pickup
-                              ? (language === "tr" ? "Gel Al" : "Pickup")
+                              ? "Gel Al"
                               : food.deliveryOptions.delivery
-                                ? (language === "tr" ? "Teslimat" : "Delivery")
+                                ? "Teslimat"
                                 : "-"
                           : "-"}
                       </strong>

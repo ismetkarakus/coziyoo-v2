@@ -9,9 +9,34 @@ export function paymentBadge(status: string): { text: string; cls: string } {
   return { text: "Başarılı", cls: "is-success" };
 }
 
+export function normalizeDeliveryType(value: unknown): "pickup" | "delivery" | "" {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  if (!normalized) return "";
+  if (normalized.includes("pickup") || normalized.includes("gel al")) return "pickup";
+  if (normalized.includes("delivery") || normalized.includes("teslimat")) return "delivery";
+  const hasRestaurantToken = normalized.includes("restaurant") || normalized.includes("restoran") || normalized.includes("restorandan");
+  if (hasRestaurantToken) {
+    if (normalized.includes("teslim")) return "delivery";
+    return "pickup";
+  }
+  return "";
+}
+
+export function deliveryTypeLabel(value: unknown): "Teslimat" | "Gel Al" | "-" {
+  const normalized = normalizeDeliveryType(value);
+  if (normalized === "delivery") return "Teslimat";
+  if (normalized === "pickup") return "Gel Al";
+  return "-";
+}
+
 export function orderStatusLabel(status: string, deliveryType?: string | null): string {
   const normalized = status.toLowerCase();
-  const delivery = String(deliveryType ?? "").trim().toLowerCase();
+  const delivery = normalizeDeliveryType(deliveryType);
   if (delivery === "pickup" && normalized === "ready") return "Hazırlandı, seni bekliyor";
   if (delivery === "pickup" && normalized === "in_delivery") return "Yola Çıktı";
   if (delivery === "pickup" && normalized === "approaching") return "Geliyorum";

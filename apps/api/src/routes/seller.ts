@@ -5,6 +5,7 @@ import { pool } from "../db/client.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getSellerOperateGate } from "../services/seller-operability.js";
+import { normalizeDeliveryType } from "../utils/delivery-type.js";
 const WorkingHourSchema = z.object({
   day: z.string().min(2).max(20),
   open: z.string().min(4).max(10),
@@ -384,7 +385,7 @@ sellerRouter.get("/orders", async (req, res) => {
         buyerId: row.buyer_id,
         sellerId: row.seller_id,
         status: row.status,
-        deliveryType: row.delivery_type,
+        deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
         deliveryAddress: row.delivery_address_json,
         totalPrice: Number(row.total_price),
         createdAt: row.created_at,

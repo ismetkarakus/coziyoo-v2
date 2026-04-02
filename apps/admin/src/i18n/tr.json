@@ -705,7 +705,7 @@
     "noItems": "Kalem bulunamadı.",
     "close": "Kapat",
     "cancelReasonNotFound": "Neden bilgisi bulunamadı.",
-    "deliveryTypePickupRestaurant": "Gel Al",
+    "deliveryTypePickup": "Gel Al",
     "deliveryTypeHome": "Teslimat",
     "deliveryTypeCourier": "Kurye",
     "justNow": "az önce",

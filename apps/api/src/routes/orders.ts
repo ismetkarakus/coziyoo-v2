@@ -20,6 +20,7 @@ import { allocateLotsFefoTx } from "../services/lots.js";
 import { emitEtaMilestonesTx, emitOrderMilestoneTx } from "../services/order-notifications.js";
 import { flushPushNotifications, type PushNotificationPayload } from "../services/push-notifications.js";
 import { estimateRouteDurationSeconds, extractAddressLine, extractLatLng, geocodeAddress, type LatLng } from "../services/routing.js";
+import { normalizeDeliveryType } from "../utils/delivery-type.js";
 
 const CreateOrderSchema = z.object({
   sellerId: z.string().uuid(),
@@ -541,7 +542,7 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       buyerId: row.buyer_id,
       sellerId: row.seller_id,
       status: row.status,
-      deliveryType: row.delivery_type,
+      deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
       deliveryAddress: row.delivery_address_json,
       totalPrice: Number(row.total_price),
       createdAt: row.created_at,
@@ -621,7 +622,7 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
       buyerId: o.buyer_id,
       sellerId: o.seller_id,
       status: o.status,
-      deliveryType: o.delivery_type,
+      deliveryType: normalizeDeliveryType(o.delivery_type) ?? o.delivery_type,
       deliveryAddress: o.delivery_address_json,
       sellerAddress: o.seller_address_json,
       totalPrice: Number(o.total_price),

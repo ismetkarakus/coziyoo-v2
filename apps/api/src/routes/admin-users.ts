@@ -4,6 +4,7 @@ import { pool } from "../db/client.js";
 import { requireSuperAdmin } from "../middleware/admin-rbac.js";
 import { requireAuth } from "../middleware/auth.js";
 import { writeAdminAudit } from "../services/admin-audit.js";
+import { normalizeDeliveryType } from "../utils/delivery-type.js";
 import { normalizeDisplayName } from "../utils/normalize.js";
 import { hashPassword } from "../utils/security.js";
 import { ensureUniqueUsername } from "../utils/username.js";
@@ -1077,7 +1078,7 @@ adminUserManagementRouter.get("/investigations/complaints/:id", requireAuth("adm
       orderSummary: {
         buyerName: row.order_buyer_name ?? row.order_buyer_email ?? "-",
         sellerName: row.order_seller_name ?? row.order_seller_email ?? "-",
-        deliveryType: row.order_delivery_type,
+        deliveryType: normalizeDeliveryType(row.order_delivery_type) ?? row.order_delivery_type,
         deliveryAddress: row.order_delivery_address_json ?? null,
         items: row.order_items_json ?? [],
       },
@@ -2953,9 +2954,9 @@ adminUserManagementRouter.get("/users/:id/seller-foods/export", requireAuth("adm
       "Delivery Options": (() => {
         const options = deliveryOptionsFromJson(food.delivery_options_json);
         if (!options) return "-";
-        if (options.pickup && options.delivery) return "pickup+delivery";
-        if (options.pickup) return "pickup";
-        if (options.delivery) return "delivery";
+        if (options.pickup && options.delivery) return "Gel Al+Teslimat";
+        if (options.pickup) return "Gel Al";
+        if (options.delivery) return "Teslimat";
         return "-";
       })(),
       "Primary Image": food.image_url ?? "-",
@@ -3780,7 +3781,7 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
       sellerId: row.seller_id,
       sellerName: row.seller_name,
       sellerEmail: row.seller_email,
-      deliveryType: row.delivery_type,
+      deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
       deliveryAddress: row.delivery_address_json ?? null,
       status: row.status,
       totalAmount: Number(row.total_price),
@@ -3904,7 +3905,7 @@ adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), 
       buyerId: row.buyer_id,
       buyerName: row.buyer_name,
       buyerEmail: row.buyer_email,
-      deliveryType: row.delivery_type,
+      deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
       status: row.status,
       totalAmount: Number(row.total_price),
       paymentCompleted: row.payment_completed,
