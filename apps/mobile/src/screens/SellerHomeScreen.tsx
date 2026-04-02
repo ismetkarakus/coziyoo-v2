@@ -213,6 +213,8 @@ export default function SellerHomeScreen({
   const pulseValue = useRef(new Animated.Value(0)).current;
   const seenOrderIdsRef = useRef<Set<string>>(new Set());
   const hasSeenInitialOrdersRef = useRef(false);
+  const refreshOrdersOnlyRef = useRef<(baseUrl?: string) => Promise<void>>(async () => {});
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -294,6 +296,43 @@ export default function SellerHomeScreen({
     });
   }
 
+  async function refreshOrdersOnly(baseUrl = apiUrl): Promise<void> {
+    const ordersRes = await fetchWithAuth("/v1/seller/orders?page=1&pageSize=200", baseUrl);
+    if (!ordersRes.ok) {
+      return;
+    }
+    const ordersJson = await ordersRes.json().catch(() => ({}));
+    let sellerOrders: SellerOrder[] = Array.isArray(ordersJson?.data) ? ordersJson.data : [];
+
+    // Keep home feed aligned with fallback list when seller endpoint returns empty.
+    if (sellerOrders.length === 0) {
+      const fallbackRes = await fetchWithAuth("/v1/orders?page=1&pageSize=200&role=seller", baseUrl);
+      const fallbackJson = await fallbackRes.json().catch(() => ({}));
+      if (fallbackRes.ok && Array.isArray(fallbackJson?.data)) {
+        const fromAll = fallbackJson.data.filter((row: SellerOrder & { sellerId?: string }) => row.sellerId === currentAuth.userId);
+        sellerOrders = fromAll.length > 0 ? fromAll : fallbackJson.data;
+      }
+    }
+
+    setSellerOrdersCache(sellerOrders as Record<string, unknown>[]);
+    const now = Date.now();
+    setNewOrderUntilById((prev) => {
+      const next: Record<string, number> = {};
+      for (const [id, expiresAt] of Object.entries(prev)) {
+        if (expiresAt > now) next[id] = expiresAt;
+      }
+      for (const order of sellerOrders) {
+        if (!seenOrderIdsRef.current.has(order.id)) {
+          if (hasSeenInitialOrdersRef.current) next[order.id] = now + 75_000;
+          seenOrderIdsRef.current.add(order.id);
+        }
+      }
+      hasSeenInitialOrdersRef.current = true;
+      return next;
+    });
+    setOrders(sellerOrders);
+  }
+
   async function load() {
     const hasCache = getSellerOrdersCache() !== null || getSellerFoodsCache() !== null;
     if (!hasCache) setLoading(true);
@@ -301,52 +340,24 @@ export default function SellerHomeScreen({
       const settings = await loadSettings();
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
-      const [profileRes, ordersRes, foodsRes] = await Promise.all([
+
+      // Orders are highest priority; do not block them behind profile/foods fetches.
+      await refreshOrdersOnly(baseUrl);
+
+      const [profileRes, foodsRes] = await Promise.all([
         fetchWithAuth("/v1/seller/profile", baseUrl),
-        fetchWithAuth("/v1/seller/orders?page=1&pageSize=200", baseUrl),
         fetchWithAuth("/v1/seller/foods", baseUrl),
       ]);
-      const profileJson = await profileRes.json();
+
+      const profileJson = await profileRes.json().catch(() => ({}));
       if (profileRes.ok) {
-        const name = profileJson.data?.displayName?.trim() || "Usta";
+        const name = profileJson?.data?.displayName?.trim() || "Usta";
         setDisplayName(name);
         setSellerDisplayNameCache(name);
       }
-      if (ordersRes.ok) {
-        const ordersJson = await ordersRes.json();
-        let sellerOrders: SellerOrder[] = Array.isArray(ordersJson.data) ? ordersJson.data : [];
 
-        // Keep the home feed aligned with SellerOrdersScreen when the seller-scoped
-        // endpoint returns empty due to legacy actor filtering in some environments.
-        if (sellerOrders.length === 0) {
-          const fallbackRes = await fetchWithAuth("/v1/orders?page=1&pageSize=200&role=seller", baseUrl);
-          const fallbackJson = await fallbackRes.json().catch(() => ({}));
-          if (fallbackRes.ok && Array.isArray(fallbackJson?.data)) {
-            const fromAll = fallbackJson.data.filter((row: SellerOrder & { sellerId?: string }) => row.sellerId === currentAuth.userId);
-            sellerOrders = fromAll.length > 0 ? fromAll : fallbackJson.data;
-          }
-        }
-
-        setSellerOrdersCache(sellerOrders as Record<string, unknown>[]);
-        const now = Date.now();
-        setNewOrderUntilById((prev) => {
-          const next: Record<string, number> = {};
-          for (const [id, expiresAt] of Object.entries(prev)) {
-            if (expiresAt > now) next[id] = expiresAt;
-          }
-          for (const order of sellerOrders) {
-            if (!seenOrderIdsRef.current.has(order.id)) {
-              if (hasSeenInitialOrdersRef.current) next[order.id] = now + 75_000;
-              seenOrderIdsRef.current.add(order.id);
-            }
-          }
-          hasSeenInitialOrdersRef.current = true;
-          return next;
-        });
-        setOrders(sellerOrders);
-      }
       if (foodsRes.ok) {
-        const foodsJson = await foodsRes.json();
+        const foodsJson = await foodsRes.json().catch(() => ({}));
         if (Array.isArray(foodsJson?.data)) {
           const foods = (foodsJson.data as Record<string, unknown>[]).map((f) => ({
             ...f,
@@ -390,11 +401,16 @@ export default function SellerHomeScreen({
     }
   }
 
+  useEffect(() => {
+    refreshOrdersOnlyRef.current = refreshOrdersOnly;
+    loadRef.current = load;
+  });
+
   useEffect(() => { void load(); }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeSellerOrdersRealtime(currentAuth.userId, () => {
-      void load();
+      void refreshOrdersOnlyRef.current();
     });
     return unsubscribe;
   }, [currentAuth.userId]);
@@ -402,14 +418,14 @@ export default function SellerHomeScreen({
   // Reload when app returns to foreground (covers case where realtime is not configured)
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") void load();
+      if (nextState === "active") void loadRef.current();
     });
     return () => sub.remove();
   }, []);
 
-  // Polling fallback: refresh every 30 s so new orders always appear
+  // Polling fallback: refresh every 8 s so seller list stays near-realtime
   useEffect(() => {
-    const id = setInterval(() => { void load(); }, 30_000);
+    const id = setInterval(() => { void refreshOrdersOnlyRef.current(); }, 8_000);
     return () => clearInterval(id);
   }, []);
 
