@@ -1001,7 +1001,12 @@ async function transitionHandler(
           await client.query("ROLLBACK");
           return res.status(409).json({ error: { code: "ORDER_INVALID_ITEMS", message: "Order items missing" } });
         }
-        throw error;
+        // Completion must not be blocked by non-critical disclosure backfill failures.
+        console.error("[orders] allergen disclosure backfill failed (non-fatal)", {
+          orderId: order.id,
+          actorUserId: req.auth?.userId ?? null,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -1092,18 +1097,27 @@ async function transitionHandler(
     }
 
     if (toStatus === "completed") {
-      await finalizeOrderFinanceTx({
-        client,
-        orderId: order.id,
-        sellerId: order.seller_id,
-        grossAmount: Number(order.total_price),
-      });
-      await enqueueOutboxEvent(client, {
-        eventType: "finance_snapshot_finalized",
-        aggregateType: "order_finance",
-        aggregateId: order.id,
-        payload: { orderId: order.id, sellerId: order.seller_id, grossAmount: Number(order.total_price) },
-      });
+      try {
+        await finalizeOrderFinanceTx({
+          client,
+          orderId: order.id,
+          sellerId: order.seller_id,
+          grossAmount: Number(order.total_price),
+        });
+        await enqueueOutboxEvent(client, {
+          eventType: "finance_snapshot_finalized",
+          aggregateType: "order_finance",
+          aggregateId: order.id,
+          payload: { orderId: order.id, sellerId: order.seller_id, grossAmount: Number(order.total_price) },
+        });
+      } catch (error) {
+        // Finance snapshot is non-blocking for buyer confirmation.
+        console.error("[orders] finance finalize failed (non-fatal)", {
+          orderId: order.id,
+          sellerId: order.seller_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       await enqueueOutboxEvent(client, {
         eventType: "order_completed",
         aggregateType: "order",
@@ -1122,10 +1136,18 @@ async function transitionHandler(
       }
     }
     return res.json({ data: { orderId: order.id, fromStatus: currentStatus, toStatus } });
-  } catch {
+  } catch (error) {
     if (!committed) {
       await client.query("ROLLBACK");
     }
+    console.error("[orders] transition failed", {
+      orderId: req.params.id,
+      actorRole,
+      actorUserId: req.auth?.userId ?? null,
+      toStatus,
+      eventType,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Order transition failed" } });
   } finally {
     client.release();
