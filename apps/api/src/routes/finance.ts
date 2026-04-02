@@ -334,7 +334,7 @@ orderDisputeRouter.post(
       await client.query("ROLLBACK");
       return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "No access to this order" } });
     }
-    if (!["paid", "preparing", "ready", "in_delivery", "delivered", "completed"].includes(orderRow.status)) {
+    if (!["paid", "preparing", "ready", "in_delivery", "at_door", "delivered", "completed"].includes(orderRow.status)) {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: { code: "ORDER_INVALID_STATE", message: "Refund request not allowed yet" } });
     }

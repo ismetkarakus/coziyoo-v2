@@ -35,8 +35,8 @@ type SellerOrder = {
 type SellerAction =
   | { label: "Hazırlanıyor"; toStatus: "preparing"; tone: "preparing" }
   | { label: "Yola Çıktı"; toStatus: "in_delivery"; tone: "in_delivery" }
-  | { label: "Kapıda"; toStatus: "delivered"; tone: "delivered" }
-  | { label: "Teslim Edildi"; toStatus: "completed"; tone: "completed" };
+  | { label: "Kapıda"; toStatus: "at_door"; tone: "at_door" }
+  | { label: "Teslim Edildi"; toStatus: "delivered"; tone: "delivered" };
 
 type OrderGroupKey = "preparing" | "route" | "done";
 
@@ -115,7 +115,8 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
   const borders: Record<string, string> = {
     preparing: "#F5C27A",
     in_delivery: "#AFC6FF",
-    delivered: "#9EDBD2",
+    at_door: "#9EDBD2",
+    delivered: "#79C796",
     completed: "#79C796",
     cancelled: "#F2B5B0",
     rejected: "#F2B5B0",
@@ -130,7 +131,8 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 function normalizeDisplayStatus(status: string, deliveryType?: string): string {
   void deliveryType;
   if (status === "cancelled" || status === "rejected") return status;
-  if (status === "delivered" || status === "completed") return status;
+  if (status === "completed") return "delivered";
+  if (status === "delivered" || status === "at_door") return status;
   if (status === "in_delivery" || status === "ready") return "in_delivery";
   if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return status;
   return status;
@@ -147,8 +149,8 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (status === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
-  if (status === "in_delivery") return { label: "Kapıda", toStatus: "delivered", tone: "delivered" };
-  if (status === "delivered") return { label: "Teslim Edildi", toStatus: "completed", tone: "completed" };
+  if (status === "in_delivery") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
+  if (status === "at_door") return { label: "Teslim Edildi", toStatus: "delivered", tone: "delivered" };
   return null;
 }
 
@@ -156,15 +158,15 @@ function toneFromStatus(status: string, deliveryType?: string): SellerAction["to
   const normalized = normalizeDisplayStatus(status, deliveryType);
   if (normalized === "preparing") return "preparing";
   if (normalized === "in_delivery") return "in_delivery";
+  if (normalized === "at_door") return "at_door";
   if (normalized === "delivered") return "delivered";
-  if (normalized === "completed") return "completed";
   return null;
 }
 
 function orderGroupKey(status: string, deliveryType?: string): OrderGroupKey {
   const normalized = normalizeDisplayStatus(status, deliveryType);
-  if (normalized === "in_delivery" || normalized === "delivered") return "route";
-  if (normalized === "completed" || normalized === "cancelled" || normalized === "rejected") return "done";
+  if (normalized === "in_delivery" || normalized === "at_door") return "route";
+  if (normalized === "delivered" || normalized === "completed" || normalized === "cancelled" || normalized === "rejected") return "done";
   return "preparing";
 }
 
@@ -415,7 +417,7 @@ export default function SellerHomeScreen({
     const now = new Date();
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
-      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
+      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "at_door", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
       return isSameLocalDay(activityAt, now);
@@ -445,7 +447,7 @@ export default function SellerHomeScreen({
     setRefreshing(false);
   }
 
-  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "delivered" | "preparing" | "completed"): Promise<void> {
+  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "at_door" | "delivered" | "preparing" | "completed"): Promise<void> {
     const res = await fetchWithAuthInit(
       `/v1/orders/${orderId}/status`,
       {
@@ -467,7 +469,7 @@ export default function SellerHomeScreen({
 
   async function advanceStatusWithCompatibility(
     orderId: string,
-    toStatus: "in_delivery" | "delivered" | "preparing" | "completed",
+    toStatus: "in_delivery" | "at_door" | "delivered" | "preparing" | "completed",
   ): Promise<void> {
     try {
       await changeStatus(orderId, toStatus);
@@ -485,7 +487,7 @@ export default function SellerHomeScreen({
     try {
       setUpdatingOrderId(orderId);
       await advanceStatusWithCompatibility(orderId, action.toStatus);
-      if (action.toStatus === "completed") {
+      if (action.toStatus === "delivered") {
         setCelebrationOrderId(orderId);
         deliveredEmojiScale.setValue(0.4);
         deliveredEmojiOpacity.setValue(0);
@@ -618,8 +620,8 @@ export default function SellerHomeScreen({
                       const resolvedTone = action?.tone ?? passiveTone;
                       const canRunAction = Boolean(action);
                       const normalizedStatus = normalizeDisplayStatus(item.status, item.deliveryType);
-                      const showSmallThumb = normalizedStatus === "completed";
-                      const isDoorStep = normalizedStatus === "delivered";
+                      const showSmallThumb = normalizedStatus === "delivered";
+                      const isDoorStep = normalizedStatus === "at_door";
                       const isNewOrder = (newOrderUntilById[item.id] ?? 0) > clockMs;
                       return (
                         <View key={item.id} style={styles.orderCard}>
@@ -704,7 +706,7 @@ export default function SellerHomeScreen({
                                     ? styles.cardActionBtnPreparing
                                     : resolvedTone === "in_delivery"
                                       ? styles.cardActionBtnInDelivery
-                                      : resolvedTone === "delivered"
+                                      : resolvedTone === "at_door"
                                         ? styles.cardActionBtnDelivered
                                         : styles.cardActionBtnCompleted,
                                   isDoorStep && styles.cardActionBtnKapidaPulse,

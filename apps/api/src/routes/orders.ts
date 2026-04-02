@@ -56,6 +56,7 @@ const StatusSchema = z.object({
     "preparing",
     "ready",
     "in_delivery",
+    "at_door",
     "delivered",
     "completed",
     "cancelled",
@@ -150,6 +151,7 @@ function resolveDeliveryDestination(deliveryAddressJson: unknown): { coord: LatL
 
 function trackingStatusLabel(status: string): string {
   if (status === "in_delivery") return "Yolda";
+  if (status === "at_door") return "Kapıda";
   if (status === "ready") return "Hazır";
   if (status === "preparing") return "Hazırlanıyor";
   if (status === "delivered") return "Teslim edildi";

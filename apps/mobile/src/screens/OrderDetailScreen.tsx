@@ -99,15 +99,16 @@ type Props = {
 
 const CANCELLABLE = ['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid'];
 const COMPLETABLE = ['delivered'];
-const BUYER_FLOW_STEPS = ['preparing', 'in_delivery', 'delivered', 'completed'] as const;
+const BUYER_FLOW_STEPS = ['preparing', 'in_delivery', 'at_door', 'delivered'] as const;
 type BuyerFlowStep = (typeof BUYER_FLOW_STEPS)[number];
 
 function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' | 'rejected' {
   const normalized = String(status ?? '').trim().toLowerCase();
   if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing'].includes(normalized)) return 'preparing';
   if (normalized === 'ready' || normalized === 'in_delivery') return 'in_delivery';
+  if (normalized === 'at_door') return 'at_door';
   if (normalized === 'delivered') return 'delivered';
-  if (normalized === 'completed') return 'completed';
+  if (normalized === 'completed') return 'delivered';
   if (normalized === 'cancelled') return 'cancelled';
   if (normalized === 'rejected') return 'rejected';
   return 'preparing';
@@ -116,7 +117,7 @@ function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' |
 function buyerFlowLabel(step: BuyerFlowStep): string {
   if (step === 'preparing') return 'Hazırlanıyor';
   if (step === 'in_delivery') return 'Yola Çıktı';
-  if (step === 'delivered') return 'Kapıda';
+  if (step === 'at_door') return 'Kapıda';
   return 'Teslim Edildi';
 }
 
@@ -187,7 +188,7 @@ export default function OrderDetailScreen({
   useEffect(() => {
     if (!order || order.deliveryType !== 'delivery') return;
     void fetchTracking();
-    const active = ['preparing', 'ready', 'in_delivery'].includes(order.status);
+    const active = ['preparing', 'ready', 'in_delivery', 'at_door'].includes(order.status);
     if (!active) return;
     const timer = setInterval(() => { void fetchTracking(); }, 20_000);
     return () => clearInterval(timer);
@@ -347,8 +348,8 @@ export default function OrderDetailScreen({
     isBuyer &&
     !order.paymentCompleted &&
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
-  const canReview = isBuyer && order.status === 'completed';
-  const canComplain = isBuyer && ['completed', 'delivered'].includes(order.status);
+  const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
+  const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status);
   const buyerFlowCurrentIndex = BUYER_FLOW_STEPS.indexOf(
     buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected' ? 'preparing' : buyerFlowStatus
@@ -359,7 +360,7 @@ export default function OrderDetailScreen({
     if (mapped === 'cancelled' || mapped === 'rejected') return acc;
     if (!acc[mapped]) acc[mapped] = event.createdAt;
     return acc;
-  }, { preparing: null, in_delivery: null, delivered: null, completed: null });
+  }, { preparing: null, in_delivery: null, at_door: null, delivered: null });
 
   return (
     <View style={styles.container}>

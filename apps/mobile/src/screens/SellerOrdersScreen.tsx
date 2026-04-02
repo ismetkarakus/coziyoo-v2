@@ -27,7 +27,7 @@ type SellerOrder = {
   updatedAt?: string;
 };
 
-type StatusFilter = "all" | "pending_seller_approval" | "awaiting_payment" | "paid" | "preparing" | "ready" | "in_delivery" | "delivered" | "completed" | "cancelled";
+type StatusFilter = "all" | "pending_seller_approval" | "awaiting_payment" | "paid" | "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" | "completed" | "cancelled";
 
 function formatOrderDate(iso: string | undefined): string {
   if (!iso) return "-";

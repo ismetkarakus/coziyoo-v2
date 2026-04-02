@@ -15,7 +15,7 @@ adminDashboardRouter.get("/dashboard/overview", requireAuth("admin"), async (_re
     ),
     pool.query<{ active_orders: string; payment_pending_orders: string }>(
       `SELECT
-         count(*) FILTER (WHERE status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered'))::text AS active_orders,
+         count(*) FILTER (WHERE status IN ('paid', 'preparing', 'ready', 'in_delivery', 'at_door'))::text AS active_orders,
          count(*) FILTER (WHERE payment_completed = FALSE AND status IN ('pending_seller_approval', 'seller_approved', 'awaiting_payment'))::text AS payment_pending_orders
        FROM orders`
     ),

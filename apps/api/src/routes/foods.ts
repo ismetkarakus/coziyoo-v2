@@ -361,7 +361,7 @@ foodsRouter.get("/top-sold", async (req, res) => {
           JOIN orders o ON o.id = oi.order_id
           JOIN foods f ON f.id = oi.food_id
           WHERE o.payment_completed = TRUE
-            AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')
+            AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'at_door', 'delivered', 'completed')
           GROUP BY f.id, f.name, f.image_url, f.image_urls_json, f.rating, f.review_count
         ),
         by_name AS (
@@ -739,7 +739,7 @@ foodsRouter.get("/recommendations", async (req, res) => {
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
           WHERE o.payment_completed = TRUE
-            AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'delivered', 'completed')
+            AND o.status IN ('paid', 'preparing', 'ready', 'in_delivery', 'at_door', 'delivered', 'completed')
           GROUP BY oi.food_id
         )
         SELECT

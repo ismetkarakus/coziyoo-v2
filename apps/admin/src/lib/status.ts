@@ -12,6 +12,7 @@ export function paymentBadge(status: string): { text: string; cls: string } {
 export function orderStatusLabel(status: string): string {
   const normalized = status.toLowerCase();
   if (normalized.includes("cancel")) return "İptal";
+  if (normalized === "at_door") return "Kapıda";
   if (normalized.includes("deliver")) return "Teslim Edildi";
   if (normalized.includes("done")) return "Tamamlandı";
   if (normalized.includes("approve")) return "Onaylandı";

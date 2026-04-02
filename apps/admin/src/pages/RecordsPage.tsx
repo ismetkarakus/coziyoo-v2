@@ -222,8 +222,9 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const status = String(rawStatus ?? "").trim().toLowerCase();
     if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
     if (status === "ready" || status === "in_delivery") return "in_delivery";
+    if (status === "at_door") return "at_door";
     if (status === "delivered") return "delivered";
-    if (status === "completed") return "completed";
+    if (status === "completed") return "delivered";
     if (status === "rejected") return "cancelled";
     return status;
   };
@@ -242,8 +243,13 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         note: isTr ? "Sipariş yolda" : "Order is on the way",
         toneClass: "is-delivery",
       },
+      at_door: {
+        label: isTr ? "Kapıda" : "At door",
+        note: isTr ? "Teslimat kapıda" : "Courier is at the door",
+        toneClass: "is-warning",
+      },
       delivered: {
-        label: isTr ? "Kapıda teslim edildi" : "Delivered at door",
+        label: isTr ? "Teslim Edildi" : "Delivered",
         note: isTr ? "Teslimat tamamlandı" : "Delivery completed",
         toneClass: "is-done",
       },

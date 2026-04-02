@@ -393,6 +393,7 @@ function formatOrderStatusLabel(status: string): string {
   if (normalized === 'preparing') return t('status.home.orderStatus.preparing');
   if (normalized === 'ready') return t('status.home.orderStatus.ready');
   if (normalized === 'in_delivery') return t('status.home.orderStatus.in_delivery');
+  if (normalized === 'at_door') return t('status.home.orderStatus.at_door');
   if (normalized === 'delivered') return t('status.home.orderStatus.delivered');
   if (normalized === 'completed') return t('status.home.orderStatus.completed');
   if (normalized === 'cancelled') return t('status.home.orderStatus.cancelled');

@@ -72,6 +72,7 @@ function statusMeta(language: Language, status: string): { label: string; cls: s
   if (status === "preparing") return { label: dict.reviewQueue.preparingStatus, cls: "is-warning" };
   if (status === "ready") return { label: dict.reviewQueue.readyStatus, cls: "is-approved" };
   if (status === "in_delivery") return { label: dict.reviewQueue.inDeliveryStatus, cls: "is-approved" };
+  if (status === "at_door") return { label: language === "tr" ? "Kapıda" : "At door", cls: "is-warning" };
   if (status === "delivered") return { label: dict.reviewQueue.deliveredStatus, cls: "is-success" };
   if (status === "completed") return { label: dict.reviewQueue.completedStatus, cls: "is-success" };
   return { label: status, cls: "is-neutral" };

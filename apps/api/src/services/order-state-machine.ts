@@ -8,6 +8,7 @@ export type OrderStatus =
   | "preparing"
   | "ready"
   | "in_delivery"
+  | "at_door"
   | "delivered"
   | "completed"
   | "rejected"
@@ -20,7 +21,8 @@ const transitions: Record<OrderStatus, OrderStatus[]> = {
   paid: ["preparing", "cancelled"],
   preparing: ["ready", "in_delivery"],
   ready: ["in_delivery"],
-  in_delivery: ["delivered"],
+  in_delivery: ["at_door"],
+  at_door: ["delivered"],
   delivered: ["completed"],
   completed: [],
   rejected: [],
@@ -33,7 +35,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
 
 export function canActorSetStatus(actorRole: AppActorRole, to: OrderStatus): boolean {
   if (actorRole === "seller") {
-    return ["preparing", "ready", "in_delivery", "delivered", "completed"].includes(
+    return ["preparing", "ready", "in_delivery", "at_door", "delivered", "completed"].includes(
       to
     );
   }
