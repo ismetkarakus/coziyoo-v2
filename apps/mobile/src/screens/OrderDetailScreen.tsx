@@ -99,7 +99,7 @@ type Props = {
 
 const CANCELLABLE = ['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid'];
 const COMPLETABLE = ['delivered'];
-const DELIVERY_FLOW_STEPS = ['preparing', 'in_delivery', 'at_door', 'delivered'] as const;
+const DELIVERY_FLOW_STEPS = ['preparing', 'in_delivery', 'approaching', 'at_door', 'delivered'] as const;
 const PICKUP_FLOW_STEPS = ['preparing', 'ready'] as const;
 type BuyerFlowStep = (typeof DELIVERY_FLOW_STEPS)[number] | (typeof PICKUP_FLOW_STEPS)[number];
 
@@ -121,7 +121,8 @@ function normalizeBuyerFlowStatus(
   }
 
   if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing', 'ready'].includes(normalized)) return 'preparing';
-  if (normalized === 'in_delivery' || normalized === 'approaching') return 'in_delivery';
+  if (normalized === 'in_delivery') return 'in_delivery';
+  if (normalized === 'approaching') return 'approaching';
   if (normalized === 'at_door') return 'at_door';
   if (normalized === 'delivered') return 'delivered';
   if (normalized === 'completed') return 'delivered';
@@ -134,6 +135,7 @@ function buyerFlowLabel(step: BuyerFlowStep): string {
   if (step === 'preparing') return 'Hazırlanıyor';
   if (step === 'ready') return 'Hazır';
   if (step === 'in_delivery') return 'Yola Çıktı';
+  if (step === 'approaching') return 'Yaklaştı';
   if (step === 'at_door') return 'Kapıda';
   return 'Teslim Edildi';
 }
@@ -213,7 +215,7 @@ export default function OrderDetailScreen({
   useEffect(() => {
     if (!order || order.deliveryType !== 'delivery') return;
     void fetchTracking();
-    const active = ['preparing', 'ready', 'in_delivery', 'at_door'].includes(order.status);
+    const active = ['preparing', 'ready', 'in_delivery', 'approaching', 'at_door'].includes(order.status);
     if (!active) return;
     const timer = setInterval(() => { void fetchTracking(); }, 20_000);
     return () => clearInterval(timer);

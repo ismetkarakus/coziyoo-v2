@@ -67,7 +67,8 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   if (normalized === "preparing" || normalized === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery" };
   }
-  if (normalized === "in_delivery") return { label: "Kapıda", toStatus: "at_door" };
+  if (normalized === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching" };
+  if (normalized === "approaching") return { label: "Kapıda", toStatus: "at_door" };
   if (normalized === "at_door") return { label: "Teslim Edildi", toStatus: "delivered" };
   return null;
 }
@@ -76,6 +77,7 @@ function actionTone(toStatus: string): { bg: string; border: string } {
   if (toStatus === "preparing") return { bg: "#B86A00", border: "#B86A00" };
   if (toStatus === "ready") return { bg: "#166534", border: "#166534" };
   if (toStatus === "in_delivery") return { bg: "#1D4ED8", border: "#1D4ED8" };
+  if (toStatus === "approaching") return { bg: "#0F766E", border: "#0F766E" };
   if (toStatus === "at_door") return { bg: "#0F766E", border: "#0F766E" };
   if (toStatus === "delivered" || toStatus === "completed") return { bg: "#166534", border: "#166534" };
   return { bg: "#3F855C", border: "#3F855C" };

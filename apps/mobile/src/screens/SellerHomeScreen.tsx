@@ -33,7 +33,7 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered"; tone: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" };
+  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "approaching" | "at_door" | "delivered"; tone: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" };
 
 type OrderGroupKey = "preparing" | "route" | "done";
 
@@ -157,7 +157,8 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (!pickup && status === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
-  if (status === "in_delivery") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
+  if (status === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching", tone: "at_door" };
+  if (status === "approaching") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
   if (pickup && status === "at_door") return { label: "Teslim Edildi", toStatus: "delivered", tone: "delivered" };
   if (!pickup && status === "at_door") return { label: "Teslim Edildi", toStatus: "delivered", tone: "delivered" };
   return null;
@@ -168,6 +169,7 @@ function toneFromStatus(status: string, deliveryType?: string): SellerAction["to
   if (normalized === "preparing") return "preparing";
   if (normalized === "ready") return "ready";
   if (normalized === "in_delivery") return "in_delivery";
+  if (normalized === "approaching") return "at_door";
   if (normalized === "at_door") return "at_door";
   if (normalized === "delivered") return "delivered";
   return null;
@@ -481,7 +483,7 @@ export default function SellerHomeScreen({
     setRefreshing(false);
   }
 
-  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "at_door" | "delivered" | "preparing" | "completed"): Promise<void> {
+  async function changeStatus(orderId: string, toStatus: "ready" | "in_delivery" | "approaching" | "at_door" | "delivered" | "preparing" | "completed"): Promise<void> {
     const res = await fetchWithAuthInit(
       `/v1/orders/${orderId}/status`,
       {
@@ -503,7 +505,7 @@ export default function SellerHomeScreen({
 
   async function advanceStatusWithCompatibility(
     orderId: string,
-    toStatus: "ready" | "in_delivery" | "at_door" | "delivered" | "preparing" | "completed",
+    toStatus: "ready" | "in_delivery" | "approaching" | "at_door" | "delivered" | "preparing" | "completed",
   ): Promise<void> {
     try {
       await changeStatus(orderId, toStatus);

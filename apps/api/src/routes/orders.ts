@@ -153,6 +153,7 @@ function resolveDeliveryDestination(deliveryAddressJson: unknown): { coord: LatL
 
 function trackingStatusLabel(status: string): string {
   if (status === "in_delivery") return "Yolda";
+  if (status === "approaching") return "Yaklaştı";
   if (status === "at_door") return "Kapıda";
   if (status === "ready") return "Hazır";
   if (status === "preparing") return "Hazırlanıyor";

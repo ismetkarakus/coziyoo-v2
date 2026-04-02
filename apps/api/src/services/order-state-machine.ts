@@ -46,7 +46,7 @@ export function canActorSetStatus(
     if (normalizedDeliveryType === "pickup") {
       return ["preparing", "ready"].includes(to);
     }
-    return ["preparing", "ready", "in_delivery", "at_door", "delivered", "completed"].includes(to);
+    return ["preparing", "ready", "in_delivery", "approaching", "at_door", "delivered", "completed"].includes(to);
   }
   if (actorRole === "buyer") {
     if (normalizedDeliveryType === "pickup") {

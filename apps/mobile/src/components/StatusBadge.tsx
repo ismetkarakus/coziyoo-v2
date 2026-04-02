@@ -12,7 +12,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   pickup_ready: { label: 'Hazırlandı, seni bekliyor', color: '#166534', bg: '#EAF7EE' },
   pickup_ready_seller: { label: 'Hazırlandı', color: '#166534', bg: '#EAF7EE' },
   in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
-  approaching: { label: 'Alıcı Geliyor', color: '#0F766E', bg: '#E6FFFB' },
+  approaching: { label: 'Yaklaştı', color: '#0F766E', bg: '#E6FFFB' },
   at_door: { label: 'Kapıda', color: '#0F766E', bg: '#E6FFFB' },
   delivered: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
   completed: { label: 'Teslim Edildi', color: '#166534', bg: '#EAF7EE' },
