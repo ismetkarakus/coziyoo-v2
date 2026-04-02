@@ -360,6 +360,14 @@ type SellerReview = {
   createdAt: string;
 };
 
+type SellerCompletedSalesResponse = {
+  data?: {
+    sellerId?: string;
+    totalCompletedMeals?: number;
+  };
+  error?: { message?: string };
+};
+
 type CartItem = {
   key: string;
   meal: MealCard;
@@ -1288,6 +1296,8 @@ export default function HomeScreen({
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [sellerReviewsLoading, setSellerReviewsLoading] = useState(false);
   const [sellerReviewsError, setSellerReviewsError] = useState<string | null>(null);
+  const [sellerCompletedMealsSold, setSellerCompletedMealsSold] = useState<number | null>(null);
+  const [sellerCompletedMealsLoading, setSellerCompletedMealsLoading] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
@@ -2599,6 +2609,8 @@ export default function HomeScreen({
       setSellerReviews([]);
       setSellerReviewsLoading(false);
       setSellerReviewsError(null);
+      setSellerCompletedMealsSold(null);
+      setSellerCompletedMealsLoading(false);
       return;
     }
     let cancelled = false;
@@ -2626,6 +2638,41 @@ export default function HomeScreen({
       .finally(() => {
         if (cancelled) return;
         setSellerReviewsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSeller?.id, apiUrl, currentAuth.accessToken]);
+
+  useEffect(() => {
+    if (!selectedSeller) {
+      setSellerCompletedMealsSold(null);
+      setSellerCompletedMealsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSellerCompletedMealsLoading(true);
+    fetch(`${apiUrl}/v1/foods/sellers/${selectedSeller.id}/completed-sales`, {
+      headers: { Authorization: `Bearer ${currentAuth.accessToken}` },
+    })
+      .then(async (response) => {
+        const json = await readJsonSafe<SellerCompletedSalesResponse>(response);
+        if (!response.ok) {
+          throw new Error(json.error?.message ?? requestErrorLine(response.status));
+        }
+        return Number(json.data?.totalCompletedMeals ?? 0);
+      })
+      .then((count) => {
+        if (cancelled) return;
+        setSellerCompletedMealsSold(count);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSellerCompletedMealsSold(0);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setSellerCompletedMealsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -3860,6 +3907,11 @@ export default function HomeScreen({
                   <Text style={styles.sellerAboutTitle}>Usta Ozgecmisi</Text>
                   <Text style={styles.sellerAboutMeta}>
                     {sellerProfile.startedYear} yılından beri • {sellerProfile.experienceYears} yıl tecrübe
+                  </Text>
+                  <Text style={styles.sellerAboutSales}>
+                    {sellerCompletedMealsLoading
+                      ? 'Tamamlanan satışlar hesaplanıyor...'
+                      : `Toplam satılan yemek: ${sellerCompletedMealsSold ?? 0}`}
                   </Text>
                   <Text style={styles.sellerAboutText}>{sellerProfile.bio}</Text>
                 </View>
@@ -5784,6 +5836,7 @@ const styles = StyleSheet.create({
   },
   sellerAboutTitle: { color: '#3D3229', fontSize: 13, fontWeight: '700' },
   sellerAboutMeta: { color: '#7E7163', fontSize: 12, fontWeight: '600', marginTop: 3 },
+  sellerAboutSales: { color: '#4A7C59', fontSize: 12, fontWeight: '700', marginTop: 4 },
   sellerAboutText: { color: '#6E6256', fontSize: 12, lineHeight: 18, marginTop: 5 },
   sellerReviewList: { marginBottom: 12 },
   sellerReviewsLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },

@@ -1070,6 +1070,39 @@ foodsRouter.get("/sellers/:sellerId/reviews", async (req, res) => {
 });
 
 /**
+ * GET /v1/foods/sellers/:sellerId/completed-sales
+ * Return total sold meal quantity for completed orders only.
+ */
+foodsRouter.get("/sellers/:sellerId/completed-sales", async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { rows } = await pool.query<{ total_completed_meals: string }>(
+      `
+        SELECT COALESCE(SUM(oi.quantity), 0)::text AS total_completed_meals
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        WHERE o.seller_id = $1
+          AND o.status = 'completed'
+      `,
+      [sellerId],
+    );
+
+    const totalCompletedMeals = Number(rows[0]?.total_completed_meals ?? "0");
+    res.json({
+      data: {
+        sellerId,
+        totalCompletedMeals,
+      },
+    });
+  } catch (err) {
+    console.error("[foods] seller completed sales error:", err);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load seller completed sales" },
+    });
+  }
+});
+
+/**
  * GET /v1/foods/sellers/:sellerId/address
  * Get seller's default address for pickup orders.
  */
