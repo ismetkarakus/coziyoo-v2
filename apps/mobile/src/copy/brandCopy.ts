@@ -83,7 +83,7 @@ export const brandCopy = {
   'error.home.payableLotsMissing': 'Sepette ödemeye uygun ürün kalmadı.',
   'helper.home.checkoutDeliveryType': 'Teslimat tipi',
   'cta.home.delivery': 'Teslimat',
-  'cta.home.pickup': 'Gel-al',
+  'cta.home.pickup': 'Gel Al',
   'helper.home.checkoutAddress': 'Teslimat adresi',
   'cta.home.changeAddress': 'Adresi değiştir',
   'cta.home.manageAddresses': 'Adreslerimi yönet',

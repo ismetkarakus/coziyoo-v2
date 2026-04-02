@@ -277,8 +277,19 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   };
 
-  const normalizeBuyerFlowStatus = (rawStatus: unknown): string => {
+  const normalizeBuyerFlowStatus = (rawStatus: unknown, deliveryType?: unknown): string => {
     const status = String(rawStatus ?? "").trim().toLowerCase();
+    const delivery = String(deliveryType ?? "").trim().toLowerCase();
+    if (delivery === "pickup") {
+      if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
+      if (status === "ready") return "ready";
+      if (status === "in_delivery") return "in_delivery";
+      if (status === "approaching") return "approaching";
+      if (status === "at_door") return "at_door";
+      if (status === "delivered" || status === "completed") return "delivered";
+      if (status === "rejected") return "cancelled";
+      return status;
+    }
     if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
     if (status === "ready" || status === "in_delivery") return "in_delivery";
     if (status === "at_door") return "at_door";
@@ -289,10 +300,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   };
 
   const orderStatusMeta = (rawStatus: unknown, deliveryType?: unknown): { label: string; note: string; toneClass: string } => {
-    const status = normalizeBuyerFlowStatus(rawStatus);
+    const status = normalizeBuyerFlowStatus(rawStatus, deliveryType);
     const delivery = String(deliveryType ?? "").trim().toLowerCase();
-    const pickupInDeliveryLabel = language === "tr" ? "Alıcı Yolda" : "Buyer on the way";
-    const pickupInDeliveryNote = language === "tr" ? "Alıcı satıcıya doğru geliyor" : "Buyer is coming to seller";
     const isTr = language === "tr";
     const map: Record<string, { label: string; note: string; toneClass: string }> = {
       preparing: {
@@ -300,14 +309,24 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         note: isTr ? "Sipariş hazırlanıyor" : "Order is being prepared",
         toneClass: "is-pending",
       },
+      ready: {
+        label: delivery === "pickup" ? (isTr ? "Hazırlandı, seni bekliyor" : "Ready, waiting for buyer") : (isTr ? "Hazır" : "Ready"),
+        note: delivery === "pickup" ? (isTr ? "Satıcı siparişi hazırladı" : "Seller prepared the order") : (isTr ? "Sipariş hazır" : "Order ready"),
+        toneClass: "is-success",
+      },
       in_delivery: {
-        label: delivery === "pickup" ? pickupInDeliveryLabel : (isTr ? "Yola çıktı" : "Out for delivery"),
-        note: delivery === "pickup" ? pickupInDeliveryNote : (isTr ? "Sipariş yolda" : "Order is on the way"),
+        label: delivery === "pickup" ? (isTr ? "Yola Çıktı" : "On the way") : (isTr ? "Yola çıktı" : "Out for delivery"),
+        note: delivery === "pickup" ? (isTr ? "Alıcı satıcıya doğru yolda" : "Buyer is on the way to seller") : (isTr ? "Sipariş yolda" : "Order is on the way"),
+        toneClass: "is-delivery",
+      },
+      approaching: {
+        label: delivery === "pickup" ? (isTr ? "Geliyorum" : "Approaching") : (isTr ? "Yaklaşıyor" : "Approaching"),
+        note: delivery === "pickup" ? (isTr ? "Alıcı yaklaşıyor" : "Buyer is approaching") : (isTr ? "Teslimat noktaya yaklaşıyor" : "Courier approaching destination"),
         toneClass: "is-delivery",
       },
       at_door: {
-        label: isTr ? "Kapıda" : "At door",
-        note: isTr ? "Teslimat kapıda" : "Courier is at the door",
+        label: delivery === "pickup" ? (isTr ? "Kapıdayım" : "At pickup point") : (isTr ? "Kapıda" : "At door"),
+        note: delivery === "pickup" ? (isTr ? "Alıcı teslim noktasında" : "Buyer is at pickup point") : (isTr ? "Teslimat kapıda" : "Courier is at the door"),
         toneClass: "is-warning",
       },
       delivered: {
@@ -367,10 +386,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (column === "delivery_type") {
       const raw = String(value ?? "").trim().toLowerCase();
       if (language === "tr") {
-        if (raw === "delivery") return "Adrese Teslim";
-        if (raw === "pickup") return "Elden Teslim";
+        if (raw === "delivery") return "Teslimat";
+        if (raw === "pickup") return "Gel Al";
       } else {
-        if (raw === "delivery") return "Home Delivery";
+        if (raw === "delivery") return "Delivery";
         if (raw === "pickup") return "Pickup";
       }
       return raw || "-";
@@ -406,10 +425,10 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (column === "delivery_type") {
       const raw = String(value ?? "").trim().toLowerCase();
       if (language === "tr") {
-        if (raw === "delivery") return "Adrese Teslim";
-        if (raw === "pickup") return "Elden Teslim";
+        if (raw === "delivery") return "Teslimat";
+        if (raw === "pickup") return "Gel Al";
       } else {
-        if (raw === "delivery") return "Home Delivery";
+        if (raw === "delivery") return "Delivery";
         if (raw === "pickup") return "Pickup";
       }
       return raw || "-";

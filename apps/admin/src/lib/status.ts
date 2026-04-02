@@ -12,7 +12,10 @@ export function paymentBadge(status: string): { text: string; cls: string } {
 export function orderStatusLabel(status: string, deliveryType?: string | null): string {
   const normalized = status.toLowerCase();
   const delivery = String(deliveryType ?? "").trim().toLowerCase();
-  if (delivery === "pickup" && (normalized === "in_delivery" || normalized === "ready")) return "Alıcı Yolda";
+  if (delivery === "pickup" && normalized === "ready") return "Hazırlandı, seni bekliyor";
+  if (delivery === "pickup" && normalized === "in_delivery") return "Yola Çıktı";
+  if (delivery === "pickup" && normalized === "approaching") return "Geliyorum";
+  if (delivery === "pickup" && normalized === "at_door") return "Kapıdayım";
   if (normalized.includes("cancel")) return "İptal";
   if (normalized === "at_door") return "Kapıda";
   if (normalized.includes("deliver")) return "Teslim Edildi";

@@ -556,7 +556,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       formatTableDateTime(order.createdAt),
       order.orderNo,
       order.sellerName ?? order.sellerEmail ?? order.sellerId,
-      String(order.deliveryType ?? "").toLowerCase() === "delivery" ? "Adrese Teslim" : String(order.deliveryType ?? "").toLowerCase() === "pickup" ? "Elden Teslim" : "-",
+      String(order.deliveryType ?? "").toLowerCase() === "delivery" ? "Teslimat" : String(order.deliveryType ?? "").toLowerCase() === "pickup" ? "Gel Al" : "-",
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
       formatCurrency(order.totalAmount, "tr"),
       orderStatusLabel(order.status, order.deliveryType),
@@ -918,9 +918,9 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                       ) : visibleOrders.map((order: any) => {
                         const foods = order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ");
                         const deliveryText = String(order.deliveryType ?? "").toLowerCase() === "delivery"
-                          ? "Adrese Teslim"
+                          ? "Teslimat"
                           : String(order.deliveryType ?? "").toLowerCase() === "pickup"
-                            ? "Elden Teslim"
+                            ? "Gel Al"
                             : "-";
                         const deliveryAddressText = formatDeliveryAddress(order.deliveryAddress);
                         const paymentState = paymentBadge(order.paymentStatus);

@@ -33,7 +33,7 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: string; toStatus: "preparing" | "in_delivery" | "at_door" | "delivered"; tone: "preparing" | "in_delivery" | "at_door" | "delivered" };
+  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered"; tone: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" };
 
 type OrderGroupKey = "preparing" | "route" | "done";
 
@@ -103,7 +103,10 @@ function formatElapsed(value: string | undefined, nowMs: number): string {
 function statusLabel(status: string, deliveryType?: string): string {
   const normalized = normalizeDisplayStatus(status, deliveryType);
   if (normalized === "cancelled" || normalized === "rejected") return "İptal";
+  if (deliveryType === "pickup" && normalized === "ready") return "Hazırlandı, seni bekliyor";
   if (deliveryType === "pickup" && normalized === "in_delivery") return "Alıcı Yolda";
+  if (deliveryType === "pickup" && normalized === "approaching") return "Geliyorum";
+  if (deliveryType === "pickup" && normalized === "at_door") return "Kapıdayım";
   return getStatusInfo(normalized, deliveryType).label;
 }
 
@@ -112,7 +115,9 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
   const info = getStatusInfo(normalized, deliveryType);
   const borders: Record<string, string> = {
     preparing: "#F5C27A",
+    ready: "#79C796",
     in_delivery: "#AFC6FF",
+    approaching: "#9EDBD2",
     at_door: "#9EDBD2",
     delivered: "#79C796",
     completed: "#79C796",
@@ -131,8 +136,9 @@ function normalizeDisplayStatus(status: string, deliveryType?: string): string {
   if (status === "cancelled" || status === "rejected") return status;
   if (status === "completed") return "delivered";
   if (status === "delivered" || status === "at_door") return status;
+  if (pickup && status === "ready") return "ready";
   if (status === "in_delivery") return "in_delivery";
-  if (status === "ready") return pickup ? "in_delivery" : "in_delivery";
+  if (status === "ready") return "in_delivery";
   if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return status;
   return status;
 }
@@ -142,8 +148,11 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (status === "paid") {
     return { label: "Hazırlanıyor", toStatus: "preparing", tone: "preparing" };
   }
-  if (pickup && (status === "preparing" || status === "ready")) {
-    return { label: "Alıcı Yolda", toStatus: "in_delivery", tone: "in_delivery" };
+  if (pickup && status === "preparing") {
+    return { label: "Hazırlandı, seni bekliyor", toStatus: "ready", tone: "ready" };
+  }
+  if (pickup && ["ready", "in_delivery", "approaching", "at_door", "delivered", "completed"].includes(status)) {
+    return null;
   }
   if (!pickup && status === "preparing") {
     return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
@@ -160,6 +169,7 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
 function toneFromStatus(status: string, deliveryType?: string): SellerAction["tone"] | null {
   const normalized = normalizeDisplayStatus(status, deliveryType);
   if (normalized === "preparing") return "preparing";
+  if (normalized === "ready") return "ready";
   if (normalized === "in_delivery") return "in_delivery";
   if (normalized === "at_door") return "at_door";
   if (normalized === "delivered") return "delivered";
@@ -168,7 +178,7 @@ function toneFromStatus(status: string, deliveryType?: string): SellerAction["to
 
 function orderGroupKey(status: string, deliveryType?: string): OrderGroupKey {
   const normalized = normalizeDisplayStatus(status, deliveryType);
-  if (normalized === "in_delivery" || normalized === "at_door") return "route";
+  if (normalized === "in_delivery" || normalized === "approaching" || normalized === "at_door") return "route";
   if (normalized === "delivered" || normalized === "completed" || normalized === "cancelled" || normalized === "rejected") return "done";
   return "preparing";
 }
@@ -496,7 +506,7 @@ export default function SellerHomeScreen({
 
   async function advanceStatusWithCompatibility(
     orderId: string,
-    toStatus: "in_delivery" | "at_door" | "delivered" | "preparing" | "completed",
+    toStatus: "ready" | "in_delivery" | "at_door" | "delivered" | "preparing" | "completed",
   ): Promise<void> {
     try {
       await changeStatus(orderId, toStatus);
@@ -738,6 +748,8 @@ export default function SellerHomeScreen({
                                   styles.cardActionBtn,
                                   resolvedTone === "preparing"
                                     ? styles.cardActionBtnPreparing
+                                    : resolvedTone === "ready"
+                                      ? styles.cardActionBtnReady
                                     : resolvedTone === "in_delivery"
                                       ? styles.cardActionBtnInDelivery
                                       : resolvedTone === "at_door"
@@ -1002,6 +1014,7 @@ const styles = StyleSheet.create({
   },
   cardActionBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 13, alignItems: "center" },
   cardActionBtnPreparing: { backgroundColor: "#B86A00", borderColor: "#B86A00" },
+  cardActionBtnReady: { backgroundColor: "#166534", borderColor: "#166534" },
   cardActionBtnInDelivery: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
   cardActionBtnDelivered: { backgroundColor: "#0F766E", borderColor: "#0F766E" },
   cardActionBtnCompleted: { backgroundColor: "#166534", borderColor: "#166534" },

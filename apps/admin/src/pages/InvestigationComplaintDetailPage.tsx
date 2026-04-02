@@ -334,7 +334,7 @@ export default function InvestigationComplaintDetailPage({ language, complaintId
                   <span className="complaint-detail-label">{language === "tr" ? "Teslimat" : "Delivery"}</span>
                   <span className="complaint-description-value">
                     {detail.orderSummary?.deliveryType === "pickup"
-                      ? (language === "tr" ? "Gel al" : "Pickup")
+                      ? (language === "tr" ? "Gel Al" : "Pickup")
                       : orderAddressText || (language === "tr" ? "Adres bilgisi yok" : "No address")}
                   </span>
                 </div>

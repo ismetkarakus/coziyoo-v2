@@ -818,11 +818,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const deliveryTypeText = (value: string | null | undefined) => {
     const key = String(value ?? "").trim().toLowerCase();
     if (language === "tr") {
-      if (key === "delivery") return "Adrese Teslim";
-      if (key === "pickup") return "Elden Teslim";
+      if (key === "delivery") return "Teslimat";
+      if (key === "pickup") return "Gel Al";
       return "-";
     }
-    if (key === "delivery") return "Home Delivery";
+    if (key === "delivery") return "Delivery";
     if (key === "pickup") return "Pickup";
     return "-";
   };

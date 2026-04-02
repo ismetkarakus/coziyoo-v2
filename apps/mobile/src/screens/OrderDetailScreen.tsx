@@ -99,11 +99,31 @@ type Props = {
 
 const CANCELLABLE = ['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid'];
 const COMPLETABLE = ['delivered'];
-const BUYER_FLOW_STEPS = ['preparing', 'in_delivery', 'at_door', 'delivered'] as const;
-type BuyerFlowStep = (typeof BUYER_FLOW_STEPS)[number];
+const DELIVERY_FLOW_STEPS = ['preparing', 'in_delivery', 'at_door', 'delivered'] as const;
+const PICKUP_FLOW_STEPS = ['preparing', 'ready', 'in_delivery', 'approaching', 'at_door', 'delivered'] as const;
+type BuyerFlowStep = (typeof PICKUP_FLOW_STEPS)[number];
 
-function normalizeBuyerFlowStatus(status: string): BuyerFlowStep | 'cancelled' | 'rejected' {
+function flowStepsByDeliveryType(deliveryType: 'pickup' | 'delivery'): readonly BuyerFlowStep[] {
+  return deliveryType === 'pickup' ? PICKUP_FLOW_STEPS : DELIVERY_FLOW_STEPS;
+}
+
+function normalizeBuyerFlowStatus(
+  status: string,
+  deliveryType: 'pickup' | 'delivery',
+): BuyerFlowStep | 'cancelled' | 'rejected' {
   const normalized = String(status ?? '').trim().toLowerCase();
+  if (deliveryType === 'pickup') {
+    if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing'].includes(normalized)) return 'preparing';
+    if (normalized === 'ready') return 'ready';
+    if (normalized === 'in_delivery') return 'in_delivery';
+    if (normalized === 'approaching') return 'approaching';
+    if (normalized === 'at_door') return 'at_door';
+    if (normalized === 'delivered' || normalized === 'completed') return 'delivered';
+    if (normalized === 'cancelled') return 'cancelled';
+    if (normalized === 'rejected') return 'rejected';
+    return 'preparing';
+  }
+
   if (['pending_seller_approval', 'seller_approved', 'awaiting_payment', 'paid', 'preparing', 'ready'].includes(normalized)) return 'preparing';
   if (normalized === 'in_delivery' || normalized === 'approaching') return 'in_delivery';
   if (normalized === 'at_door') return 'at_door';
@@ -123,13 +143,22 @@ const PICKUP_BUYER_ACTIONS: Record<string, { label: string; toStatus: string }> 
 
 function buyerFlowLabel(step: BuyerFlowStep): string {
   if (step === 'preparing') return 'Hazırlanıyor';
+  if (step === 'ready') return 'Hazır';
   if (step === 'in_delivery') return 'Yola Çıktı';
+  if (step === 'approaching') return 'Geliyorum';
   if (step === 'at_door') return 'Kapıda';
   return 'Teslim Edildi';
 }
 
 function buyerFlowLabelByDeliveryType(step: BuyerFlowStep, deliveryType: 'pickup' | 'delivery'): string {
-  if (step === 'in_delivery') return deliveryType === 'pickup' ? 'Alıcı Yolda' : 'Yola Çıktı';
+  if (deliveryType === 'pickup') {
+    if (step === 'preparing') return 'Hazırlanıyor';
+    if (step === 'ready') return 'Hazırlandı, seni bekliyor';
+    if (step === 'in_delivery') return 'Yola çıktım';
+    if (step === 'approaching') return 'Geliyorum';
+    if (step === 'at_door') return 'Kapıdayım';
+    return 'Teslim aldım';
+  }
   return buyerFlowLabel(step);
 }
 
@@ -415,17 +444,22 @@ export default function OrderDetailScreen({
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
-  const buyerFlowStatus = normalizeBuyerFlowStatus(order.status);
-  const buyerFlowCurrentIndex = BUYER_FLOW_STEPS.indexOf(
+  const flowSteps = flowStepsByDeliveryType(order.deliveryType);
+  const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
+  const buyerFlowCurrentIndex = flowSteps.indexOf(
     buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected' ? 'preparing' : buyerFlowStatus
   );
-  const buyerFlowReachedAt = order.events.reduce<Record<BuyerFlowStep, string | null>>((acc, event) => {
+  const buyerFlowReachedAt = order.events.reduce<Record<string, string | null>>((acc, event) => {
     if (!event.toStatus) return acc;
-    const mapped = normalizeBuyerFlowStatus(event.toStatus);
+    const mapped = normalizeBuyerFlowStatus(event.toStatus, order.deliveryType);
     if (mapped === 'cancelled' || mapped === 'rejected') return acc;
+    if (!flowSteps.includes(mapped)) return acc;
     if (!acc[mapped]) acc[mapped] = event.createdAt;
     return acc;
-  }, { preparing: null, in_delivery: null, at_door: null, delivered: null });
+  }, flowSteps.reduce<Record<string, string | null>>((acc, step) => {
+    acc[step] = null;
+    return acc;
+  }, {}));
 
   return (
     <View style={styles.container}>
@@ -527,9 +561,9 @@ export default function OrderDetailScreen({
         <View style={styles.section}>
           <SectionDivider icon="time-outline" label="Sipariş Durumu" />
           <View style={styles.timeline}>
-            {BUYER_FLOW_STEPS.map((step, idx) => {
+            {flowSteps.map((step, idx) => {
               const reached = idx <= buyerFlowCurrentIndex && buyerFlowStatus !== 'cancelled' && buyerFlowStatus !== 'rejected';
-              const dateValue = buyerFlowReachedAt[step];
+              const dateValue = buyerFlowReachedAt[step] ?? null;
               const fallbackDate = reached ? order.createdAt : '';
               return (
                 <TimelineStep
@@ -537,7 +571,7 @@ export default function OrderDetailScreen({
                   status={step}
                   label={buyerFlowLabelByDeliveryType(step, order.deliveryType)}
                   date={dateValue ? formatEventDate(dateValue) : (fallbackDate ? formatEventDate(fallbackDate) : 'Bekleniyor')}
-                  isLast={idx === BUYER_FLOW_STEPS.length - 1}
+                  isLast={idx === flowSteps.length - 1}
                   isActive={reached}
                 />
               );
@@ -549,7 +583,7 @@ export default function OrderDetailScreen({
                 date={formatEventDate(order.createdAt)}
                 isLast
                 isActive
-                reason={order.events.find((event) => normalizeBuyerFlowStatus(event.toStatus ?? '') === buyerFlowStatus)?.reason ?? null}
+                reason={order.events.find((event) => normalizeBuyerFlowStatus(event.toStatus ?? '', order.deliveryType) === buyerFlowStatus)?.reason ?? null}
               />
             ) : null}
           </View>

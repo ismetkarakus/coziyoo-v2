@@ -9,6 +9,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   paid: { label: 'Ödeme Alındı', color: '#166534', bg: '#EAF7EE' },
   preparing: { label: 'Hazırlanıyor', color: '#B86A00', bg: '#FFF3E0' },
   ready: { label: 'Hazır', color: '#166534', bg: '#EAF7EE' },
+  pickup_ready: { label: 'Hazırlandı, seni bekliyor', color: '#166534', bg: '#EAF7EE' },
   in_delivery: { label: 'Yola Çıktı', color: '#1D4ED8', bg: '#E7F0FF' },
   pickup_in_delivery: { label: 'Alıcı Yolda', color: '#1D4ED8', bg: '#E7F0FF' },
   approaching: { label: 'Alıcı Geliyor', color: '#0F766E', bg: '#E6FFFB' },
@@ -28,6 +29,9 @@ type Props = {
 function statusKeyByDeliveryType(status: string, deliveryType?: string): string {
   const normalizedStatus = String(status ?? '').trim().toLowerCase();
   const normalizedDeliveryType = String(deliveryType ?? '').trim().toLowerCase();
+  if (normalizedDeliveryType === 'pickup' && normalizedStatus === 'ready') {
+    return 'pickup_ready';
+  }
   if (normalizedDeliveryType === 'pickup' && normalizedStatus === 'in_delivery') {
     return 'pickup_in_delivery';
   }
