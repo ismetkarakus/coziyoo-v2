@@ -30,6 +30,7 @@ import SellerOrdersScreen from './src/screens/SellerOrdersScreen';
 import SellerOrderDetailScreen from './src/screens/SellerOrderDetailScreen';
 import SellerComplianceScreen from './src/screens/SellerComplianceScreen';
 import SellerFinanceScreen from './src/screens/SellerFinanceScreen';
+import SellerReviewsScreen from './src/screens/SellerReviewsScreen';
 import { loadAuthSession, clearAuthSession, refreshAuthSession, saveAuthSession, type AuthSession } from './src/utils/auth';
 import { loadSettings } from './src/utils/settings';
 import { theme } from './src/theme/colors';
@@ -107,7 +108,7 @@ type Screen =
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
   | 'notifications' | 'favorites'
-  | 'sellerProfileDetail' | 'sellerProfile' | 'sellerFoods' | 'sellerFoodsManager' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance'
+  | 'sellerProfileDetail' | 'sellerProfile' | 'sellerFoods' | 'sellerFoodsManager' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance' | 'sellerReviews'
   | 'chatList' | 'chat';
 
 type TabKey = 'home' | 'messages' | 'cart' | 'notifications' | 'profile';
@@ -579,6 +580,7 @@ export default function App() {
         onOpenOrderHistory={() => setScreen('sellerOrders')}
         onOpenCompliance={() => setScreen('sellerCompliance')}
         onOpenFinance={() => setScreen('sellerFinance')}
+        onOpenReviews={() => setScreen('sellerReviews')}
         onOpenSettings={() => setScreen('settings')}
         onLogout={handleLogout}
         onOpenAddresses={() => setScreen('addresses')}
@@ -673,6 +675,16 @@ export default function App() {
       <SellerFinanceScreen
         auth={auth}
         onBack={() => setScreen('home')}
+        onAuthRefresh={setAuth}
+      />
+    );
+  }
+
+  if (screen === 'sellerReviews') {
+    return (
+      <SellerReviewsScreen
+        auth={auth}
+        onBack={() => setScreen('sellerProfileDetail')}
         onAuthRefresh={setAuth}
       />
     );

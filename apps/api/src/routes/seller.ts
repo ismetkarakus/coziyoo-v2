@@ -84,6 +84,10 @@ const SellerOrdersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(200).default(200),
 });
+const SellerReviewsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+});
 
 export const sellerRouter = Router();
 sellerRouter.use(requireAuth("app"));
@@ -401,6 +405,84 @@ sellerRouter.get("/orders", async (req, res) => {
   } catch (error) {
     console.error("[seller] orders list error:", error);
     return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to load seller orders" } });
+  }
+});
+
+sellerRouter.get("/reviews", async (req, res) => {
+  if (!ensureSellerRole(req, res)) return;
+
+  const parsed = SellerReviewsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { page, pageSize } = parsed.data;
+  const offset = (page - 1) * pageSize;
+  const userId = req.auth!.userId;
+
+  try {
+    const [summaryResult, listResult] = await Promise.all([
+      pool.query<{ average_rating: string | null; total_reviews: string }>(
+        `SELECT
+           ROUND(COALESCE(AVG(r.rating), 0)::numeric, 2)::text AS average_rating,
+           COUNT(*)::text AS total_reviews
+         FROM reviews r
+         WHERE r.seller_id = $1`,
+        [userId],
+      ),
+      pool.query<{
+        id: string;
+        rating: number;
+        comment: string | null;
+        created_at: string;
+        food_name: string | null;
+        buyer_name: string | null;
+      }>(
+        `SELECT
+           r.id::text,
+           r.rating,
+           r.comment,
+           r.created_at::text,
+           f.name AS food_name,
+           COALESCE(b.display_name, b.username, 'Anonim Kullanıcı') AS buyer_name
+         FROM reviews r
+         LEFT JOIN foods f ON f.id = r.food_id
+         LEFT JOIN users b ON b.id = r.buyer_id
+         WHERE r.seller_id = $1
+         ORDER BY r.created_at DESC, r.id DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, pageSize, offset],
+      ),
+    ]);
+
+    const summaryRow = summaryResult.rows[0];
+    const total = Number(summaryRow?.total_reviews ?? "0");
+    return res.json({
+      data: {
+        summary: {
+          averageRating: Number(summaryRow?.average_rating ?? "0"),
+          totalReviews: total,
+        },
+        items: listResult.rows.map((row) => ({
+          id: row.id,
+          rating: Number(row.rating ?? 0),
+          comment: row.comment ?? "",
+          foodName: row.food_name ?? null,
+          buyerName: row.buyer_name ?? "Anonim Kullanıcı",
+          createdAt: row.created_at,
+        })),
+      },
+      pagination: {
+        mode: "offset",
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error("[seller] reviews list error:", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Failed to load seller reviews" } });
   }
 });
 
