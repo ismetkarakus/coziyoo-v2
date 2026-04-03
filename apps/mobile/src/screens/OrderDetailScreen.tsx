@@ -140,6 +140,7 @@ type Props = {
   orderId: string;
   onBack: () => void;
   onOpenPayment?: (orderId: string) => void;
+  onOpenDeliveryPin?: (orderId: string) => void;
   onOpenReview?: (orderId: string) => void;
   onOpenComplaint?: (orderId: string) => void;
   onAuthRefresh?: (session: AuthSession) => void;
@@ -198,7 +199,7 @@ function buyerFlowLabelByDeliveryType(step: BuyerFlowStep, deliveryType: 'pickup
 }
 
 export default function OrderDetailScreen({
-  auth, orderId, onBack, onOpenPayment, onOpenReview, onOpenComplaint, onAuthRefresh,
+  auth, orderId, onBack, onOpenPayment, onOpenDeliveryPin, onOpenReview, onOpenComplaint, onAuthRefresh,
 }: Props) {
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [order, setOrder] = useState<OrderDetail | null>(() => ORDER_DETAIL_CACHE.get(orderId) ?? null);
@@ -398,6 +399,7 @@ export default function OrderDetailScreen({
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
+  const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && ['at_door', 'delivered'].includes(order.status);
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
   const buyerFlowCurrentIndex = flowSteps.indexOf(
@@ -537,6 +539,9 @@ export default function OrderDetailScreen({
           ) : null}
           {canPay && onOpenPayment && (
             <ActionButton label="Ödeme Yap" onPress={() => onOpenPayment(order.id)} variant="primary" fullWidth />
+          )}
+          {canOpenDeliveryPin && onOpenDeliveryPin && (
+            <ActionButton label="Teslimat Kodu" onPress={() => onOpenDeliveryPin(order.id)} variant="soft" fullWidth />
           )}
           {canComplete && (
             <ActionButton label="Siparişi Tamamla" onPress={handleComplete} loading={actionLoading} variant="primary" fullWidth />

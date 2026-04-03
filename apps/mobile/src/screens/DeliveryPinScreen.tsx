@@ -15,6 +15,7 @@ type ProofRecord = {
   pinVerifiedAt: string | null;
   verificationAttempts: number;
   status: 'pending' | 'verified' | 'failed' | 'expired';
+  pin?: string | null;
 };
 
 type Props = {
@@ -86,9 +87,9 @@ export default function DeliveryPinScreen({ auth, orderId, onBack, onAuthRefresh
 
           {record.status === 'pending' && (
             <View style={styles.pinInfo}>
-              <Text style={styles.pinHint}>
-                PIN bildirimlerinden veya SMS'den sana gönderildi.
-              </Text>
+              <Text style={styles.pinLabel}>Teslimat Kodun</Text>
+              <Text style={styles.pinCode}>{record.pin ?? '-'}</Text>
+              <Text style={styles.pinHint}>Bu kodu satıcıyla paylaş.</Text>
               <Text style={styles.pinAttempts}>
                 Deneme hakkı: {5 - record.verificationAttempts} / 5
               </Text>
@@ -125,6 +126,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  pinLabel: { color: '#71685F', fontSize: 12.5, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  pinCode: { color: theme.text, fontSize: 34, fontWeight: '900', letterSpacing: 4, marginTop: 8 },
   pinHint: { color: '#71685F', fontSize: 13, textAlign: 'center', lineHeight: 20 },
   pinAttempts: { color: theme.text, fontSize: 14, fontWeight: '700', marginTop: 8 },
 });

@@ -441,6 +441,7 @@ export default function App() {
           else setScreen('orders');
         }}
         onOpenPayment={(id) => { setSelectedOrderId(id); setScreen('payment'); }}
+        onOpenDeliveryPin={(id) => { setSelectedOrderId(id); setScreen('deliveryPin'); }}
         onOpenReview={(id) => { setSelectedOrderId(id); setScreen('review'); }}
         onOpenComplaint={(id) => {
           setSelectedOrderId(id);

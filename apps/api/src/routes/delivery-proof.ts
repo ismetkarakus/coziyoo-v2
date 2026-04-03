@@ -77,7 +77,7 @@ deliveryProofRouter.post("/:id/delivery-proof/pin/send", requireAuth("app"), asy
          verification_attempts = 0,
          status = 'pending',
          metadata_json = EXCLUDED.metadata_json`,
-      [orderId, row.seller_id, row.buyer_id, pinHash, JSON.stringify({ ttlMinutes: 10 })]
+      [orderId, row.seller_id, row.buyer_id, pinHash, JSON.stringify({ ttlMinutes: 10, buyerPin: pin })]
     );
 
     await client.query(
@@ -97,7 +97,6 @@ deliveryProofRouter.post("/:id/delivery-proof/pin/send", requireAuth("app"), asy
       data: {
         orderId,
         status: "pending",
-        ...(env.NODE_ENV === "production" ? {} : { debugPin: pin }),
       },
     });
   } catch {
@@ -223,13 +222,39 @@ deliveryProofRouter.get("/:id/delivery-proof", requireAuth("app"), async (req, r
     return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "No access to this order" } });
   }
 
-  const proof = await pool.query(
+  const isBuyerViewer = req.auth!.userId === order.rows[0].buyer_id;
+  const proof = await pool.query<{
+    order_id: string;
+    proof_mode: string;
+    pin_sent_at: string | null;
+    pin_verified_at: string | null;
+    verification_attempts: number;
+    status: "pending" | "verified" | "failed" | "expired";
+    metadata_json: unknown;
+    created_at: string;
+  }>(
     `SELECT order_id, proof_mode, pin_sent_at::text, pin_verified_at::text, verification_attempts, status, metadata_json, created_at::text
      FROM delivery_proof_records
      WHERE order_id = $1`,
     [orderId]
   );
-  return res.json({ data: proof.rows[0] ?? null });
+  const row = proof.rows[0];
+  if (!row) return res.json({ data: null });
+  const metadata = row.metadata_json && typeof row.metadata_json === "object"
+    ? (row.metadata_json as Record<string, unknown>)
+    : null;
+  const buyerPin = isBuyerViewer ? String(metadata?.buyerPin ?? "").trim() : "";
+  return res.json({
+    data: {
+      orderId: row.order_id,
+      proofMode: row.proof_mode,
+      pinSentAt: row.pin_sent_at,
+      pinVerifiedAt: row.pin_verified_at,
+      verificationAttempts: row.verification_attempts,
+      status: row.status,
+      ...(isBuyerViewer ? { pin: buyerPin || null } : {}),
+    },
+  });
 });
 
 adminDeliveryProofRouter.post("/orders/:id/delivery-proof/override", requireAuth("admin"), async (req, res) => {
