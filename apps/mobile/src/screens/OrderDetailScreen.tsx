@@ -199,6 +199,7 @@ function buyerFlowLabelByDeliveryType(step: BuyerFlowStep, deliveryType: 'pickup
 export default function OrderDetailScreen({
   auth, orderId, onBack, onOpenPayment, onOpenReview, onOpenComplaint, onAuthRefresh,
 }: Props) {
+  const [currentAuth, setCurrentAuth] = useState(auth);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,39 +207,68 @@ export default function OrderDetailScreen({
   const [cancelModal, setCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const orderRef = useRef<OrderDetail | null>(null);
 
-  const fetchOrder = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    setCurrentAuth(auth);
+  }, [auth]);
+
+  useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
+
+  const handleAuthRefresh = useCallback((session: AuthSession) => {
+    setCurrentAuth(session);
+    onAuthRefresh?.(session);
+  }, [onAuthRefresh]);
+
+  const fetchOrder = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    const hasVisibleData = Boolean(orderRef.current);
+    if (!silent && !hasVisibleData) {
+      setLoading(true);
+      setError(null);
+    }
     const result = await apiRequest<OrderDetail>(
       `/v1/orders/${orderId}`,
-      auth,
+      currentAuth,
       { actorRole: 'buyer' },
-      onAuthRefresh,
+      handleAuthRefresh,
     );
     if (result.ok) {
       setOrder(result.data);
+      setError(null);
     } else {
-      setError(result.message ?? 'Sipariş yüklenemedi');
+      if (!hasVisibleData) {
+        setError(result.message ?? 'Sipariş yüklenemedi');
+      }
     }
-    setLoading(false);
-  }, [orderId, auth, onAuthRefresh]);
+    if (!silent || !hasVisibleData) {
+      setLoading(false);
+    }
+  }, [orderId, currentAuth, handleAuthRefresh]);
 
-  useEffect(() => { fetchOrder(); }, [fetchOrder]);
+  useEffect(() => {
+    setOrder(null);
+    orderRef.current = null;
+    setLoading(true);
+    setError(null);
+    void fetchOrder();
+  }, [orderId]);
 
   const refreshOrderStatus = useCallback(async () => {
     const result = await apiRequest<OrderDetail>(
       `/v1/orders/${orderId}`,
-      auth,
+      currentAuth,
       { actorRole: 'buyer' },
-      onAuthRefresh,
+      handleAuthRefresh,
     );
     if (result.ok) {
       setOrder(result.data);
     }
-  }, [orderId, auth, onAuthRefresh]);
+  }, [orderId, currentAuth, handleAuthRefresh]);
 
-  const isBuyer = order?.buyerId === auth.userId;
+  const isBuyer = order?.buyerId === currentAuth.userId;
   useEffect(() => {
     if (statusPollRef.current) {
       clearInterval(statusPollRef.current);
@@ -254,7 +284,7 @@ export default function OrderDetailScreen({
         statusPollRef.current = null;
       }
     };
-  }, [order, refreshOrderStatus]);
+  }, [order?.id, order?.status, refreshOrderStatus]);
 
   useEffect(() => {
     if (!order?.id) return () => {};
@@ -268,15 +298,15 @@ export default function OrderDetailScreen({
     setActionLoading(true);
     const result = await apiRequest(
       `/v1/orders/${order.id}/cancel`,
-      auth,
+      currentAuth,
       { method: 'POST', body: { reason: cancelReason || undefined }, actorRole: 'buyer' },
-      onAuthRefresh,
+      handleAuthRefresh,
     );
     setActionLoading(false);
     if (result.ok) {
       setCancelModal(false);
       setCancelReason('');
-      fetchOrder();
+      void fetchOrder({ silent: true });
     } else {
       Alert.alert('Hata', result.message ?? 'İptal edilemedi');
     }
@@ -288,9 +318,9 @@ export default function OrderDetailScreen({
     const previousStatus = order.status;
     const result = await apiRequest(
       `/v1/orders/${order.id}/status`,
-      auth,
+      currentAuth,
       { method: 'POST', body: { toStatus: 'completed' }, actorRole: 'buyer' },
-      onAuthRefresh,
+      handleAuthRefresh,
     );
     setActionLoading(false);
     if (result.ok) {
@@ -316,7 +346,7 @@ export default function OrderDetailScreen({
               ],
         };
       });
-      void fetchOrder();
+      void fetchOrder({ silent: true });
     } else {
       Alert.alert('Hata', result.message ?? 'Tamamlanamadı');
     }
