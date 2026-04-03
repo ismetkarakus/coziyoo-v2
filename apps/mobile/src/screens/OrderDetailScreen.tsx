@@ -210,6 +210,7 @@ export default function OrderDetailScreen({
   const [cancelReason, setCancelReason] = useState('');
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const orderRef = useRef<OrderDetail | null>(null);
+  const prevOrderStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -296,6 +297,23 @@ export default function OrderDetailScreen({
       void refreshOrderStatus();
     });
   }, [order?.id, refreshOrderStatus]);
+
+  // Auto-open PIN screen for buyer when order transitions to at_door
+  useEffect(() => {
+    if (!order) return;
+    const prev = prevOrderStatusRef.current;
+    prevOrderStatusRef.current = order.status;
+    if (
+      prev !== null &&
+      prev !== order.status &&
+      order.status === 'at_door' &&
+      order.deliveryType === 'delivery' &&
+      order.buyerId === currentAuth.userId &&
+      onOpenDeliveryPin
+    ) {
+      onOpenDeliveryPin(order.id);
+    }
+  }, [order?.status]);
 
   async function handleCancel() {
     if (!order) return;

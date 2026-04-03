@@ -453,7 +453,7 @@ export default function SellerHomeScreen({
     const now = new Date();
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
-      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "at_door", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
+      if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "approaching", "at_door", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
       return isSameLocalDay(activityAt, now);

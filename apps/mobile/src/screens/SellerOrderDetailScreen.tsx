@@ -371,7 +371,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
               />
             </View>
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
-            <Text style={styles.meta}>Teslimat: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
+            <Text style={styles.meta}>Sipariş Türü: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
             {order.createdAt ? <Text style={styles.meta}>Tarih: {formatOrderDate(order.createdAt)}</Text> : null}
             <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
           </View>
