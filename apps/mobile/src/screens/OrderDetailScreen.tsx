@@ -24,7 +24,15 @@ type OrderDetail = {
   status: string;
   deliveryType: 'pickup' | 'delivery';
   deliveryAddress: unknown;
-  sellerAddress?: { title?: string; addressLine?: string } | null;
+  sellerAddress?: {
+    title?: string;
+    addressLine?: string;
+    line?: string;
+    lat?: number | string;
+    lng?: number | string;
+    latitude?: number | string;
+    longitude?: number | string;
+  } | null;
   totalPrice: number;
   paymentCompleted: boolean;
   createdAt: string;
@@ -44,6 +52,8 @@ type OrderDetail = {
   }>;
   events: { eventType: string; fromStatus: string | null; toStatus: string | null; createdAt: string; reason?: string | null }[];
 };
+
+type MapCoordinates = { lat: number; lng: number };
 
 function formatDeliveryAddress(value: unknown): string | null {
   if (!value) return null;
@@ -80,12 +90,49 @@ async function openAddressInMaps(address: string): Promise<void> {
   const query = address.trim();
   if (!query) return;
   const encoded = encodeURIComponent(query);
-  const url = Platform.OS === 'ios'
-    ? `http://maps.apple.com/?q=${encoded}`
-    : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-  const supported = await Linking.canOpenURL(url);
-  if (!supported) throw new Error('Harita uygulaması açılamadı');
-  await Linking.openURL(url);
+  const appleDirectionsUrl = `http://maps.apple.com/?daddr=${encoded}&dirflg=d`;
+  const googleNavUrl = `google.navigation:q=${encoded}&mode=d`;
+  const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`;
+  const candidates = Platform.OS === 'ios'
+    ? [appleDirectionsUrl]
+    : [googleNavUrl, googleDirectionsUrl];
+  for (const url of candidates) {
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) continue;
+    await Linking.openURL(url);
+    return;
+  }
+  throw new Error('Harita uygulaması açılamadı');
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function extractAddressCoordinates(value: unknown): MapCoordinates | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const lat = toFiniteNumber(row.lat ?? row.latitude);
+  const lng = toFiniteNumber(row.lng ?? row.longitude);
+  if (lat === null || lng === null) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+async function openAddressInMapsWithCoordinates(
+  address: string | null | undefined,
+  coordinates: MapCoordinates | null,
+): Promise<void> {
+  const fallbackAddress = String(address ?? '').trim();
+  if (coordinates) {
+    return openAddressInMaps(`${coordinates.lat},${coordinates.lng}`);
+  }
+  return openAddressInMaps(fallbackAddress);
 }
 
 type Props = {
@@ -310,6 +357,9 @@ export default function OrderDetailScreen({
   const mapAddressText = order.deliveryType === 'delivery'
     ? addressText
     : (pickupSellerAddressText || null);
+  const mapCoordinates = order.deliveryType === 'delivery'
+    ? extractAddressCoordinates(order.deliveryAddress)
+    : extractAddressCoordinates(order.sellerAddress);
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
@@ -395,7 +445,7 @@ export default function OrderDetailScreen({
             disabled={!mapAddressText}
             onPress={() => {
               if (!mapAddressText) return;
-              openAddressInMaps(mapAddressText).catch((error) => {
+              openAddressInMapsWithCoordinates(mapAddressText, mapCoordinates).catch((error) => {
                 Alert.alert('Hata', error instanceof Error ? error.message : 'Harita açılamadı');
               });
             }}
