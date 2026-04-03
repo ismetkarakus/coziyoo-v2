@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -138,7 +138,7 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   }
   if (normalized === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching" };
   if (normalized === "approaching") return { label: "Kapıda", toStatus: "at_door" };
-  if (normalized === "at_door") return { label: "Teslim Edildi", toStatus: "delivered" };
+  if (normalized === "at_door") return { label: "PIN Doğrula", toStatus: "completed" };
   return null;
 }
 
@@ -157,6 +157,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const [currentAuth, setCurrentAuth] = useState(auth);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [pinCode, setPinCode] = useState("");
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -243,6 +244,12 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     return getNextAction(order.status, order.deliveryType);
   }, [order?.status, order?.deliveryType]);
   const actionColors = action ? actionTone(action.toStatus) : null;
+  const normalizedOrderStatus = useMemo(() => (order ? normalizeFlowStatus(order.status) : ""), [order?.status]);
+  const isDoorstepDelivery = useMemo(
+    () => Boolean(order && order.deliveryType === "delivery" && normalizedOrderStatus === "at_door"),
+    [order?.id, order?.deliveryType, normalizedOrderStatus]
+  );
+  const isPinReady = pinCode.trim().length >= 4 && pinCode.trim().length <= 8;
   const deliveryAddressText = useMemo(() => {
     if (!order) return "";
     return [order.deliveryAddress?.title, order.deliveryAddress?.addressLine || order.deliveryAddress?.line].filter(Boolean).join(" · ");
@@ -261,6 +268,38 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     return normalized;
   }, [order]);
 
+  useEffect(() => {
+    if (!isDoorstepDelivery) setPinCode("");
+  }, [isDoorstepDelivery]);
+
+  async function sendDeliveryPin(): Promise<void> {
+    if (!order) return;
+    const res = await authedFetch(`/v1/orders/${order.id}/delivery-proof/pin/send`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error?.message ?? "PIN gönderilemedi");
+    const debugPin = String(json?.data?.debugPin ?? "").trim();
+    if (debugPin) {
+      Alert.alert("PIN gönderildi", `Test PIN: ${debugPin}`);
+      return;
+    }
+    Alert.alert("PIN gönderildi", "PIN alıcıya iletildi.");
+  }
+
+  async function resendPin() {
+    if (!order) return;
+    setUpdating(true);
+    try {
+      await sendDeliveryPin();
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "PIN gönderilemedi");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   async function runAction(action: { label: string; toStatus: string }) {
     if (!order) return;
     setUpdating(true);
@@ -272,6 +311,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error?.message ?? "Durum güncellenemedi");
+      };
+      const verifyPin = async (pin: string) => {
+        const res = await authedFetch(`/v1/orders/${order.id}/delivery-proof/pin/verify`, {
+          method: "POST",
+          body: JSON.stringify({ pin }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error?.message ?? "PIN doğrulanamadı");
       };
 
       const resolveLatestStatus = async (): Promise<string> => {
@@ -297,7 +344,16 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       };
 
       try {
-        await changeStatus(action.toStatus);
+        if (action.toStatus === "completed" && isDoorstepDelivery) {
+          const pin = pinCode.trim();
+          if (!/^\d{4,8}$/.test(pin)) {
+            throw new Error("4-8 haneli PIN gir.");
+          }
+          await verifyPin(pin);
+          await changeStatus("completed");
+        } else {
+          await changeStatus(action.toStatus);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (message.includes("Cannot transition")) {
@@ -311,6 +367,18 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           }
         } else {
           throw error;
+        }
+      }
+      if (action.toStatus === "at_door" && order.deliveryType === "delivery") {
+        try {
+          await sendDeliveryPin();
+        } catch (pinError) {
+          Alert.alert(
+            "Uyarı",
+            pinError instanceof Error
+              ? `Kapıda güncellendi ama PIN gönderilemedi: ${pinError.message}`
+              : "Kapıda güncellendi ama PIN gönderilemedi."
+          );
         }
       }
       await loadOrder();
@@ -391,16 +459,40 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           {action ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Aksiyonlar</Text>
+              {isDoorstepDelivery ? (
+                <>
+                  <Text style={styles.meta}>Alıcıdan PIN al, doğrula, sipariş otomatik tamamlansın.</Text>
+                  <TextInput
+                    style={styles.pinInput}
+                    value={pinCode}
+                    onChangeText={(value) => setPinCode(value.replace(/[^0-9]/g, "").slice(0, 8))}
+                    keyboardType="number-pad"
+                    maxLength={8}
+                    placeholder="PIN (4-8 hane)"
+                    placeholderTextColor="#9C8E81"
+                    editable={!updating}
+                  />
+                  <TouchableOpacity
+                    style={[styles.pinResendBtn, updating && styles.actionDisabled]}
+                    disabled={updating}
+                    onPress={() => void resendPin()}
+                  >
+                    <Text style={styles.pinResendText}>PIN'i Tekrar Gönder</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
               <TouchableOpacity
                 style={[
                   styles.actionBtn,
                   actionColors ? { backgroundColor: actionColors.bg, borderColor: actionColors.border } : null,
-                  updating && styles.actionDisabled,
+                  (updating || (isDoorstepDelivery && !isPinReady)) && styles.actionDisabled,
                 ]}
-                disabled={updating}
+                disabled={updating || (isDoorstepDelivery && !isPinReady)}
                 onPress={() => void runAction(action)}
               >
-                <Text style={styles.actionText}>{action.label}</Text>
+                <Text style={styles.actionText}>
+                  {isDoorstepDelivery && action.toStatus === "completed" ? "PIN Doğrula ve Bitir" : action.label}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -423,6 +515,27 @@ const styles = StyleSheet.create({
   linkText: { textDecorationLine: "underline" },
   itemRowWrap: { marginTop: 4 },
   addonMeta: { marginTop: 4, color: "#8A7D72", fontSize: 12.5 },
+  pinInput: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#DCCFBF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#2E241C",
+    fontWeight: "600",
+    letterSpacing: 1.6,
+  },
+  pinResendBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#D6CCBD",
+    borderRadius: 10,
+    backgroundColor: "#F9F4ED",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  pinResendText: { color: "#6C6055", fontWeight: "700" },
   actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
   actionDisabled: { opacity: 0.45 },
   actionText: { color: "#fff", fontWeight: "700" },
