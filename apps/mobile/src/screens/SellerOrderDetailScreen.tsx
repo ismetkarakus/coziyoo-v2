@@ -138,7 +138,7 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   }
   if (normalized === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching" };
   if (normalized === "approaching") return { label: "Kapıda", toStatus: "at_door" };
-  if (normalized === "at_door") return { label: "PIN Doğrula", toStatus: "completed" };
+  if (normalized === "at_door") return { label: "Teslim Edildi", toStatus: "delivered" };
   return null;
 }
 
@@ -249,7 +249,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       Boolean(
         order &&
           action &&
-          action.toStatus === "completed" &&
+          action.toStatus === "delivered" &&
           order.deliveryType === "delivery" &&
           normalizeFlowStatus(order.status) === "at_door"
       ),
@@ -310,65 +310,40 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         if (!res.ok) throw new Error(json?.error?.message ?? "PIN doğrulanamadı");
       };
 
-      const resolveLatestStatus = async (): Promise<string> => {
-        const res = await authedFetch(`/v1/orders/${order.id}`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error?.message ?? "Sipariş durumu alınamadı");
-        const latest = (json?.data ?? null) as OrderDetail | null;
-        if (!latest) throw new Error("Sipariş durumu alınamadı");
-        setOrder(latest);
-        return normalizeFlowStatus(String(latest.status ?? order.status));
-      };
-
-      const buildLinearSteps = (fromStatus: string, toStatus: string, deliveryType?: string): string[] => {
-        const flow: string[] = deliveryType === "pickup"
-          ? ["paid", "preparing", "ready"]
-          : ["paid", "preparing", "ready", "in_delivery", "approaching", "at_door", "delivered"];
-        const from = normalizeFlowStatus(fromStatus);
-        const to = normalizeFlowStatus(toStatus);
-        const fromIndex = flow.indexOf(from);
-        const toIndex = flow.indexOf(to);
-        if (fromIndex < 0 || toIndex < 0 || toIndex <= fromIndex) return [];
-        return flow.slice(fromIndex + 1, toIndex + 1);
-      };
-
       try {
-        if (shouldCheckPinBeforeComplete && action.toStatus === "completed") {
+        if (shouldCheckPinBeforeComplete && action.toStatus === "delivered") {
           const pin = pinCode.trim();
           if (!/^\d{4,8}$/.test(pin)) throw new Error("4-8 haneli kod gir.");
           await verifyPin(pin);
+          await changeStatus("delivered");
           await changeStatus("completed");
+        } else if (action.toStatus === "at_door") {
+          await changeStatus("at_door");
+          try {
+            await sendDeliveryPin();
+          } catch (pinError) {
+            Alert.alert(
+              "Uyarı",
+              pinError instanceof Error
+                ? `Kapıda güncellendi ama PIN gönderilemedi: ${pinError.message}`
+                : "Kapıda güncellendi ama PIN gönderilemedi."
+            );
+          }
+          await loadOrder();
+          return;
         } else {
           await changeStatus(action.toStatus);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (message.includes("Cannot transition")) {
-          const latestStatus = await resolveLatestStatus();
-          const steps = buildLinearSteps(latestStatus, action.toStatus, order.deliveryType);
-          if (steps.length === 0 && normalizeFlowStatus(latestStatus) !== normalizeFlowStatus(action.toStatus)) {
-            throw error;
-          }
-          for (const step of steps) {
-            await changeStatus(step);
-          }
-        } else if (message.includes("PIN")) {
+          await loadOrder();
+          throw new Error("Durum güncellendi, sıradaki adımı tekrar onayla.");
+        }
+        if (message.includes("PIN")) {
           throw new Error("Kod doğrulanamadı. Kodu kontrol et.");
-        } else {
-          throw error;
         }
-      }
-      if (action.toStatus === "at_door" && order.deliveryType === "delivery") {
-        try {
-          await sendDeliveryPin();
-        } catch (pinError) {
-          Alert.alert(
-            "Uyarı",
-            pinError instanceof Error
-              ? `Kapıda güncellendi ama PIN gönderilemedi: ${pinError.message}`
-              : "Kapıda güncellendi ama PIN gönderilemedi."
-          );
-        }
+        throw error;
       }
       await loadOrder();
     } catch (e) {
@@ -473,7 +448,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
                 onPress={() => void runAction(action)}
               >
                 <Text style={styles.actionText}>
-                  {shouldCheckPinBeforeComplete ? "Kodu Doğrula ve Bitir" : action.label}
+                  {shouldCheckPinBeforeComplete ? "Kodu Doğrula ve Teslim Et" : action.label}
                 </Text>
               </TouchableOpacity>
             </View>
