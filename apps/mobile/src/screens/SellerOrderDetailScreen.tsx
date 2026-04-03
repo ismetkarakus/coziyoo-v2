@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
@@ -7,6 +7,7 @@ import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 import StatusBadge from "../components/StatusBadge";
+import { subscribeOrderRealtime } from "../utils/realtime";
 
 type Props = {
   auth: AuthSession;
@@ -126,13 +127,13 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   if (normalized === "paid") {
     return { label: "Hazırlıyorum", toStatus: "preparing" };
   }
-  if (pickup && normalized === "preparing") {
+  if (normalized === "preparing") {
     return { label: "Hazırlandı", toStatus: "ready" };
   }
   // Pickup: seller's work ends at ready; buyer handles the rest
   if (pickup) return null;
   // Delivery flow
-  if (normalized === "preparing" || normalized === "ready") {
+  if (normalized === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery" };
   }
   if (normalized === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching" };
@@ -157,6 +158,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [order, setOrder] = useState<OrderDetail | null>(null);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -204,6 +206,38 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     void loadOrder();
   }, [orderId]);
 
+  async function refreshOrderStatus() {
+    try {
+      const res = await authedFetch(`/v1/orders/${orderId}`);
+      const json = await res.json();
+      if (res.ok) setOrder(json?.data ?? null);
+    } catch {
+      // silent refresh — don't alert
+    }
+  }
+
+  useEffect(() => {
+    if (statusPollRef.current) {
+      clearInterval(statusPollRef.current);
+      statusPollRef.current = null;
+    }
+    if (!order) return;
+    const terminal = ["completed", "cancelled", "rejected"].includes(order.status);
+    if (terminal) return;
+    statusPollRef.current = setInterval(() => { void refreshOrderStatus(); }, 8_000);
+    return () => {
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+    };
+  }, [order?.status]);
+
+  useEffect(() => {
+    if (!order?.id) return () => {};
+    return subscribeOrderRealtime(order.id, () => { void refreshOrderStatus(); });
+  }, [order?.id]);
+
   const action = useMemo(() => {
     if (!order) return null;
     return getNextAction(order.status, order.deliveryType);
@@ -240,15 +274,41 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         if (!res.ok) throw new Error(json?.error?.message ?? "Durum güncellenemedi");
       };
 
+      const resolveLatestStatus = async (): Promise<string> => {
+        const res = await authedFetch(`/v1/orders/${order.id}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error?.message ?? "Sipariş durumu alınamadı");
+        const latest = (json?.data ?? null) as OrderDetail | null;
+        if (!latest) throw new Error("Sipariş durumu alınamadı");
+        setOrder(latest);
+        return normalizeFlowStatus(String(latest.status ?? order.status));
+      };
+
+      const buildLinearSteps = (fromStatus: string, toStatus: string, deliveryType?: string): string[] => {
+        const flow: string[] = deliveryType === "pickup"
+          ? ["paid", "preparing", "ready"]
+          : ["paid", "preparing", "ready", "in_delivery", "approaching", "at_door", "delivered"];
+        const from = normalizeFlowStatus(fromStatus);
+        const to = normalizeFlowStatus(toStatus);
+        const fromIndex = flow.indexOf(from);
+        const toIndex = flow.indexOf(to);
+        if (fromIndex < 0 || toIndex < 0 || toIndex <= fromIndex) return [];
+        return flow.slice(fromIndex + 1, toIndex + 1);
+      };
+
       try {
         await changeStatus(action.toStatus);
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
-        const canFallbackInDelivery =
-          action.toStatus === "in_delivery" && message.includes("Cannot transition preparing -> in_delivery");
-        if (canFallbackInDelivery) {
-          await changeStatus("ready");
-          await changeStatus("in_delivery");
+        if (message.includes("Cannot transition")) {
+          const latestStatus = await resolveLatestStatus();
+          const steps = buildLinearSteps(latestStatus, action.toStatus, order.deliveryType);
+          if (steps.length === 0 && normalizeFlowStatus(latestStatus) !== normalizeFlowStatus(action.toStatus)) {
+            throw error;
+          }
+          for (const step of steps) {
+            await changeStatus(step);
+          }
         } else {
           throw error;
         }
