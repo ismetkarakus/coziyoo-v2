@@ -150,6 +150,7 @@ const COMPLETABLE = ['delivered'];
 const DELIVERY_FLOW_STEPS = ['preparing', 'in_delivery', 'approaching', 'at_door', 'delivered'] as const;
 const PICKUP_FLOW_STEPS = ['preparing', 'ready'] as const;
 type BuyerFlowStep = (typeof DELIVERY_FLOW_STEPS)[number] | (typeof PICKUP_FLOW_STEPS)[number];
+const ORDER_DETAIL_CACHE = new Map<string, OrderDetail>();
 
 function flowStepsByDeliveryType(deliveryType: 'pickup' | 'delivery'): readonly BuyerFlowStep[] {
   return deliveryType === 'pickup' ? PICKUP_FLOW_STEPS : DELIVERY_FLOW_STEPS;
@@ -200,8 +201,8 @@ export default function OrderDetailScreen({
   auth, orderId, onBack, onOpenPayment, onOpenReview, onOpenComplaint, onAuthRefresh,
 }: Props) {
   const [currentAuth, setCurrentAuth] = useState(auth);
-  const [order, setOrder] = useState<OrderDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState<OrderDetail | null>(() => ORDER_DETAIL_CACHE.get(orderId) ?? null);
+  const [loading, setLoading] = useState(() => !ORDER_DETAIL_CACHE.has(orderId));
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelModal, setCancelModal] = useState(false);
@@ -237,6 +238,7 @@ export default function OrderDetailScreen({
     );
     if (result.ok) {
       setOrder(result.data);
+      ORDER_DETAIL_CACHE.set(orderId, result.data);
       setError(null);
     } else {
       if (!hasVisibleData) {
@@ -249,11 +251,12 @@ export default function OrderDetailScreen({
   }, [orderId, currentAuth, handleAuthRefresh]);
 
   useEffect(() => {
-    setOrder(null);
-    orderRef.current = null;
-    setLoading(true);
+    const cached = ORDER_DETAIL_CACHE.get(orderId) ?? null;
+    setOrder(cached);
+    orderRef.current = cached;
+    setLoading(!cached);
     setError(null);
-    void fetchOrder();
+    void fetchOrder({ silent: Boolean(cached) });
   }, [orderId]);
 
   const refreshOrderStatus = useCallback(async () => {
@@ -362,7 +365,7 @@ export default function OrderDetailScreen({
     return `${formatDate(iso)} ${h}:${m}`;
   }
 
-  if (loading) {
+  if (loading && !order) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={theme.background} />
