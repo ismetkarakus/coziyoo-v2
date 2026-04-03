@@ -387,12 +387,8 @@ export default function OrderDetailScreen({
 
   const addressText = formatDeliveryAddress(order.deliveryAddress);
   const pickupSellerAddressText = [order.sellerAddress?.title, order.sellerAddress?.addressLine].filter(Boolean).join(' · ');
-  const mapAddressText = order.deliveryType === 'delivery'
-    ? addressText
-    : (pickupSellerAddressText || null);
-  const mapCoordinates = order.deliveryType === 'delivery'
-    ? extractAddressCoordinates(order.deliveryAddress)
-    : extractAddressCoordinates(order.sellerAddress);
+  const pickupMapAddressText = pickupSellerAddressText || null;
+  const pickupMapCoordinates = extractAddressCoordinates(order.sellerAddress);
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
@@ -473,22 +469,24 @@ export default function OrderDetailScreen({
             icon={order.deliveryType === 'delivery' ? 'location-outline' : 'storefront-outline'}
             label={order.deliveryType === 'delivery' ? 'Teslimat Adresi' : 'Gel Al'}
           />
-          <TouchableOpacity
-            activeOpacity={mapAddressText ? 0.78 : 1}
-            disabled={!mapAddressText}
-            onPress={() => {
-              if (!mapAddressText) return;
-              openAddressInMapsWithCoordinates(mapAddressText, mapCoordinates).catch((error) => {
-                Alert.alert('Hata', error instanceof Error ? error.message : 'Harita açılamadı');
-              });
-            }}
-          >
-            <Text style={[styles.sectionValue, mapAddressText && styles.sectionValueLink]}>
-              {order.deliveryType === 'delivery'
-                ? (addressText || 'Adres bilgisi yok')
-                : (pickupSellerAddressText || 'Satıcıdan teslim alınacak')}
-            </Text>
-          </TouchableOpacity>
+          {order.deliveryType === 'delivery' ? (
+            <Text style={styles.sectionValue}>{addressText || 'Adres bilgisi yok'}</Text>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={pickupMapAddressText ? 0.78 : 1}
+              disabled={!pickupMapAddressText}
+              onPress={() => {
+                if (!pickupMapAddressText) return;
+                openAddressInMapsWithCoordinates(pickupMapAddressText, pickupMapCoordinates).catch((error) => {
+                  Alert.alert('Hata', error instanceof Error ? error.message : 'Harita açılamadı');
+                });
+              }}
+            >
+              <Text style={[styles.sectionValue, pickupMapAddressText && styles.sectionValueLink]}>
+                {pickupSellerAddressText || 'Satıcıdan teslim alınacak'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Date */}

@@ -213,16 +213,10 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     if (!order) return "";
     return [order.deliveryAddress?.title, order.deliveryAddress?.addressLine || order.deliveryAddress?.line].filter(Boolean).join(" · ");
   }, [order]);
-  const pickupSellerAddressText = useMemo(() => {
-    if (!order) return "";
-    return [order.sellerAddress?.title, order.sellerAddress?.addressLine || order.sellerAddress?.line].filter(Boolean).join(" · ");
-  }, [order]);
-  const mapAddressText = order?.deliveryType === "delivery" ? deliveryAddressText : pickupSellerAddressText;
+  const mapAddressText = deliveryAddressText;
   const mapCoordinates = useMemo(() => {
     if (!order) return null;
-    return order.deliveryType === "delivery"
-      ? extractAddressCoordinates(order.deliveryAddress)
-      : extractAddressCoordinates(order.sellerAddress);
+    return extractAddressCoordinates(order.deliveryAddress);
   }, [order]);
   const sellerStatusBadgeKey = useMemo(() => {
     if (!order) return "";
@@ -306,25 +300,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
                 <Text style={[styles.meta, mapAddressText ? styles.linkText : null]}>{order.deliveryAddress?.addressLine || order.deliveryAddress?.line || "-"}</Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Gel Al</Text>
-              <TouchableOpacity
-                activeOpacity={mapAddressText ? 0.78 : 1}
-                disabled={!mapAddressText}
-                onPress={() => {
-                  if (!mapAddressText) return;
-                  openAddressInMapsWithCoordinates(mapAddressText, mapCoordinates).catch((error) => {
-                    Alert.alert("Hata", error instanceof Error ? error.message : "Harita açılamadı");
-                  });
-                }}
-              >
-                <Text style={[styles.meta, mapAddressText ? styles.linkText : null]}>
-                  {pickupSellerAddressText || "Alıcı siparişi sizden teslim alacak."}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          ) : null}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Ürünler</Text>
             {(order.items ?? []).map((item, index) => (
