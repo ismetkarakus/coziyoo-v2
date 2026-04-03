@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { AuthSession } from "../utils/auth";
-import { refreshAuthSession } from "../utils/auth";
+import { loadAuthSession, refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
@@ -46,25 +46,35 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
   useEffect(() => setCurrentAuth(auth), [auth]);
 
   async function authedFetch(path: string, init?: RequestInit, baseUrl = apiUrl): Promise<Response> {
-    const headers: Record<string, string> = {
+    const makeHeaders = (session: AuthSession): Record<string, string> => ({
       "Content-Type": "application/json",
-      Authorization: `Bearer ${currentAuth.accessToken}`,
-      ...actorRoleHeader(currentAuth, "seller"),
+      Authorization: `Bearer ${session.accessToken}`,
+      ...actorRoleHeader(session, "seller"),
       ...(init?.headers as Record<string, string> | undefined),
-    };
+    });
+
+    const headers = makeHeaders(currentAuth);
     let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
     if (res.status !== 401) return res;
-    const refreshed = await refreshAuthSession(baseUrl, currentAuth);
+
+    const persisted = await loadAuthSession();
+    if (persisted && persisted.userId === currentAuth.userId && persisted.accessToken !== currentAuth.accessToken) {
+      setCurrentAuth(persisted);
+      onAuthRefresh?.(persisted);
+      res = await fetch(`${baseUrl}${path}`, { ...init, headers: makeHeaders(persisted) });
+      if (res.status !== 401) return res;
+    }
+
+    const refreshed = await refreshAuthSession(
+      baseUrl,
+      persisted && persisted.userId === currentAuth.userId ? persisted : currentAuth,
+    );
     if (!refreshed) return res;
     setCurrentAuth(refreshed);
     onAuthRefresh?.(refreshed);
     return fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: {
-        ...headers,
-        Authorization: `Bearer ${refreshed.accessToken}`,
-        ...actorRoleHeader(refreshed, "seller"),
-      },
+      headers: makeHeaders(refreshed),
     });
   }
 
