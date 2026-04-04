@@ -448,11 +448,36 @@ export default function SellerProfileDetailScreen({
         payload.dob = normalizedDob;
       }
 
-      const title = cityDistrict.trim();
-      const line = addressLine.trim();
-      const hasAddressUpdate = Boolean(title && line);
+      const titleInput = cityDistrict.trim();
+      const lineInput = addressLine.trim();
+      const currentAddressTitle = String(profile?.defaultAddress?.title ?? "").trim();
+      const currentAddressLine = String(profile?.defaultAddress?.addressLine ?? "").trim();
+      const title = titleInput || currentAddressTitle;
+      const line = lineInput || currentAddressLine;
+      const hasAddressInput = Boolean(titleInput || lineInput);
+      const hasAddressUpdate = hasAddressInput && Boolean(title && line) && (
+        title !== currentAddressTitle || line !== currentAddressLine
+      );
       const hasProfileUpdate = Object.keys(payload).length > 0;
       const hasIdCardImages = Boolean(idCardFrontBase64 || idCardBackBase64);
+      if (hasAddressInput) {
+        if (!title || !line) {
+          Alert.alert("Hata", "Adres için şehir/ilçe ve açık adres bilgilerini birlikte gir.");
+          setContactSaving(false);
+          return;
+        }
+        if (line.length < 10) {
+          Alert.alert("Hata", "Adres en az 10 karakter olmalı.");
+          setContactSaving(false);
+          return;
+        }
+        const words = line.split(/\s+/).filter((w) => w.length > 0);
+        if (words.length < 2) {
+          Alert.alert("Hata", "Geçerli bir adres girin (mahalle, sokak, bina no gibi).");
+          setContactSaving(false);
+          return;
+        }
+      }
       if (!hasProfileUpdate && !hasAddressUpdate && !hasIdCardImages) {
         setIsEditModalOpen(false);
         setContactSaving(false);
