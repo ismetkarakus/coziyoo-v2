@@ -355,8 +355,6 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           if (order.deliveryType === "delivery") {
             await changeStatus("delivered");
             await changeStatus("completed");
-          } else {
-            await changeStatus("completed");
           }
         } else {
           await changeStatus(action.toStatus);
