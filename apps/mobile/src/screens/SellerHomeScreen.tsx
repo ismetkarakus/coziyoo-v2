@@ -157,9 +157,7 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (pickup && ["ready", "in_delivery", "approaching"].includes(status)) {
     return null;
   }
-  if (pickup && status === "at_door") {
-    return { label: "Teslim Edildi", toStatus: "completed", tone: "delivered" };
-  }
+  if (pickup && status === "at_door") return null;
   if (pickup && ["delivered", "completed"].includes(status)) {
     return null;
   }

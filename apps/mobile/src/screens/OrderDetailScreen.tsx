@@ -319,7 +319,7 @@ export default function OrderDetailScreen({
     const normalizedStatus = String(order.status ?? '').trim().toLowerCase();
     if (
       normalizedStatus === 'at_door' &&
-      order.deliveryType === 'delivery' &&
+      (order.deliveryType === 'delivery' || order.deliveryType === 'pickup') &&
       order.buyerId === currentAuth.userId &&
       onOpenDeliveryPin
     ) {
@@ -450,7 +450,10 @@ export default function OrderDetailScreen({
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
   const pickupProgressAction = isBuyer ? nextPickupProgressAction(order.status, order.deliveryType) : null;
   const normalizedOrderStatus = String(order.status ?? '').trim().toLowerCase();
-  const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && normalizedOrderStatus === 'at_door';
+  const canOpenDeliveryPin =
+    isBuyer &&
+    (order.deliveryType === 'delivery' || order.deliveryType === 'pickup') &&
+    normalizedOrderStatus === 'at_door';
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
   const buyerFlowCurrentIndex = flowSteps.indexOf(
@@ -614,7 +617,12 @@ export default function OrderDetailScreen({
             />
           )}
           {canOpenDeliveryPin && onOpenDeliveryPin && (
-            <ActionButton label="Teslimat Kodu" onPress={() => onOpenDeliveryPin(order.id)} variant="soft" fullWidth />
+            <ActionButton
+              label={order.deliveryType === 'pickup' ? 'Teslim Kodu' : 'Teslimat Kodu'}
+              onPress={() => onOpenDeliveryPin(order.id)}
+              variant="soft"
+              fullWidth
+            />
           )}
           {canComplete && (
             <ActionButton label="Siparişi Tamamla" onPress={handleComplete} loading={actionLoading} variant="primary" fullWidth />

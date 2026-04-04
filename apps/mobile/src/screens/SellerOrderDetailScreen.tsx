@@ -286,8 +286,8 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       Boolean(
         order &&
           action &&
-          action.toStatus === "delivered" &&
-          order.deliveryType === "delivery" &&
+          ((order.deliveryType === "delivery" && action.toStatus === "delivered") ||
+            (order.deliveryType === "pickup" && action.toStatus === "completed")) &&
           normalizeFlowStatus(order.status) === "at_door"
       ),
     [order, action]
@@ -348,12 +348,16 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       };
 
       try {
-        if (shouldCheckPinBeforeComplete && action.toStatus === "delivered") {
+        if (shouldCheckPinBeforeComplete) {
           const pin = pinCode.trim();
           if (!/^\d{4,8}$/.test(pin)) throw new Error("4-8 haneli kod gir.");
           await verifyPin(pin);
-          await changeStatus("delivered");
-          await changeStatus("completed");
+          if (order.deliveryType === "delivery") {
+            await changeStatus("delivered");
+            await changeStatus("completed");
+          } else {
+            await changeStatus("completed");
+          }
         } else {
           await changeStatus(action.toStatus);
         }

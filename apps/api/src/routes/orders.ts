@@ -1070,6 +1070,32 @@ async function transitionHandler(
       }
     }
 
+    if (toStatus === "completed" && normalizeDeliveryType(order.delivery_type) === "pickup") {
+      const hasProofTable = await tableExistsTx(client, "public.delivery_proof_records");
+      if (!hasProofTable) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: {
+            code: "DELIVERY_PIN_REQUIRED",
+            message: "Pickup completion requires verified PIN",
+          },
+        });
+      }
+      const proof = await client.query<{ status: string }>(
+        "SELECT status FROM delivery_proof_records WHERE order_id = $1",
+        [order.id]
+      );
+      if ((proof.rowCount ?? 0) === 0 || proof.rows[0].status !== "verified") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: {
+            code: "DELIVERY_PIN_REQUIRED",
+            message: "Pickup completion requires verified PIN",
+          },
+        });
+      }
+    }
+
     const skipProofCheck = env.PAYMENT_PROVIDER_NAME === "mockpay";
     if (!skipProofCheck && toStatus === "completed" && order.delivery_type === "delivery") {
       const hasProofTable = await tableExistsTx(client, "public.delivery_proof_records");
@@ -1185,6 +1211,36 @@ async function transitionHandler(
         `INSERT INTO notification_events (user_id, type, title, body, data_json, is_read, created_at)
          VALUES ($1, 'delivery_pin', 'Delivery PIN', $2, $3, FALSE, now())`,
         [order.buyer_id, `Your delivery PIN is ${pin}`, JSON.stringify({ orderId: order.id })]
+      );
+      await enqueueOutboxEvent(client, {
+        eventType: "delivery_pin_sent",
+        aggregateType: "order",
+        aggregateId: order.id,
+        payload: { orderId: order.id, buyerId: order.buyer_id },
+      });
+    }
+
+    if (toStatus === "at_door" && normalizeDeliveryType(order.delivery_type) === "pickup") {
+      const pin = randomDeliveryPin();
+      const pinHash = sha256Hex(pin);
+      await client.query(
+        `INSERT INTO delivery_proof_records
+          (order_id, seller_id, buyer_id, proof_mode, pin_hash, pin_sent_at, pin_sent_channel, verification_attempts, status, metadata_json, created_at)
+         VALUES ($1, $2, $3, 'pin', $4, now(), 'in_app', 0, 'pending', $5, now())
+         ON CONFLICT (order_id)
+         DO UPDATE SET
+           pin_hash = EXCLUDED.pin_hash,
+           pin_sent_at = now(),
+           pin_sent_channel = 'in_app',
+           verification_attempts = 0,
+           status = 'pending',
+           metadata_json = EXCLUDED.metadata_json`,
+        [order.id, order.seller_id, order.buyer_id, pinHash, JSON.stringify({ ttlMinutes: 10, buyerPin: pin })]
+      );
+      await client.query(
+        `INSERT INTO notification_events (user_id, type, title, body, data_json, is_read, created_at)
+         VALUES ($1, 'delivery_pin', 'Pickup PIN', $2, $3, FALSE, now())`,
+        [order.buyer_id, `Your pickup PIN is ${pin}`, JSON.stringify({ orderId: order.id })]
       );
       await enqueueOutboxEvent(client, {
         eventType: "delivery_pin_sent",
