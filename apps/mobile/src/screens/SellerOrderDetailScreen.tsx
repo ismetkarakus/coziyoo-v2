@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -158,6 +170,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [pinCode, setPinCode] = useState("");
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -238,6 +251,19 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     if (!order?.id) return () => {};
     return subscribeOrderRealtime(order.id, () => { void refreshOrderStatus(); });
   }, [order?.id]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardInset(event.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const action = useMemo(() => {
     if (!order) return null;
@@ -331,7 +357,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   return (
     <View style={styles.container}>
       <ScreenHeader title="Sipariş Detayı" onBack={onBack} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          keyboardInset > 0 ? { paddingBottom: 36 + keyboardInset } : null,
+        ]}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+      >
       {loading || !order ? (
         <ActivityIndicator size="large" color={theme.primary} />
       ) : (
