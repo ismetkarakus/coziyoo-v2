@@ -90,12 +90,11 @@ async function openAddressInMaps(address: string): Promise<void> {
   const query = address.trim();
   if (!query) return;
   const encoded = encodeURIComponent(query);
-  const appleDirectionsUrl = `http://maps.apple.com/?daddr=${encoded}&dirflg=d`;
-  const googleNavUrl = `google.navigation:q=${encoded}&mode=d`;
+  const googleAppDirectionsUrl = Platform.OS === 'ios'
+    ? `comgooglemaps://?daddr=${encoded}&directionsmode=driving`
+    : `google.navigation:q=${encoded}&mode=d`;
   const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`;
-  const candidates = Platform.OS === 'ios'
-    ? [appleDirectionsUrl]
-    : [googleNavUrl, googleDirectionsUrl];
+  const candidates = [googleAppDirectionsUrl, googleDirectionsUrl];
   for (const url of candidates) {
     const supported = await Linking.canOpenURL(url);
     if (!supported) continue;
@@ -405,6 +404,7 @@ export default function OrderDetailScreen({
   }
 
   const addressText = formatDeliveryAddress(order.deliveryAddress);
+  const deliveryMapCoordinates = extractAddressCoordinates(order.deliveryAddress);
   const pickupSellerAddressText = [order.sellerAddress?.title, order.sellerAddress?.addressLine].filter(Boolean).join(' · ');
   const pickupMapAddressText = pickupSellerAddressText || null;
   const pickupMapCoordinates = extractAddressCoordinates(order.sellerAddress);
@@ -491,7 +491,20 @@ export default function OrderDetailScreen({
             label={order.deliveryType === 'delivery' ? 'Teslimat Adresi' : 'Gel Al'}
           />
           {order.deliveryType === 'delivery' ? (
-            <Text style={styles.sectionValue}>{addressText || 'Adres bilgisi yok'}</Text>
+            <TouchableOpacity
+              activeOpacity={addressText ? 0.78 : 1}
+              disabled={!addressText}
+              onPress={() => {
+                if (!addressText) return;
+                openAddressInMapsWithCoordinates(addressText, deliveryMapCoordinates).catch((error) => {
+                  Alert.alert('Hata', error instanceof Error ? error.message : 'Harita açılamadı');
+                });
+              }}
+            >
+              <Text style={[styles.sectionValue, addressText && styles.sectionValueLink]}>
+                {addressText || 'Adres bilgisi yok'}
+              </Text>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               activeOpacity={pickupMapAddressText ? 0.78 : 1}
