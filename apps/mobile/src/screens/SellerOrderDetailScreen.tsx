@@ -440,7 +440,6 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             {order.deliveryType === "delivery" ? (
               <Text style={styles.meta}>Teslimat Ücreti: {deliveryFee.toFixed(2)} TL</Text>
             ) : null}
-            <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
           </View>
           {order.deliveryType === "delivery" ? (
             <View style={styles.card}>
@@ -464,9 +463,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             <Text style={styles.sectionTitle}>Ürünler</Text>
             {(order.items ?? []).map((item, index) => (
               <View key={`${item.id || item.name}-${index}`} style={styles.itemRowWrap}>
-                <Text style={styles.meta}>
-                  {item.name} x{item.quantity} · {Number(item.unitPrice ?? 0).toFixed(2)} TL
-                </Text>
+                {(() => {
+                  const mainItemTotal = Number(item.unitPrice ?? 0) * Number(item.quantity ?? 0);
+                  return (
+                    <Text style={styles.meta}>
+                      {item.name} x{item.quantity} = {mainItemTotal.toFixed(2)} TL
+                    </Text>
+                  );
+                })()}
                 {(item.selectedAddons?.free?.length ?? 0) > 0 ? (
                   <Text style={styles.addonMeta}>
                     Ücretsiz: {(item.selectedAddons?.free ?? []).map((addon) => addon.name).join(", ")}
@@ -485,6 +489,10 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
                   : null}
               </View>
             ))}
+            <View style={styles.productsTotalRow}>
+              <Text style={styles.productsTotalLabel}>Toplam</Text>
+              <Text style={styles.productsTotalValue}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
+            </View>
           </View>
 
           {action ? (
@@ -580,11 +588,21 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { fontSize: 17, fontWeight: "800", color: "#2E241C" },
   meta: { marginTop: 4, color: "#6C6055" },
-  total: { marginTop: 8, color: "#2E241C", fontWeight: "800" },
   sectionTitle: { color: "#2E241C", fontWeight: "800", marginBottom: 4 },
   linkText: { textDecorationLine: "underline" },
   itemRowWrap: { marginTop: 4 },
   addonMeta: { marginTop: 4, color: "#8A7D72", fontSize: 12.5 },
+  productsTotalRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#EDE5D8",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  productsTotalLabel: { color: "#2E241C", fontWeight: "700" },
+  productsTotalValue: { color: "#2E241C", fontWeight: "800" },
   pinInput: {
     marginTop: 8,
     borderWidth: 1,

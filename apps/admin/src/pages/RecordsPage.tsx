@@ -938,11 +938,24 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       if (foodIdIndex < 0) return withoutFoodName;
       return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];
     })();
-    if (!withFoodName.includes("selected_addons_json")) return withFoodName;
-    const withoutAddons = withFoodName.filter((column) => column !== "selected_addons_json");
-    const quantityIndex = withoutAddons.indexOf("quantity");
-    if (quantityIndex < 0) return [...withoutAddons, "selected_addons_json"];
-    return [...withoutAddons.slice(0, quantityIndex + 1), "selected_addons_json", ...withoutAddons.slice(quantityIndex + 1)];
+    const withoutReordered = withFoodName.filter((column) => column !== "unit_price" && column !== "selected_addons_json");
+    const quantityIndex = withoutReordered.indexOf("quantity");
+    if (quantityIndex < 0) {
+      return [
+        ...withoutReordered,
+        ...(withFoodName.includes("unit_price") ? ["unit_price"] : []),
+        ...(withFoodName.includes("selected_addons_json") ? ["selected_addons_json"] : []),
+      ];
+    }
+    const insertAfterQuantity = [
+      ...(withFoodName.includes("unit_price") ? ["unit_price"] : []),
+      ...(withFoodName.includes("selected_addons_json") ? ["selected_addons_json"] : []),
+    ];
+    return [
+      ...withoutReordered.slice(0, quantityIndex + 1),
+      ...insertAfterQuantity,
+      ...withoutReordered.slice(quantityIndex + 1),
+    ];
   })();
 
   return (

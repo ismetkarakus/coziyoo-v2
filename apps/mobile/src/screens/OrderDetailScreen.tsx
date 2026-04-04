@@ -6,7 +6,6 @@ import { type AuthSession } from '../utils/auth';
 import { apiRequest } from '../utils/api';
 import ScreenHeader from '../components/ScreenHeader';
 import StatusBadge from '../components/StatusBadge';
-import ItemRow from '../components/ItemRow';
 import SectionDivider from '../components/SectionDivider';
 import TimelineStep from '../components/TimelineStep';
 import ActionButton from '../components/ActionButton';
@@ -474,7 +473,10 @@ export default function OrderDetailScreen({
     normalizedOrderStatus === 'at_door';
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
-  const itemsSubtotal = order.items.reduce((sum, item) => sum + Number(item.lineTotal ?? 0), 0);
+  const itemsSubtotal = order.items.reduce((sum, item) => {
+    const lineTotal = Number(item.lineTotal ?? 0);
+    return sum + (Number.isFinite(lineTotal) ? lineTotal : 0);
+  }, 0);
   const deliveryFee = order.deliveryType === 'delivery'
     ? Math.max(0, Number((Number(order.totalPrice ?? 0) - itemsSubtotal).toFixed(2)))
     : 0;
@@ -521,11 +523,23 @@ export default function OrderDetailScreen({
           <SectionDivider icon="fast-food-outline" label="Ürünler" />
           {order.items.map((item, idx) => (
             <View key={`${item.name}-${idx}`} style={styles.itemRowWrap}>
-              <ItemRow name={item.name} quantity={item.quantity} price={formatPrice(item.lineTotal)} />
+              {(() => {
+                const qty = Number(item.quantity ?? 0);
+                const unitPrice = Number(item.unitPrice ?? 0);
+                const mainTotal = unitPrice * qty;
+                const formatExpr = (value: number) =>
+                  Number.isInteger(value) ? String(value) : value.toFixed(2).replace('.', ',');
+                const expression = `${item.name} ${qty} x ₺${formatExpr(unitPrice)} (= ₺${formatExpr(mainTotal)})`;
+                return (
+                  <Text style={styles.itemMainLine}>{expression}</Text>
+                );
+              })()}
               {(item.selectedAddons?.free?.length ?? 0) > 0 ? (
-                <Text style={styles.itemAddonLine}>
-                  Ücretsiz: {(item.selectedAddons?.free ?? []).map((addon) => addon.name).join(", ")}
-                </Text>
+                (item.selectedAddons?.free ?? []).map((addon, freeIndex) => (
+                  <Text key={`${item.name}-${idx}-free-${addon.name}-${freeIndex}`} style={styles.itemAddonLine}>
+                    • {addon.name}
+                  </Text>
+                ))
               ) : null}
               {(item.selectedAddons?.paid?.length ?? 0) > 0
                 ? (item.selectedAddons?.paid ?? []).map((addon, addonIndex) => {
@@ -541,13 +555,15 @@ export default function OrderDetailScreen({
             </View>
           ))}
           <View style={styles.totalRow}>
-            {order.deliveryType === 'delivery' ? (
-              <>
-                <Text style={styles.totalLabel}>Teslimat</Text>
-                <Text style={styles.totalValue}>{formatPrice(deliveryFee)}</Text>
-              </>
-            ) : null}
+            <Text style={styles.totalLabel}>Ara Toplam</Text>
+            <Text style={styles.totalValue}>{formatPrice(itemsSubtotal)}</Text>
           </View>
+          {order.deliveryType === 'delivery' ? (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Teslimat</Text>
+              <Text style={styles.totalValue}>{formatPrice(deliveryFee)}</Text>
+            </View>
+          ) : null}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Toplam</Text>
             <Text style={styles.totalValue}>{formatPrice(order.totalPrice)}</Text>
@@ -752,6 +768,7 @@ const styles = StyleSheet.create({
   sectionValue: { color: theme.text, fontSize: 15, fontWeight: '600', lineHeight: 22 },
   sectionValueLink: { textDecorationLine: 'underline' },
   itemRowWrap: { marginBottom: 6 },
+  itemMainLine: { color: theme.text, fontSize: 14, fontWeight: '600', paddingVertical: 6 },
   itemAddonLine: { marginTop: 4, marginLeft: 6, color: '#71685F', fontSize: 13 },
   totalRow: {
     flexDirection: 'row',
