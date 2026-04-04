@@ -410,7 +410,7 @@ export default function OrderDetailScreen({
   const pickupMapCoordinates = extractAddressCoordinates(order.sellerAddress);
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
-  const canComplete = isBuyer && order.deliveryType === 'delivery' && COMPLETABLE.includes(order.status);
+  const canComplete = false;
   const canPay =
     isBuyer &&
     !order.paymentCompleted &&
@@ -418,7 +418,7 @@ export default function OrderDetailScreen({
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
   const normalizedOrderStatus = String(order.status ?? '').trim().toLowerCase();
-  const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && ['at_door', 'delivered'].includes(normalizedOrderStatus);
+  const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && normalizedOrderStatus === 'at_door';
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
   const buyerFlowCurrentIndex = flowSteps.indexOf(
