@@ -6,6 +6,7 @@ import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
 import { getSellerFoodsCache, setSellerFoodsCache } from "../utils/sellerFoodsCache";
 import { getSellerOrdersCache, setSellerOrdersCache, getSellerDisplayNameCache, setSellerDisplayNameCache } from "../utils/sellerOrdersCache";
+import { getSellerMeCache } from "../utils/sellerProfileCache";
 import { subscribeSellerOrdersRealtime } from "../utils/realtime";
 import { getStatusInfo } from "../components/StatusBadge";
 
@@ -45,6 +46,7 @@ type ActiveFood = {
   stock: number;
 };
 const BUSINESS_DAY_RESET_HOUR = 5;
+const TURKEY_TIMEZONE = "Europe/Istanbul";
 
 function toBool(value: unknown): boolean {
   if (typeof value === "boolean") return value;
@@ -64,20 +66,35 @@ function parseApiDate(value?: string | null): Date | null {
   return parsed;
 }
 
-function getBusinessDayStart(reference: Date): Date {
-  const start = new Date(reference);
-  start.setHours(BUSINESS_DAY_RESET_HOUR, 0, 0, 0);
-  if (reference.getTime() < start.getTime()) {
-    start.setDate(start.getDate() - 1);
-  }
-  return start;
+function normalizeCountryCode(value: unknown): string {
+  const raw = String(value ?? "").trim().toUpperCase();
+  if (!raw) return "";
+  if (raw === "TR" || raw === "TURKIYE" || raw === "TÜRKİYE" || raw === "TURKEY") return "TR";
+  return raw;
 }
 
-function isCurrentBusinessDay(date: Date, reference: Date): boolean {
-  const start = getBusinessDayStart(reference);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return date.getTime() >= start.getTime() && date.getTime() < end.getTime();
+function businessDayKey(date: Date, useTurkeyTime: boolean): string {
+  const shifted = new Date(date.getTime() - (BUSINESS_DAY_RESET_HOUR * 60 * 60 * 1000));
+  if (useTurkeyTime) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: TURKEY_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(shifted);
+    const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+    const month = parts.find((part) => part.type === "month")?.value ?? "00";
+    const day = parts.find((part) => part.type === "day")?.value ?? "00";
+    return `${year}-${month}-${day}`;
+  }
+  const y = shifted.getFullYear();
+  const m = String(shifted.getMonth() + 1).padStart(2, "0");
+  const d = String(shifted.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function isCurrentBusinessDay(date: Date, reference: Date, useTurkeyTime: boolean): boolean {
+  return businessDayKey(date, useTurkeyTime) === businessDayKey(reference, useTurkeyTime);
 }
 
 function formatOrderDateTime(value?: string): string {
@@ -243,6 +260,7 @@ export default function SellerHomeScreen({
   const [celebrationOrderId, setCelebrationOrderId] = useState<string | null>(null);
   const [newOrderUntilById, setNewOrderUntilById] = useState<Record<string, number>>({});
   const [clockMs, setClockMs] = useState(() => Date.now());
+  const [sellerCountryCode, setSellerCountryCode] = useState<string>(() => normalizeCountryCode(getSellerMeCache()?.countryCode ?? ""));
   const pagerRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get("window").width;
   const deliveredEmojiScale = useRef(new Animated.Value(0.4)).current;
@@ -381,10 +399,11 @@ export default function SellerHomeScreen({
       // Orders are highest priority; do not block them behind profile/foods fetches.
       await refreshOrdersOnly(baseUrl);
 
-      const [profileRes, foodsRes, reviewsRes] = await Promise.all([
+      const [profileRes, foodsRes, reviewsRes, meRes] = await Promise.all([
         fetchWithAuth("/v1/seller/profile", baseUrl),
         fetchWithAuth("/v1/seller/foods", baseUrl),
         fetchWithAuth("/v1/seller/reviews?pageSize=1", baseUrl),
+        fetchWithAuth("/v1/auth/me", baseUrl),
       ]);
 
       const profileJson = await profileRes.json().catch(() => ({}));
@@ -398,6 +417,12 @@ export default function SellerHomeScreen({
       if (reviewsRes.ok && reviewsJson?.data?.summary) {
         const { averageRating, totalReviews } = reviewsJson.data.summary;
         setRating({ avg: Number(averageRating ?? 0), count: Number(totalReviews ?? 0) });
+      }
+
+      if (meRes.ok) {
+        const meJson = await meRes.json().catch(() => ({}));
+        const cc = normalizeCountryCode(meJson?.data?.countryCode ?? "");
+        if (cc) setSellerCountryCode(cc);
       }
 
       if (foodsRes.ok) {
@@ -475,15 +500,16 @@ export default function SellerHomeScreen({
 
   const todayOrders = useMemo(() => {
     const now = new Date();
+    const useTurkeyTime = sellerCountryCode === "TR";
     const filtered = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
       if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "approaching", "at_door", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
-      return isCurrentBusinessDay(activityAt, now);
+      return isCurrentBusinessDay(activityAt, now, useTurkeyTime);
     });
     return filtered;
-  }, [orders, currentAuth.userId, clockMs]);
+  }, [orders, currentAuth.userId, clockMs, sellerCountryCode]);
 
   const groupedOrders = useMemo(() => {
     const preparing: SellerOrder[] = [];
