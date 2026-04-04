@@ -181,6 +181,19 @@ function isPickupParallelNoopAllowed(currentStatus: OrderStatus, requestedStatus
   return requestedIndex <= currentIndex;
 }
 
+function isPickupBuyerParallelTransitionAllowed(currentStatus: OrderStatus, requestedStatus: OrderStatus): boolean {
+  if (requestedStatus === "in_delivery") {
+    return ["paid", "preparing", "ready", "in_delivery"].includes(currentStatus);
+  }
+  if (requestedStatus === "approaching") {
+    return ["in_delivery", "approaching"].includes(currentStatus);
+  }
+  if (requestedStatus === "at_door") {
+    return ["approaching", "at_door"].includes(currentStatus);
+  }
+  return false;
+}
+
 async function tableExistsTx(client: PoolClient, fqTableName: string): Promise<boolean> {
   const result = await client.query<{ exists: boolean }>(
     "SELECT to_regclass($1) IS NOT NULL AS exists",
@@ -1025,10 +1038,18 @@ async function transitionHandler(
         committed = true;
         return res.json({ data: { orderId: order.id, fromStatus: currentStatus, toStatus: currentStatus } });
       }
-      await client.query("ROLLBACK");
-      return res.status(409).json({
-        error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${currentStatus} -> ${toStatus}` },
-      });
+      if (
+        normalizeDeliveryType(order.delivery_type) === "pickup" &&
+        actorRole === "buyer" &&
+        isPickupBuyerParallelTransitionAllowed(currentStatus, toStatus)
+      ) {
+        // pickup mode: buyer progress can start without waiting seller status chain
+      } else {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${currentStatus} -> ${toStatus}` },
+        });
+      }
     }
 
     if (toStatus === "cancelled" && actorRole === "buyer") {

@@ -221,7 +221,9 @@ function nextPickupProgressAction(
 ): { label: string; toStatus: PickupProgressStatus } | null {
   if (deliveryType !== 'pickup') return null;
   const normalized = String(status ?? '').trim().toLowerCase();
-  if (normalized === 'preparing' || normalized === 'ready') return { label: 'Yoldayım', toStatus: 'in_delivery' };
+  if (normalized === 'paid' || normalized === 'preparing' || normalized === 'ready') {
+    return { label: 'Yoldayım', toStatus: 'in_delivery' };
+  }
   if (normalized === 'in_delivery') return { label: 'Geliyorum', toStatus: 'approaching' };
   if (normalized === 'approaching') return { label: 'Kapıdayım', toStatus: 'at_door' };
   return null;
