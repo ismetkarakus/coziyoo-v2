@@ -618,33 +618,35 @@ export default function OrderDetailScreen({
         {/* Timeline */}
         <View style={styles.section}>
           <SectionDivider icon="time-outline" label="Sipariş Durumu" />
-          <View style={styles.timeline}>
-            {flowSteps.map((step, idx) => {
-              const reached = idx <= buyerFlowCurrentIndex && buyerFlowStatus !== 'cancelled' && buyerFlowStatus !== 'rejected';
-              const dateValue = buyerFlowReachedAt[step] ?? null;
-              const fallbackDate = reached ? order.createdAt : '';
-              return (
+          {order.deliveryType === 'delivery' ? (
+            <View style={styles.timeline}>
+              {flowSteps.map((step, idx) => {
+                const reached = idx <= buyerFlowCurrentIndex && buyerFlowStatus !== 'cancelled' && buyerFlowStatus !== 'rejected';
+                const dateValue = buyerFlowReachedAt[step] ?? null;
+                const fallbackDate = reached ? order.createdAt : '';
+                return (
+                  <TimelineStep
+                    key={step}
+                    status={step}
+                    label={buyerFlowLabelByDeliveryType(step, order.deliveryType)}
+                    date={dateValue ? formatEventDate(dateValue) : (fallbackDate ? formatEventDate(fallbackDate) : 'Bekleniyor')}
+                    isLast={idx === flowSteps.length - 1}
+                    isActive={reached}
+                  />
+                );
+              })}
+              {(buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected') ? (
                 <TimelineStep
-                  key={step}
-                  status={step}
-                  label={buyerFlowLabelByDeliveryType(step, order.deliveryType)}
-                  date={dateValue ? formatEventDate(dateValue) : (fallbackDate ? formatEventDate(fallbackDate) : 'Bekleniyor')}
-                  isLast={idx === flowSteps.length - 1}
-                  isActive={reached}
+                  status={buyerFlowStatus}
+                  label="İptal Edildi"
+                  date={formatEventDate(order.createdAt)}
+                  isLast
+                  isActive
+                  reason={order.events.find((event) => normalizeBuyerFlowStatus(event.toStatus ?? '', order.deliveryType) === buyerFlowStatus)?.reason ?? null}
                 />
-              );
-            })}
-            {(buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected') ? (
-              <TimelineStep
-                status={buyerFlowStatus}
-                label="İptal Edildi"
-                date={formatEventDate(order.createdAt)}
-                isLast
-                isActive
-                reason={order.events.find((event) => normalizeBuyerFlowStatus(event.toStatus ?? '', order.deliveryType) === buyerFlowStatus)?.reason ?? null}
-              />
-            ) : null}
-          </View>
+              ) : null}
+            </View>
+          ) : null}
           {isBuyer && order.deliveryType === 'pickup' ? (
             <View style={styles.pickupBuyerFlowWrap}>
               <Text style={styles.pickupBuyerFlowTitle}>Alıcı Akışın</Text>

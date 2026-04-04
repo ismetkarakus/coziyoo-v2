@@ -145,6 +145,19 @@ function selectedPaidAddonsTotal(selectedAddons: NormalizedSelectedAddons): numb
   return Number(total.toFixed(2));
 }
 
+function normalizeFoodDeliveryOptions(input: unknown): { pickup: boolean; delivery: boolean } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { pickup: true, delivery: false };
+  }
+  const raw = input as Record<string, unknown>;
+  const pickup = Boolean(raw.pickup);
+  const delivery = Boolean(raw.delivery);
+  if (!pickup && !delivery) {
+    return { pickup: true, delivery: false };
+  }
+  return { pickup, delivery };
+}
+
 function resolveDeliveryDestination(deliveryAddressJson: unknown): { coord: LatLng | null; addressLine: string | null } {
   const coord = extractLatLng(deliveryAddressJson);
   const addressLine = extractAddressLine(deliveryAddressJson);
@@ -299,6 +312,7 @@ ordersRouter.post(
       sale_ends_at: string;
       price: string;
       delivery_fee: string | null;
+      delivery_options_json: unknown;
       food_is_active: boolean;
     }>(
       `SELECT l.id AS lot_id,
@@ -310,6 +324,7 @@ ordersRouter.post(
               l.sale_ends_at::text,
               f.price::text AS price,
               f.delivery_fee::text AS delivery_fee,
+              f.delivery_options_json,
               f.is_active AS food_is_active
        FROM production_lots l
        LEFT JOIN foods f ON f.id = l.food_id
@@ -330,6 +345,17 @@ ordersRouter.post(
         await client.query("ROLLBACK");
         return res.status(400).json({
           error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
+        });
+      }
+      const deliveryOptions = normalizeFoodDeliveryOptions(lot.delivery_options_json);
+      const isSupported = input.deliveryType === "pickup" ? deliveryOptions.pickup : deliveryOptions.delivery;
+      if (!isSupported) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: {
+            code: "UNSUPPORTED_DELIVERY_TYPE",
+            message: `unsupported deliveryType: ${input.deliveryType}`,
+          },
         });
       }
       if (!["open", "active"].includes(lot.status)) {
@@ -1490,6 +1516,7 @@ voiceOrderRouter.post(
         sale_ends_at: string;
         price: string;
         delivery_fee: string | null;
+        delivery_options_json: unknown;
         food_is_active: boolean;
       }>(
         `SELECT l.id AS lot_id,
@@ -1501,6 +1528,7 @@ voiceOrderRouter.post(
                 l.sale_ends_at::text,
                 f.price::text AS price,
                 f.delivery_fee::text AS delivery_fee,
+                f.delivery_options_json,
                 f.is_active AS food_is_active
          FROM production_lots l
          LEFT JOIN foods f ON f.id = l.food_id
@@ -1521,6 +1549,17 @@ voiceOrderRouter.post(
           await client.query("ROLLBACK");
           return res.status(400).json({
             error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
+          });
+        }
+        const deliveryOptions = normalizeFoodDeliveryOptions(lot.delivery_options_json);
+        const isSupported = input.deliveryType === "pickup" ? deliveryOptions.pickup : deliveryOptions.delivery;
+        if (!isSupported) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            error: {
+              code: "UNSUPPORTED_DELIVERY_TYPE",
+              message: `unsupported deliveryType: ${input.deliveryType}`,
+            },
           });
         }
         if (!["open", "active"].includes(lot.status)) {

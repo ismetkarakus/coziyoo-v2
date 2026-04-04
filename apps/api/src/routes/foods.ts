@@ -42,6 +42,19 @@ function resolvePrimaryFoodImage(imageUrlsValue: unknown, imageUrlFallback: unkn
   return fallback.length > 0 ? fallback : null;
 }
 
+function normalizeDeliveryOptions(input: unknown): { pickup: boolean; delivery: boolean } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { pickup: true, delivery: false };
+  }
+  const raw = input as Record<string, unknown>;
+  const pickup = Boolean(raw.pickup);
+  const delivery = Boolean(raw.delivery);
+  if (!pickup && !delivery) {
+    return { pickup: true, delivery: false };
+  }
+  return { pickup, delivery };
+}
+
 type FoodMenuItem = {
   name: string;
   categoryId?: string;
@@ -222,6 +235,7 @@ foodsRouter.get("/", async (req, res) => {
         f.description,
         f.price,
         f.delivery_fee::text AS delivery_fee,
+        f.delivery_options_json,
         f.image_url,
         f.image_urls_json,
         f.rating,
@@ -305,6 +319,7 @@ foodsRouter.get("/", async (req, res) => {
       description: r.description,
       price: parseFloat(r.price),
       deliveryFee: r.delivery_fee != null ? Number(r.delivery_fee) : 0,
+      deliveryOptions: normalizeDeliveryOptions(r.delivery_options_json),
       imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
       imageUrls: parseImageUrls(r.image_urls_json),
       rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
@@ -674,6 +689,8 @@ foodsRouter.get("/recommendations", async (req, res) => {
             f.card_summary,
             f.description,
             f.price,
+            f.delivery_fee::text AS delivery_fee,
+            f.delivery_options_json,
             f.image_url,
             f.image_urls_json,
             f.rating,
@@ -789,6 +806,8 @@ foodsRouter.get("/recommendations", async (req, res) => {
           cardSummary: r.card_summary,
           description: r.description,
           price: parseFloat(r.price),
+          deliveryFee: r.delivery_fee != null ? Number(r.delivery_fee) : 0,
+          deliveryOptions: normalizeDeliveryOptions(r.delivery_options_json),
           imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
           imageUrls: parseImageUrls(r.image_urls_json),
           rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,
@@ -921,6 +940,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
           f.description,
           f.price,
           f.delivery_fee::text AS delivery_fee,
+          f.delivery_options_json,
           f.image_url,
           f.image_urls_json,
           f.rating,
@@ -996,6 +1016,7 @@ foodsRouter.get("/sellers/:sellerId/foods", async (req, res) => {
       description: r.description,
       price: parseFloat(r.price),
       deliveryFee: r.delivery_fee != null ? Number(r.delivery_fee) : 0,
+      deliveryOptions: normalizeDeliveryOptions(r.delivery_options_json),
       imageUrl: resolvePrimaryFoodImage(r.image_urls_json, r.image_url),
       imageUrls: parseImageUrls(r.image_urls_json),
       rating: r.rating ? parseFloat(r.rating).toFixed(1) : null,

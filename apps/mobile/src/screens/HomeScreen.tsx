@@ -144,6 +144,10 @@ type ApiFoodItem = {
   description: string;
   price: number;
   deliveryFee?: number | null;
+  deliveryOptions?: {
+    pickup?: boolean;
+    delivery?: boolean;
+  } | null;
   imageUrl: string | null;
   imageUrls?: string[];
   rating: string | null;
@@ -195,6 +199,10 @@ type MealCard = {
   distance: string;
   price: string;
   deliveryFee: number;
+  deliveryOptions: {
+    pickup: boolean;
+    delivery: boolean;
+  };
   backgroundColor: string;
   category: string;
   imageUrl?: string;
@@ -237,6 +245,20 @@ function normalizeMealAddons(value: ApiFoodItem["menuItems"]): MealCard["addons"
     }
   }
   return items.slice(0, 50);
+}
+
+function normalizeDeliveryOptions(
+  value: ApiFoodItem["deliveryOptions"],
+): { pickup: boolean; delivery: boolean } {
+  if (!value || typeof value !== "object") {
+    return { pickup: true, delivery: false };
+  }
+  const pickup = Boolean(value.pickup);
+  const delivery = Boolean(value.delivery);
+  if (!pickup && !delivery) {
+    return { pickup: true, delivery: false };
+  }
+  return { pickup, delivery };
 }
 
 function buildCartItemKey(mealId: string): string {
@@ -836,6 +858,7 @@ function apiToMealCard(item: ApiFoodItem): MealCard {
     distance: distanceText,
     price: `₺${item.price}`,
     deliveryFee: Number(item.deliveryFee ?? 0),
+    deliveryOptions: normalizeDeliveryOptions(item.deliveryOptions),
     backgroundColor: CATEGORY_BG_COLORS[uiCategory] ?? '#E8E3DB',
     category: uiCategory,
     imageUrl: normalizedImageUrls[0] ?? resolveDishImage(item.name, uiCategory),
@@ -1072,6 +1095,12 @@ function FoodCard({
   const stockSummary = Number.isFinite(meal.stock) && meal.stock > 0
     ? `Kalan: ${meal.stock}`
     : '';
+  const mealDeliveryOptions = meal.deliveryOptions ?? { pickup: true, delivery: false };
+  const deliveryTypeLabel = mealDeliveryOptions.pickup && mealDeliveryOptions.delivery
+    ? 'Gel Al / Getir'
+    : mealDeliveryOptions.delivery
+      ? 'Getir'
+      : 'Gel Al';
 
   return (
     <View
@@ -1205,6 +1234,9 @@ function FoodCard({
             ) : null}
           </View>
         </View>
+        <Text style={[styles.foodDeliveryTypeText, { color: colors.subtitle }]}>
+          Teslimat Tipi: {deliveryTypeLabel}
+        </Text>
         <View style={styles.foodBottomRow}>
           {timeDistanceText ? (
             <View style={styles.foodMetaInlineRow}>
@@ -1429,6 +1461,22 @@ export default function HomeScreen({
     }
     return defaultAddress;
   }, [defaultAddress, selectedCheckoutAddressId, userAddresses]);
+  const cartSupportedDeliveryOptions = useMemo(() => {
+    if (cartItems.length === 0) {
+      return { pickup: true, delivery: true };
+    }
+    let pickup = true;
+    let delivery = true;
+    for (const item of cartItems) {
+      const options = item.meal.deliveryOptions ?? { pickup: true, delivery: false };
+      pickup = pickup && options.pickup;
+      delivery = delivery && options.delivery;
+    }
+    if (!pickup && !delivery) {
+      return { pickup: true, delivery: false };
+    }
+    return { pickup, delivery };
+  }, [cartItems]);
   const fallbackRecommendedMeals = useMemo<RecommendationMeal[]>(
     () =>
       meals.slice(0, 8).map((meal) => ({
@@ -1488,6 +1536,17 @@ export default function HomeScreen({
     const exists = userAddresses.some((item) => item.id === selectedCheckoutAddressId);
     if (!exists) setSelectedCheckoutAddressId(null);
   }, [selectedCheckoutAddressId, userAddresses]);
+
+  useEffect(() => {
+    if (cartItems.length === 0) return;
+    if (deliveryType === 'delivery' && !cartSupportedDeliveryOptions.delivery) {
+      setDeliveryType('pickup');
+      return;
+    }
+    if (deliveryType === 'pickup' && !cartSupportedDeliveryOptions.pickup) {
+      setDeliveryType('delivery');
+    }
+  }, [cartItems.length, cartSupportedDeliveryOptions.delivery, cartSupportedDeliveryOptions.pickup, deliveryType]);
 
   useEffect(() => {
     const heroCandidate = meals.find((meal) => {
@@ -2262,6 +2321,15 @@ export default function HomeScreen({
     }
     if (payableItems.length === 0) {
       setPaymentError(t('error.home.payableLotsMissing'));
+      return;
+    }
+
+    const deliveryTypeSupportedByCart = payableItems.every((item) => {
+      const options = item.meal.deliveryOptions ?? { pickup: true, delivery: false };
+      return deliveryType === 'delivery' ? options.delivery : options.pickup;
+    });
+    if (!deliveryTypeSupportedByCart) {
+      setPaymentError('Sepetteki ürünler seçilen teslimat tipini desteklemiyor.');
       return;
     }
 
@@ -3232,40 +3300,44 @@ export default function HomeScreen({
               <View style={styles.checkoutAddressCard}>
                 <Text style={styles.checkoutAddressTitle}>{t('helper.home.checkoutDeliveryType')}</Text>
                 <View style={styles.deliveryTypeRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.deliveryTypeChip,
-                      deliveryType === 'delivery' && styles.deliveryTypeChipActive,
-                    ]}
-                    onPress={() => setDeliveryType('delivery')}
-                    activeOpacity={0.85}
-                  >
-                    <Text
+                  {cartSupportedDeliveryOptions.delivery ? (
+                    <TouchableOpacity
                       style={[
-                        styles.deliveryTypeChipText,
-                        deliveryType === 'delivery' && styles.deliveryTypeChipTextActive,
+                        styles.deliveryTypeChip,
+                        deliveryType === 'delivery' && styles.deliveryTypeChipActive,
                       ]}
+                      onPress={() => setDeliveryType('delivery')}
+                      activeOpacity={0.85}
                     >
-                      {t('cta.home.delivery')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.deliveryTypeChip,
-                      deliveryType === 'pickup' && styles.deliveryTypeChipActive,
-                    ]}
-                    onPress={() => setDeliveryType('pickup')}
-                    activeOpacity={0.85}
-                  >
-                    <Text
+                      <Text
+                        style={[
+                          styles.deliveryTypeChipText,
+                          deliveryType === 'delivery' && styles.deliveryTypeChipTextActive,
+                        ]}
+                      >
+                        {t('cta.home.delivery')}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {cartSupportedDeliveryOptions.pickup ? (
+                    <TouchableOpacity
                       style={[
-                        styles.deliveryTypeChipText,
-                        deliveryType === 'pickup' && styles.deliveryTypeChipTextActive,
+                        styles.deliveryTypeChip,
+                        deliveryType === 'pickup' && styles.deliveryTypeChipActive,
                       ]}
+                      onPress={() => setDeliveryType('pickup')}
+                      activeOpacity={0.85}
                     >
-                      {t('cta.home.pickup')}
-                    </Text>
-                  </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.deliveryTypeChipText,
+                          deliveryType === 'pickup' && styles.deliveryTypeChipTextActive,
+                        ]}
+                      >
+                        {t('cta.home.pickup')}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
                 {deliveryType === 'delivery' ? (
                   <View style={styles.checkoutAddressBox}>
@@ -5075,6 +5147,7 @@ const styles = StyleSheet.create({
   foodSellerLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   foodSellerChevron: { marginTop: 2, marginLeft: 2 },
   foodCuisine: { fontSize: 12, fontWeight: '500', marginTop: 2, fontStyle: 'italic' },
+  foodDeliveryTypeText: { fontSize: 12, fontWeight: '700', marginBottom: 6 },
   foodBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   foodMetaInlineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   foodMetaClockBadge: {
