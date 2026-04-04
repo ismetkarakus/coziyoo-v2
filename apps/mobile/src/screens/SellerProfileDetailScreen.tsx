@@ -112,6 +112,33 @@ export default function SellerProfileDetailScreen({
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
+  async function readResponsePayload(res: Response): Promise<{ json: Record<string, unknown> | null; rawText: string }> {
+    const rawText = await res.text();
+    const trimmed = rawText.trim();
+    if (!trimmed) return { json: {}, rawText };
+    try {
+      return { json: JSON.parse(trimmed) as Record<string, unknown>, rawText };
+    } catch {
+      return { json: null, rawText };
+    }
+  }
+
+  function responseErrorMessage(
+    res: Response,
+    payload: { json: Record<string, unknown> | null; rawText: string },
+    fallback: string,
+  ): string {
+    const apiError = payload.json?.error;
+    if (apiError && typeof apiError === "object" && typeof (apiError as { message?: unknown }).message === "string") {
+      const message = (apiError as { message?: string }).message?.trim();
+      if (message) return message;
+    }
+    const raw = payload.rawText.trim();
+    if (raw.startsWith("<")) return `${fallback} (Sunucu JSON yerine HTML döndü, HTTP ${res.status})`;
+    if (raw) return `${fallback}: ${raw.slice(0, 180)}`;
+    return `${fallback} (${res.status})`;
+  }
+
   async function authedFetch(path: string, baseUrl = apiUrl, init?: RequestInit): Promise<Response> {
     const makeHeaders = (session: AuthSession): Record<string, string> => ({
       "Content-Type": "application/json",
@@ -415,8 +442,8 @@ export default function SellerProfileDetailScreen({
           kitchenSpecialties: specialties,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Kaydedilemedi");
+      const payload = await readResponsePayload(res);
+      if (!res.ok || payload.json === null) throw new Error(responseErrorMessage(res, payload, "Kaydedilemedi"));
       setIsKitchenModalOpen(false);
       void load();
     } catch (e) {
@@ -490,9 +517,10 @@ export default function SellerProfileDetailScreen({
           method: "PUT",
           body: JSON.stringify(payload),
         });
-        const meJson = await meRes.json();
-        if (!meRes.ok) throw new Error(meJson?.error?.message ?? "Profil bilgileri kaydedilemedi");
-        const updatedEmail = String(meJson?.data?.email ?? "").trim();
+        const mePayload = await readResponsePayload(meRes);
+        if (!meRes.ok || mePayload.json === null) throw new Error(responseErrorMessage(meRes, mePayload, "Profil bilgileri kaydedilemedi"));
+        const meJson = mePayload.json as { data?: { email?: string } };
+        const updatedEmail = String(meJson.data?.email ?? "").trim();
         if (updatedEmail && updatedEmail !== currentAuth.email) {
           const nextSession: AuthSession = {
             ...currentAuth,
@@ -509,8 +537,9 @@ export default function SellerProfileDetailScreen({
       if (hasAddressUpdate) {
         try {
           const listRes = await authedFetch("/v1/auth/me/addresses", baseUrl, undefined);
-          const listJson = await listRes.json();
-          if (!listRes.ok) throw new Error(listJson?.error?.message ?? "Adres listesi alınamadı");
+          const listPayload = await readResponsePayload(listRes);
+          if (!listRes.ok || listPayload.json === null) throw new Error(responseErrorMessage(listRes, listPayload, "Adres listesi alınamadı"));
+          const listJson = listPayload.json as { data?: Array<{ id?: string; isDefault?: boolean }> };
           const defaultAddress = Array.isArray(listJson?.data)
             ? listJson.data.find((item: { isDefault?: boolean }) => item?.isDefault)
             : null;
@@ -524,8 +553,8 @@ export default function SellerProfileDetailScreen({
                 isDefault: true,
               }),
             });
-            const patchJson = await patchRes.json();
-            if (!patchRes.ok) throw new Error(patchJson?.error?.message ?? "Adres kaydedilemedi");
+            const patchPayload = await readResponsePayload(patchRes);
+            if (!patchRes.ok || patchPayload.json === null) throw new Error(responseErrorMessage(patchRes, patchPayload, "Adres kaydedilemedi"));
           } else {
             const addrRes = await authedFetch("/v1/auth/me/addresses", baseUrl, {
               method: "POST",
@@ -535,8 +564,8 @@ export default function SellerProfileDetailScreen({
                 isDefault: true,
               }),
             });
-            const addrJson = await addrRes.json();
-            if (!addrRes.ok) throw new Error(addrJson?.error?.message ?? "Adres kaydedilemedi");
+            const addrPayload = await readResponsePayload(addrRes);
+            if (!addrRes.ok || addrPayload.json === null) throw new Error(responseErrorMessage(addrRes, addrPayload, "Adres kaydedilemedi"));
           }
         } catch (addressError) {
           addressErrorMessage = addressError instanceof Error ? addressError.message : "Adres kaydedilemedi";
@@ -555,8 +584,8 @@ export default function SellerProfileDetailScreen({
                 contentType: idCardFrontMime,
               }),
             });
-            const frontJson = await frontRes.json();
-            if (!frontRes.ok) throw new Error(frontJson?.error?.message ?? "Kimlik ön yüz yüklenemedi");
+            const frontPayload = await readResponsePayload(frontRes);
+            if (!frontRes.ok || frontPayload.json === null) throw new Error(responseErrorMessage(frontRes, frontPayload, "Kimlik ön yüz yüklenemedi"));
           }
           if (idCardBackBase64) {
             const backRes = await authedFetch("/v1/seller/compliance/documents", baseUrl, {
@@ -567,8 +596,8 @@ export default function SellerProfileDetailScreen({
                 contentType: idCardBackMime,
               }),
             });
-            const backJson = await backRes.json();
-            if (!backRes.ok) throw new Error(backJson?.error?.message ?? "Kimlik arka yüz yüklenemedi");
+            const backPayload = await readResponsePayload(backRes);
+            if (!backRes.ok || backPayload.json === null) throw new Error(responseErrorMessage(backRes, backPayload, "Kimlik arka yüz yüklenemedi"));
           }
         } catch (idCardError) {
           Alert.alert("Uyarı", idCardError instanceof Error ? idCardError.message : "Kimlik fotoğrafları yüklenemedi");
