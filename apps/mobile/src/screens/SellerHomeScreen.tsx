@@ -779,14 +779,17 @@ export default function SellerHomeScreen({
                                   isDoorStep && styles.cardActionBtnKapidaPulse,
                                   isUpdating && styles.cardActionBtnDisabled,
                                 ]}
-                                disabled={isUpdating || !canRunAction}
+                                disabled={isUpdating || (!canRunAction && !isDoorStep)}
                                 onPress={() => {
-                                  if (!action) return;
-                                  void runCardAction(item.id, action);
+                                  if (action) {
+                                    void runCardAction(item.id, action);
+                                  } else if (isDoorStep) {
+                                    onOpenOrder(item.id);
+                                  }
                                 }}
                               >
                                 <Text style={styles.cardActionBtnText}>
-                                  {isUpdating ? "İşleniyor..." : (action?.label ?? statusText)}
+                                  {isUpdating ? "İşleniyor..." : isDoorStep && !action ? "PIN Doğrula" : (action?.label ?? statusText)}
                                 </Text>
                               </TouchableOpacity>
                             </View>

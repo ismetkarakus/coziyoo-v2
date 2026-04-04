@@ -286,7 +286,6 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error?.message ?? "PIN gönderilemedi");
-    Alert.alert("PIN gönderildi", "PIN alıcıya iletildi.");
   }
 
   async function runAction(action: { label: string; toStatus: string }) {
