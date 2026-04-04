@@ -44,6 +44,7 @@ type ActiveFood = {
   isActive: boolean;
   stock: number;
 };
+const BUSINESS_DAY_RESET_HOUR = 5;
 
 function toBool(value: unknown): boolean {
   if (typeof value === "boolean") return value;
@@ -63,12 +64,20 @@ function parseApiDate(value?: string | null): Date | null {
   return parsed;
 }
 
-function isSameLocalDay(date: Date, reference: Date): boolean {
-  return (
-    date.getFullYear() === reference.getFullYear() &&
-    date.getMonth() === reference.getMonth() &&
-    date.getDate() === reference.getDate()
-  );
+function getBusinessDayStart(reference: Date): Date {
+  const start = new Date(reference);
+  start.setHours(BUSINESS_DAY_RESET_HOUR, 0, 0, 0);
+  if (reference.getTime() < start.getTime()) {
+    start.setDate(start.getDate() - 1);
+  }
+  return start;
+}
+
+function isCurrentBusinessDay(date: Date, reference: Date): boolean {
+  const start = getBusinessDayStart(reference);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return date.getTime() >= start.getTime() && date.getTime() < end.getTime();
 }
 
 function formatOrderDateTime(value?: string): string {
@@ -471,7 +480,7 @@ export default function SellerHomeScreen({
       if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "approaching", "at_door", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
       const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
       if (!activityAt) return false;
-      return isSameLocalDay(activityAt, now);
+      return isCurrentBusinessDay(activityAt, now);
     });
     return filtered;
   }, [orders, currentAuth.userId, clockMs]);
@@ -486,8 +495,8 @@ export default function SellerHomeScreen({
       else if (key === "route") route.push(order);
       else done.push(order);
     }
-    preparing.sort((a, b) => orderTimeForSort(a) - orderTimeForSort(b));
-    route.sort((a, b) => orderTimeForSort(a) - orderTimeForSort(b));
+    preparing.sort((a, b) => orderTimeForSort(b) - orderTimeForSort(a));
+    route.sort((a, b) => orderTimeForSort(b) - orderTimeForSort(a));
     done.sort((a, b) => orderTimeForSort(b) - orderTimeForSort(a));
     return { preparing, route, done };
   }, [todayOrders]);
