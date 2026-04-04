@@ -7,6 +7,7 @@ import { abuseProtection } from "../middleware/abuse-protection.js";
 import { resolveActorRole } from "../middleware/app-role.js";
 import { requireAuth } from "../middleware/auth.js";
 import { enqueueOutboxEvent } from "../services/outbox.js";
+import { normalizeDeliveryType } from "../utils/delivery-type.js";
 
 const SendPinSchema = z.object({
   testPin: z.string().regex(/^[0-9]{4,8}$/).optional(),
@@ -191,6 +192,30 @@ deliveryProofRouter.post(
          WHERE order_id = $1`,
         [orderId]
       );
+
+      const pickupOrder = await client.query<{ status: string; delivery_type: string }>(
+        "SELECT status, delivery_type FROM orders WHERE id = $1 FOR UPDATE",
+        [orderId],
+      );
+      const currentOrderStatus = String(pickupOrder.rows[0]?.status ?? "").trim().toLowerCase();
+      if (
+        normalizeDeliveryType(pickupOrder.rows[0]?.delivery_type) === "pickup" &&
+        ["at_door", "delivered"].includes(currentOrderStatus)
+      ) {
+        await client.query("UPDATE orders SET status = 'completed', updated_at = now() WHERE id = $1", [orderId]);
+        await client.query(
+          `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+           VALUES ($1, $2, 'pickup_pin_verified_auto_complete', $3, 'completed', $4)`,
+          [orderId, req.auth!.userId, currentOrderStatus, JSON.stringify({ source: "delivery_pin_verify" })],
+        );
+        await enqueueOutboxEvent(client, {
+          eventType: "order_completed",
+          aggregateType: "order",
+          aggregateId: orderId,
+          payload: { orderId },
+        });
+      }
+
       await enqueueOutboxEvent(client, {
         eventType: "delivery_pin_verified",
         aggregateType: "order",
@@ -214,7 +239,10 @@ deliveryProofRouter.get("/:id/delivery-proof", requireAuth("app"), async (req, r
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid order id" } });
   }
 
-  const order = await pool.query<{ buyer_id: string; seller_id: string }>("SELECT buyer_id, seller_id FROM orders WHERE id = $1", [orderId]);
+  const order = await pool.query<{ buyer_id: string; seller_id: string; delivery_type: string; status: string }>(
+    "SELECT buyer_id, seller_id, delivery_type, status FROM orders WHERE id = $1",
+    [orderId]
+  );
   if ((order.rowCount ?? 0) === 0) {
     return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
   }
@@ -238,7 +266,48 @@ deliveryProofRouter.get("/:id/delivery-proof", requireAuth("app"), async (req, r
      WHERE order_id = $1`,
     [orderId]
   );
-  const row = proof.rows[0];
+  let row = proof.rows[0];
+  if (
+    !row &&
+    normalizeDeliveryType(order.rows[0].delivery_type) === "pickup" &&
+    String(order.rows[0].status ?? "").trim().toLowerCase() === "at_door"
+  ) {
+    const pin = randomPin();
+    const pinHash = sha256(pin);
+    const pinCreate = await pool.query(
+      `INSERT INTO delivery_proof_records
+        (order_id, seller_id, buyer_id, proof_mode, pin_hash, pin_sent_at, pin_sent_channel, verification_attempts, status, metadata_json, created_at)
+       VALUES ($1, $2, $3, 'pin', $4, now(), 'in_app', 0, 'pending', $5, now())
+       ON CONFLICT (order_id) DO NOTHING
+       RETURNING order_id`,
+      [orderId, order.rows[0].seller_id, order.rows[0].buyer_id, pinHash, JSON.stringify({ ttlMinutes: 10, buyerPin: pin })]
+    );
+    if ((pinCreate.rowCount ?? 0) > 0) {
+      await pool.query(
+        `INSERT INTO notification_events (user_id, type, title, body, data_json, is_read, created_at)
+         VALUES ($1, 'delivery_pin', 'Pickup PIN', $2, $3, FALSE, now())`,
+        [order.rows[0].buyer_id, `Your pickup PIN is ${pin}`, JSON.stringify({ orderId })]
+      );
+    }
+
+    const fallbackProof = await pool.query<{
+      order_id: string;
+      proof_mode: string;
+      pin_sent_at: string | null;
+      pin_verified_at: string | null;
+      verification_attempts: number;
+      status: "pending" | "verified" | "failed" | "expired";
+      metadata_json: unknown;
+      created_at: string;
+    }>(
+      `SELECT order_id, proof_mode, pin_sent_at::text, pin_verified_at::text, verification_attempts, status, metadata_json, created_at::text
+       FROM delivery_proof_records
+       WHERE order_id = $1`,
+      [orderId]
+    );
+    row = fallbackProof.rows[0];
+  }
+
   if (!row) return res.json({ data: null });
   const metadata = row.metadata_json && typeof row.metadata_json === "object"
     ? (row.metadata_json as Record<string, unknown>)
