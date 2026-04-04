@@ -49,60 +49,11 @@ function haversineKm(a: LatLng, b: LatLng): number {
 }
 
 export async function geocodeAddress(address: string): Promise<LatLng | null> {
-  const provider = env.ROUTING_PROVIDER;
   if (!address.trim()) return null;
-
-  if ((provider === "google" || provider === "auto") && env.GOOGLE_MAPS_API_KEY) {
-    try {
-      const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
-      url.searchParams.set("address", address);
-      url.searchParams.set("key", env.GOOGLE_MAPS_API_KEY);
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const json = (await response.json()) as {
-        status?: string;
-        results?: Array<{ geometry?: { location?: { lat?: number; lng?: number } } }>;
-      };
-      if (json.status !== "OK") return null;
-      const loc = json.results?.[0]?.geometry?.location;
-      if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return null;
-      return { lat: loc.lat, lng: loc.lng };
-    } catch {
-      return null;
-    }
-  }
-
   return null;
 }
 
 export async function estimateRouteDurationSeconds(origin: LatLng, destination: LatLng): Promise<number | null> {
-  const provider = env.ROUTING_PROVIDER;
-
-  if ((provider === "google" || provider === "auto") && env.GOOGLE_MAPS_API_KEY) {
-    try {
-      const url = new URL("https://maps.googleapis.com/maps/api/distancematrix/json");
-      url.searchParams.set("origins", `${origin.lat},${origin.lng}`);
-      url.searchParams.set("destinations", `${destination.lat},${destination.lng}`);
-      url.searchParams.set("departure_time", "now");
-      url.searchParams.set("mode", "driving");
-      url.searchParams.set("key", env.GOOGLE_MAPS_API_KEY);
-      const response = await fetch(url);
-      if (response.ok) {
-        const json = (await response.json()) as {
-          status?: string;
-          rows?: Array<{ elements?: Array<{ status?: string; duration?: { value?: number }; duration_in_traffic?: { value?: number } }> }>;
-        };
-        const element = json.rows?.[0]?.elements?.[0];
-        const duration = element?.duration_in_traffic?.value ?? element?.duration?.value;
-        if (json.status === "OK" && element?.status === "OK" && typeof duration === "number" && duration > 0) {
-          return Math.round(duration);
-        }
-      }
-    } catch {
-      // fallback below
-    }
-  }
-
   const km = haversineKm(origin, destination);
   const seconds = (km / Math.max(5, env.DELIVERY_AVG_SPEED_KMH)) * 3600;
   return Math.max(60, Math.round(seconds));
