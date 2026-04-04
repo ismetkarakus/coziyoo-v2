@@ -24,6 +24,7 @@ type Props = {
   status: string;
   size?: 'sm' | 'md';
   deliveryType?: 'pickup' | 'delivery' | string;
+  audience?: 'buyer' | 'seller';
 };
 
 function statusKeyByDeliveryType(status: string, deliveryType?: string): string {
@@ -35,15 +36,21 @@ function statusKeyByDeliveryType(status: string, deliveryType?: string): string 
   return normalizedStatus;
 }
 
-export default function StatusBadge({ status, size = 'sm', deliveryType }: Props) {
+function resolveLabel(statusKey: string, fallbackLabel: string, audience?: 'buyer' | 'seller'): string {
+  if (audience === 'buyer' && statusKey === 'paid') return 'Ödeme Yapıldı';
+  return fallbackLabel;
+}
+
+export default function StatusBadge({ status, size = 'sm', deliveryType, audience }: Props) {
   const key = statusKeyByDeliveryType(status, deliveryType);
   const info = STATUS_MAP[key] ?? { label: status, color: '#71685F', bg: '#F0EBE4' };
+  const label = resolveLabel(key, info.label, audience);
   const isMd = size === 'md';
 
   return (
     <View style={[styles.badge, { backgroundColor: info.bg }, isMd && styles.badgeMd]}>
       <Text style={[styles.text, { color: info.color }, isMd && styles.textMd]}>
-        {info.label}
+        {label}
       </Text>
     </View>
   );

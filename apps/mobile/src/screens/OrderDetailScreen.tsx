@@ -474,6 +474,10 @@ export default function OrderDetailScreen({
     normalizedOrderStatus === 'at_door';
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
+  const itemsSubtotal = order.items.reduce((sum, item) => sum + Number(item.lineTotal ?? 0), 0);
+  const deliveryFee = order.deliveryType === 'delivery'
+    ? Math.max(0, Number((Number(order.totalPrice ?? 0) - itemsSubtotal).toFixed(2)))
+    : 0;
   const buyerFlowCurrentIndex = flowSteps.indexOf(
     buyerFlowStatus === 'cancelled' || buyerFlowStatus === 'rejected' ? 'preparing' : buyerFlowStatus
   );
@@ -497,7 +501,12 @@ export default function OrderDetailScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Status + Order No */}
         <View style={styles.topRow}>
-          <StatusBadge status={buyerFlowStatus} size="md" deliveryType={order.deliveryType} />
+          <StatusBadge
+            status={buyerFlowStatus}
+            size="md"
+            deliveryType={order.deliveryType}
+            audience="buyer"
+          />
           <Text style={styles.orderNo}>{orderNo(order.id)}</Text>
         </View>
 
@@ -531,6 +540,14 @@ export default function OrderDetailScreen({
                 : null}
             </View>
           ))}
+          <View style={styles.totalRow}>
+            {order.deliveryType === 'delivery' ? (
+              <>
+                <Text style={styles.totalLabel}>Teslimat</Text>
+                <Text style={styles.totalValue}>{formatPrice(deliveryFee)}</Text>
+              </>
+            ) : null}
+          </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Toplam</Text>
             <Text style={styles.totalValue}>{formatPrice(order.totalPrice)}</Text>

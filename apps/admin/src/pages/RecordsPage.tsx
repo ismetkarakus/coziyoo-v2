@@ -249,6 +249,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       quantity: "Adet",
       unit_price: "Birim Fiyat",
       line_total: "Satır Toplamı",
+      selected_addons_json: "Yan Ürünler",
       created_at: "Tarih",
       updated_at: "Güncelleme",
       lot_id: "Lot ID",
@@ -466,6 +467,72 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (!text) return "-";
     if (text.length <= 18) return text;
     return `${text.slice(0, 8)}...${text.slice(-6)}`;
+  };
+
+  const parseSelectedAddons = (
+    value: unknown,
+  ): { free: Array<{ name: string }>; paid: Array<{ name: string; quantity: number; price: number }> } => {
+    const parsed = (() => {
+      if (!value) return null;
+      if (typeof value === "object") return value as Record<string, unknown>;
+      const text = String(value).trim();
+      if (!text) return null;
+      try {
+        return JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    })();
+    if (!parsed || typeof parsed !== "object") return { free: [], paid: [] };
+
+    const freeRaw = Array.isArray((parsed as Record<string, unknown>).free)
+      ? ((parsed as Record<string, unknown>).free as Array<unknown>)
+      : [];
+    const paidRaw = Array.isArray((parsed as Record<string, unknown>).paid)
+      ? ((parsed as Record<string, unknown>).paid as Array<unknown>)
+      : [];
+
+    const free = freeRaw
+      .map((item) => {
+        const row = item as Record<string, unknown>;
+        return { name: String(row?.name ?? "").trim() };
+      })
+      .filter((item) => item.name.length > 0);
+
+    const paid = paidRaw
+      .map((item) => {
+        const row = item as Record<string, unknown>;
+        const name = String(row?.name ?? "").trim();
+        const quantity = Math.max(1, Number(row?.quantity ?? 1) || 1);
+        const price = Math.max(0, Number(row?.price ?? 0) || 0);
+        return { name, quantity, price };
+      })
+      .filter((item) => item.name.length > 0);
+
+    return { free, paid };
+  };
+
+  const renderSelectedAddonsCell = (value: unknown): ReactNode => {
+    const addons = parseSelectedAddons(value);
+    if (addons.free.length === 0 && addons.paid.length === 0) return "-";
+    return (
+      <div style={{ display: "grid", gap: 4, minWidth: 220 }}>
+        {addons.free.length > 0 ? (
+          <div style={{ whiteSpace: "normal" }}>
+            <strong>{language === "tr" ? "Ücretsiz:" : "Free:"}</strong>{" "}
+            {addons.free.map((item) => item.name).join(", ")}
+          </div>
+        ) : null}
+        {addons.paid.length > 0 ? (
+          <div style={{ whiteSpace: "normal" }}>
+            <strong>{language === "tr" ? "Ücretli:" : "Paid:"}</strong>{" "}
+            {addons.paid
+              .map((item) => `${item.name} x${item.quantity} (+${formatCurrency(item.price * item.quantity, language)})`)
+              .join(", ")}
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   const openOrderDetails = useCallback(async function openOrderDetails(row: Record<string, unknown>) {
@@ -856,6 +923,19 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     if (Number.isFinite(number)) return formatCurrency(number, "tr");
     return String(raw ?? "-");
   })();
+  const selectedDeliveryFee = (() => {
+    if (normalizeDeliveryType(selectedOrder?.delivery_type) !== "delivery") return null;
+    const direct = Number(selectedOrder?.delivery_fee ?? (selectedOrder as Record<string, unknown> | null)?.deliveryFee ?? NaN);
+    if (Number.isFinite(direct) && direct >= 0) return direct;
+    if (selectedOrderItems.length === 0) return null;
+    const total = Number(selectedOrder?.total_price ?? 0);
+    if (!Number.isFinite(total)) return null;
+    const linesTotal = selectedOrderItems.reduce((sum, item) => {
+      const amount = Number(item.line_total ?? 0);
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+    return Math.max(0, Number((total - linesTotal).toFixed(2)));
+  })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
     const baseColumns = selectedOrderItemsColumns.filter((column) => column !== "created_at");
     if (!baseColumns.includes("food_id")) return baseColumns;
@@ -1039,6 +1119,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <span>{dict.records.paymentStatus}</span>
                     <strong>{selectedPaymentStatus}</strong>
                   </div>
+                  {selectedDeliveryFee !== null ? (
+                    <div>
+                      <span>{language === "tr" ? "Teslimat Ücreti" : "Delivery Fee"}</span>
+                      <strong>{formatCurrency(selectedDeliveryFee, language)}</strong>
+                    </div>
+                  ) : null}
                   <div>
                     <span>{dict.records.total}</span>
                     <strong>{selectedTotal}</strong>
@@ -1072,7 +1158,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                       {selectedOrderItems.map((row, index) => (
                         <tr key={`order-item-${index}`}>
                           {selectedOrderItemsColumnsWithFoodName.map((column) => (
-                            <td key={`${index}-${column}`}>{orderCellText(column, column === "food_name" ? row.food_id : row[column])}</td>
+                            <td key={`${index}-${column}`}>
+                              {column === "selected_addons_json"
+                                ? renderSelectedAddonsCell(row[column])
+                                : orderCellText(column, column === "food_name" ? row.food_id : row[column])}
+                            </td>
                           ))}
                         </tr>
                       ))}

@@ -42,7 +42,7 @@ export default function OrderCard({ order, onPress }: Props) {
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.header}>
-        <StatusBadge status={order.status} deliveryType={order.deliveryType} />
+        <StatusBadge status={order.status} deliveryType={order.deliveryType} audience="buyer" />
         <Text style={styles.date}>{formatDate(order.createdAt)}</Text>
       </View>
       <View style={styles.body}>

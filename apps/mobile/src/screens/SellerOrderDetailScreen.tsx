@@ -54,6 +54,7 @@ type OrderDetail = {
     name: string;
     quantity: number;
     unitPrice: number;
+    lineTotal?: number;
     selectedAddons?: {
       free?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer" }>;
       paid?: Array<{ name: string; kind?: "sauce" | "extra" | "appetizer"; price: number; quantity?: number }>;
@@ -313,6 +314,20 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     if (!order) return null;
     return extractAddressCoordinates(order.deliveryAddress);
   }, [order]);
+  const deliveryFee = useMemo(() => {
+    if (!order || order.deliveryType !== "delivery") return 0;
+    const itemsSubtotal = (order.items ?? []).reduce((sum, item) => {
+      const explicitLineTotal = Number(item.lineTotal ?? 0);
+      if (explicitLineTotal > 0) return sum + explicitLineTotal;
+      const base = Number(item.unitPrice ?? 0) * Number(item.quantity ?? 0);
+      const addons = (item.selectedAddons?.paid ?? []).reduce(
+        (addonSum, addon) => addonSum + (Number(addon.price ?? 0) * Number(addon.quantity ?? 1)),
+        0,
+      );
+      return sum + base + addons;
+    }, 0);
+    return Math.max(0, Number((Number(order.totalPrice ?? 0) - itemsSubtotal).toFixed(2)));
+  }, [order]);
   const sellerStatusBadgeKey = useMemo(() => {
     if (!order) return "";
     const normalized = normalizeFlowStatus(order.status);
@@ -422,6 +437,9 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             <Text style={styles.meta}>Alıcı: {order.buyerName || "-"}</Text>
             <Text style={styles.meta}>Sipariş Türü: {order.deliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
             {order.createdAt ? <Text style={styles.meta}>Tarih: {formatOrderDate(order.createdAt)}</Text> : null}
+            {order.deliveryType === "delivery" ? (
+              <Text style={styles.meta}>Teslimat Ücreti: {deliveryFee.toFixed(2)} TL</Text>
+            ) : null}
             <Text style={styles.total}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
           </View>
           {order.deliveryType === "delivery" ? (
