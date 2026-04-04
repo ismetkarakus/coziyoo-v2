@@ -144,11 +144,8 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   if (normalized === "preparing") {
     return { label: "Hazırlandı", toStatus: "ready" };
   }
-  // Pickup: buyer and seller can both share approach states in parallel; seller verifies PIN at door.
+  // Pickup: seller owns only seller flow; buyer owns approach flow.
   if (pickup) {
-    if (normalized === "ready") return { label: "Yola Çıktım", toStatus: "in_delivery" };
-    if (normalized === "in_delivery") return { label: "Geliyorum", toStatus: "approaching" };
-    if (normalized === "approaching") return { label: "Kapıdayım", toStatus: "at_door" };
     if (normalized === "at_door") return { label: "Teslim Edildi", toStatus: "completed" };
     return null;
   }
