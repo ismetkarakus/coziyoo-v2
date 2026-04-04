@@ -173,6 +173,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -253,15 +254,19 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }, [order?.id]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      setKeyboardInset(event.endCoordinates?.height ?? 0);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
+    const handleShow = (event: { endCoordinates?: { height?: number } }) => {
+      setKeyboardInset(event?.endCoordinates?.height ?? 0);
+    };
+    const handleHide = () => setKeyboardInset(0);
+    const willShowSub = Keyboard.addListener("keyboardWillShow", handleShow);
+    const didShowSub = Keyboard.addListener("keyboardDidShow", handleShow);
+    const willHideSub = Keyboard.addListener("keyboardWillHide", handleHide);
+    const didHideSub = Keyboard.addListener("keyboardDidHide", handleHide);
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      willShowSub.remove();
+      didShowSub.remove();
+      willHideSub.remove();
+      didHideSub.remove();
     };
   }, []);
 
@@ -281,6 +286,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       ),
     [order, action]
   );
+
+  useEffect(() => {
+    if (!shouldCheckPinBeforeComplete || keyboardInset <= 0) return;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [shouldCheckPinBeforeComplete, keyboardInset]);
   const isPinReady = pinCode.trim().length >= 4 && pinCode.trim().length <= 8;
   const deliveryAddressText = useMemo(() => {
     if (!order) return "";
@@ -358,9 +371,12 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     <View style={styles.container}>
       <ScreenHeader title="Sipariş Detayı" onBack={onBack} />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
-          keyboardInset > 0 ? { paddingBottom: 36 + keyboardInset } : null,
+          keyboardInset > 0
+            ? { paddingBottom: 36 + keyboardInset + (shouldCheckPinBeforeComplete ? 96 : 0) }
+            : null,
         ]}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
@@ -438,6 +454,11 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
                     style={styles.pinInput}
                     value={pinCode}
                     onChangeText={(value) => setPinCode(value.replace(/[^0-9]/g, "").slice(0, 8))}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      }, 40);
+                    }}
                     keyboardType="number-pad"
                     maxLength={8}
                     placeholder="Kodu gir (4-8 hane)"
