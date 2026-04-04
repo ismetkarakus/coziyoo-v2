@@ -27,6 +27,7 @@ type UserProfile = {
   fullName: string | null;
   userType: string;
   countryCode: string | null;
+  nationalId?: string | null;
   phone: string | null;
   dob: string | null;
   profileImageUrl: string | null;
@@ -66,6 +67,22 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
   const [editField, setEditField] = useState<'displayName' | 'username' | 'fullName' | 'phone' | 'dob' | 'email' | 'tcKimlikNo' | null>(null);
   const [editValue, setEditValue] = useState('');
   const fallbackEmail = currentAuth.email || auth.email || '';
+
+  function nonEmptyOrCurrent(nextValue: string | null | undefined, currentValue: string): string {
+    const next = String(nextValue ?? '').trim();
+    return next || currentValue;
+  }
+
+  function applyProfileState(data?: UserProfile | null) {
+    if (!data) return;
+    setDisplayName((prev) => nonEmptyOrCurrent(data.displayName, prev));
+    setUsername((prev) => nonEmptyOrCurrent(data.username, prev));
+    setFullName((prev) => nonEmptyOrCurrent(data.fullName, prev));
+    setPhone((prev) => nonEmptyOrCurrent(data.phone, prev));
+    setDob((prev) => nonEmptyOrCurrent(normalizeDobValue(data.dob), prev));
+    setTcKimlikNo((prev) => nonEmptyOrCurrent(data.nationalId, prev));
+    setEmail((prev) => nonEmptyOrCurrent(data.email?.trim() || fallbackEmail, prev));
+  }
 
   function normalizeDobValue(value: string | null | undefined): string {
     const raw = (value ?? '').trim();
@@ -142,14 +159,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
-      const data = json.data as UserProfile;
-      setDisplayName(data.displayName ?? '');
-      setUsername(data.username ?? '');
-      setFullName(data.fullName ?? '');
-      setPhone(data.phone ?? '');
-      setDob(normalizeDobValue(data.dob));
-      setTcKimlikNo(data.countryCode ?? '');
-      setEmail(data.email?.trim() || fallbackEmail);
+      const data = (json.data ?? null) as UserProfile | null;
+      applyProfileState(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('helper.profileEdit.load'));
     } finally {
@@ -196,7 +207,7 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
         }
         body.dob = apiDob;
       }
-      if (tcKimlikNo.trim()) body.countryCode = tcKimlikNo.trim();
+      if (tcKimlikNo.trim()) body.nationalId = tcKimlikNo.trim();
       if (email.trim()) body.email = email.trim();
 
       const res = await authedFetch(`${apiUrl}/v1/auth/me`, {
@@ -207,14 +218,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
       if (!res.ok || json.error) {
         throw new Error(json.error?.message ?? `Hata (${res.status})`);
       }
-      const data = json.data as UserProfile;
-      setDisplayName(data.displayName ?? '');
-      setUsername(data.username ?? '');
-      setFullName(data.fullName ?? '');
-      setPhone(data.phone ?? '');
-      setDob(normalizeDobValue(data.dob));
-      setTcKimlikNo(data.countryCode ?? '');
-      setEmail(data.email?.trim() || fallbackEmail);
+      const data = (json.data ?? null) as UserProfile | null;
+      applyProfileState(data);
       setSuccess(true);
       setTimeout(() => onBack(), isNewRegistration ? 800 : 700);
     } catch (e) {
