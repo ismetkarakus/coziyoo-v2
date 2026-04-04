@@ -1222,7 +1222,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                           if (!event.toStatus) return false;
                           if (!["preparing", "in_delivery", "at_door", "delivered", "completed", "cancelled"].includes(event.toStatus)) return false;
                           if (event.fromStatusRaw && event.toStatusRaw && event.fromStatusRaw === event.toStatusRaw) return false;
-                          return !(event.fromStatus && event.fromStatus === event.toStatus);
+                          return true;
                         })
                         .reduce<Array<{ createdAt: unknown; toStatus: string; fromStatus: string; actorId: string }>>((acc, event) => {
                           const prev = acc[acc.length - 1];
