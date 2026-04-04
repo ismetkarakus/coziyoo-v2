@@ -13,7 +13,7 @@ type Props = {
   auth: AuthSession;
   onAuthRefresh?: (session: AuthSession) => void;
   onOpenProfile: () => void;
-  onOpenFoodsManager: () => void;
+  onOpenFoodsManager: (foodId?: string) => void;
   onOpenOrder: (orderId: string) => void;
   onSwitchToBuyer?: () => void;
 };
@@ -206,7 +206,7 @@ export default function SellerHomeScreen({
     const cached = getSellerFoodsCache();
     if (!Array.isArray(cached)) return [];
     return cached
-      .filter((f) => f.isActive)
+      .filter((f) => toBool(f.isActive) && Number(f.stock ?? 0) > 0)
       .map((f) => ({
         id: String(f.id ?? ""),
         name: String(f.name ?? ""),
@@ -390,7 +390,7 @@ export default function SellerHomeScreen({
           setSellerFoodsCache(foods);
           setActiveFoods(
             foods
-              .filter((f) => toBool(f.isActive))
+              .filter((f) => toBool(f.isActive) && Number(f.stock ?? 0) > 0)
               .map((f) => ({
                 id: String(f.id ?? ""),
                 name: String(f.name ?? ""),
@@ -579,7 +579,7 @@ export default function SellerHomeScreen({
 
         {/* Üst Hızlı Butonlar */}
         <View style={styles.quickButtonsRow}>
-          <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={onOpenFoodsManager}>
+          <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={() => onOpenFoodsManager()}>
             <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenProfile}>
@@ -804,7 +804,12 @@ export default function SellerHomeScreen({
               </View>
             ) : (
               activeFoods.map((food) => (
-                <View key={food.id} style={styles.orderCard}>
+                <TouchableOpacity
+                  key={food.id}
+                  style={styles.orderCard}
+                  activeOpacity={0.84}
+                  onPress={() => onOpenFoodsManager(food.id)}
+                >
                   <View style={styles.orderTopRow}>
                     <Text style={styles.orderNo} numberOfLines={1}>{food.name}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: "#EAF7EE", borderColor: "#B7DEC3" }]}>
@@ -815,7 +820,7 @@ export default function SellerHomeScreen({
                     <Text style={styles.orderTotal}>{Number(food.price).toFixed(2)} TL</Text>
                     <Text style={styles.orderMeta}>Stok: {food.stock} adet</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             )}
           </View>

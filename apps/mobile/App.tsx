@@ -710,7 +710,16 @@ export default function App() {
         <SellerHomeScreen
           auth={auth}
           onOpenProfile={() => setScreen('sellerProfileDetail')}
-          onOpenFoodsManager={() => setScreen('sellerFoodsManager')}
+          onOpenFoodsManager={(foodId) => {
+            if (foodId) {
+              setSellerFoodsFromManager(false);
+              setSellerFoodsInitialEditId(foodId);
+              setSellerFoodsInitialEditFood(null);
+              setScreen('sellerFoods');
+              return;
+            }
+            setScreen('sellerFoodsManager');
+          }}
           onOpenOrder={(id) => {
             setSelectedOrderId(id);
             sheetTranslateY.setValue(0);
