@@ -210,7 +210,7 @@ export default function OrderDetailScreen({
   const [cancelReason, setCancelReason] = useState('');
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const orderRef = useRef<OrderDetail | null>(null);
-  const prevOrderStatusRef = useRef<string | null>(null);
+  const pinAutoOpenedRef = useRef(false);
 
   useEffect(() => {
     setCurrentAuth(auth);
@@ -256,6 +256,7 @@ export default function OrderDetailScreen({
     const cached = ORDER_DETAIL_CACHE.get(orderId) ?? null;
     setOrder(cached);
     orderRef.current = cached;
+    pinAutoOpenedRef.current = false;
     setLoading(!cached);
     setError(null);
     void fetchOrder({ silent: Boolean(cached) });
@@ -298,22 +299,21 @@ export default function OrderDetailScreen({
     });
   }, [order?.id, refreshOrderStatus]);
 
-  // Auto-open PIN screen for buyer when order transitions to at_door
+  // Auto-open PIN screen for buyer when order is at_door (including first load)
   useEffect(() => {
     if (!order) return;
-    const prev = prevOrderStatusRef.current;
-    prevOrderStatusRef.current = order.status;
+    if (pinAutoOpenedRef.current) return;
+    const normalizedStatus = String(order.status ?? '').trim().toLowerCase();
     if (
-      prev !== null &&
-      prev !== order.status &&
-      order.status === 'at_door' &&
+      normalizedStatus === 'at_door' &&
       order.deliveryType === 'delivery' &&
       order.buyerId === currentAuth.userId &&
       onOpenDeliveryPin
     ) {
+      pinAutoOpenedRef.current = true;
       onOpenDeliveryPin(order.id);
     }
-  }, [order?.status]);
+  }, [order?.status, order?.deliveryType, order?.buyerId, order?.id, currentAuth.userId, onOpenDeliveryPin]);
 
   async function handleCancel() {
     if (!order) return;
@@ -417,7 +417,8 @@ export default function OrderDetailScreen({
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
-  const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && ['at_door', 'delivered'].includes(order.status);
+  const normalizedOrderStatus = String(order.status ?? '').trim().toLowerCase();
+  const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && ['at_door', 'delivered'].includes(normalizedOrderStatus);
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
   const buyerFlowStatus = normalizeBuyerFlowStatus(order.status, order.deliveryType);
   const buyerFlowCurrentIndex = flowSteps.indexOf(

@@ -519,32 +519,10 @@ export default function SellerHomeScreen({
     }
   }
 
-  async function sendDeliveryPin(orderId: string): Promise<void> {
-    const res = await fetchWithAuthInit(
-      `/v1/orders/${orderId}/delivery-proof/pin/send`,
-      { method: "POST", body: JSON.stringify({}) },
-      apiUrl,
-    );
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body?.error?.message ?? "PIN gönderilemedi");
-  }
-
   async function runCardAction(orderId: string, action: SellerAction) {
     try {
       setUpdatingOrderId(orderId);
       await advanceStatusWithCompatibility(orderId, action.toStatus);
-      if (action.toStatus === "at_door") {
-        try {
-          await sendDeliveryPin(orderId);
-        } catch (pinError) {
-          Alert.alert(
-            "Uyarı",
-            pinError instanceof Error
-              ? `Kapıda güncellendi ama PIN gönderilemedi: ${pinError.message}`
-              : "Kapıda güncellendi ama PIN gönderilemedi.",
-          );
-        }
-      }
       if (action.toStatus === "delivered") {
         setCelebrationOrderId(orderId);
         deliveredEmojiScale.setValue(0.4);

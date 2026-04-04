@@ -278,16 +278,6 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     if (!shouldCheckPinBeforeComplete) setPinCode("");
   }, [shouldCheckPinBeforeComplete]);
 
-  async function sendDeliveryPin(): Promise<void> {
-    if (!order) return;
-    const res = await authedFetch(`/v1/orders/${order.id}/delivery-proof/pin/send`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json?.error?.message ?? "PIN gönderilemedi");
-  }
-
   async function runAction(action: { label: string; toStatus: string }) {
     if (!order) return;
     setUpdating(true);
@@ -316,20 +306,6 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
           await verifyPin(pin);
           await changeStatus("delivered");
           await changeStatus("completed");
-        } else if (action.toStatus === "at_door") {
-          await changeStatus("at_door");
-          try {
-            await sendDeliveryPin();
-          } catch (pinError) {
-            Alert.alert(
-              "Uyarı",
-              pinError instanceof Error
-                ? `Kapıda güncellendi ama PIN gönderilemedi: ${pinError.message}`
-                : "Kapıda güncellendi ama PIN gönderilemedi."
-            );
-          }
-          await loadOrder();
-          return;
         } else {
           await changeStatus(action.toStatus);
         }

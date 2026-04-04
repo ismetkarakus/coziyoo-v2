@@ -1138,6 +1138,36 @@ async function transitionHandler(
       );
     }
 
+    if (toStatus === "at_door" && order.delivery_type === "delivery") {
+      const pin = randomDeliveryPin();
+      const pinHash = sha256Hex(pin);
+      await client.query(
+        `INSERT INTO delivery_proof_records
+          (order_id, seller_id, buyer_id, proof_mode, pin_hash, pin_sent_at, pin_sent_channel, verification_attempts, status, metadata_json, created_at)
+         VALUES ($1, $2, $3, 'pin', $4, now(), 'in_app', 0, 'pending', $5, now())
+         ON CONFLICT (order_id)
+         DO UPDATE SET
+           pin_hash = EXCLUDED.pin_hash,
+           pin_sent_at = now(),
+           pin_sent_channel = 'in_app',
+           verification_attempts = 0,
+           status = 'pending',
+           metadata_json = EXCLUDED.metadata_json`,
+        [order.id, order.seller_id, order.buyer_id, pinHash, JSON.stringify({ ttlMinutes: 10, buyerPin: pin })]
+      );
+      await client.query(
+        `INSERT INTO notification_events (user_id, type, title, body, data_json, is_read, created_at)
+         VALUES ($1, 'delivery_pin', 'Delivery PIN', $2, $3, FALSE, now())`,
+        [order.buyer_id, `Your delivery PIN is ${pin}`, JSON.stringify({ orderId: order.id })]
+      );
+      await enqueueOutboxEvent(client, {
+        eventType: "delivery_pin_sent",
+        aggregateType: "order",
+        aggregateId: order.id,
+        payload: { orderId: order.id, buyerId: order.buyer_id },
+      });
+    }
+
     if (toStatus === "completed") {
       try {
         await finalizeOrderFinanceTx({
@@ -1214,6 +1244,14 @@ function isValidSharedSecret(secret: string): boolean {
   const provided = Buffer.from(secret, "utf8");
   const expected = Buffer.from(env.AI_SERVER_SHARED_SECRET, "utf8");
   return secret.length > 0 && provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
+}
+
+function randomDeliveryPin(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function sha256Hex(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 const VoiceCreateOrderSchema = z.object({
